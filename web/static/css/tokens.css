@@ -1,11 +1,15 @@
 /* Tokeni sustava dizajna goCOP-a (Material 3). Izvor je FigCraft datoteka
    goCOP-private/dizajn/goCOP-m3.figcraft: varijable zbirki Boje i Mjere,
-   izvezene naredbom variable.export. Ne uređivati ručno: izmjena se radi u
-   FigCraftu i ponovno izvozi. Boje su izračunate iz plave #173E74 i zelene
-   #20BA70 iz znaka Hrvatskih voda, kako ih računa Flutter (fidelity).
-   Svijetla tema je na :root, tamna pod data-theme="dark" (js/tema.js), isto
-   kao u style.css. Zasad ih čita samo stranica prijave (css/prijava.css). */
+   izvezene naredbom variable.export (format css) i preimenovanih izbornika
+   tema. Ne uređivati ručno: izmjena se radi u FigCraftu i ponovno izvozi.
+   Boje su izračunate iz plave #173E74 i zelene #20BA70 iz znaka Hrvatskih
+   voda, kako ih računa Flutter (fidelity). Boje stupnjeva obrane (stadij-*)
+   su one iz službenih dokumenata, iste kao --faza-* u style.css: pripremno
+   plavo, redovno žuto, izvanredno narančasto, izvanredno stanje crveno.
+   Svijetla tema je na :root, tamna pod data-theme="dark" (js/tema.js);
+   style.css svoje varijable veže na ove. */
 
+/* Boje · Svijetla */
 :root,
 [data-tema-pregled="light"] {
   --md-sys-color-primary: #002856;
@@ -43,37 +47,49 @@
   --stadij-mirno-naboji: #FFFFFF;
   --stadij-mirno-ploha: #A5F0BC;
   --stadij-mirno-naplohi: #00210F;
-  --stadij-pripremno-boja: #745B00;
+  --stadij-pripremno-boja: #2563EB;
   --stadij-pripremno-naboji: #FFFFFF;
-  --stadij-pripremno-ploha: #FFE08A;
-  --stadij-pripremno-naplohi: #241A00;
-  --stadij-redovno-boja: #924C00;
+  --stadij-pripremno-ploha: #DBEAFE;
+  --stadij-pripremno-naplohi: #1D4ED8;
+  --stadij-redovno-boja: #A16207;
   --stadij-redovno-naboji: #FFFFFF;
-  --stadij-redovno-ploha: #FFDCC4;
-  --stadij-redovno-naplohi: #2F1400;
-  --stadij-izvanredno-boja: #A73733;
+  --stadij-redovno-ploha: #FEF9C3;
+  --stadij-redovno-naplohi: #854D0E;
+  --stadij-izvanredno-boja: #C2410C;
   --stadij-izvanredno-naboji: #FFFFFF;
-  --stadij-izvanredno-ploha: #FFDAD6;
-  --stadij-izvanredno-naplohi: #410003;
+  --stadij-izvanredno-ploha: #FFEDD5;
+  --stadij-izvanredno-naplohi: #9A3412;
   --graf-mjereno: #173E74;
   --graf-mjerenoploha: #E1E9F5;
   --graf-prognoza: #E65100;
   --graf-raspon: #FBE3D6;
   --graf-buducnost: #F1F1F4;
-  --graf-mjereno: #173E74;
-  --graf-mjerenoploha: #E1E9F5;
-  --graf-prognoza: #E65100;
-  --graf-raspon: #FBE3D6;
-  --graf-buducnost: #F1F1F4;
-  --stadij-izvanrednostanje-boja: #813FAC;
+  --stadij-izvanrednostanje-boja: #DC2626;
   --stadij-izvanrednostanje-naboji: #FFFFFF;
-  --stadij-izvanrednostanje-ploha: #F4D9FF;
-  --stadij-izvanrednostanje-naplohi: #2F004B;
+  --stadij-izvanrednostanje-ploha: #DC2626;
+  --stadij-izvanrednostanje-naplohi: #FFFFFF;
   --color-naplavojplohi: #FFFFFF;
-  --md-sys-color-ploha-odabrano: #D6E3FF;
+  --md-sys-color-ploha-odabrano: #E3E2E6;
   --md-sys-color-naplohi-odabrano: #284777;
+  --karta-kopno: #EDF0E6;
+  --karta-voda: #5B9BD5;
+  --karta-nasip: #7C7F86;
+  --karta-granica: #9AA0A6;
+  --karta-natpis: #2E6DA4;
+  --tuđa-prognoza: #00696B;
+  --rub-kartica: #C4C6D0;
+  --rub-odabrano: rgba(0, 0, 0, 0.00);
+  --rub-mirno: rgba(0, 0, 0, 0.00);
+  --rub-pripremno: #2563EB;
+  --rub-redovno: #A16207;
+  --rub-izvanredno: #C2410C;
+  --rub-izvanrednostanje: #DC2626;
+  --upozorenje-tehnicko-ploha: #E6EAF2;
+  --upozorenje-tehnicko-rub: #5B6B85;
+  --upozorenje-meteo-zuto: #A16207;
+  --kisa-narancasto: #C25E00;
 }
-
+/* Boje · Tamna */
 :root[data-theme="dark"],
 [data-tema-pregled="dark"] {
   --md-sys-color-primary: #AAC7FF;
@@ -96,7 +112,7 @@
   --md-sys-color-on-surface: #E3E2E6;
   --md-sys-color-on-surface-variant: #C4C6D0;
   --md-sys-color-surface-container-lowest: #0D0E11;
-  --md-sys-color-surface-container-low: #1A1B1E;
+  --md-sys-color-surface-container-low: #1E1F23;
   --md-sys-color-surface-container: #1E1F23;
   --md-sys-color-surface-container-high: #292A2D;
   --md-sys-color-surface-container-highest: #343538;
@@ -109,39 +125,51 @@
   --md-sys-color-scrim: #000000;
   --stadij-mirno-boja: #57DF92;
   --stadij-mirno-naboji: #00391E;
-  --stadij-mirno-ploha: #00522D;
+  --stadij-mirno-ploha: #13241A;
   --stadij-mirno-naplohi: #76FCAC;
-  --stadij-pripremno-boja: #F0C115;
-  --stadij-pripremno-naboji: #3D2F00;
-  --stadij-pripremno-ploha: #574400;
-  --stadij-pripremno-naplohi: #FFE08A;
-  --stadij-redovno-boja: #FFB780;
-  --stadij-redovno-naboji: #4E2600;
-  --stadij-redovno-ploha: #6F3800;
-  --stadij-redovno-naplohi: #FFDCC4;
-  --stadij-izvanredno-boja: #FFB3AC;
-  --stadij-izvanredno-naboji: #67050A;
-  --stadij-izvanredno-ploha: #871F1E;
-  --stadij-izvanredno-naplohi: #FFDAD6;
+  --stadij-pripremno-boja: #60A5FA;
+  --stadij-pripremno-naboji: #0B1A33;
+  --stadij-pripremno-ploha: #1E3A5F;
+  --stadij-pripremno-naplohi: #93C5FD;
+  --stadij-redovno-boja: #FACC15;
+  --stadij-redovno-naboji: #3A3208;
+  --stadij-redovno-ploha: #3A3208;
+  --stadij-redovno-naplohi: #FDE68A;
+  --stadij-izvanredno-boja: #FB923C;
+  --stadij-izvanredno-naboji: #3A1F0F;
+  --stadij-izvanredno-ploha: #3A1F0F;
+  --stadij-izvanredno-naplohi: #FDBA74;
   --graf-mjereno: #AAC7FF;
   --graf-mjerenoploha: #1E2A3D;
   --graf-prognoza: #FFB68F;
   --graf-raspon: #4A2A1A;
   --graf-buducnost: #1A1B1E;
-  --graf-mjereno: #AAC7FF;
-  --graf-mjerenoploha: #1E2A3D;
-  --graf-prognoza: #FFB68F;
-  --graf-raspon: #4A2A1A;
-  --graf-buducnost: #1A1B1E;
-  --stadij-izvanrednostanje-boja: #E4B5FF;
-  --stadij-izvanrednostanje-naboji: #4E0078;
-  --stadij-izvanrednostanje-ploha: #672492;
-  --stadij-izvanrednostanje-naplohi: #F4D9FF;
+  --stadij-izvanrednostanje-boja: #DC2626;
+  --stadij-izvanrednostanje-naboji: #FFFFFF;
+  --stadij-izvanrednostanje-ploha: #DC2626;
+  --stadij-izvanrednostanje-naplohi: #FFFFFF;
   --color-naplavojplohi: #E3E2E6;
-  --md-sys-color-ploha-odabrano: #284777;
+  --md-sys-color-ploha-odabrano: #343538;
   --md-sys-color-naplohi-odabrano: #D6E3FF;
+  --karta-kopno: #1B1E1C;
+  --karta-voda: #5E95C8;
+  --karta-nasip: #9EA1A8;
+  --karta-granica: #6E737A;
+  --karta-natpis: #8DBDE6;
+  --tuđa-prognoza: #5CD5D7;
+  --rub-kartica: #44474E;
+  --rub-odabrano: rgba(0, 0, 0, 0.00);
+  --rub-mirno: #7DDC9A;
+  --rub-pripremno: #60A5FA;
+  --rub-redovno: #FACC15;
+  --rub-izvanredno: #FB923C;
+  --rub-izvanrednostanje: #F87171;
+  --upozorenje-tehnicko-ploha: #22262E;
+  --upozorenje-tehnicko-rub: #9FB3D1;
+  --upozorenje-meteo-zuto: #FACC15;
+  --kisa-narancasto: #FFB061;
 }
-
+/* Mjere · Zadano */
 /* Mjere · razmaci (mreža od 4), oblici (Material 3 shape scale), cilj dodira */
 :root {
   --space-4: 4px;

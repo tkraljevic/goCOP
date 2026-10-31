@@ -35,6 +35,28 @@ func citajStil(t *testing.T) string {
 	return string(b)
 }
 
+// sTokenima vraća blok style.css u kojem su vrijednosti var(--md-sys-…)
+// zamijenjene bojama iz istog bloka tokens.css: podloge, rubovi i tekst
+// od 31. 10. 2026. dolaze iz tokena sustava dizajna
+func sTokenima(t *testing.T, blok map[string]string, selektor string) map[string]string {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join("..", "..", "web", "static", "css", "tokens.css"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tokeni := blokTokena(t, string(b), selektor)
+	out := map[string]string{}
+	for ime, vr := range blok {
+		if m := regexp.MustCompile(`^var\((--[a-z0-9-]+)\)$`).FindStringSubmatch(vr); m != nil {
+			if v, ima := tokeni[m[1]]; ima {
+				vr = strings.ToLower(v)
+			}
+		}
+		out[ime] = vr
+	}
+	return out
+}
+
 // Zadane boje teme su boje iz style.css: stranica Tema ih nudi kao „Zadano”
 // i po njima prepoznaje boju koju ne treba spremati
 func TestZadaneBojeTemeKaoUStilu(t *testing.T) {
@@ -186,7 +208,7 @@ func TestNatpisOstajeTaman(t *testing.T) {
 // kojima stoji: crveni na crvenoj znački, sivi i poveznice na podlozi
 // stranice, zelenoj znački i kraju gradijenta ploče
 func TestZadaniSitniTekstCitljiv(t *testing.T) {
-	sv := blokTokena(t, citajStil(t), "[data-tema-pregled]")
+	sv := sTokenima(t, blokTokena(t, citajStil(t), "[data-tema-pregled]"), "[data-tema-pregled=\"light\"]")
 	gradijent := sv["--ploca-pozadina"]
 	i := strings.LastIndex(gradijent, "#")
 	if i < 0 || len(gradijent) < i+7 {

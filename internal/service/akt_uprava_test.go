@@ -200,9 +200,9 @@ func TestTemaSpremaSamoUpravaOrganizacije(t *testing.T) {
 		t.Fatalf("odbijeno spremanje promijenilo temu: %+v", got)
 	}
 
-	// tamna glavna boja gotovo jednaka kartici tamne teme
+	// kartica tamne teme je surface-container-low iz tokena (models/tema.go)
 	necitljiva := models.Tema{Tamna: models.BojeTeme{Glavna: "#1a2533"}}
-	omjer := strings.Replace(fmt.Sprintf("%.1f", models.Kontrast("#1a2533", "#172231")), ".", ",", 1)
+	omjer := strings.Replace(fmt.Sprintf("%.1f", models.Kontrast("#1a2533", "#1e1f23")), ".", ",", 1)
 	zeli := "Tamna tema: glavna boja na kartici ima kontrast " + omjer + ":1, a treba barem 3,0:1. Tema nije spremljena."
 	if err := o.akti.SpremiTemu(ctx, upravaOrganizacije, necitljiva); err == nil || err.Error() != zeli {
 		t.Fatalf("nečitljiva tema: %v\n želi: %s", err, zeli)

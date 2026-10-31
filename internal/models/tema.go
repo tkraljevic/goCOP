@@ -34,12 +34,13 @@ var (
 	ZadanaTamna    = BojeTeme{Glavna: "#6f9bd9", Naglasak: "#2fd08a", Gumb: "#3a6db5"}
 )
 
-// Podloge na kojima se boje teme čitaju (style.css: --surface, --bg)
+// Podloge na kojima se boje teme čitaju (tokens.css: surface-container-low i
+// surface, na koje style.css veže --surface i --bg)
 const (
-	svijetlaPovrsina = "#ffffff"
-	svijetlaPodloga  = "#f4f4f4"
-	tamnaPovrsina    = "#172231"
-	tamnaPodloga     = "#0f1720"
+	svijetlaPovrsina = "#f4f3f7"
+	svijetlaPodloga  = "#faf9fd"
+	tamnaPovrsina    = "#1e1f23"
+	tamnaPodloga     = "#121316"
 )
 
 var trenutnaTema atomic.Pointer[Tema]
