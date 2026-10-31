@@ -5,14 +5,19 @@
      aktivna stanja i istaknute poveznice, tekst #242a32, podloga #f4f4f4.
      Zelena je za sitni tekst preslaba na bijelom, pa tekstualne poveznice
      nose tamniju nijansu, a puna zelena ide na crte, rubove i značke.
-     Stupanj obrane i upozorenja imaju svoje boje i ne diraju se. */
+     Stupanj obrane i upozorenja imaju svoje boje i ne diraju se.
+     Od 31. 10. 2026. podloge, plohe, rubovi, tekst i boje greške vežu se na
+     tokene sustava dizajna (css/tokens.css, izvoz iz FigCrafta): tamna tema
+     se za njih mijenja u tokenima, pa ih tamni blok ovdje ne ponavlja.
+     Glavna boja, naglasak i gumb ostaju doslovni, jer ih Administracija › Tema
+     mijenja i iz njih izvodi nijanse (models/tema.go). */
   --primary: #173e74;
   --primary-hover: #0d274a;
   --primary-light: #e8eef7;
   --primary-muted: #7c97bd;
   --primary-contrast: #ffffff;
-  --text-strong: #1e293b;
-  --text-secondary: #475569;
+  --text-strong: var(--md-sys-color-on-surface);
+  --text-secondary: var(--md-sys-color-on-surface-variant);
   --tint-blue-bg: #e1e9f5;   --tint-blue-fg: #1d4a86;
   --tint-green-bg: #dcfce7;  --tint-green-fg: #166534;
   --tint-amber-bg: #fef3c7;  --tint-amber-fg: #854d0e;
@@ -27,37 +32,37 @@
      Prije su bile razasute po dvadesetak razreda, a izvanredna i izvanredno
      stanje dijelili su istu — pa se na presjeku korita nisu razlikovali. */
   --faza-p-bg: #dbeafe; --faza-p-fg: #1d4ed8; --faza-p-crta: #2563eb;
-  --faza-r-bg: #fef9c3; --faza-r-fg: #854d0e; --faza-r-crta: #ca8a04;
-  --faza-i-bg: #ffedd5; --faza-i-fg: #9a3412; --faza-i-crta: #ea580c;
+  --faza-r-bg: #fef9c3; --faza-r-fg: #854d0e; --faza-r-crta: #a16207;
+  --faza-i-bg: #ffedd5; --faza-i-fg: #9a3412; --faza-i-crta: #c2410c;
   --faza-s-bg: #dc2626; --faza-s-fg: #ffffff; --faza-s-crta: #dc2626;
   --accent: #20ba70;
   --accent-dark: #157949;
   --accent-light: #e6f7ee;
   --secondary: #173e74;
-  --bg: #f4f4f4;
-  --bg-subtle: #eceef1;
-  --surface: #ffffff;
-  --border: #dcdfe4;
-  --border-strong: #c8c8c8;
+  --bg: var(--md-sys-color-surface);
+  --bg-subtle: var(--md-sys-color-surface-container);
+  --surface: var(--md-sys-color-surface-container-low);
+  --border: var(--md-sys-color-outline-variant);
+  --border-strong: var(--md-sys-color-outline);
   --danger-border: #f5c2c2;
   color-scheme: light;
-  --text: #242a32;
-  --text-muted: #6b6b6b;
+  --text: var(--md-sys-color-on-surface);
+  --text-muted: var(--md-sys-color-on-surface-variant);
   --success: #157949;
   --success-bg: #e6f7ee;
   --warning: #d97706;
   --warning-bg: #fef3c7;
-  --danger: #dc2626;
-  --danger-bg: #fdeaea;
-  --danger-fg: #b91c1c; /* tekst na --danger-bg (5,6:1) */
+  --danger: var(--md-sys-color-error);
+  --danger-bg: var(--md-sys-color-error-container);
+  --danger-fg: var(--md-sys-color-on-error-container);
   --radius: 4px;
   --shadow: 0 1px 2px 0 rgb(13 39 74 / 0.06), 0 1px 3px -1px rgb(13 39 74 / 0.08);
   --shadow-lg: 0 10px 15px -3px rgb(13 39 74 / 0.10), 0 4px 6px -4px rgb(13 39 74 / 0.08);
 
   /* Varijable koje su predlošci i pravila koristili, a nisu bile definirane:
      u tamnoj temi padale su na svoje svijetle zamjene */
-  --surface-2: #f5f7fa;
-  --surface-hover: #e2e8f0;
+  --surface-2: var(--md-sys-color-surface-container);
+  --surface-hover: var(--md-sys-color-surface-container-high);
   --bg-hover: rgb(0 0 0 / 0.03);
   --surface-sunken: var(--surface-2);
   --bg-muted: var(--surface-2);
@@ -78,8 +83,8 @@
   --r-unutarnji: 12px;
   --r-plocica: 10px;
   --r-kontrola: 8px;
-  --naslov: var(--secondary);
-  --crta-glave: #e8ecf1;
+  --naslov: var(--md-sys-color-on-surface);
+  --crta-glave: var(--md-sys-color-outline-variant);
   --rub-hover: #b8c7dc;
   --sjena-kartica: 0 2px 8px rgb(13 39 74 / 0.05);
   --sjena-podignuta: 0 12px 24px -4px rgb(13 39 74 / 0.10);
@@ -129,18 +134,17 @@
 [data-tema-pregled="dark"] {
   --primary: #6f9bd9;
   --primary-hover: #8fb3e6;
-  --primary-light: #1b2d47;
+  --primary-light: #1e242e;
   --primary-muted: #7c97bd;
   --primary-contrast: #0b1a33;
-  --text-strong: #eef2f7;
-  --text-secondary: #c3ccd6;
-  --tint-blue-bg: #1b2d47;   --tint-blue-fg: #a9c4ec;
+  --secondary: #d6e2f3;
+  --tint-blue-bg: #1e242e;   --tint-blue-fg: #a9c4ec;
   --tint-green-bg: #143526;  --tint-green-fg: #86efac;
   --tint-amber-bg: #3a2a08;  --tint-amber-fg: #fcd34d;
   --tint-orange-bg: #3a1f0f; --tint-orange-fg: #fdba74;
   --tint-purple-bg: #2e1a47; --tint-purple-fg: #d8b4fe;
   --tint-yellow-bg: #3a3208; --tint-yellow-fg: #fde68a;
-  --tint-sky-bg: #16243a;
+  --tint-sky-bg: #1b2129;
   --tint-teal-bg: #12362a;   --tint-teal-fg: #7ee2b1;
 
   --faza-p-bg: #1e3a5f; --faza-p-fg: #93c5fd; --faza-p-crta: #60a5fa;
@@ -150,38 +154,23 @@
   --accent: #2fd08a;
   --accent-dark: #4ad493;
   --accent-light: #12362a;
-  --secondary: #d6e2f3;
-  --bg: #0f1720;
-  --bg-subtle: #1f2d3f;
-  --surface: #172231;
-  --border: #26354a;
-  --border-strong: #35485f;
-  --text: #e6ebf1;
-  --text-muted: #a9b6c4;
+  --ploca-rub: rgb(111 155 217 / 0.22);
+  --znacka-fg: var(--primary-hover);
+  --znacka-rub: rgb(111 155 217 / 0.32);
   --success: #4ad493;
   --success-bg: #12362a;
   --warning: #f0b35a;
   --warning-bg: #3a2a08;
-  --danger: #f08a8a;
-  --danger-bg: #3a1616;
-  --danger-fg: var(--danger);
   --danger-border: #6b2a2a;
   --shadow: 0 1px 2px 0 rgb(0 0 0 / 0.35), 0 1px 3px -1px rgb(0 0 0 / 0.4);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.4);
-  --surface-2: #1f2d3f;
-  --surface-hover: #26354a;
   --bg-hover: rgb(255 255 255 / 0.04);
 
-  --naslov: var(--text-strong);
-  --crta-glave: #26354a;
   --rub-hover: var(--primary);
   --sjena-kartica: 0 2px 8px rgb(0 0 0 / 0.22);
   --sjena-podignuta: 0 12px 24px -4px rgb(0 0 0 / 0.5);
   --sjena-ploca: 0 16px 36px -6px rgb(0 0 0 / 0.45);
   --ploca-pozadina: linear-gradient(145deg, #15202f 0%, #111c2a 100%);
-  --ploca-rub: rgb(111 155 217 / 0.22);
-  --znacka-fg: var(--primary-hover);
-  --znacka-rub: rgb(111 155 217 / 0.32);
   --mirno-rub: rgb(47 208 138 / 0.28);
   --mirno-fg: var(--tint-green-fg);
   /* srednja plava HV-a s bijelim tekstom (5,2:1); pri prelasku 4,7:1 */
