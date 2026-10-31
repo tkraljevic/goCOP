@@ -196,6 +196,18 @@ a.prijava-redak .prijava-redak-glavno { color: var(--md-sys-color-primary); }
     padding: 80px 80px 80px 96px;
     background: var(--md-sys-color-primary-container);
     color: var(--md-sys-color-on-primary-container);
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+  }
+  /* Valovi iz js/valovi.js leže ispod znaka i teksta */
+  .prijava-valovi {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    display: block;
   }
   .prijava-znak .prijava-logo {
     width: 96px;
