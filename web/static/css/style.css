@@ -245,16 +245,6 @@ body {
   line-height: 1.1;
 }
 
-.brand-badge {
-  background: var(--gumb);
-  color: var(--gumb-tekst);
-  font-weight: 700;
-  font-size: 0.875rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: var(--radius);
-  letter-spacing: 0.05em;
-}
-
 .brand-title {
   font-size: 1rem;
   font-weight: 500;
@@ -266,14 +256,6 @@ body {
   font-size: 0.75rem;
   color: var(--text-muted);
   display: block;
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background-color: var(--success);
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 @keyframes pulse {
@@ -1779,38 +1761,6 @@ a:hover { color: var(--accent); }
 .md-link {
   color: var(--primary);
   text-decoration: underline;
-}
-
-/* Povezane teritorijalne jedinice */
-.territory-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  background: var(--bg-subtle);
-  border: 1px solid var(--border-strong);
-  border-radius: 6px;
-  padding: 0.35rem 0.65rem;
-  font-size: 0.8125rem;
-  color: var(--text-strong);
-  box-shadow: 0 1px 2px rgba(0,0,0,0.02);
-}
-
-.btn-remove-terr {
-  background: transparent;
-  border: none;
-  color: var(--danger);
-  font-weight: 700;
-  font-size: 1rem;
-  cursor: pointer;
-  padding: 0 0.25rem;
-  line-height: 1;
-  border-radius: 3px;
-  transition: all 0.15s ease;
-}
-
-.btn-remove-terr:hover {
-  background: var(--danger-bg);
-  color: var(--danger-fg);
 }
 
 /* Traka pregleda tuđim očima — mora se vidjeti prije sadržaja, pa stoji
