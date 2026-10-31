@@ -236,7 +236,7 @@ func TestStranicaDioniceNePonavljaSektor(t *testing.T) {
 // Na kartici dionice traži se jedno ime — najčešće rukovoditelj dionice — pa
 // zaduženi moraju biti razdvojeni po razinama, a ne u jednom popisu.
 func TestZaduzeniSuRazdvojeniPoRazinama(t *testing.T) {
-	html := iscrtaj(t, "section_detail.html", SectionPageData{
+	html := sadrzajStranice(iscrtaj(t, "section_detail.html", SectionPageData{
 		CurrentUser: &models.User{FullName: "Provjera"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		Section: models.Section{
@@ -248,7 +248,7 @@ func TestZaduzeniSuRazdvojeniPoRazinama(t *testing.T) {
 				{FullName: "Vodočuvar Prvi", Rank: 5, RoleGroup: "Teren", RoleLabel: "Vodočuvar"},
 			},
 		},
-	})
+	}))
 	for _, naslov := range []string{"Razina 2 — sektor", "Razina 4 — dionica", "Teren"} {
 		if !strings.Contains(html, naslov) {
 			t.Errorf("nema naslova skupine %q", naslov)

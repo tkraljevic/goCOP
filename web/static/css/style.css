@@ -1808,21 +1808,11 @@ a:hover { color: var(--accent); }
   color: var(--danger-fg);
 }
 
-/* Uski ekrani: izbornik se otvara hamburgerom, skupina se razvija u popis */
-@media (max-width: 1100px) {
-
-  .nav-group,
-  .nav-group-btn {
-    width: 100%;
-    text-align: left;
-  }
-}
-
 /* Traka pregleda tuđim očima — mora se vidjeti prije sadržaja, pa stoji
-   nad njim i ostaje na ekranu dok se stranica pomiče */
+   nad njim i ostaje na ekranu, ispod gornje trake, dok se stranica pomiče */
 .viewas-bar {
   position: sticky;
-  top: 0;
+  top: var(--vrh-visina, 0);
   z-index: 60;
   display: flex;
   align-items: center;
@@ -2287,21 +2277,6 @@ a:hover { color: var(--accent); }
   .detail-actions form .btn { width: 100%; }
 }
 
-@media (max-width: 1100px) {
-
-  .theme-toggle { margin-left: 0; }
-
-  .brand { min-width: 0; }
-
-  .brand-title {
-    font-size: 1rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: block;
-  }
-}
-
 @media (max-width: 480px) {
   .brand-title,
   .brand-subtitle {
@@ -2355,22 +2330,7 @@ a:hover { color: var(--accent); }
 .page-title .icon { width: 1em; height: 1em; vertical-align: -0.12em; color: var(--primary-muted); margin-right: 0.1em; }
 .btn .icon { margin-right: 0.15em; }
 
-.theme-toggle {
-  margin-left: auto; /* skroz desno u prvom redu zaglavlja */
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--primary);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-.theme-toggle:hover { border-color: var(--primary); }
-.theme-toggle .icon { width: 1.25rem; height: 1.25rem; }
+/* Gumb teme stoji u gornjoj traci (.vrh .theme-toggle); ovdje samo zamjena sunca i mjeseca */
 .theme-toggle .icon-moon { display: none; }
 :root[data-theme="dark"] .theme-toggle .icon-sun { display: none; }
 :root[data-theme="dark"] .theme-toggle .icon-moon { display: inline; }
@@ -2844,8 +2804,8 @@ textarea {
 }
 .pomoc-na-vrh:hover { background: var(--gumb); color: var(--gumb-tekst); }
 .pomoc-skriveno { display: none !important; }
-/* sidro ne smije završiti ispod ljepljivog zaglavlja */
-.detail-section[id], .pomoc-tekst li[id], .pomoc-tekst h3[id] { scroll-margin-top: 5rem; }
+/* sidro ne smije završiti ispod gornje trake */
+.detail-section[id], .pomoc-tekst li[id], .pomoc-tekst h3[id] { scroll-margin-top: calc(var(--vrh-visina, 4rem) + 1rem); }
 
 @media (max-width: 560px) {
   .pomoc-pretraga-red { flex-wrap: wrap; }
@@ -4190,18 +4150,18 @@ body.karta-puni-zaslon-otvoren { overflow: hidden; }
 .unos-gumb { margin-left: auto; }
 .unos-napomena { margin-top: 0.3rem; }
 /* Zapis na koji se stiglo (novi ili ispravljen) nakratko svijetli, i ne
-   ostaje ispod trake za unos. */
-.zapis { scroll-margin-bottom: 11rem; scroll-margin-top: 4rem; }
+   ostaje ispod trake za unos ni ispod gornje trake. */
+.zapis { scroll-margin-bottom: 11rem; scroll-margin-top: calc(var(--vrh-visina, 3rem) + 1rem); }
 .zapis:target { animation: zapis-svjetlo 2.5s ease-out; }
 @keyframes zapis-svjetlo { from { background: var(--primary-light, #e8eef7); } to { background: transparent; } }
 @media (max-width: 640px) { .unos-polje > span { display: none; } .unos-gumb { margin-left: 0; width: 100%; } }
 
-/* storno uz zapis bez sistemskog dijaloga; naslov dana ostaje pri vrhu */
+/* storno uz zapis bez sistemskog dijaloga; naslov dana ostaje pri vrhu, ispod gornje trake */
 .zapis-storno > summary { list-style: none; cursor: pointer; }
 .zapis-storno > summary::-webkit-details-marker { display: none; }
 .zapis-storno[open] { display: block; margin: 0.4rem 0 0; }
 .zapis-storno-obrazac { display: flex; gap: 0.4rem; margin-top: 0.4rem; max-width: 34rem; }
-.dan-naslov { position: sticky; top: 0; z-index: 2; background: var(--bg, #f4f4f4); padding: 0.4rem 0; }
+.dan-naslov { position: sticky; top: var(--vrh-visina, 0); z-index: 2; background: var(--bg, #f4f4f4); padding: 0.4rem 0; }
 .dan-dezurstva { scroll-margin-top: 0.5rem; }
 
 .dezurni-sad { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.35rem 0.6rem; border-radius: 4px; background: var(--primary-light, #e8eef7); color: var(--primary, #173e74); font-size: 0.9rem; }
@@ -6578,6 +6538,9 @@ tr.odabrano { background: var(--tint-blue-bg); }
    izbornik koji korisnik može suziti (html.izbornik-uski, js/tema.js).
    ========================================================================== */
 body.skoljka {
+  /* visine traka; ono što stoji ispod gornje ili iznad donje računa s njima */
+  --vrh-visina: 64px;
+  --donja-visina: 80px;
   flex-direction: row;
   align-items: stretch;
 }
@@ -6641,6 +6604,8 @@ body.skoljka {
   flex: 1;
   min-height: 0;
 }
+/* stavke se ne stišću na niskom ekranu; izbornik se tada lista */
+.main-nav > * { flex-shrink: 0; }
 
 .nav-link {
   display: flex;
@@ -6707,7 +6672,7 @@ body.skoljka {
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  min-height: 64px;
+  min-height: var(--vrh-visina);
   padding: 0.5rem 0.5rem 0.5rem 1.5rem;
   background: var(--bg);
 }
@@ -6801,7 +6766,9 @@ html.izbornik-uski .nav-link > span:not(.nav-caret) {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  max-width: 76px;
+  max-width: 100%;
+  padding: 0 2px;
+  font-size: 0.75rem;
   line-height: 1rem;
   overflow: hidden;
   white-space: normal;
@@ -6847,11 +6814,18 @@ html.izbornik-uski .nav-dno { border-top: 0; padding-top: 0; }
     width: 280px;
     max-width: 85vw;
     transform: translateX(-100%);
-    transition: transform 0.2s ease;
+    /* zatvorena ladica je i za tipkovnicu i čitač nevidljiva */
+    visibility: hidden;
+    transition: transform 0.2s ease, visibility 0s linear 0.2s;
     z-index: 70;
     box-shadow: none;
   }
-  body.izbornik-otvoren .izbornik { transform: none; box-shadow: 0 0 32px rgb(0 0 0 / 0.25); }
+  body.izbornik-otvoren .izbornik {
+    transform: none;
+    visibility: visible;
+    transition: transform 0.2s ease, visibility 0s;
+    box-shadow: 0 0 32px rgb(0 0 0 / 0.25);
+  }
   .izbornik-suzi { display: none; }
   .izbornik-zatvori { display: inline-flex; }
   .izbornik-zastor {
@@ -6867,7 +6841,11 @@ html.izbornik-uski .nav-dno { border-top: 0; padding-top: 0; }
   body.izbornik-otvoren .izbornik-zastor { opacity: 1; pointer-events: auto; }
   .vrh { padding-left: 1rem; }
   .vrh .pomoc-znak { display: none; }
-  .main-content { padding: 0.5rem 1rem 6.5rem; }
+  .main-content { padding: 0.5rem 1rem calc(var(--donja-visina) + 1.5rem); }
+  /* što stoji na dnu zaslona diže se iznad donje trake */
+  .toast-container { bottom: calc(var(--donja-visina) + 1rem); }
+  .unos-zapisa { bottom: var(--donja-visina); }
+  .pomoc-na-vrh { bottom: calc(var(--donja-visina) + 1rem); }
   .donja-traka {
     display: flex;
     gap: 0.5rem;
@@ -6875,7 +6853,7 @@ html.izbornik-uski .nav-dno { border-top: 0; padding-top: 0; }
     left: 0;
     right: 0;
     bottom: 0;
-    height: 80px;
+    height: var(--donja-visina);
     padding: 0.75rem 0.5rem 1rem;
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
     background: var(--bg-subtle);
@@ -6902,6 +6880,30 @@ html.izbornik-uski .nav-dno { border-top: 0; padding-top: 0; }
   .donja-stavka.active { color: var(--text); }
   .donja-stavka.active .icon { background: var(--md-sys-color-ploha-odabrano); }
   .donja-stavka span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+/* Bez skripte (html bez razreda js, koji daje js/tema.js) podstavke Registara
+   su uvijek vidljive, a na mobitelu izbornik stoji na vrhu stranice kao
+   običan popis, jer ga „Više” ne može otvoriti */
+html:not(.js) .nav-dropdown { display: block; }
+html:not(.js) .nav-caret { display: none; }
+@media (max-width: 599px) {
+  html:not(.js) body.skoljka { flex-direction: column; }
+  html:not(.js) .izbornik {
+    position: static;
+    transform: none;
+    visibility: visible;
+    width: auto;
+    max-width: none;
+    height: auto;
+    box-shadow: none;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  html:not(.js) .izbornik-zatvori,
+  html:not(.js) .izbornik-zastor,
+  html:not(.js) .donja-traka { display: none; }
+  html:not(.js) .main-content { padding-bottom: 1.5rem; }
 }
 
 @media print {

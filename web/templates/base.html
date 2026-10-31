@@ -28,7 +28,7 @@
        Pomoć, Profil. Što tko vidi određuju moduli (.Sees). */}}
   <aside class="izbornik" id="izbornik" aria-label="Glavni izbornik">
     <div class="izbornik-glava">
-      <button type="button" class="izbornik-gumb izbornik-suzi" onclick="suziIzbornik()" title="Suzi ili raširi izbornik" aria-label="Suzi ili raširi izbornik">{{icon "menu"}}</button>
+      <button type="button" class="izbornik-gumb izbornik-suzi" onclick="suziIzbornik()" title="Suzi ili raširi izbornik" aria-label="Suzi ili raširi izbornik" aria-controls="izbornik" aria-expanded="true">{{icon "menu"}}</button>
       <a href="/" class="izbornik-znak"><img src="{{logo}}" alt="" class="izbornik-logo"><span class="izbornik-ime">goCOP</span></a>
       <button type="button" class="izbornik-gumb izbornik-zatvori" onclick="zatvoriIzbornik()" aria-label="Zatvori izbornik">{{icon "x"}}</button>
     </div>
@@ -169,12 +169,12 @@
     {{end}}
     {{if .Sees "dnevnici"}}<a href="/dnevnici" class="donja-stavka {{if eq .ActiveNav "journals"}}active{{end}}">{{icon "file-text"}}<span>Dokumenti</span></a>
     {{else if .Sees "teren"}}<a href="/teren" class="donja-stavka {{if eq .ActiveNav "teren"}}active{{end}}">{{icon "map-pin"}}<span>Teren</span></a>{{end}}
-    <button type="button" class="donja-stavka" onclick="otvoriIzbornik()" aria-label="Više">{{icon "layout-grid"}}<span>Više</span></button>
+    <button type="button" class="donja-stavka" onclick="otvoriIzbornik()" aria-label="Više" aria-controls="izbornik" aria-expanded="false">{{icon "layout-grid"}}<span>Više</span></button>
   </nav>
 
   <div id="toast-container" class="toast-container"></div>
   <script>
-    // Tema, izbornik (suzi, otvori na mobitelu), skupina registara, oznaka razmjene
+    // Tema, izbornik (suzi, otvori preko sadržaja), skupina registara, oznaka razmjene
     function toggleTheme() {
       var h = document.documentElement;
       var next = h.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
@@ -191,28 +191,39 @@
       if (window.izbornikOsvjezi) window.izbornikOsvjezi();
     }
 
+    // Izbornik preko sadržaja: fokus ide na gumb za zatvaranje, a pri
+    // zatvaranju se vraća na gumb koji ga je otvorio; js/tema.js mu skine
+    // uski oblik i označi gumbe
+    var otvorioIzbornik = null;
     function otvoriIzbornik() {
+      otvorioIzbornik = document.activeElement;
       document.body.classList.add('izbornik-otvoren');
-      document.documentElement.classList.remove('izbornik-uski');
+      if (window.izbornikOsvjezi) window.izbornikOsvjezi();
+      var zatvori = document.querySelector('.izbornik-zatvori');
+      if (zatvori) zatvori.focus();
     }
 
     function zatvoriIzbornik() {
+      if (!document.body.classList.contains('izbornik-otvoren')) return;
       document.body.classList.remove('izbornik-otvoren');
       if (window.izbornikOsvjezi) window.izbornikOsvjezi();
+      if (otvorioIzbornik && otvorioIzbornik.focus) otvorioIzbornik.focus();
+      otvorioIzbornik = null;
     }
 
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') zatvoriIzbornik(); });
 
     function toggleNavGroup(event) {
-      event.stopPropagation();
+      var gumb = event.currentTarget;
+      var skupina = gumb.closest('.nav-group');
       // u uskoj traci podstavke se ne vide, pa skupina najprije raširi izbornik
       if (document.documentElement.classList.contains('izbornik-uski')) {
         suziIzbornik();
-        if (event.currentTarget.closest('.nav-group').classList.contains('open')) return;
+        if (skupina.classList.contains('open')) { gumb.focus(); return; }
       }
-      const group = event.currentTarget.closest('.nav-group');
-      const open = group.classList.toggle('open');
-      event.currentTarget.setAttribute('aria-expanded', open ? 'true' : 'false');
+      var otvorena = skupina.classList.toggle('open');
+      gumb.setAttribute('aria-expanded', otvorena ? 'true' : 'false');
+      gumb.focus();
     }
 
     // Oznaka razmjene u gornjoj traci: zelena točka kad je sve usklađeno
@@ -227,22 +238,6 @@
       ucitaj();
       setInterval(function () { if (!document.hidden) ucitaj(); }, 60000);
     })();
-
-    // Klik izvan izbornika ga zatvara
-    document.addEventListener('click', () => {
-      document.querySelectorAll('.nav-group.open').forEach(g => {
-        g.classList.remove('open');
-        const btn = g.querySelector('.nav-group-btn');
-        if (btn) btn.setAttribute('aria-expanded', 'false');
-      });
-    });
-
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape') {
-        document.querySelectorAll('.nav-group.open').forEach(g => g.classList.remove('open'));
-        document.getElementById('main-nav')?.classList.remove('open');
-      }
-    });
   </script>
   {{block "scripts" .}}{{end}}
 </body>

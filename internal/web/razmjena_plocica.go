@@ -158,11 +158,7 @@ func (s *Server) ShowRazmjena(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	ctx, otkazi := context.WithTimeout(r.Context(), 10*time.Second)
-	defer otkazi()
-	st := s.razmjena(ctx)
-	st.Signal = s.redakSignala()
-	st.Upozorenja = append(st.Upozorenja, s.upozorenjaPovezivosti()...)
+	st := s.stanjeRazmjene(r.Context())
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	if err := razmjenaTmpl.Execute(w, st); err != nil {

@@ -129,6 +129,7 @@ type Server struct {
 	kisMjerenja        *kisomjeri.Spremiste     // mjerenja stvarnih kišomjera i oborine s Open-Meteo; nil dok se ne postavi
 	kisaSlivova        KisaSlivovaFunc          // kiša po slivovima za naslovnu; nil dok se ne postavi
 	razmjena           RazmjenaFunc             // stanje razmjene za pločicu na naslovnoj
+	znak               znakRazmjene             // oznaka razmjene u gornjoj traci, s predmemorijom (skoljka.go)
 	dhmzKlijent        *dhmz.Klijent            // otvoreni podaci DHMZ-a za ploču na naslovnoj
 	zidService         *service.ZidService      // zid događanja; nil dok se ne postavi
 	orgService         *service.OrgService
