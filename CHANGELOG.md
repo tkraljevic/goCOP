@@ -33,6 +33,10 @@ razmjena se ne mijenjaju, pa se računala nadograđuju bilo kojim redom.
   terenske uloge na mobitelu koriste web u novom izgledu; sučelje za
   mobilnu aplikaciju nastaje uz dovršene ekrane weba (Odluke (31. 10.
   2026.)).
+- **Tablice stanu u karticu.** Naslovi stupaca se lome, a ikonski gumbi u
+  tablici su uži, pa gumbi na kraju retka više nisu odrezani; na mobitelu se
+  široka tablica lista unutar kartice. Kartica „Kiša po slivovima” kaže da
+  podaci nisu dostupni umjesto da prikaže poruku baze.
 - Test opoziva člana više ne ovisi o satu, pa ne pada povremeno na CI-ju.
 
 ## 0.0.47-alfa — 30. 10. 2026.
