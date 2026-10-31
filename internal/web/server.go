@@ -129,6 +129,7 @@ type Server struct {
 	kisMjerenja        *kisomjeri.Spremiste     // mjerenja stvarnih kišomjera i oborine s Open-Meteo; nil dok se ne postavi
 	kisaSlivova        KisaSlivovaFunc          // kiša po slivovima za naslovnu; nil dok se ne postavi
 	razmjena           RazmjenaFunc             // stanje razmjene za pločicu na naslovnoj
+	znak               znakRazmjene             // oznaka razmjene u gornjoj traci, s predmemorijom (skoljka.go)
 	dhmzKlijent        *dhmz.Klijent            // otvoreni podaci DHMZ-a za ploču na naslovnoj
 	zidService         *service.ZidService      // zid događanja; nil dok se ne postavi
 	orgService         *service.OrgService
@@ -423,6 +424,9 @@ func templateFuncs() template.FuncMap {
 		"roleOptions":       roleOptions,
 		"humanBytes":        humanBytes,
 		"km":                models.FormatKm,
+		"navNaslov":         navNaslov,
+		"navSkupina":        navSkupina,
+		"inicijali":         inicijali,
 		"derefTime": func(t *time.Time) time.Time {
 			if t == nil {
 				return time.Time{}
@@ -1236,6 +1240,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /vrijeme/podrucje", s.authMiddleware(http.HandlerFunc(vrijemeH.ShowPloca)))
 	s.mux.Handle("GET /vrijeme/kisa-slivova", s.authMiddleware(http.HandlerFunc(s.ShowKisaSlivova)))
 	s.mux.Handle("GET /razmjena/plocica", s.authMiddleware(http.HandlerFunc(s.ShowRazmjena)))
+	s.mux.Handle("GET /razmjena/znak", s.authMiddleware(http.HandlerFunc(s.ShowRazmjenaZnak)))
 	// Razmjena kroz web tunel: bez prijave korisnika, jer se čvor dokazuje
 	// ključem unutar TLS-a koji teče kroz WebSocket; nepoznati ključ ne prolazi.
 	if s.peersService != nil {

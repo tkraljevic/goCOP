@@ -367,7 +367,7 @@ func tekstOvjere(a *models.Akt, t models.OrgTerms, sek *models.Sector) string {
 	if a.Potpis != "" {
 		b += fmt.Sprintf("Sadržaj akta potpisan je ključem čvora %s (Ed25519, otisak ključa %s); svaka izmjena teksta nakon ovjere poništava potpis. ", a.Cvor, a.OtisakKljuca())
 	}
-	b += fmt.Sprintf("Ispravnost ispisa provjerava se u goCOP-u (Dokumentacija › Rješenja i obavijesti) upisom koda %s", a.OvjeraKod)
+	b += fmt.Sprintf("Ispravnost ispisa provjerava se u goCOP-u (Dokumenti › Rješenja i obavijesti) upisom koda %s", a.OvjeraKod)
 	if sek != nil {
 		b += " ili upitom Centru obrane od poplava Sektora " + sek.ID
 		var k []string

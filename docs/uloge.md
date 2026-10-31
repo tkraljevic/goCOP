@@ -227,7 +227,7 @@ lozinku, drugi mu je poništi.
 ## Što tko vidi
 
 Uloga određuje i koje dijelove programa osoba vidi u izborniku: Teren,
-Očitanja, Dokumentacija, Registri, Djelatnici i Administracija. Vidljivost
+Očitanja, Dokumenti, Registri, Djelatnici i Administracija. Vidljivost
 je odvojena od prava upisa. Globalni administrator za svaku ulogu može
 promijeniti što ona vidi (Administracija → Moduli i ovlasti), a iznimku za
 jednu osobu upisuje na njezinoj stranici. Prava upisa time se ne mijenjaju.
