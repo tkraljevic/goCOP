@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"html/template"
+	"log"
 	"math"
 	"net/http"
 	"strconv"
@@ -79,7 +80,9 @@ func (s *Server) ShowKisaSlivova(w http.ResponseWriter, r *http.Request) {
 	}
 	stanja, dnevne, err := s.kisaSlivova(ctx)
 	if err != nil {
-		p.Greska = err.Error()
+		// korisnik ne čita poruku baze; uzrok ide u dnevnik programa
+		log.Printf("kiša po slivovima: %v", err)
+		p.Greska = "Podaci o kiši po slivovima trenutačno nisu dostupni."
 	}
 	nazivSliva := map[string]string{}
 	if s.kisomjeri != nil {

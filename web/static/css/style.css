@@ -342,6 +342,7 @@ a:hover { color: var(--accent); }
   border: 1px solid transparent;
   cursor: pointer;
   text-decoration: none;
+  white-space: nowrap;
   transition: all 0.15s ease;
   min-height: 40px;
 }
@@ -380,6 +381,10 @@ a:hover { color: var(--accent); }
   font-size: 0.8125rem;
   min-height: 36px;
 }
+/* Gumb u ćeliji tablice je najčešće samo ikona: bez punjenja za tekst, da
+   tablica s tri gumba u retku stane u karticu */
+.data-table td .btn-sm { padding-left: var(--space-8); padding-right: var(--space-8); }
+.data-table td .btn-sm .icon { margin-right: 0; }
 
 /* Gumb bez ispune (TextButton iz dizajna) */
 .btn-link { background: none; border-color: transparent; color: var(--primary); padding: 9px var(--space-12); }
@@ -648,7 +653,8 @@ a:hover { color: var(--accent); }
   font-weight: 700;
   color: var(--text-muted);
   border-bottom: 1px solid var(--crta-glave);
-  white-space: nowrap;
+  white-space: normal;
+  vertical-align: bottom;
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -734,8 +740,9 @@ a:hover { color: var(--accent); }
   text-align: center;
 }
 
-.reg-card-head > .badge,
 .user-card-header > .badge { flex-shrink: 1; }
+/* oznaka u glavi kartice registra ostaje u jednom retku; naslov se lomi */
+.reg-card-head > .badge { flex-shrink: 0; white-space: nowrap; }
 
 .badge-admin {
   background: var(--danger-bg);
@@ -6844,8 +6851,11 @@ html:not(.js) .nav-caret { display: none; }
    ostaju 40 px, da se retci ne razvuku */
 @media (max-width: 599px) {
   .btn, .btn-sm { min-height: var(--size-touchtarget); }
+  .btn { padding-left: var(--space-16); padding-right: var(--space-16); }
   table .btn-sm, .zapis-storno .btn-sm { min-height: 40px; }
   .reading-row .btn-sm { min-height: 36px; }
+  /* široka tablica ili obrazac lista se unutar svoje kartice, ne cijela stranica */
+  .main-content { overflow-x: clip; }
   .izbornik-gumb { width: var(--size-touchtarget); height: var(--size-touchtarget); }
   .karta-jedinice-gumb, .karta-jedinice-stavka .btn-zumi,
   .karta-jedinice-stavka .btn-zumi-naselje, .karta-jedinice-stavka .btn-zumi-vodna { min-height: 40px; min-width: 40px; }
