@@ -4,6 +4,37 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.48-alfa — 31. 10. 2026.
+
+Novi izgled, prvi dio: temelj za sve stranice. Sadržaj, putovi i podaci
+ostaju isti; mijenja se ono što je zajedničko svim stranicama. Baza i
+razmjena se ne mijenjaju, pa se računala nadograđuju bilo kojim redom.
+
+- **Izbornik sa strane, gornja traka i donja traka na mobitelu.**
+  Navigacija više nije u zaglavlju nad sadržajem. Na računalu je izbornik
+  lijevo i može se suziti na traku s ikonama, na tabletu je uska traka koja
+  se otvara preko sadržaja, a na mobitelu donja traka s pet stavki i
+  ladica na „Više”. Gornja traka nosi naslov stranice, oznaku razmjene
+  (zelena točka kad je sve usklađeno), zvono za događanja, pomoć, temu i
+  inicijale prijavljene osobe. Modul „Dokumentacija” u izborniku se zove
+  „Dokumenti”, a „Sredstva” su vlastita stavka. Radi tipkovnicom, s
+  čitačem ekrana i bez skripte.
+- **Boje iz jednog sustava dizajna.** Podloge, rubovi i tekst dolaze iz
+  tokena dizajna, istih u svijetloj i tamnoj temi; glavnu boju i naglasak
+  i dalje mijenja Administracija › Tema. Crte redovne i izvanredne obrane
+  tamnije su radi kontrasta.
+- **Gumbi, oznake, kartice i poruke jednaki na svim stranicama.** Gumb je
+  pilula visoka 40 px (na mobitelu 48); oznake stanja imaju kut 8 px i
+  slova 13 px, a oznake faze obrane točku u boji faze; kartice imaju kut
+  12 px i tanki obrub bez sjene; poruke crtu u boji razine i ikonu lijevo.
+- **Prijava: valovi.** Na računalu plava ploha uz prijavu nosi tihu
+  animaciju valova; uz postavku sustava „smanji pokrete” je nema.
+- **Plan razvoja: mobilna aplikacija nakon bete.** Dok se web ne dovrši,
+  terenske uloge na mobitelu koriste web u novom izgledu; sučelje za
+  mobilnu aplikaciju nastaje uz dovršene ekrane weba (Odluke (31. 10.
+  2026.)).
+- Test opoziva člana više ne ovisi o satu, pa ne pada povremeno na CI-ju.
+
 ## 0.0.47-alfa — 30. 10. 2026.
 
 Najveće izdanje dosad: provjere prava na svim stranicama i u razmjeni među
