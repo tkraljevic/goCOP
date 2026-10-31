@@ -4,7 +4,7 @@
 
 {{define "content"}}
 {{$iz := .Sektorsko}}{{$s := $iz.Sadrzaj}}
-<div class="breadcrumb"><a href="/dnevnici">Dokumentacija</a> › <a href="/izvjesca">Dnevna izvješća</a> ›
+<div class="breadcrumb"><a href="/dnevnici">Dokumenti</a> › <a href="/izvjesca">Dnevna izvješća</a> ›
   {{if $iz.ID}}<a href="/sektorsko-izvjesce/{{$iz.ID}}">Sektor {{.Sektor}} · {{$iz.Dan.Format "2.1.2006."}}</a> › Obrazac{{else}}Novo izvješće sektora{{end}}</div>
 
 <div class="page-header">

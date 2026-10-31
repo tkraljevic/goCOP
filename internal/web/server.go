@@ -423,6 +423,9 @@ func templateFuncs() template.FuncMap {
 		"roleOptions":       roleOptions,
 		"humanBytes":        humanBytes,
 		"km":                models.FormatKm,
+		"navNaslov":         navNaslov,
+		"navSkupina":        navSkupina,
+		"inicijali":         inicijali,
 		"derefTime": func(t *time.Time) time.Time {
 			if t == nil {
 				return time.Time{}
@@ -1236,6 +1239,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /vrijeme/podrucje", s.authMiddleware(http.HandlerFunc(vrijemeH.ShowPloca)))
 	s.mux.Handle("GET /vrijeme/kisa-slivova", s.authMiddleware(http.HandlerFunc(s.ShowKisaSlivova)))
 	s.mux.Handle("GET /razmjena/plocica", s.authMiddleware(http.HandlerFunc(s.ShowRazmjena)))
+	s.mux.Handle("GET /razmjena/znak", s.authMiddleware(http.HandlerFunc(s.ShowRazmjenaZnak)))
 	// Razmjena kroz web tunel: bez prijave korisnika, jer se čvor dokazuje
 	// ključem unutar TLS-a koji teče kroz WebSocket; nepoznati ključ ne prolazi.
 	if s.peersService != nil {

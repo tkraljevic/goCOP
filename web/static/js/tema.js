@@ -27,6 +27,20 @@
     else if (sustav.addListener) sustav.addListener(promjena);
   }
 
+
+  // Izbornik: sužen (uska traka) kad ga je korisnik suzio ili je ekran uži
+  // od 840 px; na mobitelu (ispod 600 px) stoji donja traka, pa se ne sužava
+  function izbornik() {
+    var suzen = false;
+    try { suzen = localStorage.getItem('gocop-izbornik') === 'suzen'; } catch (e) {}
+    var w = window.innerWidth;
+    var otvoren = document.body && document.body.classList.contains('izbornik-otvoren');
+    h.classList.toggle('izbornik-uski', !otvoren && w >= 600 && (suzen || w < 840));
+  }
+  izbornik();
+  window.addEventListener('resize', izbornik);
+  window.izbornikOsvjezi = izbornik;
+
   window.addEventListener('beforeprint', function () { h.setAttribute('data-theme', 'light'); });
   window.addEventListener('afterprint', postavi);
 })();

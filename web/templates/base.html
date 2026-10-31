@@ -19,115 +19,99 @@
   {{if and .CurrentUser imaVektorskuKartu}}<script src="{{statika "vendor/protomaps/protomaps-leaflet.js"}}" defer></script>{{end}}
   <script src="{{statika "js/app.js"}}" defer></script>
 </head>
-<body>
+<body class="skoljka">
   <!-- Navigacija -->
-  <header class="navbar">
-    <div class="nav-container">
-      <div class="nav-left">
-        <a href="/" class="brand">
-          <img src="{{logo}}" alt="" class="brand-mark">
-          <div>
-            <span class="brand-org">{{term "org"}}</span>
-            <span class="brand-title">{{term "cop"}}</span>
-          </div>
-        </a>
-
-        <button type="button" class="nav-toggle" aria-label="Izbornik" aria-expanded="false"
-                onclick="toggleMainNav()">{{icon "menu"}} </button>
-
-        <nav class="main-nav" id="main-nav">
-          {{if .CurrentUser}}
-          <div class="nav-mobile-user">
-            <span class="user-name">{{.CurrentUser.FullName}}</span>
-            <span class="user-role-label">{{roleLabel .CurrentUser.PrimaryRole}}{{if and .CurrentUser.IsGlobalAdmin .CurrentUser.PrimaryDuty}} · administrator{{end}}</span>
-          </div>
-          {{end}}
-          <a href="/" class="nav-link {{if eq .ActiveNav "dashboard"}}active{{end}}">{{icon "house"}} Početna</a>
-          {{if .Sees "teren"}}<a href="/teren" class="nav-link {{if eq .ActiveNav "teren"}}active{{end}}">{{icon "map-pin"}} Teren</a>{{end}}
-          {{if .Sees "vodostaji"}}<a href="/readings" class="nav-link {{if eq .ActiveNav "readings"}}active{{end}}">{{icon "activity"}} Očitanja</a>{{end}}
-          {{if .Sees "vodostaji"}}<a href="/prognoze" class="nav-link {{if eq .ActiveNav "prognoze"}}active{{end}}">{{icon "trending-up"}} Prognoze</a>{{end}}
-          {{if .Sees "dnevnici"}}<a href="/dnevnici" class="nav-link {{if eq .ActiveNav "journals"}}active{{end}}">{{icon "notebook"}} Dokumentacija</a>{{end}}
-          {{if .Sees "administracija"}}<a href="/administracija" class="nav-link {{if or (eq .ActiveNav "admin") (eq .ActiveNav "settings") (eq .ActiveNav "sync") (eq .ActiveNav "moduli") (eq .ActiveNav "organizacija")}}active{{end}}">{{icon "settings"}} Administracija</a>{{end}}
-
-          <!-- Registri su sami po sebi skupina, pa ne troše mjesto u traci -->
-          {{if .Sees "registri"}}
-          <div class="nav-group">
-            <button type="button" class="nav-link nav-group-btn
-                {{if or (eq .ActiveNav "registers") (eq .ActiveNav "organizacija") (eq .ActiveNav "sections") (eq .ActiveNav "territories") (eq .ActiveNav "stations") (eq .ActiveNav "watercourses") (eq .ActiveNav "slivovi") (jeNavObjekta .ActiveNav) (eq .ActiveNav "firme") (eq .ActiveNav "maintenance") (eq .ActiveNav "sredstva")}}active{{end}}"
-                aria-haspopup="true" aria-expanded="false" onclick="toggleNavGroup(event)">
-              {{icon "book-open"}} Registri <span class="nav-caret">▾</span>
-            </button>
-            <div class="nav-dropdown">
-              <a href="/organizacija" class="nav-dropdown-item {{if eq .ActiveNav "organizacija"}}active{{end}}">
-                {{icon "building"}} Administrativna organizacija
-              </a>
-              <a href="/sections" class="nav-dropdown-item {{if eq .ActiveNav "sections"}}active{{end}}">
-                {{icon "waves"}} Dionice
-              </a>
-              <a href="/territories" class="nav-dropdown-item {{if eq .ActiveNav "territories"}}active{{end}}">
-                {{icon "landmark"}} Teritorijalne jedinice
-              </a>
-              <a href="/stations" class="nav-dropdown-item {{if eq .ActiveNav "stations"}}active{{end}}">
-                {{icon "ruler"}} Vodomjerne postaje
-              </a>
-              {{range registriObjekata}}
-              <a href="{{.Path}}" class="nav-dropdown-item {{if eq $.ActiveNav (navObjekta .Kind)}}active{{end}}">
-                {{icon .Icon}} {{.Title}}
-              </a>
-              {{end}}
-              <a href="/watercourses" class="nav-dropdown-item {{if eq .ActiveNav "watercourses"}}active{{end}}">
-                {{icon "droplet"}} Vodotoci i vodna tijela
-              </a>
-              <a href="/slivovi" class="nav-dropdown-item {{if eq .ActiveNav "slivovi"}}active{{end}}">
-                {{icon "map"}} Slivovi i meteorološke postaje
-              </a>
-              <a href="/firme" class="nav-dropdown-item {{if eq .ActiveNav "firme"}}active{{end}}">
-                {{icon "building-2"}} Licencirane firme
-              </a>
-              <a href="/odrzavanje" class="nav-dropdown-item {{if eq .ActiveNav "maintenance"}}active{{end}}">
-                {{icon "wrench"}} Održavanje
-              </a>
-              <a href="/sredstva" class="nav-dropdown-item {{if eq .ActiveNav "sredstva"}}active{{end}}">
-                {{icon "package"}} Sredstva za obranu
-              </a>
-            </div>
-          </div>
-          {{end}}
-          {{/* Djelatnici su vlastita stavka, ne dio Registara (Odluke (30. 10. 2026.)) */}}
-          {{if .Sees "djelatnici"}}<a href="/users" class="nav-link {{if eq .ActiveNav "users"}}active{{end}}">{{icon "users"}} Djelatnici</a>{{end}}
-          {{if .CurrentUser}}
-          <div class="nav-mobile-actions">
-            <a href="/profile" class="nav-link {{if eq .ActiveNav "profile"}}active{{end}}">{{icon "user"}} Moj profil</a>
-            <a href="/posta" class="nav-link {{if eq .ActiveNav "posta"}}active{{end}}">{{icon "mailbox"}} Sandučić</a>
-            <a href="/profile#lozinka" class="nav-link">{{icon "key-round"}} Lozinka</a>
-            <form action="/logout" method="POST"><button type="submit" class="nav-link">{{icon "log-out"}} Odjava</button></form>          </div>
-          {{end}}
-        </nav>
-        <a href="/pomoc{{if .ActiveNav}}#{{.ActiveNav}}{{end}}" class="theme-toggle pomoc-znak"
-           title="Pomoć za ovu stranicu" aria-label="Pomoć za ovu stranicu">{{icon "circle-question-mark"}}</a>
-        <button type="button" class="theme-toggle" onclick="toggleTheme()" title="Svijetla ili tamna tema" aria-label="Svijetla ili tamna tema">
-          <svg class="icon icon-sun" aria-hidden="true"><use href="{{statika "img/icons.svg"}}#sun"/></svg>
-          <svg class="icon icon-moon" aria-hidden="true"><use href="{{statika "img/icons.svg"}}#moon"/></svg>
+  {{/* Školjka: izbornik sa strane (na mobitelu ispod), gornja traka i sadržaj.
+       Stavke i redoslijed su iz sustava dizajna (Odluke (31. 10. 2026.)):
+       Naslovna, Očitanja, Prognoze, Dokumenti, Teren, Karta (dolazi s modulom
+       Karte), Sredstva, Registri, Djelatnici i dežurstva, Administracija,
+       Pomoć, Profil. Što tko vidi određuju moduli (.Sees). */}}
+  <aside class="izbornik" id="izbornik" aria-label="Glavni izbornik">
+    <div class="izbornik-glava">
+      <button type="button" class="izbornik-gumb izbornik-suzi" onclick="suziIzbornik()" title="Suzi ili raširi izbornik" aria-label="Suzi ili raširi izbornik">{{icon "menu"}}</button>
+      <a href="/" class="izbornik-znak"><img src="{{logo}}" alt="" class="izbornik-logo"><span class="izbornik-ime">goCOP</span></a>
+      <button type="button" class="izbornik-gumb izbornik-zatvori" onclick="zatvoriIzbornik()" aria-label="Zatvori izbornik">{{icon "x"}}</button>
+    </div>
+    <nav class="main-nav" id="main-nav">
+      <a href="/" class="nav-link {{if eq (navSkupina .ActiveNav) "dashboard"}}active{{end}}">{{icon "house"}}<span>Naslovna</span></a>
+      {{if .Sees "vodostaji"}}
+      <a href="/readings" class="nav-link {{if eq .ActiveNav "readings"}}active{{end}}">{{icon "ruler"}}<span>Očitanja</span></a>
+      <a href="/prognoze" class="nav-link {{if eq .ActiveNav "prognoze"}}active{{end}}">{{icon "chart-column"}}<span>Prognoze</span></a>
+      {{end}}
+      {{if .Sees "dnevnici"}}<a href="/dnevnici" class="nav-link {{if eq .ActiveNav "journals"}}active{{end}}">{{icon "file-text"}}<span>Dokumenti</span></a>{{end}}
+      {{if .Sees "teren"}}<a href="/teren" class="nav-link {{if eq .ActiveNav "teren"}}active{{end}}">{{icon "map-pin"}}<span>Teren</span></a>{{end}}
+      {{if .Sees "registri"}}
+      {{/* Sredstva za obranu su vlastita stavka, a ne dio Registara */}}
+      <a href="/sredstva" class="nav-link {{if eq .ActiveNav "sredstva"}}active{{end}}">{{icon "package"}}<span>Sredstva</span></a>
+      <div class="nav-group {{if eq (navSkupina .ActiveNav) "registri"}}open{{end}}">
+        <button type="button" class="nav-link nav-group-btn {{if eq (navSkupina .ActiveNav) "registri"}}active{{end}}"
+                onclick="toggleNavGroup(event)" aria-expanded="{{if eq (navSkupina .ActiveNav) "registri"}}true{{else}}false{{end}}">
+          {{icon "layers"}}<span>Registri</span><span class="nav-caret" aria-hidden="true">▾</span>
         </button>
-      </div>
-
-      <div class="nav-actions">
-        <!-- Informacije o prijavljenom korisniku -->
-        {{if .CurrentUser}}
-        <div class="user-profile">
-          <div class="user-info-text">
-            <span class="user-name">{{.CurrentUser.FullName}}</span>
-            <span class="user-role-label">{{roleLabel .CurrentUser.PrimaryRole}}{{if and .CurrentUser.IsGlobalAdmin .CurrentUser.PrimaryDuty}} · administrator{{end}} · {{.CurrentUser.OrgName}}</span>
-          </div>
-          <a href="/profile" class="btn btn-secondary btn-sm">{{icon "user"}} Moj profil</a>
-          <a href="/posta" class="btn btn-secondary btn-sm" title="Ulazna pošta iz Exchangea">{{icon "mailbox"}} Sandučić</a>
-          <a href="/profile#lozinka" class="btn btn-secondary btn-sm">{{icon "key-round"}} Lozinka</a>
-          <form action="/logout" method="POST" class="d-inline">
-            <button type="submit" class="btn btn-secondary btn-sm" title="Odjavi se">{{icon "log-out"}} Odjava</button>
-          </form>
+        <div class="nav-dropdown">
+          <a href="/organizacija" class="nav-dropdown-item {{if eq .ActiveNav "organizacija"}}active{{end}}">
+            {{icon "building"}} Administrativna organizacija
+          </a>
+          <a href="/sections" class="nav-dropdown-item {{if eq .ActiveNav "sections"}}active{{end}}">
+            {{icon "layers"}} Dionice
+          </a>
+          <a href="/territories" class="nav-dropdown-item {{if eq .ActiveNav "territories"}}active{{end}}">
+            {{icon "map"}} Branjena područja
+          </a>
+          <a href="/stations" class="nav-dropdown-item {{if eq .ActiveNav "stations"}}active{{end}}">
+            {{icon "gauge"}} Vodomjerne postaje
+          </a>
+          {{range registriObjekata}}
+          <a href="{{.Path}}" class="nav-dropdown-item {{if eq $.ActiveNav (navObjekta .Kind)}}active{{end}}">
+            {{icon .Icon}} {{.Title}}
+          </a>
+          {{end}}
+          <a href="/watercourses" class="nav-dropdown-item {{if eq .ActiveNav "watercourses"}}active{{end}}">
+            {{icon "waves"}} Vodotoci
+          </a>
+          <a href="/slivovi" class="nav-dropdown-item {{if eq .ActiveNav "slivovi"}}active{{end}}">
+            {{icon "droplet"}} Slivovi
+          </a>
+          <a href="/firme" class="nav-dropdown-item {{if eq .ActiveNav "firme"}}active{{end}}">
+            {{icon "building-2"}} Licencirane firme
+          </a>
+          <a href="/odrzavanje" class="nav-dropdown-item {{if eq .ActiveNav "maintenance"}}active{{end}}">
+            {{icon "wrench"}} Održavanje
+          </a>
         </div>
+      </div>
+      {{end}}
+      {{/* Djelatnici su vlastita stavka, ne dio Registara (Odluke (30. 10. 2026.)) */}}
+      {{if .Sees "djelatnici"}}<a href="/users" class="nav-link {{if eq .ActiveNav "users"}}active{{end}}">{{icon "users"}}<span>Djelatnici i dežurstva</span></a>{{end}}
+      {{if .Sees "administracija"}}<a href="/administracija" class="nav-link {{if eq (navSkupina .ActiveNav) "admin"}}active{{end}}">{{icon "settings"}}<span>Administracija</span></a>{{end}}
+      <div class="nav-dno">
+        <a href="/pomoc{{if .ActiveNav}}#{{.ActiveNav}}{{end}}" class="nav-link {{if eq .ActiveNav "pomoc"}}active{{end}}">{{icon "circle-question-mark"}}<span>Pomoć</span></a>
+        {{if .CurrentUser}}
+        <a href="/profile" class="nav-link {{if eq .ActiveNav "profile"}}active{{end}}">{{icon "user"}}<span>Profil</span></a>
+        <a href="/posta" class="nav-link {{if eq .ActiveNav "posta"}}active{{end}}" title="Ulazna pošta iz Exchangea">{{icon "mailbox"}}<span>Sandučić</span></a>
+        <form action="/logout" method="POST"><button type="submit" class="nav-link">{{icon "log-out"}}<span>Odjava</span></button></form>
         {{end}}
       </div>
+    </nav>
+  </aside>
+  <div class="izbornik-zastor" onclick="zatvoriIzbornik()" aria-hidden="true"></div>
+
+  <div class="okvir">
+  <header class="vrh">
+    <h1 class="vrh-naslov">{{navNaslov .ActiveNav}}</h1>
+    <div class="vrh-radnje">
+      {{if .CurrentUser}}
+      <a href="/administracija" class="vrh-gumb" id="vrh-razmjena" data-stanje="nema" title="Razmjena s drugim računalima" aria-label="Razmjena s drugim računalima">{{icon "refresh-cw"}}<span class="vrh-tocka"></span></a>
+      <a href="/dogadjanja" class="vrh-gumb" title="Događanja" aria-label="Događanja">{{icon "bell"}}</a>
+      {{end}}
+      <a href="/pomoc{{if .ActiveNav}}#{{.ActiveNav}}{{end}}" class="vrh-gumb pomoc-znak" title="Pomoć za ovu stranicu" aria-label="Pomoć za ovu stranicu">{{icon "circle-question-mark"}}</a>
+      <button type="button" class="vrh-gumb theme-toggle" onclick="toggleTheme()" title="Svijetla ili tamna tema" aria-label="Svijetla ili tamna tema">
+        <svg class="icon icon-sun" aria-hidden="true"><use href="{{statika "img/icons.svg"}}#sun"/></svg>
+        <svg class="icon icon-moon" aria-hidden="true"><use href="{{statika "img/icons.svg"}}#moon"/></svg>
+      </button>
+      {{if .CurrentUser}}
+      <a href="/profile" class="vrh-osoba" title="{{.CurrentUser.FullName}} · {{roleLabel .CurrentUser.PrimaryRole}}{{if and .CurrentUser.IsGlobalAdmin .CurrentUser.PrimaryDuty}} · administrator{{end}}">{{inicijali .CurrentUser.FullName}}</a>
+      {{end}}
     </div>
   </header>
 
@@ -174,9 +158,23 @@
     {{with verzija}}<footer class="app-podnozje">goCOP {{.}} · <a href="/pomoc#licenca">EUPL-1.2</a></footer>{{end}}
   </main>
 
+  </div>{{/* .okvir */}}
+
+  {{/* Mobitel: donja traka s najviše pet stavki; ostalo otvara izbornik */}}
+  <nav class="donja-traka" aria-label="Izbornik">
+    <a href="/" class="donja-stavka {{if eq (navSkupina .ActiveNav) "dashboard"}}active{{end}}">{{icon "house"}}<span>Naslovna</span></a>
+    {{if .Sees "vodostaji"}}
+    <a href="/readings" class="donja-stavka {{if eq .ActiveNav "readings"}}active{{end}}">{{icon "ruler"}}<span>Očitanja</span></a>
+    <a href="/prognoze" class="donja-stavka {{if eq .ActiveNav "prognoze"}}active{{end}}">{{icon "chart-column"}}<span>Prognoze</span></a>
+    {{end}}
+    {{if .Sees "dnevnici"}}<a href="/dnevnici" class="donja-stavka {{if eq .ActiveNav "journals"}}active{{end}}">{{icon "file-text"}}<span>Dokumenti</span></a>
+    {{else if .Sees "teren"}}<a href="/teren" class="donja-stavka {{if eq .ActiveNav "teren"}}active{{end}}">{{icon "map-pin"}}<span>Teren</span></a>{{end}}
+    <button type="button" class="donja-stavka" onclick="otvoriIzbornik()" aria-label="Više">{{icon "layout-grid"}}<span>Više</span></button>
+  </nav>
+
   <div id="toast-container" class="toast-container"></div>
   <script>
-    // Izbornik: hamburger na uskim ekranima, padajuća skupina registara
+    // Tema, izbornik (suzi, otvori na mobitelu), skupina registara, oznaka razmjene
     function toggleTheme() {
       var h = document.documentElement;
       var next = h.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
@@ -184,19 +182,51 @@
       try { localStorage.setItem('gocop-theme', next); } catch (e) {}
     }
 
-    function toggleMainNav() {
-      const nav = document.getElementById('main-nav');
-      const btn = document.querySelector('.nav-toggle');
-      const open = nav.classList.toggle('open');
-      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    // Na računalu gumb izbornika sužava i širi izbornik u mjestu; do 839 px
+    // širine izbornik se otvara preko sadržaja
+    function suziIzbornik() {
+      if (window.innerWidth < 840) { otvoriIzbornik(); return; }
+      var suzen = !document.documentElement.classList.contains('izbornik-uski');
+      try { localStorage.setItem('gocop-izbornik', suzen ? 'suzen' : 'sirok'); } catch (e) {}
+      if (window.izbornikOsvjezi) window.izbornikOsvjezi();
     }
+
+    function otvoriIzbornik() {
+      document.body.classList.add('izbornik-otvoren');
+      document.documentElement.classList.remove('izbornik-uski');
+    }
+
+    function zatvoriIzbornik() {
+      document.body.classList.remove('izbornik-otvoren');
+      if (window.izbornikOsvjezi) window.izbornikOsvjezi();
+    }
+
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') zatvoriIzbornik(); });
 
     function toggleNavGroup(event) {
       event.stopPropagation();
+      // u uskoj traci podstavke se ne vide, pa skupina najprije raširi izbornik
+      if (document.documentElement.classList.contains('izbornik-uski')) {
+        suziIzbornik();
+        if (event.currentTarget.closest('.nav-group').classList.contains('open')) return;
+      }
       const group = event.currentTarget.closest('.nav-group');
       const open = group.classList.toggle('open');
       event.currentTarget.setAttribute('aria-expanded', open ? 'true' : 'false');
     }
+
+    // Oznaka razmjene u gornjoj traci: zelena točka kad je sve usklađeno
+    (function () {
+      var znak = document.getElementById('vrh-razmjena');
+      if (!znak || !window.fetch) return;
+      function ucitaj() {
+        fetch('/razmjena/znak', {credentials: 'same-origin', cache: 'no-store'}).then(function (r) {
+          return r.ok ? r.json() : null;
+        }).then(function (d) { if (d && d.stanje) znak.setAttribute('data-stanje', d.stanje); }).catch(function () {});
+      }
+      ucitaj();
+      setInterval(function () { if (!document.hidden) ucitaj(); }, 60000);
+    })();
 
     // Klik izvan izbornika ga zatvara
     document.addEventListener('click', () => {

@@ -14,7 +14,7 @@ import (
 type ErrPreventivnaObrana struct{ Sektor string }
 
 func (e ErrPreventivnaObrana) Error() string {
-	return fmt.Sprintf("sektor %s je u preventivnoj obrani: nema otvorenog dnevnika COP-a. Stupnjevi obrane proglašavaju se samo u aktivnoj obrani; voditelj COP-a prvo otvara dnevnik (Dokumentacija › Dnevnici COP-a)", e.Sektor)
+	return fmt.Sprintf("sektor %s je u preventivnoj obrani: nema otvorenog dnevnika COP-a. Stupnjevi obrane proglašavaju se samo u aktivnoj obrani; voditelj COP-a prvo otvara dnevnik (Dokumenti › Dnevnici COP-a)", e.Sektor)
 }
 
 // AktivnaObrana vraća otvoren dnevnik COP-a sektora: postoji li, obrana je

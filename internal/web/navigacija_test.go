@@ -40,7 +40,7 @@ func prikaziNavigaciju(t *testing.T, moduli models.Visibility) string {
 
 // Djelatnici su vlastita stavka glavnog izbornika, a Administrativna
 // organizacija ostaje pod Registrima (Odluke (30. 10. 2026.)). Isti izbornik
-// je i mobilni, otvoren gumbom.
+// je i na mobitelu, otvoren gumbom „Više”.
 func TestDjelatniciSuVlastitaStavkaIzbornika(t *testing.T) {
 	nav := prikaziNavigaciju(t, models.Visibility{
 		models.ModuleRegisters: true,
@@ -65,14 +65,43 @@ func TestDjelatniciBezRegistaraIRegistriBezDjelatnika(t *testing.T) {
 	if !strings.Contains(nav, `<a href="/users" class="nav-link`) {
 		t.Error("korisnik s imenikom nema stavku Djelatnici")
 	}
-	if strings.Contains(nav, `Registri <span class="nav-caret">`) || strings.Contains(nav, `href="/organizacija"`) {
+	if strings.Contains(nav, `nav-group-btn`) || strings.Contains(nav, `href="/organizacija"`) {
 		t.Error("korisniku bez modula Registri ponuđeni su Registri")
 	}
 	nav = prikaziNavigaciju(t, models.Visibility{models.ModuleRegisters: true})
 	if strings.Contains(nav, `href="/users"`) {
 		t.Error("korisniku bez modula Djelatnici ponuđeni su Djelatnici")
 	}
-	if !strings.Contains(nav, `Registri <span class="nav-caret">`) {
+	if !strings.Contains(nav, `nav-group-btn`) {
 		t.Error("korisnik s Registrima nema Registre")
+	}
+}
+
+// Sredstva za obranu su vlastita stavka izbornika, a ne dio Registara
+// (sustav dizajna, Odluke (31. 10. 2026.)); vidi ih tko vidi registre
+func TestSredstvaSuVlastitaStavkaIzbornika(t *testing.T) {
+	nav := prikaziNavigaciju(t, models.Visibility{models.ModuleRegisters: true})
+	if !strings.Contains(nav, `<a href="/sredstva" class="nav-link`) {
+		t.Error("Sredstva nisu stavka glavnog izbornika")
+	}
+	if strings.Contains(nav, `<a href="/sredstva" class="nav-dropdown-item`) {
+		t.Error("Sredstva su ostala i pod Registrima")
+	}
+	if strings.Contains(prikaziNavigaciju(t, models.Visibility{models.ModuleUsers: true}), `href="/sredstva"`) {
+		t.Error("korisniku bez modula Registri ponuđena su Sredstva")
+	}
+}
+
+// Naslov u gornjoj traci i inicijali osobe
+func TestNaslovGornjeTrakeIInicijali(t *testing.T) {
+	for nav, zeli := range map[string]string{"": "Naslovna", "dashboard": "Naslovna", "sections": "Registri", "sync": "Administracija", "journals": "Dokumenti", "nepoznato": "goCOP"} {
+		if got := navNaslov(nav); got != zeli {
+			t.Errorf("navNaslov(%q) = %q, želi %q", nav, got, zeli)
+		}
+	}
+	for ime, zeli := range map[string]string{"Tomislav Kraljević": "TK", "Ana Marija Horvat": "AH", "Đuro": "Đ", "": "?"} {
+		if got := inicijali(ime); got != zeli {
+			t.Errorf("inicijali(%q) = %q, želi %q", ime, got, zeli)
+		}
 	}
 }

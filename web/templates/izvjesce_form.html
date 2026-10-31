@@ -3,7 +3,7 @@
 {{define "title"}}goCOP — Dnevno izvješće rukovoditelja dionice{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/dnevnici">Dokumentacija</a> › <a href="/izvjesca">Dnevna izvješća</a> ›
+<div class="breadcrumb"><a href="/dnevnici">Dokumenti</a> › <a href="/izvjesca">Dnevna izvješća</a> ›
   {{if .IsEdit}}<a href="/izvjesca/{{.Izvjesce.ID}}">{{.Dionica.Code}} · {{.Izvjesce.Dan.Format "2.1.2006."}}</a> › Obrazac{{else}}Novo izvješće{{end}}</div>
 
 <div class="page-header">

@@ -323,7 +323,7 @@ func TestRazdjelnicaDnevnikaDijeliTriVrste(t *testing.T) {
 		BrojCOP:     13, BrojA02: 2, BrojIzvjesca: 4, CitaCOP: true,
 	})
 	for _, want := range []string{
-		"Dokumentacija", "Dnevnici COP-a", "Dnevna izvješća", "Dnevnici usluga A.02", "Dnevnici usluga A.03",
+		"Dokumenti", "Dnevnici COP-a", "Dnevna izvješća", "Dnevnici usluga A.02", "Dnevnici usluga A.03",
 		"/dnevnici/popis?vrsta=OBRANA", "/izvjesca", "/dnevnici/popis?vrsta=ODRZAVANJE_A02", "/dnevnici/popis?vrsta=ODRZAVANJE_A03",
 		"operateri", ">13<", ">4<", "Rješenja i obavijesti", "/akti", "Vodočuvarski dnevnik", "/vodocuvar",
 	} {
