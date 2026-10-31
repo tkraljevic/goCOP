@@ -733,3 +733,20 @@ je gotov onaj o kojem ovisi.
   raspon i iste objekte.
 - Objekt koji prelazi vodotok, na primjer most, propust ili ušće, upisuje
   se jednom, bez nasipa i s obalom LD. Tako stoji uz nasipe obiju obala.
+
+## Odluke (31. 10. 2026.)
+
+### Mobilna aplikacija i beta
+
+- Mobilna aplikacija (Flutter) dolazi tek nakon bete. Do tada terenske
+  uloge na mobitelu koriste web u novom izgledu (donja traka, kartice po
+  ulozi).
+- Redoslijed: dovršiti web i betu → sučelje (API) za očitanja i dnevnik,
+  isti JSON koji web već dohvaća → mobilna aplikacija, s Očitanjima bez
+  veze kao prvim ekranom.
+- Rad bez veze za očitanja prvo dobiva web, kao red upisa u pregledniku
+  koji se pošalje kad se veza vrati; mobilna aplikacija kasnije dobije isto
+  ponašanje.
+- Beta ostaje izdanje s priručnicima nakon testne simulacije. Okvirna
+  procjena, ne rok: zatvorena proba u Sektoru B na testnoj simulaciji u
+  prosincu 2026., beta krajem siječnja ili u veljači 2027.
