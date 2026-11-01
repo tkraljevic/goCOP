@@ -8,9 +8,12 @@
     <h1 class="page-title">{{icon .Register.Icon}} {{.Register.Title}}</h1>
     <p class="page-desc">{{.Register.Desc}}</p>
   </div>
+  <div class="page-actions d-flex gap-2">
+  {{if or (eq .Register.Kind "CRPNA_STANICA") (eq .Register.Kind "USTAVA")}}<a href="/registri/povezanost-objekata{{if .SelectedArea}}?area={{.SelectedArea}}{{end}}" class="btn btn-secondary">{{icon "link"}} Povezanost</a>{{end}}
   {{if .CanCreate}}
   <a href="/structures/new?kind={{if .SelectedKind}}{{.SelectedKind}}{{else}}{{.Register.Kind}}{{end}}{{if .SelectedArea}}&area={{.SelectedArea}}{{end}}" class="btn btn-primary">{{icon "plus"}} {{.Register.NewLabel}}</a>
   {{end}}
+  </div>
 </div>
 
 <div class="d-flex gap-2 flex-wrap mb-5">

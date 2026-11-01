@@ -43,3 +43,30 @@ func TestObjektImaZapornicu(t *testing.T) {
 		}
 	}
 }
+
+// Stanje „sifoniranje” nudi se samo crpnoj stanici sa sifonom (CS Tikveš,
+// CS Zlatna Greda), osim kad ga očitanje već nosi; sifon se ne može
+// vakumirati ispod najnižeg vodostaja vanjske strane
+func TestSifonCrpneStanice(t *testing.T) {
+	ima := func(stanja []string) bool {
+		for _, s := range stanja {
+			if s == StructureStateSiphoning {
+				return true
+			}
+		}
+		return false
+	}
+	bez := Structure{Kind: StructureKindPumpingStation}
+	sa := Structure{Kind: StructureKindPumpingStation, ImaSifon: true}
+	if ima(bez.StanjaObjekta("")) || !ima(sa.StanjaObjekta("")) || !ima(bez.StanjaObjekta(StructureStateSiphoning)) {
+		t.Error("sifoniranje se nudi krivoj stanici")
+	}
+	if len(sa.StanjaObjekta("")) != len(StructureStates) {
+		t.Error("stanici sa sifonom nedostaje neko stanje")
+	}
+	prag, nisko, visoko := 250, 240, 260
+	sa.SifonMinCm = &prag
+	if !sa.SifonIspodPraga(&nisko) || sa.SifonIspodPraga(&visoko) || sa.SifonIspodPraga(nil) || bez.SifonIspodPraga(&nisko) {
+		t.Error("prag za vakumiranje sifona")
+	}
+}

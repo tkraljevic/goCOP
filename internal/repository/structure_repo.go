@@ -37,16 +37,17 @@ func (r *StructureRepository) SektorPodrucja(ctx context.Context, areaID int) (s
 
 const structureColumns = `id, code, name, kind, sector_id, area_id, watercourse_code, station_id,
 	zero_datum, zero_datum_system, capacity_text, start_cm, start_text, stop_cm, stop_text,
-	notes, origin, latitude, longitude, created_at, updated_at, station_down_id, geometry, ima_ustavu, u_sklopu_id`
+	notes, origin, latitude, longitude, created_at, updated_at, station_down_id, geometry, ima_ustavu, u_sklopu_id,
+	vodotok_druge_strane, reverzibilna, ima_sifon, sifon_min_cm`
 
 func scanStructure(row rowScanner) (models.Structure, error) {
 	var s models.Structure
 	var idStr string
 	var wc, st, zds, cap, stt, spt, notes, origin, dole, geo sql.NullString
 	var zd, lat, lon sql.NullFloat64
-	var startCm, stopCm sql.NullInt64
+	var startCm, stopCm, sifonMin sql.NullInt64
 	err := row.Scan(&idStr, &s.Code, &s.Name, &s.Kind, &s.SectorID, &s.AreaID, &wc, &st,
-		&zd, &zds, &cap, &startCm, &stt, &stopCm, &spt, &notes, &origin, &lat, &lon, &s.CreatedAt, &s.UpdatedAt, &dole, &geo, &s.ImaUstavu, &s.USklopuID)
+		&zd, &zds, &cap, &startCm, &stt, &stopCm, &spt, &notes, &origin, &lat, &lon, &s.CreatedAt, &s.UpdatedAt, &dole, &geo, &s.ImaUstavu, &s.USklopuID, &s.VodotokDrugeStrane, &s.Reverzibilna, &s.ImaSifon, &sifonMin)
 	if err != nil {
 		return s, err
 	}
@@ -62,6 +63,10 @@ func scanStructure(row rowScanner) (models.Structure, error) {
 	if startCm.Valid {
 		v := int(startCm.Int64)
 		s.StartCm = &v
+	}
+	if sifonMin.Valid {
+		v := int(sifonMin.Int64)
+		s.SifonMinCm = &v
 	}
 	if stopCm.Valid {
 		v := int(stopCm.Int64)
@@ -217,10 +222,10 @@ func (r *StructureRepository) CreateStructure(ctx context.Context, s *models.Str
 	defer tx.Rollback()
 
 	if _, err := tx.ExecContext(ctx, `INSERT INTO structures (`+structureColumns+`)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		s.ID.String(), s.Code, s.Name, s.Kind, s.SectorID, s.AreaID, s.WatercourseCode, s.StationID,
 		s.ZeroDatum, s.ZeroDatumSystem, s.CapacityText, s.StartCm, s.StartText, s.StopCm, s.StopText,
-		s.Notes, s.Origin, s.Latitude, s.Longitude, s.CreatedAt, s.UpdatedAt, s.StationDownID, s.Geometry, s.ImaUstavu, s.USklopuID); err != nil {
+		s.Notes, s.Origin, s.Latitude, s.Longitude, s.CreatedAt, s.UpdatedAt, s.StationDownID, s.Geometry, s.ImaUstavu, s.USklopuID, s.VodotokDrugeStrane, s.Reverzibilna, s.ImaSifon, s.SifonMinCm); err != nil {
 		return fmt.Errorf("greška pri upisu objekta: %w", err)
 	}
 	saved, err := getStructureTx(ctx, tx, s.ID.String())
@@ -246,10 +251,11 @@ func (r *StructureRepository) UpdateStructure(ctx context.Context, s *models.Str
 	if _, err := tx.ExecContext(ctx, `UPDATE structures SET code = ?, name = ?, kind = ?, sector_id = ?, area_id = ?,
 		watercourse_code = ?, station_id = ?, zero_datum = ?, zero_datum_system = ?, capacity_text = ?,
 		start_cm = ?, start_text = ?, stop_cm = ?, stop_text = ?, notes = ?, origin = ?, latitude = ?, longitude = ?,
-		updated_at = ?, station_down_id = ?, ima_ustavu = ?, u_sklopu_id = ? WHERE id = ?`,
+		updated_at = ?, station_down_id = ?, ima_ustavu = ?, u_sklopu_id = ?,
+		vodotok_druge_strane = ?, reverzibilna = ?, ima_sifon = ?, sifon_min_cm = ? WHERE id = ?`,
 		s.Code, s.Name, s.Kind, s.SectorID, s.AreaID, s.WatercourseCode, s.StationID, s.ZeroDatum, s.ZeroDatumSystem,
 		s.CapacityText, s.StartCm, s.StartText, s.StopCm, s.StopText, s.Notes, s.Origin, s.Latitude, s.Longitude,
-		s.UpdatedAt, s.StationDownID, s.ImaUstavu, s.USklopuID, s.ID.String()); err != nil {
+		s.UpdatedAt, s.StationDownID, s.ImaUstavu, s.USklopuID, s.VodotokDrugeStrane, s.Reverzibilna, s.ImaSifon, s.SifonMinCm, s.ID.String()); err != nil {
 		return fmt.Errorf("greška pri izmjeni objekta: %w", err)
 	}
 	saved, err := getStructureTx(ctx, tx, s.ID.String())
