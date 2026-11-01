@@ -63,6 +63,85 @@ func (s *StructureService) CanCreate(perms *models.UserPermissions) bool {
 		len(perms.AllowedSectors) > 0 || len(perms.AllowedAreas) > 0)
 }
 
+// provjeriVeze: sektor dolazi iz područja, a ustava smije biti u sklopu
+// crpne stanice
+func (s *StructureService) provjeriVeze(ctx context.Context, st *models.Structure) error {
+	if err := s.sektorIzPodrucja(ctx, st); err != nil {
+		return err
+	}
+	return s.provjeriUSklopu(ctx, st)
+}
+
+// Sklop su crpna stanica u čijem je sklopu ustava i ustave u sklopu crpne
+// stanice; za stranicu objekta
+func (s *StructureService) Sklop(ctx context.Context, st *models.Structure) (*models.Structure, []models.Structure) {
+	var cs *models.Structure
+	if id, err := uuid.Parse(st.USklopuID); err == nil {
+		if nadjena, err := s.Get(ctx, id); err == nil {
+			cs = nadjena
+		}
+	}
+	ustave, err := s.UstaveUSklopu(ctx, st)
+	if err != nil {
+		return cs, nil
+	}
+	return cs, ustave
+}
+
+// ZapornicaObjekta: nosi li očitanje objekta položaj zapornice, a kad je
+// ustava u sklopu crpne stanice, stanica na kojoj se zapornica upisuje
+func (s *StructureService) ZapornicaObjekta(ctx context.Context, st *models.Structure) (bool, *models.Structure) {
+	if st.USklopuID != "" {
+		cs, _ := s.Sklop(ctx, st) // ustava nema svojih ustava u sklopu
+		return false, cs
+	}
+	if st.ImaZapornicu() {
+		return true, nil
+	}
+	ustave, err := s.UstaveUSklopu(ctx, st)
+	return err == nil && len(ustave) > 0, nil
+}
+
+// provjeriUSklopu: u sklopu crpne stanice smije biti samo ustava, i to
+// postojeće crpne stanice
+func (s *StructureService) provjeriUSklopu(ctx context.Context, st *models.Structure) error {
+	st.USklopuID = strings.TrimSpace(st.USklopuID)
+	if st.USklopuID == "" {
+		return nil
+	}
+	if st.Kind != models.StructureKindSluice {
+		return errors.New("u sklopu crpne stanice može biti samo ustava")
+	}
+	id, err := uuid.Parse(st.USklopuID)
+	if err != nil {
+		return errors.New("crpna stanica u čijem je sklopu ustava nije pronađena")
+	}
+	cs, err := s.Get(ctx, id)
+	if err != nil || cs == nil || !cs.IsPumpingStation() {
+		return errors.New("ustava može biti u sklopu samo crpne stanice")
+	}
+	return nil
+}
+
+// UstaveUSklopu su ustave u sklopu crpne stanice; njihova se zapornica
+// upisuje u očitanju stanice
+func (s *StructureService) UstaveUSklopu(ctx context.Context, cs *models.Structure) ([]models.Structure, error) {
+	if cs == nil || !cs.IsPumpingStation() {
+		return nil, nil
+	}
+	ustave, err := s.List(ctx, "", 0, models.StructureKindSluice, "")
+	if err != nil {
+		return nil, err
+	}
+	var out []models.Structure
+	for _, u := range ustave {
+		if u.USklopuID == cs.ID.String() {
+			out = append(out, u)
+		}
+	}
+	return out, nil
+}
+
 func (s *StructureService) validate(ctx context.Context, st *models.Structure) error {
 	st.Name = strings.TrimSpace(st.Name)
 	if st.Name == "" {
@@ -71,7 +150,7 @@ func (s *StructureService) validate(ctx context.Context, st *models.Structure) e
 	if st.AreaID <= 0 {
 		return errors.New("objekt mora pripadati sektoru i branjenom području")
 	}
-	if err := s.sektorIzPodrucja(ctx, st); err != nil {
+	if err := s.provjeriVeze(ctx, st); err != nil {
 		return err
 	}
 	known := false

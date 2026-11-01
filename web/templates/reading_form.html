@@ -32,7 +32,7 @@
   <div id="kartica-vodostaj" class="kartica" role="tabpanel">
   <div class="form-row">
     <div class="form-group">
-      <label class="form-label" for="level_cm">{{if .IsSluice}}Uzvodni vodostaj (cm){{else if and .Station .Station.KotaNM}}Kota vodnog lica (cm n. m.){{else}}Vodostaj (cm){{end}}</label>
+      <label class="form-label" for="level_cm">{{if .IsSluice}}Uzvodni vodostaj (cm){{else if .DrugaLetva}}Unutarnja strana, kanal (cm){{else if and .Station .Station.KotaNM}}Kota vodnog lica (cm n. m.){{else}}Vodostaj (cm){{end}}</label>
       {{/* Brojčana tipkovnica na mobitelu nema minus, pa predznak mijenja gumb ± */}}
       <div class="unos-predznak">
       <button type="button" class="btn btn-secondary predznak-gumb" data-predznak-za="level_cm" aria-label="Promijeni predznak (plus ili minus)" title="Plus ili minus">±</button>
@@ -40,9 +40,9 @@
              value="{{if .Reading.LevelCm}}{{intOf .Reading.LevelCm}}{{end}}" placeholder="0" {{if not .IsEdit}}autofocus{{end}}>
       </div>
     </div>
-    {{if .IsSluice}}
+    {{if or .IsSluice .DrugaLetva}}
     <div class="form-group">
-      <label class="form-label" for="level2_cm">Nizvodni vodostaj (cm)</label>
+      <label class="form-label" for="level2_cm">{{if .IsSluice}}Nizvodni vodostaj (cm){{else}}Vanjska strana (cm){{end}}</label>
       <div class="unos-predznak">
       <button type="button" class="btn btn-secondary predznak-gumb" data-predznak-za="level2_cm" aria-label="Promijeni predznak (plus ili minus)" title="Plus ili minus">±</button>
       <input type="text" inputmode="numeric" pattern="-?[0-9]*" id="level2_cm" name="level2_cm" class="form-control level-input"
@@ -52,6 +52,7 @@
     {{end}}
   </div>
 
+  {{with .ZapornicaNa}}<p class="form-help">Ustava je u sklopu crpne stanice, pa se zapornica upisuje u očitanju stanice: <a href="/readings/new?structure={{.ID}}">{{.Name}}</a>.</p>{{end}}
   {{if .ImaZapornicu}}
   <div class="form-group">
     <label class="form-label" for="gate">Zapornica</label>

@@ -1850,6 +1850,8 @@ func migrateSchema(database *sql.DB) error {
 		{"readings", "gate_pct", "INTEGER"},
 		// crpna stanica s ugrađenom ustavom (gravitacijsko upuštanje i ispuštanje)
 		{"structures", "ima_ustavu", "INTEGER NOT NULL DEFAULT 0"},
+		// ustava u sklopu crpne stanice
+		{"structures", "u_sklopu_id", "TEXT NOT NULL DEFAULT ''"},
 	}
 
 	// Vrijednosti koje su promijenile ime nakon što su upisane
