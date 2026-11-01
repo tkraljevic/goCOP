@@ -342,6 +342,11 @@ func TestUvozBP16Greske(t *testing.T) {
 	// iza tisućitog očitanja ima još jedno, koje se više ne dohvati
 	doVodomjera.zbirke["ostali_vodostaji"] = append(doVodomjera.zbirke["ostali_vodostaji"],
 		raw(`{"id":4,"vodomjer":2,"datum":"2025-06-02","vrijeme":"06:00:00","vodostaj":403}`)...)
+	// kota nule na letvu postojeće i novostvorene crpne stanice
+	sKotom := evidencijaLetvi()
+	sKotom.zbirke["crpne_stanice"] = raw(`{"id":1,"naziv":"CS Probni","status":"published","nula_letve":"79.33"}`)
+	sKotomNovog := evidencijaLetvi()
+	sKotomNovog.zbirke["crpne_stanice"] = raw(`{"id":1,"naziv":"CS Zmajevac","status":"published","nula_letve":"79,33"}`)
 	// dohvaceno: koliko je očitanja uvoz uzeo prije greške; puna serija
 	// prekida uvoz na tisućitom
 	for _, s := range []struct {
@@ -349,7 +354,9 @@ func TestUvozBP16Greske(t *testing.T) {
 		src                 probniIzvor
 		dohvaceno           int
 	}{
-		{"letve objekta", `BEFORE UPDATE ON structures`, "letve objekta CS Probni: ", evidencijaLetvi(), 0},
+		{"dopuna objekta", `BEFORE UPDATE ON structures`, "dopuna objekta CS Probni: ", evidencijaLetvi(), 0},
+		{"kota postojećeg", `BEFORE UPDATE ON stations`, "kota nule letve CS Probni: ", sKotom, 0},
+		{"kota novog", `BEFORE UPDATE ON stations`, "kota nule letve CS i ustava Zmajevac: ", sKotomNovog, 0},
 		{"novi objekt", `BEFORE INSERT ON structures`, "stvaranje objekta CS Zmajevac: ", evidencijaLetvi(), 0},
 		{"nova ustava", `BEFORE INSERT ON structures WHEN NEW.kind = 'USTAVA'`, "stvaranje objekta Ustava Kopačevo: ", evidencijaLetvi(), 0},
 		{"nova postaja", `BEFORE INSERT ON stations`, "stvaranje postaje budapest: ", evidencijaLetvi(), 0},
@@ -371,5 +378,68 @@ func TestUvozBP16Greske(t *testing.T) {
 		if rep.Inserted != 0 || rep.Fetched != s.dohvaceno {
 			t.Errorf("%s: dohvaćeno %d, upisano %d", s.ime, rep.Fetched, rep.Inserted)
 		}
+	}
+}
+
+// Crpnoj stanici iz evidencije se dopune prazan kapacitet i okvirni
+// vodostaji pogona, a njezina letva dobije kotu nule (Trst) kad je nema;
+// upisano u programu se ne dira
+func TestUvozBP16DopunjujePogonCrpneStanice(t *testing.T) {
+	_, deps := registarLetvi(t)
+	ctx := context.Background()
+	deps.StvoriObjekte = true
+	izvor := evidencijaLetvi()
+	izvor.zbirke["crpne_stanice"] = raw(
+		`{"id":1,"naziv":"CS Probni","status":"published","kapacitet":"2.5 + 2x1.75","rad":"165","zaustavljanje":"70 (100)","nula_letve":"79.33"}`,
+		`{"id":2,"naziv":"CS Vezana","status":"published","kapacitet":"2x2.5","rad":"od -20 do 200","zaustavljanje":"-20","nula_letve":"nije broj"}`,
+		`{"id":5,"naziv":"CS Sama","status":"published","nula_letve":"80.00"}`,
+	)
+	vezana, err := deps.Structures.GetByCode(ctx, "bp16-cs-vezana")
+	if err != nil || vezana == nil {
+		t.Fatal(err)
+	}
+	vezana.CapacityText = "1,5"
+	if err := deps.Structures.UpdateStructure(ctx, vezana); err != nil {
+		t.Fatal(err)
+	}
+	// bez upisa izvještaj kaže što bi se dopunilo, a ništa se ne mijenja
+	suho := deps
+	suho.DryRun = true
+	rep, err := Run(ctx, izvor, suho)
+	if err != nil || len(rep.DopunjeniPogoni) != 2 || len(rep.DopunjeneKote) != 1 {
+		t.Fatalf("bez upisa: %v, %v, %v", rep.DopunjeniPogoni, rep.DopunjeneKote, err)
+	}
+	if p, err := deps.Structures.GetByCode(ctx, "bp16-cs-probni"); err != nil || p == nil || p.CapacityText != "" || p.StationID != "" {
+		t.Errorf("bez upisa objekt je promijenjen: %+v", p)
+	}
+	if l, err := deps.Stations.GetStationByCode(ctx, "cs-probni-letva"); err != nil || l == nil || l.ZeroDatum != nil {
+		t.Errorf("bez upisa letva je dobila kotu: %+v", l)
+	}
+	rep, err = Run(ctx, izvor, deps)
+	if err != nil {
+		t.Fatal(err)
+	}
+	probni, err := deps.Structures.GetByCode(ctx, "bp16-cs-probni")
+	if err != nil || probni == nil || probni.CapacityText != "2,5 + 2x1,75" || len(probni.Crpke()) != 3 ||
+		probni.StartCm == nil || *probni.StartCm != 165 || probni.StopText != "70 (100)" || probni.StopCm == nil || *probni.StopCm != 70 {
+		t.Errorf("dopunjena CS Probni: %+v, %v", probni, err)
+	}
+	if v, err := deps.Structures.GetByCode(ctx, "bp16-cs-vezana"); err != nil || v == nil || v.CapacityText != "1,5" || v.StartText != "od -20 do 200" || v.StartCm != nil {
+		t.Errorf("CS Vezana: upisani kapacitet se mijenja ili tekst pogona nije sačuvan: %+v", v)
+	}
+	letva, err := deps.Stations.GetStationByCode(ctx, "cs-probni-letva")
+	if err != nil || letva == nil || letva.ZeroDatum == nil || *letva.ZeroDatum != 79.33 || letva.ZeroDatumSystem != "TRST" {
+		t.Errorf("kota nule letve CS Probni: %+v, %v", letva, err)
+	}
+	if l, err := deps.Stations.GetStationByCode(ctx, "vezana-rucno"); err != nil || l == nil || l.ZeroDatum != nil {
+		t.Errorf("nečitljiva kota je upisana: %+v", l)
+	}
+	if len(rep.DopunjeniPogoni) != 2 || len(rep.DopunjeneKote) != 1 || !strings.Contains(rep.Summary(), "dopunjenim pogonom 2") || !strings.Contains(rep.Summary(), "kotom nule 1") {
+		t.Errorf("izvještaj: %v, %v, %s", rep.DopunjeniPogoni, rep.DopunjeneKote, rep.Summary())
+	}
+	// drugi uvoz ne mijenja ništa, a kota koju letva već ima ostaje
+	rep, err = Run(ctx, izvor, deps)
+	if err != nil || len(rep.DopunjeniPogoni) != 0 || len(rep.DopunjeneKote) != 0 {
+		t.Errorf("ponovljeni uvoz: %v, %v, %v", rep.DopunjeniPogoni, rep.DopunjeneKote, err)
 	}
 }
