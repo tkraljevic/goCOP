@@ -52,9 +52,12 @@ type Reading struct {
 
 	StructureState string `json:"structure_state,omitempty"` // stanje crpne stanice, StructureState*
 	Gate           string `json:"gate,omitempty"`            // zapornica ustave, Gate*
-	AgHours1       *int   `json:"ag_hours_1,omitempty"`      // sati rada agregata
-	AgHours2       *int   `json:"ag_hours_2,omitempty"`
-	AgHours3       *int   `json:"ag_hours_3,omitempty"`
+	// GatePct je koliko je zapornica otvorena, u postocima (1–100); samo uz
+	// GateOpen. Prazno: otvorenost nije upisana.
+	GatePct  *int `json:"gate_pct,omitempty"`
+	AgHours1 *int `json:"ag_hours_1,omitempty"` // sati rada agregata
+	AgHours2 *int `json:"ag_hours_2,omitempty"`
+	AgHours3 *int `json:"ag_hours_3,omitempty"`
 
 	Note string `json:"note,omitempty"`
 	// VrstaBiljeske je tvrdnja uz očitanje s posljedicom na brojke — očitan
@@ -150,7 +153,9 @@ const (
 	GatePartial = "DJELOMIČNO"
 )
 
-var Gates = []string{GateClosed, GateOpen, GatePartial}
+// Gates su položaji koji se biraju u obrascu. „Djelomično” se više ne bira
+// (otvorena zapornica nosi postotak), ali stari zapisi ga zadržavaju.
+var Gates = []string{GateClosed, GateOpen}
 
 // Podrijetla zapisa
 const (
@@ -249,7 +254,14 @@ func StructureStateLabel(state string) string {
 	return ""
 }
 
-func (r Reading) GateLabel() string { return GateLabel(r.Gate) }
+// GateLabel je položaj zapornice riječima, uz otvorenu i postotak
+// („otvorena 40 %”)
+func (r Reading) GateLabel() string {
+	if r.Gate == GateOpen && r.GatePct != nil {
+		return fmt.Sprintf("otvorena %d %%", *r.GatePct)
+	}
+	return GateLabel(r.Gate)
+}
 
 func GateLabel(gate string) string {
 	switch gate {

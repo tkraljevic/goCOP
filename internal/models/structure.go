@@ -34,8 +34,12 @@ type Structure struct {
 	StartText       string   `json:"start_text,omitempty"`        // izvorni zapis kad nije jedan broj
 	StopCm          *int     `json:"stop_cm,omitempty"`           // vodostaj zaustavljanja
 	StopText        string   `json:"stop_text,omitempty"`
-	Notes           string   `json:"notes,omitempty"`
-	Origin          string   `json:"origin"` // odakle zapis: DIRECTUS_BP16, DOKUMENTACIJA, RUČNI_UNOS
+	// ImaUstavu: crpna stanica ima ugrađenu ustavu (zapornicu) za
+	// gravitacijsko upuštanje i ispuštanje, npr. CS Zmajevac i CS Bakanka;
+	// njezino očitanje tada nosi i položaj zapornice
+	ImaUstavu bool   `json:"ima_ustavu,omitempty"`
+	Notes     string `json:"notes,omitempty"`
+	Origin    string `json:"origin"` // odakle zapis: DIRECTUS_BP16, DOKUMENTACIJA, RUČNI_UNOS
 
 	Latitude  *float64 `json:"latitude,omitempty"`
 	Longitude *float64 `json:"longitude,omitempty"`
@@ -195,3 +199,9 @@ func (s Structure) HasGeometry() bool { return strings.TrimSpace(s.Geometry) != 
 
 // IsPumpingStation javlja nosi li objekt podatke o pogonu (uključenje, zaustavljanje)
 func (s Structure) IsPumpingStation() bool { return s.Kind == StructureKindPumpingStation }
+
+// ImaZapornicu: očitanje objekta nosi položaj zapornice; ustava uvijek,
+// crpna stanica samo s ugrađenom ustavom
+func (s Structure) ImaZapornicu() bool {
+	return s.Kind == StructureKindSluice || (s.IsPumpingStation() && s.ImaUstavu)
+}

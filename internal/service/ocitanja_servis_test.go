@@ -202,6 +202,22 @@ func TestProvjeraOcitanja(t *testing.T) {
 		{"stanje na postaji", func(r *models.Reading) { r.StructureState = models.StructureStateIdle }, "samo na objektu"},
 		{"zapornica na postaji", func(r *models.Reading) { r.Gate = models.GateOpen }, "samo na objektu"},
 		{"samo zapornica na postaji", func(r *models.Reading) { r.LevelCm, r.Gate = nil, models.GateClosed }, "samo na objektu"},
+		// otvorenost zapornice: samo uz otvorenu, od 1 do 100 %
+		{"otvorena 40 %", func(r *models.Reading) {
+			r.StationID, r.StructureID, r.Gate, r.GatePct = "", o.ustava.ID.String(), models.GateOpen, cmP(40)
+		}, ""},
+		{"otvorena 100 %", func(r *models.Reading) {
+			r.StationID, r.StructureID, r.Gate, r.GatePct = "", o.ustava.ID.String(), models.GateOpen, cmP(100)
+		}, ""},
+		{"otvorena 0 %", func(r *models.Reading) {
+			r.StationID, r.StructureID, r.Gate, r.GatePct = "", o.ustava.ID.String(), models.GateOpen, cmP(0)
+		}, "od 1 do 100"},
+		{"otvorena 101 %", func(r *models.Reading) {
+			r.StationID, r.StructureID, r.Gate, r.GatePct = "", o.ustava.ID.String(), models.GateOpen, cmP(101)
+		}, "od 1 do 100"},
+		{"zatvorena s postotkom", func(r *models.Reading) {
+			r.StationID, r.StructureID, r.Gate, r.GatePct = "", o.ustava.ID.String(), models.GateClosed, cmP(40)
+		}, "samo uz otvorenu"},
 	}
 	for _, s := range slucajevi {
 		err := o.rs.validate(osnovno(s.izmj), false)

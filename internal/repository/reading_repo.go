@@ -19,7 +19,7 @@ const EntityReadings = "readings"
 
 const readingColumns = `id, station_id, structure_id, measured_at, level_cm, level2_cm, temp_c, flow_m3s, temp_note, flow_method, flow_note, source, origin, source_ref,
 	quality, derived_from, method,
-	observer, user_id, structure_state, gate, ag_hours_1, ag_hours_2, ag_hours_3, note, vrsta_biljeske, izdanje,
+	observer, user_id, structure_state, gate, gate_pct, ag_hours_1, ag_hours_2, ag_hours_3, note, vrsta_biljeske, izdanje,
 	created_at, updated_at`
 
 // ReadingRepository čuva očitanja vodostaja. Svaki upis ostavlja verziju u
@@ -52,7 +52,7 @@ func readingArgs(rd *models.Reading) []any {
 	return []any{
 		rd.ID.String(), rd.StationID, rd.StructureID, rd.MeasuredAt.UTC(), rd.LevelCm, rd.Level2Cm, rd.TempC, rd.FlowM3s,
 		rd.TempNote, rd.FlowMethod, rd.FlowNote, rd.Source, rd.Origin, rd.SourceRef, rd.Quality, rd.DerivedFrom, rd.Method,
-		rd.Observer, rd.UserID, rd.StructureState, rd.Gate,
+		rd.Observer, rd.UserID, rd.StructureState, rd.Gate, rd.GatePct,
 		rd.AgHours1, rd.AgHours2, rd.AgHours3, rd.Note, rd.VrstaBiljeske, rd.Izdanje, rd.CreatedAt.UTC(), rd.UpdatedAt.UTC(),
 	}
 }
@@ -60,11 +60,11 @@ func readingArgs(rd *models.Reading) []any {
 func scanReading(scanner interface{ Scan(...any) error }) (models.Reading, error) {
 	var rd models.Reading
 	var id string
-	var level, level2, ag1, ag2, ag3 sql.NullInt64
+	var level, level2, gatePct, ag1, ag2, ag3 sql.NullInt64
 	var temp, flow sql.NullFloat64
 	err := scanner.Scan(&id, &rd.StationID, &rd.StructureID, &rd.MeasuredAt, &level, &level2, &temp, &flow,
 		&rd.TempNote, &rd.FlowMethod, &rd.FlowNote, &rd.Source, &rd.Origin, &rd.SourceRef, &rd.Quality, &rd.DerivedFrom, &rd.Method,
-		&rd.Observer, &rd.UserID, &rd.StructureState, &rd.Gate,
+		&rd.Observer, &rd.UserID, &rd.StructureState, &rd.Gate, &gatePct,
 		&ag1, &ag2, &ag3, &rd.Note, &rd.VrstaBiljeske, &rd.Izdanje, &rd.CreatedAt, &rd.UpdatedAt)
 	if err != nil {
 		return rd, err
@@ -72,6 +72,7 @@ func scanReading(scanner interface{ Scan(...any) error }) (models.Reading, error
 	rd.ID, _ = uuid.Parse(id)
 	rd.LevelCm = nullInt(level)
 	rd.Level2Cm = nullInt(level2)
+	rd.GatePct = nullInt(gatePct)
 	rd.AgHours1 = nullInt(ag1)
 	rd.AgHours2 = nullInt(ag2)
 	rd.AgHours3 = nullInt(ag3)
@@ -226,7 +227,7 @@ func (r *ReadingRepository) Create(ctx context.Context, rd *models.Reading) erro
 	}
 	defer tx.Rollback()
 	if _, err := tx.ExecContext(ctx, `INSERT INTO readings (`+readingColumns+`)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, readingArgs(rd)...); err != nil {
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, readingArgs(rd)...); err != nil {
 		return fmt.Errorf("greška pri upisu očitanja: %w", err)
 	}
 	channel := readingChannel(ctx, tx, rd)
@@ -253,9 +254,9 @@ func (r *ReadingRepository) Update(ctx context.Context, rd *models.Reading) erro
 	defer tx.Rollback()
 	res, err := tx.ExecContext(ctx, `UPDATE readings SET measured_at = ?, level_cm = ?, level2_cm = ?, temp_c = ?, flow_m3s = ?,
 		temp_note = ?, flow_method = ?, flow_note = ?, source = ?,
-		observer = ?, structure_state = ?, gate = ?, ag_hours_1 = ?, ag_hours_2 = ?, ag_hours_3 = ?, note = ?, updated_at = ?
+		observer = ?, structure_state = ?, gate = ?, gate_pct = ?, ag_hours_1 = ?, ag_hours_2 = ?, ag_hours_3 = ?, note = ?, updated_at = ?
 		WHERE id = ?`,
-		rd.MeasuredAt.UTC(), rd.LevelCm, rd.Level2Cm, rd.TempC, rd.FlowM3s, rd.TempNote, rd.FlowMethod, rd.FlowNote, rd.Source, rd.Observer, rd.StructureState, rd.Gate,
+		rd.MeasuredAt.UTC(), rd.LevelCm, rd.Level2Cm, rd.TempC, rd.FlowM3s, rd.TempNote, rd.FlowMethod, rd.FlowNote, rd.Source, rd.Observer, rd.StructureState, rd.Gate, rd.GatePct,
 		rd.AgHours1, rd.AgHours2, rd.AgHours3, rd.Note, rd.UpdatedAt, rd.ID.String())
 	if err != nil {
 		return fmt.Errorf("greška pri izmjeni očitanja: %w", err)
@@ -335,7 +336,7 @@ func (r *ReadingRepository) ImportBatch(ctx context.Context, readings []models.R
 	}
 	defer tx.Rollback()
 	stmt, err := tx.PrepareContext(ctx, `INSERT OR IGNORE INTO readings (`+readingColumns+`)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return 0, err
 	}
