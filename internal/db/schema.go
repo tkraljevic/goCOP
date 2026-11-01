@@ -1852,6 +1852,12 @@ func migrateSchema(database *sql.DB) error {
 		{"structures", "ima_ustavu", "INTEGER NOT NULL DEFAULT 0"},
 		// ustava u sklopu crpne stanice
 		{"structures", "u_sklopu_id", "TEXT NOT NULL DEFAULT ''"},
+		// vodotok druge strane objekta i reverzibilna crpna stanica
+		{"structures", "vodotok_druge_strane", "TEXT NOT NULL DEFAULT ''"},
+		{"structures", "reverzibilna", "INTEGER NOT NULL DEFAULT 0"},
+		// crpna stanica sa sifonom i najniži vodostaj za vakumiranje
+		{"structures", "ima_sifon", "INTEGER NOT NULL DEFAULT 0"},
+		{"structures", "sifon_min_cm", "INTEGER"},
 	}
 
 	// Vrijednosti koje su promijenile ime nakon što su upisane

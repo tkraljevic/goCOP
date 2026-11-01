@@ -26,6 +26,14 @@ type StructuresHandler struct {
 	tmplDetail       *template.Template
 	tmplForm         *template.Template
 	karta            func() KartaPostavke
+	vodotociSvc      *service.WatercourseService
+	tmplPovezanost   *template.Template
+}
+
+// SetPovezanost daje registar vodotoka (izbor na obrascu objekta) i
+// predložak stranice povezanosti ustava i crpnih stanica
+func (h *StructuresHandler) SetPovezanost(vodotoci *service.WatercourseService, tmpl *template.Template) {
+	h.vodotociSvc, h.tmplPovezanost = vodotoci, tmpl
 }
 
 // SetKarta daje rukovatelju izvor pločica za kartu objekta
@@ -85,6 +93,8 @@ type StructurePageData struct {
 	Stations []models.Station // za odabir vodomjera na obrascu
 	// CrpneStanice su ponuda za „u sklopu crpne stanice” na obrascu ustave
 	CrpneStanice []models.Structure
+	// Vodotoci su ponuda za vodotok prve i druge strane objekta
+	Vodotoci []models.Watercourse
 	// USklopu je crpna stanica u čijem je sklopu ustava; Ustave su ustave u
 	// sklopu crpne stanice
 	USklopu *models.Structure
@@ -256,34 +266,51 @@ func (h *StructuresHandler) ShowStructureForm(w http.ResponseWriter, r *http.Req
 	if cs, err := h.structureService.List(ctx, "", 0, models.StructureKindPumpingStation, ""); err == nil {
 		data.CrpneStanice = cs
 	}
+	data.Vodotoci = h.vodotoci(ctx)
 
 	if err := h.tmplForm.ExecuteTemplate(w, "structure_form.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
+// vodotoci su vodotoci iz registra za izbor na obrascu objekta
+func (h *StructuresHandler) vodotoci(ctx context.Context) []models.Watercourse {
+	if h.vodotociSvc == nil {
+		return nil
+	}
+	v, err := h.vodotociSvc.ListWatercourses(ctx, "", "", false)
+	if err != nil {
+		return nil
+	}
+	return v
+}
+
 func structureFromForm(r *http.Request) models.Structure {
 	areaID, _ := strconv.Atoi(r.FormValue("area_id"))
 	st := models.Structure{
-		Code:            strings.TrimSpace(r.FormValue("code")),
-		Name:            strings.TrimSpace(r.FormValue("name")),
-		Kind:            strings.TrimSpace(r.FormValue("kind")),
-		SectorID:        strings.TrimSpace(r.FormValue("sector_id")),
-		AreaID:          areaID,
-		WatercourseCode: strings.TrimSpace(r.FormValue("watercourse_code")),
-		StationID:       strings.TrimSpace(r.FormValue("station_id")),
-		StationDownID:   strings.TrimSpace(r.FormValue("station_down_id")),
-		ZeroDatum:       parseOptionalFloat(r.FormValue("zero_datum")),
-		ZeroDatumSystem: strings.TrimSpace(r.FormValue("zero_datum_system")),
-		CapacityText:    strings.TrimSpace(r.FormValue("capacity_text")),
-		StartText:       strings.TrimSpace(r.FormValue("start")),
-		StopText:        strings.TrimSpace(r.FormValue("stop")),
-		ImaUstavu:       r.FormValue("ima_ustavu") == "1",
-		USklopuID:       strings.TrimSpace(r.FormValue("u_sklopu_id")),
-		Notes:           strings.TrimSpace(r.FormValue("notes")),
-		Latitude:        parseOptionalFloat(r.FormValue("latitude")),
-		Longitude:       parseOptionalFloat(r.FormValue("longitude")),
+		Code:               strings.TrimSpace(r.FormValue("code")),
+		Name:               strings.TrimSpace(r.FormValue("name")),
+		Kind:               strings.TrimSpace(r.FormValue("kind")),
+		SectorID:           strings.TrimSpace(r.FormValue("sector_id")),
+		AreaID:             areaID,
+		WatercourseCode:    strings.TrimSpace(r.FormValue("watercourse_code")),
+		StationID:          strings.TrimSpace(r.FormValue("station_id")),
+		StationDownID:      strings.TrimSpace(r.FormValue("station_down_id")),
+		ZeroDatum:          parseOptionalFloat(r.FormValue("zero_datum")),
+		ZeroDatumSystem:    strings.TrimSpace(r.FormValue("zero_datum_system")),
+		CapacityText:       strings.TrimSpace(r.FormValue("capacity_text")),
+		StartText:          strings.TrimSpace(r.FormValue("start")),
+		StopText:           strings.TrimSpace(r.FormValue("stop")),
+		ImaUstavu:          r.FormValue("ima_ustavu") == "1",
+		USklopuID:          strings.TrimSpace(r.FormValue("u_sklopu_id")),
+		VodotokDrugeStrane: strings.TrimSpace(r.FormValue("vodotok_druge_strane")),
+		Reverzibilna:       r.FormValue("reverzibilna") == "1",
+		ImaSifon:           r.FormValue("ima_sifon") == "1",
+		Notes:              strings.TrimSpace(r.FormValue("notes")),
+		Latitude:           parseOptionalFloat(r.FormValue("latitude")),
+		Longitude:          parseOptionalFloat(r.FormValue("longitude")),
 	}
+	st.SifonMinCm = najniziZaSifon(r, st.ImaSifon)
 	// vodostaj pogona: jedan broj ulazi u izračun, sve drugo ostaje kao tekst
 	if t := parseThresholdInput(st.StartText); t.Cm != nil {
 		st.StartCm = t.Cm

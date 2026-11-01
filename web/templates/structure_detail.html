@@ -43,6 +43,7 @@
       {{if .Structure.IsPumpingStation}}
       <div><dt>Kapacitet</dt><dd>{{if .Structure.CapacityText}}{{.Structure.CapacityText}} m³/s{{else}}<span class="c-muted fw-500">—</span>{{end}}</dd></div>
       {{if .Structure.IsPumpingStation}}<div><dt>Ustava</dt><dd>{{if .Ustave}}{{range $i, $u := .Ustave}}{{if $i}}, {{end}}<a href="{{$u.Path}}">{{$u.Name}}</a>{{end}} (u sklopu){{else if .Structure.ImaUstavu}}ugrađena, gravitacijsko upuštanje i ispuštanje{{else}}<span class="c-muted fw-500">nema</span>{{end}}</dd></div>{{end}}
+      {{if .Structure.IsPumpingStation}}<div><dt>Smjer rada</dt><dd>{{if .Structure.Reverzibilna}}reverzibilna: odvodnja i navodnjavanje{{else}}odvodnja{{end}}{{if .Structure.ImaSifon}}; sifon za navodnjavanje{{with .Structure.SifonMinCm}}, vakumira se od {{.}} cm vanjske strane{{end}}{{end}}</dd></div>{{end}}
       {{with .USklopu}}<div><dt>U sklopu</dt><dd><a href="{{.Path}}">{{.Name}}</a> · zapornica se upisuje u očitanju stanice</dd></div>{{end}}
       <div><dt>Vodostaj uključenja</dt><dd>{{if .Structure.StartText}}{{.Structure.StartText}} cm{{else}}<span class="c-muted fw-500">—</span>{{end}}</dd></div>
       <div><dt>Vodostaj zaustavljanja</dt><dd>{{if .Structure.StopText}}{{.Structure.StopText}} cm{{else}}<span class="c-muted fw-500">—</span>{{end}}</dd></div>

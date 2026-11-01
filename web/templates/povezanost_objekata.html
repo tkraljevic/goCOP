@@ -1,0 +1,43 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Povezanost ustava i crpnih stanica{{end}}
+
+{{define "content"}}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "link"}} Povezanost ustava i crpnih stanica</h1>
+    <p class="page-desc">Svaka ustava i crpna stanica s vodotokom i letvom obje strane. Ustava: uzvodno i nizvodno. Crpna stanica: unutarnja strana (kanal) i vanjska (vodotok, dunavac, retencija). Što nedostaje dopunite preko „Uredi”.</p>
+  </div>
+</div>
+
+<form method="GET" action="/registri/povezanost-objekata" class="filter-card d-flex items-center gap-3">
+  <label for="area" class="form-label m-0">Branjeno područje</label>
+  <select id="area" name="area" class="form-control max-w-14" onchange="this.form.submit()">
+    <option value="">sva</option>
+    {{range .Areas}}<option value="{{.ID}}" {{if eq .ID $.Podrucje}}selected{{end}}>{{.ID}} {{.Name}}</option>{{end}}
+  </select>
+  <span class="reading-meta">{{len .Redovi}} objekata · {{.Nepotpunih}} nepotpunih</span>
+</form>
+
+{{if .Redovi}}
+<div class="table-responsive reg-card">
+<table class="data-table">
+  <thead><tr><th>Objekt</th><th>BP</th><th>Prva strana: vodotok · letva</th><th>Druga strana: vodotok · letva</th><th>Veza</th><th></th></tr></thead>
+  <tbody>
+  {{range .Redovi}}
+  <tr>
+    <td><a href="{{.Objekt.Path}}">{{.Objekt.Name}}</a>{{if .Objekt.IsPumpingStation}}<div class="reading-meta">crpna stanica{{if .Objekt.Reverzibilna}}, reverzibilna{{end}}{{if .Objekt.ImaSifon}}, sa sifonom{{end}}</div>{{else}}<div class="reading-meta">ustava</div>{{end}}</td>
+    <td>{{.Objekt.AreaID}}</td>
+    <td>{{if .Vodotok}}{{.Vodotok}}{{else}}<span class="badge badge-warning">vodotok nedostaje</span>{{end}}<div class="reading-meta">{{if .Letva}}{{.Letva}}{{else}}letva nedostaje{{end}}</div></td>
+    <td>{{if .VodotokDruge}}{{.VodotokDruge}}{{else}}<span class="badge badge-warning">vodotok nedostaje</span>{{end}}<div class="reading-meta">{{if .LetvaDruge}}{{.LetvaDruge}}{{else}}letva nedostaje{{end}}</div></td>
+    <td>{{if .USklopu}}u sklopu: {{.USklopu}}{{else if .Objekt.ImaUstavu}}ugrađena ustava{{else}}<span class="c-muted">—</span>{{end}}</td>
+    <td>{{if .MozeUredjivati}}<a href="{{.Objekt.Path}}/edit" class="btn btn-sm btn-secondary">{{icon "pencil"}} Uredi</a>{{end}}</td>
+  </tr>
+  {{end}}
+  </tbody>
+</table>
+</div>
+{{else}}
+<div class="alert alert-info">Na ovom području nema ustava ni crpnih stanica.</div>
+{{end}}
+{{end}}
