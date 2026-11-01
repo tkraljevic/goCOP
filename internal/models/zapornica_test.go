@@ -22,3 +22,22 @@ func TestPolozajZapornice(t *testing.T) {
 		}
 	}
 }
+
+// Zapornicu u očitanju ima ustava i crpna stanica s ugrađenom ustavom
+// (gravitacijsko upuštanje i ispuštanje), a druga crpna stanica i drugi
+// objekti nemaju
+func TestObjektImaZapornicu(t *testing.T) {
+	for _, s := range []struct {
+		st   Structure
+		zeli bool
+	}{
+		{Structure{Kind: StructureKindSluice}, true},
+		{Structure{Kind: StructureKindPumpingStation, ImaUstavu: true}, true},
+		{Structure{Kind: StructureKindPumpingStation}, false},
+		{Structure{Kind: StructureKindEmbankment, ImaUstavu: true}, false},
+	} {
+		if got := s.st.ImaZapornicu(); got != s.zeli {
+			t.Errorf("%s, ustava %v: %v, želi %v", s.st.Kind, s.st.ImaUstavu, got, s.zeli)
+		}
+	}
+}

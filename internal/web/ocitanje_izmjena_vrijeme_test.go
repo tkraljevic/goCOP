@@ -75,7 +75,7 @@ func TestObrazacUstaveImaPostotakOtvorenosti(t *testing.T) {
 	pct := 40
 	obrazac := func(rd *models.Reading) string {
 		return iscrtaj(t, "reading_form.html", ReadingFormData{CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
-			Reading: rd, IsEdit: true, IsSluice: true, Gates: models.Gates, GaugeName: "Ustava Probna", BackURL: "/readings", LocalValue: "2026-11-01T08:00"})
+			Reading: rd, IsEdit: true, IsSluice: true, ImaZapornicu: true, Gates: models.Gates, GaugeName: "Ustava Probna", BackURL: "/readings", LocalValue: "2026-11-01T08:00"})
 	}
 	otvorena := obrazac(&models.Reading{Gate: models.GateOpen, GatePct: &pct})
 	if !strings.Contains(otvorena, `name="gate_pct"`) || !strings.Contains(otvorena, `value="40"`) || strings.Contains(otvorena, `data-zapornica-postotak hidden`) {
@@ -130,5 +130,21 @@ func TestObrazacOcitanjaImaGumbZaPredznak(t *testing.T) {
 		if !strings.Contains(html, zeli) {
 			t.Errorf("obrazac očitanja nema %q", zeli)
 		}
+	}
+}
+
+// Crpna stanica bez ugrađene ustave nema zapornicu u očitanju, a stanica s
+// ustavom je ima (CS Zmajevac, CS Bakanka)
+func TestObrazacCrpneStaniceZapornicaSamoSUstavom(t *testing.T) {
+	obrazac := func(ima bool) string {
+		return iscrtaj(t, "reading_form.html", ReadingFormData{CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+			Reading: &models.Reading{}, IsPump: true, ImaZapornicu: ima, Gates: models.Gates, States: models.StructureStates, GaugeName: "CS Proba", BackURL: "/readings", LocalValue: "2026-11-01T08:00"})
+	}
+	if strings.Contains(obrazac(false), `name="gate"`) {
+		t.Error("crpna stanica bez ustave nudi zapornicu")
+	}
+	s := obrazac(true)
+	if !strings.Contains(s, `name="gate"`) || !strings.Contains(s, `name="gate_pct"`) || !strings.Contains(s, `name="structure_state"`) {
+		t.Error("crpna stanica s ustavom nema zapornicu s postotkom uz stanje stanice")
 	}
 }

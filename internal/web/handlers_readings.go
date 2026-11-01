@@ -355,8 +355,11 @@ type ReadingFormData struct {
 	IsEdit      bool
 	IsPump      bool
 	IsSluice    bool
-	IsField     bool   // terencu je način uvijek ručno, pa ga obrazac ne pita
-	LocalValue  string // vrijednost za datetime-local
+	// ImaZapornicu: očitanje nosi položaj zapornice (ustava ili crpna
+	// stanica s ugrađenom ustavom)
+	ImaZapornicu bool
+	IsField      bool   // terencu je način uvijek ručno, pa ga obrazac ne pita
+	LocalValue   string // vrijednost za datetime-local
 	// Izvorni trenutak očitanja pri izmjeni (RFC 3339, UTC): obrazac ga
 	// vraća, pa nepromijenjeno vrijeme ostaje točno, sa sekundama i u
 	// dvostrukom satu pomaka sata (izvorniTrenutak)
@@ -909,6 +912,7 @@ func (h *ReadingsHandler) ShowForm(w http.ResponseWriter, r *http.Request) {
 	if data.Structure != nil {
 		data.IsPump = data.Structure.IsPumpingStation()
 		data.IsSluice = data.Structure.Kind == models.StructureKindSluice
+		data.ImaZapornicu = data.Structure.ImaZapornicu()
 		if latest, err := h.readingService.List(ctx, repository.ReadingFilter{StructureID: data.Structure.ID.String(), Limit: 1}); err == nil && len(latest) > 0 {
 			data.Latest = &latest[0]
 		}

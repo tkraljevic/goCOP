@@ -1848,6 +1848,8 @@ func migrateSchema(database *sql.DB) error {
 		{"peer_sync", "priprema_neuspjesi", "INTEGER NOT NULL DEFAULT 0"},
 		// koliko je zapornica ustave otvorena, u postocima
 		{"readings", "gate_pct", "INTEGER"},
+		// crpna stanica s ugrađenom ustavom (gravitacijsko upuštanje i ispuštanje)
+		{"structures", "ima_ustavu", "INTEGER NOT NULL DEFAULT 0"},
 	}
 
 	// Vrijednosti koje su promijenile ime nakon što su upisane
