@@ -2357,6 +2357,10 @@ textarea {
 .chart .thr-label.regular { fill: var(--faza-r-crta); }
 .chart .thr-label.emerg { fill: var(--faza-i-crta); }
 .chart .thr-label.crit { fill: var(--faza-s-crta); }
+/* Polje vodostaja s gumbom ± za predznak (brojčana tipkovnica nema minus) */
+.unos-predznak { display: flex; gap: var(--space-8); align-items: stretch; }
+.unos-predznak .form-control { flex: 1; min-width: 0; }
+.unos-predznak .predznak-gumb { flex: none; min-width: 3.5rem; padding: 0; font-size: 1.5rem; font-weight: 600; }
 .level-input { font-size: 1.75rem; font-weight: 700; text-align: center; letter-spacing: 0.02em; min-height: 3.5rem; font-variant-numeric: tabular-nums; }
 
 /* Teren: obilazak letvi */
