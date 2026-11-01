@@ -177,3 +177,31 @@ func TestObrazacCrpneStaniceSDvijeLetve(t *testing.T) {
 		t.Error("crpna stanica s jednom letvom nudi drugi vodostaj")
 	}
 }
+
+// Obrazac crpne stanice nudi onoliko agregata koliko stanica ima crpki, a
+// upisani sati drugog agregata ostaju vidljivi i na stanici s jednom crpkom
+func TestObrazacCrpneStaniceAgregatiPoBrojuCrpki(t *testing.T) {
+	obrazac := func(kapacitet string, rd *models.Reading) string {
+		d := ReadingFormData{CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+			Structure: &models.Structure{Name: "CS Proba", Kind: models.StructureKindPumpingStation, CapacityText: kapacitet},
+			Reading:   rd, GaugeName: "CS Proba", BackURL: "/readings", LocalValue: "2026-11-01T08:00"}
+		d.postaviVrstuObjekta()
+		return iscrtaj(t, "reading_form.html", d)
+	}
+	s := obrazac("1,5", &models.Reading{})
+	if !strings.Contains(s, `name="ag_hours_1"`) || strings.Contains(s, `name="ag_hours_2"`) {
+		t.Error("stanica s jednom crpkom ne nudi točno jedan agregat")
+	}
+	s = obrazac("2,5 + 2x1,75", &models.Reading{})
+	if !strings.Contains(s, `name="ag_hours_3"`) || strings.Contains(s, "Broj crpki na stanici") {
+		t.Error("stanica s tri crpke nema tri agregata ili javlja višak crpki")
+	}
+	sati := 7
+	s = obrazac("1,5", &models.Reading{AgHours2: &sati})
+	if !strings.Contains(s, `name="ag_hours_2"`) || !strings.Contains(s, `value="7"`) {
+		t.Error("upisani sati drugog agregata nisu vidljivi pri izmjeni")
+	}
+	if s = obrazac("2x1 + 2x1", &models.Reading{}); !strings.Contains(s, "Broj crpki na stanici: 4.") || strings.Contains(s, `name="ag_hours_4"`) {
+		t.Error("stanica s četiri crpke ne javlja da očitanje bilježi samo tri agregata")
+	}
+}

@@ -84,10 +84,10 @@
   <details {{if .Reading.HasAgHours}}open{{end}} class="mb-4">
     <summary class="form-label cursor-pointer">Sati rada agregata</summary>
     <div class="form-row mt-2">
-      <div class="form-group"><label class="form-label" for="ag_hours_1">Agregat 1 (h)</label><input type="text" inputmode="numeric" id="ag_hours_1" name="ag_hours_1" class="form-control" value="{{if .Reading.AgHours1}}{{intOf .Reading.AgHours1}}{{end}}"></div>
-      <div class="form-group"><label class="form-label" for="ag_hours_2">Agregat 2 (h)</label><input type="text" inputmode="numeric" id="ag_hours_2" name="ag_hours_2" class="form-control" value="{{if .Reading.AgHours2}}{{intOf .Reading.AgHours2}}{{end}}"></div>
-      <div class="form-group"><label class="form-label" for="ag_hours_3">Agregat 3 (h)</label><input type="text" inputmode="numeric" id="ag_hours_3" name="ag_hours_3" class="form-control" value="{{if .Reading.AgHours3}}{{intOf .Reading.AgHours3}}{{end}}"></div>
+      {{range .Agregati}}<div class="form-group"><label class="form-label" for="ag_hours_{{.Broj}}">Agregat {{.Broj}} (h)</label><input type="text" inputmode="numeric" id="ag_hours_{{.Broj}}" name="ag_hours_{{.Broj}}" class="form-control" value="{{if .Sati}}{{intOf .Sati}}{{end}}"></div>
+      {{end}}
     </div>
+    {{if gt .BrojCrpki (len .Agregati)}}<div class="form-help">Broj crpki na stanici: {{.BrojCrpki}}. Očitanje zasad bilježi sate rada samo za prva tri agregata.</div>{{end}}
   </details>
   {{end}}
 
