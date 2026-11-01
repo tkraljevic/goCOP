@@ -83,6 +83,12 @@ type StructurePageData struct {
 	Areas    []models.Area
 	Kinds    []string
 	Stations []models.Station // za odabir vodomjera na obrascu
+	// CrpneStanice su ponuda za „u sklopu crpne stanice” na obrascu ustave
+	CrpneStanice []models.Structure
+	// USklopu je crpna stanica u čijem je sklopu ustava; Ustave su ustave u
+	// sklopu crpne stanice
+	USklopu *models.Structure
+	Ustave  []models.Structure
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -199,6 +205,7 @@ func (h *StructuresHandler) ShowStructure(w http.ResponseWriter, r *http.Request
 		}
 	}
 	data.Station, data.StationDown = h.letvaObjekta(ctx, st.StationID), h.letvaObjekta(ctx, st.StationDownID)
+	data.USklopu, data.Ustave = h.structureService.Sklop(ctx, st)
 	if imaMjerodavneVodomjere(st.Kind) {
 		data.Mjerodavni = h.mjerodavniVodomjeri(ctx, st.ID.String(), st.Kind, data.Sections)
 	}
@@ -246,6 +253,9 @@ func (h *StructuresHandler) ShowStructureForm(w http.ResponseWriter, r *http.Req
 	data.Sectors, _ = h.userService.ListSectors()
 	data.Areas, _ = h.userService.ListAreas("")
 	data.Stations, _ = h.stationService.ListStations(ctx, "", "", "", false)
+	if cs, err := h.structureService.List(ctx, "", 0, models.StructureKindPumpingStation, ""); err == nil {
+		data.CrpneStanice = cs
+	}
 
 	if err := h.tmplForm.ExecuteTemplate(w, "structure_form.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -269,6 +279,7 @@ func structureFromForm(r *http.Request) models.Structure {
 		StartText:       strings.TrimSpace(r.FormValue("start")),
 		StopText:        strings.TrimSpace(r.FormValue("stop")),
 		ImaUstavu:       r.FormValue("ima_ustavu") == "1",
+		USklopuID:       strings.TrimSpace(r.FormValue("u_sklopu_id")),
 		Notes:           strings.TrimSpace(r.FormValue("notes")),
 		Latitude:        parseOptionalFloat(r.FormValue("latitude")),
 		Longitude:       parseOptionalFloat(r.FormValue("longitude")),

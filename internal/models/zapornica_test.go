@@ -35,6 +35,8 @@ func TestObjektImaZapornicu(t *testing.T) {
 		{Structure{Kind: StructureKindPumpingStation, ImaUstavu: true}, true},
 		{Structure{Kind: StructureKindPumpingStation}, false},
 		{Structure{Kind: StructureKindEmbankment, ImaUstavu: true}, false},
+		// ustava u sklopu crpne stanice: zapornica ide u očitanje stanice
+		{Structure{Kind: StructureKindSluice, USklopuID: "cs"}, false},
 	} {
 		if got := s.st.ImaZapornicu(); got != s.zeli {
 			t.Errorf("%s, ustava %v: %v, želi %v", s.st.Kind, s.st.ImaUstavu, got, s.zeli)

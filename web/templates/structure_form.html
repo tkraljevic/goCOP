@@ -27,7 +27,7 @@
     </div>
     <div class="form-group">
       <label class="form-label" for="kind">Vrsta *</label>
-      <select id="kind" name="kind" class="form-control" required onchange="document.getElementById('pump-fields').hidden = this.value !== 'CRPNA_STANICA'">
+      <select id="kind" name="kind" class="form-control" required onchange="document.getElementById('pump-fields').hidden = this.value !== 'CRPNA_STANICA'; document.getElementById('sluice-fields').hidden = this.value !== 'USTAVA'">
         {{range .Kinds}}<option value="{{.}}" {{if eq . $.Structure.Kind}}selected{{end}}>{{structureKind .}}</option>{{end}}
       </select>
     </div>
@@ -44,13 +44,15 @@
     </div>
     <div class="form-group">
       <label class="form-label" for="station_id">Vodomjer na objektu</label>
+      <div class="form-help">Ustava: uzvodni. Crpna stanica: unutarnja strana (kanal).</div>
       <select id="station_id" name="station_id" class="form-control">
         <option value="">— nema —</option>
         {{range .Stations}}<option value="{{.ID}}" {{if eq .ID.String $.Structure.StationID}}selected{{end}}>{{.Name}}{{if .HasWatercourse}} · {{.Watercourse}}{{end}}</option>{{end}}
       </select>
     </div>
     <div class="form-group">
-      <label class="form-label" for="station_down_id">Nizvodni vodomjer (ustava)</label>
+      <label class="form-label" for="station_down_id">Drugi vodomjer</label>
+      <div class="form-help">Ustava: nizvodni. Crpna stanica: vanjska strana (vodotok, dunavac, retencija).</div>
       <select id="station_down_id" name="station_down_id" class="form-control">
         <option value="">— nema —</option>
         {{range .Stations}}<option value="{{.ID}}" {{if eq .ID.String $.Structure.StationDownID}}selected{{end}}>{{.Name}}{{if .HasWatercourse}} · {{.Watercourse}}{{end}}</option>{{end}}
@@ -66,6 +68,17 @@
     <div class="form-group">
       <label class="form-label" for="watercourse_code">Voda (šifra iz registra)</label>
       <input type="text" id="watercourse_code" name="watercourse_code" class="form-control" value="{{.Structure.WatercourseCode}}" placeholder="npr. rijeka-drava" autocomplete="off">
+    </div>
+  </div>
+
+  <div id="sluice-fields" {{if ne .Structure.Kind "USTAVA"}}hidden{{end}}>
+    <div class="form-group">
+      <label class="form-label" for="u_sklopu_id">U sklopu crpne stanice</label>
+      <select id="u_sklopu_id" name="u_sklopu_id" class="form-control">
+        <option value="">— samostalna ustava —</option>
+        {{range .CrpneStanice}}<option value="{{.ID}}" {{if eq (print .ID) $.Structure.USklopuID}}selected{{end}}>{{.Name}}{{if .AreaID}} · BP {{.AreaID}}{{end}}</option>{{end}}
+      </select>
+      <div class="form-help">Kad je ustava dio crpne stanice, zapornica se upisuje u očitanju stanice.</div>
     </div>
   </div>
 
