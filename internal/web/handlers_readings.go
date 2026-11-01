@@ -358,8 +358,14 @@ type ReadingFormData struct {
 	// ImaZapornicu: očitanje nosi položaj zapornice (ustava ili crpna
 	// stanica s ugrađenom ustavom)
 	ImaZapornicu bool
-	IsField      bool   // terencu je način uvijek ručno, pa ga obrazac ne pita
-	LocalValue   string // vrijednost za datetime-local
+	// ZapornicaNa je crpna stanica u čijem je sklopu ustava; zapornica se
+	// upisuje u njezinu očitanju
+	ZapornicaNa *models.Structure
+	// DrugaLetva: crpna stanica ima i letvu vanjske strane, pa očitanje
+	// nosi oba vodostaja (unutarnja i vanjska strana)
+	DrugaLetva bool
+	IsField    bool   // terencu je način uvijek ručno, pa ga obrazac ne pita
+	LocalValue string // vrijednost za datetime-local
 	// Izvorni trenutak očitanja pri izmjeni (RFC 3339, UTC): obrazac ga
 	// vraća, pa nepromijenjeno vrijeme ostaje točno, sa sekundama i u
 	// dvostrukom satu pomaka sata (izvorniTrenutak)
@@ -910,9 +916,8 @@ func (h *ReadingsHandler) ShowForm(w http.ResponseWriter, r *http.Request) {
 	data.BackURL = rd.GaugeURL()
 	data.BackURL = povratnaPutanja(r.URL.Query().Get("back"), data.BackURL)
 	if data.Structure != nil {
-		data.IsPump = data.Structure.IsPumpingStation()
-		data.IsSluice = data.Structure.Kind == models.StructureKindSluice
-		data.ImaZapornicu = data.Structure.ImaZapornicu()
+		data.postaviVrstuObjekta()
+		data.ImaZapornicu, data.ZapornicaNa = h.structureService.ZapornicaObjekta(ctx, data.Structure)
 		if latest, err := h.readingService.List(ctx, repository.ReadingFilter{StructureID: data.Structure.ID.String(), Limit: 1}); err == nil && len(latest) > 0 {
 			data.Latest = &latest[0]
 		}
@@ -1471,4 +1476,12 @@ func (h *ReadingsHandler) ispravljiva(perms *models.UserPermissions, station *mo
 // očitanja; na vodnoj građevini ispravak u tablici se ne nudi
 func (h *ReadingsHandler) briseNaLetvi(perms *models.UserPermissions, station *models.Station) bool {
 	return station != nil && h.readingService.PravaNaLetvu(perms, station).MozeObrisati()
+}
+
+// postaviVrstuObjekta: crpna stanica, ustava, i ima li stanica letvu vanjske
+// strane (pa očitanje nosi oba vodostaja)
+func (d *ReadingFormData) postaviVrstuObjekta() {
+	d.IsPump = d.Structure.IsPumpingStation()
+	d.IsSluice = d.Structure.Kind == models.StructureKindSluice
+	d.DrugaLetva = d.IsPump && d.Structure.StationDownID != ""
 }

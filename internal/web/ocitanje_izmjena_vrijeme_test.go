@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"gocop/internal/models"
 )
 
@@ -146,5 +148,32 @@ func TestObrazacCrpneStaniceZapornicaSamoSUstavom(t *testing.T) {
 	s := obrazac(true)
 	if !strings.Contains(s, `name="gate"`) || !strings.Contains(s, `name="gate_pct"`) || !strings.Contains(s, `name="structure_state"`) {
 		t.Error("crpna stanica s ustavom nema zapornicu s postotkom uz stanje stanice")
+	}
+}
+
+// Ustava u sklopu crpne stanice nema zapornicu u svom očitanju, nego
+// upućuje na očitanje stanice
+func TestObrazacUstaveUSklopuUpucujeNaStanicu(t *testing.T) {
+	cs := &models.Structure{ID: uuid.New(), Name: "CS Proba", Kind: models.StructureKindPumpingStation}
+	s := iscrtaj(t, "reading_form.html", ReadingFormData{CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Reading: &models.Reading{}, IsSluice: true, ZapornicaNa: cs, Gates: models.Gates, GaugeName: "Ustava Proba", BackURL: "/readings", LocalValue: "2026-11-01T08:00"})
+	if strings.Contains(s, `name="gate"`) || !strings.Contains(s, "/readings/new?structure="+cs.ID.String()) || !strings.Contains(s, "CS Proba") {
+		t.Error("ustava u sklopu ne upućuje na očitanje crpne stanice ili nudi svoju zapornicu")
+	}
+}
+
+// Crpna stanica s letvom vanjske strane u očitanju ima oba vodostaja:
+// unutarnju stranu (kanal) i vanjsku
+func TestObrazacCrpneStaniceSDvijeLetve(t *testing.T) {
+	obrazac := func(druga bool) string {
+		return iscrtaj(t, "reading_form.html", ReadingFormData{CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+			Reading: &models.Reading{}, IsPump: true, DrugaLetva: druga, States: models.StructureStates, GaugeName: "CS Proba", BackURL: "/readings", LocalValue: "2026-11-01T08:00"})
+	}
+	s := obrazac(true)
+	if !strings.Contains(s, `name="level2_cm"`) || !strings.Contains(s, "Unutarnja strana, kanal") || !strings.Contains(s, "Vanjska strana") {
+		t.Error("crpna stanica s dvije letve nema oba vodostaja")
+	}
+	if strings.Contains(obrazac(false), `name="level2_cm"`) {
+		t.Error("crpna stanica s jednom letvom nudi drugi vodostaj")
 	}
 }
