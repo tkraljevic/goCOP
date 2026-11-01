@@ -99,7 +99,7 @@ func primijeniOcitanje(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 	}
 	_, err := tx.ExecContext(ctx, `
 		INSERT INTO readings (`+readingColumns+`)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			station_id = excluded.station_id, structure_id = excluded.structure_id, measured_at = excluded.measured_at,
 			level_cm = excluded.level_cm, level2_cm = excluded.level2_cm, temp_c = excluded.temp_c, flow_m3s = excluded.flow_m3s,
@@ -108,7 +108,7 @@ func primijeniOcitanje(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 			source_ref = excluded.source_ref,
 			quality = excluded.quality, derived_from = excluded.derived_from, method = excluded.method,
 			observer = excluded.observer, user_id = excluded.user_id,
-			structure_state = excluded.structure_state, gate = excluded.gate, ag_hours_1 = excluded.ag_hours_1,
+			structure_state = excluded.structure_state, gate = excluded.gate, gate_pct = excluded.gate_pct, ag_hours_1 = excluded.ag_hours_1,
 			ag_hours_2 = excluded.ag_hours_2, ag_hours_3 = excluded.ag_hours_3, note = excluded.note,
 			vrsta_biljeske = excluded.vrsta_biljeske, izdanje = excluded.izdanje,
 			updated_at = excluded.updated_at

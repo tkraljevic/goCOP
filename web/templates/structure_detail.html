@@ -42,6 +42,7 @@
       <div><dt>Kota „0“ letve</dt><dd>{{if .Structure.ZeroDatum}}{{brojHRd .Structure.ZeroDatum 2}} m ({{.Structure.ZeroDatumSystem}}){{else}}<span class="c-muted fw-500">nije upisana</span>{{end}}</dd></div>
       {{if .Structure.IsPumpingStation}}
       <div><dt>Kapacitet</dt><dd>{{if .Structure.CapacityText}}{{.Structure.CapacityText}} m³/s{{else}}<span class="c-muted fw-500">—</span>{{end}}</dd></div>
+      {{if .Structure.IsPumpingStation}}<div><dt>Ustava</dt><dd>{{if .Structure.ImaUstavu}}ugrađena, gravitacijsko upuštanje i ispuštanje{{else}}<span class="c-muted fw-500">nema</span>{{end}}</dd></div>{{end}}
       <div><dt>Vodostaj uključenja</dt><dd>{{if .Structure.StartText}}{{.Structure.StartText}} cm{{else}}<span class="c-muted fw-500">—</span>{{end}}</dd></div>
       <div><dt>Vodostaj zaustavljanja</dt><dd>{{if .Structure.StopText}}{{.Structure.StopText}} cm{{else}}<span class="c-muted fw-500">—</span>{{end}}</dd></div>
       {{end}}

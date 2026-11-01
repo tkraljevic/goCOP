@@ -753,3 +753,34 @@ func TestNedavniSkokoviKrivZapis(t *testing.T) {
 		t.Error("kriv zapis bez greške (broj)")
 	}
 }
+
+// Koliko je zapornica ustave otvorena sprema se i putuje razmjenom do
+// drugog računala, a izmjena na „zatvorena” postotak briše
+func TestOtvorenostZapornicePutujeRazmjenom(t *testing.T) {
+	a := noviCvorZaRazmjenu(t, "a")
+	b := noviCvorZaRazmjenu(t, "b")
+	ctx := context.Background()
+	repoA := NewReadingRepository(a.db, a.rec)
+	pct := 40
+	rd := models.Reading{ID: uuid.New(), StructureID: uuid.NewString(), MeasuredAt: time.Now().Add(-time.Hour),
+		Gate: models.GateOpen, GatePct: &pct, Source: models.ReadingSourceManual}
+	if err := repoA.Create(ctx, &rd); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := repoA.Get(ctx, rd.ID); err != nil || got == nil || got.GatePct == nil || *got.GatePct != 40 || got.GateLabel() != "otvorena 40 %" {
+		t.Fatalf("spremljeno: %+v, %v", got, err)
+	}
+	a.posalji(t, b, "")
+	repoB := NewReadingRepository(b.db, b.rec)
+	if got, err := repoB.Get(ctx, rd.ID); err != nil || got == nil || got.GatePct == nil || *got.GatePct != 40 {
+		t.Fatalf("primljeno: %+v, %v", got, err)
+	}
+	rd.Gate, rd.GatePct, rd.UpdatedAt = models.GateClosed, nil, time.Now()
+	if err := repoA.Update(ctx, &rd); err != nil {
+		t.Fatal(err)
+	}
+	a.posalji(t, b, "")
+	if got, err := repoB.Get(ctx, rd.ID); err != nil || got == nil || got.GatePct != nil || got.GateLabel() != "zatvorena" {
+		t.Errorf("izmjena na zatvorenu: %+v, %v", got, err)
+	}
+}

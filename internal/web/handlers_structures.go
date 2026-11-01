@@ -268,6 +268,7 @@ func structureFromForm(r *http.Request) models.Structure {
 		CapacityText:    strings.TrimSpace(r.FormValue("capacity_text")),
 		StartText:       strings.TrimSpace(r.FormValue("start")),
 		StopText:        strings.TrimSpace(r.FormValue("stop")),
+		ImaUstavu:       r.FormValue("ima_ustavu") == "1",
 		Notes:           strings.TrimSpace(r.FormValue("notes")),
 		Latitude:        parseOptionalFloat(r.FormValue("latitude")),
 		Longitude:       parseOptionalFloat(r.FormValue("longitude")),
