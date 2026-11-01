@@ -982,6 +982,19 @@ func novoOcitanjeIzObrasca(r *http.Request) (*models.Reading, error) {
 	return readingFromForm(r)
 }
 
+// otvorenostIzObrasca je koliko je zapornica otvorena; čita se samo uz
+// otvorenu zapornicu, inače polje (skriveno u obrascu) ne vrijedi
+func otvorenostIzObrasca(r *http.Request, gate string) (*int, error) {
+	if gate != models.GateOpen {
+		return nil, nil
+	}
+	pct, err := parseOptionalInt(r.FormValue("gate_pct"))
+	if err != nil {
+		return nil, fmt.Errorf("otvorenost zapornice: %w", err)
+	}
+	return pct, nil
+}
+
 func readingFromForm(r *http.Request) (*models.Reading, error) {
 	rd := &models.Reading{
 		StationID:      strings.TrimSpace(r.FormValue("station_id")),
@@ -1009,6 +1022,9 @@ func readingFromForm(r *http.Request) (*models.Reading, error) {
 	}
 	if rd.Level2Cm, err = parseOptionalInt(r.FormValue("level2_cm")); err != nil {
 		return nil, fmt.Errorf("nizvodni vodostaj: %w", err)
+	}
+	if rd.GatePct, err = otvorenostIzObrasca(r, rd.Gate); err != nil {
+		return nil, err
 	}
 	if rd.AgHours1, err = parseOptionalInt(r.FormValue("ag_hours_1")); err != nil {
 		return nil, fmt.Errorf("agregat 1: %w", err)

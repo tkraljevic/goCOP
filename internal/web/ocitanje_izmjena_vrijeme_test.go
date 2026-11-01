@@ -67,3 +67,54 @@ func TestSpremanjeIzmjeneCuvaDatumIVrijeme(t *testing.T) {
 		t.Errorf("novo očitanje bez vremena je sada: %v, %v", rd, err)
 	}
 }
+
+// Ustava: zapornica je zatvorena ili otvorena, a uz otvorenu se upisuje
+// koliko posto; polje postotka vidi se samo uz otvorenu, a stari zapis
+// „djelomično” ostaje izabran
+func TestObrazacUstaveImaPostotakOtvorenosti(t *testing.T) {
+	pct := 40
+	obrazac := func(rd *models.Reading) string {
+		return iscrtaj(t, "reading_form.html", ReadingFormData{CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+			Reading: rd, IsEdit: true, IsSluice: true, Gates: models.Gates, GaugeName: "Ustava Probna", BackURL: "/readings", LocalValue: "2026-11-01T08:00"})
+	}
+	otvorena := obrazac(&models.Reading{Gate: models.GateOpen, GatePct: &pct})
+	if !strings.Contains(otvorena, `name="gate_pct"`) || !strings.Contains(otvorena, `value="40"`) || strings.Contains(otvorena, `data-zapornica-postotak hidden`) {
+		t.Error("uz otvorenu zapornicu polje postotka nije vidljivo s upisanom vrijednošću")
+	}
+	if strings.Contains(otvorena, `value="DJELOMIČNO"`) {
+		t.Error("„djelomično” se nudi i novom zapisu")
+	}
+	if !strings.Contains(obrazac(&models.Reading{Gate: models.GateClosed}), `data-zapornica-postotak hidden`) {
+		t.Error("uz zatvorenu zapornicu polje postotka se vidi")
+	}
+	if !strings.Contains(obrazac(&models.Reading{Gate: models.GatePartial}), `value="DJELOMIČNO" selected`) {
+		t.Error("stari zapis „djelomično” nije ostao izabran")
+	}
+}
+
+// Postotak otvorenosti čita se iz obrasca samo uz otvorenu zapornicu
+func TestOtvorenostIzObrasca(t *testing.T) {
+	zahtjev := func(pct string) *http.Request {
+		r := httptest.NewRequest(http.MethodPost, "/readings", strings.NewReader(url.Values{"gate_pct": {pct}}.Encode()))
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		return r
+	}
+	if p, err := otvorenostIzObrasca(zahtjev("40"), models.GateOpen); err != nil || p == nil || *p != 40 {
+		t.Errorf("otvorena 40: %v, %v", p, err)
+	}
+	if p, err := otvorenostIzObrasca(zahtjev("40"), models.GateClosed); err != nil || p != nil {
+		t.Errorf("zatvorena ne čita postotak: %v, %v", p, err)
+	}
+	if p, err := otvorenostIzObrasca(zahtjev(""), models.GateOpen); err != nil || p != nil {
+		t.Errorf("otvorena bez postotka: %v, %v", p, err)
+	}
+	if _, err := otvorenostIzObrasca(zahtjev("četrdeset"), models.GateOpen); err == nil || !strings.Contains(err.Error(), "otvorenost zapornice") {
+		t.Errorf("nečitljiv postotak: %v", err)
+	}
+	// cijeli obrazac s nečitljivim postotkom ne prolazi
+	r := httptest.NewRequest(http.MethodPost, "/readings", strings.NewReader(url.Values{"gate": {models.GateOpen}, "gate_pct": {"puno"}}.Encode()))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if _, err := readingFromForm(r); err == nil || !strings.Contains(err.Error(), "otvorenost zapornice") {
+		t.Errorf("obrazac s nečitljivim postotkom: %v", err)
+	}
+}

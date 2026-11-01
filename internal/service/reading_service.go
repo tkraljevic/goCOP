@@ -218,8 +218,22 @@ func provjeriStanjeObjekta(rd *models.Reading) error {
 	if rd.StructureState != "" && models.StructureStateLabel(rd.StructureState) == "" {
 		return fmt.Errorf("nepoznato stanje crpne stanice")
 	}
+	return provjeriZapornicu(rd)
+}
+
+// provjeriZapornicu: poznat položaj, a postotak samo uz otvorenu i od 1 do 100
+func provjeriZapornicu(rd *models.Reading) error {
 	if rd.Gate != "" && models.GateLabel(rd.Gate) == "" {
 		return fmt.Errorf("nepoznat položaj zapornice")
+	}
+	if rd.GatePct == nil {
+		return nil
+	}
+	if rd.Gate != models.GateOpen {
+		return fmt.Errorf("postotak se upisuje samo uz otvorenu zapornicu")
+	}
+	if *rd.GatePct < 1 || *rd.GatePct > 100 {
+		return fmt.Errorf("otvorenost zapornice upišite od 1 do 100 %%")
 	}
 	return nil
 }

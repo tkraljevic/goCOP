@@ -1846,6 +1846,8 @@ func migrateSchema(database *sql.DB) error {
 		{"peer_sync", "priprema_pokusaji", "INTEGER NOT NULL DEFAULT 0"},
 		{"peer_sync", "priprema_uspjesi", "INTEGER NOT NULL DEFAULT 0"},
 		{"peer_sync", "priprema_neuspjesi", "INTEGER NOT NULL DEFAULT 0"},
+		// koliko je zapornica ustave otvorena, u postocima
+		{"readings", "gate_pct", "INTEGER"},
 	}
 
 	// Vrijednosti koje su promijenile ime nakon što su upisane

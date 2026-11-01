@@ -3710,3 +3710,9 @@ function dodajKontroleKarte(karta, platno, opcije) {
   });
 })();
 
+// Postotak otvorenosti zapornice vidi se samo kad je zapornica otvorena
+document.addEventListener('change', function (e) {
+  if (!e.target || e.target.id !== 'gate') return;
+  var polje = document.querySelector('[data-zapornica-postotak]');
+  if (polje) polje.hidden = e.target.value !== 'OTVORENA';
+});
