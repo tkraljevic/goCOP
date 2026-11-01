@@ -41,6 +41,10 @@ razmjena se ne mijenjaju, pa se računala nadograđuju bilo kojim redom.
   otvorena, a uz otvorenu koliko posto (1–100). Crpna stanica s ugrađenom
   ustavom (gravitacijsko upuštanje i ispuštanje) dobiva kvačicu, pa i
   njezino očitanje nosi zapornicu. Stari zapisi „djelomično” ostaju.
+- **Ustava u sklopu crpne stanice.** Na ustavi se bira crpna stanica u čijem
+  je sklopu (npr. Ustava Bakanka u CS Bakanka); zapornica se tada upisuje u
+  očitanju stanice. Crpna stanica s drugim vodomjerom u očitanju ima oba
+  vodostaja, unutarnju stranu (kanal) i vanjsku.
 - **Negativni vodostaj na iPhoneu.** Brojčana tipkovnica nema minus, pa uz
   polje vodostaja stoji gumb ± koji mijenja predznak.
 - Test opoziva člana više ne ovisi o satu, pa ne pada povremeno na CI-ju.
