@@ -3716,3 +3716,16 @@ document.addEventListener('change', function (e) {
   var polje = document.querySelector('[data-zapornica-postotak]');
   if (polje) polje.hidden = e.target.value !== 'OTVORENA';
 });
+
+// Gumb ± uz polje vodostaja mijenja predznak: brojčana tipkovnica na
+// mobitelu (iPhone) nema znak minus
+document.addEventListener('click', function (e) {
+  var gumb = e.target.closest && e.target.closest('[data-predznak-za]');
+  if (!gumb) return;
+  var polje = document.getElementById(gumb.getAttribute('data-predznak-za'));
+  if (!polje) return;
+  var v = polje.value.trim();
+  polje.value = v.charAt(0) === '-' ? v.slice(1) : '-' + v.replace(/^\+/, '');
+  polje.dispatchEvent(new Event('input', { bubbles: true }));
+  polje.focus();
+});

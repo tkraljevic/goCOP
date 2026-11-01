@@ -118,3 +118,17 @@ func TestOtvorenostIzObrasca(t *testing.T) {
 		t.Errorf("obrazac s nečitljivim postotkom: %v", err)
 	}
 }
+
+// Brojčana tipkovnica na mobitelu nema minus, pa uz polje vodostaja stoji
+// gumb ± koji mijenja predznak; negativni vodostaj se pri izmjeni prikaže
+// s minusom
+func TestObrazacOcitanjaImaGumbZaPredznak(t *testing.T) {
+	cm := -42
+	html := iscrtaj(t, "reading_form.html", ReadingFormData{CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Reading: &models.Reading{MeasuredAt: time.Date(2026, 11, 1, 8, 0, 0, 0, models.Zagreb), LevelCm: &cm}, IsEdit: true, GaugeName: "Proba", BackURL: "/readings", LocalValue: "2026-11-01T08:00"})
+	for _, zeli := range []string{`data-predznak-za="level_cm"`, `id="level_cm"`, `value="-42"`} {
+		if !strings.Contains(html, zeli) {
+			t.Errorf("obrazac očitanja nema %q", zeli)
+		}
+	}
+}

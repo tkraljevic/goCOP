@@ -33,14 +33,21 @@
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="level_cm">{{if .IsSluice}}Uzvodni vodostaj (cm){{else if and .Station .Station.KotaNM}}Kota vodnog lica (cm n. m.){{else}}Vodostaj (cm){{end}}</label>
+      {{/* Brojčana tipkovnica na mobitelu nema minus, pa predznak mijenja gumb ± */}}
+      <div class="unos-predznak">
+      <button type="button" class="btn btn-secondary predznak-gumb" data-predznak-za="level_cm" aria-label="Promijeni predznak (plus ili minus)" title="Plus ili minus">±</button>
       <input type="text" inputmode="numeric" pattern="-?[0-9]*" id="level_cm" name="level_cm" class="form-control level-input"
              value="{{if .Reading.LevelCm}}{{intOf .Reading.LevelCm}}{{end}}" placeholder="0" {{if not .IsEdit}}autofocus{{end}}>
+      </div>
     </div>
     {{if .IsSluice}}
     <div class="form-group">
       <label class="form-label" for="level2_cm">Nizvodni vodostaj (cm)</label>
+      <div class="unos-predznak">
+      <button type="button" class="btn btn-secondary predznak-gumb" data-predznak-za="level2_cm" aria-label="Promijeni predznak (plus ili minus)" title="Plus ili minus">±</button>
       <input type="text" inputmode="numeric" pattern="-?[0-9]*" id="level2_cm" name="level2_cm" class="form-control level-input"
              value="{{if .Reading.Level2Cm}}{{intOf .Reading.Level2Cm}}{{end}}" placeholder="0">
+      </div>
     </div>
     {{end}}
   </div>
