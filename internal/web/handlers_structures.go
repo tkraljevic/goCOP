@@ -312,12 +312,7 @@ func structureFromForm(r *http.Request) models.Structure {
 	}
 	st.SifonMinCm = najniziZaSifon(r, st.ImaSifon)
 	// vodostaj pogona: jedan broj ulazi u izračun, sve drugo ostaje kao tekst
-	if t := parseThresholdInput(st.StartText); t.Cm != nil {
-		st.StartCm = t.Cm
-	}
-	if t := parseThresholdInput(st.StopText); t.Cm != nil {
-		st.StopCm = t.Cm
-	}
+	st.StartCm, st.StopCm = models.VodostajPogona(st.StartText), models.VodostajPogona(st.StopText)
 	// sektor slijedi iz područja ako nije zadan
 	return st
 }

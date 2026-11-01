@@ -31,6 +31,8 @@ import (
 	"gocop/internal/hydro"
 	"gocop/internal/models"
 	"gocop/internal/repository"
+
+	"github.com/google/uuid"
 )
 
 // Source daje zapise jedne Directus zbirke
@@ -202,6 +204,12 @@ type Report struct {
 	Unmapped     map[string]int
 	NewStations  []string
 	NoviObjekti  []string
+	// DopunjeniPogoni su crpne stanice kojima su prazni kapacitet, vodostaji
+	// pogona ili kota nule dopunjeni iz evidencije
+	DopunjeniPogoni []string
+	// DopunjeneKote su letve crpnih stanica koje su dobile kotu nule iz
+	// evidencije
+	DopunjeneKote []string
 	// DopunjeneVeze su postojeći objekti koji su dobili letvu koju nisu imali
 	DopunjeneVeze []string
 }
@@ -210,6 +218,12 @@ type lookupRow struct {
 	ID     int    `json:"id"`
 	Naziv  string `json:"naziv"`
 	Status string `json:"status"`
+	// samo crpne stanice: kapacitet (m³/s), vodostaj uključenja i
+	// zaustavljanja (cm) i kota nule letve (m n. m., Trst)
+	Kapacitet     *string `json:"kapacitet"`
+	Rad           *string `json:"rad"`
+	Zaustavljanje *string `json:"zaustavljanje"`
+	NulaLetve     *string `json:"nula_letve"`
 }
 
 type csRow struct {
@@ -410,24 +424,11 @@ func Run(ctx context.Context, src Source, deps Deps) (Report, error) {
 			if id, ok := structByName[strings.ToLower(naziv)]; ok {
 				out[r.ID] = id
 				// objekt postoji, ali mu letva možda tek sad postoji: dopuni
-				// samo prazne veze, ručno postavljene se ne diraju
+				// samo prazna polja, ručno upisano se ne dira
 				if st, ima := postojeci[strings.ToLower(naziv)]; ima && deps.StvoriObjekte {
-					o, _ := noviObjekt(naziv, vrsta, letvaPoImenu)
-					izmjena := false
-					if st.StationID == "" && o.StationID != "" {
-						st.StationID, izmjena = o.StationID, true
-					}
-					if st.StationDownID == "" && o.StationDownID != "" {
-						st.StationDownID, izmjena = o.StationDownID, true
-					}
-					if izmjena {
-						if !deps.DryRun {
-							if err := deps.Structures.UpdateStructure(ctx, &st); err != nil {
-								return out, fmt.Errorf("letve objekta %s: %w", naziv, err)
-							}
-						}
-						rep.DopunjeneVeze = append(rep.DopunjeneVeze, opisObjekta(&st, letve))
-						logf("Uvoz BP16: objekt „%s“ dobiva letve (%s)", naziv, opisObjekta(&st, letve))
+					d := dopuna{ctx: ctx, deps: deps, rep: &rep, logf: logf, letve: letve}
+					if err := d.postojeci(st, r, vrsta, letvaPoImenu); err != nil {
+						return out, err
 					}
 				}
 				continue
@@ -443,6 +444,8 @@ func Run(ctx context.Context, src Source, deps Deps) (Report, error) {
 			if err != nil {
 				return out, err
 			}
+			d := dopuna{ctx: ctx, deps: deps, rep: &rep, logf: logf, letve: letve}
+			d.pogon(o, r)
 			if !deps.DryRun {
 				if err := deps.Structures.CreateStructure(ctx, o); err != nil {
 					return out, fmt.Errorf("stvaranje objekta %s: %w", naziv, err)
@@ -452,6 +455,9 @@ func Run(ctx context.Context, src Source, deps Deps) (Report, error) {
 			out[r.ID] = o.ID.String()
 			rep.NoviObjekti = append(rep.NoviObjekti, opisObjekta(o, letve))
 			logf("Uvoz BP16: stvoren objekt „%s“ (%s)", naziv, opisObjekta(o, letve))
+			if err := d.kota(o, r); err != nil {
+				return out, err
+			}
 		}
 		return out, nil
 	}
@@ -699,11 +705,18 @@ func (r Report) Summary() string {
 	if len(r.NewStations) > 0 {
 		s += ", nove postaje: " + strings.Join(r.NewStations, ", ")
 	}
-	if len(r.NoviObjekti) > 0 {
-		s += fmt.Sprintf(", novih objekata %d", len(r.NoviObjekti))
-	}
-	if len(r.DopunjeneVeze) > 0 {
-		s += fmt.Sprintf(", objekata s dopunjenim letvama %d", len(r.DopunjeneVeze))
+	for _, b := range []struct {
+		tekst string
+		n     int
+	}{
+		{", novih objekata %d", len(r.NoviObjekti)},
+		{", crpnih stanica s dopunjenim pogonom %d", len(r.DopunjeniPogoni)},
+		{", letava s dopunjenom kotom nule %d", len(r.DopunjeneKote)},
+		{", objekata s dopunjenim letvama %d", len(r.DopunjeneVeze)},
+	} {
+		if b.n > 0 {
+			s += fmt.Sprintf(b.tekst, b.n)
+		}
 	}
 	if len(r.Unmapped) > 0 {
 		var parts []string
@@ -778,4 +791,130 @@ func opisObjekta(o *models.Structure, letve []models.Station) string {
 		s += " (bez letve)"
 	}
 	return s
+}
+
+// dopuniPogon popuni prazna polja crpne stanice iz evidencije: kapacitet
+// crpki i okvirne vodostaje uključenja i zaustavljanja (broj u zagradi je
+// iznimka i ostaje u zapisu). Upisano u programu se ne dira.
+func dopuniPogon(st *models.Structure, r lookupRow) bool {
+	if !st.IsPumpingStation() {
+		return false
+	}
+	kapacitet := popuni(&st.CapacityText, strings.ReplaceAll(tekstPolja(r.Kapacitet), ".", ","))
+	rad := popuni(&st.StartText, tekstPolja(r.Rad))
+	if rad {
+		st.StartCm = models.VodostajPogona(st.StartText)
+	}
+	stop := popuni(&st.StopText, tekstPolja(r.Zaustavljanje))
+	if stop {
+		st.StopCm = models.VodostajPogona(st.StopText)
+	}
+	return kapacitet || rad || stop
+}
+
+// dopuna popunjava prazna polja objekata iz evidencije i bilježi to u
+// izvještaj uvoza
+type dopuna struct {
+	ctx   context.Context
+	deps  Deps
+	rep   *Report
+	logf  func(string, ...any)
+	letve []models.Station
+}
+
+// postojeci dopuni objektu koji već postoji prazne veze na letve, a crpnoj
+// stanici i pogon i kotu nule letve
+func (d dopuna) postojeci(st models.Structure, r lookupRow, vrsta string, letvaPoImenu map[string]string) error {
+	o, _ := noviObjekt(st.Name, vrsta, letvaPoImenu) // noviObjekt ne javlja grešku; potpis je zbog stvaranja
+	veze := dopuniVeze(&st, o)
+	if pogon := d.pogon(&st, r); (veze || pogon) && !d.deps.DryRun {
+		if err := d.deps.Structures.UpdateStructure(d.ctx, &st); err != nil {
+			return fmt.Errorf("dopuna objekta %s: %w", st.Name, err)
+		}
+	}
+	if veze {
+		d.rep.DopunjeneVeze = append(d.rep.DopunjeneVeze, opisObjekta(&st, d.letve))
+		d.logf("Uvoz BP16: objekt „%s“ dobiva letve (%s)", st.Name, opisObjekta(&st, d.letve))
+	}
+	return d.kota(&st, r)
+}
+
+// dopuniVeze postavi objektu letve koje nema, a ima ih objekt istog imena
+// građen iz evidencije; ručno postavljene letve se ne diraju
+func dopuniVeze(st, iz *models.Structure) bool {
+	gore := popuni(&st.StationID, iz.StationID)
+	dolje := popuni(&st.StationDownID, iz.StationDownID)
+	return gore || dolje
+}
+
+// popuni upiše vrijednost u prazno polje i javi je li upisala
+func popuni(polje *string, v string) bool {
+	if *polje != "" || v == "" {
+		return false
+	}
+	*polje = v
+	return true
+}
+
+// tekstPolja je obrezan tekst polja iz evidencije, prazan kad polja nema
+func tekstPolja(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return strings.TrimSpace(*p)
+}
+
+// kotaZaLetvu je kota nule iz evidencije i letva crpne stanice na koju ide;
+// nečitljiva kota ili stanica bez letve ne daju ništa
+func kotaZaLetvu(st *models.Structure, r lookupRow) (float64, uuid.UUID, bool) {
+	if !st.IsPumpingStation() || r.NulaLetve == nil {
+		return 0, uuid.Nil, false
+	}
+	n, err := strconv.ParseFloat(strings.ReplaceAll(tekstPolja(r.NulaLetve), ",", "."), 64)
+	if err != nil {
+		return 0, uuid.Nil, false
+	}
+	id, err := uuid.Parse(st.StationID)
+	if err != nil {
+		return 0, uuid.Nil, false
+	}
+	return n, id, true
+}
+
+// pogon popuni prazan pogon crpne stanice i zabilježi ga
+func (d dopuna) pogon(st *models.Structure, r lookupRow) bool {
+	if !dopuniPogon(st, r) {
+		return false
+	}
+	d.rep.DopunjeniPogoni = append(d.rep.DopunjeniPogoni, opisPogona(st))
+	d.logf("Uvoz BP16: crpna stanica „%s“ dobiva pogon (%s)", st.Name, opisPogona(st))
+	return true
+}
+
+// kota upiše kotu nule iz evidencije (m n. m., Trst) na letvu povezanu s
+// crpnom stanicom, samo kad letva kotu još nema
+func (d dopuna) kota(st *models.Structure, r lookupRow) error {
+	n, id, ok := kotaZaLetvu(st, r)
+	if !ok {
+		return nil
+	}
+	letva, err := d.deps.Stations.GetStationByID(d.ctx, id)
+	if err != nil || letva == nil || letva.ZeroDatum != nil {
+		return err
+	}
+	letva.ZeroDatum, letva.ZeroDatumSystem = &n, "TRST"
+	if !d.deps.DryRun {
+		if err := d.deps.Stations.UpdateStation(d.ctx, letva); err != nil {
+			return fmt.Errorf("kota nule letve %s: %w", letva.Name, err)
+		}
+	}
+	kota := fmt.Sprintf("%s: %.2f m n. m. (Trst)", letva.Name, n)
+	d.rep.DopunjeneKote = append(d.rep.DopunjeneKote, kota)
+	d.logf("Uvoz BP16: letva dobiva kotu nule %s", kota)
+	return nil
+}
+
+// opisPogona je kratki opis pogona za izvještaj uvoza
+func opisPogona(st *models.Structure) string {
+	return fmt.Sprintf("%s: crpki %d (%s m³/s), uključenje %s, zaustavljanje %s", st.Name, len(st.Crpke()), st.CapacityText, st.StartText, st.StopText)
 }

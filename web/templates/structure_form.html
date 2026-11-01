@@ -111,7 +111,7 @@
         <input type="text" inputmode="numeric" id="stop" name="stop" class="form-control" value="{{.Structure.StopText}}" placeholder="npr. 90">
       </div>
     </div>
-    <div class="form-help">Jedan broj ulazi u izračun; zapis poput „76 (90)“ ili „od -20 do 200“ čuva se kao tekst.</div>
+    <div class="form-help">Kapacitet po crpkama, npr. „2,5 + 2x1,75” za tri crpke; iz njega program zna koliko crpki stanica ima. Kod vodostaja broj u zagradi je iznimka, a okvirni je prvi broj; zapis poput „od -20 do 200” čuva se kao tekst.</div>
     <div class="form-group">
       <label class="checkbox-label"><input type="checkbox" name="reverzibilna" value="1" {{if .Structure.Reverzibilna}}checked{{end}}>
         Reverzibilna: crpi u oba smjera (odvodnja i navodnjavanje)</label>
