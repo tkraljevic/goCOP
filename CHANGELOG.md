@@ -4,11 +4,13 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
-## 0.0.48-alfa — 31. 10. 2026.
+## 0.0.48-alfa — 1. 11. 2026.
 
-Novi izgled, prvi dio: temelj za sve stranice. Sadržaj, putovi i podaci
-ostaju isti; mijenja se ono što je zajedničko svim stranicama. Baza i
-razmjena se ne mijenjaju, pa se računala nadograđuju bilo kojim redom.
+Novi izgled, prvi dio: temelj za sve stranice, te ustave i crpne stanice
+spremne za povezivanje s vodotocima i letvama. Baza dobiva nove stupce sama
+pri pokretanju. Nova polja ustava, crpnih stanica i očitanja putuju
+razmjenom; starije izdanje ih čuva, ali ih ne prikazuje, pa sva računala
+nadograditi isti dan.
 
 - **Izbornik sa strane, gornja traka i donja traka na mobitelu.**
   Navigacija više nije u zaglavlju nad sadržajem. Na računalu je izbornik
@@ -45,6 +47,13 @@ razmjena se ne mijenjaju, pa se računala nadograđuju bilo kojim redom.
   je sklopu (npr. Ustava Bakanka u CS Bakanka); zapornica se tada upisuje u
   očitanju stanice. Crpna stanica s drugim vodomjerom u očitanju ima oba
   vodostaja, unutarnju stranu (kanal) i vanjsku.
+- **Povezivanje ustava i crpnih stanica.** Obrazac objekta nudi vodotok iz
+  registra za obje strane (uzvodno ili kanal, te nizvodno ili vanjska strana).
+  Crpna stanica dobiva kvačice „Reverzibilna” (odvodnja i navodnjavanje) i
+  „Ima sifon” s najnižim vodostajem vanjske strane za vakumiranje; stanje
+  „sifoniranje” nudi se samo stanici sa sifonom. Nova stranica „Povezanost
+  ustava i crpnih stanica” pokazuje sve te objekte s vodotokom i letvom obje
+  strane i ističe što nedostaje.
 - **Negativni vodostaj na iPhoneu.** Brojčana tipkovnica nema minus, pa uz
   polje vodostaja stoji gumb ± koji mijenja predznak.
 - Test opoziva člana više ne ovisi o satu, pa ne pada povremeno na CI-ju.
