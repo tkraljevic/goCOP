@@ -1484,4 +1484,5 @@ func (d *ReadingFormData) postaviVrstuObjekta() {
 	d.IsPump = d.Structure.IsPumpingStation()
 	d.IsSluice = d.Structure.Kind == models.StructureKindSluice
 	d.DrugaLetva = d.IsPump && d.Structure.StationDownID != ""
+	d.States = d.Structure.StanjaObjekta(d.Reading.StructureState)
 }

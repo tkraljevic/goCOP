@@ -20,6 +20,7 @@ func jeNavObjekta(nav string) bool { return strings.HasPrefix(nav, "objekti-") }
 // rutaRegistaraObjekata daje svakom registru adresu popisa, a objektu u
 // njemu adresu stranice i obrasca: /nasipi, /nasipi/<id>, /nasipi/<id>/edit
 func (s *Server) rutaRegistaraObjekata(h *StructuresHandler) {
+	s.mux.Handle("GET /registri/povezanost-objekata", s.authMiddleware(http.HandlerFunc(h.ShowPovezanost)))
 	for _, reg := range models.StructureRegisters {
 		s.mux.Handle("GET "+reg.Path, s.authMiddleware(h.ShowRegister(reg)))
 		s.mux.Handle("GET "+reg.Path+"/{id}", s.authMiddleware(http.HandlerFunc(h.ShowStructure)))

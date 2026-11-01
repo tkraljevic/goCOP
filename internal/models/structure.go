@@ -41,8 +41,21 @@ type Structure struct {
 	// USklopuID je crpna stanica u čijem je sklopu ova ustava (npr. Ustava
 	// Zmajevac u CS Zmajevac); zapornica se tada upisuje u očitanju stanice
 	USklopuID string `json:"u_sklopu_id,omitempty"`
-	Notes     string `json:"notes,omitempty"`
-	Origin    string `json:"origin"` // odakle zapis: DIRECTUS_BP16, DOKUMENTACIJA, RUČNI_UNOS
+	// VodotokDrugeStrane je vodotok s druge strane objekta: nizvodno kod
+	// ustave, vanjska strana kod crpne stanice (vodotok, dunavac,
+	// retencija); WatercourseCode je prva strana (uzvodno, kanal)
+	VodotokDrugeStrane string `json:"vodotok_druge_strane,omitempty"`
+	// Reverzibilna: crpna stanica crpi u oba smjera, odvodnja i
+	// navodnjavanje (npr. CS Puškaš i CS Zmajevac)
+	Reverzibilna bool `json:"reverzibilna,omitempty"`
+	// ImaSifon: crpna stanica ima sifon; strojar ga vakumira vakuum
+	// pumpama i njime puni kanalsku mrežu iz vodotoka (navodnjavanje), npr.
+	// CS Tikveš i CS Zlatna Greda. SifonMinCm je najniži vodostaj vanjske
+	// strane (npr. Dunava) pri kojem se cijev još može vakumirati.
+	ImaSifon   bool   `json:"ima_sifon,omitempty"`
+	SifonMinCm *int   `json:"sifon_min_cm,omitempty"`
+	Notes      string `json:"notes,omitempty"`
+	Origin     string `json:"origin"` // odakle zapis: DIRECTUS_BP16, DOKUMENTACIJA, RUČNI_UNOS
 
 	Latitude  *float64 `json:"latitude,omitempty"`
 	Longitude *float64 `json:"longitude,omitempty"`
@@ -202,6 +215,24 @@ func (s Structure) HasGeometry() bool { return strings.TrimSpace(s.Geometry) != 
 
 // IsPumpingStation javlja nosi li objekt podatke o pogonu (uključenje, zaustavljanje)
 func (s Structure) IsPumpingStation() bool { return s.Kind == StructureKindPumpingStation }
+
+// StanjaObjekta su stanja crpne stanice koja se nude u očitanju:
+// sifoniranje samo stanici sa sifonom, ili kad ga očitanje već nosi
+func (s Structure) StanjaObjekta(trenutno string) []string {
+	var out []string
+	for _, st := range StructureStates {
+		if st != StructureStateSiphoning || s.ImaSifon || trenutno == st {
+			out = append(out, st)
+		}
+	}
+	return out
+}
+
+// SifonIspodPraga: vanjska strana je ispod najnižeg vodostaja za
+// vakumiranje sifona, pa se sifon ne može pokrenuti
+func (s Structure) SifonIspodPraga(vanjskaCm *int) bool {
+	return s.ImaSifon && s.SifonMinCm != nil && vanjskaCm != nil && *vanjskaCm < *s.SifonMinCm
+}
 
 // ImaZapornicu: očitanje objekta nosi položaj zapornice; samostalna ustava
 // uvijek, crpna stanica s ugrađenom ustavom (a i stanica s ustavom u
