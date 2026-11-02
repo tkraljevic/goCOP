@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -34,6 +35,11 @@ type IzvoriNaslovne struct {
 	StanjaSektora func(context.Context, string) (map[string]models.StanjeObrane, []models.Section, error)
 	// Osobe su osobe s valjanom ulogom u sektoru i, kad je zadano, području
 	Osobe func(sektor string, area int, uloga models.Role) ([]models.User, error)
+	// Podrucja su branjena područja sektora
+	Podrucja func(sektor string) ([]models.Area, error)
+	// Dezurstva su plan dežurstava dnevnika COP-a, Zapisi njegovi upisi
+	Dezurstva func(ctx context.Context, dnevnik string) ([]models.Dezurstvo, error)
+	Zapisi    func(ctx context.Context, dnevnik string) ([]models.JournalEntry, error)
 }
 
 // SetIzvori daje Naslovnoj izvore sporih kartica
@@ -53,8 +59,9 @@ func glavaKartice(id string) KarticaNaslovne {
 	return k
 }
 
-// vodostaji: letve iznad praga u cijeloj državi, od najvišeg stupnja
-func (h *DashboardHandler) vodostaji(ctx context.Context, sad time.Time) KarticaNaslovne {
+// vodostaji: letve iznad praga u cijeloj državi, od najvišeg stupnja; za
+// dežurnog samo letve njegova sektora
+func (h *DashboardHandler) vodostaji(ctx context.Context, perms *models.UserPermissions, sad time.Time) KarticaNaslovne {
 	if h.izvori.Letve == nil {
 		return nedostupna(kVodostaji, "Vodostaji trenutačno nisu dostupni.")
 	}
@@ -66,7 +73,21 @@ func (h *DashboardHandler) vodostaji(ctx context.Context, sad time.Time) Kartica
 	if h.izvori.Prije != nil {
 		prije = func(g models.GaugeSummary) *int { return h.izvori.Prije(ctx, g) }
 	}
+	if d := dezurnaDuznost(&perms.User, sad); d != nil && !perms.IsGlobalAdmin && !perms.DrzavnaUprava() {
+		letve = letveSektora(letve, *d.SectorID)
+	}
 	return karticaVodostaja(letve, prije, sad)
+}
+
+// letveSektora su letve koje pripadaju sektoru ili ih sektor prati
+func letveSektora(letve []models.GaugeSummary, sektor string) []models.GaugeSummary {
+	var out []models.GaugeSummary
+	for _, g := range letve {
+		if g.SectorID == sektor || slices.Contains(g.SectorIDs, sektor) {
+			out = append(out, g)
+		}
+	}
+	return out
 }
 
 // karticaVodostaja slaže letve iznad praga (Odluke (31. 10. 2026.), državna
@@ -385,6 +406,9 @@ func (h *DashboardHandler) zaRijesiti(r *http.Request, perms *models.UserPermiss
 			s.Nepredani[st.Sektor] = l
 		}
 	}
+	if !perms.IsGlobalAdmin {
+		return karticaZaRijesiti(s, sad) // prava i nove djelatnike rješava samo globalni administrator
+	}
 	if h.izvori.Prava != nil {
 		s.PravaCeka, s.PravaNacin, _ = h.izvori.Prava(ctx) // bez knjige prava redak izostaje
 	}
@@ -415,7 +439,7 @@ func karticaZaRijesiti(s stavkeZaRijesiti, sad time.Time) KarticaNaslovne {
 	for _, st := range s.Stanja {
 		if st.Stadij.InForce() && !st.Sektorsko {
 			k.Redovi = append(k.Redovi, RedakKartice{Ikona: "file-text", Glavno: "Sektorsko izvješće " + st.Sektor + " još nije sastavljeno",
-				Sporedno: st.Stadij.Label(), URL: "/sektorsko-izvjesce/novo?sektor=" + st.Sektor, Hitno: true})
+				Sporedno: st.Stadij.Label() + " · rok 10:00", URL: "/sektorsko-izvjesce/novo?sektor=" + st.Sektor, Hitno: true})
 		}
 	}
 	k.Redovi = append(k.Redovi, redoviNepredanih(s.Nepredani)...)

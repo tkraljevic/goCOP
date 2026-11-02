@@ -109,6 +109,16 @@ func TestIzvoriNaslovne(t *testing.T) {
 	if _, err := i.Teren(ctx, admin, &admin.User); err != nil {
 		t.Errorf("terenski pogled: %v", err)
 	}
+	s.journalService = service.NewJournalService(repository.NewJournalRepository(baza, rec), nil, nil)
+	if _, err := i.Podrucja("B"); err != nil {
+		t.Errorf("područja: %v", err)
+	}
+	if _, err := i.Dezurstva(ctx, "nema"); err != nil {
+		t.Errorf("plan dežurstava: %v", err)
+	}
+	if _, err := i.Zapisi(ctx, "nema"); err != nil {
+		t.Errorf("upisi dnevnika: %v", err)
+	}
 	baza.Close()
 	if _, _, err := s.pravaNaslovne(ctx); err == nil {
 		t.Error("promjene prava bez baze bez greške")

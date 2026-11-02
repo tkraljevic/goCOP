@@ -56,13 +56,9 @@ func (h *DashboardHandler) naslovnaVodocuvara(r *http.Request, data *DashboardVi
 // BP 34 od 06:15”. Traka ima boju faze vlastitog područja; o ostatku
 // sektora piše samo najviši stupanj (Odluke (31. 10. 2026.)).
 func trakaPodrucja(area int, sektor string, stanja map[string]models.StanjeObrane, dionice []models.Section) *TrakaNaslovne {
-	vlastito, drugo, drugoBP := models.AktivniStadij{}, models.AktivniStadij{}, 0
+	vlastito, drugo, drugoBP := fazaPodrucja(area, stanja, dionice), models.AktivniStadij{}, 0
 	for _, d := range dionice {
-		v := stanja[d.Code].Vrh()
-		switch {
-		case d.AreaID == area && v.Stupanj.Severity() > vlastito.Stupanj.Severity():
-			vlastito = v
-		case d.AreaID != area && v.Stupanj.Severity() > drugo.Stupanj.Severity():
+		if v := stanja[d.Code].Vrh(); d.AreaID != area && v.Stupanj.Severity() > drugo.Stupanj.Severity() {
 			drugo, drugoBP = v, d.AreaID
 		}
 	}
