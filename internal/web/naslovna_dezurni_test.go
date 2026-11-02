@@ -22,20 +22,20 @@ func TestKarticaStanjaSektora(t *testing.T) {
 	podrucja := []models.Area{{ID: 15, Name: "Mali sliv Vuka"}, {ID: 34, Name: "Drava i Dunav"}, {ID: 16}}
 	dionice := []models.Section{{Code: "B.34.1", AreaID: 34}, {Code: "B.15.1", AreaID: 15}}
 	stanja := map[string]models.StanjeObrane{"B.34.1": {Aktivni: []models.AktivniStadij{{Stupanj: models.PhasePrep, Od: od}}}}
-	k := karticaStanjaSektora("B", podrucja, stanja, dionice)
+	k := karticaStanjaSektora("B", podrucja, stanja, dionice, map[int]string{15: "Ivo Proba · 3 na terenu", 34: "Ana Proba"})
 	if k.Naslov != "Stanje obrane · Sektor B" || len(k.Redovi) != 3 {
 		t.Fatalf("kartica: %+v", k)
 	}
-	if r := k.Redovi[0]; r.Glavno != "BP 34 · Drava i Dunav" || r.Istaknuto != "prep" || r.Sporedno != "od 30. 10." || !r.Hitno {
+	if r := k.Redovi[0]; r.Glavno != "BP 34 · Drava i Dunav" || r.Istaknuto != "prep" || r.Sporedno != "Ana Proba · od 30. 10." || !r.Hitno {
 		t.Errorf("područje u obrani: %+v", r)
 	}
-	if r := k.Redovi[1]; r.Glavno != "BP 15 · Mali sliv Vuka" || r.Vrijednost != "preventivna obrana" || r.Istaknuto != "" {
+	if r := k.Redovi[1]; r.Glavno != "BP 15 · Mali sliv Vuka" || r.Vrijednost != "preventivna obrana" || r.Istaknuto != "" || r.Sporedno != "Ivo Proba · 3 na terenu" {
 		t.Errorf("mirno područje: %+v", r)
 	}
 	if k.Redovi[2].Glavno != "BP 16" {
 		t.Errorf("područje bez imena: %+v", k.Redovi[2])
 	}
-	if p := karticaStanjaSektora("B", nil, nil, nil); p.Prazno == nil || p.Prazno.Vrsta != PraznoNedostupno {
+	if p := karticaStanjaSektora("B", nil, nil, nil, nil); p.Prazno == nil || p.Prazno.Vrsta != PraznoNedostupno {
 		t.Errorf("bez područja: %+v", p)
 	}
 }

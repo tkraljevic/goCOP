@@ -97,6 +97,14 @@ func TestIzvoriNaslovne(t *testing.T) {
 	if _, err := s.cekajuParafuNaslovne(ctx, nil, 16); err == nil {
 		t.Error("parafe bez dnevnika bez greške")
 	}
+	if _, err := s.aktiNaPotpisNaslovne(ctx, nil, "B"); err == nil {
+		t.Error("akti bez servisa akata bez greške")
+	}
+	s.akti = service.NewAktService(repository.NewAktiRepository(baza, rec), stationRepo, repository.NewSectionRepository(baza, rec),
+		repository.NewTerritoryRepository(baza, rec), readingRepo, users, service.NewEpisodeService(repository.NewEpisodeRepository(baza, rec), readingRepo, stationRepo), "test")
+	if a, err := s.aktiNaPotpisNaslovne(ctx, &models.UserPermissions{IsGlobalAdmin: true}, "B"); len(a) != 0 || err != nil {
+		t.Errorf("akti na potpis praznog sektora: %v %v", a, err)
+	}
 	s.vodocuvar = service.NewVodocuvarService(repository.NewVodocuvarRepository(baza, rec), users, "test")
 	s.prijave = service.NewPrijavaService(repository.NewPrijavaRepository(baza, rec), users, s.vodocuvar, "test")
 	admin := &models.UserPermissions{IsGlobalAdmin: true, User: models.User{ID: uuid.New(), IsGlobalAdmin: true}}

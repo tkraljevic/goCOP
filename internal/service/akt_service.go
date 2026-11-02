@@ -1264,6 +1264,22 @@ func (s *AktService) List(ctx context.Context, perms *models.UserPermissions, f 
 	return out, nil
 }
 
+// NaPotpis su nacrti akata sektora koje osoba smije ovjeriti, najnoviji
+// prvi
+func (s *AktService) NaPotpis(ctx context.Context, perms *models.UserPermissions, sektor string) ([]models.Akt, error) {
+	nacrti, err := s.List(ctx, perms, repository.FiltarAkata{Sektor: sektor, Status: models.AktNacrt, Limit: 100})
+	if err != nil {
+		return nil, err
+	}
+	var out []models.Akt
+	for i := range nacrti {
+		if s.SmijeOvjeriti(perms, &nacrti[i]) {
+			out = append(out, nacrti[i])
+		}
+	}
+	return out, nil
+}
+
 // radiPoAktu javlja radi li osoba u sektoru, području ili na dionici akta
 // (isti uvjet kao popis akata)
 func radiPoAktu(perms *models.UserPermissions, a models.Akt) bool {

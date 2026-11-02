@@ -30,6 +30,7 @@ const (
 const (
 	uAdmin     = "admin"
 	uUprava    = "uprava"
+	uSektor    = "sektor"
 	uDezurni   = "dezurni"
 	uPodrucje  = "podrucje"
 	uDionica   = "dionica"
@@ -46,6 +47,8 @@ func ulogaNaslovne(perms *models.UserPermissions, sad time.Time) string {
 		return uAdmin
 	case perms.DrzavnaUprava():
 		return uUprava
+	case duznostSektora(&perms.User, sad) != nil:
+		return uSektor
 	case dezurnaDuznost(&perms.User, sad) != nil:
 		return uDezurni
 	case duznostPodrucja(&perms.User, sad) != nil:
@@ -62,6 +65,7 @@ func ulogaNaslovne(perms *models.UserPermissions, sad time.Time) string {
 var karticeZaUlogu = map[string][]string{
 	uAdmin:     {kStanjeObrane, kZaRijesiti, kVodostaji, kVrijeme, kJaceOborine, kDogadjanja, kSustav},
 	uUprava:    {kStanjeObrane, kZaRijesiti, kVodostaji, kVrijeme, kJaceOborine, kDogadjanja},
+	uSektor:    {kStanjeSektora, kZaRijesiti, kDnevnikCOP, kVodostaji, kVrijeme, kJaceOborine},
 	uDezurni:   {kMojeDezurstvo, kZaRijesiti, kStanjeSektora, kDnevnikCOP, kVodostaji, kVrijeme, kJaceOborine},
 	uPodrucje:  {kPodrucje, kZaRijesiti, kZadaciPodrucja, kCrpneStanice, kUstave, kVodostaji, kVrijeme, kJaceOborine},
 	uDionica:   {kMojeDionice, kZaRijesiti, kObjektiDionica, kVodostaji, kVrijeme, kJaceOborine},

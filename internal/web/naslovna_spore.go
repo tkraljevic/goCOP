@@ -52,6 +52,8 @@ type IzvoriNaslovne struct {
 	// CekajuParafu su listovi područja koje osoba smije parafirati, a još
 	// ih nije parafirala
 	CekajuParafu func(ctx context.Context, perms *models.UserPermissions, area int) ([]models.VodocuvarskiList, error)
+	// AktiNaPotpis su nacrti akata sektora koje osoba smije ovjeriti
+	AktiNaPotpis func(ctx context.Context, perms *models.UserPermissions, sektor string) ([]models.Akt, error)
 }
 
 // SetIzvori daje Naslovnoj izvore sporih kartica i zaboravlja zapamćene
@@ -124,6 +126,8 @@ func (h *DashboardHandler) vodostaji(ctx context.Context, perms *models.UserPerm
 		prije = func(g models.GaugeSummary) *int { return h.izvori.Prije(ctx, g) }
 	}
 	switch ulogaNaslovne(perms, sad) {
+	case uSektor:
+		return vodostajiSektora(letve, prije, sektorOsobe(perms, sad), sad)
 	case uDezurni:
 		letve = letveSektora(letve, *dezurnaDuznost(&perms.User, sad).SectorID)
 	case uPodrucje:
@@ -442,14 +446,21 @@ type stavkeZaRijesiti struct {
 	PravaCeka  int
 	PravaNacin string
 	BezUloge   []models.User
+	// uprava sektora: akti na potpis i prijave s terena sektora
+	Akti    []models.Akt
+	Prijave []models.PrijavaSTerena
+	Sektor  string
 }
 
 // zaRijesiti skuplja posao globalnog administratora: sektorsko izvješće u
 // obrani, nepredane dnevne listove, promjene prava i nove djelatnike
 func (h *DashboardHandler) zaRijesiti(r *http.Request, perms *models.UserPermissions, sad time.Time) KarticaNaslovne {
 	ctx := r.Context()
-	if ulogaNaslovne(perms, sad) == uPodrucje {
+	switch ulogaNaslovne(perms, sad) {
+	case uPodrucje:
 		return h.zaRijesitiPodrucja(ctx, perms, *duznostPodrucja(&perms.User, sad), sad)
+	case uSektor:
+		return h.zaRijesitiSektora(r, perms, sektorOsobe(perms, sad), sad)
 	}
 	s := stavkeZaRijesiti{Nepredani: map[string][]models.VodocuvarskiList{}}
 	data := DashboardViewData{ViewAsBanner: viewBanner(r)}
@@ -493,6 +504,9 @@ func noviBezUloge(svi []models.User) []models.User {
 // prava i djelatnici; broj uz naslov je broj stavki
 func karticaZaRijesiti(s stavkeZaRijesiti, sad time.Time) KarticaNaslovne {
 	k := glavaKartice(kZaRijesiti)
+	for _, a := range s.Akti {
+		k.Redovi = append(k.Redovi, redakAkta(a))
+	}
 	for _, st := range s.Stanja {
 		if st.Stadij.InForce() && !st.Sektorsko {
 			k.Redovi = append(k.Redovi, RedakKartice{Ikona: "file-text", Glavno: "Sektorsko izvješće " + st.Sektor + " još nije sastavljeno",
@@ -500,6 +514,7 @@ func karticaZaRijesiti(s stavkeZaRijesiti, sad time.Time) KarticaNaslovne {
 		}
 	}
 	k.Redovi = append(k.Redovi, redoviNepredanih(s.Nepredani)...)
+	k.Redovi = append(k.Redovi, redoviPrijava(s.Prijave, s.Sektor, sad)...)
 	if s.PravaCeka > 0 {
 		k.Redovi = append(k.Redovi, redakPrava(s.PravaCeka, s.PravaNacin))
 	}

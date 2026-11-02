@@ -44,7 +44,16 @@ func (s *Server) izvoriNaslovne() IzvoriNaslovne {
 		Prijave:        s.prijaveNaslovne,
 		ZadaciPodrucja: s.zadaciPodrucjaNaslovne,
 		CekajuParafu:   s.cekajuParafuNaslovne,
+		AktiNaPotpis:   s.aktiNaPotpisNaslovne,
 	}
+}
+
+// aktiNaPotpisNaslovne su nacrti akata sektora koje osoba smije ovjeriti
+func (s *Server) aktiNaPotpisNaslovne(ctx context.Context, perms *models.UserPermissions, sektor string) ([]models.Akt, error) {
+	if s.akti == nil {
+		return nil, errors.New("akti još nisu otvoreni")
+	}
+	return s.akti.NaPotpis(ctx, perms, sektor)
 }
 
 // cekajuParafuNaslovne su listovi područja koji čekaju parafu osobe

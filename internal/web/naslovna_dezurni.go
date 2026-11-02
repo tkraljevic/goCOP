@@ -32,8 +32,9 @@ func fazaPodrucja(area int, stanja map[string]models.StanjeObrane, dionice []mod
 }
 
 // karticaStanjaSektora: svako branjeno područje sektora u jednom retku,
-// područja u obrani prva i s plohom faze, ostala u preventivnoj obrani
-func karticaStanjaSektora(sektor string, podrucja []models.Area, stanja map[string]models.StanjeObrane, dionice []models.Section) KarticaNaslovne {
+// područja u obrani prva i s plohom faze, ostala u preventivnoj obrani; uz
+// područje rukovoditelj i ljudi na terenu (ljudi po području)
+func karticaStanjaSektora(sektor string, podrucja []models.Area, stanja map[string]models.StanjeObrane, dionice []models.Section, ljudi map[int]string) KarticaNaslovne {
 	k := KarticaNaslovne{ID: kStanjeSektora, Naslov: "Stanje obrane · Sektor " + sektor, Poveznica: "Akti", URL: "/akti", HitnoNaziv: "u obrani"}
 	type redPodrucja struct {
 		a models.Area
@@ -47,10 +48,10 @@ func karticaStanjaSektora(sektor string, podrucja []models.Area, stanja map[stri
 		return cmp.Or(cmp.Compare(y.f.Stupanj.Severity(), x.f.Stupanj.Severity()), cmp.Compare(x.a.ID, y.a.ID))
 	})
 	for _, r := range redovi {
-		red := RedakKartice{Glavno: podrucjeNaslovne(r.a), Vrijednost: "preventivna obrana", Tiho: true}
+		red := RedakKartice{Glavno: podrucjeNaslovne(r.a), Sporedno: ljudi[r.a.ID], Vrijednost: "preventivna obrana", Tiho: true}
 		if r.f.Stupanj.InForce() {
 			red.Istaknuto, red.Vrijednost, red.Hitno = r.f.Stupanj.PillClass(), r.f.Stupanj.Label(), true
-			red.Sporedno = "od " + odKadFaze(r.f.Od)
+			red.Sporedno = strings.TrimPrefix(red.Sporedno+" · od "+odKadFaze(r.f.Od), " · ")
 		}
 		k.Redovi = append(k.Redovi, red)
 	}
@@ -194,15 +195,18 @@ func karticaDnevnikaCOP(st *service.StanjeObrane, upisi []models.JournalEntry, s
 // karticaDezurnog slaže kartice dežurnog za njegov sektor
 func (h *DashboardHandler) karticaDezurnog(r *http.Request, perms *models.UserPermissions, data *DashboardViewData, id string) KarticaNaslovne {
 	sad := time.Now()
-	d := dezurnaDuznost(&perms.User, sad)
-	st := stanjeSektora(data.Stanja, *d.SectorID)
+	sektor := sektorOsobe(perms, sad)
+	if sektor == "" {
+		return nedostupna(id, "Dužnost u sektoru je u međuvremenu istekla.")
+	}
+	st := stanjeSektora(data.Stanja, sektor)
 	switch id {
 	case kMojeDezurstvo:
 		var plan []models.Dezurstvo
 		if st != nil && st.Dnevnik != nil && h.izvori.Dezurstva != nil {
 			plan, _ = h.izvori.Dezurstva(r.Context(), st.Dnevnik.ID) // bez plana kartica kaže samo tko dežura
 		}
-		return karticaMojegDezurstva(*d.SectorID, st, plan, &perms.User, sad)
+		return karticaMojegDezurstva(sektor, st, plan, &perms.User, sad)
 	case kDnevnikCOP:
 		var upisi []models.JournalEntry
 		if st != nil && st.Dnevnik != nil && h.izvori.Zapisi != nil {
@@ -210,11 +214,11 @@ func (h *DashboardHandler) karticaDezurnog(r *http.Request, perms *models.UserPe
 		}
 		return karticaDnevnikaCOP(st, upisi, sad)
 	}
-	return h.stanjeSektoraKartica(r, *d.SectorID)
+	return h.stanjeSektoraKartica(r, perms, sektor, sad)
 }
 
 // stanjeSektoraKartica: stanje obrane sektora po branjenim područjima
-func (h *DashboardHandler) stanjeSektoraKartica(r *http.Request, sektor string) KarticaNaslovne {
+func (h *DashboardHandler) stanjeSektoraKartica(r *http.Request, perms *models.UserPermissions, sektor string, sad time.Time) KarticaNaslovne {
 	if h.izvori.StanjaSektora == nil || h.izvori.Podrucja == nil {
 		return nedostupna(kStanjeSektora, "Stanje sektora trenutačno nije dostupno.")
 	}
@@ -225,5 +229,5 @@ func (h *DashboardHandler) stanjeSektoraKartica(r *http.Request, sektor string) 
 		k.Naslov = "Stanje obrane · Sektor " + sektor
 		return k
 	}
-	return karticaStanjaSektora(sektor, podrucja, stanja, dionice)
+	return karticaStanjaSektora(sektor, podrucja, stanja, dionice, h.ljudiPodrucja(r.Context(), perms, sektor, sad))
 }
