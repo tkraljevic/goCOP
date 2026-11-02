@@ -35,6 +35,8 @@ func karticeUloge(perms *models.UserPermissions) []string {
 		return []string{kStanjeObrane, kZaRijesiti, kVodostaji, kVrijeme, kJaceOborine, kDogadjanja, kSustav}
 	case perms.DrzavnaUprava():
 		return []string{kStanjeObrane, kZaRijesiti, kVodostaji, kVrijeme, kJaceOborine, kDogadjanja}
+	case dezurnaDuznost(&perms.User, time.Now()) != nil:
+		return []string{kMojeDezurstvo, kZaRijesiti, kStanjeSektora, kDnevnikCOP, kVodostaji, kVrijeme, kJaceOborine}
 	case terenskaDuznost(&perms.User, time.Now()) != nil:
 		return []string{kDnevniList, kZadaci, kMojeLetve, kVrijeme}
 	}
@@ -60,6 +62,8 @@ func (h *DashboardHandler) kartica(r *http.Request, perms *models.UserPermission
 		return karticaDogadjanja(data.Zid, time.Now())
 	case kDnevniList, kZadaci:
 		return h.karticaKnjige(r, id)
+	case kMojeDezurstvo, kDnevnikCOP, kStanjeSektora:
+		return h.karticaDezurnog(r, perms, data, id)
 	}
 	return lijenaKartica(id)
 }
@@ -143,7 +147,7 @@ func (h *DashboardHandler) sporaKartica(r *http.Request, perms *models.UserPermi
 	case kZaRijesiti:
 		return h.zaRijesiti(r, perms, sad)
 	case kVodostaji:
-		return h.vodostaji(r.Context(), sad)
+		return h.vodostaji(r.Context(), perms, sad)
 	case kVrijeme:
 		return h.vrijeme(r)
 	case kJaceOborine:

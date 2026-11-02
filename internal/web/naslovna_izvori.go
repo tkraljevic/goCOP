@@ -33,6 +33,13 @@ func (s *Server) izvoriNaslovne() IzvoriNaslovne {
 		Osobe: func(sektor string, area int, uloga models.Role) ([]models.User, error) {
 			return s.userService.ListUsers(sektor, area, string(uloga), "", "")
 		},
+		Podrucja: func(sektor string) ([]models.Area, error) { return s.userService.ListAreas(sektor) },
+		Dezurstva: func(ctx context.Context, dnevnik string) ([]models.Dezurstvo, error) {
+			return s.journalService.Dezurstva(ctx, dnevnik)
+		},
+		Zapisi: func(ctx context.Context, dnevnik string) ([]models.JournalEntry, error) {
+			return s.journalService.EntriesForJournal(ctx, dnevnik)
+		},
 	}
 }
 
