@@ -354,6 +354,11 @@ func TestPrimateljPokazujeUpozorenjeIzdavaca(t *testing.T) {
 			t.Errorf("stranica nema %q", want)
 		}
 	}
+	// na vrhu je samo redak s brojem, a popis je na dnu, ispod prognoze
+	vrh, popis, prognoza := strings.Index(html, "Upozorenja uz ovo izdanje: 1"), strings.Index(html, `id="upozorenja-izdanja"`), strings.Index(html, `class="detail-section prog-o"`)
+	if vrh < 0 || prognoza < 0 || !(vrh < prognoza && prognoza < popis) {
+		t.Errorf("redak na vrhu %d, prognoza %d, popis %d", vrh, prognoza, popis)
+	}
 }
 
 // Izdavač na starijoj inačici šalje upozorenje vrste koje više nema

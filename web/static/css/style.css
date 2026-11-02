@@ -5108,8 +5108,10 @@ body.uzd-puni-zaslon-otvoren { overflow: hidden; }
 .prog-nepovezana { margin: 0.5rem 0 0; padding: 0.45rem 0.7rem; font-size: 0.85rem; color: var(--text-muted);
   background: var(--bg-subtle); border-left: 3px solid var(--border); border-radius: 4px; }
 .prog-rezerva { border-left-color: var(--faza-r-crta); color: var(--text); }
-/* Upozorenja uz izdanje prognoze: otvorena, sklopljene napomene, kartica */
-.prog-upozorenja { margin: 0.5rem 0 1rem; }
+/* Upozorenja uz izdanje prognoze: redak na vrhu, popis i sklopljene
+   napomene na dnu stranice */
+.prog-upozorenja { margin: 1.5rem 0 1rem; }
+.prog-upozorenja-kratko { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0 1rem; }
 .prog-upozorenja-naslov { font-size: 1rem; margin: 0.1rem 0 0.35rem; display: flex; align-items: center; gap: 0.4rem; }
 .prog-upozorenja-popis { margin: 0; padding-left: 1.2rem; }
 .prog-upozorenja-popis li { margin: 0.3rem 0; }

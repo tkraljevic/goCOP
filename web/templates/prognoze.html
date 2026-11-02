@@ -23,22 +23,8 @@
 </div>
 
 {{if .Zastarjelo}}<div class="razmjena-upozorenje prog-zastarjelo" role="alert">{{icon "clock"}} {{.Zastarjelo}}</div>{{end}}
-{{if or .Upozorenja .Napomene}}
-<section class="prog-upozorenja"{{if .Upozorenja}} role="alert" aria-label="Upozorenja uz ovo izdanje"{{else}} aria-label="Napomene uz ovo izdanje"{{end}}>
-  {{if .Upozorenja}}<div class="razmjena-upozorenje">
-    <h2 class="prog-upozorenja-naslov">{{icon "triangle-alert"}} Upozorenja uz ovo izdanje</h2>
-    <ul class="prog-upozorenja-popis">{{range .Upozorenja}}
-      <li>{{.Sto}}{{if .Upitno}}<br><span class="prog-upitno">{{.Upitno}}</span>{{end}}</li>{{end}}
-    </ul>
-  </div>{{end}}
-  {{if .Napomene}}<details class="prog-napomene">
-    <summary>Napomene uz ovo izdanje ({{len .Napomene}})</summary>
-    <ul class="prog-upozorenja-popis">{{range .Napomene}}
-      <li>{{.Sto}}{{if .Upitno}} <span class="prog-upitno">{{.Upitno}}</span>{{end}}</li>{{end}}
-    </ul>
-  </details>{{end}}
-</section>
-{{end}}
+{{if .Upozorenja}}<div class="razmjena-upozorenje prog-upozorenja-kratko" role="alert">{{icon "triangle-alert"}}
+  <span><b>Upozorenja uz ovo izdanje: {{len .Upozorenja}}</b> · <a href="#upozorenja-izdanja">pročitajte ih na dnu stranice</a></span></div>{{end}}
 
 {{if .Nema}}
 <div class="table-card" style="padding:1.25rem;">
@@ -486,6 +472,25 @@
 </section>
 
 
+{{end}}
+
+{{/* Upozorenja i napomene uz izdanje su na dnu: dugi popis inače gura
+     prognozu ispod ruba zaslona, a na vrhu ostaje redak s brojem */}}
+{{if or .Upozorenja .Napomene}}
+<section class="prog-upozorenja" id="upozorenja-izdanja" aria-label="{{if .Upozorenja}}Upozorenja{{else}}Napomene{{end}} uz ovo izdanje">
+  {{if .Upozorenja}}<div class="razmjena-upozorenje">
+    <h2 class="prog-upozorenja-naslov">{{icon "triangle-alert"}} Upozorenja uz ovo izdanje</h2>
+    <ul class="prog-upozorenja-popis">{{range .Upozorenja}}
+      <li>{{.Sto}}{{if .Upitno}}<br><span class="prog-upitno">{{.Upitno}}</span>{{end}}</li>{{end}}
+    </ul>
+  </div>{{end}}
+  {{if .Napomene}}<details class="prog-napomene">
+    <summary>Napomene uz ovo izdanje ({{len .Napomene}})</summary>
+    <ul class="prog-upozorenja-popis">{{range .Napomene}}
+      <li>{{.Sto}}{{if .Upitno}} <span class="prog-upitno">{{.Upitno}}</span>{{end}}</li>{{end}}
+    </ul>
+  </details>{{end}}
+</section>
 {{end}}
 
 {{end}}

@@ -238,4 +238,8 @@ func TestDjelatniciPokazujuZakljucaneRacune(t *testing.T) {
 	if !strings.Contains(html, "staru zajedničku lozinku") || !strings.Contains(html, `href="/users/`+ana.ID.String()+`"`) || !strings.Contains(html, "Ana Anić") {
 		t.Errorf("upozorenje na stranici Djelatnici nedostaje: %q", html)
 	}
+	// na vrhu je samo broj, a popis računa je na dnu, ispod filtra
+	if vrh, filtar, popis := strings.Index(html, "Zaključani računi sa starom zajedničkom lozinkom: 1."), strings.Index(html, `id="filter-form"`), strings.Index(html, `id="stare-lozinke"`); vrh < 0 || !(vrh < filtar && filtar < popis) {
+		t.Errorf("redak na vrhu %d, filtar %d, popis %d", vrh, filtar, popis)
+	}
 }
