@@ -52,10 +52,14 @@ type Structure struct {
 	// pumpama i njime puni kanalsku mrežu iz vodotoka (navodnjavanje), npr.
 	// CS Tikveš i CS Zlatna Greda. SifonMinCm je najniži vodostaj vanjske
 	// strane (npr. Dunava) pri kojem se cijev još može vakumirati.
-	ImaSifon   bool   `json:"ima_sifon,omitempty"`
-	SifonMinCm *int   `json:"sifon_min_cm,omitempty"`
-	Notes      string `json:"notes,omitempty"`
-	Origin     string `json:"origin"` // odakle zapis: DIRECTUS_BP16, DOKUMENTACIJA, RUČNI_UNOS
+	ImaSifon   bool `json:"ima_sifon,omitempty"`
+	SifonMinCm *int `json:"sifon_min_cm,omitempty"`
+	// BrojAgregata je koliko agregata (crpki) stanica ima, kad se to ne
+	// vidi iz kapaciteta ili je drukčije; 0 znači da se broj čita iz
+	// kapaciteta
+	BrojAgregata int    `json:"broj_agregata,omitempty"`
+	Notes        string `json:"notes,omitempty"`
+	Origin       string `json:"origin"` // odakle zapis: DIRECTUS_BP16, DOKUMENTACIJA, RUČNI_UNOS
 
 	Latitude  *float64 `json:"latitude,omitempty"`
 	Longitude *float64 `json:"longitude,omitempty"`

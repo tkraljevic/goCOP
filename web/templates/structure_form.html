@@ -103,6 +103,10 @@
         <input type="text" id="capacity_text" name="capacity_text" class="form-control" value="{{.Structure.CapacityText}}" placeholder="npr. 2x2,5">
       </div>
       <div class="form-group">
+        <label class="form-label" for="broj_agregata">Broj agregata</label>
+        <input type="text" inputmode="numeric" id="broj_agregata" name="broj_agregata" class="form-control" value="{{if .Structure.BrojAgregata}}{{.Structure.BrojAgregata}}{{end}}" placeholder="iz kapaciteta">
+      </div>
+      <div class="form-group">
         <label class="form-label" for="start">Vodostaj uključenja (cm)</label>
         <input type="text" inputmode="numeric" id="start" name="start" class="form-control" value="{{.Structure.StartText}}" placeholder="npr. 190">
       </div>
@@ -111,7 +115,7 @@
         <input type="text" inputmode="numeric" id="stop" name="stop" class="form-control" value="{{.Structure.StopText}}" placeholder="npr. 90">
       </div>
     </div>
-    <div class="form-help">Kapacitet po crpkama, npr. „2,5 + 2x1,75” za tri crpke; iz njega program zna koliko crpki stanica ima. Kod vodostaja broj u zagradi je iznimka, a okvirni je prvi broj; zapis poput „od -20 do 200” čuva se kao tekst.</div>
+    <div class="form-help">Kapacitet po crpkama, npr. „2,5 + 2x1,75” za tri crpke; iz njega program zna koliko crpki stanica ima. Broj agregata upiši kad se iz kapaciteta ne vidi ili je drukčiji; upisani broj ima prednost. Kod vodostaja broj u zagradi je iznimka, a okvirni je prvi broj; zapis poput „od -20 do 200” čuva se kao tekst.</div>
     <div class="form-group">
       <label class="checkbox-label"><input type="checkbox" name="reverzibilna" value="1" {{if .Structure.Reverzibilna}}checked{{end}}>
         Reverzibilna: crpi u oba smjera (odvodnja i navodnjavanje)</label>

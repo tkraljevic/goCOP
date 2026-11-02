@@ -306,6 +306,7 @@ func structureFromForm(r *http.Request) models.Structure {
 		VodotokDrugeStrane: strings.TrimSpace(r.FormValue("vodotok_druge_strane")),
 		Reverzibilna:       r.FormValue("reverzibilna") == "1",
 		ImaSifon:           r.FormValue("ima_sifon") == "1",
+		BrojAgregata:       brojAgregataIzObrasca(r.FormValue("broj_agregata")),
 		Notes:              strings.TrimSpace(r.FormValue("notes")),
 		Latitude:           parseOptionalFloat(r.FormValue("latitude")),
 		Longitude:          parseOptionalFloat(r.FormValue("longitude")),
@@ -490,4 +491,18 @@ func (h *StructuresHandler) HandleGeometryAPI(w http.ResponseWriter, r *http.Req
 		poruka = "Crta objekta je obrisana s karte."
 	}
 	writeJSON(w, map[string]any{"success": true, "message": poruka})
+}
+
+// brojAgregataIzObrasca: prazno polje je 0, pa se broj čita iz kapaciteta;
+// zapis koji nije cijeli broj je -1, pa ga provjera objekta odbije
+func brojAgregataIzObrasca(v string) int {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return 0
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return -1
+	}
+	return n
 }

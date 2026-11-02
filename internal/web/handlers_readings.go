@@ -1489,7 +1489,7 @@ func (d *ReadingFormData) postaviVrstuObjekta() {
 	d.IsSluice = d.Structure.Kind == models.StructureKindSluice
 	d.DrugaLetva = d.IsPump && d.Structure.StationDownID != ""
 	d.States = d.Structure.StanjaObjekta(d.Reading.StructureState)
-	d.BrojCrpki = len(d.Structure.Crpke())
+	d.BrojCrpki = d.Structure.BrojCrpki()
 	sati := d.Reading.SatiAgregata()
 	for i := range d.Structure.AgregataZaOcitanje(*d.Reading) {
 		d.Agregati = append(d.Agregati, PoljeAgregata{Broj: i + 1, Sati: sati[i]})

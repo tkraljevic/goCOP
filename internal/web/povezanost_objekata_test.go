@@ -114,3 +114,19 @@ func TestVodotociZaObrazacObjekta(t *testing.T) {
 		t.Errorf("nedostupan registar: %+v", v)
 	}
 }
+
+// Obrazac crpne stanice nudi broj agregata, a prazno polje znači da se
+// broj čita iz kapaciteta; zapis koji nije broj provjera odbije
+func TestObrazacObjektaBrojAgregata(t *testing.T) {
+	st := &models.Structure{Name: "CS Proba", Kind: models.StructureKindPumpingStation, BrojAgregata: 4}
+	html := iscrtaj(t, "structure_form.html", StructurePageData{CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Structure: st, IsEdit: true})
+	if !strings.Contains(html, `name="broj_agregata"`) || !strings.Contains(html, `value="4"`) {
+		t.Error("obrazac crpne stanice nema upisani broj agregata")
+	}
+	for zapis, zeli := range map[string]int{"": 0, " 3 ": 3, "tri": -1} {
+		if got := brojAgregataIzObrasca(zapis); got != zeli {
+			t.Errorf("%q: %d, želi %d", zapis, got, zeli)
+		}
+	}
+}

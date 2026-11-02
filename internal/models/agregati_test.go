@@ -39,3 +39,30 @@ func TestOpisSatiAgregata(t *testing.T) {
 		}
 	}
 }
+
+// Upisani broj agregata ima prednost pred kapacitetom; bez njega broj
+// slijedi iz kapaciteta, a izvan granica se odbija
+func TestBrojCrpkiIUpisaniBrojAgregata(t *testing.T) {
+	for _, s := range []struct {
+		opis string
+		st   Structure
+		zeli int
+	}{
+		{"samo kapacitet", Structure{CapacityText: "2x2,5"}, 2},
+		{"upisani broj pobjeđuje kapacitet", Structure{CapacityText: "1,5", BrojAgregata: 4}, 4},
+		{"upisani broj bez kapaciteta", Structure{BrojAgregata: 2}, 2},
+		{"ništa se ne zna", Structure{CapacityText: "oko 2"}, 0},
+	} {
+		if got := s.st.BrojCrpki(); got != s.zeli {
+			t.Errorf("%s: %d, želi %d", s.opis, got, s.zeli)
+		}
+	}
+	if n := (Structure{CapacityText: "1,5", BrojAgregata: 2}).AgregataZaOcitanje(Reading{}); n != 2 {
+		t.Errorf("obrazac očitanja ne slijedi upisani broj agregata: %d", n)
+	}
+	for broj, dobar := range map[int]bool{0: true, 1: true, 20: true, -1: false, 21: false} {
+		if err := (Structure{BrojAgregata: broj}).ProvjeriBrojAgregata(); (err == nil) != dobar {
+			t.Errorf("broj agregata %d: %v", broj, err)
+		}
+	}
+}
