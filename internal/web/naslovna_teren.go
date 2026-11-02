@@ -42,14 +42,21 @@ func (h *DashboardHandler) naslovnaVodocuvara(r *http.Request, data *DashboardVi
 	}
 	data.Teren = true
 	data.Akcije = []GumbNaslovne{{Tekst: "Nova prijava", URL: "/prijave/nova", Glavni: true}}
-	ctx := r.Context()
-	if h.izvori.StanjaSektora != nil {
-		stanja, dionice, err := h.izvori.StanjaSektora(ctx, *d.SectorID)
-		if err == nil {
-			data.Traka = trakaPodrucja(*d.AreaID, *d.SectorID, stanja, dionice)
-		}
-	}
+	data.Traka = h.trakaZaPodrucje(r.Context(), *d.AreaID, *d.SectorID)
 	data.Nazovi = h.osobeZaPoziv(*d, data.Stanja, sad)
+}
+
+// trakaZaPodrucje je traka stanja obrane područja iz akata; nil dok akti
+// nisu dostupni
+func (h *DashboardHandler) trakaZaPodrucje(ctx context.Context, area int, sektor string) *TrakaNaslovne {
+	if h.izvori.StanjaSektora == nil {
+		return nil
+	}
+	stanja, dionice, err := h.izvori.StanjaSektora(ctx, sektor)
+	if err != nil {
+		return nil
+	}
+	return trakaPodrucja(area, sektor, stanja, dionice)
 }
 
 // trakaPodrucja: „BP 16: preventivna obrana · Sektor B: pripremno stanje na

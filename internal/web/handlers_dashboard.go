@@ -124,6 +124,11 @@ func (h *DashboardHandler) ShowDashboard(w http.ResponseWriter, r *http.Request)
 	switch ulogaNaslovne(perms, time.Now()) {
 	case uVodocuvar:
 		h.naslovnaVodocuvara(r, &data, time.Now())
+	case uSkladiste:
+		data.Teren = true
+		if d := duznostSkladista(&perms.User, time.Now()); d != nil && podrucjeSkladista(*d) > 0 {
+			data.Traka = h.trakaZaPodrucje(r.Context(), podrucjeSkladista(*d), *d.SectorID)
+		}
 	case uPregled, uGost:
 		data.Teren, data.Traka = true, &TrakaNaslovne{Tekst: TrakaPregleda, Ikona: "eye"}
 	}
