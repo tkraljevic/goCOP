@@ -364,6 +364,10 @@ type ReadingFormData struct {
 	// DrugaLetva: crpna stanica ima i letvu vanjske strane, pa očitanje
 	// nosi oba vodostaja (unutarnja i vanjska strana)
 	DrugaLetva bool
+	// Agregati su polja za sate rada, onoliko koliko stanica ima crpki;
+	// BrojCrpki je broj crpki iz kapaciteta, 0 kad se ne zna
+	Agregati   []PoljeAgregata
+	BrojCrpki  int
 	IsField    bool   // terencu je način uvijek ručno, pa ga obrazac ne pita
 	LocalValue string // vrijednost za datetime-local
 	// Izvorni trenutak očitanja pri izmjeni (RFC 3339, UTC): obrazac ga
@@ -1485,4 +1489,15 @@ func (d *ReadingFormData) postaviVrstuObjekta() {
 	d.IsSluice = d.Structure.Kind == models.StructureKindSluice
 	d.DrugaLetva = d.IsPump && d.Structure.StationDownID != ""
 	d.States = d.Structure.StanjaObjekta(d.Reading.StructureState)
+	d.BrojCrpki = len(d.Structure.Crpke())
+	sati := d.Reading.SatiAgregata()
+	for i := range d.Structure.AgregataZaOcitanje(*d.Reading) {
+		d.Agregati = append(d.Agregati, PoljeAgregata{Broj: i + 1, Sati: sati[i]})
+	}
+}
+
+// PoljeAgregata je polje za sate rada jednog agregata u obrascu očitanja
+type PoljeAgregata struct {
+	Broj int
+	Sati *int
 }
