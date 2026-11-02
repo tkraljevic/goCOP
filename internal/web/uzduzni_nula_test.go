@@ -125,6 +125,73 @@ func TestPrekidSaSkokomRacunaNuluOdPrekida(t *testing.T) {
 	}
 }
 
+// Siga i Petreš 2026.: mjerni uređaj je stajao dok je voda bila ispod njega,
+// a susjedi su padali; onda je voda opet došla do mjerila. Medijan iz dana
+// stajanja bio bi dno mjerila, pa letva čeka nove dane, a kad ih skupi
+// dovoljno, nula se računa tek od pomaka, za cijeli tok iz istih dana.
+func TestStajanjePaPomakRacunaNuluOdPomaka(t *testing.T) {
+	tok := func(stojiSati int) (map[string]map[int64]float64, NulaProfila) {
+		susjed := func(h int) float64 {
+			if h < stojiSati {
+				return -90 - float64(h)/10
+			}
+			return -90 - float64(stojiSati)/10 + float64(h-stojiSati)/5
+		}
+		nizovi := map[string]map[int64]float64{
+			"gornja": nizOd(30, susjed),
+			"siga": nizOd(30, func(h int) float64 {
+				if h < stojiSati {
+					return 19
+				}
+				return 21 + float64(h-stojiSati)/5 // voda je došla do mjerila
+			}),
+			"donja": nizOd(30, susjed),
+		}
+		return nizovi, sloziNulu(nizovi, nulaDunava(map[string]float64{"gornja": 1425, "siga": 1412, "donja": 1393}), nil)
+	}
+	_, n := tok(20 * 24)
+	if _, ima := n.Cm["siga"]; ima || !strings.HasPrefix(n.Razlog["siga"], "mjerni uređaj je stajao na 19 cm do ") ||
+		!strings.HasSuffix(n.Razlog["siga"], "nula čeka 14 dana novih mjerenja") {
+		t.Errorf("kratko nakon stajanja: nula %v, razlog %q", n.Cm["siga"], n.Razlog["siga"])
+	}
+	if _, ima := n.Cm["gornja"]; !ima {
+		t.Errorf("susjed je ispao: %q", n.Razlog["gornja"])
+	}
+	nizovi, n := tok(14 * 24)
+	pomak := danNule.AddDate(0, 0, -30).Unix()/3600 + 14*24
+	nakon := map[int64]float64{}
+	for h, v := range nizovi["siga"] {
+		if h >= pomak {
+			nakon[h] = v
+		}
+	}
+	zeli, _ := medijanSati(nakon)
+	if n.Razlog["siga"] != "" || n.Cm["siga"] != zeli || n.Cm["siga"] <= 19 {
+		t.Errorf("dovoljno dana nakon pomaka: nula %v (želi %v), razlog %q", n.Cm["siga"], zeli, n.Razlog["siga"])
+	}
+	if od := n.Od["Dunav"].Unix() / 3600; od != pomak {
+		t.Errorf("nula toka nije iz istih dana: od %v", n.Od["Dunav"])
+	}
+}
+
+// Stajanje je samo završeno razdoblje od barem šest dana; ono koje traje do
+// zadnjeg mjerenja i kratko zastajanje nisu stajanje
+func TestZadnjeStajanje(t *testing.T) {
+	for opis, niz := range map[string]map[int64]float64{
+		"prazan niz":        {},
+		"stoji do kraja":    nizOd(10, func(h int) float64 { return 19 }),
+		"kratko zastajanje": nizOd(10, func(h int) float64 { return map[bool]float64{true: 19, false: float64(h)}[h < 100] }),
+	} {
+		if s, ok := zadnjeStajanje(niz); ok {
+			t.Errorf("%s: stajanje %+v", opis, s)
+		}
+	}
+	s, ok := zadnjeStajanje(nizOd(10, func(h int) float64 { return map[bool]float64{true: 25 + float64(h%2), false: float64(h)}[h < 200] }))
+	if !ok || s.Cm != 25 || s.Nakon-s.Od != 200 || s.Do != s.Nakon-1 {
+		t.Errorf("stajanje na 25 do 26 cm: %+v, %v", s, ok)
+	}
+}
+
 // Mađarska letva ima cijeli mjesec, s valom na početku, a naša tek zadnjih
 // 20 dana. Nula obiju računa se iz istih dana, pa voda koja se jednako mijenja
 // stoji na profilu jednako.
