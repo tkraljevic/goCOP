@@ -38,6 +38,7 @@ const (
 	uSkladiste = "skladiste"
 	uUgovor    = "ugovor"  // ovlaštenik za praćenje ugovora A.02 ili A.03
 	uUsluga    = "usluga"  // voditelj usluga izvođača
+	uObjekt    = "objekt"  // strojar, rukovatelj, voditelj posade
 	uPregled   = "pregled" // preglednik: samo čita, uz imena dežurnih i događanja
 	uGost      = "gost"    // gost obrane: samo gleda, bez imena
 )
@@ -70,6 +71,7 @@ var pravilaUloga = []struct {
 	{uDionica, func(p *models.UserPermissions, sad time.Time) bool { return len(duznostiDionica(&p.User, sad)) > 0 }},
 	{uVodocuvar, func(p *models.UserPermissions, sad time.Time) bool { return terenskaDuznost(&p.User, sad) != nil }},
 	{uUsluga, func(p *models.UserPermissions, sad time.Time) bool { return duznostUsluga(&p.User, sad) != nil }},
+	{uObjekt, func(p *models.UserPermissions, sad time.Time) bool { return duznostNaObjektu(&p.User, sad) != nil }},
 	{uSkladiste, func(p *models.UserPermissions, sad time.Time) bool { return duznostSkladista(&p.User, sad) != nil }},
 	{uPregled, func(p *models.UserPermissions, sad time.Time) bool { return imaUlogu(&p.User, models.RoleViewer, sad) }},
 	{uGost, func(p *models.UserPermissions, sad time.Time) bool { return imaUlogu(&p.User, models.RoleGuest, sad) }},
@@ -86,6 +88,7 @@ var karticeZaUlogu = map[string][]string{
 	uVodocuvar: {kDnevniList, kZadaci, kMojeLetve, kVrijeme},
 	uUgovor:    {kUgovor, kZaRijesiti, kNalozi, kVodostaji, kVrijeme, kJaceOborine},
 	uUsluga:    {kDnevnikRadova, kNaloziOvl, kLjudiNaTerenu, kVrijeme},
+	uObjekt:    {kMojiObjekti, kNaloziObjektu, kVrijeme},
 	uSkladiste: {kZaRijesiti, kSkladiste, kSredstvaTeren, kPrometSredstva},
 	uPregled:   {kStanjeObrane, kDogadjanja, kVodostaji, kVrijeme, kJaceOborine},
 	uGost:      {kStanjeObrane, kVodostaji, kVrijeme, kJaceOborine},
@@ -192,6 +195,9 @@ var glaveKartica = map[string]KarticaNaslovne{
 	kDnevnikRadova: {Naslov: "Dnevnik radova"},
 	kNaloziOvl:     {Naslov: "Nalozi ovlaštenika"},
 	kLjudiNaTerenu: {Naslov: "Na terenu danas"},
+	// strojar, rukovatelj, voditelj posade
+	kMojiObjekti:   {Naslov: "Moji objekti", Poveznica: "Teren", URL: "/teren"},
+	kNaloziObjektu: {Naslov: "Nalozi"},
 }
 
 // lijenaKartica je glava spore kartice s adresom tijela
@@ -263,4 +269,6 @@ var sporeKartice = map[string]func(h *DashboardHandler, r *http.Request, perms *
 	kDnevnikRadova:  (*DashboardHandler).karticaUsluga,
 	kNaloziOvl:      (*DashboardHandler).karticaUsluga,
 	kLjudiNaTerenu:  (*DashboardHandler).karticaUsluga,
+	kMojiObjekti:    (*DashboardHandler).karticaNaObjektu,
+	kNaloziObjektu:  (*DashboardHandler).karticaNaObjektu,
 }

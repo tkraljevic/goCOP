@@ -246,6 +246,9 @@ func (h *DashboardHandler) glavaNaslovne(r *http.Request, perms *models.UserPerm
 	case uUsluga:
 		d := duznostUsluga(&perms.User, sad)
 		data.Teren, data.Traka = true, h.trakaZaPodrucje(r.Context(), *d.AreaID, *d.SectorID)
+	case uObjekt:
+		d := duznostNaObjektu(&perms.User, sad)
+		data.Teren, data.Traka = true, h.trakaZaPodrucje(r.Context(), *d.AreaID, *d.SectorID)
 	case uPregled, uGost:
 		data.Teren, data.Traka = true, &TrakaNaslovne{Tekst: TrakaPregleda, Ikona: "eye"}
 	}
