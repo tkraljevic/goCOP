@@ -24,7 +24,12 @@ import (
 //   - letva koja nakon dužeg prekida mjerenja nastavi na drugoj razini
 //     (Moslavina prije prekida 3.–8. 10. −95, poslije −127 cm, a susjedi
 //     mirni): nula joj se računa samo od prekida, a dok nema dovoljno novih
-//     dana, ne crta se.
+//     dana, ne crta se;
+//   - mjerilo koje je stajalo pa se opet pomaknulo: Siga i Petreš stajale su
+//     do 30. 10. 2026., a 31. 10. voda je opet došla do mjerila. Medijan iz
+//     dana stajanja je dno mjerila, ne voda, pa bi nula bila previsoka i
+//     letve bi na profilu crtale udubinu. Stajanje se zato gleda kao prekid:
+//     nula se računa tek od pomaka.
 // Ispod crteža piše koje su letve izostavljene i zašto.
 
 // StojiNajmanjeSati je koliko se sati mjerilo ne smije pomaknuti da bi se
@@ -129,6 +134,32 @@ type Prekid struct {
 	Skok   float64 // cm, dan poslije prema danu prije
 }
 
+// Stajanje je završeno razdoblje u kojem mjerni uređaj stoji: poslije njega
+// se vodostaj opet pomaknuo.
+type Stajanje struct {
+	Od, Do, Nakon int64   // prvi i zadnji sat stajanja i prvi sat nakon njega
+	Cm            float64 // vrijednost na kojoj je stajao
+}
+
+// zadnjeStajanje nalazi zadnje završeno razdoblje od barem StojiNajmanjeSati
+// u kojem se vodostaj nije pomaknuo više od StojiDopust. Razdoblje koje traje
+// do zadnjeg mjerenja gleda stojiOd.
+func zadnjeStajanje(niz map[int64]float64) (Stajanje, bool) {
+	sati := satiNiza(niz)
+	var zadnje Stajanje
+	ima, s := false, 0
+	for i := 1; i < len(sati); i++ {
+		if math.Abs(niz[sati[i]]-niz[sati[s]]) <= StojiDopust {
+			continue
+		}
+		if sati[i-1]-sati[s] >= StojiNajmanjeSati {
+			zadnje, ima = Stajanje{Od: sati[s], Do: sati[i-1], Nakon: sati[i], Cm: niz[sati[s]]}, true
+		}
+		s = i
+	}
+	return zadnje, ima
+}
+
 // zadnjiPrekid nalazi zadnji prekid od barem PrekidSati nakon kojega se
 // srednja voda dana prije i dana poslije razlikuje za više od SkokNakonPrekida.
 func zadnjiPrekid(niz map[int64]float64) (Prekid, bool) {
@@ -218,17 +249,9 @@ func (n *NulaProfila) nulaToka(voda string, letve []string, nizovi map[string]ma
 			n.Razlog[l] = fmt.Sprintf("mjerni uređaj stoji na %.0f cm od %s, a susjedne letve se miču", cm, odSata(od))
 			continue
 		}
-		pocetak := satiNiza(niz)[0]
-		if p, ok := zadnjiPrekid(niz); ok {
-			pocetak = p.Do
-			if p.Do > danH-NulaNajmanjeDana*24 {
-				n.Razlog[l] = fmt.Sprintf("nakon prekida mjerenja %s–%s vodostaj je %+.0f cm drukčiji; nula čeka %d dana novih mjerenja",
-					odSata(p.Od), odSata(p.Do), p.Skok, NulaNajmanjeDana)
-				continue
-			}
-		}
-		if pocetak > danH-NulaNajmanjeDana*24 {
-			n.Razlog[l] = fmt.Sprintf("mjerenja tek od %s; nula čeka %d dana mjerenja", odSata(pocetak), NulaNajmanjeDana)
+		pocetak, razlog := pocetakNule(letve, i, nizovi, stoje, danH)
+		if razlog != "" {
+			n.Razlog[l] = razlog
 			continue
 		}
 		prvi[l] = pocetak
@@ -251,6 +274,30 @@ func (n *NulaProfila) nulaToka(voda string, letve []string, nizovi map[string]ma
 			n.Razlog[l] = "premalo mjerenja za nulu"
 		}
 	}
+}
+
+// pocetakNule je prvi sat niza letve koji ulazi u nulu: početak niza, kraj
+// zadnjeg prekida nakon kojega je letva nastavila na drugoj razini, ili prvi
+// sat nakon zadnjeg stajanja mjernog uređaja dok su se susjedi micali. Kad od
+// toga nema NulaNajmanjeDana dana, vraća razlog zašto letve nema na profilu.
+func pocetakNule(letve []string, i int, nizovi map[string]map[int64]float64, stoje map[string]bool, danH int64) (int64, string) {
+	niz := nizovi[letve[i]]
+	pocetak := satiNiza(niz)[0]
+	razlog := fmt.Sprintf("mjerenja tek od %s; nula čeka %d dana mjerenja", odSata(pocetak), NulaNajmanjeDana)
+	if p, ok := zadnjiPrekid(niz); ok {
+		pocetak = p.Do
+		razlog = fmt.Sprintf("nakon prekida mjerenja %s–%s vodostaj je %+.0f cm drukčiji; nula čeka %d dana novih mjerenja",
+			odSata(p.Od), odSata(p.Do), p.Skok, NulaNajmanjeDana)
+	}
+	if s, ok := zadnjeStajanje(niz); ok && s.Nakon > pocetak && !susjediMiruju(letve, i, nizovi, stoje, s.Od, s.Do) {
+		pocetak = s.Nakon
+		razlog = fmt.Sprintf("mjerni uređaj je stajao na %.0f cm do %s, a susjedne letve su se micale; nula čeka %d dana novih mjerenja",
+			s.Cm, odSata(s.Do), NulaNajmanjeDana)
+	}
+	if pocetak > danH-NulaNajmanjeDana*24 {
+		return 0, razlog
+	}
+	return pocetak, ""
 }
 
 // NulaKratko je razdoblje nule toka za natpise: „zadnjih 30 dana” ili, dok
