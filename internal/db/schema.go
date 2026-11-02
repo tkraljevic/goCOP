@@ -1860,6 +1860,8 @@ func migrateSchema(database *sql.DB) error {
 		{"structures", "sifon_min_cm", "INTEGER"},
 		// broj agregata crpne stanice kad se ne vidi iz kapaciteta
 		{"structures", "broj_agregata", "INTEGER NOT NULL DEFAULT 0"},
+		// smjer rada crpne stanice: odvodnja, navodnjavanje ili oboje
+		{"structures", "smjer_rada", "TEXT NOT NULL DEFAULT ''"},
 	}
 
 	// Vrijednosti koje su promijenile ime nakon što su upisane

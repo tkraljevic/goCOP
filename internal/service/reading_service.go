@@ -404,6 +404,7 @@ func (s *ReadingService) Overview(ctx context.Context) ([]models.GaugeSummary, e
 			Key: "structure:" + st.ID.String(), Name: st.Name, Sub: st.KindLabel(),
 			URL: "/readings/structure/" + st.ID.String(), NewURL: "/readings/new?structure=" + st.ID.String(),
 			StructureID: st.ID.String(), SectorID: st.SectorID, AreaID: st.AreaID, Kind: st.Kind,
+			SamoNavodnjava: st.SamoNavodnjava(),
 		}
 		if st.AreaName != "" {
 			g.Sub += " · BP " + fmt.Sprint(st.AreaID)

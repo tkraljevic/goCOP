@@ -294,13 +294,22 @@ func redakObjekta(g models.GaugeSummary, stanje string, sad time.Time) RedakKart
 	if g.Kind == models.StructureKindSluice {
 		r.Ikona = "ustava"
 	}
-	if g.Latest.LevelCm != nil {
-		r.Vrijednost = fmt.Sprintf("%d cm", *g.Latest.LevelCm)
+	if cm := dovodniVodostaj(g); cm != nil {
+		r.Vrijednost = fmt.Sprintf("%d cm", *cm)
 	}
 	if g.Latest.StructureState == models.StructureStateFault {
 		r.Ikona, r.Hitno = "triangle-alert", true
 	}
 	return r
+}
+
+// dovodniVodostaj je vodostaj dovodne strane: kanal kod odvodnje, vanjska
+// strana kod stanice koja samo navodnjava
+func dovodniVodostaj(g models.GaugeSummary) *int {
+	if g.SamoNavodnjava {
+		return g.Latest.Level2Cm
+	}
+	return g.Latest.LevelCm
 }
 
 // napomenaObjekata: „Još 9 crpnih stanica miruje. Za 2 crpne stanice nema

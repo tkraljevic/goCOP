@@ -389,3 +389,16 @@ func TestLetveSePamte(t *testing.T) {
 		t.Errorf("nakon novih izvora: %v %v %d", l, err, pitano)
 	}
 }
+
+// Dovodni vodostaj crpne stanice: kanal kod odvodnje, vanjska strana kod
+// stanice koja samo navodnjava
+func TestDovodniVodostaj(t *testing.T) {
+	g := models.GaugeSummary{Latest: &models.Reading{LevelCm: cmNaslovne(120), Level2Cm: cmNaslovne(340)}}
+	if cm := dovodniVodostaj(g); cm == nil || *cm != 120 {
+		t.Errorf("odvodnja: %v", cm)
+	}
+	g.SamoNavodnjava = true
+	if cm := dovodniVodostaj(g); cm == nil || *cm != 340 {
+		t.Errorf("navodnjavanje: %v", cm)
+	}
+}

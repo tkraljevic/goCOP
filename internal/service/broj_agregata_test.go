@@ -39,3 +39,29 @@ func TestBrojAgregataCrpneStanice(t *testing.T) {
 		t.Errorf("neispravan broj agregata je prihvaćen: %v", err)
 	}
 }
+
+// Smjer rada crpne stanice sprema se i vraća iz knjige promjena kad se
+// objekt ponovno složi; nepoznat smjer se odbija
+func TestSmjerRadaCrpneStanice(t *testing.T) {
+	o := novaOkolinaOvlasti(t)
+	ctx := context.Background()
+	objekti := service.NewStructureService(repository.NewStructureRepository(o.db, o.rec))
+	cs := &models.Structure{Name: "CS Proba", Kind: models.StructureKindPumpingStation, AreaID: 16}
+	cs.PostaviSmjer(models.SmjerNavodnjavanje)
+	if err := objekti.Create(ctx, o.admin, cs); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := o.db.Exec(`DELETE FROM structures`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repository.ReplaySurface(ctx, o.db, o.rec); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := objekti.Get(ctx, cs.ID); err != nil || got == nil || got.Smjer() != models.SmjerNavodnjavanje || got.Reverzibilna {
+		t.Errorf("smjer rada nakon slaganja iz knjige: %+v, %v", got, err)
+	}
+	cs.SmjerRada = "UZVODNO"
+	if err := objekti.Update(ctx, o.admin, cs); err == nil || !strings.Contains(err.Error(), "smjer rada") {
+		t.Errorf("nepoznat smjer rada je prihvaćen: %v", err)
+	}
+}

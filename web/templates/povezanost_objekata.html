@@ -26,7 +26,7 @@
   <tbody>
   {{range .Redovi}}
   <tr>
-    <td><a href="{{.Objekt.Path}}">{{.Objekt.Name}}</a>{{if .Objekt.IsPumpingStation}}<div class="reading-meta">crpna stanica{{if .Objekt.Reverzibilna}}, reverzibilna{{end}}{{if .Objekt.ImaSifon}}, sa sifonom{{end}}</div>{{else}}<div class="reading-meta">ustava</div>{{end}}</td>
+    <td><a href="{{.Objekt.Path}}">{{.Objekt.Name}}</a>{{if .Objekt.IsPumpingStation}}<div class="reading-meta">crpna stanica, {{.Objekt.SmjerNaziv}}{{if .Objekt.ImaSifon}}, sa sifonom{{end}}</div>{{else}}<div class="reading-meta">ustava</div>{{end}}</td>
     <td>{{.Objekt.AreaID}}</td>
     <td>{{if .Vodotok}}{{.Vodotok}}{{else}}<span class="badge badge-warning">vodotok nedostaje</span>{{end}}<div class="reading-meta">{{if .Letva}}{{.Letva}}{{else}}letva nedostaje{{end}}</div></td>
     <td>{{if .VodotokDruge}}{{.VodotokDruge}}{{else}}<span class="badge badge-warning">vodotok nedostaje</span>{{end}}<div class="reading-meta">{{if .LetvaDruge}}{{.LetvaDruge}}{{else}}letva nedostaje{{end}}</div></td>
