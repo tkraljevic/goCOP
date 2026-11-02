@@ -110,6 +110,7 @@ type OznakaRetka struct {
 type TrakaNaslovne struct {
 	Tekst  string
 	Razred string // razred faze vlastitog područja; prazno je preventivna obrana
+	Ikona  string // prazno je štit faze
 }
 
 // OsobaZaPoziv je osoba u izboru „Nazovi”: ime i prezime s funkcijom i

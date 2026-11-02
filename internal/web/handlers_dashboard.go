@@ -121,8 +121,11 @@ func (h *DashboardHandler) ShowDashboard(w http.ResponseWriter, r *http.Request)
 	}
 	h.stanjeIZid(r, perms, &data)
 	data.Kartice = h.kartice(r, perms, &data)
-	if data.Kartice != nil && ulogaNaslovne(perms, time.Now()) == uVodocuvar {
+	switch ulogaNaslovne(perms, time.Now()) {
+	case uVodocuvar:
 		h.naslovnaVodocuvara(r, &data, time.Now())
+	case uPregled, uGost:
+		data.Teren, data.Traka = true, &TrakaNaslovne{Tekst: TrakaPregleda, Ikona: "eye"}
 	}
 	data.Precaci = vidljiviPrecaci(precaciZa(perms), data.Modules)
 	data.CekaUlogu = cekaUlogu(user)

@@ -9,7 +9,8 @@ import (
 )
 
 // Sektor u obrani je redak s plohom faze, dežurnim i dionicama u obrani, a
-// sektori u preventivnoj obrani stoje zajedno u jednom retku
+// sektori u preventivnoj obrani stoje zajedno u jednom retku; gost ne vidi
+// ime dežurnog
 func TestKarticaStanjaObrane(t *testing.T) {
 	stanja := []service.StanjeObrane{
 		{Sektor: "A", Stadij: models.PhaseNormal},
@@ -17,7 +18,7 @@ func TestKarticaStanjaObrane(t *testing.T) {
 		{Sektor: "C", Stadij: models.PhaseNormal, Dnevnik: &models.Journal{ID: "dn-2"}},
 		{Sektor: "D", Stadij: models.PhaseNormal},
 	}
-	k := karticaStanjaObrane(stanja, map[string]string{"B": "Sektor B — Dunav i donja Drava"}, true)
+	k := karticaStanjaObrane(stanja, map[string]string{"B": "Sektor B — Dunav i donja Drava"}, true, true)
 	if len(k.Redovi) != 3 {
 		t.Fatalf("redovi: %+v", k.Redovi)
 	}
@@ -32,13 +33,16 @@ func TestKarticaStanjaObrane(t *testing.T) {
 	if m := k.Redovi[2]; m.Glavno != "Sektori A, D" || m.Vrijednost != "preventivna obrana" || m.Sporedno != "nema dežurstva" {
 		t.Errorf("sektori u preventivnoj obrani: %+v", m)
 	}
-	if bez := karticaStanjaObrane(stanja[1:2], nil, false); bez.Redovi[0].URL != "" || bez.Redovi[0].Glavno != "Sektor B" {
+	if bez := karticaStanjaObrane(stanja[1:2], nil, false, true); bez.Redovi[0].URL != "" || bez.Redovi[0].Glavno != "Sektor B" {
 		t.Errorf("bez prava na dnevnike i bez imena: %+v", bez.Redovi[0])
 	}
-	if jedan := karticaStanjaObrane(stanja[:1], nil, true); jedan.Redovi[0].Glavno != "Sektor A" {
+	if gost := karticaStanjaObrane(stanja[1:2], nil, false, false); gost.Redovi[0].Sporedno != "dežurstvo traje · 3 dionice u obrani" {
+		t.Errorf("gost bez imena dežurnog: %+v", gost.Redovi[0])
+	}
+	if jedan := karticaStanjaObrane(stanja[:1], nil, true, true); jedan.Redovi[0].Glavno != "Sektor A" {
 		t.Errorf("jedan mirni sektor: %+v", jedan.Redovi[0])
 	}
-	if prazna := karticaStanjaObrane(nil, nil, true); prazna.Prazno == nil || prazna.Prazno.Vrsta != PraznoNedostupno {
+	if prazna := karticaStanjaObrane(nil, nil, true, true); prazna.Prazno == nil || prazna.Prazno.Vrsta != PraznoNedostupno {
 		t.Errorf("bez stanja: %+v", prazna)
 	}
 }

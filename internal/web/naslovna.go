@@ -30,43 +30,65 @@ const (
 const (
 	uAdmin     = "admin"
 	uUprava    = "uprava"
+	uSektor    = "sektor"
 	uDezurni   = "dezurni"
 	uPodrucje  = "podrucje"
 	uDionica   = "dionica"
 	uVodocuvar = "vodocuvar"
+	uPregled   = "pregled" // preglednik: samo čita, uz imena dežurnih i događanja
+	uGost      = "gost"    // gost obrane: samo gleda, bez imena
 )
 
 // ulogaNaslovne je uloga po kojoj se slaže Naslovna osobe; prazno znači
 // dosadašnju Naslovnu
 func ulogaNaslovne(perms *models.UserPermissions, sad time.Time) string {
-	switch {
-	case perms == nil:
+	if perms == nil {
 		return ""
-	case perms.IsGlobalAdmin:
-		return uAdmin
-	case perms.DrzavnaUprava():
-		return uUprava
-	case dezurnaDuznost(&perms.User, sad) != nil:
-		return uDezurni
-	case duznostPodrucja(&perms.User, sad) != nil:
-		return uPodrucje
-	case len(duznostiDionica(&perms.User, sad)) > 0:
-		return uDionica
-	case terenskaDuznost(&perms.User, sad) != nil:
-		return uVodocuvar
+	}
+	for _, p := range pravilaUloga {
+		if p.ima(perms, sad) {
+			return p.uloga
+		}
 	}
 	return ""
+}
+
+// pravilaUloga su uloge Naslovne redom prednosti, svaka s pravilom
+var pravilaUloga = []struct {
+	uloga string
+	ima   func(*models.UserPermissions, time.Time) bool
+}{
+	{uAdmin, func(p *models.UserPermissions, _ time.Time) bool { return p.IsGlobalAdmin }},
+	{uUprava, func(p *models.UserPermissions, _ time.Time) bool { return p.DrzavnaUprava() }},
+	{uSektor, func(p *models.UserPermissions, sad time.Time) bool { return duznostSektora(&p.User, sad) != nil }},
+	{uDezurni, func(p *models.UserPermissions, sad time.Time) bool { return dezurnaDuznost(&p.User, sad) != nil }},
+	{uPodrucje, func(p *models.UserPermissions, sad time.Time) bool { return duznostPodrucja(&p.User, sad) != nil }},
+	{uDionica, func(p *models.UserPermissions, sad time.Time) bool { return len(duznostiDionica(&p.User, sad)) > 0 }},
+	{uVodocuvar, func(p *models.UserPermissions, sad time.Time) bool { return terenskaDuznost(&p.User, sad) != nil }},
+	{uPregled, func(p *models.UserPermissions, sad time.Time) bool { return imaUlogu(&p.User, models.RoleViewer, sad) }},
+	{uGost, func(p *models.UserPermissions, sad time.Time) bool { return imaUlogu(&p.User, models.RoleGuest, sad) }},
 }
 
 // karticeZaUlogu su kartice Naslovne po ulozi, redom
 var karticeZaUlogu = map[string][]string{
 	uAdmin:     {kStanjeObrane, kZaRijesiti, kVodostaji, kVrijeme, kJaceOborine, kDogadjanja, kSustav},
 	uUprava:    {kStanjeObrane, kZaRijesiti, kVodostaji, kVrijeme, kJaceOborine, kDogadjanja},
+	uSektor:    {kStanjeSektora, kZaRijesiti, kDnevnikCOP, kVodostaji, kVrijeme, kJaceOborine},
 	uDezurni:   {kMojeDezurstvo, kZaRijesiti, kStanjeSektora, kDnevnikCOP, kVodostaji, kVrijeme, kJaceOborine},
 	uPodrucje:  {kPodrucje, kZaRijesiti, kZadaciPodrucja, kCrpneStanice, kUstave, kVodostaji, kVrijeme, kJaceOborine},
 	uDionica:   {kMojeDionice, kZaRijesiti, kObjektiDionica, kVodostaji, kVrijeme, kJaceOborine},
 	uVodocuvar: {kDnevniList, kZadaci, kMojeLetve, kVrijeme},
+	uPregled:   {kStanjeObrane, kDogadjanja, kVodostaji, kVrijeme, kJaceOborine},
+	uGost:      {kStanjeObrane, kVodostaji, kVrijeme, kJaceOborine},
 }
+
+// imaUlogu: osoba ima valjanu dužnost s ulogom
+func imaUlogu(u *models.User, uloga models.Role, sad time.Time) bool {
+	return slices.ContainsFunc(models.VazecaZaduzenja(u.Duties, sad), func(d models.Duty) bool { return d.Role == uloga })
+}
+
+// TrakaPregleda je napomena iznad kartica gosta i preglednika
+const TrakaPregleda = "Račun za pregled: možete gledati, ali ne i upisivati."
 
 // karticeUloge su kartice Naslovne za ulogu osobe, redom; nil znači
 // dosadašnju Naslovnu
@@ -88,7 +110,7 @@ func (h *DashboardHandler) kartice(r *http.Request, perms *models.UserPermission
 func (h *DashboardHandler) kartica(r *http.Request, perms *models.UserPermissions, data *DashboardViewData, id string) KarticaNaslovne {
 	switch id {
 	case kStanjeObrane:
-		return karticaStanjaObrane(data.Stanja, h.imenaSektora(), data.Modules.Sees(models.ModuleJournals))
+		return karticaStanjaObrane(data.Stanja, h.imenaSektora(), data.Modules.Sees(models.ModuleJournals), ulogaNaslovne(perms, time.Now()) != uGost)
 	case kDogadjanja:
 		return karticaDogadjanja(data.Zid, time.Now())
 	case kDnevniList, kZadaci:
