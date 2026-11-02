@@ -1,0 +1,42 @@
+{{/* Kartica Naslovne: glava s naslovom, brojem i poveznicom, pa tijelo.
+     Tijelo je popis redaka (najviše pet, na mobitelu tri) s retkom „Više”,
+     prazna kartica s jednim od četiri stanja ili posebno tijelo (vrijeme).
+     Kartica s Lijeno ima samo glavu, a tijelo se učita nakon stranice. */}}
+{{define "karticaNaslovne"}}
+<section class="kartica-naslovne" id="kartica-{{.ID}}" aria-labelledby="naslov-{{.ID}}"{{if .Lijeno}} data-lijeno="{{.Lijeno}}"{{end}}>
+  <header class="kartica-glava">
+    <h2 id="naslov-{{.ID}}">{{.Naslov}}</h2>
+    {{if .Broj}}<span class="kartica-broj" aria-label="{{.Broj}} {{uzBroj .Broj "stavka" "stavke" "stavki"}}">{{.Broj}}</span>{{end}}
+    {{if .Poveznica}}<a class="kartica-poveznica" href="{{.URL}}">{{.Poveznica}}</a>{{end}}
+  </header>
+  <div class="kartica-tijelo">{{if .Lijeno}}<p class="kartica-ceka">Učitavam…</p>{{else}}{{template "tijeloKarticeNaslovne" .}}{{end}}</div>
+</section>
+{{end}}
+
+{{define "tijeloKarticeNaslovne"}}
+{{if .Tijelo}}{{template "posebnoTijeloNaslovne" .}}
+{{else if .Redovi}}
+<ul class="kartica-redovi">
+  {{range $i, $r := .Vidljivi}}
+  <li class="{{if $.SamoSiroko $i}}samo-siroko{{end}}{{if $r.Istaknuto}} istaknuto faza-{{$r.Istaknuto}}{{end}}{{if $r.Staro}} staro{{end}}">
+    {{if $r.URL}}<a class="redak" href="{{$r.URL}}">{{else}}<div class="redak">{{end}}
+      {{if $r.Ikona}}{{icon $r.Ikona}}{{end}}
+      <span class="redak-tekst">
+        <span class="redak-glavno">{{$r.Glavno}}</span>
+        {{if $r.Sporedno}}<span class="redak-sporedno">{{$r.Sporedno}}</span>{{end}}
+        {{with $r.Oznaka}}<span class="oznaka-retka{{if .Razred}} faza-{{.Razred}}{{end}}{{if .Obrub}} obrub{{end}}">{{.Tekst}}</span>{{end}}
+      </span>
+      {{if $r.Vrijednost}}<span class="redak-vrijednost{{if $r.Tiho}} tiho{{end}}">{{$r.Vrijednost}}</span>{{end}}
+      {{if $r.URL}}{{icon "chevron-right"}}{{end}}
+    {{if $r.URL}}</a>{{else}}</div>{{end}}
+  </li>
+  {{end}}
+</ul>
+{{if .URL}}{{with .Vise}}<a class="kartica-vise samo-siroko" href="{{$.URL}}">{{.}} →</a>{{end}}
+{{with .ViseMobitel}}<a class="kartica-vise samo-mobitel" href="{{$.URL}}">{{.}} →</a>{{end}}{{end}}
+{{else if .Prazno}}{{with .Prazno}}
+<p class="kartica-prazna {{.Vrsta}}">{{if eq .Vrsta "gotovo"}}{{icon "check"}} {{else if eq .Vrsta "nedostupno"}}{{icon "triangle-alert"}} {{end}}{{.Tekst}}</p>
+{{end}}{{end}}
+{{end}}
+
+{{define "posebnoTijeloNaslovne"}}{{end}}

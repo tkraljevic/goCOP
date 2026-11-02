@@ -6870,3 +6870,61 @@ html:not(.js) .nav-caret { display: none; }
   .izbornik, .izbornik-zastor, .vrh, .donja-traka { display: none !important; }
   body.skoljka { display: block; }
 }
+
+/* ===== Naslovna: kartice po ulozi (Odluke 31. 10. i 1. 11. 2026.) =====
+   Kartice teku istim redom na svim uređajima: na mobitelu jedan stupac, na
+   tabletu dva (prva kartica preko cijele širine), na računalu tri. Kartica
+   ima najviše pet redaka, na mobitelu tri; redak „Više” vodi na cijeli popis. */
+.naslovna { columns: 1; column-gap: 24px; }
+@media (min-width: 600px) { .naslovna { columns: 2; } .naslovna > .kartica-naslovne:first-child { column-span: all; } }
+@media (min-width: 1200px) { .naslovna { columns: 3; } .naslovna > .kartica-naslovne:first-child { column-span: none; } }
+.kartica-naslovne { break-inside: avoid; display: block; margin: 0 0 24px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-kartica); padding: 16px 0 8px; }
+.kartica-glava { display: flex; align-items: center; gap: 8px; padding: 0 16px 8px; min-height: 40px; }
+.kartica-glava h2 { flex: 1; margin: 0; font-size: 16px; line-height: 24px; font-weight: 600; color: var(--text); }
+.kartica-broj { min-width: 24px; height: 24px; padding: 0 8px; border-radius: 12px; background: var(--surface-2); color: var(--text-secondary); font-size: 13px; font-weight: 500; line-height: 24px; text-align: center; }
+.kartica-poveznica { font-size: 14px; font-weight: 500; color: var(--primary); text-decoration: none; padding: 10px 0; }
+.kartica-poveznica:hover { text-decoration: underline; }
+.kartica-redovi { list-style: none; margin: 0; padding: 0; }
+.kartica-redovi .redak { min-height: 56px; }
+.kartica-redovi .redak > .icon:last-child { width: 20px; height: 20px; color: var(--text-muted); }
+.redak-vrijednost { font-size: 16px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
+.redak-tekst .redak-glavno, .redak-tekst .redak-sporedno { display: block; }
+.kartica-redovi li.istaknuto { margin: 0 16px 8px; border-radius: 8px; border-left: 4px solid; }
+.kartica-redovi li.istaknuto .redak { padding-left: 12px; }
+.kartica-redovi li.faza-prep { background: var(--faza-p-bg); border-left-color: var(--faza-p-crta); }
+.kartica-redovi li.faza-regular { background: var(--faza-r-bg); border-left-color: var(--faza-r-crta); }
+.kartica-redovi li.faza-emerg { background: var(--faza-i-bg); border-left-color: var(--faza-i-crta); }
+.kartica-redovi li.faza-crit { background: var(--faza-s-bg); border-left-color: var(--faza-s-crta); }
+.kartica-redovi li.faza-crit .redak, .kartica-redovi li.faza-crit .redak-sporedno { color: var(--faza-s-fg); }
+.oznaka-retka { display: inline-flex; align-items: center; margin-top: 4px; height: 24px; padding: 0 10px; border-radius: 8px; font-size: 13px; font-weight: 500; line-height: 24px; border: 1px solid var(--border); color: var(--text-secondary); background: transparent; }
+.oznaka-retka.faza-prep { background: var(--faza-p-bg); color: var(--faza-p-fg); border-color: var(--faza-p-crta); }
+.oznaka-retka.faza-regular { background: var(--faza-r-bg); color: var(--faza-r-fg); border-color: var(--faza-r-crta); }
+.oznaka-retka.faza-emerg { background: var(--faza-i-bg); color: var(--faza-i-fg); border-color: var(--faza-i-crta); }
+.oznaka-retka.faza-crit { background: var(--faza-s-bg); color: var(--faza-s-fg); border-color: var(--faza-s-crta); }
+.oznaka-retka.obrub { background: transparent; }
+.oznaka-retka.obrub.faza-crit { color: var(--faza-s-crta); }
+.kartica-vise { display: block; padding: 10px 16px; font-size: 14px; font-weight: 500; color: var(--primary); text-decoration: none; }
+.kartica-vise:hover { text-decoration: underline; }
+.kartica-vise.samo-mobitel { display: none; }
+.kartica-prazna, .kartica-ceka { margin: 0; padding: 8px 16px 12px; font-size: 14px; line-height: 20px; color: var(--text-secondary); }
+.kartica-prazna.gotovo { color: var(--success); }
+.kartica-prazna.nedostupno { margin: 0 16px 8px; padding: 8px 12px; border-left: 4px solid var(--warning); background: var(--surface-2); color: var(--text); border-radius: 4px; }
+.kartica-prazna.nedostupno .icon { color: var(--warning); }
+@media (max-width: 599px) {
+  .naslovna .samo-siroko { display: none; }
+  .kartica-vise.samo-mobitel { display: block; }
+  .kartica-naslovne { margin-bottom: 16px; }
+}
+.redak-vrijednost.tiho { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+.kartica-redovi li.istaknuto .redak-vrijednost.tiho { color: inherit; }
+.kartica-redovi li.faza-prep .redak-vrijednost.tiho { color: var(--faza-p-fg); }
+.kartica-redovi li.faza-regular .redak-vrijednost.tiho { color: var(--faza-r-fg); }
+.kartica-redovi li.faza-emerg .redak-vrijednost.tiho { color: var(--faza-i-fg); }
+.kartica-redovi li.staro .redak-glavno, .kartica-redovi li.staro .redak-vrijednost { color: var(--text-muted); }
+/* tehničko upozorenje (naš prag kiše) i upozorenje DHMZ-a: crta bez plohe
+   u boji faze (Odluke (31. 10. 2026.)) */
+.kartica-redovi li.faza-kisa { background: var(--surface-2); border-left-color: #64748b; }
+.kartica-redovi li.faza-dhmz-2 { background: var(--surface-2); border-left-color: #ca8a04; }
+.kartica-redovi li.faza-dhmz-3 { background: var(--surface-2); border-left-color: #ea580c; }
+.kartica-redovi li.faza-dhmz-4 { background: var(--surface-2); border-left-color: #dc2626; }
+.kartica-prazna .icon { width: 18px; height: 18px; vertical-align: -4px; }

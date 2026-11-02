@@ -72,3 +72,22 @@ func vodocuvarPisao(l models.VodocuvarskiList) bool {
 	return l.NapisanoAt != nil || l.Prilike != "" || l.Naredbe != "" || l.Opis != "" ||
 		l.Zapazanja != "" || len(l.Prijave) > 0
 }
+
+// NepredaniUSektoru vraća nepredane listove svih vodočuvara sektora koje
+// osoba smije čitati, po istom pravilu kao NepredaniListovi za jednu osobu
+func (s *VodocuvarService) NepredaniUSektoru(ctx context.Context, perms *models.UserPermissions, sektor string) ([]models.VodocuvarskiList, error) {
+	sad := s.sada()
+	svi, err := s.Tudji(ctx, perms, repository.FiltarListova{Sektor: sektor, Godina: sad.In(models.Zagreb).Year()})
+	if err != nil {
+		return nil, err
+	}
+	poOsobi := map[string][]models.VodocuvarskiList{}
+	for _, l := range svi {
+		poOsobi[l.UserID] = append(poOsobi[l.UserID], l)
+	}
+	var out []models.VodocuvarskiList
+	for _, knjiga := range poOsobi {
+		out = append(out, nepredaniListovi(knjiga, sad)...)
+	}
+	return out, nil
+}

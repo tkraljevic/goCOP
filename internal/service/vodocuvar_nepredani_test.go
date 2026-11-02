@@ -150,3 +150,34 @@ func TestNepredaniListoviGreskaCitanja(t *testing.T) {
 		t.Fatal("nepročitana knjiga bez greške")
 	}
 }
+
+// Nepredani listovi cijelog sektora za Naslovnu administratora: svaki
+// vodočuvar po svom pravilu, tuđi sektor ne ulazi
+func TestNepredaniUSektoru(t *testing.T) {
+	o := novaOkolinaVodocuvara(t)
+	pero, ivo := vdVodocuvar(), vdVodocuvar()
+	ivo.ID, ivo.Username, ivo.FullName = uuid.New(), "iivic", "Ivo Ivić"
+	listopad := func(dan int) time.Time { return danKnjige2026(time.October, dan) }
+	ujutro := func(dan time.Time) time.Time { return dan.Add(8 * time.Hour) }
+	p4 := o.upisiListZaUpozorenje(t, pero, listopad(4), ujutro(listopad(4)))
+	o.upisiListZaUpozorenje(t, pero, listopad(5), ujutro(listopad(5)), predanList)
+	i8 := o.upisiListZaUpozorenje(t, ivo, listopad(8), ujutro(listopad(8)))
+	o.upisiListZaUpozorenje(t, ivo, listopad(9), ujutro(listopad(9)), func(l *models.VodocuvarskiList) { l.Sektor = "Q" })
+	o.vs.SetSat(func() time.Time { return listopad(11).Add(10 * time.Hour) })
+	admin := &models.UserPermissions{IsGlobalAdmin: true, User: models.User{ID: uuid.New(), IsGlobalAdmin: true}}
+	l, err := o.vs.NepredaniUSektoru(context.Background(), admin, "P")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ima := map[string]bool{}
+	for _, x := range l {
+		ima[x.ID] = true
+	}
+	if len(l) != 2 || !ima[p4.ID] || !ima[i8.ID] {
+		t.Errorf("nepredani u sektoru: %+v", l)
+	}
+	o.baza.Close()
+	if _, err := o.vs.NepredaniUSektoru(context.Background(), admin, "P"); err == nil {
+		t.Error("nepročitana knjiga bez greške")
+	}
+}

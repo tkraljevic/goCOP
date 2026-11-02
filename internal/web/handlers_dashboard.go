@@ -23,6 +23,7 @@ type DashboardHandler struct {
 	izvjesca  func() *service.IzvjescaService
 	mts       func() *service.MtsService
 	vodocuvar func() *service.VodocuvarService
+	izvori    IzvoriNaslovne // izvori sporih kartica Naslovne (SetIzvori)
 }
 
 // SetZid daje naslovnoj zid događanja i traku stanja
@@ -77,6 +78,9 @@ type DashboardViewData struct {
 	Moduli         []struct{ ID, Naziv, Ikona string }
 	Precaci        []Precac
 	Nepredani      *UpozorenjeNepredanih // vlastiti listovi koje vodočuvar nije predao
+	// Kartice su nova Naslovna po ulozi; prazne znače dosadašnju stranicu
+	// za uloge koje još nisu prenesene
+	Kartice []KarticaNaslovne
 	CekaUlogu      bool                  // račun još nema ulogu (cekaUlogu)
 	SuccessMessage string
 	ErrorMessage   string
@@ -107,6 +111,7 @@ func (h *DashboardHandler) ShowDashboard(w http.ResponseWriter, r *http.Request)
 		ViewAsBanner: viewBanner(r),
 	}
 	h.stanjeIZid(r, perms, &data)
+	data.Kartice = h.kartice(r, perms, &data)
 	data.Precaci = vidljiviPrecaci(precaciZa(perms), data.Modules)
 	data.CekaUlogu = cekaUlogu(user)
 	data.Nepredani = h.nepredani(r.Context(), user)

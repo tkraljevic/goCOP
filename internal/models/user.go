@@ -603,6 +603,13 @@ func (p *UserPermissions) UpravaSektora() bool {
 	})
 }
 
+// DrzavnaUprava javlja ima li osoba sada valjanu dužnost uprave cijele
+// organizacije: glavni rukovoditelj, voditelj Glavnog centra i njihovi
+// zamjenici (RazinaUprave 1)
+func (p *UserPermissions) DrzavnaUprava() bool {
+	return p.imaVazecuDuznost(func(d Duty) bool { return d.Role.RazinaUprave() == 1 })
+}
+
 // imaVazecuDuznost: osoba sada ima aktivnu, neisteklu dužnost koja
 // zadovoljava uvjet
 func (p *UserPermissions) imaVazecuDuznost(uvjet func(Duty) bool) bool {
