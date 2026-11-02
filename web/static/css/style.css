@@ -6934,6 +6934,7 @@ html:not(.js) .nav-caret { display: none; }
 .kartica-redovi > li > .redak { flex: 1; min-width: 0; }
 .redak-gumb { padding-right: 16px; }
 .kartica-tekst { margin: 0; padding: 0 16px 8px; font-size: 14px; line-height: 20px; color: var(--text-secondary); }
+.kartica-napomena { padding-top: 4px; }
 .kartica-gumbi { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 16px 12px; }
 .naslovna-traka { display: flex; align-items: center; gap: 12px; margin: 0 0 16px; padding: 12px 16px; border-radius: 8px; border-left: 4px solid var(--border-strong); background: var(--surface-2); font-size: 14px; line-height: 20px; color: var(--text); }
 .naslovna-traka > .icon { width: 24px; height: 24px; flex: none; color: var(--text-secondary); }

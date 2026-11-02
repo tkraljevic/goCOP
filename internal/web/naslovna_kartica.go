@@ -50,7 +50,10 @@ type KarticaNaslovne struct {
 	// Tekst je redak teksta iznad redaka, npr. „Otvoren u 06:40 · još nije
 	// predan” na kartici dnevnog lista
 	Tekst string
-	// Gumbi su radnje kartice ispod teksta („Otvori list”, „Ispiši list”)
+	// Napomena je redak teksta ispod redaka, npr. „Još 9 crpnih stanica
+	// miruje.”
+	Napomena string
+	// Gumbi su radnje kartice na dnu („Otvori list”, „Novi zadatak”)
 	Gumbi []GumbNaslovne
 	// Tijelo je ime posebnog predloška tijela (npr. vrijeme); prazno znači
 	// obični popis redaka

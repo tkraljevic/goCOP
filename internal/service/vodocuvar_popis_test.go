@@ -89,3 +89,34 @@ func TestZadatakNeIdeIskljucenomRacunu(t *testing.T) {
 	_, err = o.vs.ZadajZadatak(ctx, rukovoditelj, ruk, strojar.ID.String(), "pregledati ustavu", time.Time{})
 	vdGreska(t, err, "Marko Markić nema terensko zaduženje pa nema ni dnevnik")
 }
+
+// Zadaci područja vidi samo tko vodočuvaru smije zadavati zadatke; uz
+// zadatke dođu imena vodočuvara, a bez baze greška
+func TestZadaciPodrucjaPoPravuZadavanja(t *testing.T) {
+	o := novaOkolinaVodocuvara(t)
+	ctx := t.Context()
+	users := repository.NewUserRepository(o.baza, ledger.New(o.baza, "test"))
+	o.vs.users = NewUserService(users, nil, nil)
+	v := &models.User{Username: "pperic", FullName: "Pero Perić", IsActive: true}
+	d := vdDuznost(models.RoleWaterGuard, 1, true)
+	if err := users.CreateUser(v, &d); err != nil {
+		t.Fatal(err)
+	}
+	ruk := vdPperic(vdDuznost(models.RoleAreaLeader, 1, true))
+	rukovoditelj := models.NewUserPermissions(*ruk)
+	if _, err := o.vs.ZadajZadatak(ctx, rukovoditelj, ruk, v.ID.String(), "pregledati ustavu", time.Time{}); err != nil {
+		t.Fatal(err)
+	}
+	z, imena, err := o.vs.ZadaciPodrucja(ctx, rukovoditelj, 1, time.Now().Add(-time.Hour))
+	if err != nil || len(z) != 1 || imena[v.ID.String()] != "Pero Perić" {
+		t.Errorf("zadaci područja: %+v %v %v", z, imena, err)
+	}
+	drugi := vdPperic(vdDuznost(models.RoleAreaLeader, 2, true))
+	if z, _, err := o.vs.ZadaciPodrucja(ctx, models.NewUserPermissions(*drugi), 1, time.Time{}); err != nil || len(z) != 0 {
+		t.Errorf("rukovoditelj drugog područja vidi zadatke: %+v %v", z, err)
+	}
+	o.baza.Close()
+	if _, _, err := o.vs.ZadaciPodrucja(ctx, rukovoditelj, 1, time.Time{}); err == nil {
+		t.Error("zadaci područja bez baze bez greške")
+	}
+}

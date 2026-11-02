@@ -758,6 +758,27 @@ func (s *VodocuvarService) Zadaci(ctx context.Context, vodocuvarID string) []mod
 	return z
 }
 
+// ZadaciPodrucja su zadaci vodočuvara područja kojima osoba smije zadavati
+// zadatke: otvoreni i oni zaključeni od trenutka od, najstariji prvo, uz
+// imena vodočuvara po oznaci
+func (s *VodocuvarService) ZadaciPodrucja(ctx context.Context, perms *models.UserPermissions, area int, od time.Time) ([]models.Zadatak, map[string]string, error) {
+	imena := map[string]string{}
+	for _, v := range s.Vodocuvari(ctx, perms) {
+		imena[v.ID.String()] = v.FullName
+	}
+	svi, err := s.repo.ZadaciPodrucja(ctx, area, od)
+	if err != nil {
+		return nil, nil, err
+	}
+	out := svi[:0]
+	for _, z := range svi {
+		if _, smije := imena[z.UserID]; smije {
+			out = append(out, z)
+		}
+	}
+	return out, imena, nil
+}
+
 // Vodocuvari vraća osobe s terenskim zaduženjem kojima osoba smije zadavati
 // zadatke. Isključeni računi ne ulaze; vodočuvar koji se još nije prijavio
 // ulazi, zadatak ga čeka.

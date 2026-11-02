@@ -56,12 +56,8 @@ func (h *DashboardHandler) naslovnaVodocuvara(r *http.Request, data *DashboardVi
 // BP 34 od 06:15”. Traka ima boju faze vlastitog područja; o ostatku
 // sektora piše samo najviši stupanj (Odluke (31. 10. 2026.)).
 func trakaPodrucja(area int, sektor string, stanja map[string]models.StanjeObrane, dionice []models.Section) *TrakaNaslovne {
-	vlastito, drugo, drugoBP := fazaPodrucja(area, stanja, dionice), models.AktivniStadij{}, 0
-	for _, d := range dionice {
-		if v := stanja[d.Code].Vrh(); d.AreaID != area && v.Stupanj.Severity() > drugo.Stupanj.Severity() {
-			drugo, drugoBP = v, d.AreaID
-		}
-	}
+	vlastito := fazaPodrucja(area, stanja, dionice)
+	drugo, drugoBP := najvisaFazaDrugdje(area, stanja, dionice)
 	t := &TrakaNaslovne{Tekst: fmt.Sprintf("BP %d: preventivna obrana", area)}
 	if vlastito.Stupanj.InForce() {
 		t.Tekst = fmt.Sprintf("BP %d: %s od %s", area, strings.ToLower(vlastito.Stupanj.Label()), odKadFaze(vlastito.Od))
@@ -71,6 +67,18 @@ func trakaPodrucja(area int, sektor string, stanja map[string]models.StanjeObran
 		t.Tekst += fmt.Sprintf(" · Sektor %s: %s na BP %d od %s", sektor, strings.ToLower(drugo.Stupanj.Label()), drugoBP, odKadFaze(drugo.Od))
 	}
 	return t
+}
+
+// najvisaFazaDrugdje je najviši stupanj obrane na dionicama sektora izvan
+// područja i područje na kojem je
+func najvisaFazaDrugdje(area int, stanja map[string]models.StanjeObrane, dionice []models.Section) (models.AktivniStadij, int) {
+	drugo, drugoBP := models.AktivniStadij{}, 0
+	for _, d := range dionice {
+		if v := stanja[d.Code].Vrh(); d.AreaID != area && v.Stupanj.Severity() > drugo.Stupanj.Severity() {
+			drugo, drugoBP = v, d.AreaID
+		}
+	}
+	return drugo, drugoBP
 }
 
 // odKadFaze: „06:15” za danas, inače „30. 10.”

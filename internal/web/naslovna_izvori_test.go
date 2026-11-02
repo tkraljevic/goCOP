@@ -85,8 +85,27 @@ func TestIzvoriNaslovne(t *testing.T) {
 	if l, err := s.nepredaniUSektoru(ctx, nil, "B"); l != nil || err != nil {
 		t.Errorf("listovi bez dnevnika: %v %v", l, err)
 	}
+	if _, err := s.listoviNaslovne(ctx, nil, repository.FiltarListova{}); err == nil {
+		t.Error("listovi bez dnevnika bez greške")
+	}
+	if _, _, err := s.zadaciPodrucjaNaslovne(ctx, nil, 16, sad); err == nil {
+		t.Error("zadaci bez dnevnika bez greške")
+	}
+	if _, err := s.prijaveNaslovne(ctx, nil, repository.FiltarPrijava{}); err == nil {
+		t.Error("prijave bez dnevnika bez greške")
+	}
 	s.vodocuvar = service.NewVodocuvarService(repository.NewVodocuvarRepository(baza, rec), users, "test")
+	s.prijave = service.NewPrijavaService(repository.NewPrijavaRepository(baza, rec), users, s.vodocuvar, "test")
 	admin := &models.UserPermissions{IsGlobalAdmin: true, User: models.User{ID: uuid.New(), IsGlobalAdmin: true}}
+	if l, err := s.listoviNaslovne(ctx, admin, repository.FiltarListova{AreaID: 16}); len(l) != 0 || err != nil {
+		t.Errorf("listovi praznog područja: %v %v", l, err)
+	}
+	if z, _, err := s.zadaciPodrucjaNaslovne(ctx, admin, 16, sad); len(z) != 0 || err != nil {
+		t.Errorf("zadaci praznog područja: %v %v", z, err)
+	}
+	if p, err := s.prijaveNaslovne(ctx, admin, repository.FiltarPrijava{AreaID: 16}); len(p) != 0 || err != nil {
+		t.Errorf("prijave praznog područja: %v %v", p, err)
+	}
 	if l, err := s.nepredaniUSektoru(ctx, admin, "B"); len(l) != 0 || err != nil {
 		t.Errorf("listovi praznog sektora: %v %v", l, err)
 	}

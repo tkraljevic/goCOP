@@ -661,6 +661,27 @@ func (r *VodocuvarRepository) OtvoreniZadaci(ctx context.Context, userID string,
 	return out, rows.Err()
 }
 
+// ZadaciPodrucja vraća zadatke vodočuvara na području koji su još otvoreni
+// ili su obavljeni ili odbačeni od trenutka od, najstariji prvo
+func (r *VodocuvarRepository) ZadaciPodrucja(ctx context.Context, area int, od time.Time) ([]models.Zadatak, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT `+zadatakColumns+` FROM vodocuvarski_zadaci WHERE area_id = ?
+		AND (status = ? OR (status IN (?, ?) AND obavljeno_at >= ?)) ORDER BY zadano_at`,
+		area, models.ZadatakOtvoren, models.ZadatakObavljen, models.ZadatakOdbacen, od.UTC())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []models.Zadatak
+	for rows.Next() {
+		z, err := scanZadatak(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, z)
+	}
+	return out, rows.Err()
+}
+
 // ZadaciZaList vraća zadatke zaključene na listu, za karte obuhvata
 func (r *VodocuvarRepository) ZadaciZaList(ctx context.Context, listID string) ([]models.Zadatak, error) {
 	rows, err := r.db.QueryContext(ctx, `SELECT `+zadatakColumns+` FROM vodocuvarski_zadaci WHERE list_id = ? ORDER BY zadano_at`, listID)

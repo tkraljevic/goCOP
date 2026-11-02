@@ -24,6 +24,7 @@ type DashboardHandler struct {
 	mts       func() *service.MtsService
 	vodocuvar func() *service.VodocuvarService
 	izvori    IzvoriNaslovne // izvori sporih kartica Naslovne (SetIzvori)
+	pamcenje  zapamceneLetve // zadnji pregled letava za kartice Naslovne
 }
 
 // SetZid daje naslovnoj zid događanja i traku stanja
@@ -120,7 +121,7 @@ func (h *DashboardHandler) ShowDashboard(w http.ResponseWriter, r *http.Request)
 	}
 	h.stanjeIZid(r, perms, &data)
 	data.Kartice = h.kartice(r, perms, &data)
-	if data.Kartice != nil && !perms.IsGlobalAdmin && !perms.DrzavnaUprava() {
+	if data.Kartice != nil && ulogaNaslovne(perms, time.Now()) == uVodocuvar {
 		h.naslovnaVodocuvara(r, &data, time.Now())
 	}
 	data.Precaci = vidljiviPrecaci(precaciZa(perms), data.Modules)
