@@ -2,11 +2,13 @@ package web
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
 	"gocop/internal/models"
 	"gocop/internal/repository"
+	"gocop/internal/service"
 )
 
 // izvoriNaslovne su izvori sporih kartica Naslovne. Svaki se razrješava tek
@@ -24,7 +26,28 @@ func (s *Server) izvoriNaslovne() IzvoriNaslovne {
 		Prava:      s.pravaNaslovne,
 		Djelatnici: func() ([]models.User, error) { return s.userService.ListUsers("", 0, "", "", "") },
 		Nepredani:  s.nepredaniUSektoru,
+		Teren: func(ctx context.Context, perms *models.UserPermissions, u *models.User) (*service.FieldOverview, error) {
+			return s.readingService.FieldOverview(ctx, perms, u, 0)
+		},
+		StanjaSektora: s.stanjaSektoraNaslovne,
+		Osobe: func(sektor string, area int, uloga models.Role) ([]models.User, error) {
+			return s.userService.ListUsers(sektor, area, string(uloga), "", "")
+		},
 	}
+}
+
+// stanjaSektoraNaslovne su stanja obrane dionica sektora po aktima i
+// dionice sektora; greška dok akti nisu otvoreni
+func (s *Server) stanjaSektoraNaslovne(ctx context.Context, sektor string) (map[string]models.StanjeObrane, []models.Section, error) {
+	if s.akti == nil || s.sectionService == nil {
+		return nil, nil, errors.New("akti još nisu otvoreni")
+	}
+	stanja, err := s.akti.StanjaSektora(ctx, sektor, time.Now())
+	if err != nil {
+		return nil, nil, err
+	}
+	dionice, err := s.sectionService.ListSections(sektor, 0, "")
+	return stanja, dionice, err
 }
 
 // razmjenaNaslovne je stanje razmjene; false dok čvor nema razmjenu

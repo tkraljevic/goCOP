@@ -6,7 +6,14 @@
 {{if .Kartice}}
 {{if .CekaUlogu}}<div class="alert alert-info">{{icon "info"}} Vaš račun čeka da mu administrator dodijeli ulogu. Dotad možete samo gledati.</div>{{end}}
 {{template "nepredaniListovi" .Nepredani}}
-<div class="naslovna">
+{{with .Traka}}<div class="naslovna-traka naslovna-teren-glava{{if .Razred}} faza-{{.Razred}}{{end}}" role="status">{{icon "shield"}}<span>{{.Tekst}}</span></div>{{end}}
+{{if or .Akcije .Nazovi}}<div class="naslovna-akcije naslovna-teren-glava">
+  {{range .Akcije}}{{template "gumbNaslovne" .}}{{end}}
+  {{if .Nazovi}}<details class="nazovi"><summary class="btn btn-secondary">{{if eq (len .Nazovi) 1}}Nazovi: {{(index .Nazovi 0).Ime}}{{else}}Nazovi{{end}}</summary>
+    <ul>{{range .Nazovi}}<li>{{if .URL}}<a class="redak" href="{{.URL}}">{{else}}<div class="redak">{{end}}{{icon "phone"}}<span class="redak-tekst"><span class="redak-glavno">{{.Ime}}</span><span class="redak-sporedno">{{.Funkcija}}{{if .Broj}} · {{.Broj}}{{else}} · nema upisan broj{{end}}</span></span>{{if .URL}}</a>{{else}}</div>{{end}}</li>{{end}}</ul>
+  </details>{{end}}
+</div>{{end}}
+<div class="naslovna{{if .Teren}} teren{{end}}">
   {{range .Kartice}}{{template "karticaNaslovne" .}}{{end}}
 </div>
 {{else}}

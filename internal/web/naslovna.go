@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"gocop/internal/models"
+	"gocop/internal/service"
 )
 
 // Kartice Naslovne po ulozi. Globalni administrator ima sve; glavni
@@ -34,6 +35,8 @@ func karticeUloge(perms *models.UserPermissions) []string {
 		return []string{kStanjeObrane, kZaRijesiti, kVodostaji, kVrijeme, kJaceOborine, kDogadjanja, kSustav}
 	case perms.DrzavnaUprava():
 		return []string{kStanjeObrane, kZaRijesiti, kVodostaji, kVrijeme, kJaceOborine, kDogadjanja}
+	case terenskaDuznost(&perms.User, time.Now()) != nil:
+		return []string{kDnevniList, kZadaci, kMojeLetve, kVrijeme}
 	}
 	return nil
 }
@@ -55,8 +58,32 @@ func (h *DashboardHandler) kartica(r *http.Request, perms *models.UserPermission
 		return karticaStanjaObrane(data.Stanja, h.imenaSektora(), data.Modules.Sees(models.ModuleJournals))
 	case kDogadjanja:
 		return karticaDogadjanja(data.Zid, time.Now())
+	case kDnevniList, kZadaci:
+		return h.karticaKnjige(r, id)
 	}
 	return lijenaKartica(id)
+}
+
+// karticaKnjige su kartice iz vodočuvarskog dnevnika: današnji list i
+// otvoreni zadaci rukovoditelja
+func (h *DashboardHandler) karticaKnjige(r *http.Request, id string) KarticaNaslovne {
+	sad := time.Now()
+	u, _ := r.Context().Value(contextKeyUser).(*models.User)
+	var vs *service.VodocuvarService
+	if h.vodocuvar != nil {
+		vs = h.vodocuvar()
+	}
+	if vs == nil || u == nil {
+		return nedostupna(id, "Dnevnik trenutačno nije dostupan.")
+	}
+	if id == kZadaci {
+		return karticaZadataka(vs.Zadaci(r.Context(), u.ID.String()), sad)
+	}
+	l, err := vs.DanasnjiList(r.Context(), u)
+	if err != nil {
+		return nedostupna(id, "Dnevnik trenutačno nije dostupan.")
+	}
+	return karticaDnevnogLista(l, sad)
 }
 
 // imenaSektora su imena sektora iz registra po oznaci
@@ -76,6 +103,9 @@ var glaveKartica = map[string]KarticaNaslovne{
 	kVrijeme:     {Naslov: "Vrijeme"},
 	kJaceOborine: {Naslov: "Jače oborine", Poveznica: "Slivovi", URL: "/slivovi"},
 	kSustav:      {Naslov: "Sustav", Poveznica: "Administracija", URL: "/administracija"},
+	kMojeLetve:   {Naslov: "Moje letve", Poveznica: "Sve letve područja", URL: "/teren"},
+	kDnevniList:  {Naslov: "Dnevni list"},
+	kZadaci:      {Naslov: "Zadaci rukovoditelja"},
 }
 
 // lijenaKartica je glava spore kartice s adresom tijela
@@ -118,6 +148,8 @@ func (h *DashboardHandler) sporaKartica(r *http.Request, perms *models.UserPermi
 		return h.vrijeme(r)
 	case kJaceOborine:
 		return h.jaceOborine(r.Context())
+	case kMojeLetve:
+		return h.mojeLetve(r.Context(), perms, sad)
 	}
 	return h.sustav(r.Context(), sad)
 }

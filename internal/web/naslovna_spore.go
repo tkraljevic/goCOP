@@ -27,6 +27,13 @@ type IzvoriNaslovne struct {
 	Prava      func(context.Context) (ceka int, nacin string, err error)
 	Djelatnici func() ([]models.User, error)
 	Nepredani  func(context.Context, *models.UserPermissions, string) ([]models.VodocuvarskiList, error)
+	// Teren je terenski pogled osobe: letve koje redovito očitava
+	Teren func(context.Context, *models.UserPermissions, *models.User) (*service.FieldOverview, error)
+	// StanjaSektora su stanja obrane dionica sektora iz akata i dionice
+	// sektora s područjem kojem pripadaju
+	StanjaSektora func(context.Context, string) (map[string]models.StanjeObrane, []models.Section, error)
+	// Osobe su osobe s valjanom ulogom u sektoru i, kad je zadano, području
+	Osobe func(sektor string, area int, uloga models.Role) ([]models.User, error)
 }
 
 // SetIzvori daje Naslovnoj izvore sporih kartica

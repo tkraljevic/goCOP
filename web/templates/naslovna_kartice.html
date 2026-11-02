@@ -14,6 +14,8 @@
 {{end}}
 
 {{define "tijeloKarticeNaslovne"}}
+{{if .Tekst}}<p class="kartica-tekst">{{.Tekst}}</p>{{end}}
+{{if .Gumbi}}<div class="kartica-gumbi">{{range .Gumbi}}{{template "gumbNaslovne" .}}{{end}}</div>{{end}}
 {{if .Tijelo}}{{template "posebnoTijeloNaslovne" .}}
 {{else if .Redovi}}
 <ul class="kartica-redovi">
@@ -27,8 +29,9 @@
         {{with $r.Oznaka}}<span class="oznaka-retka{{if .Razred}} faza-{{.Razred}}{{end}}{{if .Obrub}} obrub{{end}}">{{.Tekst}}</span>{{end}}
       </span>
       {{if $r.Vrijednost}}<span class="redak-vrijednost{{if $r.Tiho}} tiho{{end}}">{{$r.Vrijednost}}</span>{{end}}
-      {{if $r.URL}}{{icon "chevron-right"}}{{end}}
+      {{if and $r.URL (not $r.Gumb)}}{{icon "chevron-right"}}{{end}}
     {{if $r.URL}}</a>{{else}}</div>{{end}}
+    {{with $r.Gumb}}<span class="redak-gumb">{{template "gumbNaslovne" .}}</span>{{end}}
   </li>
   {{end}}
 </ul>
@@ -40,3 +43,5 @@
 {{end}}
 
 {{define "posebnoTijeloNaslovne"}}{{end}}
+
+{{define "gumbNaslovne"}}<a class="btn {{if .Glavni}}btn-primary{{else}}btn-secondary{{end}}{{if .SamoSiroko}} samo-siroko{{end}}" href="{{.URL}}">{{.Tekst}}</a>{{end}}

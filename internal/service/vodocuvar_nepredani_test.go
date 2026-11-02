@@ -181,3 +181,22 @@ func TestNepredaniUSektoru(t *testing.T) {
 		t.Error("nepročitana knjiga bez greške")
 	}
 }
+
+// Današnji list za Naslovnu: spremljen list dana, bez stvaranja novoga;
+// tko ne vodi dnevnik nema lista
+func TestDanasnjiList(t *testing.T) {
+	o := novaOkolinaVodocuvara(t)
+	pero := vdVodocuvar()
+	danas := danKnjige2026(time.October, 11)
+	o.vs.SetSat(func() time.Time { return danas.Add(10 * time.Hour) })
+	if l, err := o.vs.DanasnjiList(context.Background(), pero); l != nil || err != nil {
+		t.Errorf("bez lista: %+v %v", l, err)
+	}
+	upisan := o.upisiListZaUpozorenje(t, pero, danas, danas.Add(7*time.Hour))
+	if l, err := o.vs.DanasnjiList(context.Background(), pero); err != nil || l == nil || l.ID != upisan.ID {
+		t.Errorf("današnji list: %+v %v", l, err)
+	}
+	if l, err := o.vs.DanasnjiList(context.Background(), &models.User{ID: uuid.New()}); l != nil || err != nil {
+		t.Errorf("bez dnevnika: %+v %v", l, err)
+	}
+}
