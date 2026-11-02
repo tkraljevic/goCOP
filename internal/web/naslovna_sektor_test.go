@@ -117,3 +117,24 @@ func TestNaslovnaUpraveSektora(t *testing.T) {
 		t.Errorf("na terenu bez dnevnika: %v", n)
 	}
 }
+
+// Gost i preglednik: napomena da račun samo gleda, dva stupca; preglednik
+// uz to vidi događanja i imena dežurnih, gost ne
+func TestNaslovnaGostaIPreglednika(t *testing.T) {
+	o := novaOkolinaNaslovne(t)
+	gost := o.zovi("/", dozvoleNaslovne(false, models.RoleGuest)).Body.String()
+	for _, zeli := range []string{TrakaPregleda, `class="naslovna teren"`, `id="kartica-stanje-obrane"`, `data-lijeno="/naslovna/kartica/jace-oborine"`} {
+		if !strings.Contains(gost, zeli) {
+			t.Errorf("Naslovna gosta nema %q", zeli)
+		}
+	}
+	if strings.Contains(gost, `id="kartica-dogadjanja"`) {
+		t.Error("gost vidi događanja")
+	}
+	if p := o.zovi("/", dozvoleNaslovne(false, models.RoleViewer)).Body.String(); !strings.Contains(p, `id="kartica-dogadjanja"`) || !strings.Contains(p, TrakaPregleda) {
+		t.Error("preglednik bez događanja ili napomene")
+	}
+	if imaUlogu(&dozvoleNaslovne(false, models.RoleGuest).User, models.RoleViewer, sadNaslovne) {
+		t.Error("gost je preglednik")
+	}
+}

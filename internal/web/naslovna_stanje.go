@@ -14,7 +14,7 @@ import (
 // proglašene obrane stoje zajedno u jednom retku. Kad nijedna obrana nije
 // proglašena, organizacija je u preventivnoj obrani i nema dežurnog
 // (Odluke (1. 11. 2026.)).
-func karticaStanjaObrane(stanja []service.StanjeObrane, imena map[string]string, vidiDnevnike bool) KarticaNaslovne {
+func karticaStanjaObrane(stanja []service.StanjeObrane, imena map[string]string, vidiDnevnike, imenaDezurnih bool) KarticaNaslovne {
 	k := KarticaNaslovne{ID: "stanje-obrane", Naslov: "Stanje obrane"}
 	var mirni []string
 	for _, st := range stanja {
@@ -22,7 +22,7 @@ func karticaStanjaObrane(stanja []service.StanjeObrane, imena map[string]string,
 			mirni = append(mirni, st.Sektor)
 			continue
 		}
-		k.Redovi = append(k.Redovi, redakSektoraUObrani(st, imena[st.Sektor], vidiDnevnike))
+		k.Redovi = append(k.Redovi, redakSektoraUObrani(st, imena[st.Sektor], vidiDnevnike, imenaDezurnih))
 	}
 	if len(mirni) > 0 {
 		naziv := "Sektor " + mirni[0]
@@ -39,15 +39,18 @@ func karticaStanjaObrane(stanja []service.StanjeObrane, imena map[string]string,
 
 // redakSektoraUObrani je redak sektora s proglašenom obranom ili otvorenim
 // dnevnikom COP-a
-func redakSektoraUObrani(st service.StanjeObrane, ime string, vidiDnevnike bool) RedakKartice {
+func redakSektoraUObrani(st service.StanjeObrane, ime string, vidiDnevnike, imenaDezurnih bool) RedakKartice {
 	r := RedakKartice{Glavno: sektorNaslovne(st.Sektor, ime), Hitno: true}
 	if st.Stadij != models.PhaseNormal {
 		r.Istaknuto, r.Vrijednost, r.Tiho = st.Stadij.PillClass(), st.Stadij.Label(), true
 	}
 	var dijelovi []string
-	if st.Dezurni != "" {
+	switch {
+	case st.Dezurni != "" && imenaDezurnih:
 		dijelovi = append(dijelovi, "dežurni "+st.Dezurni)
-	} else if st.Dnevnik != nil {
+	case st.Dezurni != "":
+		dijelovi = append(dijelovi, "dežurstvo traje")
+	case st.Dnevnik != nil:
 		dijelovi = append(dijelovi, "nitko ne dežura")
 	}
 	if st.DionicaUObr > 0 {
