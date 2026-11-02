@@ -1,6 +1,7 @@
 package web
 
 import (
+	"bytes"
 	"context"
 	"html/template"
 	"log"
@@ -71,12 +72,33 @@ type kisaSlivovaPodaci struct {
 
 // ShowKisaSlivova vraća pločicu kao dio stranice
 func (s *Server) ShowKisaSlivova(w http.ResponseWriter, r *http.Request) {
-	ctx, otkazi := context.WithTimeout(r.Context(), 15*time.Second)
-	defer otkazi()
-	p := kisaSlivovaPodaci{}
 	if s.kisaSlivova == nil {
 		w.WriteHeader(http.StatusNoContent)
 		return
+	}
+	posaljiDio(w, kisaSlivovaTmpl, s.podaciKiseSlivova(r.Context()))
+}
+
+// posaljiDio crta dio stranice koji se učita naknadno; greška predloška je
+// greška poslužitelja, a ne pola pločice
+func posaljiDio(w http.ResponseWriter, t *template.Template, podaci any) {
+	var b bytes.Buffer
+	if err := t.Execute(&b, podaci); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = b.WriteTo(w) // greška znači samo da je preglednik otišao
+}
+
+// podaciKiseSlivova su međuslivovi s kišom i porastom letava, isti za
+// pločicu i za karticu Naslovne; bez izvora kiše prazni
+func (s *Server) podaciKiseSlivova(ctx context.Context) kisaSlivovaPodaci {
+	ctx, otkazi := context.WithTimeout(ctx, 15*time.Second)
+	defer otkazi()
+	p := kisaSlivovaPodaci{}
+	if s.kisaSlivova == nil {
+		return p
 	}
 	stanja, dnevne, err := s.kisaSlivova(ctx)
 	if err != nil {
@@ -84,52 +106,67 @@ func (s *Server) ShowKisaSlivova(w http.ResponseWriter, r *http.Request) {
 		log.Printf("kiša po slivovima: %v", err)
 		p.Greska = "Podaci o kiši po slivovima trenutačno nisu dostupni."
 	}
-	nazivSliva := map[string]string{}
-	if s.kisomjeri != nil {
-		if sl, err := s.kisomjeri.ListSlivovi(ctx); err == nil {
-			for _, m := range sl {
-				nazivSliva[m.Oznaka] = m.Naziv
-			}
-		}
-	}
-	nazivLetve := map[string]string{}
-	if s.stationService != nil {
-		if post, err := s.stationService.ListStations(ctx, "", "", "", false); err == nil {
-			for _, st := range post {
-				nazivLetve[st.Code] = st.Name
-			}
-		}
-	}
+	nazivSliva, nazivLetve := s.naziviSlivova(ctx), s.naziviLetava(ctx)
 	for _, st := range stanja {
-		x := SlivUKisi{StanjeSliva: st, Naziv: nazivSliva[st.Sliv]}
-		for _, l := range st.Letve {
-			pl := PorastLetve{Naziv: nazivLetve[l]}
-			if pl.Naziv == "" {
-				pl.Naziv = l
-			}
-			pl.Cm, pl.Dan, pl.Ima = najveciPorast(dnevne[l])
-			if p.Izdano.IsZero() && len(dnevne[l]) > 0 {
-				p.Izdano = time.Unix(dnevne[l][0].Izdano*3600, 0) // izdanje je isto za sve letve
-			}
-			x.Letve = append(x.Letve, pl)
-		}
-		switch st.Razina {
-		case 1:
-			x.Klasa, x.Oznaka = "kisa-zuto", "pojačana kiša"
-		case 2:
-			x.Klasa, x.Oznaka = "kisa-narancasto", "jaka kiša"
-		case 3:
-			x.Klasa, x.Oznaka = "kisa-crveno", "izvanredna kiša"
-		}
+		x := slivUKisi(st, nazivSliva[st.Sliv], nazivLetve, dnevne, &p.Izdano)
 		p.Slivovi = append(p.Slivovi, x)
 		if st.Razina > 0 {
 			p.Upozorenja = append(p.Upozorenja, x)
 		}
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := kisaSlivovaTmpl.Execute(w, p); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	return p
+}
+
+// naziviSlivova su imena međuslivova iz registra kišomjera po oznaci
+func (s *Server) naziviSlivova(ctx context.Context) map[string]string {
+	out := map[string]string{}
+	if s.kisomjeri == nil {
+		return out
 	}
+	sl, _ := s.kisomjeri.ListSlivovi(ctx) // bez registra pločica piše oznaku sliva
+	for _, m := range sl {
+		out[m.Oznaka] = m.Naziv
+	}
+	return out
+}
+
+// naziviLetava su imena letava po šifri
+func (s *Server) naziviLetava(ctx context.Context) map[string]string {
+	out := map[string]string{}
+	if s.stationService == nil {
+		return out
+	}
+	post, _ := s.stationService.ListStations(ctx, "", "", "", false) // bez registra pločica piše šifru letve
+	for _, st := range post {
+		out[st.Code] = st.Name
+	}
+	return out
+}
+
+// razineKise su razred i riječi za razinu kiše međusliva
+var razineKise = map[int][2]string{
+	1: {"kisa-zuto", "pojačana kiša"},
+	2: {"kisa-narancasto", "jaka kiša"},
+	3: {"kisa-crveno", "izvanredna kiša"},
+}
+
+// slivUKisi slaže međusliv za pločicu: ime, najveći porast svake letve u
+// dnevnoj prognozi i razinu kiše; izdano dobije sat izdanja prognoze
+func slivUKisi(st prognoza.StanjeSliva, naziv string, nazivLetve map[string]string, dnevne map[string][]prognoza.DnevnaIzdana, izdano *time.Time) SlivUKisi {
+	x := SlivUKisi{StanjeSliva: st, Naziv: naziv}
+	for _, l := range st.Letve {
+		pl := PorastLetve{Naziv: nazivLetve[l]}
+		if pl.Naziv == "" {
+			pl.Naziv = l
+		}
+		pl.Cm, pl.Dan, pl.Ima = najveciPorast(dnevne[l])
+		if izdano.IsZero() && len(dnevne[l]) > 0 {
+			*izdano = time.Unix(dnevne[l][0].Izdano*3600, 0) // izdanje je isto za sve letve
+		}
+		x.Letve = append(x.Letve, pl)
+	}
+	x.Klasa, x.Oznaka = razineKise[st.Razina][0], razineKise[st.Razina][1]
+	return x
 }
 
 // najveciPorast vraća najveći porast prema današnjoj vrijednosti u dnevnoj

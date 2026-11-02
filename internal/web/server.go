@@ -129,6 +129,7 @@ type Server struct {
 	kisMjerenja        *kisomjeri.Spremiste     // mjerenja stvarnih kišomjera i oborine s Open-Meteo; nil dok se ne postavi
 	kisaSlivova        KisaSlivovaFunc          // kiša po slivovima za naslovnu; nil dok se ne postavi
 	razmjena           RazmjenaFunc             // stanje razmjene za pločicu na naslovnoj
+	vrijemeH           *VrijemeHandler          // vrijeme za mjesto osobe, i za karticu Naslovne
 	znak               znakRazmjene             // oznaka razmjene u gornjoj traci, s predmemorijom (skoljka.go)
 	dhmzKlijent        *dhmz.Klijent            // otvoreni podaci DHMZ-a za ploču na naslovnoj
 	zidService         *service.ZidService      // zid događanja; nil dok se ne postavi
@@ -677,6 +678,7 @@ func (s *Server) setupRoutes() {
 	dashH := NewDashboardHandler(s.userService, s.templates["dashboard.html"], s.templates["registri.html"])
 	dashH.SetZid(func() *service.ZidService { return s.zidService }, func() *service.IzvjescaService { return s.izvjescaService }, func() *service.MtsService { return s.mtsService })
 	dashH.SetVodocuvar(func() *service.VodocuvarService { return s.vodocuvar })
+	dashH.SetIzvori(s.izvoriNaslovne())
 	dogH := NewDogadjanjaHandler(func() *service.ZidService { return s.zidService }, s.userService, s.templates["dogadjanja.html"])
 	s.mux.Handle("GET /dogadjanja", s.authMiddleware(http.HandlerFunc(dogH.ShowDogadjanja)))
 	s.mux.Handle("GET /dogadjanja.xlsx", s.authMiddleware(http.HandlerFunc(dogH.IzvoziDogadjanja)))
@@ -990,6 +992,7 @@ func (s *Server) setupRoutes() {
 	// Zaštićene rute (zahtijevaju prijavu)
 	s.mux.Handle("GET /{$}", s.authMiddleware(http.HandlerFunc(dashH.ShowDashboard)))
 	s.mux.Handle("GET /dashboard", s.authMiddleware(http.HandlerFunc(dashH.ShowDashboard)))
+	s.mux.Handle("GET /naslovna/kartica/{id}", s.authMiddleware(http.HandlerFunc(dashH.ShowKartica)))
 	s.mux.Handle("GET /registri", s.authMiddleware(http.HandlerFunc(dashH.ShowRegisters)))
 
 	// Pomoć je otvorena svima koji su prijavljeni: nije ni u jednom modulu, jer
@@ -1239,6 +1242,7 @@ func (s *Server) setupRoutes() {
 	vrijemeH := &VrijemeHandler{dhmz: s.dhmzKlijent, org: s.orgService,
 		kisomjeri: func() *service.KisomjerService { return s.kisomjeri },
 		mjerenja:  func() *kisomjeri.Spremiste { return s.kisMjerenja }}
+	s.vrijemeH = vrijemeH
 	s.mux.Handle("GET /vrijeme/podrucje", s.authMiddleware(http.HandlerFunc(vrijemeH.ShowPloca)))
 	s.mux.Handle("GET /vrijeme/kisa-slivova", s.authMiddleware(http.HandlerFunc(s.ShowKisaSlivova)))
 	s.mux.Handle("GET /razmjena/plocica", s.authMiddleware(http.HandlerFunc(s.ShowRazmjena)))
@@ -1610,6 +1614,8 @@ func DijeloviPredloska(stranica string) []string {
 		dijelovi = append(dijelovi, "letva_blokovi.html")
 	case "akti.html", "akt_form.html":
 		dijelovi = append(dijelovi, "obrana_nacin.html")
+	case "dashboard.html":
+		dijelovi = append(dijelovi, "naslovna_kartice.html")
 	case "settings.html", "pretplate.html", "baza.html", "administracija_karte.html", "administracija_potpisi.html":
 		dijelovi = append(dijelovi, "postavke_cvora.html")
 	}

@@ -97,60 +97,82 @@ func (h *VrijemeHandler) tocka(r *http.Request) (string, float64, float64, bool)
 
 // ShowPloca vraća ploču kao dio stranice
 func (h *VrijemeHandler) ShowPloca(w http.ResponseWriter, r *http.Request) {
+	posaljiDio(w, plocaVremenaTmpl, h.Ploca(r))
+}
+
+// Ploca skuplja vrijeme za mjesto osobe: upozorenja DHMZ-a, trenutno
+// vrijeme s najbliže postaje, prognozu regije, hidrološki bilten i kišu.
+// Što ne stigne, ide u Greske, a ostalo se i dalje prikaže.
+func (h *VrijemeHandler) Ploca(r *http.Request) PlocaVremena {
 	ctx, otkazi := context.WithTimeout(r.Context(), 12*time.Second)
 	defer otkazi()
 	p := PlocaVremena{}
 	p.Mjesto, p.Lat, p.Lon, p.Lokacija = h.tocka(r)
 	p.Zupanija = dhmz.ZupanijaZa(p.Lat, p.Lon)
-
-	if u, _, err := h.dhmz.Upozorenja(ctx); err != nil {
-		p.Greske = append(p.Greske, "upozorenja DHMZ-a nisu dostupna")
-		p.BezUpozorenja = true
-	} else {
-		for _, x := range u {
-			if x.Razina <= 1 {
-				// Zeleno znači „nema upozorenja”: sedam kartica s istom
-				// rečenicom samo zatrpa ploču.
-				if p.Zupanija.Vrijedi(x) && x.Do.After(p.ZelenoDo) {
-					p.ZelenoDo = x.Do
-				}
-				continue
-			}
-			if p.Zupanija.Vrijedi(x) {
-				p.Upozorenja = append(p.Upozorenja, x)
-			} else {
-				p.Ostala = append(p.Ostala, x)
-			}
-		}
-	}
-	if v, err := h.dhmz.Vrijeme(ctx); err != nil {
-		p.Greske = append(p.Greske, "trenutno vrijeme DHMZ-a nije dostupno")
-	} else if pos, km := v.Najbliza(p.Lat, p.Lon); pos != nil {
-		p.Postaja, p.PostajaKm, p.Termin = pos, km, v.Termin
-	}
+	h.upozorenja(ctx, &p)
+	h.sada(ctx, &p)
 	p.Regija = dhmz.NazivRegije[p.Zupanija.Regija]
 	if t, err := h.dhmz.Regije(ctx); err == nil {
 		p.Prognoza = t.Tekst[p.Zupanija.Regija]
 	}
-	if b, err := h.dhmz.Bilten(ctx); err != nil {
-		p.Greske = append(p.Greske, "hidrološki bilten nije dostupan")
-	} else {
-		p.BiltenDatum = b.Datum
-		redoslijed := dhmz.RijekeRegije[p.Zupanija.Regija]
-		if redoslijed == nil {
-			redoslijed = []string{"sava", "kupa", "drava", "mura", "dunav"}
-		}
-		for _, k := range redoslijed {
-			if t := b.Tekst[k]; t != "" {
-				p.Rijeke = append(p.Rijeke, RijekaBiltena{Naziv: dhmz.NazivRijeke[k], Tekst: t})
+	h.bilten(ctx, &p)
+	h.kisa(&p)
+	return p
+}
+
+// upozorenja dijeli upozorenja DHMZ-a na ona za županiju mjesta i ostala;
+// zeleno se ne prikazuje, samo se pamti do kada vrijedi
+func (h *VrijemeHandler) upozorenja(ctx context.Context, p *PlocaVremena) {
+	u, _, err := h.dhmz.Upozorenja(ctx)
+	if err != nil {
+		p.Greske = append(p.Greske, "upozorenja DHMZ-a nisu dostupna")
+		p.BezUpozorenja = true
+		return
+	}
+	for _, x := range u {
+		switch {
+		case x.Razina <= 1:
+			// Zeleno znači „nema upozorenja”: sedam kartica s istom
+			// rečenicom samo zatrpa ploču.
+			if p.Zupanija.Vrijedi(x) && x.Do.After(p.ZelenoDo) {
+				p.ZelenoDo = x.Do
 			}
+		case p.Zupanija.Vrijedi(x):
+			p.Upozorenja = append(p.Upozorenja, x)
+		default:
+			p.Ostala = append(p.Ostala, x)
 		}
 	}
-	h.kisa(&p)
+}
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := plocaVremenaTmpl.Execute(w, p); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+// sada upisuje trenutno vrijeme s najbliže postaje DHMZ-a
+func (h *VrijemeHandler) sada(ctx context.Context, p *PlocaVremena) {
+	v, err := h.dhmz.Vrijeme(ctx)
+	if err != nil {
+		p.Greske = append(p.Greske, "trenutno vrijeme DHMZ-a nije dostupno")
+		return
+	}
+	if pos, km := v.Najbliza(p.Lat, p.Lon); pos != nil {
+		p.Postaja, p.PostajaKm, p.Termin = pos, km, v.Termin
+	}
+}
+
+// bilten upisuje hidrološki bilten DHMZ-a za rijeke regije
+func (h *VrijemeHandler) bilten(ctx context.Context, p *PlocaVremena) {
+	b, err := h.dhmz.Bilten(ctx)
+	if err != nil {
+		p.Greske = append(p.Greske, "hidrološki bilten nije dostupan")
+		return
+	}
+	p.BiltenDatum = b.Datum
+	redoslijed := dhmz.RijekeRegije[p.Zupanija.Regija]
+	if redoslijed == nil {
+		redoslijed = []string{"sava", "kupa", "drava", "mura", "dunav"}
+	}
+	for _, k := range redoslijed {
+		if t := b.Tekst[k]; t != "" {
+			p.Rijeke = append(p.Rijeke, RijekaBiltena{Naziv: dhmz.NazivRijeke[k], Tekst: t})
+		}
 	}
 }
 

@@ -109,10 +109,19 @@ type brojkeStanje struct {
 
 // ShowBrojke vraća brojke podataka kao JSON.
 func (s *Server) ShowBrojke(w http.ResponseWriter, r *http.Request) {
+	b := s.brojkePodataka(r.Context())
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(b) // greška znači samo da je preglednik otišao
+}
+
+// brojkePodataka su brojke iz predmemorije, izbrojene iznova kad su
+// starije od BrojkeOsvjezavanje; brojanje po desetljećima ide u pozadini
+func (s *Server) brojkePodataka(ctx context.Context) *BrojkePodataka {
 	st := &s.brojkeStanje
 	st.mu.Lock()
 	if st.b == nil || time.Since(st.kad) > BrojkeOsvjezavanje {
-		st.b = s.izbrojiPodatke(r.Context())
+		st.b = s.izbrojiPodatke(ctx)
 		st.kad = time.Now()
 	}
 	if !st.broji && (st.desetljeca == nil || time.Since(st.desetljecaKad) > DesetljecaOsvjezavanje) {
@@ -132,11 +141,8 @@ func (s *Server) ShowBrojke(w http.ResponseWriter, r *http.Request) {
 	}
 	kopija := *st.b
 	kopija.Desetljeca = st.desetljeca
-	b := &kopija
 	st.mu.Unlock()
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-store")
-	_ = json.NewEncoder(w).Encode(b)
+	return &kopija
 }
 
 // izbrojiPodatke broji sve što sustav nosi. Što se ne može izbrojiti (čvor
