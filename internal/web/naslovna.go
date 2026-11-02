@@ -32,6 +32,7 @@ const (
 	uUprava    = "uprava"
 	uDezurni   = "dezurni"
 	uPodrucje  = "podrucje"
+	uDionica   = "dionica"
 	uVodocuvar = "vodocuvar"
 )
 
@@ -49,6 +50,8 @@ func ulogaNaslovne(perms *models.UserPermissions, sad time.Time) string {
 		return uDezurni
 	case duznostPodrucja(&perms.User, sad) != nil:
 		return uPodrucje
+	case len(duznostiDionica(&perms.User, sad)) > 0:
+		return uDionica
 	case terenskaDuznost(&perms.User, sad) != nil:
 		return uVodocuvar
 	}
@@ -61,6 +64,7 @@ var karticeZaUlogu = map[string][]string{
 	uUprava:    {kStanjeObrane, kZaRijesiti, kVodostaji, kVrijeme, kJaceOborine, kDogadjanja},
 	uDezurni:   {kMojeDezurstvo, kZaRijesiti, kStanjeSektora, kDnevnikCOP, kVodostaji, kVrijeme, kJaceOborine},
 	uPodrucje:  {kPodrucje, kZaRijesiti, kZadaciPodrucja, kCrpneStanice, kUstave, kVodostaji, kVrijeme, kJaceOborine},
+	uDionica:   {kMojeDionice, kZaRijesiti, kObjektiDionica, kVodostaji, kVrijeme, kJaceOborine},
 	uVodocuvar: {kDnevniList, kZadaci, kMojeLetve, kVrijeme},
 }
 
@@ -144,6 +148,9 @@ var glaveKartica = map[string]KarticaNaslovne{
 	kZadaciPodrucja: {Naslov: "Zadaci vodočuvarima"},
 	kCrpneStanice:   {Naslov: "Crpne stanice"},
 	kUstave:         {Naslov: "Ustave"},
+	// rukovoditelj dionice
+	kMojeDionice:    {Naslov: "Moje dionice"},
+	kObjektiDionica: {Naslov: "Objekti na dionicama"},
 }
 
 // lijenaKartica je glava spore kartice s adresom tijela
@@ -177,6 +184,9 @@ func (h *DashboardHandler) ShowKartica(w http.ResponseWriter, r *http.Request) {
 // sporaKartica računa tijelo spore kartice
 func (h *DashboardHandler) sporaKartica(r *http.Request, perms *models.UserPermissions, id string) KarticaNaslovne {
 	sad := time.Now()
+	if ulogaNaslovne(perms, sad) == uDionica && id != kVrijeme && id != kJaceOborine {
+		return h.karticaRukovoditeljaDionice(r, perms, id, sad)
+	}
 	switch id {
 	case kZaRijesiti:
 		return h.zaRijesiti(r, perms, sad)

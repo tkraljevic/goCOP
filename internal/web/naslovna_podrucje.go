@@ -240,22 +240,39 @@ func karticaCrpnihStanica(stanice []models.GaugeSummary, sektor string, area int
 		k.Prazno = &PraznaKartica{Vrsta: PraznoCeka, Tekst: fmt.Sprintf("U registru BP %d nema crpnih stanica.", area)}
 		return k
 	}
-	miruje, bez := 0, 0
+	rade, miruje, bez := crpneURadu(stanice, sad)
+	for _, g := range rade {
+		k.Redovi = append(k.Redovi, redakCrpneStanice(g, sad))
+	}
+	k.Napomena = napomenaObjekata(len(k.Redovi) > 0, miruje, bez,
+		[3]string{"crpna stanica miruje", "crpne stanice miruju", "crpnih stanica miruje"},
+		[3]string{"crpnu stanicu", "crpne stanice", "crpnih stanica"}, "Sve crpne stanice miruju.")
+	return k
+}
+
+// crpneURadu su crpne stanice koje rade ili su u kvaru, kvar prvi, i broj
+// ostalih: u mirovanju i bez svježeg očitanja
+func crpneURadu(stanice []models.GaugeSummary, sad time.Time) (rade []models.GaugeSummary, miruje, bez int) {
 	for _, g := range stanice {
 		switch {
 		case !svjeze(g, sad):
 			bez++
 		case stanjeCrpneStanice[g.Latest.StructureState] != "":
-			k.Redovi = append(k.Redovi, redakObjekta(g, stanjeCrpneStanice[g.Latest.StructureState], sad))
+			rade = append(rade, g)
 		default:
 			miruje++
 		}
 	}
-	slices.SortStableFunc(k.Redovi, func(a, b RedakKartice) int { return cmp.Compare(boolBroj(b.Hitno), boolBroj(a.Hitno)) })
-	k.Napomena = napomenaObjekata(len(k.Redovi) > 0, miruje, bez,
-		[3]string{"crpna stanica miruje", "crpne stanice miruju", "crpnih stanica miruje"},
-		[3]string{"crpnu stanicu", "crpne stanice", "crpnih stanica"}, "Sve crpne stanice miruju.")
-	return k
+	kvar := func(g models.GaugeSummary) int {
+		return boolBroj(g.Latest.StructureState == models.StructureStateFault)
+	}
+	slices.SortStableFunc(rade, func(a, b models.GaugeSummary) int { return cmp.Compare(kvar(b), kvar(a)) })
+	return rade, miruje, bez
+}
+
+// redakCrpneStanice: stanica, stanje i dovodni vodostaj
+func redakCrpneStanice(g models.GaugeSummary, sad time.Time) RedakKartice {
+	return redakObjekta(g, stanjeCrpneStanice[g.Latest.StructureState], sad)
 }
 
 // boolBroj je 1 za istinu, za redoslijed
@@ -315,8 +332,20 @@ func karticaUstava(ustave []models.GaugeSummary, sektor string, area int, sad ti
 		k.Prazno = &PraznaKartica{Vrsta: PraznoCeka, Tekst: fmt.Sprintf("U registru BP %d nema ustava.", area)}
 		return k
 	}
-	var promjene []models.GaugeSummary
-	ista, bez := 0, 0
+	promjene, ista, bez := promjeneZapornica(ustave, sad)
+	for _, g := range promjene {
+		k.Redovi = append(k.Redovi, redakUstave(g, sad))
+	}
+	k.Napomena = napomenaObjekata(len(k.Redovi) > 0, ista, bez,
+		[3]string{"ustava bez promjene", "ustave bez promjene", "ustava bez promjene"},
+		[3]string{"ustavu", "ustave", "ustava"}, "Nijedna zapornica nije mijenjana od prethodnog očitanja.")
+	return k
+}
+
+// promjeneZapornica su ustave čija se zapornica promijenila od prethodnog
+// očitanja, najnovija prva, i broj ostalih: bez promjene i bez svježeg
+// očitanja zapornice
+func promjeneZapornica(ustave []models.GaugeSummary, sad time.Time) (promjene []models.GaugeSummary, ista, bez int) {
 	for _, g := range ustave {
 		switch {
 		case !svjeze(g, sad) || g.Latest.Gate == "":
@@ -328,15 +357,14 @@ func karticaUstava(ustave []models.GaugeSummary, sektor string, area int, sad ti
 		}
 	}
 	slices.SortStableFunc(promjene, func(a, b models.GaugeSummary) int { return b.Latest.MeasuredAt.Compare(a.Latest.MeasuredAt) })
-	for _, g := range promjene {
-		r := redakObjekta(g, g.Latest.GateLabel(), sad)
-		r.Vrijednost = ""
-		k.Redovi = append(k.Redovi, r)
-	}
-	k.Napomena = napomenaObjekata(len(k.Redovi) > 0, ista, bez,
-		[3]string{"ustava bez promjene", "ustave bez promjene", "ustava bez promjene"},
-		[3]string{"ustavu", "ustave", "ustava"}, "Nijedna zapornica nije mijenjana od prethodnog očitanja.")
-	return k
+	return promjene, ista, bez
+}
+
+// redakUstave: ustava, položaj zapornice, kada i tko
+func redakUstave(g models.GaugeSummary, sad time.Time) RedakKartice {
+	r := redakObjekta(g, g.Latest.GateLabel(), sad)
+	r.Vrijednost = ""
+	return r
 }
 
 // letvePodrucja su letve (ne objekti) mjerodavne za područje
@@ -353,6 +381,12 @@ func letvePodrucja(letve []models.GaugeSummary, area int) []models.GaugeSummary 
 // karticaVodostajaPodrucja: sve letve područja sa svježim očitanjem, prvo
 // one iznad praga; stupanj obrane piše samo uz letvu iznad praga
 func karticaVodostajaPodrucja(letve []models.GaugeSummary, prije func(models.GaugeSummary) *int, area int, sad time.Time) KarticaNaslovne {
+	return karticaVodostajaMjesta(letve, prije, nil, fmt.Sprintf("U zadnja tri dana nema očitanja letava BP %d.", area), sad)
+}
+
+// karticaVodostajaMjesta: letve sa svježim očitanjem, iznad praga prve;
+// uz letvu se dopiše dionica za koju je mjerodavna, kad je zadana
+func karticaVodostajaMjesta(letve []models.GaugeSummary, prije func(models.GaugeSummary) *int, dionice map[string]string, prazno string, sad time.Time) KarticaNaslovne {
 	k := glavaKartice(kVodostaji)
 	k.HitnoNaziv = "iznad praga"
 	for _, g := range letve {
@@ -367,11 +401,14 @@ func karticaVodostajaPodrucja(letve []models.GaugeSummary, prije func(models.Gau
 		if !g.Phase.InForce() {
 			r.Oznaka, r.Hitno = nil, false
 		}
+		if d := dionice[g.StationID]; d != "" {
+			r.Sporedno += " · za " + d
+		}
 		k.Redovi = append(k.Redovi, r)
 	}
 	slices.SortStableFunc(k.Redovi, func(a, b RedakKartice) int { return cmp.Compare(boolBroj(b.Hitno), boolBroj(a.Hitno)) })
 	if len(k.Redovi) == 0 {
-		k.Prazno = &PraznaKartica{Vrsta: PraznoCeka, Tekst: fmt.Sprintf("U zadnja tri dana nema očitanja letava BP %d.", area)}
+		k.Prazno = &PraznaKartica{Vrsta: PraznoCeka, Tekst: prazno}
 	}
 	return k
 }
@@ -427,22 +464,30 @@ func karticaZaRijesitiPodrucja(area int, sektor string, s stavkePodrucja, sad ti
 	if n := len(s.Nepredani); n > 0 {
 		k.Redovi = append(k.Redovi, redakListova(s.Nepredani, fmt.Sprintf("%d %s", n, models.UzBrojHR(n, "dnevni list nije predan", "dnevna lista nisu predana", "dnevnih listova nije predano")), knjiga))
 	}
-	var starije []models.PrijavaSTerena
-	for _, p := range s.Prijave {
-		if sad.Sub(objavljenaPrijava(p)) <= NovePrijave {
-			k.Redovi = append(k.Redovi, redakPrijave(p, sad))
-		} else {
-			starije = append(starije, p)
-		}
-	}
-	if len(starije) > 0 {
-		k.Redovi = append(k.Redovi, redakStarijihPrijava(starije, sektor))
-	}
+	k.Redovi = append(k.Redovi, redoviPrijava(s.Prijave, sektor, sad)...)
 	k.Broj = len(k.Redovi)
 	if k.Broj == 0 {
 		k.Prazno = &PraznaKartica{Vrsta: PraznoGotovo, Tekst: "Nema ništa za riješiti."}
 	}
 	return k
+}
+
+// redoviPrijava: nove prijave svaka u svom retku, starije neriješene u
+// jednom
+func redoviPrijava(prijave []models.PrijavaSTerena, sektor string, sad time.Time) []RedakKartice {
+	var out []RedakKartice
+	var starije []models.PrijavaSTerena
+	for _, p := range prijave {
+		if sad.Sub(objavljenaPrijava(p)) <= NovePrijave {
+			out = append(out, redakPrijave(p, sad))
+		} else {
+			starije = append(starije, p)
+		}
+	}
+	if len(starije) > 0 {
+		out = append(out, redakStarijihPrijava(starije, sektor))
+	}
+	return out
 }
 
 // redakListova: koliko listova, čiji su i od kada najstariji
