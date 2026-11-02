@@ -43,7 +43,16 @@ func (s *Server) izvoriNaslovne() IzvoriNaslovne {
 		Listovi:        s.listoviNaslovne,
 		Prijave:        s.prijaveNaslovne,
 		ZadaciPodrucja: s.zadaciPodrucjaNaslovne,
+		CekajuParafu:   s.cekajuParafuNaslovne,
 	}
+}
+
+// cekajuParafuNaslovne su listovi područja koji čekaju parafu osobe
+func (s *Server) cekajuParafuNaslovne(ctx context.Context, perms *models.UserPermissions, area int) ([]models.VodocuvarskiList, error) {
+	if s.vodocuvar == nil {
+		return nil, errDnevnikZatvoren
+	}
+	return s.vodocuvar.CekajuParafu(ctx, perms, area)
 }
 
 // errDnevnikZatvoren je greška izvora dok vodočuvarski dnevnik ili prijave

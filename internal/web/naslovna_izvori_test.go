@@ -94,6 +94,9 @@ func TestIzvoriNaslovne(t *testing.T) {
 	if _, err := s.prijaveNaslovne(ctx, nil, repository.FiltarPrijava{}); err == nil {
 		t.Error("prijave bez dnevnika bez greške")
 	}
+	if _, err := s.cekajuParafuNaslovne(ctx, nil, 16); err == nil {
+		t.Error("parafe bez dnevnika bez greške")
+	}
 	s.vodocuvar = service.NewVodocuvarService(repository.NewVodocuvarRepository(baza, rec), users, "test")
 	s.prijave = service.NewPrijavaService(repository.NewPrijavaRepository(baza, rec), users, s.vodocuvar, "test")
 	admin := &models.UserPermissions{IsGlobalAdmin: true, User: models.User{ID: uuid.New(), IsGlobalAdmin: true}}
@@ -105,6 +108,9 @@ func TestIzvoriNaslovne(t *testing.T) {
 	}
 	if p, err := s.prijaveNaslovne(ctx, admin, repository.FiltarPrijava{AreaID: 16}); len(p) != 0 || err != nil {
 		t.Errorf("prijave praznog područja: %v %v", p, err)
+	}
+	if l, err := s.cekajuParafuNaslovne(ctx, admin, 16); len(l) != 0 || err != nil {
+		t.Errorf("parafe praznog područja: %v %v", l, err)
 	}
 	if l, err := s.nepredaniUSektoru(ctx, admin, "B"); len(l) != 0 || err != nil {
 		t.Errorf("listovi praznog sektora: %v %v", l, err)

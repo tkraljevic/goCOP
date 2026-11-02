@@ -758,6 +758,23 @@ func (s *VodocuvarService) Zadaci(ctx context.Context, vodocuvarID string) []mod
 	return z
 }
 
+// CekajuParafu su predani, a neovjereni listovi područja koje osoba smije
+// parafirati i još ih nije parafirala, najnoviji prvi
+func (s *VodocuvarService) CekajuParafu(ctx context.Context, perms *models.UserPermissions, area int) ([]models.VodocuvarskiList, error) {
+	svi, err := s.repo.List(ctx, repository.FiltarListova{AreaID: area, CekaPotvrdu: true, Limit: 500})
+	if err != nil {
+		return nil, err
+	}
+	out := svi[:0]
+	for i := range svi {
+		l := &svi[i]
+		if !l.Rekonstrukcija && !l.Parafirao(perms.User.ID.String()) && s.SmijeParafirati(perms, l) {
+			out = append(out, *l)
+		}
+	}
+	return out, nil
+}
+
 // ZadaciPodrucja su zadaci vodočuvara područja kojima osoba smije zadavati
 // zadatke: otvoreni i oni zaključeni od trenutka od, najstariji prvo, uz
 // imena vodočuvara po oznaci

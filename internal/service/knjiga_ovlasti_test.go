@@ -527,3 +527,47 @@ func TestVodocuvarLista(t *testing.T) {
 		t.Error("zadani vodočuvar se ne poštuje")
 	}
 }
+
+// Parafu čekaju predani, neovjereni listovi koje rukovoditelj dionice smije
+// parafirati, a još nije: listovi vodočuvara tuđe dionice, parafirani,
+// ovjereni i preneseni ne čekaju
+func TestCekajuParafu(t *testing.T) {
+	k := novaKnjigaProba(t)
+	ctx := context.Background()
+	dionicar := k.dionicar(models.RoleSectionLeader, &k.p1, "P.1.1")
+	dan := time.Date(2026, 10, 30, 0, 0, 0, 0, models.Zagreb)
+	predano := dan.Add(16 * time.Hour)
+	for i, l := range []*models.VodocuvarskiList{
+		{UserID: k.pero.ID.String(), Ime: k.pero.FullName, Datum: dan},
+		{UserID: k.pero.ID.String(), Ime: k.pero.FullName, Datum: dan.AddDate(0, 0, -1), Parafe: []models.Parafa{{UserID: dionicar.User.ID.String()}}},
+		{UserID: k.pero.ID.String(), Ime: k.pero.FullName, Datum: dan.AddDate(0, 0, -2), PotvrdenoAt: &predano},
+		{UserID: k.pero.ID.String(), Ime: k.pero.FullName, Datum: dan.AddDate(0, 0, -3), Rekonstrukcija: true},
+		{UserID: k.ana.ID.String(), Ime: k.ana.FullName, Datum: dan, Broj: 2},
+	} {
+		l.Sektor, l.AreaID, l.PredanoAt, l.Od, l.Do = "P", 1, &predano, "07:00", "15:00"
+		if l.Broj == 0 {
+			l.Broj = 10 + i
+		}
+		if err := k.o.repo.Save(ctx, l); err != nil {
+			t.Fatal(err)
+		}
+	}
+	imena := func(l []models.VodocuvarskiList) string {
+		var out []string
+		for _, x := range l {
+			out = append(out, x.Ime+" "+x.Datum.Format("2. 1."))
+		}
+		return strings.Join(out, ", ")
+	}
+	// Ana čuva cijelo područje, pa njezin list parafira rukovoditelj svake dionice
+	if l, err := k.o.vs.CekajuParafu(ctx, dionicar, 1); err != nil || imena(l) != "Pero Perić 30. 10., Ana Anić 30. 10." {
+		t.Errorf("čekaju parafu: %s %v", imena(l), err)
+	}
+	if l, err := k.o.vs.CekajuParafu(ctx, k.dionicar(models.RoleSectionLeader, &k.p1, "P.1.2"), 1); err != nil || imena(l) != "Ana Anić 30. 10." {
+		t.Errorf("tuđa dionica: %s %v", imena(l), err)
+	}
+	k.o.baza.Close()
+	if _, err := k.o.vs.CekajuParafu(ctx, dionicar, 1); err == nil {
+		t.Error("bez baze bez greške")
+	}
+}

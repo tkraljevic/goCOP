@@ -49,6 +49,9 @@ type IzvoriNaslovne struct {
 	// ZadaciPodrucja su zadaci vodočuvara područja kojima osoba smije
 	// zadavati zadatke, otvoreni i zaključeni od trenutka od, uz imena
 	ZadaciPodrucja func(ctx context.Context, perms *models.UserPermissions, area int, od time.Time) ([]models.Zadatak, map[string]string, error)
+	// CekajuParafu su listovi područja koje osoba smije parafirati, a još
+	// ih nije parafirala
+	CekajuParafu func(ctx context.Context, perms *models.UserPermissions, area int) ([]models.VodocuvarskiList, error)
 }
 
 // SetIzvori daje Naslovnoj izvore sporih kartica i zaboravlja zapamćene
