@@ -20,9 +20,8 @@
 </div>
 
 {{if .StareLozinke}}
-<div class="alert alert-warning">
-  <p class="m-0"><b>Ovi računi još imaju staru zajedničku lozinku, pa su zaključani.</b> Osoba se ne može prijaviti dok joj ne poništite lozinku: otvorite račun, kliknite „Poništi lozinku” i predajte joj novu privremenu. Učinite to odmah: na računalu sa starijim izdanjem programa ovi se računi iz ureda još prijavljuju.</p>
-  <p class="m-0 mt-2">{{range $i, $u := .StareLozinke}}{{if $i}}, {{end}}<a href="/users/{{$u.ID}}">{{$u.FullName}}</a> (<code>{{$u.Username}}</code>){{end}}</p>
+<div class="alert alert-warning" role="alert">
+  <p class="m-0"><b>Zaključani računi sa starom zajedničkom lozinkom: {{len .StareLozinke}}.</b> <a href="#stare-lozinke">Popis je na dnu stranice.</a></p>
 </div>
 {{end}}
 
@@ -215,5 +214,14 @@
 </div>
 
 {{template "pager" .Pager}}
+
+{{/* Popis zaključanih računa je na dnu: dugi popis inače gura djelatnike
+     ispod ruba zaslona, a na vrhu ostaje redak s brojem */}}
+{{if .StareLozinke}}
+<div class="alert alert-warning mt-4" id="stare-lozinke">
+  <p class="m-0"><b>Ovi računi još imaju staru zajedničku lozinku, pa su zaključani.</b> Osoba se ne može prijaviti dok joj ne poništite lozinku: otvorite račun, kliknite „Poništi lozinku” i predajte joj novu privremenu. Učinite to odmah: na računalu sa starijim izdanjem programa ovi se računi iz ureda još prijavljuju.</p>
+  <p class="m-0 mt-2">{{range $i, $u := .StareLozinke}}{{if $i}}, {{end}}<a href="/users/{{$u.ID}}">{{$u.FullName}}</a> (<code>{{$u.Username}}</code>){{end}}</p>
+</div>
+{{end}}
 </div>
 {{end}}
