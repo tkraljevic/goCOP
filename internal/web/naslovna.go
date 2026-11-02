@@ -35,6 +35,7 @@ const (
 	uPodrucje  = "podrucje"
 	uDionica   = "dionica"
 	uVodocuvar = "vodocuvar"
+	uSkladiste = "skladiste"
 	uPregled   = "pregled" // preglednik: samo čita, uz imena dežurnih i događanja
 	uGost      = "gost"    // gost obrane: samo gleda, bez imena
 )
@@ -65,6 +66,7 @@ var pravilaUloga = []struct {
 	{uPodrucje, func(p *models.UserPermissions, sad time.Time) bool { return duznostPodrucja(&p.User, sad) != nil }},
 	{uDionica, func(p *models.UserPermissions, sad time.Time) bool { return len(duznostiDionica(&p.User, sad)) > 0 }},
 	{uVodocuvar, func(p *models.UserPermissions, sad time.Time) bool { return terenskaDuznost(&p.User, sad) != nil }},
+	{uSkladiste, func(p *models.UserPermissions, sad time.Time) bool { return duznostSkladista(&p.User, sad) != nil }},
 	{uPregled, func(p *models.UserPermissions, sad time.Time) bool { return imaUlogu(&p.User, models.RoleViewer, sad) }},
 	{uGost, func(p *models.UserPermissions, sad time.Time) bool { return imaUlogu(&p.User, models.RoleGuest, sad) }},
 }
@@ -78,6 +80,7 @@ var karticeZaUlogu = map[string][]string{
 	uPodrucje:  {kPodrucje, kZaRijesiti, kZadaciPodrucja, kCrpneStanice, kUstave, kVodostaji, kVrijeme, kJaceOborine},
 	uDionica:   {kMojeDionice, kZaRijesiti, kObjektiDionica, kVodostaji, kVrijeme, kJaceOborine},
 	uVodocuvar: {kDnevniList, kZadaci, kMojeLetve, kVrijeme},
+	uSkladiste: {kZaRijesiti, kSkladiste, kSredstvaTeren, kPrometSredstva},
 	uPregled:   {kStanjeObrane, kDogadjanja, kVodostaji, kVrijeme, kJaceOborine},
 	uGost:      {kStanjeObrane, kVodostaji, kVrijeme, kJaceOborine},
 }
@@ -173,6 +176,10 @@ var glaveKartica = map[string]KarticaNaslovne{
 	// rukovoditelj dionice
 	kMojeDionice:    {Naslov: "Moje dionice"},
 	kObjektiDionica: {Naslov: "Objekti na dionicama"},
+	// skladištar
+	kSkladiste:      {Naslov: "Skladište"},
+	kSredstvaTeren:  {Naslov: "Na terenu", Poveznica: "Sve", URL: "/sredstva/na-terenu"},
+	kPrometSredstva: {Naslov: "Zadnji promet", Poveznica: "Sve", URL: "/sredstva/promet"},
 }
 
 // lijenaKartica je glava spore kartice s adresom tijela
@@ -209,19 +216,34 @@ func (h *DashboardHandler) sporaKartica(r *http.Request, perms *models.UserPermi
 	if ulogaNaslovne(perms, sad) == uDionica && id != kVrijeme && id != kJaceOborine {
 		return h.karticaRukovoditeljaDionice(r, perms, id, sad)
 	}
-	switch id {
-	case kZaRijesiti:
-		return h.zaRijesiti(r, perms, sad)
-	case kVodostaji:
-		return h.vodostaji(r.Context(), perms, sad)
-	case kVrijeme:
-		return h.vrijeme(r)
-	case kJaceOborine:
-		return h.jaceOborine(r.Context())
-	case kMojeLetve:
-		return h.mojeLetve(r.Context(), perms, sad)
-	case kPodrucje, kZadaciPodrucja, kCrpneStanice, kUstave:
-		return h.karticaRukovoditeljaBP(r, perms, id, sad)
+	if f, ima := sporeKartice[id]; ima {
+		return f(h, r, perms, id, sad)
 	}
 	return h.sustav(r.Context(), sad)
+}
+
+// sporeKartice: kako se računa tijelo koje spore kartice; ostalo je Sustav
+var sporeKartice = map[string]func(h *DashboardHandler, r *http.Request, perms *models.UserPermissions, id string, sad time.Time) KarticaNaslovne{
+	kZaRijesiti: func(h *DashboardHandler, r *http.Request, perms *models.UserPermissions, _ string, sad time.Time) KarticaNaslovne {
+		return h.zaRijesiti(r, perms, sad)
+	},
+	kVodostaji: func(h *DashboardHandler, r *http.Request, perms *models.UserPermissions, _ string, sad time.Time) KarticaNaslovne {
+		return h.vodostaji(r.Context(), perms, sad)
+	},
+	kVrijeme: func(h *DashboardHandler, r *http.Request, _ *models.UserPermissions, _ string, _ time.Time) KarticaNaslovne {
+		return h.vrijeme(r)
+	},
+	kJaceOborine: func(h *DashboardHandler, r *http.Request, _ *models.UserPermissions, _ string, _ time.Time) KarticaNaslovne {
+		return h.jaceOborine(r.Context())
+	},
+	kMojeLetve: func(h *DashboardHandler, r *http.Request, perms *models.UserPermissions, _ string, sad time.Time) KarticaNaslovne {
+		return h.mojeLetve(r.Context(), perms, sad)
+	},
+	kPodrucje:       (*DashboardHandler).karticaRukovoditeljaBP,
+	kZadaciPodrucja: (*DashboardHandler).karticaRukovoditeljaBP,
+	kCrpneStanice:   (*DashboardHandler).karticaRukovoditeljaBP,
+	kUstave:         (*DashboardHandler).karticaRukovoditeljaBP,
+	kSkladiste:      (*DashboardHandler).karticaSkladistara,
+	kSredstvaTeren:  (*DashboardHandler).karticaSkladistara,
+	kPrometSredstva: (*DashboardHandler).karticaSkladistara,
 }

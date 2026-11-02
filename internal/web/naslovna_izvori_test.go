@@ -152,6 +152,26 @@ func TestIzvoriNaslovne(t *testing.T) {
 	if _, err := i.Zapisi(ctx, "nema"); err != nil {
 		t.Errorf("upisi dnevnika: %v", err)
 	}
+	sredstva := func() []error {
+		_, e1 := s.skladistaNaslovne(ctx, "B", 16)
+		_, e2 := s.stanjeSkladistaNaslovne(ctx, "sk")
+		_, e3 := s.sredstvaNaTerenuNaslovne(ctx, "B")
+		_, e4 := s.prometSredstavaNaslovne(ctx, repository.FiltarPrometa{Limit: 5})
+		_, e5 := s.popisiSredstavaNaslovne(ctx, "B", "sk", 2026)
+		_, e6 := s.vrsteSredstavaNaslovne(ctx)
+		return []error{e1, e2, e3, e4, e5, e6}
+	}
+	for i, err := range sredstva() {
+		if err == nil {
+			t.Errorf("sredstva %d bez servisa bez greške", i)
+		}
+	}
+	s.mtsService = service.NewMtsService(repository.NewMtsRepository(baza, rec), repository.NewSectionRepository(baza, rec), userRepo)
+	for i, err := range sredstva() {
+		if err != nil {
+			t.Errorf("sredstva %d: %v", i, err)
+		}
+	}
 	baza.Close()
 	if _, _, err := s.pravaNaslovne(ctx); err == nil {
 		t.Error("promjene prava bez baze bez greške")

@@ -40,11 +40,17 @@ func (s *Server) izvoriNaslovne() IzvoriNaslovne {
 		Zapisi: func(ctx context.Context, dnevnik string) ([]models.JournalEntry, error) {
 			return s.journalService.EntriesForJournal(ctx, dnevnik)
 		},
-		Listovi:        s.listoviNaslovne,
-		Prijave:        s.prijaveNaslovne,
-		ZadaciPodrucja: s.zadaciPodrucjaNaslovne,
-		CekajuParafu:   s.cekajuParafuNaslovne,
-		AktiNaPotpis:   s.aktiNaPotpisNaslovne,
+		Listovi:          s.listoviNaslovne,
+		Prijave:          s.prijaveNaslovne,
+		ZadaciPodrucja:   s.zadaciPodrucjaNaslovne,
+		CekajuParafu:     s.cekajuParafuNaslovne,
+		AktiNaPotpis:     s.aktiNaPotpisNaslovne,
+		Skladista:        s.skladistaNaslovne,
+		StanjeSkladista:  s.stanjeSkladistaNaslovne,
+		SredstvaNaTerenu: s.sredstvaNaTerenuNaslovne,
+		PrometSredstava:  s.prometSredstavaNaslovne,
+		PopisiSredstava:  s.popisiSredstavaNaslovne,
+		VrsteSredstava:   s.vrsteSredstavaNaslovne,
 	}
 }
 
@@ -160,4 +166,55 @@ func (s *Server) nepredaniUSektoru(ctx context.Context, perms *models.UserPermis
 		return nil, nil
 	}
 	return s.vodocuvar.NepredaniUSektoru(ctx, perms, sektor)
+}
+
+// errSredstvaZatvorena je greška izvora dok sredstva za obranu nisu otvorena
+var errSredstvaZatvorena = errors.New("sredstva još nisu otvorena")
+
+// skladistaNaslovne su aktivna skladišta sektora ili područja
+func (s *Server) skladistaNaslovne(ctx context.Context, sektor string, area int) ([]models.Skladiste, error) {
+	if s.mtsService == nil {
+		return nil, errSredstvaZatvorena
+	}
+	return s.mtsService.Skladista(ctx, sektor, area, false)
+}
+
+// stanjeSkladistaNaslovne je današnje stanje skladišta po vrstama
+func (s *Server) stanjeSkladistaNaslovne(ctx context.Context, id string) ([]models.StanjeVrste, error) {
+	if s.mtsService == nil {
+		return nil, errSredstvaZatvorena
+	}
+	return s.mtsService.StanjeSkladista(ctx, id, nil)
+}
+
+// sredstvaNaTerenuNaslovne su sredstva izdana na teren sektora
+func (s *Server) sredstvaNaTerenuNaslovne(ctx context.Context, sektor string) ([]models.Stanje, error) {
+	if s.mtsService == nil {
+		return nil, errSredstvaZatvorena
+	}
+	return s.mtsService.NaTerenu(ctx, "", sektor)
+}
+
+// prometSredstavaNaslovne je promet po filtru
+func (s *Server) prometSredstavaNaslovne(ctx context.Context, f repository.FiltarPrometa) ([]models.Promet, error) {
+	if s.mtsService == nil {
+		return nil, errSredstvaZatvorena
+	}
+	return s.mtsService.Promet(ctx, f)
+}
+
+// popisiSredstavaNaslovne su godišnji popisi skladišta u godini
+func (s *Server) popisiSredstavaNaslovne(ctx context.Context, sektor, skladiste string, godina int) ([]models.Popis, error) {
+	if s.mtsService == nil {
+		return nil, errSredstvaZatvorena
+	}
+	return s.mtsService.Popisi(ctx, sektor, skladiste, godina)
+}
+
+// vrsteSredstavaNaslovne je katalog sredstava
+func (s *Server) vrsteSredstavaNaslovne(ctx context.Context) ([]models.VrstaSredstva, error) {
+	if s.mtsService == nil {
+		return nil, errSredstvaZatvorena
+	}
+	return s.mtsService.Vrste(ctx)
 }
