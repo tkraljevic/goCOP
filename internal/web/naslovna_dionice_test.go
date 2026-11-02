@@ -83,8 +83,9 @@ func TestKarticaMojihDionica(t *testing.T) {
 	}
 }
 
-// Vodočuvar ide uz dionicu samo kad mu je upisana; drugi rukovoditelj istih
-// dionica ide u napomenu
+// Vodočuvar ide uz dionicu samo kad mu je posebno upisana; vodočuvari
+// područja, dostupni na svim dionicama, i drugi rukovoditelj istih dionica
+// idu u napomenu
 func TestLjudiDionica(t *testing.T) {
 	osoba := func(ime string, d ...models.Duty) models.User {
 		return models.User{ID: uuid.New(), FullName: ime, Duties: d}
@@ -102,7 +103,7 @@ func TestLjudiDionica(t *testing.T) {
 	}}
 	dionice := []models.Section{dionicaProbe("B.16.2", "", nil)}
 	cuvari, napomena := h.ljudiDionica(perms, ja.Duties, dionice, sadNaslovne)
-	if strings.Join(cuvari["B.16.2"], ",") != "Ana Proba" || napomena != "BP 16 · Mali sliv Baranja · zamjenik Iva Proba" {
+	if strings.Join(cuvari["B.16.2"], ",") != "Ana Proba" || napomena != "BP 16 · Mali sliv Baranja · zamjenik Iva Proba · vodočuvari Ana Proba, Cijelo Područje" {
 		t.Errorf("ljudi: %v %q", cuvari, napomena)
 	}
 	zamjenik := duznostDionica(models.RoleSectionDeputy, "B.16.2")
@@ -110,8 +111,13 @@ func TestLjudiDionica(t *testing.T) {
 		t.Errorf("zamjeniku rukovoditelj: %q", s)
 	}
 	po[models.RoleSectionDeputy] = nil
+	po[models.RoleWaterGuard] = po[models.RoleWaterGuard][1:]
+	if _, n := h.ljudiDionica(perms, ja.Duties, dionice, sadNaslovne); n != "BP 16 · Mali sliv Baranja · vodočuvar Cijelo Područje" {
+		t.Errorf("bez zamjenika, jedan vodočuvar: %q", n)
+	}
+	po[models.RoleWaterGuard] = nil
 	if _, n := h.ljudiDionica(perms, ja.Duties, dionice, sadNaslovne); n != "BP 16 · Mali sliv Baranja" {
-		t.Errorf("bez zamjenika: %q", n)
+		t.Errorf("bez zamjenika i vodočuvara: %q", n)
 	}
 	if _, n := (&DashboardHandler{}).ljudiDionica(perms, ja.Duties, dionice, sadNaslovne); n != "BP 16" {
 		t.Errorf("bez imenika i registra: %q", n)

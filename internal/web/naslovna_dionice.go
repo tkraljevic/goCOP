@@ -194,32 +194,56 @@ func objektiPoDionici(dionice []models.Section, letve []models.GaugeSummary) map
 	return out
 }
 
-// ljudiDionica su vodočuvari kojima je dionica upisana i napomena kartice:
-// područje i drugi rukovoditelj istih dionica („zamjenik Ana Proba”)
+// ljudiDionica su vodočuvari kojima je dionica posebno upisana i napomena
+// kartice: područje, drugi rukovoditelj istih dionica i vodočuvari
+// područja („BP 16 · zamjenik Ana Proba · vodočuvari Ivo Proba, Pero
+// Proba”). Vodočuvar je u pravilu dostupan na svim dionicama svog
+// područja, pa vodočuvari područja stoje jednom, a ne uz svaku dionicu.
 func (h *DashboardHandler) ljudiDionica(perms *models.UserPermissions, duznosti []models.Duty, dionice []models.Section, sad time.Time) (map[string][]string, string) {
 	cuvari := map[string][]string{}
 	var napomena []string
-	vidjeno := map[int]bool{}
+	podrucja := map[int]string{}
 	for _, d := range duznosti {
 		area, sektor := *d.AreaID, *d.SectorID
 		dio := h.nazivPodrucja(sektor, area)
 		if h.izvori.Osobe != nil {
-			if !vidjeno[area] {
-				vodocuvari, _ := h.izvori.Osobe(sektor, area, models.RoleWaterGuard) // bez imenika retci su bez vodočuvara
-				for _, s := range dionice {
-					cuvari[s.Code] = append(cuvari[s.Code], cuvariDionice(vodocuvari, s, sad)...)
-				}
-			}
 			if drugi := drugiRukovoditelji(h, perms, d, sad); drugi != "" {
 				dio += " · " + drugi
 			}
+			if _, vidjeno := podrucja[area]; !vidjeno {
+				podrucja[area] = h.vodocuvariPodrucja(sektor, area, dionice, cuvari, sad)
+			}
+			dio = strings.TrimSuffix(dio+" · "+podrucja[area], " · ")
 		}
-		vidjeno[area] = true
 		if !slices.Contains(napomena, dio) {
 			napomena = append(napomena, dio)
 		}
 	}
 	return cuvari, strings.Join(napomena, "; ")
+}
+
+// vodocuvariPodrucja: „vodočuvari Ivo Proba, Pero Proba” za područje, a
+// uz dionice upisuje vodočuvare kojima je dionica posebno upisana
+func (h *DashboardHandler) vodocuvariPodrucja(sektor string, area int, dionice []models.Section, cuvari map[string][]string, sad time.Time) string {
+	vodocuvari, _ := h.izvori.Osobe(sektor, area, models.RoleWaterGuard) // bez imenika napomena je bez vodočuvara
+	for _, s := range dionice {
+		cuvari[s.Code] = append(cuvari[s.Code], cuvariDionice(vodocuvari, s, sad)...)
+	}
+	var imena []string
+	for _, v := range vodocuvari {
+		if slices.ContainsFunc(models.VazecaZaduzenja(v.Duties, sad), func(d models.Duty) bool {
+			return d.Role == models.RoleWaterGuard && d.AreaID != nil && *d.AreaID == area
+		}) && !slices.Contains(imena, v.FullName) {
+			imena = append(imena, v.FullName)
+		}
+	}
+	switch len(imena) {
+	case 0:
+		return ""
+	case 1:
+		return "vodočuvar " + imena[0]
+	}
+	return "vodočuvari " + strings.Join(imena, ", ")
 }
 
 // nazivPodrucja: „BP 16 · Mali sliv Baranja”, bez registra „BP 16”
@@ -235,8 +259,8 @@ func (h *DashboardHandler) nazivPodrucja(sektor string, area int) string {
 	return podrucjeNaslovne(models.Area{ID: area})
 }
 
-// cuvariDionice su vodočuvari kojima je dionica izrijekom upisana u
-// dužnost; vodočuvar cijelog područja ne ide uz svaku dionicu
+// cuvariDionice su vodočuvari kojima je dionica posebno upisana u
+// dužnost; vodočuvar cijelog područja stoji u napomeni kartice
 func cuvariDionice(vodocuvari []models.User, s models.Section, sad time.Time) []string {
 	var out []string
 	for _, v := range vodocuvari {
