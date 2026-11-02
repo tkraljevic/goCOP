@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -35,7 +36,7 @@ func (r Reading) OpisSatiAgregata() string {
 // bilježi. Agregat kojem su sati već upisani ostaje u obrascu, da se pri
 // izmjeni ne izgube.
 func (s Structure) AgregataZaOcitanje(r Reading) int {
-	n := len(s.Crpke())
+	n := s.BrojCrpki()
 	if n == 0 || n > NajviseAgregata {
 		n = NajviseAgregata
 	}
@@ -45,4 +46,24 @@ func (s Structure) AgregataZaOcitanje(r Reading) int {
 		}
 	}
 	return n
+}
+
+// najviseAgregataStanice je gornja granica upisanog broja agregata
+const najviseAgregataStanice = 20
+
+// BrojCrpki je koliko crpki stanica ima: upisani broj agregata, a bez
+// njega broj crpki iz kapaciteta; 0 kad se ne zna
+func (s Structure) BrojCrpki() int {
+	if s.BrojAgregata > 0 {
+		return s.BrojAgregata
+	}
+	return len(s.Crpke())
+}
+
+// ProvjeriBrojAgregata odbija broj agregata izvan razumnih granica
+func (s Structure) ProvjeriBrojAgregata() error {
+	if s.BrojAgregata < 0 || s.BrojAgregata > najviseAgregataStanice {
+		return fmt.Errorf("broj agregata mora biti cijeli broj od 1 do %d; prazno polje znači da se broj čita iz kapaciteta", najviseAgregataStanice)
+	}
+	return nil
 }

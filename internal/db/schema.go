@@ -1858,6 +1858,8 @@ func migrateSchema(database *sql.DB) error {
 		// crpna stanica sa sifonom i najniži vodostaj za vakumiranje
 		{"structures", "ima_sifon", "INTEGER NOT NULL DEFAULT 0"},
 		{"structures", "sifon_min_cm", "INTEGER"},
+		// broj agregata crpne stanice kad se ne vidi iz kapaciteta
+		{"structures", "broj_agregata", "INTEGER NOT NULL DEFAULT 0"},
 	}
 
 	// Vrijednosti koje su promijenile ime nakon što su upisane

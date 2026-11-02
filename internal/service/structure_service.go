@@ -63,10 +63,13 @@ func (s *StructureService) CanCreate(perms *models.UserPermissions) bool {
 		len(perms.AllowedSectors) > 0 || len(perms.AllowedAreas) > 0)
 }
 
-// provjeriVeze: sektor dolazi iz područja, a ustava smije biti u sklopu
-// crpne stanice
+// provjeriVeze: sektor dolazi iz područja, broj agregata je razuman, a
+// ustava smije biti u sklopu crpne stanice
 func (s *StructureService) provjeriVeze(ctx context.Context, st *models.Structure) error {
 	if err := s.sektorIzPodrucja(ctx, st); err != nil {
+		return err
+	}
+	if err := st.ProvjeriBrojAgregata(); err != nil {
 		return err
 	}
 	return s.provjeriUSklopu(ctx, st)
