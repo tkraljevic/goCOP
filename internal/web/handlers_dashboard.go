@@ -121,17 +121,7 @@ func (h *DashboardHandler) ShowDashboard(w http.ResponseWriter, r *http.Request)
 	}
 	h.stanjeIZid(r, perms, &data)
 	data.Kartice = h.kartice(r, perms, &data)
-	switch ulogaNaslovne(perms, time.Now()) {
-	case uVodocuvar:
-		h.naslovnaVodocuvara(r, &data, time.Now())
-	case uSkladiste:
-		data.Teren = true
-		if d := duznostSkladista(&perms.User, time.Now()); d != nil && podrucjeSkladista(*d) > 0 {
-			data.Traka = h.trakaZaPodrucje(r.Context(), podrucjeSkladista(*d), *d.SectorID)
-		}
-	case uPregled, uGost:
-		data.Teren, data.Traka = true, &TrakaNaslovne{Tekst: TrakaPregleda, Ikona: "eye"}
-	}
+	h.glavaNaslovne(r, perms, &data, time.Now())
 	data.Precaci = vidljiviPrecaci(precaciZa(perms), data.Modules)
 	data.CekaUlogu = cekaUlogu(user)
 	data.Nepredani = h.nepredani(r.Context(), user)
@@ -241,3 +231,22 @@ func precaciZa(perms *models.UserPermissions) []Precac {
 
 // PoDanima grupira zid po danima
 func (d DashboardViewData) PoDanima() []DanDogadjaja { return grupirajPoDanima(d.Zid) }
+
+// glavaNaslovne su traka, gumbi i raspored iznad kartica, po ulozi:
+// terenske uloge i pregled imaju dva stupca i traku
+func (h *DashboardHandler) glavaNaslovne(r *http.Request, perms *models.UserPermissions, data *DashboardViewData, sad time.Time) {
+	switch ulogaNaslovne(perms, sad) {
+	case uVodocuvar:
+		h.naslovnaVodocuvara(r, data, sad)
+	case uSkladiste:
+		data.Teren = true
+		if d := duznostSkladista(&perms.User, sad); podrucjeSkladista(*d) > 0 {
+			data.Traka = h.trakaZaPodrucje(r.Context(), podrucjeSkladista(*d), *d.SectorID)
+		}
+	case uUsluga:
+		d := duznostUsluga(&perms.User, sad)
+		data.Teren, data.Traka = true, h.trakaZaPodrucje(r.Context(), *d.AreaID, *d.SectorID)
+	case uPregled, uGost:
+		data.Teren, data.Traka = true, &TrakaNaslovne{Tekst: TrakaPregleda, Ikona: "eye"}
+	}
+}
