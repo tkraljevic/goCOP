@@ -15,7 +15,6 @@
 
 {{define "tijeloKarticeNaslovne"}}
 {{if .Tekst}}<p class="kartica-tekst">{{.Tekst}}</p>{{end}}
-{{if .Gumbi}}<div class="kartica-gumbi">{{range .Gumbi}}{{template "gumbNaslovne" .}}{{end}}</div>{{end}}
 {{if .Tijelo}}{{template "posebnoTijeloNaslovne" .}}
 {{else if .Redovi}}
 <ul class="kartica-redovi">
@@ -40,6 +39,8 @@
 {{else if .Prazno}}{{with .Prazno}}
 <p class="kartica-prazna {{.Vrsta}}">{{if eq .Vrsta "gotovo"}}{{icon "check"}} {{else if eq .Vrsta "nedostupno"}}{{icon "triangle-alert"}} {{end}}{{.Tekst}}</p>
 {{end}}{{end}}
+{{if .Napomena}}<p class="kartica-tekst kartica-napomena">{{.Napomena}}</p>{{end}}
+{{if .Gumbi}}<div class="kartica-gumbi">{{range .Gumbi}}{{template "gumbNaslovne" .}}{{end}}</div>{{end}}
 {{end}}
 
 {{define "posebnoTijeloNaslovne"}}{{end}}

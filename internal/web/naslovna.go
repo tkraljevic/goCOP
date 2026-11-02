@@ -25,22 +25,49 @@ const (
 	kSustav       = "sustav"
 )
 
+// Uloge s vlastitom Naslovnom. Osoba s više dužnosti dobije Naslovnu prve
+// po ovom redu.
+const (
+	uAdmin     = "admin"
+	uUprava    = "uprava"
+	uDezurni   = "dezurni"
+	uPodrucje  = "podrucje"
+	uVodocuvar = "vodocuvar"
+)
+
+// ulogaNaslovne je uloga po kojoj se slaže Naslovna osobe; prazno znači
+// dosadašnju Naslovnu
+func ulogaNaslovne(perms *models.UserPermissions, sad time.Time) string {
+	switch {
+	case perms == nil:
+		return ""
+	case perms.IsGlobalAdmin:
+		return uAdmin
+	case perms.DrzavnaUprava():
+		return uUprava
+	case dezurnaDuznost(&perms.User, sad) != nil:
+		return uDezurni
+	case duznostPodrucja(&perms.User, sad) != nil:
+		return uPodrucje
+	case terenskaDuznost(&perms.User, sad) != nil:
+		return uVodocuvar
+	}
+	return ""
+}
+
+// karticeZaUlogu su kartice Naslovne po ulozi, redom
+var karticeZaUlogu = map[string][]string{
+	uAdmin:     {kStanjeObrane, kZaRijesiti, kVodostaji, kVrijeme, kJaceOborine, kDogadjanja, kSustav},
+	uUprava:    {kStanjeObrane, kZaRijesiti, kVodostaji, kVrijeme, kJaceOborine, kDogadjanja},
+	uDezurni:   {kMojeDezurstvo, kZaRijesiti, kStanjeSektora, kDnevnikCOP, kVodostaji, kVrijeme, kJaceOborine},
+	uPodrucje:  {kPodrucje, kZaRijesiti, kZadaciPodrucja, kCrpneStanice, kUstave, kVodostaji, kVrijeme, kJaceOborine},
+	uVodocuvar: {kDnevniList, kZadaci, kMojeLetve, kVrijeme},
+}
+
 // karticeUloge su kartice Naslovne za ulogu osobe, redom; nil znači
 // dosadašnju Naslovnu
 func karticeUloge(perms *models.UserPermissions) []string {
-	switch {
-	case perms == nil:
-		return nil
-	case perms.IsGlobalAdmin:
-		return []string{kStanjeObrane, kZaRijesiti, kVodostaji, kVrijeme, kJaceOborine, kDogadjanja, kSustav}
-	case perms.DrzavnaUprava():
-		return []string{kStanjeObrane, kZaRijesiti, kVodostaji, kVrijeme, kJaceOborine, kDogadjanja}
-	case dezurnaDuznost(&perms.User, time.Now()) != nil:
-		return []string{kMojeDezurstvo, kZaRijesiti, kStanjeSektora, kDnevnikCOP, kVodostaji, kVrijeme, kJaceOborine}
-	case terenskaDuznost(&perms.User, time.Now()) != nil:
-		return []string{kDnevniList, kZadaci, kMojeLetve, kVrijeme}
-	}
-	return nil
+	return karticeZaUlogu[ulogaNaslovne(perms, time.Now())]
 }
 
 // kartice slaže kartice Naslovne za osobu. Spore kartice dobiju samo glavu i
@@ -64,6 +91,8 @@ func (h *DashboardHandler) kartica(r *http.Request, perms *models.UserPermission
 		return h.karticaKnjige(r, id)
 	case kMojeDezurstvo, kDnevnikCOP, kStanjeSektora:
 		return h.karticaDezurnog(r, perms, data, id)
+	case kPodrucje:
+		return lijenaKarticaPodrucja(perms)
 	}
 	return lijenaKartica(id)
 }
@@ -110,6 +139,11 @@ var glaveKartica = map[string]KarticaNaslovne{
 	kMojeLetve:   {Naslov: "Moje letve", Poveznica: "Sve letve područja", URL: "/teren"},
 	kDnevniList:  {Naslov: "Dnevni list"},
 	kZadaci:      {Naslov: "Zadaci rukovoditelja"},
+	// rukovoditelj branjenog područja
+	kPodrucje:       {Naslov: "Branjeno područje", Poveznica: "Akti", URL: "/akti"},
+	kZadaciPodrucja: {Naslov: "Zadaci vodočuvarima"},
+	kCrpneStanice:   {Naslov: "Crpne stanice"},
+	kUstave:         {Naslov: "Ustave"},
 }
 
 // lijenaKartica je glava spore kartice s adresom tijela
@@ -154,6 +188,8 @@ func (h *DashboardHandler) sporaKartica(r *http.Request, perms *models.UserPermi
 		return h.jaceOborine(r.Context())
 	case kMojeLetve:
 		return h.mojeLetve(r.Context(), perms, sad)
+	case kPodrucje, kZadaciPodrucja, kCrpneStanice, kUstave:
+		return h.karticaRukovoditeljaBP(r, perms, id, sad)
 	}
 	return h.sustav(r.Context(), sad)
 }

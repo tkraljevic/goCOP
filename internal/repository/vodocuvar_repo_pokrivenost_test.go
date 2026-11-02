@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 
@@ -300,5 +301,24 @@ func TestPrilogListaIzSpremista(t *testing.T) {
 	}
 	if b, err := repo.Prilog(ctx, "foto-2"); err != nil || b != nil {
 		t.Errorf("nepostojeći prilog %q, %v", b, err)
+	}
+}
+
+// Zadaci područja: otvoreni i oni zaključeni od zadanog trenutka, samo na
+// tom području, najstariji prvo
+func TestZadaciPodrucja(t *testing.T) {
+	_, repo := vodocuvarProbe(t)
+	zadaciProbe(t, repo)
+	ctx := context.Background()
+	l, err := repo.ZadaciPodrucja(ctx, 34, time.Date(2026, 3, 9, 0, 0, 0, 0, models.Zagreb))
+	if err != nil || !reflect.DeepEqual(idZadataka(l), []string{"z-plan-10", "z-plan-11", "z-obavljen", "z-vecer-10", "z-ponoc-11"}) {
+		t.Errorf("zadaci područja %v, %v", idZadataka(l), err)
+	}
+	l, err = repo.ZadaciPodrucja(ctx, 34, time.Date(2026, 3, 10, 0, 0, 0, 0, models.Zagreb))
+	if err != nil || slices.Contains(idZadataka(l), "z-obavljen") || len(l) != 4 {
+		t.Errorf("zaključen prije trenutka ostaje: %v, %v", idZadataka(l), err)
+	}
+	if _, err := NewVodocuvarRepository(zatvorenaBaza(t), nil).ZadaciPodrucja(ctx, 34, time.Time{}); err == nil {
+		t.Error("zadaci područja: zatvorena baza bez greške")
 	}
 }

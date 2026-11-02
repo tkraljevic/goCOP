@@ -40,7 +40,38 @@ func (s *Server) izvoriNaslovne() IzvoriNaslovne {
 		Zapisi: func(ctx context.Context, dnevnik string) ([]models.JournalEntry, error) {
 			return s.journalService.EntriesForJournal(ctx, dnevnik)
 		},
+		Listovi:        s.listoviNaslovne,
+		Prijave:        s.prijaveNaslovne,
+		ZadaciPodrucja: s.zadaciPodrucjaNaslovne,
 	}
+}
+
+// errDnevnikZatvoren je greška izvora dok vodočuvarski dnevnik ili prijave
+// s terena još nisu otvoreni
+var errDnevnikZatvoren = errors.New("vodočuvarski dnevnik još nije otvoren")
+
+// listoviNaslovne su dnevni listovi vodočuvara koje osoba smije čitati
+func (s *Server) listoviNaslovne(ctx context.Context, perms *models.UserPermissions, f repository.FiltarListova) ([]models.VodocuvarskiList, error) {
+	if s.vodocuvar == nil {
+		return nil, errDnevnikZatvoren
+	}
+	return s.vodocuvar.Tudji(ctx, perms, f)
+}
+
+// prijaveNaslovne su prijave s terena koje osoba smije vidjeti
+func (s *Server) prijaveNaslovne(ctx context.Context, perms *models.UserPermissions, f repository.FiltarPrijava) ([]models.PrijavaSTerena, error) {
+	if s.prijave == nil {
+		return nil, errDnevnikZatvoren
+	}
+	return s.prijave.List(ctx, perms, f)
+}
+
+// zadaciPodrucjaNaslovne su zadaci vodočuvara područja
+func (s *Server) zadaciPodrucjaNaslovne(ctx context.Context, perms *models.UserPermissions, area int, od time.Time) ([]models.Zadatak, map[string]string, error) {
+	if s.vodocuvar == nil {
+		return nil, nil, errDnevnikZatvoren
+	}
+	return s.vodocuvar.ZadaciPodrucja(ctx, perms, area, od)
 }
 
 // stanjaSektoraNaslovne su stanja obrane dionica sektora po aktima i

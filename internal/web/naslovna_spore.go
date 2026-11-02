@@ -2,11 +2,13 @@ package web
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"gocop/internal/dhmz"
@@ -40,10 +42,57 @@ type IzvoriNaslovne struct {
 	// Dezurstva su plan dežurstava dnevnika COP-a, Zapisi njegovi upisi
 	Dezurstva func(ctx context.Context, dnevnik string) ([]models.Dezurstvo, error)
 	Zapisi    func(ctx context.Context, dnevnik string) ([]models.JournalEntry, error)
+	// Listovi su dnevni listovi vodočuvara koje osoba smije čitati, po filtru
+	Listovi func(context.Context, *models.UserPermissions, repository.FiltarListova) ([]models.VodocuvarskiList, error)
+	// Prijave su prijave s terena koje osoba smije vidjeti, po filtru
+	Prijave func(context.Context, *models.UserPermissions, repository.FiltarPrijava) ([]models.PrijavaSTerena, error)
+	// ZadaciPodrucja su zadaci vodočuvara područja kojima osoba smije
+	// zadavati zadatke, otvoreni i zaključeni od trenutka od, uz imena
+	ZadaciPodrucja func(ctx context.Context, perms *models.UserPermissions, area int, od time.Time) ([]models.Zadatak, map[string]string, error)
 }
 
-// SetIzvori daje Naslovnoj izvore sporih kartica
-func (h *DashboardHandler) SetIzvori(i IzvoriNaslovne) { h.izvori = i }
+// SetIzvori daje Naslovnoj izvore sporih kartica i zaboravlja zapamćene
+// letve
+func (h *DashboardHandler) SetIzvori(i IzvoriNaslovne) {
+	h.izvori = i
+	h.pamcenje.mu.Lock()
+	h.pamcenje.letve = nil
+	h.pamcenje.mu.Unlock()
+}
+
+// PamtiLetve je koliko dugo Naslovna pamti pregled letava. Kartice jedne
+// Naslovne (područje, crpne stanice, ustave, vodostaji) traže ga u isto
+// vrijeme, a pregled traje i dvije sekunde.
+const PamtiLetve = 30 * time.Second
+
+// zapamceneLetve su zadnji pregled letava i kada je složen
+type zapamceneLetve struct {
+	mu    sync.Mutex
+	kad   time.Time
+	letve []models.GaugeSummary
+}
+
+// errBezLetava je greška dok poslužitelj nema pregled letava
+var errBezLetava = errors.New("pregled letava nije postavljen")
+
+// letve su letve iz izvora. Unutar PamtiLetve od zadnjeg pregleda vraća
+// isti, a kartice koje ih traže u isto vrijeme čekaju jedan pregled.
+func (h *DashboardHandler) letve(ctx context.Context) ([]models.GaugeSummary, error) {
+	if h.izvori.Letve == nil {
+		return nil, errBezLetava
+	}
+	p := &h.pamcenje
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.letve != nil && time.Since(p.kad) < PamtiLetve {
+		return p.letve, nil
+	}
+	l, err := h.izvori.Letve(ctx)
+	if err == nil {
+		p.letve, p.kad = l, time.Now()
+	}
+	return l, err
+}
 
 // nedostupna je kartica čiji izvor podataka nije stigao
 func nedostupna(id, tekst string) KarticaNaslovne {
@@ -60,12 +109,10 @@ func glavaKartice(id string) KarticaNaslovne {
 }
 
 // vodostaji: letve iznad praga u cijeloj državi, od najvišeg stupnja; za
-// dežurnog samo letve njegova sektora
+// dežurnog samo letve njegova sektora, za rukovoditelja područja sve letve
+// područja
 func (h *DashboardHandler) vodostaji(ctx context.Context, perms *models.UserPermissions, sad time.Time) KarticaNaslovne {
-	if h.izvori.Letve == nil {
-		return nedostupna(kVodostaji, "Vodostaji trenutačno nisu dostupni.")
-	}
-	letve, err := h.izvori.Letve(ctx)
+	letve, err := h.letve(ctx)
 	if err != nil {
 		return nedostupna(kVodostaji, "Vodostaji trenutačno nisu dostupni.")
 	}
@@ -73,8 +120,12 @@ func (h *DashboardHandler) vodostaji(ctx context.Context, perms *models.UserPerm
 	if h.izvori.Prije != nil {
 		prije = func(g models.GaugeSummary) *int { return h.izvori.Prije(ctx, g) }
 	}
-	if d := dezurnaDuznost(&perms.User, sad); d != nil && !perms.IsGlobalAdmin && !perms.DrzavnaUprava() {
-		letve = letveSektora(letve, *d.SectorID)
+	switch ulogaNaslovne(perms, sad) {
+	case uDezurni:
+		letve = letveSektora(letve, *dezurnaDuznost(&perms.User, sad).SectorID)
+	case uPodrucje:
+		area := *duznostPodrucja(&perms.User, sad).AreaID
+		return karticaVodostajaPodrucja(letvePodrucja(letve, area), prije, area, sad)
 	}
 	return karticaVodostaja(letve, prije, sad)
 }
@@ -394,6 +445,9 @@ type stavkeZaRijesiti struct {
 // obrani, nepredane dnevne listove, promjene prava i nove djelatnike
 func (h *DashboardHandler) zaRijesiti(r *http.Request, perms *models.UserPermissions, sad time.Time) KarticaNaslovne {
 	ctx := r.Context()
+	if ulogaNaslovne(perms, sad) == uPodrucje {
+		return h.zaRijesitiPodrucja(ctx, perms, *duznostPodrucja(&perms.User, sad), sad)
+	}
 	s := stavkeZaRijesiti{Nepredani: map[string][]models.VodocuvarskiList{}}
 	data := DashboardViewData{ViewAsBanner: viewBanner(r)}
 	h.stanjeIZid(r, perms, &data)
