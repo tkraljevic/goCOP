@@ -97,6 +97,12 @@ func TestIzvoriNaslovne(t *testing.T) {
 	if _, err := s.cekajuParafuNaslovne(ctx, nil, 16); err == nil {
 		t.Error("parafe bez dnevnika bez greške")
 	}
+	if _, err := s.dnevniciUslugaNaslovne(ctx, 16); err == nil {
+		t.Error("dnevnici usluga bez dnevnika bez greške")
+	}
+	if _, err := s.listoviDnevnikaNaslovne(ctx, "dn"); err == nil {
+		t.Error("listovi dnevnika bez dnevnika bez greške")
+	}
 	if _, err := s.aktiNaPotpisNaslovne(ctx, nil, "B"); err == nil {
 		t.Error("akti bez servisa akata bez greške")
 	}
@@ -151,6 +157,12 @@ func TestIzvoriNaslovne(t *testing.T) {
 	}
 	if _, err := i.Zapisi(ctx, "nema"); err != nil {
 		t.Errorf("upisi dnevnika: %v", err)
+	}
+	if d, err := s.dnevniciUslugaNaslovne(ctx, 16); len(d) != 0 || err != nil {
+		t.Errorf("dnevnici usluga: %v %v", d, err)
+	}
+	if l, err := s.listoviDnevnikaNaslovne(ctx, "nema"); len(l) != 0 || err != nil {
+		t.Errorf("listovi dnevnika: %v %v", l, err)
 	}
 	sredstva := func() []error {
 		_, e1 := s.skladistaNaslovne(ctx, "B", 16)

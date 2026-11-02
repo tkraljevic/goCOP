@@ -51,6 +51,8 @@ func (s *Server) izvoriNaslovne() IzvoriNaslovne {
 		PrometSredstava:  s.prometSredstavaNaslovne,
 		PopisiSredstava:  s.popisiSredstavaNaslovne,
 		VrsteSredstava:   s.vrsteSredstavaNaslovne,
+		DnevniciUsluga:   s.dnevniciUslugaNaslovne,
+		ListoviDnevnika:  s.listoviDnevnikaNaslovne,
 	}
 }
 
@@ -217,4 +219,23 @@ func (s *Server) vrsteSredstavaNaslovne(ctx context.Context) ([]models.VrstaSred
 		return nil, errSredstvaZatvorena
 	}
 	return s.mtsService.Vrste(ctx)
+}
+
+// errDnevniciZatvoreni je greška izvora dok dnevnici nisu otvoreni
+var errDnevniciZatvoreni = errors.New("dnevnici još nisu otvoreni")
+
+// dnevniciUslugaNaslovne su otvoreni dnevnici radova A.02 i A.03 područja
+func (s *Server) dnevniciUslugaNaslovne(ctx context.Context, area int) ([]models.Journal, error) {
+	if s.journalService == nil {
+		return nil, errDnevniciZatvoreni
+	}
+	return s.journalService.OtvoreniDnevniciOdrzavanja(ctx, area), nil
+}
+
+// listoviDnevnikaNaslovne su dnevni listovi dnevnika radova
+func (s *Server) listoviDnevnikaNaslovne(ctx context.Context, id string) ([]models.JournalSheet, error) {
+	if s.journalService == nil {
+		return nil, errDnevniciZatvoreni
+	}
+	return s.journalService.ListSheets(ctx, id)
 }

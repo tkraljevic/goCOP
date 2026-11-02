@@ -62,6 +62,10 @@ type IzvoriNaslovne struct {
 	PrometSredstava  func(ctx context.Context, f repository.FiltarPrometa) ([]models.Promet, error)
 	PopisiSredstava  func(ctx context.Context, sektor, skladiste string, godina int) ([]models.Popis, error)
 	VrsteSredstava   func(ctx context.Context) ([]models.VrstaSredstva, error)
+	// DnevniciUsluga su otvoreni dnevnici radova A.02 i A.03 područja, a
+	// ListoviDnevnika dnevni listovi dnevnika
+	DnevniciUsluga  func(ctx context.Context, area int) ([]models.Journal, error)
+	ListoviDnevnika func(ctx context.Context, dnevnik string) ([]models.JournalSheet, error)
 }
 
 // SetIzvori daje Naslovnoj izvore sporih kartica i zaboravlja zapamćene
@@ -140,6 +144,9 @@ func (h *DashboardHandler) vodostaji(ctx context.Context, perms *models.UserPerm
 		letve = letveSektora(letve, *dezurnaDuznost(&perms.User, sad).SectorID)
 	case uPodrucje:
 		area := *duznostPodrucja(&perms.User, sad).AreaID
+		return karticaVodostajaPodrucja(letvePodrucja(letve, area), prije, area, sad)
+	case uUgovor:
+		area := *duznostUgovora(&perms.User, sad).AreaID
 		return karticaVodostajaPodrucja(letvePodrucja(letve, area), prije, area, sad)
 	}
 	return karticaVodostaja(letve, prije, sad)
@@ -502,6 +509,8 @@ func (h *DashboardHandler) zaRijesitiUloge(r *http.Request, perms *models.UserPe
 		return h.zaRijesitiSektora(r, perms, sektorOsobe(perms, sad), sad), true
 	case uSkladiste:
 		return h.karticaSkladistara(r, perms, kZaRijesiti, sad), true
+	case uUgovor:
+		return h.karticaUsluga(r, perms, kZaRijesiti, sad), true
 	}
 	return KarticaNaslovne{}, false
 }

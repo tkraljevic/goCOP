@@ -36,6 +36,8 @@ const (
 	uDionica   = "dionica"
 	uVodocuvar = "vodocuvar"
 	uSkladiste = "skladiste"
+	uUgovor    = "ugovor"  // ovlaštenik za praćenje ugovora A.02 ili A.03
+	uUsluga    = "usluga"  // voditelj usluga izvođača
 	uPregled   = "pregled" // preglednik: samo čita, uz imena dežurnih i događanja
 	uGost      = "gost"    // gost obrane: samo gleda, bez imena
 )
@@ -64,8 +66,10 @@ var pravilaUloga = []struct {
 	{uSektor, func(p *models.UserPermissions, sad time.Time) bool { return duznostSektora(&p.User, sad) != nil }},
 	{uDezurni, func(p *models.UserPermissions, sad time.Time) bool { return dezurnaDuznost(&p.User, sad) != nil }},
 	{uPodrucje, func(p *models.UserPermissions, sad time.Time) bool { return duznostPodrucja(&p.User, sad) != nil }},
+	{uUgovor, func(p *models.UserPermissions, sad time.Time) bool { return duznostUgovora(&p.User, sad) != nil }},
 	{uDionica, func(p *models.UserPermissions, sad time.Time) bool { return len(duznostiDionica(&p.User, sad)) > 0 }},
 	{uVodocuvar, func(p *models.UserPermissions, sad time.Time) bool { return terenskaDuznost(&p.User, sad) != nil }},
+	{uUsluga, func(p *models.UserPermissions, sad time.Time) bool { return duznostUsluga(&p.User, sad) != nil }},
 	{uSkladiste, func(p *models.UserPermissions, sad time.Time) bool { return duznostSkladista(&p.User, sad) != nil }},
 	{uPregled, func(p *models.UserPermissions, sad time.Time) bool { return imaUlogu(&p.User, models.RoleViewer, sad) }},
 	{uGost, func(p *models.UserPermissions, sad time.Time) bool { return imaUlogu(&p.User, models.RoleGuest, sad) }},
@@ -80,6 +84,8 @@ var karticeZaUlogu = map[string][]string{
 	uPodrucje:  {kPodrucje, kZaRijesiti, kZadaciPodrucja, kCrpneStanice, kUstave, kVodostaji, kVrijeme, kJaceOborine},
 	uDionica:   {kMojeDionice, kZaRijesiti, kObjektiDionica, kVodostaji, kVrijeme, kJaceOborine},
 	uVodocuvar: {kDnevniList, kZadaci, kMojeLetve, kVrijeme},
+	uUgovor:    {kUgovor, kZaRijesiti, kNalozi, kVodostaji, kVrijeme, kJaceOborine},
+	uUsluga:    {kDnevnikRadova, kNaloziOvl, kLjudiNaTerenu, kVrijeme},
 	uSkladiste: {kZaRijesiti, kSkladiste, kSredstvaTeren, kPrometSredstva},
 	uPregled:   {kStanjeObrane, kDogadjanja, kVodostaji, kVrijeme, kJaceOborine},
 	uGost:      {kStanjeObrane, kVodostaji, kVrijeme, kJaceOborine},
@@ -180,6 +186,12 @@ var glaveKartica = map[string]KarticaNaslovne{
 	kSkladiste:      {Naslov: "Skladište"},
 	kSredstvaTeren:  {Naslov: "Na terenu", Poveznica: "Sve", URL: "/sredstva/na-terenu"},
 	kPrometSredstva: {Naslov: "Zadnji promet", Poveznica: "Sve", URL: "/sredstva/promet"},
+	// ovlaštenik i voditelj usluga
+	kUgovor:        {Naslov: "Ugovor"},
+	kNalozi:        {Naslov: "Nalozi"},
+	kDnevnikRadova: {Naslov: "Dnevnik radova"},
+	kNaloziOvl:     {Naslov: "Nalozi ovlaštenika"},
+	kLjudiNaTerenu: {Naslov: "Na terenu danas"},
 }
 
 // lijenaKartica je glava spore kartice s adresom tijela
@@ -246,4 +258,9 @@ var sporeKartice = map[string]func(h *DashboardHandler, r *http.Request, perms *
 	kSkladiste:      (*DashboardHandler).karticaSkladistara,
 	kSredstvaTeren:  (*DashboardHandler).karticaSkladistara,
 	kPrometSredstva: (*DashboardHandler).karticaSkladistara,
+	kUgovor:         (*DashboardHandler).karticaUsluga,
+	kNalozi:         (*DashboardHandler).karticaUsluga,
+	kDnevnikRadova:  (*DashboardHandler).karticaUsluga,
+	kNaloziOvl:      (*DashboardHandler).karticaUsluga,
+	kLjudiNaTerenu:  (*DashboardHandler).karticaUsluga,
 }
