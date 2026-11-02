@@ -6928,3 +6928,28 @@ html:not(.js) .nav-caret { display: none; }
 .kartica-redovi li.faza-dhmz-3 { background: var(--surface-2); border-left-color: #ea580c; }
 .kartica-redovi li.faza-dhmz-4 { background: var(--surface-2); border-left-color: #dc2626; }
 .kartica-prazna .icon { width: 18px; height: 18px; vertical-align: -4px; }
+/* Naslovna terenskih uloga: traka faze vlastitog područja, radnje uloge,
+   dva stupca od 500 px na sredini; redak može imati kućicu ili gumb */
+.kartica-redovi > li { display: flex; align-items: center; }
+.kartica-redovi > li > .redak { flex: 1; min-width: 0; }
+.redak-gumb { padding-right: 16px; }
+.kartica-tekst { margin: 0; padding: 0 16px 8px; font-size: 14px; line-height: 20px; color: var(--text-secondary); }
+.kartica-gumbi { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 16px 12px; }
+.naslovna-traka { display: flex; align-items: center; gap: 12px; margin: 0 0 16px; padding: 12px 16px; border-radius: 8px; border-left: 4px solid var(--border-strong); background: var(--surface-2); font-size: 14px; line-height: 20px; color: var(--text); }
+.naslovna-traka > .icon { width: 24px; height: 24px; flex: none; color: var(--text-secondary); }
+.naslovna-traka.faza-prep { background: var(--faza-p-bg); border-left-color: var(--faza-p-crta); color: var(--faza-p-fg); }
+.naslovna-traka.faza-regular { background: var(--faza-r-bg); border-left-color: var(--faza-r-crta); color: var(--faza-r-fg); }
+.naslovna-traka.faza-emerg { background: var(--faza-i-bg); border-left-color: var(--faza-i-crta); color: var(--faza-i-fg); }
+.naslovna-traka.faza-crit { background: var(--faza-s-bg); border-left-color: var(--faza-s-crta); color: var(--faza-s-fg); }
+.naslovna-akcije { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 16px; }
+.naslovna-akcije .btn, .naslovna-akcije summary { width: 100%; justify-content: center; }
+.nazovi { position: static; }
+.nazovi > summary { list-style: none; cursor: pointer; }
+.nazovi > summary::-webkit-details-marker { display: none; }
+.nazovi[open] > ul { position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 4px); margin: 0; padding: 4px 0; list-style: none; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.12); }
+.naslovna.teren { max-width: 1040px; }
+@media (min-width: 1200px) { .naslovna.teren { columns: 2; } }
+@media (min-width: 600px) { .naslovna.teren > .kartica-naslovne:first-child { column-span: none; } }
+.naslovna-teren-glava { max-width: 1040px; }
+@media (min-width: 600px) and (max-width: 1199px) { .naslovna.teren { columns: 1; } }
+.naslovna.teren, .naslovna-teren-glava { margin-left: auto; margin-right: auto; }

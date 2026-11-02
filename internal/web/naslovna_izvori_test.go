@@ -100,6 +100,15 @@ func TestIzvoriNaslovne(t *testing.T) {
 	if _, err := i.Djelatnici(); err != nil {
 		t.Errorf("djelatnici: %v", err)
 	}
+	if _, err := i.Osobe("B", 16, models.RoleAreaLeader); err != nil {
+		t.Errorf("osobe s ulogom: %v", err)
+	}
+	if _, _, err := i.StanjaSektora(ctx, "B"); err == nil {
+		t.Error("stanja sektora bez akata bez greške")
+	}
+	if _, err := i.Teren(ctx, admin, &admin.User); err != nil {
+		t.Errorf("terenski pogled: %v", err)
+	}
 	baza.Close()
 	if _, _, err := s.pravaNaslovne(ctx); err == nil {
 		t.Error("promjene prava bez baze bez greške")

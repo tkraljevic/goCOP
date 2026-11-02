@@ -91,3 +91,14 @@ func (s *VodocuvarService) NepredaniUSektoru(ctx context.Context, perms *models.
 	}
 	return out, nil
 }
+
+// DanasnjiList je današnji list osobe kako je spremljen, bez stvaranja
+// novog lista i bez dohvata vremena; nil kad ga danas još nema ili osoba ne
+// vodi dnevnik
+func (s *VodocuvarService) DanasnjiList(ctx context.Context, u *models.User) (*models.VodocuvarskiList, error) {
+	if !VodiDnevnik(u) {
+		return nil, nil
+	}
+	sad := s.sada().In(models.Zagreb)
+	return s.repo.ZaDan(ctx, u.ID.String(), time.Date(sad.Year(), sad.Month(), sad.Day(), 0, 0, 0, 0, models.Zagreb))
+}

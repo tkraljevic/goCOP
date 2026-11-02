@@ -70,18 +70,26 @@ func (h *DashboardHandler) ShowRegisters(w http.ResponseWriter, r *http.Request)
 }
 
 type DashboardViewData struct {
-	CurrentUser    *models.User
-	Perms          *models.UserPermissions
-	Stats          repository.DashboardStats
-	Stanja         []service.StanjeObrane
-	Zid            []service.Dogadjaj
-	Moduli         []struct{ ID, Naziv, Ikona string }
-	Precaci        []Precac
-	Nepredani      *UpozorenjeNepredanih // vlastiti listovi koje vodočuvar nije predao
+	CurrentUser *models.User
+	Perms       *models.UserPermissions
+	Stats       repository.DashboardStats
+	Stanja      []service.StanjeObrane
+	Zid         []service.Dogadjaj
+	Moduli      []struct{ ID, Naziv, Ikona string }
+	Precaci     []Precac
+	Nepredani   *UpozorenjeNepredanih // vlastiti listovi koje vodočuvar nije predao
 	// Kartice su nova Naslovna po ulozi; prazne znače dosadašnju stranicu
 	// za uloge koje još nisu prenesene
 	Kartice []KarticaNaslovne
-	CekaUlogu      bool                  // račun još nema ulogu (cekaUlogu)
+	// Traka je stanje obrane vlastitog područja preko cijele širine, za
+	// terenske uloge; Akcije su gumbi uloge iznad kartica („Nova prijava”),
+	// a Nazovi izbor osoba koje uloga zove
+	Traka  *TrakaNaslovne
+	Akcije []GumbNaslovne
+	Nazovi []OsobaZaPoziv
+	// Teren: Naslovna terenske uloge, dva stupca na sredini
+	Teren          bool
+	CekaUlogu      bool // račun još nema ulogu (cekaUlogu)
 	SuccessMessage string
 	ErrorMessage   string
 	ActiveNav      string
@@ -112,6 +120,9 @@ func (h *DashboardHandler) ShowDashboard(w http.ResponseWriter, r *http.Request)
 	}
 	h.stanjeIZid(r, perms, &data)
 	data.Kartice = h.kartice(r, perms, &data)
+	if data.Kartice != nil && !perms.IsGlobalAdmin && !perms.DrzavnaUprava() {
+		h.naslovnaVodocuvara(r, &data, time.Now())
+	}
 	data.Precaci = vidljiviPrecaci(precaciZa(perms), data.Modules)
 	data.CekaUlogu = cekaUlogu(user)
 	data.Nepredani = h.nepredani(r.Context(), user)

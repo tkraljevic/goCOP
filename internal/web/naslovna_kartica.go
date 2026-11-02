@@ -1,6 +1,10 @@
 package web
 
-import "fmt"
+import (
+	"fmt"
+	"html/template"
+	"strings"
+)
 
 // Naslovna se slaže iz kartica po ulozi (Odluke (31. 10. 2026.)): ista
 // građa kartice za sve uloge, a uloga bira koje se kartice slažu i kojim
@@ -43,11 +47,26 @@ type KarticaNaslovne struct {
 	// Lijeno: adresa s koje se tijelo kartice učita nakon stranice, kad je
 	// računanje sporo (vrijeme, vodostaji); kartica tada najprije ima samo glavu
 	Lijeno string
+	// Tekst je redak teksta iznad redaka, npr. „Otvoren u 06:40 · još nije
+	// predan” na kartici dnevnog lista
+	Tekst string
+	// Gumbi su radnje kartice ispod teksta („Otvori list”, „Ispiši list”)
+	Gumbi []GumbNaslovne
 	// Tijelo je ime posebnog predloška tijela (npr. vrijeme); prazno znači
 	// obični popis redaka
 	Tijelo string
 	// Podaci su podaci posebnog tijela
 	Podaci any
+}
+
+// GumbNaslovne je gumb na Naslovnoj: radnja kartice ili radnja uloge iznad
+// kartica („Nova prijava”). Glavni je ispunjen, ostali obrubljeni.
+type GumbNaslovne struct {
+	Tekst  string
+	URL    string
+	Glavni bool
+	// SamoSiroko: gumb samo na računalu i tabletu („Ispiši list”)
+	SamoSiroko bool
 }
 
 // RedakKartice je redak kartice: ikona, glavni i sporedni tekst, vrijednost
@@ -69,6 +88,9 @@ type RedakKartice struct {
 	// obrani u kartici Stanje obrane): prep, regular, emergency, state
 	Istaknuto string
 	Hitno     bool // iznad praga ili istekao rok: broji se u retku „Više”
+	// Gumb je radnja retka desno („Upiši” uz letvu koja danas još nije
+	// očitana)
+	Gumb *GumbNaslovne
 }
 
 // OznakaRetka je mala oznaka u retku: faza obrane (puna ploha) ili prognoza
@@ -77,6 +99,39 @@ type OznakaRetka struct {
 	Tekst  string
 	Razred string // razred faze (prep, regular, emergency, state) ili prazno za neutralnu
 	Obrub  bool   // prognoza faze: obrubljena oznaka bez ispune
+}
+
+// TrakaNaslovne je stanje obrane preko cijele širine: kod terenskih uloga
+// govori o vlastitom području, uz napomenu o ostatku sektora (Odluke
+// (31. 10. 2026.))
+type TrakaNaslovne struct {
+	Tekst  string
+	Razred string // razred faze vlastitog područja; prazno je preventivna obrana
+}
+
+// OsobaZaPoziv je osoba u izboru „Nazovi”: ime i prezime s funkcijom i
+// broj. Odluke (1. 11. 2026.) traže da izbor vodi na profil osobe, ali
+// terenske uloge po pravima ne vide tuđe profile, pa izbor zasad zove
+// ravno broj (tel:).
+type OsobaZaPoziv struct {
+	Ime      string
+	Funkcija string
+	Broj     string
+}
+
+// URL je poveznica poziva; prazna kad osoba nema upisan broj. Predložak
+// inače shemu tel: zamijeni oznakom nesigurne adrese, a ovdje su u njoj samo
+// znamenke i plus, pa je sigurna.
+func (o OsobaZaPoziv) URL() template.URL {
+	if o.Broj == "" {
+		return ""
+	}
+	return template.URL("tel:" + strings.Map(func(r rune) rune {
+		if r == '+' || (r >= '0' && r <= '9') {
+			return r
+		}
+		return -1
+	}, o.Broj)) // #nosec G203 -- samo znamenke i plus
 }
 
 // PraznaKartica je ono što kartica kaže kad nema redaka.
