@@ -141,3 +141,40 @@ func TockaNaUzduz(linija [][2]float64, uzduzKM float64) [2]float64 {
 	}
 	return linija[len(linija)-1]
 }
+
+// Raspon vraća najmanji i najveći kalibrirani rkm, između kojih Uzduz daje
+// položaj
+func (k Kalibracija) Raspon() (float64, float64, bool) {
+	if len(k.sidra) < 2 {
+		return 0, 0, false
+	}
+	a, b := k.sidra[0].rkm, k.sidra[len(k.sidra)-1].rkm
+	return math.Min(a, b), math.Max(a, b), true
+}
+
+// DioLinije vraća dio linije između dviju udaljenosti od prvog vrha, s
+// vrhovima između. Kad je od veće od do, dio ide unatrag, od kraja prema
+// početku linije. Udaljenosti izvan linije pomiču se na njezin kraj.
+func DioLinije(linija [][2]float64, odKM, doKM float64) [][2]float64 {
+	if len(linija) < 2 {
+		return nil
+	}
+	if odKM > doKM {
+		dio := DioLinije(linija, doKM, odKM)
+		for i, j := 0, len(dio)-1; i < j; i, j = i+1, j-1 {
+			dio[i], dio[j] = dio[j], dio[i]
+		}
+		return dio
+	}
+	ukupno := DuljinaKM(linija)
+	odKM, doKM = math.Max(0, math.Min(odKM, ukupno)), math.Max(0, math.Min(doKM, ukupno))
+	dio := [][2]float64{TockaNaUzduz(linija, odKM)}
+	prijedeno := 0.0
+	for i := 0; i+1 < len(linija); i++ {
+		prijedeno += haversineKM(linija[i], linija[i+1])
+		if prijedeno > odKM && prijedeno < doKM {
+			dio = append(dio, linija[i+1])
+		}
+	}
+	return append(dio, TockaNaUzduz(linija, doKM))
+}

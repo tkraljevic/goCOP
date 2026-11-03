@@ -69,7 +69,7 @@ func sloj(t *testing.T, skupine []SkupinaSlojeva, kljuc string) SlojKarte {
 // točkom ili širinom i dužinom, vodotok s tokom, letva s položajem.
 func TestKartaBrojiUcrtano(t *testing.T) {
 	o, v, l := probniIzvori()
-	h := NewKartaHandler(o, v, l, nil, nil)
+	h := NewKartaHandler(o, v, l, nil, nil, nil)
 	k, err := h.slozi(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -97,7 +97,7 @@ func TestKartaBrojiUcrtano(t *testing.T) {
 // stranici; crpna stanica bez ucrtanog dobije točku iz širine i dužine.
 func TestKartaZnacajkeObjekata(t *testing.T) {
 	o, v, l := probniIzvori()
-	k, err := NewKartaHandler(o, v, l, nil, nil).slozi(context.Background())
+	k, err := NewKartaHandler(o, v, l, nil, nil, nil).slozi(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +130,7 @@ func TestKartaZnacajkeObjekata(t *testing.T) {
 // Tok vode ide na kartu bez točaka stacionaže, pojednostavljen.
 func TestKartaVodotociBezStacionaze(t *testing.T) {
 	o, v, l := probniIzvori()
-	k, err := NewKartaHandler(o, v, l, nil, nil).slozi(context.Background())
+	k, err := NewKartaHandler(o, v, l, nil, nil, nil).slozi(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -183,7 +183,7 @@ func TestPojednostaviCrtu(t *testing.T) {
 // Što se ne učita, karta prešuti, a stranica kaže što nije stiglo.
 func TestKartaGreskaIzvora(t *testing.T) {
 	o, v, _ := probniIzvori()
-	h := NewKartaHandler(o, v, func(context.Context) ([]models.Station, error) { return nil, errors.New("baza zaključana") }, nil, nil)
+	h := NewKartaHandler(o, v, func(context.Context) ([]models.Station, error) { return nil, errors.New("baza zaključana") }, nil, nil, nil)
 	k, err := h.slozi(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "letve: baza zaključana") {
 		t.Errorf("greška: %v", err)
@@ -201,7 +201,7 @@ func TestKartaGreskaIzvora(t *testing.T) {
 func TestKartaPodaciJSON(t *testing.T) {
 	o, v, l := probniIzvori()
 	w := httptest.NewRecorder()
-	NewKartaHandler(o, v, l, nil, nil).HandlePodaci(w, httptest.NewRequest("GET", "/karta/podaci.json", nil))
+	NewKartaHandler(o, v, l, nil, nil, nil).HandlePodaci(w, httptest.NewRequest("GET", "/karta/podaci.json", nil))
 	if w.Code != http.StatusOK || !strings.HasPrefix(w.Header().Get("Content-Type"), "application/json") {
 		t.Fatalf("status %d, vrsta %q", w.Code, w.Header().Get("Content-Type"))
 	}
@@ -223,10 +223,10 @@ func TestKartaPraznaBaza(t *testing.T) {
 	prazno := NewKartaHandler(
 		func(context.Context) ([]models.Structure, error) { return nil, nil },
 		func(context.Context) ([]models.Watercourse, error) { return nil, nil },
-		func(context.Context) ([]models.Station, error) { return nil, nil }, nil, nil)
+		func(context.Context) ([]models.Station, error) { return nil, nil }, nil, nil, nil)
 	w := httptest.NewRecorder()
 	prazno.HandlePodaci(w, httptest.NewRequest("GET", "/karta/podaci.json", nil))
-	if got := strings.TrimSpace(w.Body.String()); got != `{"objekti":{"type":"FeatureCollection","features":[]},"vodotoci":{"type":"FeatureCollection","features":[]},"letve":[]}` {
+	if got := strings.TrimSpace(w.Body.String()); got != `{"objekti":{"type":"FeatureCollection","features":[]},"vodotoci":{"type":"FeatureCollection","features":[]},"letve":[],"nedostaje":[],"priblizno":{"type":"FeatureCollection","features":[]}}` {
 		t.Errorf("prazna karta: %s", got)
 	}
 }
@@ -248,7 +248,7 @@ func predlozakKarte(t *testing.T) *template.Template {
 // Karta je u izborniku i ističe se.
 func TestStranicaKarta(t *testing.T) {
 	o, v, l := probniIzvori()
-	h := NewKartaHandler(o, v, l, func() KartaPostavke { return KartaPostavke{Plocice: "https://pločice/{z}/{x}/{y}.png", NajviseZ: 17} }, predlozakKarte(t))
+	h := NewKartaHandler(o, v, l, nil, func() KartaPostavke { return KartaPostavke{Plocice: "https://pločice/{z}/{x}/{y}.png", NajviseZ: 17} }, predlozakKarte(t))
 	req := httptest.NewRequest("GET", "/karta", nil)
 	req = req.WithContext(context.WithValue(req.Context(), contextKeyUser, &models.User{FullName: "Ana Proba"}))
 	w := httptest.NewRecorder()
@@ -259,9 +259,17 @@ func TestStranicaKarta(t *testing.T) {
 		`data-sloj="nasipi"`, `1 od 2 ucrtano`, `data-sloj="letve"`, `1 od 2 s položajem`, `nema ih u registru`,
 		`data-sloj="zupanije"`, `granice i imena`, `data-skupina-prekidac`, `Vrati zadano`, `js/karta.js`,
 		`href="/karta" class="nav-link active"`, `<h1 class="vrh-naslov">Karta</h1>`,
+		`aria-label="Što nedostaje: Nasipi" data-nedostaje="nasipi" data-naziv="Nasipi" data-crta="true" data-ukupno="2"`, `data-nedostaje="letve"`,
+		`class="karta-pogled-nedostaje" hidden`, `Što nedostaje`, `Preuzmi popis`,
 	} {
 		if !strings.Contains(html, trazi) {
 			t.Errorf("stranica nema %q", trazi)
+		}
+	}
+	// sve ucrtano i prazan registar nemaju popis onoga što nedostaje
+	for _, nema := range []string{`data-nedostaje="crpne-stanice"`, `data-nedostaje="brane"`, `data-nedostaje="zupanije"`} {
+		if strings.Contains(html, nema) {
+			t.Errorf("stranica ne treba %q", nema)
 		}
 	}
 	if strings.Count(html, `class="prekidac"`) != strings.Count(html, `data-sloj="`)+3 {
@@ -300,7 +308,7 @@ func TestKartaImaZajednickeKontrole(t *testing.T) {
 // stiglo, a slojevi koji jesu ostaju u ploči.
 func TestStranicaKartaUzGreskuIzvora(t *testing.T) {
 	o, v, _ := probniIzvori()
-	h := NewKartaHandler(o, v, func(context.Context) ([]models.Station, error) { return nil, errors.New("baza zaključana") }, nil, predlozakKarte(t))
+	h := NewKartaHandler(o, v, func(context.Context) ([]models.Station, error) { return nil, errors.New("baza zaključana") }, nil, nil, predlozakKarte(t))
 	req := httptest.NewRequest("GET", "/karta", nil)
 	req = req.WithContext(context.WithValue(req.Context(), contextKeyUser, &models.User{FullName: "Ana Proba"}))
 	w := httptest.NewRecorder()

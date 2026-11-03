@@ -1236,11 +1236,16 @@ func (s *Server) setupRoutes() {
 	// Registar slivova: slivovi između letvi, na njima rijeke, letve i kvazi-kišomjeri
 	// Karta: sve ucrtano na jednoj karti, sa slojevima (Odluke (3. 11. 2026.))
 	kartaH := NewKartaHandler(
-		func(ctx context.Context) ([]models.Structure, error) { return s.structureService.List(ctx, "", 0, "", "") },
+		func(ctx context.Context) ([]models.Structure, error) {
+			return s.structureService.List(ctx, "", 0, "", "")
+		},
 		func(ctx context.Context) ([]models.Watercourse, error) {
 			return s.watercourseService.ListWatercourses(ctx, "", "", false)
 		},
-		func(ctx context.Context) ([]models.Station, error) { return s.stationService.ListStations(ctx, "", "", "", false) },
+		func(ctx context.Context) ([]models.Station, error) {
+			return s.stationService.ListStations(ctx, "", "", "", false)
+		},
+		func(context.Context) ([]models.Section, error) { return s.sectionService.ListSections("", 0, "") },
 		func() KartaPostavke { return s.karta }, s.templates["karta.html"])
 	s.mux.Handle("GET /karta", s.authMiddleware(http.HandlerFunc(kartaH.ShowKarta)))
 	s.mux.Handle("GET /karta/podaci.json", s.authMiddleware(http.HandlerFunc(kartaH.HandlePodaci)))

@@ -497,6 +497,9 @@ func fmtStationing(km float64) string {
 // FormatKm piše kilometre s tri decimale i zarezom, kako ih dokumentacija piše
 func FormatKm(km float64) string { return fmtKm(km) }
 
+// FormatStationing piše kilometre kao "12+450"
+func FormatStationing(km float64) string { return fmtStationing(km) }
+
 // fmtKm piše kilometre s tri decimale i zarezom, kako ih dokumentacija piše
 func fmtKm(km float64) string {
 	return strings.Replace(fmt.Sprintf("%.3f", km), ".", ",", 1)

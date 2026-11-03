@@ -114,6 +114,7 @@
   --karta-prozirnost: 1;
   --karta-podloga: #eceef1;
   --karta-rijeka: #0284c7;
+  --karta-priblizno: #e8590c;
   --sloj-zupanije: #2563eb; --sloj-zupanije-bg: #dbeafe; --sloj-zupanije-fg: #1e3a8a;
   --sloj-gradovi: #7c3aed;  --sloj-gradovi-bg: #ede9fe;  --sloj-gradovi-fg: #5b21b6;
   --sloj-opcine: #059669;   --sloj-opcine-bg: #d1fae5;   --sloj-opcine-fg: #065f46;
@@ -183,6 +184,7 @@
   --karta-prozirnost: 0.8;
   --karta-podloga: #22344c;
   --karta-rijeka: #38bdf8;
+  --karta-priblizno: #fb923c;
   --sloj-zupanije: #60a5fa; --sloj-zupanije-bg: #1e2f4f; --sloj-zupanije-fg: #93c5fd;
   --sloj-gradovi: #a78bfa;  --sloj-gradovi-bg: #2e2150;  --sloj-gradovi-fg: #c4b5fd;
   --sloj-opcine: #34d399;   --sloj-opcine-bg: #0f3a2c;   --sloj-opcine-fg: #6ee7b7;
@@ -7037,6 +7039,46 @@ html:not(.js) .nav-caret { display: none; }
 .karta-sloj-naziv { font-size: 0.875rem; color: var(--text); }
 .karta-sloj-broj { font-size: 0.75rem; color: var(--text-secondary); }
 .karta-slojevi-dno { margin-top: auto; padding-top: 8px; display: flex; justify-content: flex-end; }
+.karta-pogled-slojevi, .karta-pogled-nedostaje { flex: 1 0 auto; display: flex; flex-direction: column; gap: 2px; }
+.karta-pogled-slojevi[hidden], .karta-pogled-nedostaje[hidden] { display: none; }
+.karta-sloj-nedostaje {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: 2px; padding: 2px 0; border: 0; background: none;
+  color: var(--md-sys-color-primary); font: inherit; font-size: 0.75rem; font-weight: 500; cursor: pointer;
+}
+.karta-sloj-nedostaje .icon { width: 14px; height: 14px; }
+.karta-sloj-nedostaje:hover { text-decoration: underline; }
+
+/* Što nedostaje: popis po području i iscrtkano približno mjesto (karta.js) */
+.karta-pogled-nedostaje .karta-slojevi-glava { justify-content: flex-start; gap: 4px; }
+.karta-pogled-nedostaje .karta-slojevi-glava h2 { flex: 1; }
+.karta-nedostaje-natrag {
+  display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; margin-left: -8px;
+  border: 0; border-radius: 999px; background: none; color: var(--text); cursor: pointer;
+}
+.karta-nedostaje-natrag:hover { background: var(--md-sys-color-surface-container-high); }
+.karta-nedostaje-sazetak { margin: 0 0 6px; font-size: 0.875rem; color: var(--text-secondary); }
+.karta-nedostaje-cipovi { display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 10px; }
+.karta-nedostaje-cipovi:empty { display: none; }
+.karta-nedostaje-napomena {
+  display: flex; align-items: center; gap: 10px; margin: 0 0 8px; padding: 8px 12px; border-radius: 8px;
+  background: var(--md-sys-color-surface-container-high); font-size: 0.75rem; color: var(--text-secondary);
+}
+.karta-nedostaje-napomena[hidden] { display: none; }
+.karta-nedostaje-znak { flex: none; width: 20px; height: 0; border-top: 3px dashed var(--karta-priblizno); }
+.karta-nedostaje-tocka .karta-nedostaje-znak { width: 14px; height: 14px; border: 2px dashed var(--karta-priblizno); border-radius: 50%; }
+.karta-nedostaje-skupina { margin: 8px 0 4px; font-size: 0.875rem; font-weight: 500; color: var(--text); }
+.karta-nedostaje-stavka {
+  display: flex; align-items: center; gap: 12px; margin: 0 -8px; padding: 6px 8px; border-radius: 8px;
+}
+.karta-nedostaje-stavka.istaknuto { background: var(--md-sys-color-surface-container-high); }
+.karta-nedostaje-tekst { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.karta-nedostaje-naziv { padding: 0; border: 0; background: none; font: inherit; font-size: 0.875rem; color: var(--text); text-align: left; }
+button.karta-nedostaje-naziv { cursor: pointer; }
+button.karta-nedostaje-naziv:hover, .karta-nedostaje-stavka.istaknuto button.karta-nedostaje-naziv { color: var(--md-sys-color-primary); }
+.karta-nedostaje-gdje { font-size: 0.75rem; color: var(--text-secondary); }
+.karta-nedostaje-ucrtaj { flex: none; font-size: 0.875rem; font-weight: 500; color: var(--md-sys-color-primary); text-decoration: none; }
+.karta-nedostaje-ucrtaj:hover { text-decoration: underline; }
+.karta-nedostaje-preuzmi { display: inline-flex; align-items: center; gap: 6px; }
 
 .karta-slojevi-gumb {
   position: absolute; z-index: 1000; top: 12px; right: 12px; display: none; align-items: center; gap: 8px;
