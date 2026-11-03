@@ -23,9 +23,9 @@
   <!-- Navigacija -->
   {{/* Školjka: izbornik sa strane (na mobitelu ispod), gornja traka i sadržaj.
        Stavke i redoslijed su iz sustava dizajna (Odluke (31. 10. 2026.)):
-       Naslovna, Očitanja, Prognoze, Dokumenti, Teren, Karta (dolazi s modulom
-       Karte), Sredstva, Registri, Djelatnici i dežurstva, Administracija,
-       Pomoć, Profil. Što tko vidi određuju moduli (.Sees). */}}
+       Naslovna, Očitanja, Prognoze, Dokumenti, Teren, Karta, Sredstva,
+       Registri, Djelatnici i dežurstva, Administracija, Pomoć, Profil. Što tko
+       vidi određuju moduli (.Sees); Kartu vide svi prijavljeni, kao i registre. */}}
   <aside class="izbornik" id="izbornik" aria-label="Glavni izbornik">
     <div class="izbornik-glava">
       <button type="button" class="izbornik-gumb izbornik-suzi" onclick="suziIzbornik()" title="Suzi ili raširi izbornik" aria-label="Suzi ili raširi izbornik" aria-controls="izbornik" aria-expanded="true">{{icon "menu"}}</button>
@@ -40,6 +40,7 @@
       {{end}}
       {{if .Sees "dnevnici"}}<a href="/dnevnici" class="nav-link {{if eq .ActiveNav "journals"}}active{{end}}">{{icon "file-text"}}<span>Dokumenti</span></a>{{end}}
       {{if .Sees "teren"}}<a href="/teren" class="nav-link {{if eq .ActiveNav "teren"}}active{{end}}">{{icon "map-pin"}}<span>Teren</span></a>{{end}}
+      {{if .CurrentUser}}<a href="/karta" class="nav-link {{if eq .ActiveNav "karta"}}active{{end}}">{{icon "map"}}<span>Karta</span></a>{{end}}
       {{if .Sees "registri"}}
       {{/* Sredstva za obranu su vlastita stavka, a ne dio Registara */}}
       <a href="/sredstva" class="nav-link {{if eq .ActiveNav "sredstva"}}active{{end}}">{{icon "package"}}<span>Sredstva</span></a>
