@@ -5,7 +5,8 @@
 {{define "content"}}
 {{/* Karta preko cijelog sadržaja; ploča slojeva desno na računalu, odozdo
      na tabletu i mobitelu (Odluke (3. 11. 2026.)). Crte i točke dohvaća
-     karta.js s data-podaci, granice županija s data-zupanije. */}}
+     karta.js s data-podaci, granice županija s data-zupanije. Ista ploča
+     drži i pogled „Što nedostaje”, koji karta.js puni iz istih podataka. */}}
 <div class="karta-stranica" data-plocice="{{.Karta.Plocice}}" data-zasluge="{{.Karta.Zasluge}}" data-najvise-z="{{.Karta.NajviseZ}}"
      data-podaci="/karta/podaci.json" data-zupanije="{{.Zupanije}}">
   <div class="karta-platno"></div>
@@ -15,6 +16,7 @@
 
   <aside class="karta-slojevi" id="karta-slojevi" aria-label="Slojevi karte">
     <div class="karta-slojevi-rucka" aria-hidden="true"></div>
+    <div class="karta-pogled-slojevi">
     <div class="karta-slojevi-glava">
       <h2>Slojevi</h2>
       <button type="button" class="karta-slojevi-zatvori" aria-label="Zatvori slojeve">{{icon "x"}}</button>
@@ -35,6 +37,7 @@
           <span class="karta-sloj-tekst">
             <span class="karta-sloj-naziv">{{.Naziv}}</span>
             <span class="karta-sloj-broj">{{if .Ukupno}}{{brojHR .Ucrtano}} od {{brojHR .Ukupno}} {{.Opis}}{{else if eq .Kljuc "zupanije"}}granice i imena{{else}}nema ih u registru{{end}}</span>
+            {{if lt .Ucrtano .Ukupno}}<button type="button" class="karta-sloj-nedostaje" aria-label="Što nedostaje: {{.Naziv}}" data-nedostaje="{{.Kljuc}}" data-naziv="{{.Naziv}}" data-crta="{{.Crta}}" data-ukupno="{{.Ukupno}}">što nedostaje{{icon "chevron-right"}}</button>{{end}}
           </span>
           <input type="checkbox" class="prekidac" role="switch" data-sloj="{{.Kljuc}}" aria-label="{{.Naziv}}"{{if .Ukljucen}} checked{{end}}>
         </li>
@@ -45,6 +48,22 @@
 
     <div class="karta-slojevi-dno">
       <button type="button" class="btn btn-link karta-vrati">Vrati zadano</button>
+    </div>
+    </div>
+
+    <div class="karta-pogled-nedostaje" hidden>
+      <div class="karta-slojevi-glava">
+        <button type="button" class="karta-nedostaje-natrag" aria-label="Natrag na slojeve">{{icon "arrow-left"}}</button>
+        <h2>Što nedostaje</h2>
+        <button type="button" class="karta-slojevi-zatvori" aria-label="Zatvori ploču">{{icon "x"}}</button>
+      </div>
+      <p class="karta-nedostaje-sazetak"></p>
+      <div class="karta-nedostaje-cipovi" role="group" aria-label="Područje"></div>
+      <p class="karta-nedostaje-napomena" hidden><span class="karta-nedostaje-znak" aria-hidden="true"></span><span class="karta-nedostaje-napomena-tekst"></span></p>
+      <div class="karta-nedostaje-popis"></div>
+      <div class="karta-slojevi-dno">
+        <button type="button" class="btn btn-link karta-nedostaje-preuzmi">{{icon "download"}} Preuzmi popis</button>
+      </div>
     </div>
   </aside>
 </div>

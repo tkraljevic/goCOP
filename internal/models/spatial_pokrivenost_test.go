@@ -245,3 +245,11 @@ func TestPersonnelByLevel(t *testing.T) {
 		t.Error("dionica bez zaduženih")
 	}
 }
+
+func TestFormatStationing(t *testing.T) {
+	for km, want := range map[float64]string{0: "0+000", 1.85: "1+850", 30.462: "30+462", 2.9996: "3+000"} {
+		if got := FormatStationing(km); got != want {
+			t.Errorf("FormatStationing(%v) = %q, htio %q", km, got, want)
+		}
+	}
+}

@@ -59,3 +59,36 @@ func TestTockaNaUzduz(t *testing.T) {
 		t.Fatalf("točka %.6f, %.6f nije sredina linije", p[0], p[1])
 	}
 }
+
+func TestRasponKalibracije(t *testing.T) {
+	linija := [][2]float64{{18, 45}, {18.1, 45}, {18.2, 45}}
+	k, err := NovaKalibracija(linija, []Sidro{{Rkm: 100, Tocka: linija[0]}, {Rkm: 80, Tocka: linija[2]}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if lo, hi, ok := k.Raspon(); !ok || lo != 80 || hi != 100 {
+		t.Fatalf("raspon %v–%v (%v), očekivano 80–100", lo, hi, ok)
+	}
+	if _, _, ok := (Kalibracija{}).Raspon(); ok {
+		t.Fatal("kalibracija bez sidara nema raspon")
+	}
+}
+
+func TestDioLinije(t *testing.T) {
+	linija := [][2]float64{{18, 45}, {18.1, 45}, {18.2, 45}, {18.3, 45}}
+	ukupno := DuljinaKM(linija)
+	dio := DioLinije(linija, ukupno/6, ukupno/2)
+	if len(dio) != 3 || math.Abs(dio[0][0]-18.05) > 0.001 || dio[1] != linija[1] || math.Abs(dio[2][0]-18.15) > 0.001 {
+		t.Fatalf("dio od 18,05 do 18,15 preko vrha 18,1, a dobiven %v", dio)
+	}
+	unatrag := DioLinije(linija, ukupno/2, ukupno/6)
+	if len(unatrag) != 3 || math.Abs(unatrag[0][0]-18.15) > 0.001 || math.Abs(unatrag[2][0]-18.05) > 0.001 {
+		t.Fatalf("dio unatrag treba ići od 18,15 do 18,05, a dobiven %v", unatrag)
+	}
+	if cijela := DioLinije(linija, -1, ukupno+1); len(cijela) != 4 || cijela[0] != linija[0] || cijela[3] != linija[3] {
+		t.Fatalf("cijela linija: %v", cijela)
+	}
+	if DioLinije(linija[:1], 0, 1) != nil {
+		t.Fatal("linija s jednom točkom nema dio")
+	}
+}

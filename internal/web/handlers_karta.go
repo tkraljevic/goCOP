@@ -16,9 +16,9 @@ import (
 // Stranica Karta: sve što je u programu ucrtano, na jednoj karti, sa
 // slojevima koji se pale i gase (Odluke (3. 11. 2026.)). Karta se otvara sa
 // svim zaštitnim sustavom; ploča slojeva je desno na računalu, a odozdo na
-// tabletu i mobitelu. Ovaj prvi korak samo prikazuje: objekte po registrima,
-// vodotoke, letve i granice županija. Uz svaki sloj piše koliko ga je ucrtano,
-// da se vidi što još nedostaje dok se baza popunjava.
+// tabletu i mobitelu. Karta prikazuje objekte po registrima, vodotoke, letve
+// i granice županija. Uz svaki sloj piše koliko ga je ucrtano, a broj vodi
+// na popis onoga što još nedostaje dok se baza popunjava (karta_nedostaje.go).
 
 // KartaHandler slaže stranicu Karta i njezine podatke. Izvori su funkcije, a
 // ne servisi, da se stranica može provjeriti bez baze.
@@ -26,14 +26,16 @@ type KartaHandler struct {
 	objekti  func(context.Context) ([]models.Structure, error)
 	vodotoci func(context.Context) ([]models.Watercourse, error)
 	letve    func(context.Context) ([]models.Station, error)
+	dionice  func(context.Context) ([]models.Section, error) // za približno mjesto po stacionaži
 	karta    func() KartaPostavke
 	tmpl     *template.Template
 }
 
 // NewKartaHandler spaja stranicu Karta s izvorima podataka
 func NewKartaHandler(objekti func(context.Context) ([]models.Structure, error), vodotoci func(context.Context) ([]models.Watercourse, error),
-	letve func(context.Context) ([]models.Station, error), karta func() KartaPostavke, tmpl *template.Template) *KartaHandler {
-	return &KartaHandler{objekti: objekti, vodotoci: vodotoci, letve: letve, karta: karta, tmpl: tmpl}
+	letve func(context.Context) ([]models.Station, error), dionice func(context.Context) ([]models.Section, error),
+	karta func() KartaPostavke, tmpl *template.Template) *KartaHandler {
+	return &KartaHandler{objekti: objekti, vodotoci: vodotoci, letve: letve, dionice: dionice, karta: karta, tmpl: tmpl}
 }
 
 // SlojKarte je jedan redak u ploči Slojevi: prekidač, znak i koliko je ucrtano
@@ -125,11 +127,14 @@ type letvaNaKarti struct {
 	Adresa string  `json:"adresa"`
 }
 
-// podaciKarte su crte i točke koje karta.js crta, po slojevima
+// podaciKarte su crte i točke koje karta.js crta, po slojevima, i popis
+// onoga što nedostaje s približnim mjestima
 type podaciKarte struct {
-	Objekti  geoZbirka      `json:"objekti"`
-	Vodotoci geoZbirka      `json:"vodotoci"`
-	Letve    []letvaNaKarti `json:"letve"`
+	Objekti   geoZbirka          `json:"objekti"`
+	Vodotoci  geoZbirka          `json:"vodotoci"`
+	Letve     []letvaNaKarti     `json:"letve"`
+	Nedostaje []nedostajeNaKarti `json:"nedostaje"`
+	Priblizno geoZbirka          `json:"priblizno"`
 }
 
 // slozenaKarta su podaci za kartu i brojevi za ploču slojeva, iz istog čitanja
@@ -143,7 +148,8 @@ type slozenaKarta struct {
 func (h *KartaHandler) slozi(ctx context.Context) (slozenaKarta, error) {
 	var out slozenaKarta
 	out.zaKartu = podaciKarte{Objekti: geoZbirka{Type: "FeatureCollection", Features: []geoZnacajka{}},
-		Vodotoci: geoZbirka{Type: "FeatureCollection", Features: []geoZnacajka{}}, Letve: []letvaNaKarti{}}
+		Vodotoci: geoZbirka{Type: "FeatureCollection", Features: []geoZnacajka{}}, Letve: []letvaNaKarti{},
+		Nedostaje: []nedostajeNaKarti{}, Priblizno: geoZbirka{Type: "FeatureCollection", Features: []geoZnacajka{}}}
 	var greske []string
 	objekti, err := h.objekti(ctx)
 	if err != nil {
@@ -157,8 +163,19 @@ func (h *KartaHandler) slozi(ctx context.Context) (slozenaKarta, error) {
 	if err != nil {
 		greske = append(greske, "letve: "+err.Error())
 	}
+	var dionice []models.Section
+	if h.dionice != nil {
+		if dionice, err = h.dionice(ctx); err != nil {
+			greske = append(greske, "dionice: "+err.Error())
+		}
+	}
 	zastita := slojeviObjekata(objekti, &out.zaKartu.Objekti)
 	vode := []SlojKarte{slojVodotoka(vodotoci, &out.zaKartu.Vodotoci), slojLetvi(letve, &out.zaKartu.Letve)}
+	tokovi, podrucja := noviTokovi(vodotoci), naziviPodrucja(dionice)
+	nedostajeObjekata(objekti, mjestaIzDionica(dionice), tokovi, podrucja, &out.zaKartu.Nedostaje, &out.zaKartu.Priblizno)
+	nedostajeVodotoka(vodotoci, dionice, podrucja, &out.zaKartu.Nedostaje)
+	nedostajeLetvi(letve, tokovi, &out.zaKartu.Nedostaje, &out.zaKartu.Priblizno)
+	posloziNedostaje(out.zaKartu.Nedostaje)
 	out.skupine = []SkupinaSlojeva{
 		{Kljuc: "zastita", Naziv: "Zaštitni sustav", Slojevi: zastita},
 		{Kljuc: "vode", Naziv: "Vode", Slojevi: vode},
