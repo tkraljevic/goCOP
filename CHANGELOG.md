@@ -4,6 +4,82 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.49-alfa — 3. 11. 2026.
+
+Naslovna po ulozi, te broj agregata i smjer rada crpnih stanica. Baza
+dobiva dva nova stupca crpnih stanica sama pri pokretanju. Nova polja
+putuju razmjenom; starije izdanje ih čuva, ali ih ne prikazuje, pa sva
+računala nadograditi isti dan.
+
+- **Naslovna po ulozi.** Naslovna više nije ista za sve. Slaže se iz
+  kartica prema nacrtu novog izgleda i odlukama od 31. 10. i 1. 11. 2026.,
+  pa svatko na njoj vidi svoj posao za danas. Kartica ima najviše pet
+  redaka, a na mobitelu tri; zadnji redak kaže koliko je još skriveno.
+  Prazna kartica kaže je li posao gotov ili podaci nisu stigli. Tko ima
+  više uloga, dobiva Naslovnu one sa širim pregledom.
+  - Globalni administrator, glavni rukovoditelj i voditelj Glavnog
+    centra: stanje obrane, Za riješiti, letve iznad praga, vrijeme, jače
+    oborine i događanja; administrator i stanje sustava i razmjene.
+  - Uprava sektora: stanje svakog branjenog područja s rukovoditeljem i
+    brojem vodočuvara na terenu, akti koji čekaju potpis, sektorsko
+    izvješće, dnevnik COP-a i vodostaji sektora.
+  - Dežurni: do kada traje smjena i tko je preuzima, Za riješiti u
+    sektoru, stanje obrane po područjima, dnevnik COP-a i letve sektora
+    iznad praga.
+  - Rukovoditelj branjenog područja: vodočuvari s današnjim listom,
+    listovi za ovjeru, nepredani listovi i prijave s terena, zadaci
+    vodočuvarima, crpne stanice koje rade ili su u kvaru i ustave kojima
+    se promijenila zapornica.
+  - Rukovoditelj dionice: Moje dionice sa stanjem obrane, vodočuvarima
+    područja i objektima, listovi za parafu, prijave, te objekti i
+    vodostaji dionica.
+  - Vodočuvar: današnji dnevni list, otvoreni zadaci, letve koje redovito
+    očitava s gumbom „Upiši”, vrijeme područja i gumbi „Nova prijava” i
+    „Nazovi”.
+  - Strojar, rukovatelj i voditelj posade: crpne stanice i ustave koje
+    obično očitavaju, sa stanjem i vodostajem ili gumbom „Upiši”.
+  - Ovlaštenik za ugovore A.02 i A.03 i voditelj usluga: isti dnevnik
+    radova, svaki sa svoje strane, s nalozima i ljudima na terenu.
+  - Skladištar: stanje skladišta, sredstva izdana na teren, zadnji promet
+    i, od prosinca, godišnji popis.
+  - Gost i preglednik: stanje obrane, vodostaji, vrijeme i jače oborine.
+
+  Prognoze prelaska praga, vremena za tri dana, očitanja koja nisu
+  stigla, naloga strojarima ni zahtjeva za sredstva u programu još nema,
+  pa ih nema ni na Naslovnoj ili stoji „U izradi”.
+- **Crpne stanice: broj agregata.** Obrazac crpne stanice ima polje „Broj
+  agregata”, od 1 do 20. Prazno polje znači da se broj čita iz kapaciteta
+  po crpkama. Obrazac očitanja nudi onoliko polja za sate rada koliko
+  stanica ima agregata, a kad se broj ne zna, tri. Očitanje zasad bilježi
+  najviše tri agregata, pa stanica s više njih dobiva napomenu.
+- **Crpne stanice: smjer rada.** Umjesto kvačice „Reverzibilna” obrazac ima
+  polje „Smjer rada”: odvodnja, navodnjavanje, ili odvodnja i
+  navodnjavanje. Stanica označena kao reverzibilna sad je „odvodnja i
+  navodnjavanje”, a ostale su „odvodnja” dok ih netko ne promijeni. Kod
+  stanice koja samo navodnjava Naslovna kao dovodni vodostaj pokazuje
+  vanjsku stranu, a ne kanal.
+- **Uvoz Baranje dopunjuje crpne stanice.** Uvoz iz evidencije BP 16
+  popuni prazan kapacitet, okvirne vodostaje uključenja i zaustavljanja i
+  kotu nule letve stanice. Ručno upisano ne mijenja.
+- **Uzdužni profil: letva čiji je mjerni uređaj stajao.** Dok je voda ispod
+  mjernog uređaja, letva tjednima pokazuje istu vrijednost. Kad se uređaj
+  opet pomakne, letva je na profilu crtala udubinu, jer joj se nula
+  računala i iz dana stajanja (npr. Siga i Petreš na Dunavu). Sad se nula
+  računa tek od pomaka: letva nije na profilu dok ne skupi 14 dana novih
+  mjerenja, a ispod crteža piše zašto.
+- **Dugi popisi upozorenja na dnu stranice.** Upozorenja uz izdanje
+  prognoze i popis računa sa starom zajedničkom lozinkom na stranici
+  Djelatnici i dežurstva sad su na dnu. Na vrhu ostaje jedan redak s
+  brojem.
+- **Održavanje baze: brisanje spomenika više ne vraća obrisane zapise.**
+  Gumb „Obriši spomenike” brisao je sve zapise o brisanju, a starije
+  verzije istih zapisa ostajale su u knjizi, pa ih je program pri idućem
+  pokretanju vratio. Sad briše samo spomenik zapisa koji u knjizi više
+  nema nijednu živu verziju. Sažimanje i brisanje spomenika upisuju se u
+  dnevnik programa, s osobom i brojem obrisanih verzija. Prekidač
+  „Brisanje povijesti verzija” u Opcijama treba samo pri čišćenju probnog
+  računala; u radu neka bude isključen.
+
 ## 0.0.48-alfa — 1. 11. 2026.
 
 Novi izgled, prvi dio: temelj za sve stranice, te ustave i crpne stanice
