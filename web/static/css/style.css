@@ -6972,3 +6972,105 @@ html:not(.js) .nav-caret { display: none; }
 .naslovna-teren-glava { max-width: 1040px; }
 @media (min-width: 600px) and (max-width: 1199px) { .naslovna.teren { columns: 1; } }
 .naslovna.teren, .naslovna-teren-glava { margin-left: auto; margin-right: auto; }
+
+/* ── Karta: sve ucrtano na jednoj karti (karta.html, karta.js) ─────────────
+   Karta zauzima cijeli sadržaj; ploča slojeva je desno na računalu, a odozdo
+   na tabletu i mobitelu (Odluke (3. 11. 2026.)). */
+.main-content:has(> .karta-stranica) { max-width: none; padding: 0; }
+.main-content:has(> .karta-stranica) > .app-podnozje { display: none; }
+.karta-stranica {
+  position: relative;
+  height: calc(100dvh - var(--vrh-visina, 64px));
+  min-height: 360px;
+  overflow: hidden;
+  background: var(--karta-podloga);
+}
+.karta-stranica .karta-platno { position: absolute; inset: 0; height: auto; border: 0; border-radius: 0; }
+.karta-stranica-poruka {
+  position: absolute; z-index: 1000; top: 12px; left: 50%; transform: translateX(-50%);
+  margin: 0; padding: 6px 14px; border-radius: 999px; font-size: 0.8125rem;
+  background: var(--md-sys-color-surface-container-high); color: var(--text-secondary); box-shadow: var(--shadow);
+}
+.karta-stranica:not(.karta-slojevi-zatvoreno) .leaflet-right { right: 384px; }
+/* ikone objekata manje su kad je karta odzumirana (--karta-ikona iz karta.js) */
+.karta-stranica .leaflet-marker-icon > .tocka-objekta,
+.karta-stranica .leaflet-marker-icon > .tocka-bez { transform: scale(var(--karta-ikona, 1)); transition: transform 0.15s; }
+
+.karta-slojevi {
+  position: absolute; z-index: 1000; top: 12px; right: 12px; bottom: 12px; width: 360px;
+  display: flex; flex-direction: column; gap: 2px; overflow-y: auto; overscroll-behavior: contain;
+  padding: 12px 12px 16px 16px; border: 1px solid var(--border); border-radius: 16px;
+  background: var(--md-sys-color-surface-container-low); box-shadow: var(--shadow);
+}
+.karta-slojevi-zatvoreno .karta-slojevi { display: none; }
+.karta-slojevi-rucka { display: none; }
+.karta-slojevi-glava { display: flex; align-items: center; justify-content: space-between; padding-bottom: 4px; }
+.karta-slojevi-glava h2 { margin: 0; font-size: 1.375rem; font-weight: 400; color: var(--text); }
+.karta-slojevi-zatvori {
+  display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px;
+  border: 0; border-radius: 999px; background: none; color: var(--text-secondary); cursor: pointer;
+}
+.karta-slojevi-zatvori:hover { background: var(--md-sys-color-surface-container-high); }
+.karta-podloge-naslov { font-size: 0.875rem; font-weight: 500; color: var(--text-secondary); }
+.karta-podloge { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 0 10px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+.karta-cip {
+  min-height: 32px; padding: 0 14px; border: 1px solid var(--border-strong); border-radius: 8px;
+  background: none; color: var(--text-secondary); font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer;
+}
+.karta-cip[aria-pressed="true"] {
+  border-color: transparent; background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container);
+}
+.karta-cip[aria-pressed="true"]::before { content: "✓ "; }
+.karta-skupina-glava { display: flex; align-items: center; gap: 8px; padding: 8px 0; }
+.karta-skupina-otvori {
+  flex: 1; display: flex; align-items: center; gap: 12px; padding: 4px 0; border: 0; background: none;
+  color: var(--text); font: inherit; font-size: 1rem; font-weight: 500; text-align: left; cursor: pointer;
+}
+.karta-skupina-otvori .icon { transition: transform 0.15s; color: var(--text-secondary); }
+.karta-skupina-otvori[aria-expanded="true"] .icon { transform: rotate(90deg); }
+.karta-skupina-slojevi { list-style: none; margin: 0; padding: 0; }
+.karta-skupina-slojevi[hidden] { display: none; }
+.karta-sloj { display: flex; align-items: center; gap: 12px; padding: 6px 0 6px 36px; }
+.karta-sloj-znak { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; color: var(--text-secondary); }
+.karta-sloj-crta::before { content: ""; width: 20px; height: 4px; border-radius: 2px; background: var(--karta-boja, var(--primary)); }
+.karta-sloj-tekst { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.karta-sloj-naziv { font-size: 0.875rem; color: var(--text); }
+.karta-sloj-broj { font-size: 0.75rem; color: var(--text-secondary); }
+.karta-slojevi-dno { margin-top: auto; padding-top: 8px; display: flex; justify-content: flex-end; }
+
+.karta-slojevi-gumb {
+  position: absolute; z-index: 1000; top: 12px; right: 12px; display: none; align-items: center; gap: 8px;
+  min-height: 48px; padding: 0 18px 0 14px; border: 0; border-radius: 16px; cursor: pointer;
+  background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container);
+  font: inherit; font-weight: 500; box-shadow: var(--shadow);
+}
+.karta-slojevi-zatvoreno .karta-slojevi-gumb { display: inline-flex; }
+
+/* Prekidač (Material 3): kvačica izgleda kao prekidač, a ostaje kvačica */
+.prekidac {
+  appearance: none; -webkit-appearance: none; flex: none; position: relative; margin: 0;
+  width: 52px; height: 32px; border: 2px solid var(--border-strong); border-radius: 16px;
+  background: var(--md-sys-color-surface-container-highest); cursor: pointer; transition: background 0.15s, border-color 0.15s;
+}
+.prekidac::before {
+  content: ""; position: absolute; top: 50%; left: 6px; width: 16px; height: 16px; border-radius: 50%;
+  background: var(--border-strong); transform: translateY(-50%); transition: left 0.15s, width 0.15s, height 0.15s, background 0.15s;
+}
+.prekidac:checked { border-color: var(--md-sys-color-primary); background: var(--md-sys-color-primary); }
+.prekidac:checked::before { left: 22px; width: 24px; height: 24px; background: var(--md-sys-color-on-primary); }
+.prekidac:indeterminate::before { left: 14px; width: 20px; height: 6px; border-radius: 3px; }
+.prekidac:focus-visible { outline: 2px solid var(--md-sys-color-primary); outline-offset: 2px; }
+
+/* Tablet i mobitel: ploča slojeva odozdo, gumb Slojevi dolje desno */
+@media (max-width: 839px) {
+  .karta-stranica:not(.karta-slojevi-zatvoreno) .leaflet-right { right: 0; }
+  .karta-slojevi {
+    top: auto; left: 0; right: 0; bottom: 0; width: auto; max-height: 70%;
+    padding-top: 8px; border-width: 1px 0 0; border-radius: 28px 28px 0 0;
+  }
+  .karta-slojevi-rucka { display: block; align-self: center; width: 32px; height: 4px; margin-bottom: 8px; border-radius: 2px; background: var(--border-strong); opacity: 0.6; }
+  .karta-slojevi-gumb { top: auto; bottom: 16px; right: 16px; min-height: 56px; }
+}
+@media (max-width: 599px) {
+  .karta-stranica { height: calc(100dvh - var(--vrh-visina, 64px) - var(--donja-visina, 80px)); }
+}

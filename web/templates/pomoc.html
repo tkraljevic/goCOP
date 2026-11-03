@@ -65,6 +65,7 @@
     <a href="#dashboard-razmjena">Razmjena s čvorovima</a>
     <a href="#dashboard-dogadjanja">Zid događanja</a>
     <a class="kazalo-glava" href="#teren">Teren</a>
+    <a class="kazalo-glava" href="#karta">Karta</a>
   </div>
   <div class="kazalo-grupa">
     <a class="kazalo-glava" href="#sections">Dionice</a>
@@ -403,7 +404,27 @@
     <p>Vodočuvar ovdje ima i prečace na <em>Današnji list</em> i <em>Svi listovi</em>
       vodočuvarskog dnevnika te na <em>Nova prijava s terena</em> i <em>Moje prijave</em>.</p>
   </div>
-  {{template "pomocPoglavljeNav" (list "Početna" "#dashboard" "Dionice" "#sections")}}
+  {{template "pomocPoglavljeNav" (list "Početna" "#dashboard" "Karta" "#karta")}}
+</section>
+
+<section class="detail-section" id="karta">
+  <h2>{{icon "map"}} Karta</h2>
+  <div class="reg-card pomoc-tekst">
+    <p>Karta pokazuje na jednoj karti sve što je u programu ucrtano: nasipe, crpne stanice,
+      ustave, brane i ostale objekte, vodotoke, letve i granice županija. Slojeve pališ i gasiš
+      prekidačima u ploči <em>Slojevi</em>. Na računalu je ploča desno, a na tabletu i mobitelu
+      otvara se odozdo gumbom <em>Slojevi</em>. Prekidač uz naziv skupine pali ili gasi sve
+      slojeve u njoj.</p>
+    <p>Uz svaki sloj piše koliko ga je ucrtano, na primjer <em>26 od 76 ucrtano</em>: toliko
+      nasipa iz registra ima crtu na karti. Što nije ucrtano, na karti se ne vidi. Crta se na
+      stranici objekta ili vodotoka (<a href="#karta-uredjivanje">Crtanje na karti</a>).</p>
+    <p>Podloga se bira na vrhu ploče: obična karta, satelit i podloge koje je uprava dodala u
+      Administraciji › Karte. Klik na nasip, objekt, vodotok ili letvu pokaže naziv i poveznicu
+      na njegovu stranicu.</p>
+    <p>Adresa stranice pamti gdje je karta i koji su slojevi uključeni, pa se poveznica može
+      poslati kolegi. <em>Vrati zadano</em> uključi sve slojeve, kao kad se Karta otvori.</p>
+  </div>
+  {{template "pomocPoglavljeNav" (list "Teren" "#teren" "Dionice" "#sections")}}
 </section>
 
 <section class="detail-section" id="sections">
@@ -520,7 +541,7 @@
     <p>Gumb <strong>Excel</strong> na kartici dionice daje karticu za ispis na A4; isti gumb na
       popisu dionica izvozi popis po odabranom sektoru, području i pretrazi.</p>
   </div>
-  {{template "pomocPoglavljeNav" (list "Teren" "#teren" "Vodomjerne postaje" "#stations")}}
+  {{template "pomocPoglavljeNav" (list "Karta" "#karta" "Vodomjerne postaje" "#stations")}}
 </section>
 
 <section class="detail-section" id="stations">

@@ -30,7 +30,7 @@ func TestSvakiModulImaSvojOdjeljakUPomoci(t *testing.T) {
 	}
 	// vrijednosti ActiveNav koje stranice postavljaju
 	for _, modul := range []string{
-		"pocetak", "dashboard", "teren", "sections", "stations", "readings", "arhiva",
+		"pocetak", "dashboard", "teren", "karta", "sections", "stations", "readings", "arhiva",
 		"prognoze", "journals", "users", "registers", "slivovi", "organizacija", "territories", "structures",
 		"watercourses", "firme", "maintenance", "admin", "moduli", "settings", "sync",
 		"sredstva", "posta", "profile", "pojmovi", "o-programu", "pomoc",

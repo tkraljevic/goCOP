@@ -1,0 +1,53 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Karta{{end}}
+
+{{define "content"}}
+{{/* Karta preko cijelog sadržaja; ploča slojeva desno na računalu, odozdo
+     na tabletu i mobitelu (Odluke (3. 11. 2026.)). Crte i točke dohvaća
+     karta.js s data-podaci, granice županija s data-zupanije. */}}
+<div class="karta-stranica" data-plocice="{{.Karta.Plocice}}" data-zasluge="{{.Karta.Zasluge}}" data-najvise-z="{{.Karta.NajviseZ}}"
+     data-podaci="/karta/podaci.json" data-zupanije="{{.Zupanije}}">
+  <div class="karta-platno"></div>
+  <p class="karta-bez-mreze karta-stranica-poruka" hidden>{{icon "triangle-alert"}} Pločice karte nisu dostupne. Ucrtani slojevi se i dalje vide.</p>
+  <p class="karta-stranica-poruka karta-ucitava" role="status">Karta se učitava…</p>
+  <button type="button" class="karta-slojevi-gumb" aria-controls="karta-slojevi" aria-expanded="true">{{icon "layers"}}<span>Slojevi</span></button>
+
+  <aside class="karta-slojevi" id="karta-slojevi" aria-label="Slojevi karte">
+    <div class="karta-slojevi-rucka" aria-hidden="true"></div>
+    <div class="karta-slojevi-glava">
+      <h2>Slojevi</h2>
+      <button type="button" class="karta-slojevi-zatvori" aria-label="Zatvori slojeve">{{icon "x"}}</button>
+    </div>
+    <div class="karta-podloge-naslov">Podloga</div>
+    <div class="karta-podloge" role="group" aria-label="Podloga karte"></div>
+
+    {{range .Skupine}}
+    <section class="karta-skupina" data-skupina="{{.Kljuc}}">
+      <div class="karta-skupina-glava">
+        <button type="button" class="karta-skupina-otvori" aria-expanded="true" aria-controls="karta-skupina-{{.Kljuc}}">{{icon "chevron-right"}}<span class="karta-skupina-naziv">{{.Naziv}}</span></button>
+        <input type="checkbox" class="prekidac" role="switch" data-skupina-prekidac aria-label="Svi slojevi: {{.Naziv}}" checked>
+      </div>
+      <ul class="karta-skupina-slojevi" id="karta-skupina-{{.Kljuc}}">
+        {{range .Slojevi}}
+        <li class="karta-sloj">
+          {{if .Crta}}<span class="karta-sloj-znak karta-sloj-crta" data-vrsta="{{.Vrsta}}" data-sloj-znak="{{.Kljuc}}"></span>{{else}}<span class="karta-sloj-znak">{{icon .Ikona}}</span>{{end}}
+          <span class="karta-sloj-tekst">
+            <span class="karta-sloj-naziv">{{.Naziv}}</span>
+            <span class="karta-sloj-broj">{{if .Ukupno}}{{brojHR .Ucrtano}} od {{brojHR .Ukupno}} {{.Opis}}{{else if eq .Kljuc "zupanije"}}granice i imena{{else}}nema ih u registru{{end}}</span>
+          </span>
+          <input type="checkbox" class="prekidac" role="switch" data-sloj="{{.Kljuc}}" aria-label="{{.Naziv}}"{{if .Ukljucen}} checked{{end}}>
+        </li>
+        {{end}}
+      </ul>
+    </section>
+    {{end}}
+
+    <div class="karta-slojevi-dno">
+      <button type="button" class="btn btn-link karta-vrati">Vrati zadano</button>
+    </div>
+  </aside>
+</div>
+{{end}}
+
+{{define "scripts"}}<script src="{{statika "js/karta.js"}}" defer></script>{{end}}
