@@ -71,6 +71,14 @@ računala nadograditi isti dan.
   prognoze i popis računa sa starom zajedničkom lozinkom na stranici
   Djelatnici i dežurstva sad su na dnu. Na vrhu ostaje jedan redak s
   brojem.
+- **Održavanje baze: brisanje spomenika više ne vraća obrisane zapise.**
+  Gumb „Obriši spomenike” brisao je sve zapise o brisanju, a starije
+  verzije istih zapisa ostajale su u knjizi, pa ih je program pri idućem
+  pokretanju vratio. Sad briše samo spomenik zapisa koji u knjizi više
+  nema nijednu živu verziju. Sažimanje i brisanje spomenika upisuju se u
+  dnevnik programa, s osobom i brojem obrisanih verzija. Prekidač
+  „Brisanje povijesti verzija” u Opcijama treba samo pri čišćenju probnog
+  računala; u radu neka bude isključen.
 
 ## 0.0.48-alfa — 1. 11. 2026.
 
