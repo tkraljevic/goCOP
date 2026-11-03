@@ -39,7 +39,7 @@
   <ul class="posta-privitci">
   {{range .Privitci}}{{if not .Ugradjen}}
     <li>
-      <a href="/posta/privitak?id={{.ID | urlquery}}">{{icon "download"}} {{.Ime}}</a> <span class="form-help">{{.Velicina}} B</span>
+      <a href="/posta/privitak?id={{.ID | urlquery}}" data-preuzimanje>{{icon "download"}} {{.Ime}}</a> <span class="form-help">{{.Velicina}} B</span>
     </li>
   {{end}}{{end}}
   </ul>
