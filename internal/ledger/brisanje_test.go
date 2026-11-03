@@ -42,14 +42,73 @@ func TestBrisanjeVerzijeISpomenika(t *testing.T) {
 	if l, _ := rec.Latest(ctx, "stations", "st-1"); l == nil || l.VersionID != druga {
 		t.Fatal("zadnja verzija mora ostati")
 	}
+	// st-2 još ima živu verziju, pa bi se bez spomenika vratio
 	n, err := rec.PurgeArchived(ctx)
-	if err != nil || n != 1 {
+	if err != nil || n != 0 {
 		t.Fatalf("spomenici: %d %v", n, err)
 	}
 	var ostalo int
 	_ = db.QueryRow(`SELECT COUNT(*) FROM record_versions`).Scan(&ostalo)
-	if ostalo != 2 {
-		t.Errorf("ostaju zadnja verzija st-1 i prva verzija st-2: %d", ostalo)
+	if ostalo != 3 {
+		t.Errorf("ostaju zadnja verzija st-1, prva verzija st-2 i njegov spomenik: %d", ostalo)
+	}
+}
+
+// Brisanje spomenika ne vraća obrisani zapis: briše se samo spomenik zapisa
+// kojem u knjizi nije ostala nijedna živa verzija, i nikad najveća verzija
+// autora, da granica ne padne. Na kućnom serveru 3. 11. 2026. brisanje svih
+// spomenika ostavilo je starije žive verzije, a pokretanje je obrisane zapise
+// vratilo.
+func TestBrisanjeSpomenikaNeVracaZapis(t *testing.T) {
+	db := openTestDB(t)
+	ured, teren := New(db, "ured"), New(db, "teren")
+	ctx := context.Background()
+	if _, err := ured.Record(ctx, db, "stations", "st-2", probni{"Dalj", 500}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ured.Archive(ctx, db, "stations", "st-2", probni{"Dalj", 500}); err != nil {
+		t.Fatal(err)
+	}
+	stara, err := ured.Record(ctx, db, "stations", "st-3", probni{"Vukovar", 400})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ured.Archive(ctx, db, "stations", "st-3", probni{"Vukovar", 400}); err != nil {
+		t.Fatal(err)
+	}
+	staraTeren, err := teren.Record(ctx, db, "stations", "st-4", probni{"Ilok", 300})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := teren.Archive(ctx, db, "stations", "st-4", probni{"Ilok", 300}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ured.Record(ctx, db, "stations", "st-1", probni{"Županja", 600}); err != nil {
+		t.Fatal(err)
+	}
+	// sažimanje bi isto: od st-3 i st-4 ostaje samo spomenik
+	for _, v := range []string{stara, staraTeren} {
+		if err := ured.DeleteVersion(ctx, v); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if n, err := ured.SpomeniciZaBrisanje(ctx); err != nil || n != 1 {
+		t.Fatalf("za brisanje: %d %v; samo spomenik st-3", n, err)
+	}
+	if n, err := ured.PurgeArchived(ctx); err != nil || n != 1 {
+		t.Fatalf("obrisano: %d %v", n, err)
+	}
+	if l, err := ured.Latest(ctx, "stations", "st-3"); !errors.Is(err, ErrNoVersion) {
+		t.Errorf("od st-3 nije smjelo ostati ništa: %+v %v", l, err)
+	}
+	if l, err := ured.Latest(ctx, "stations", "st-2"); err != nil || !l.Archived {
+		t.Errorf("st-2 ima živu verziju, pa mora ostati obrisan, sa spomenikom: %v", err)
+	}
+	if l, err := ured.Latest(ctx, "stations", "st-4"); err != nil || !l.Archived {
+		t.Errorf("spomenik st-4 je zadnja verzija autora teren i mora ostati: %v", err)
+	}
+	if n, err := ured.SpomeniciZaBrisanje(ctx); err != nil || n != 0 {
+		t.Errorf("nakon brisanja još %d %v", n, err)
 	}
 }
 

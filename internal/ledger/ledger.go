@@ -726,16 +726,42 @@ func (r *Recorder) Recent(ctx context.Context, entities []string, prije string, 
 	return r.query(ctx, q, args...)
 }
 
-// PurgeArchived briše spomenike obrisanih zapisa (arhivirane verzije).
-// Bez spomenika zakašnjeli čvor može obrisani zapis vratiti; zato samo u
-// testnom okruženju.
+// PurgeArchived briše spomenike zapisa koji u knjizi više nemaju nijednu
+// živu verziju, obično nakon sažimanja s rokom 0 (spomeniciZaBrisanje).
+// Spomenik zapisa kojem je ostala starija živa verzija ostaje: bez njega bi
+// obnova iz knjige pri idućem pokretanju vratila obrisani zapis. Bez
+// spomenika zakašnjeli čvor još može obrisani zapis vratiti; zato samo pri
+// čišćenju testnog čvora.
 func (r *Recorder) PurgeArchived(ctx context.Context) (int64, error) {
-	res, err := r.db.ExecContext(ctx, `DELETE FROM record_versions WHERE archived = 1`)
+	uvjet, args := spomeniciZaBrisanje()
+	res, err := r.db.ExecContext(ctx, `DELETE FROM record_versions WHERE `+uvjet, args...)
 	if err != nil {
 		return 0, fmt.Errorf("brisanje spomenika: %w", err)
 	}
 	n, _ := res.RowsAffected()
 	return n, nil
+}
+
+// SpomeniciZaBrisanje broji spomenike koje bi PurgeArchived obrisao, za
+// gumb u Održavanju baze
+func (r *Recorder) SpomeniciZaBrisanje(ctx context.Context) (int, error) {
+	var n int
+	uvjet, args := spomeniciZaBrisanje()
+	err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM record_versions WHERE `+uvjet, args...).Scan(&n)
+	return n, err
+}
+
+// spomeniciZaBrisanje je uvjet za spomenike koje PurgeArchived briše, s
+// argumentima: zapis nema nijednu živu verziju u knjizi, a spomenik nije
+// najveća verzija svog autora i kanala, koju čuva i sažimanje (sazimljive),
+// da granica ne padne.
+func spomeniciZaBrisanje() (string, []any) {
+	granica, args := najveceUGranici()
+	return `archived = 1
+		  AND NOT EXISTS (SELECT 1 FROM record_versions z WHERE z.entity = record_versions.entity
+		                  AND z.entity_id = record_versions.entity_id AND z.archived = 0)
+		  AND version_id NOT IN (SELECT MAX(version_id) FROM record_versions GROUP BY node_id, channel)
+		  AND version_id NOT IN ` + granica, args
 }
 
 // ErrVazecaVerzija: verzija je zadnja verzija živog zapisa i ne briše se

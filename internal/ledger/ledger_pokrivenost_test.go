@@ -235,6 +235,7 @@ func TestZatvorenaKnjiga(t *testing.T) {
 	_, provjere["CountByChannel"] = rec.CountByChannel(ctx)
 	_, provjere["Stats"] = rec.Stats(ctx)
 	_, provjere["PurgeArchived"] = rec.PurgeArchived(ctx)
+	_, provjere["SpomeniciZaBrisanje"] = rec.SpomeniciZaBrisanje(ctx)
 	_, provjere["Prorijedi"] = rec.Prorijedi(ctx, "stations", pocetak)
 	_, provjere["ProrijediZamijenjene"] = rec.ProrijediZamijenjene(ctx, "stations")
 	_, provjere["Latest"] = rec.Latest(ctx, "stations", "st-1")
