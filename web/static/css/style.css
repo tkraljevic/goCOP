@@ -3254,6 +3254,22 @@ textarea {
 .leaflet-tooltip-left::before { border-left-color: var(--border); }
 .leaflet-tooltip-right::before { border-right-color: var(--border); }
 
+/* Mjera iznad pokazivača dok se crta (mjera-karte.js); Geomanova uputa je ispod */
+.karta-mjera {
+  position: absolute;
+  z-index: 1000;
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 12px));
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  white-space: nowrap;
+  box-shadow: var(--shadow);
+}
+
 /* Rijeke na tamnoj podlozi trebaju svjetliju plavu */
 .leaflet-interactive.rijeka-linija { stroke: var(--karta-rijeka); }
 
