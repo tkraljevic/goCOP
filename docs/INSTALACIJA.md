@@ -1,6 +1,6 @@
 # Postavljanje i održavanje goCOP čvora
 
-Administratorske upute za izdanje 0.0.49-alfa. Pregledane 15. 10. 2026.,
+Administratorske upute za izdanje 0.0.50-alfa. Pregledane 15. 10. 2026.,
 odjeljak o nadogradnji dopunjen 3. 11. 2026.
 Kratki pregled projekta: [README](../README.md). Korisnički postupci su u Pomoći aplikacije.
 
@@ -10,7 +10,7 @@ i bez interneta; kopije na različitim računalima međusobno se usklađuju.
 Repozitorij nosi program i praznu shemu baze, a podatke unosi ili uvozi
 organizacija koja ga koristi.
 
-> **Status: alfa, izdanje 0.0.49-alfa (3. 11. 2026.), za testiranje i daljnji
+> **Status: alfa, izdanje 0.0.50-alfa (3. 11. 2026.), za testiranje i daljnji
 > razvoj.** Nije za operativnu upotrebu. Sve se još mijenja. Što je u kojem
 > izdanju, piše u [popisu izmjena](../CHANGELOG.md).
 >
@@ -1061,6 +1061,10 @@ Nadograđuje se redom: najprije stalni čvor, odmah zatim ostala računala. Dok
 sva ne rade na istom izdanju, ne dodavati, mijenjati ni brisati djelatnike i
 zaduženja. Na kojem izdanju radi koji čvor, pokazuju pločica „Razmjena s
 čvorovima” i stranica Stanje razmjene.
+
+0.0.50-alfa ne mijenja bazu ni razmjenu, jer nova stranica Karta samo
+čita. Računala zato ne treba nadograditi isti dan, a starija i novija
+izdanja normalno razmjenjuju podatke.
 
 0.0.49-alfa dodaje crpnim stanicama broj agregata i smjer rada. Starije
 izdanje ih čuva, ali ih ne prikazuje, a u obrascu i dalje nudi kvačicu
