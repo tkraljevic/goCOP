@@ -97,6 +97,7 @@ func (h *DBMaintHandler) HandlePurgeTombstones(w http.ResponseWriter, r *http.Re
 		redirectWith(w, r, "/administracija/baza", "error", err.Error())
 		return
 	}
+	log.Printf("Knjiga verzija: %s je s adrese %s obrisao %d %s", opisOsobe(prijavljeni(r)), klijentIz(r), n, models.UzBrojHR(int(n), "spomenik obrisanog zapisa", "spomenika obrisanih zapisa", "spomenika obrisanih zapisa"))
 	redirectWith(w, r, "/administracija/baza", "success", fmt.Sprintf("Obrisano: %d %s.", n, models.UzBrojHR(int(n), "spomenik obrisanog zapisa", "spomenika obrisanih zapisa", "spomenika obrisanih zapisa")))
 }
 
@@ -151,7 +152,7 @@ func (h *DBMaintHandler) ShowMaintenance(w http.ResponseWriter, r *http.Request)
 	data := h.pageData(r)
 	data.BrisanjePovijesti = h.brisanjePovijesti(ctx)
 	if data.BrisanjePovijesti {
-		_ = h.db().QueryRowContext(ctx, `SELECT COUNT(*) FROM record_versions WHERE archived = 1`).Scan(&data.Spomenika)
+		data.Spomenika, _ = h.rec.SpomeniciZaBrisanje(ctx) // bez broja je gumb isključen
 	}
 	if days, _ := strconv.Atoi(r.URL.Query().Get("days")); days > 0 || (days == 0 && r.URL.Query().Get("days") == "0" && data.BrisanjePovijesti) {
 		data.KeepDays = days
@@ -204,6 +205,7 @@ func (h *DBMaintHandler) HandleCompact(w http.ResponseWriter, r *http.Request) {
 		redirectWith(w, r, "/administracija/baza", "error", err.Error())
 		return
 	}
+	log.Printf("Knjiga verzija: %s je s adrese %s sažeo knjigu uz rok od %d dana i obrisao %d %s", opisOsobe(prijavljeni(r)), klijentIz(r), days, n, models.UzBrojHR(int(n), "stariju verziju", "starije verzije", "starijih verzija"))
 	redirectWith(w, r, "/administracija/baza", "success", fmt.Sprintf("Knjiga je sažeta. Obrisano: %d %s; zadnje verzije i spomenici ostaju.", n, models.UzBrojHR(int(n), "starija verzija", "starije verzije", "starijih verzija")))
 }
 
