@@ -20,10 +20,11 @@ var kartaZaVodotok = KartaPostavke{
 	NajviseZ: 17,
 }
 
-// alat karte vodotoka: Geoman, zajednički natpisi i dio za tok
+// alat karte vodotoka: Geoman, mjera, zajednički natpisi i dio za tok
 var skripteAlataVodotoka = []string{
 	"vendor/geoman/leaflet-geoman.min.js",
 	"vendor/geoman/leaflet-geoman.css",
+	"js/mjera-karte.js",
 	"js/uredjivac-karte.js",
 	"js/uredjivac-vodotoka.js",
 }
@@ -175,6 +176,13 @@ func TestAlatKarteZajednickiNatpisi(t *testing.T) {
 		if zajednicki < 0 || geoman < 0 || geoman > zajednicki {
 			t.Errorf("%s: Geoman i zajednički dio alata nisu učitani redom", stranica)
 		}
+		// zajednički dio pali mjeru pri Uredi, pa ona mora biti učitana prije
+		if mjera := strings.Index(html, "js/mjera-karte.js"); mjera < 0 || mjera > zajednicki {
+			t.Errorf("%s: mjera uz pokazivač nije učitana prije zajedničkog dijela alata", stranica)
+		}
+	}
+	if !strings.Contains(procitaj("static/js/uredjivac-karte.js"), "mjeraKarte.prati(karta, sloj)") {
+		t.Error("zajednički dio alata ne pali mjeru uz pokazivač")
 	}
 	objekt := procitaj("templates/structure_detail.html")
 	if strings.Index(objekt, "js/uredjivac-karte.js") > strings.Index(objekt, "js/uredjivac-objekta.js") {

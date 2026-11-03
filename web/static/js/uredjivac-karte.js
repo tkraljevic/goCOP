@@ -1,5 +1,6 @@
 // Zajednički dio uređivača na karti (Leaflet-Geoman): hrvatski natpisi,
-// gumbi Uredi, Spremi i Odustani i slanje na poslužitelj. Koriste ga karta
+// gumbi Uredi, Spremi i Odustani, mjera uz pokazivač (mjera-karte.js) i
+// slanje na poslužitelj. Koriste ga karta
 // objekta (uredjivac-objekta.js) i karta vodotoka (uredjivac-vodotoka.js);
 // svaka kaže koje alate nudi, kako označi novi dio i što šalje.
 (function () {
@@ -101,6 +102,7 @@
       karta.closePopup();
       sloj.eachLayer(function (l) { if (l.unbindPopup) l.unbindPopup(); });
       karta.pm.addControls(o.kontrole);
+      if (window.mjeraKarte) window.mjeraKarte.prati(karta, sloj);
     });
 
     if (o.nova) karta.on('pm:create', function (e) { o.nova(e.layer); });
