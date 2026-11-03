@@ -189,3 +189,22 @@ func TestAlatKarteZajednickiNatpisi(t *testing.T) {
 		t.Error("karta objekta učitava svoj dio prije zajedničkog")
 	}
 }
+
+// Kanal II. reda pokazuje svoju skupinu uz naziv, a natpis „Skupina u
+// Odluci” ostaje samo vodama s popisa voda I. reda.
+func TestStranicaVodotokaKanalIIReda(t *testing.T) {
+	kanal := iscrtaj(t, "watercourse_detail.html", WatercoursePageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{},
+		Water:       models.Watercourse{Code: "kanal-proba", Name: "Proba", OfficialName: "kanal Proba", Kind: "kanal", Subcategory: "kanal II. reda"},
+	})
+	imaSve(t, kanal, "kanal II. reda", []string{"kanal II. reda"})
+	nemaNista(t, kanal, "kanal II. reda", []string{"Skupina u Odluci", "nije voda I. reda"})
+
+	odluka := iscrtaj(t, "watercourse_detail.html", WatercoursePageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{},
+		Water:       models.Watercourse{Code: "rijeka-proba", Name: "Proba", OfficialName: "rijeka Proba", Category: "DRUGE VEĆE VODE I KANALI", Subcategory: "vodotoci"},
+	})
+	imaSve(t, odluka, "voda I. reda", []string{"Druga veća voda ili kanal", "Skupina u Odluci", "vodotoci"})
+}
