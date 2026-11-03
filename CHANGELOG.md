@@ -4,6 +4,33 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.50-alfa — 3. 11. 2026.
+
+Nova stranica Karta i duljina dok se crta. Baza i razmjena se ne mijenjaju.
+Karta samo čita ono što je već upisano, pa računala ne treba nadograditi
+isti dan.
+
+- **Karta.** Nova stavka u izborniku, iza Terena, za sve prijavljene. Na
+  jednoj karti su nasipi, crpne stanice, ustave, brane i ostali objekti,
+  vodotoci, letve i granice županija. Slojevi se pale i gase u ploči
+  „Slojevi”. Na računalu je ploča desno, a na tabletu i mobitelu izlazi
+  odozdo. Uz svaki sloj piše koliko ga je ucrtano, na primjer „26 od 76
+  ucrtano”. Ikone se smanjuju kad se karta odzumira. Adresa stranice pamti
+  položaj, podlogu i uključene slojeve, pa se poveznica može poslati
+  kolegi. S Karte se zasad ne crta; crta se na stranici objekta ili
+  vodotoka.
+- **Što nedostaje.** Kad sloj nije sav ucrtan, ispod broja stoji „što
+  nedostaje”. Klik otvara popis po branjenim područjima. Uz svaki nasip
+  piše dionica, vodotok i km, na primjer „B.16.1 · kanal Travnik · kkm
+  0+000 – 1+850”. Ako je vodotok ucrtan s km, uz njega se iscrtkano vidi
+  približno mjesto nasipa, uz lijevu ili desnu obalu. Objekt i letva
+  dobiju iscrtkani krug na svom km. Gdje mjesta nema, popis kaže zašto.
+  „Preuzmi popis” sprema popis kao tablicu za Excel.
+- **Duljina i površina dok se crta.** Na karti objekta i vodotoka uz
+  pokazivač piše duljina crte i koliko je dodao zadnji dio, na primjer
+  „1,24 km (+570 m)”. Kod površine piše površina i opseg. Broj se mijenja i
+  dok se pomiče vrh.
+
 ## 0.0.49-alfa — 3. 11. 2026.
 
 Naslovna po ulozi, te broj agregata i smjer rada crpnih stanica. Baza
