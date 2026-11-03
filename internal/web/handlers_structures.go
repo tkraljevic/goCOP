@@ -304,7 +304,6 @@ func structureFromForm(r *http.Request) models.Structure {
 		ImaUstavu:          r.FormValue("ima_ustavu") == "1",
 		USklopuID:          strings.TrimSpace(r.FormValue("u_sklopu_id")),
 		VodotokDrugeStrane: strings.TrimSpace(r.FormValue("vodotok_druge_strane")),
-		Reverzibilna:       r.FormValue("reverzibilna") == "1",
 		ImaSifon:           r.FormValue("ima_sifon") == "1",
 		BrojAgregata:       brojAgregataIzObrasca(r.FormValue("broj_agregata")),
 		Notes:              strings.TrimSpace(r.FormValue("notes")),
@@ -312,6 +311,7 @@ func structureFromForm(r *http.Request) models.Structure {
 		Longitude:          parseOptionalFloat(r.FormValue("longitude")),
 	}
 	st.SifonMinCm = najniziZaSifon(r, st.ImaSifon)
+	st.PostaviSmjer(strings.TrimSpace(r.FormValue("smjer_rada")))
 	// vodostaj pogona: jedan broj ulazi u izračun, sve drugo ostaje kao tekst
 	st.StartCm, st.StopCm = models.VodostajPogona(st.StartText), models.VodostajPogona(st.StopText)
 	// sektor slijedi iz područja ako nije zadan

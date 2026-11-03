@@ -117,8 +117,11 @@
     </div>
     <div class="form-help">Kapacitet po crpkama, npr. „2,5 + 2x1,75” za tri crpke; iz njega program zna koliko crpki stanica ima. Broj agregata upiši kad se iz kapaciteta ne vidi ili je drukčiji; upisani broj ima prednost. Kod vodostaja broj u zagradi je iznimka, a okvirni je prvi broj; zapis poput „od -20 do 200” čuva se kao tekst.</div>
     <div class="form-group">
-      <label class="checkbox-label"><input type="checkbox" name="reverzibilna" value="1" {{if .Structure.Reverzibilna}}checked{{end}}>
-        Reverzibilna: crpi u oba smjera (odvodnja i navodnjavanje)</label>
+      <label class="form-label" for="smjer_rada">Smjer rada</label>
+      <select id="smjer_rada" name="smjer_rada" class="form-control max-w-20">
+        {{range smjeroviRada}}<option value="{{.ID}}"{{if eq .ID $.Structure.Smjer}} selected{{end}}>{{.Naziv}}</option>{{end}}
+      </select>
+      <div class="form-help">Odvodnja crpi vodu iz kanala u vodotok, a navodnjavanje puni kanalsku mrežu iz vodotoka.</div>
     </div>
     <div class="form-row">
     <div class="form-group">

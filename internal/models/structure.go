@@ -46,8 +46,12 @@ type Structure struct {
 	// retencija); WatercourseCode je prva strana (uzvodno, kanal)
 	VodotokDrugeStrane string `json:"vodotok_druge_strane,omitempty"`
 	// Reverzibilna: crpna stanica crpi u oba smjera, odvodnja i
-	// navodnjavanje (npr. CS Puškaš i CS Zmajevac)
+	// navodnjavanje (npr. CS Puškaš i CS Zmajevac). Od uvođenja smjera rada
+	// prati SmjerRada (PostaviSmjer), jer je čita program starijeg izdanja.
 	Reverzibilna bool `json:"reverzibilna,omitempty"`
+	// SmjerRada je odvodnja, navodnjavanje ili oboje (smjer_rada.go); npr.
+	// CS Topolje i CS Šarkanj samo navodnjavaju
+	SmjerRada string `json:"smjer_rada,omitempty"`
 	// ImaSifon: crpna stanica ima sifon; strojar ga vakumira vakuum
 	// pumpama i njime puni kanalsku mrežu iz vodotoka (navodnjavanje), npr.
 	// CS Tikveš i CS Zlatna Greda. SifonMinCm je najniži vodostaj vanjske

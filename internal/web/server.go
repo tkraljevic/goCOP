@@ -466,6 +466,7 @@ func templateFuncs() template.FuncMap {
 		},
 		"add":              func(a, b int) int { return a + b },
 		"kolicina":         kolicinaHR,
+		"smjeroviRada":     func() any { return models.SmjeroviRada },
 		"kolicinaZnak":     kolicinaSaZnakom,
 		"kolicinaPlain":    func(v float64) string { return strings.Replace(strconv.FormatFloat(v, 'f', -1, 64), ".", ",", 1) },
 		"oblik":            models.OblikNaziv,

@@ -295,10 +295,13 @@ type GaugeSummary struct {
 	SectorIDs   []string // postaja može biti mjerodavna za više područja
 	AreaIDs     []int
 	Kind        string // vrsta objekta ili "POSTAJA"
-	Latest      *Reading
-	Previous    *Reading
-	Phase       DefensePhase
-	Count       int
+	// SamoNavodnjava: crpna stanica samo navodnjava, pa joj je dovodna
+	// strana vanjska (Level2Cm), a ne kanal
+	SamoNavodnjava bool
+	Latest         *Reading
+	Previous       *Reading
+	Phase          DefensePhase
+	Count          int
 
 	// Za terenski pogled
 	DoneToday bool // zadnje očitanje je od danas

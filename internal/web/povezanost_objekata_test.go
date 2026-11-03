@@ -26,7 +26,7 @@ func TestStranicaPovezanostiObjekata(t *testing.T) {
 	}
 	html := iscrtaj(t, "povezanost_objekata.html", PovezanostPageData{CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		Redovi: []RedakPovezanosti{potpun, nepotpun}, Nepotpunih: 1})
-	for _, zeli := range []string{"CS Proba", "reverzibilna", "sa sifonom", "Dunavac Proba", "Ustava Proba", "u sklopu: CS Proba", "vodotok nedostaje", "letva nedostaje", "1 nepotpunih", "/edit"} {
+	for _, zeli := range []string{"CS Proba", "crpna stanica, odvodnja i navodnjavanje", "sa sifonom", "Dunavac Proba", "Ustava Proba", "u sklopu: CS Proba", "vodotok nedostaje", "letva nedostaje", "1 nepotpunih", "/edit"} {
 		if !strings.Contains(html, zeli) {
 			t.Errorf("stranica povezanosti nema %q", zeli)
 		}
@@ -42,7 +42,7 @@ func TestObrazacObjektaNudiVodotokeObjeStrane(t *testing.T) {
 	st := &models.Structure{Name: "CS Proba", Kind: models.StructureKindPumpingStation, WatercourseCode: "stari-kod", VodotokDrugeStrane: "dunavac"}
 	html := iscrtaj(t, "structure_form.html", StructurePageData{CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		Structure: st, IsEdit: true, Vodotoci: []models.Watercourse{{Code: "dunavac", Name: "Dunavac Proba", Kind: "dunavac"}, {Code: "kanal", Name: "Kanal Proba", Kind: "kanal"}}})
-	for _, zeli := range []string{`name="vodotok_druge_strane"`, `value="dunavac" selected`, "stari-kod (nije u registru)", `name="reverzibilna"`, `name="ima_sifon"`, `name="sifon_min_cm"`} {
+	for _, zeli := range []string{`name="vodotok_druge_strane"`, `value="dunavac" selected`, "stari-kod (nije u registru)", `name="smjer_rada"`, `name="ima_sifon"`, `name="sifon_min_cm"`} {
 		if !strings.Contains(html, zeli) {
 			t.Errorf("obrazac objekta nema %q", zeli)
 		}
@@ -128,5 +128,24 @@ func TestObrazacObjektaBrojAgregata(t *testing.T) {
 		if got := brojAgregataIzObrasca(zapis); got != zeli {
 			t.Errorf("%q: %d, želi %d", zapis, got, zeli)
 		}
+	}
+}
+
+// Obrazac crpne stanice nudi tri smjera rada s odabranim smjerom; stara
+// reverzibilna stanica je „odvodnja i navodnjavanje”, a obrazac upisuje
+// smjer i oznaku za starije izdanje
+func TestObrazacObjektaSmjerRada(t *testing.T) {
+	st := &models.Structure{Name: "CS Proba", Kind: models.StructureKindPumpingStation, Reverzibilna: true}
+	html := iscrtaj(t, "structure_form.html", StructurePageData{CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Structure: st, IsEdit: true})
+	for _, zeli := range []string{`name="smjer_rada"`, `value="NAVODNJAVANJE">navodnjavanje`, `value="ODVODNJA_I_NAVODNJAVANJE" selected>odvodnja i navodnjavanje`} {
+		if !strings.Contains(html, zeli) {
+			t.Errorf("obrazac nema %q", zeli)
+		}
+	}
+	r := httptest.NewRequest(http.MethodPost, "/structures", strings.NewReader("name=CS+Topolje&kind=CRPNA_STANICA&smjer_rada=NAVODNJAVANJE"))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if got := structureFromForm(r); got.Smjer() != models.SmjerNavodnjavanje || got.Reverzibilna {
+		t.Errorf("iz obrasca: %+v", got)
 	}
 }

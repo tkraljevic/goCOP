@@ -124,8 +124,8 @@ func primijeniObjekt(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		INSERT INTO structures (id, code, name, kind, sector_id, area_id, watercourse_code, station_id,
 			zero_datum, zero_datum_system, capacity_text, start_cm, start_text, stop_cm, stop_text,
 			notes, origin, latitude, longitude, created_at, updated_at, station_down_id, geometry, ima_ustavu, u_sklopu_id,
-			vodotok_druge_strane, reverzibilna, ima_sifon, sifon_min_cm, broj_agregata)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			vodotok_druge_strane, reverzibilna, ima_sifon, sifon_min_cm, broj_agregata, smjer_rada)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			code = excluded.code, name = excluded.name, kind = excluded.kind, sector_id = excluded.sector_id,
 			area_id = excluded.area_id, watercourse_code = excluded.watercourse_code, station_id = excluded.station_id,
@@ -135,10 +135,11 @@ func primijeniObjekt(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 			latitude = excluded.latitude, longitude = excluded.longitude, updated_at = excluded.updated_at,
 			station_down_id = excluded.station_down_id, geometry = excluded.geometry, ima_ustavu = excluded.ima_ustavu, u_sklopu_id = excluded.u_sklopu_id,
 			vodotok_druge_strane = excluded.vodotok_druge_strane, reverzibilna = excluded.reverzibilna,
-			ima_sifon = excluded.ima_sifon, sifon_min_cm = excluded.sifon_min_cm, broj_agregata = excluded.broj_agregata
+			ima_sifon = excluded.ima_sifon, sifon_min_cm = excluded.sifon_min_cm, broj_agregata = excluded.broj_agregata,
+			smjer_rada = excluded.smjer_rada
 	`, st.ID.String(), st.Code, st.Name, st.Kind, st.SectorID, st.AreaID, st.WatercourseCode, st.StationID,
 		st.ZeroDatum, st.ZeroDatumSystem, st.CapacityText, st.StartCm, st.StartText, st.StopCm, st.StopText,
-		st.Notes, st.Origin, st.Latitude, st.Longitude, st.CreatedAt.UTC(), st.UpdatedAt.UTC(), st.StationDownID, st.Geometry, st.ImaUstavu, st.USklopuID, st.VodotokDrugeStrane, st.Reverzibilna, st.ImaSifon, st.SifonMinCm, st.BrojAgregata)
+		st.Notes, st.Origin, st.Latitude, st.Longitude, st.CreatedAt.UTC(), st.UpdatedAt.UTC(), st.StationDownID, st.Geometry, st.ImaUstavu, st.USklopuID, st.VodotokDrugeStrane, st.Reverzibilna, st.ImaSifon, st.SifonMinCm, st.BrojAgregata, st.SmjerRada)
 	return err
 }
 
