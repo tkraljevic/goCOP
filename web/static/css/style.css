@@ -3275,12 +3275,29 @@ textarea {
 /* Rijeke na tamnoj podlozi trebaju svjetliju plavu */
 .leaflet-interactive.rijeka-linija { stroke: var(--karta-rijeka); }
 
+/* Kontrole su iste na svim kartama: gore desno puni zaslon i položaj,
+   dolje desno stupac strelica, zuma i gumba Slojevi, dolje lijevo mjerilo
+   i zasluge. Gumb je 40 px, na zaslonu na dodir 44 px. */
+.leaflet-container { --karta-gumb: 40px; }
+@media (pointer: coarse) { .leaflet-container { --karta-gumb: 44px; } }
+.leaflet-container .leaflet-bottom.leaflet-right { display: flex; flex-direction: column; align-items: flex-end; }
+.leaflet-bottom.leaflet-right .gocop-karta-smjerovi { order: 1; }
+.leaflet-bottom.leaflet-right .leaflet-control-zoom { order: 2; }
+.leaflet-bottom.leaflet-right .gocop-karta-podloge { order: 3; }
+.leaflet-bottom.leaflet-right .leaflet-control-attribution { order: 4; }
+.leaflet-container .leaflet-control-zoom a,
+.leaflet-touch .leaflet-control-zoom a {
+  width: var(--karta-gumb);
+  height: var(--karta-gumb);
+  line-height: var(--karta-gumb);
+  font-size: 20px;
+}
 .gocop-karta-kontrola {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: var(--karta-gumb);
+  height: var(--karta-gumb);
   padding: 0;
   border: 0;
   border-bottom: 1px solid var(--border);
@@ -3303,17 +3320,16 @@ textarea {
 }
 .gocop-karta-kontrola.trazi-lokaciju svg { animation: karta-trazi-lokaciju 1s linear infinite; }
 @keyframes karta-trazi-lokaciju { to { transform: rotate(360deg); } }
+/* Strelice su jedan kvadrat kao kompas: svaka četvrtina (trokut do
+   sredine) pomiče kartu na svoju stranu */
 .leaflet-container .gocop-karta-smjerovi {
-  display: grid;
-  grid-template-columns: repeat(3, 28px);
-  grid-template-rows: repeat(3, 28px);
+  position: relative;
+  width: var(--karta-gumb);
+  height: var(--karta-gumb);
 }
 .gocop-karta-smjer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
+  position: absolute;
+  inset: 0;
   padding: 0;
   border: 0;
   background: var(--surface);
@@ -3323,18 +3339,86 @@ textarea {
 .gocop-karta-smjer:hover,
 .gocop-karta-smjer:focus-visible { background: var(--primary-light); color: var(--primary-hover); }
 .gocop-karta-smjer svg {
-  width: 17px;
-  height: 17px;
+  position: absolute;
+  width: 14px;
+  height: 14px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 2.2;
+  stroke-width: 2.4;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.gocop-karta-smjer.smjer-gore { grid-column: 2; grid-row: 1; }
-.gocop-karta-smjer.smjer-lijevo { grid-column: 1; grid-row: 2; }
-.gocop-karta-smjer.smjer-desno { grid-column: 3; grid-row: 2; }
-.gocop-karta-smjer.smjer-dolje { grid-column: 2; grid-row: 3; }
+.gocop-karta-smjer.smjer-gore { clip-path: polygon(0 0, 100% 0, 50% 50%); }
+.gocop-karta-smjer.smjer-desno { clip-path: polygon(100% 0, 100% 100%, 50% 50%); }
+.gocop-karta-smjer.smjer-dolje { clip-path: polygon(0 100%, 100% 100%, 50% 50%); }
+.gocop-karta-smjer.smjer-lijevo { clip-path: polygon(0 0, 0 100%, 50% 50%); }
+.smjer-gore svg { top: 2px; left: 50%; transform: translateX(-50%); }
+.smjer-dolje svg { bottom: 2px; left: 50%; transform: translateX(-50%); }
+.smjer-lijevo svg { left: 2px; top: 50%; transform: translateY(-50%); }
+.smjer-desno svg { right: 2px; top: 50%; transform: translateY(-50%); }
+/* niska karta u stranici: bez strelica, a još niža i bez položaja */
+.karta-niska .gocop-karta-smjerovi { display: none; }
+.karta-vrlo-niska .gocop-karta-lokacija { display: none; }
+.karta-vrlo-niska .gocop-karta-kontrola { border-bottom: 0; }
+
+/* Gumb Slojevi na dnu stupca i mala ploča lijevo od njega (app.js,
+   plocaSlojevaKarte); Karta otvara svoju veliku ploču */
+.gocop-karta-podloge { position: relative; }
+.gocop-karta-kontrola.gocop-karta-slojevi {
+  border: 0;
+  border-radius: var(--r-kontrola);
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  box-shadow: var(--shadow);
+}
+.gocop-karta-kontrola.gocop-karta-slojevi:hover,
+.gocop-karta-kontrola.gocop-karta-slojevi:focus-visible,
+.gocop-karta-kontrola.gocop-karta-slojevi[aria-expanded="true"] { background: var(--primary-hover); color: var(--md-sys-color-on-primary); }
+.gocop-karta-kontrola.gocop-karta-slojevi:focus-visible { box-shadow: 0 0 0 3px var(--fokus); }
+.gocop-karta-ploca {
+  position: absolute;
+  right: calc(100% + 8px);
+  bottom: 0;
+  width: 248px;
+  max-width: calc(100vw - 96px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px 12px 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--md-sys-color-surface-container-low);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  font-size: 0.875rem;
+  text-align: left;
+}
+.gocop-karta-ploca[hidden] { display: none; }
+.gocop-karta-ploca-glava { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
+.gocop-karta-ploca-glava strong { font-size: 1rem; font-weight: 500; }
+.gocop-karta-ploca-zatvori {
+  display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px;
+  border: 0; border-radius: 999px; background: none; color: var(--text-secondary); cursor: pointer;
+}
+.gocop-karta-ploca-zatvori:hover { background: var(--md-sys-color-surface-container-high); }
+.gocop-karta-ploca-zatvori svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.gocop-karta-ploca-naslov { margin-bottom: 6px; font-size: 0.8125rem; font-weight: 500; color: var(--text-secondary); }
+.leaflet-container .gocop-karta-ploca .leaflet-control-layers {
+  float: none; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; color: inherit;
+}
+.gocop-karta-ploca .leaflet-control-layers-base { display: flex; flex-wrap: wrap; gap: 6px; }
+.gocop-karta-ploca .leaflet-control-layers-base label { position: relative; margin: 0; font-size: 0.8125rem; }
+.gocop-karta-ploca .leaflet-control-layers-base label > * {
+  display: inline-flex; align-items: center; min-height: 32px; padding: 0 12px;
+  border: 1px solid var(--border-strong); border-radius: 8px; color: var(--text-secondary); font-weight: 500; cursor: pointer;
+}
+.gocop-karta-ploca .leaflet-control-layers-base input { position: absolute; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none; }
+.gocop-karta-ploca .leaflet-control-layers-base label:has(input:checked) > * {
+  border-color: transparent; background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container);
+}
+.gocop-karta-ploca .leaflet-control-layers-base label:has(input:checked) > * > span::before { content: "✓"; margin-right: 4px; }
+.gocop-karta-ploca .leaflet-control-layers-base label:has(input:focus-visible) > * { outline: 2px solid var(--md-sys-color-primary); outline-offset: 2px; }
+.gocop-karta-ploca .leaflet-control-layers-separator { margin: 10px 0 6px; border-top: 1px solid var(--border); }
+.gocop-karta-ploca .leaflet-control-layers-overlays label { display: block; margin: 0; padding: 4px 0; font-size: 0.875rem; }
 
 /* Slojevi teritorija imaju svoju boju (crta na karti, oznaka u popisu,
    naslov i gumb u skočnom prozoru). Razred sloja postavlja --s*, a
@@ -7149,13 +7233,8 @@ button.karta-nedostaje-ucrtaj { padding: 0; border: 0; background: none; font-fa
 .karta-ucrtavanje-prekidac small { display: block; font-size: 0.75rem; color: var(--text-secondary); }
 .karta-postavlja-letvu .leaflet-container { cursor: crosshair; }
 
-.karta-slojevi-gumb {
-  position: absolute; z-index: 1000; top: 12px; right: 12px; display: none; align-items: center; gap: 8px;
-  min-height: 48px; padding: 0 18px 0 14px; border: 0; border-radius: 16px; cursor: pointer;
-  background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container);
-  font: inherit; font-weight: 500; box-shadow: var(--shadow);
-}
-.karta-slojevi-zatvoreno .karta-slojevi-gumb { display: inline-flex; }
+/* dok je ploča otvorena, gumb Slojevi se ne vidi, a stupac ostaje na mjestu */
+.karta-stranica:not(.karta-slojevi-zatvoreno) .karta-slojevi-gumb { visibility: hidden; }
 
 /* Prekidač (Material 3): kvačica izgleda kao prekidač, a ostaje kvačica */
 .prekidac {
@@ -7180,7 +7259,9 @@ button.karta-nedostaje-ucrtaj { padding: 0; border: 0; background: none; font-fa
     padding-top: 8px; border-width: 1px 0 0; border-radius: 28px 28px 0 0;
   }
   .karta-slojevi-rucka { display: block; align-self: center; width: 32px; height: 4px; margin-bottom: 8px; border-radius: 2px; background: var(--border-strong); opacity: 0.6; }
-  .karta-slojevi-gumb { top: auto; bottom: 16px; right: 16px; min-height: 56px; }
+  /* list se povlači prema dolje za ručku ili naslov (karta.js) */
+  .karta-slojevi { transition: transform 0.15s ease-out; }
+  .karta-slojevi-rucka, .karta-slojevi-glava { touch-action: none; }
   /* dok se crta, ploča je niža, da se vide karta i alati */
   .karta-u-uredjivanju .karta-slojevi { max-height: 42%; }
 }

@@ -758,7 +758,63 @@ function dodajPodloge(karta, osnovni) {
   if (!karta || !osnovni || typeof L === 'undefined') return;
   var podloge = podlogeKarte(osnovni);
   if (Object.keys(podloge).length < 2) return;
-  L.control.layers(podloge, null, { position: 'topright' }).addTo(karta);
+  plocaSlojevaKarte(karta).dodaj(L.control.layers(podloge, null, { collapsed: false }));
+}
+
+// Gumb Slojevi dolje desno, isti na svim kartama osim Karte (ona ima svoju
+// veliku ploču). Otvara malu ploču lijevo od stupca kontrola s podlogom, a
+// na karti teritorija i sa slojevima. Leafletov popis slojeva živi u ploči,
+// pa njegovi događaji i dalje rade.
+var LAYERS_IKONA = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg>';
+
+function plocaSlojevaKarte(karta) {
+  if (karta._plocaSlojeva) return karta._plocaSlojeva;
+  var gumb = null, ploca = null, tijelo = null;
+  function otvori(da) {
+    ploca.hidden = !da;
+    gumb.setAttribute('aria-expanded', da ? 'true' : 'false');
+    if (da) ploca.style.maxHeight = Math.max(160, karta.getSize().y - 24) + 'px';
+  }
+  var kontrola = L.control({ position: 'bottomright' });
+  kontrola.onAdd = function () {
+    var okvir = L.DomUtil.create('div', 'gocop-karta-podloge');
+    gumb = L.DomUtil.create('button', 'gocop-karta-kontrola gocop-karta-slojevi', okvir);
+    gumb.type = 'button';
+    gumb.innerHTML = LAYERS_IKONA;
+    gumb.title = 'Slojevi';
+    gumb.setAttribute('aria-label', 'Slojevi');
+    gumb.setAttribute('aria-expanded', 'false');
+    ploca = L.DomUtil.create('div', 'gocop-karta-ploca', okvir);
+    ploca.hidden = true;
+    ploca.setAttribute('role', 'dialog');
+    ploca.setAttribute('aria-label', 'Slojevi');
+    var glava = L.DomUtil.create('div', 'gocop-karta-ploca-glava', ploca);
+    L.DomUtil.create('strong', '', glava).textContent = 'Slojevi';
+    var zatvori = L.DomUtil.create('button', 'gocop-karta-ploca-zatvori', glava);
+    zatvori.type = 'button';
+    zatvori.setAttribute('aria-label', 'Zatvori slojeve');
+    zatvori.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+    L.DomUtil.create('div', 'gocop-karta-ploca-naslov', ploca).textContent = 'Podloga';
+    tijelo = L.DomUtil.create('div', 'gocop-karta-ploca-tijelo', ploca);
+    L.DomEvent.on(gumb, 'click', L.DomEvent.stop).on(gumb, 'click', function () { otvori(ploca.hidden); });
+    L.DomEvent.on(zatvori, 'click', L.DomEvent.stop).on(zatvori, 'click', function () { otvori(false); gumb.focus(); });
+    L.DomEvent.on(ploca, 'keydown', function (e) {
+      if (e.key === 'Escape') { otvori(false); gumb.focus(); }
+    });
+    L.DomEvent.disableClickPropagation(okvir);
+    L.DomEvent.disableScrollPropagation(okvir);
+    return okvir;
+  };
+  kontrola.addTo(karta);
+  karta.on('click', function () { if (!ploca.hidden) otvori(false); });
+  karta._plocaSlojeva = {
+    dodaj: function (popis) {
+      popis.addTo(karta);
+      tijelo.appendChild(popis.getContainer());
+      return popis;
+    }
+  };
+  return karta._plocaSlojeva;
 }
 
 // Točka objekta: ikona iz icons.svg ili iz vlastitih ikona (ime v-…), kao
@@ -805,7 +861,10 @@ function dodajKontroleKarte(karta, platno, opcije) {
   var fsTarget = opcije.fullscreenTarget || platno;
 
   var kontrola = L.control({ position: 'topright' });
-  var smjerovi = L.control({ position: 'topleft' });
+  // strelice, zum i Slojevi su jedan stupac dolje desno (redom ih slaže
+  // CSS), mjerilo i zasluge dolje lijevo; gore desno ostaju puni zaslon i
+  // položaj
+  var smjerovi = L.control({ position: 'bottomright' });
   var puni = null;
   var lokacija = null;
   var cssPuniZaslon = false;
@@ -939,7 +998,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
     L.DomEvent.on(puni, 'click', L.DomEvent.stop).on(puni, 'click', promijeniPuniZaslon);
 
     if (opcije.lokacija !== false) {
-      lokacija = L.DomUtil.create('button', 'gocop-karta-kontrola', okvir);
+      lokacija = L.DomUtil.create('button', 'gocop-karta-kontrola gocop-karta-lokacija', okvir);
       lokacija.type = 'button';
       lokacija.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5.64 5.64l2.12 2.12M16.24 16.24l2.12 2.12M18.36 5.64l-2.12 2.12M7.76 16.24l-2.12 2.12"/></svg>';
       lokacija.title = 'Prikaži moj položaj';
@@ -977,6 +1036,19 @@ function dodajKontroleKarte(karta, platno, opcije) {
     return okvir;
   };
   smjerovi.addTo(karta);
+  if (karta.zoomControl) karta.zoomControl.setPosition('bottomright');
+  if (karta.attributionControl) karta.attributionControl.setPosition('bottomleft');
+  L.control.scale({ position: 'bottomleft', imperial: false }).addTo(karta);
+
+  // na niskoj karti u stranici nema mjesta za sve: bez strelica ispod
+  // 400 px, a ispod 300 px i bez položaja; puni zaslon vraća sve
+  function premaVisini() {
+    var visina = karta.getSize().y;
+    platno.classList.toggle('karta-niska', visina < 400);
+    platno.classList.toggle('karta-vrlo-niska', visina < 300);
+  }
+  premaVisini();
+  karta.on('resize', premaVisini);
 
   document.addEventListener('fullscreenchange', osvjeziPuniZaslon);
   document.addEventListener('webkitfullscreenchange', osvjeziPuniZaslon);
@@ -2824,8 +2896,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
         if (naseljaSloj) {
           slojevi['<span class="sloj-naziv sloj-naselja">Naselja (6.759)</span>'] = naseljaSloj;
         }
-        layerControl = L.control.layers(podloge, slojevi, { collapsed: false, position: 'topright' });
-        layerControl.addTo(karta);
+        layerControl = plocaSlojevaKarte(karta).dodaj(L.control.layers(podloge, slojevi, { collapsed: false }));
       }
 
       azurirajKontroluSlojeva();

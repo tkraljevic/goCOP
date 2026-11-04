@@ -257,15 +257,58 @@
     return trenutna === 'Karta' ? '' : trenutna;
   }
 
-  function plocaSlojeva(okvir) {
+  // Gumb Slojevi stoji na dnu stupca kontrola dolje desno, kao na
+  // ostalim kartama; ovdje otvara veliku ploču
+  function gumbUStupac(karta, gumb) {
+    var mjesto = L.control({ position: 'bottomright' });
+    mjesto.onAdd = function () {
+      var d = L.DomUtil.create('div', 'gocop-karta-podloge');
+      d.appendChild(gumb);
+      L.DomEvent.disableClickPropagation(d);
+      return d;
+    };
+    mjesto.addTo(karta);
+  }
+
+  // na mobitelu i tabletu ploča je list odozdo: povuci ga za ručku ili
+  // naslov prema dolje i zatvori se
+  function povuciDolje(ploca, zatvori) {
+    var pocetak = null;
+    function vrati() {
+      pocetak = null;
+      ploca.style.transform = '';
+      ploca.style.transition = '';
+    }
+    ploca.addEventListener('pointerdown', function (e) {
+      if (!window.matchMedia(USKI).matches || e.button > 0) return;
+      if (!e.target.closest('.karta-slojevi-rucka, .karta-slojevi-glava') || e.target.closest('button, a, input, select')) return;
+      pocetak = e.clientY;
+      ploca.setPointerCapture(e.pointerId);
+      ploca.style.transition = 'none';
+    });
+    ploca.addEventListener('pointermove', function (e) {
+      if (pocetak !== null) ploca.style.transform = 'translateY(' + Math.max(0, e.clientY - pocetak) + 'px)';
+    });
+    ploca.addEventListener('pointerup', function (e) {
+      if (pocetak === null) return;
+      var pomak = e.clientY - pocetak;
+      vrati();
+      if (pomak > 80) zatvori();
+    });
+    ploca.addEventListener('pointercancel', vrati);
+  }
+
+  function plocaSlojeva(okvir, karta) {
     var gumb = okvir.querySelector('.karta-slojevi-gumb');
     function otvori(da) {
       okvir.classList.toggle('karta-slojevi-zatvoreno', !da);
       gumb.setAttribute('aria-expanded', da ? 'true' : 'false');
     }
     otvori(!window.matchMedia(USKI).matches);
+    gumbUStupac(karta, gumb);
     gumb.addEventListener('click', function () { otvori(true); });
     okvir.querySelectorAll('.karta-slojevi-zatvori').forEach(function (z) { z.addEventListener('click', function () { otvori(false); }); });
+    povuciDolje(okvir.querySelector('.karta-slojevi'), function () { otvori(false); });
     okvir.querySelectorAll('.karta-skupina-otvori').forEach(function (b) {
       b.addEventListener('click', function () {
         var otvoreno = b.getAttribute('aria-expanded') !== 'true';
@@ -627,7 +670,7 @@
     var karta = L.map(platno, { scrollWheelZoom: true, zoomControl: true, pmIgnore: false });
     karta.setView(ZADANO.oko, ZADANO.zum);
     dodajKontroleKarte(karta, platno, { fullscreenTarget: okvir });
-    var ploca = plocaSlojeva(okvir);
+    var ploca = plocaSlojeva(okvir, karta);
 
     var podloga = '';
     function zapisi() { zapisiAdresu(karta, okvir, podloga); }
