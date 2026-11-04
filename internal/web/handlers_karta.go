@@ -30,6 +30,7 @@ type KartaHandler struct {
 	karta    func() KartaPostavke
 	tmpl     *template.Template
 	ured     KartaUredjivanje // uređivanje na Karti (karta_uredjivanje.go)
+	granice  *graniceKarte    // granice područja (karta_podrucja.go)
 }
 
 // NewKartaHandler spaja stranicu Karta s izvorima podataka
@@ -50,6 +51,7 @@ type SlojKarte struct {
 	Ukupno   int
 	Opis     string // uz broj: „ucrtano”, „s položajem”
 	Ukljucen bool   // uključen kad se Karta otvori
+	Granice  bool   // sloj područja: granice i imena, bez broja ucrtanog
 }
 
 // SkupinaSlojeva je skupina u ploči (Zaštitni sustav, Vode, Područja) s
@@ -70,15 +72,14 @@ type KartaPageData struct {
 	ViewAsBanner
 	Karta    KartaPostavke
 	Skupine  []SkupinaSlojeva
-	Zupanije string // adresa granica županija
-	Uredjuje bool   // prijavljeni smije nešto ucrtati, pa stranica nosi alat za crtanje
+	Uredjuje bool // prijavljeni smije nešto ucrtati, pa stranica nosi alat za crtanje
 }
 
 // ShowKarta prikazuje stranicu Karta. Same crte i točke dohvaća karta.js s
 // /karta/podaci.json, da se stranica otvori odmah.
 func (h *KartaHandler) ShowKarta(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	data := KartaPageData{ActiveNav: "karta", ViewAsBanner: viewBanner(r), Zupanije: "/territories/zupanije.geojson"}
+	data := KartaPageData{ActiveNav: "karta", ViewAsBanner: viewBanner(r)}
 	data.CurrentUser, _ = ctx.Value(contextKeyUser).(*models.User)
 	data.Permissions, _ = ctx.Value(contextKeyPerms).(*models.UserPermissions)
 	if h.karta != nil {
@@ -181,13 +182,13 @@ func (h *KartaHandler) slozi(ctx context.Context) (slozenaKarta, error) {
 		}
 	}
 	zastita := slojeviObjekata(objekti, &out.zaKartu.Objekti, smije)
-	vode := []SlojKarte{slojVodotoka(vodotoci, &out.zaKartu.Vodotoci, smije), slojLetvi(letve, &out.zaKartu.Letve, smije)}
+	vode := append(slojeviVodotoka(vodotoci, &out.zaKartu.Vodotoci, smije), slojLetvi(letve, &out.zaKartu.Letve, smije))
 	sloziPopise(&out.zaKartu, objekti, vodotoci, letve, dionice, smije)
 	out.uredjuje = smije.ista(objekti, letve)
 	out.skupine = []SkupinaSlojeva{
 		{Kljuc: "zastita", Naziv: "Zaštitni sustav", Slojevi: zastita},
 		{Kljuc: "vode", Naziv: "Vode", Slojevi: vode},
-		{Kljuc: "podrucja", Naziv: "Područja", Slojevi: []SlojKarte{{Kljuc: "zupanije", Naziv: "Županije", Ikona: "map", Ukljucen: true}}},
+		{Kljuc: "podrucja", Naziv: "Područja", Slojevi: slojeviPodrucja()},
 	}
 	out.zaKartu.Brojevi = brojeviSlojeva(out.skupine)
 	if len(greske) > 0 {
@@ -301,28 +302,59 @@ func jeCrtaGeo(g json.RawMessage) bool {
 	return v.Type == "LineString" || v.Type == "MultiLineString"
 }
 
-// slojVodotoka: crte toka svih vodotoka koji ih imaju, pojednostavljene, bez
-// točaka stacionaže
-func slojVodotoka(vodotoci []models.Watercourse, zbirka *geoZbirka, smije pravaKarte) SlojKarte {
-	sloj := SlojKarte{Kljuc: "vodotoci", Naziv: "Vodotoci", Crta: true, Opis: "ucrtano", Ukljucen: true, Ukupno: len(vodotoci)}
+// redoviVoda su slojevi vodotoka po redu vode (Odluke (4. 11. 2026.)):
+// međudržavne vode, I. reda, II. reda te III. i IV. reda; vodotok kojemu red
+// nije upisan ide u zaseban sloj, dok se red ne upiše
+var redoviVoda = []struct{ red, kljuc, naziv string }{
+	{models.RedMedudrzavni, "vodotoci-medudrzavni", "Međudržavni vodotoci"},
+	{models.RedPrvi, "vodotoci-i", "Vodotoci I. reda"},
+	{models.RedDrugi, "vodotoci-ii", "Vodotoci II. reda"},
+	{models.RedTreciCetvrti, "vodotoci-iii-iv", "Vodotoci III. i IV. reda"},
+	{"", "vodotoci-bez-reda", "Vodotoci bez upisanog reda"},
+}
+
+// slojReda: ključ sloja za svaki red vode iz redoviVoda
+var slojReda = func() map[string]string {
+	out := map[string]string{}
+	for _, r := range redoviVoda {
+		out[r.red] = r.kljuc
+	}
+	return out
+}()
+
+// slojVodotoka: ključ sloja u kojem je vodotok, po redu vode
+func slojVodotoka(v models.Watercourse) string { return slojReda[v.RedVode()] }
+
+// slojeviVodotoka: crte toka svih vodotoka koji ih imaju, pojednostavljene,
+// bez točaka stacionaže, u slojevima po redu vode. Sloj bez upisanog reda
+// pokazuje se samo kad takvih vodotoka ima.
+func slojeviVodotoka(vodotoci []models.Watercourse, zbirka *geoZbirka, smije pravaKarte) []SlojKarte {
+	slojevi := make([]SlojKarte, len(redoviVoda))
+	poKljucu := map[string]*SlojKarte{}
+	for i, r := range redoviVoda {
+		slojevi[i] = SlojKarte{Kljuc: r.kljuc, Naziv: r.naziv, Crta: true, Opis: "ucrtano", Ukljucen: true}
+		poKljucu[r.kljuc] = &slojevi[i]
+	}
 	for _, v := range vodotoci {
+		kljuc := slojVodotoka(v)
+		sloj := poKljucu[kljuc]
+		sloj.Ukupno++
 		crte := crteVodotoka(v.Geometry)
 		if len(crte) == 0 {
 			continue
 		}
 		sloj.Ucrtano++
-		naziv := v.OfficialName
-		if naziv == "" {
-			naziv = v.Name
-		}
 		g, _ := json.Marshal(map[string]any{"type": "MultiLineString", "coordinates": crte}) // nizovi brojeva se uvijek pretvore
-		svojstva := map[string]any{"sloj": "vodotoci", "naziv": naziv, "adresa": "/watercourses/" + v.Code, "kod": v.Code}
+		svojstva := map[string]any{"sloj": kljuc, "naziv": prvoNeprazno(v.OfficialName, v.Name), "adresa": "/watercourses/" + v.Code, "kod": v.Code}
 		if smije.vodotok() {
 			svojstva["uredjuje"] = true
 		}
 		zbirka.Features = append(zbirka.Features, geoZnacajka{Type: "Feature", Properties: svojstva, Geometry: g})
 	}
-	return sloj
+	if zadnji := slojevi[len(slojevi)-1]; zadnji.Ukupno == 0 {
+		slojevi = slojevi[:len(slojevi)-1]
+	}
+	return slojevi
 }
 
 // tolerancijaToka je koliko crta toka smije odstupiti od izvorne pri

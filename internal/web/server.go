@@ -1261,6 +1261,8 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /karta/objekt/{id}", s.authMiddleware(http.HandlerFunc(kartaH.HandleObjekt)))
 	s.mux.Handle("GET /karta/vodotok/{kod}", s.authMiddleware(http.HandlerFunc(kartaH.HandleTok)))
 	s.mux.Handle("POST /karta/letva/{id}/polozaj", s.authMiddleware(http.HandlerFunc(kartaH.HandlePolozajLetve)))
+	kartaH.SetGranice(territoriesH.GranicePodrucja)
+	s.mux.Handle("GET /karta/podrucja/{datoteka}", s.authMiddleware(http.HandlerFunc(kartaH.HandlePodrucje)))
 	slivH := NewSlivoviHandler(func() *service.KisomjerService { return s.kisomjeri }, s.watercourseService, s.stationService,
 		func(ime string) *template.Template { return s.templates[ime] }, func() KartaPostavke { return s.karta })
 	s.mux.Handle("GET /slivovi", s.authMiddleware(http.HandlerFunc(slivH.ShowSlivovi)))

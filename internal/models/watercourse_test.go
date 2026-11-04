@@ -26,3 +26,24 @@ func TestCategoryLabelSkupinaIzvanOdluke(t *testing.T) {
 		}
 	}
 }
+
+// Red vode za slojeve Karte: iz kategorije s popisa voda I. reda, inače iz
+// upisane skupine; bez skupine reda nema.
+func TestRedVode(t *testing.T) {
+	for _, s := range []struct {
+		w    Watercourse
+		htio string
+	}{
+		{Watercourse{Category: "MEĐUDRŽAVNE VODE"}, RedMedudrzavni},
+		{Watercourse{Category: "DRUGE VEĆE VODE I KANALI", Subcategory: "vodotoci"}, RedPrvi},
+		{Watercourse{Subcategory: "kanal I. reda"}, RedPrvi},
+		{Watercourse{Subcategory: "kanal II. reda"}, RedDrugi},
+		{Watercourse{Subcategory: "Kanal III. reda"}, RedTreciCetvrti},
+		{Watercourse{Subcategory: "potok IV. reda"}, RedTreciCetvrti},
+		{Watercourse{Kind: "potok"}, ""},
+	} {
+		if got := s.w.RedVode(); got != s.htio {
+			t.Errorf("%+v: %q, htio %q", s.w, got, s.htio)
+		}
+	}
+}

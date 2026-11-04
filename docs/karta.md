@@ -98,6 +98,23 @@ briše s ovog računala. Na ostalima datoteka ostaje dok ne stigne nova
 karta, a nedovršeno preuzimanje se briše. *Vrati zadano* na istoj stranici
 kartu bez interneta ne dira.
 
+## Slojevi vodotoka i područja
+
+Vodotoci su na Karti u slojevima po redu vode (Odluke (4. 11. 2026.)):
+međudržavni (kategorija „MEĐUDRŽAVNE VODE” s popisa voda I. reda), I. reda
+(ostale kategorije s popisa ili skupina „kanal I. reda”), II. reda te III.
+i IV. reda (po upisanoj skupini). Vodotok bez kategorije i bez skupine s
+redom ide u sloj „Vodotoci bez upisanog reda”, koji se pokazuje samo kad
+takvih ima.
+
+Skupina Područja ima županije, gradove i općine te branjena područja.
+Karta ih dohvaća s `/karta/podrucja/{sloj}.geojson`: granice su
+pojednostavljene (županije oko 80 m, općine i branjena područja oko 30 m)
+i nose samo naziv i točku natpisa, bez imena čelnika i kontakata. Složene
+su jednom po pokretanju programa. Županije, gradovi i općine dolaze iz
+programa, a branjena područja iz mape `geometrija` uz bazu čvora. Gradovi i
+općine zadano su isključeni i učitavaju se tek kad se sloj uključi.
+
 ## Crtanje na Karti
 
 Objekti, tokovi vodotoka i letve crtaju se i ispravljaju samo na Karti

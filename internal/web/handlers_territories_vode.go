@@ -47,6 +47,15 @@ func (h *TerritoriesHandler) mapaGeometrije() string {
 	return geometrijaVodaDir
 }
 
+// GranicePodrucja vraća izvorne granice za Kartu: županije i općine su
+// ugrađene u program, a branjena područja i sektori na disku čvora
+func (h *TerritoriesHandler) GranicePodrucja(kljuc string) ([]byte, error) {
+	if kljuc == "branjena-podrucja" || kljuc == "sektori" {
+		return geom.Ucitaj(h.mapaGeometrije(), kljuc)
+	}
+	return geom.Ucitaj("", kljuc)
+}
+
 // SetVodnaPodrucja daje rukovatelju sektore, područja i dionice za oznake karte
 func (h *TerritoriesHandler) SetVodnaPodrucja(users *service.UserService, sections *service.SectionService) {
 	h.userService = users
