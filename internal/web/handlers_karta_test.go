@@ -226,7 +226,8 @@ func TestKartaPraznaBaza(t *testing.T) {
 		func(context.Context) ([]models.Station, error) { return nil, nil }, nil, nil, nil)
 	w := httptest.NewRecorder()
 	prazno.HandlePodaci(w, httptest.NewRequest("GET", "/karta/podaci.json", nil))
-	if got := strings.TrimSpace(w.Body.String()); got != `{"objekti":{"type":"FeatureCollection","features":[]},"vodotoci":{"type":"FeatureCollection","features":[]},"letve":[],"nedostaje":[],"priblizno":{"type":"FeatureCollection","features":[]}}` {
+	if got := strings.TrimSpace(w.Body.String()); got != `{"objekti":{"type":"FeatureCollection","features":[]},"vodotoci":{"type":"FeatureCollection","features":[]},"letve":[],"nedostaje":[],"ucrtano":[],"priblizno":{"type":"FeatureCollection","features":[]},` +
+		`"brojevi":{"brane":[0,0],"crpne-stanice":[0,0],"letve":[0,0],"nasipi":[0,0],"ostali-objekti":[0,0],"ustave":[0,0],"vodotoci":[0,0],"zupanije":[0,0]}}` {
 		t.Errorf("prazna karta: %s", got)
 	}
 }
@@ -259,15 +260,19 @@ func TestStranicaKarta(t *testing.T) {
 		`data-sloj="nasipi"`, `1 od 2 ucrtano`, `data-sloj="letve"`, `1 od 2 s položajem`, `nema ih u registru`,
 		`data-sloj="zupanije"`, `granice i imena`, `data-skupina-prekidac`, `Vrati zadano`, `js/karta.js`,
 		`href="/karta" class="nav-link active"`, `<h1 class="vrh-naslov">Karta</h1>`,
-		`aria-label="Što nedostaje: Nasipi" data-nedostaje="nasipi" data-naziv="Nasipi" data-crta="true" data-ukupno="2"`, `data-nedostaje="letve"`,
-		`class="karta-pogled-nedostaje" hidden`, `Što nedostaje`, `Preuzmi popis`,
+		`aria-label="Opširnije, što nedostaje i što je ucrtano: Nasipi" data-nedostaje="nasipi" data-naziv="Nasipi" data-crta="true" data-ukupno="2"`, `data-nedostaje="letve"`,
+		`class="karta-pogled-nedostaje" hidden`, `data-popis="nedostaje"`, `data-popis="ucrtano"`, `Preuzmi popis`,
 	} {
 		if !strings.Contains(html, trazi) {
 			t.Errorf("stranica nema %q", trazi)
 		}
 	}
-	// sve ucrtano i prazan registar nemaju popis onoga što nedostaje
-	for _, nema := range []string{`data-nedostaje="crpne-stanice"`, `data-nedostaje="brane"`, `data-nedostaje="zupanije"`} {
+	// i kad je sve ucrtano, opširnije pokazuje popis ucrtanog; prazan
+	// registar ga nema
+	if !strings.Contains(html, `data-nedostaje="crpne-stanice" data-naziv="Crpne stanice" data-crta="false" data-ukupno="1">`) {
+		t.Error("crpne stanice su sve ucrtane, a gumb „opširnije” mora ostati")
+	}
+	for _, nema := range []string{`data-nedostaje="brane"`, `data-nedostaje="zupanije"`, `class="karta-pogled-ucrtavanje"`, `leaflet-geoman`} {
 		if strings.Contains(html, nema) {
 			t.Errorf("stranica ne treba %q", nema)
 		}

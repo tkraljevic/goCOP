@@ -20,17 +20,21 @@ var kartaZaVodotok = KartaPostavke{
 	NajviseZ: 17,
 }
 
-// alat karte vodotoka: Geoman, mjera, zajednički natpisi i dio za tok
-var skripteAlataVodotoka = []string{
+// Crta se samo na Karti (Odluke (4. 11. 2026.)): stranica vode nosi samo
+// učitavanje datoteke i gumb prema Karti, bez Geomana i mjere
+var skripteNaKarti = []string{
 	"vendor/geoman/leaflet-geoman.min.js",
 	"vendor/geoman/leaflet-geoman.css",
 	"js/mjera-karte.js",
-	"js/uredjivac-karte.js",
-	"js/uredjivac-vodotoka.js",
+	"js/karta-uredjivanje.js",
 }
 
-// ostaci starog uređivača toka koji ne smiju ostati uz novi alat
-var stariUredjivacToka = []string{"karta-ponisti-btn", "karta-editor-traka", "karta-editor-status", "Poništi", "Spremi geometriju"}
+// ostaci starih uređivača toka koji ne smiju ostati na stranici vode
+var stariUredjivacToka = []string{"karta-ponisti-btn", "karta-editor-traka", "karta-editor-status", "Poništi", "Spremi geometriju",
+	"karta-uredi-btn", "karta-spremi-btn", "karta-odustani-btn", "uredjivac-"}
+
+// alat stranice vode: datoteka i put na Kartu
+var alatStraniceVode = []string{"js/datoteka-karte.js", `href="/karta#uredi=vodotok:potok-proba"`, `Uredi tok na Karti`, `ucitajTokVode`, `.kml`}
 
 func iscrtajVodotok(t *testing.T, admin bool, geometrija template.JS) string {
 	t.Helper()
@@ -62,32 +66,28 @@ func nemaNista(t *testing.T, html, opis string, trazi []string) {
 	}
 }
 
-// Administrator dobije kartu i alat i kad tok još nije ucrtan: karta je
-// prazna, uz uputu kako ga ucrtati.
+// Administrator dobije kartu, učitavanje datoteke i put na Kartu i kad tok
+// još nije ucrtan, uz uputu kako ga ucrtati.
 func TestKartaVodotokaAlatBezToka(t *testing.T) {
 	html := iscrtajVodotok(t, true, "")
 	imaSve(t, html, "administrator, bez toka", append([]string{
-		`class="karta-vodotoka"`,
-		`karta-uredi-btn`, `Uredi tok na karti`, `karta-spremi-btn`, `karta-odustani-btn`,
-		`Ucrtaj iz GeoJSON-a`,
-		`Tok ove vode još nije ucrtan. Nacrtajte ga gumbom „Uredi tok na karti” ili učitajte GeoJSON iz QGIS-a`,
+		`class="karta-vodotoka"`, `Učitaj KML ili GeoJSON`,
+		`Tok ove vode još nije ucrtan. Nacrtajte ga na Karti gumbom „Uredi tok na Karti” ili učitajte KML ili GeoJSON`,
 		`{"type":"FeatureCollection","features":[]}`,
-	}, skripteAlataVodotoka...))
-	nemaNista(t, html, "administrator, bez toka", append([]string{`Zamijeni iz GeoJSON-a`, `data-ima="1"`}, stariUredjivacToka...))
+	}, alatStraniceVode...))
+	nemaNista(t, html, "administrator, bez toka", append(append([]string{`Zamijeni iz`, `data-ima="1"`}, stariUredjivacToka...), skripteNaKarti...))
 }
 
-// S ucrtanim tokom administrator mijenja tok istim alatom, a datoteka ga zamjenjuje.
+// S ucrtanim tokom datoteka zamjenjuje tok, a crta se i dalje na Karti.
 func TestKartaVodotokaAlatSTokom(t *testing.T) {
 	html := iscrtajVodotok(t, true, `{"type":"FeatureCollection","features":[]}`)
-	imaSve(t, html, "administrator, s tokom", append([]string{
-		`karta-uredi-btn`, `Zamijeni iz GeoJSON-a`, `data-ima="1"`,
-	}, skripteAlataVodotoka...))
-	nemaNista(t, html, "administrator, s tokom", append([]string{`Tok ove vode još nije ucrtan`, `Ucrtaj iz GeoJSON-a`}, stariUredjivacToka...))
+	imaSve(t, html, "administrator, s tokom", append([]string{`Zamijeni iz KML-a ili GeoJSON-a`, `data-ima="1"`}, alatStraniceVode...))
+	nemaNista(t, html, "administrator, s tokom", append(append([]string{`Tok ove vode još nije ucrtan`, `Učitaj KML ili GeoJSON`}, stariUredjivacToka...), skripteNaKarti...))
 }
 
 // Korisnik bez prava vidi kartu samo kad tok postoji, i to bez alata.
 func TestKartaVodotokaBezPrava(t *testing.T) {
-	bezAlata := append([]string{`karta-uredi-btn`, `karta-spremi-btn`, `ucitajTokVode`, `GeoJSON-a`}, skripteAlataVodotoka...)
+	bezAlata := append(append([]string{`GeoJSON`, `/karta#uredi`}, alatStraniceVode...), skripteNaKarti...)
 
 	sTokom := iscrtajVodotok(t, false, `{"type":"FeatureCollection","features":[]}`)
 	imaSve(t, sTokom, "bez prava, s tokom", []string{`class="karta-vodotoka"`, `Karta vodotoka`})
@@ -97,7 +97,8 @@ func TestKartaVodotokaBezPrava(t *testing.T) {
 	nemaNista(t, bezToka, "bez prava, bez toka", append([]string{`karta-vodotoka`, `Karta vodotoka`}, bezAlata...))
 }
 
-// Bez pločica karte administrator i dalje može učitati tok iz datoteke.
+// Bez pločica karte administrator i dalje može učitati tok iz datoteke ili
+// ga nacrtati na Karti.
 func TestKartaVodotokaBezPlocica(t *testing.T) {
 	html := iscrtaj(t, "watercourse_detail.html", WatercoursePageData{
 		CurrentUser: &models.User{FullName: "P"},
@@ -105,7 +106,7 @@ func TestKartaVodotokaBezPlocica(t *testing.T) {
 		CanEdit:     true,
 		Water:       models.Watercourse{Code: "potok-proba", Name: "Proba"},
 	})
-	imaSve(t, html, "bez pločica", []string{`Ucrtaj iz GeoJSON-a`, `ucitajTokVode`})
+	imaSve(t, html, "bez pločica", append([]string{`Učitaj KML ili GeoJSON`}, alatStraniceVode...))
 	nemaNista(t, html, "bez pločica", []string{`class="karta-vodotoka"`, `karta-uredi-btn`})
 }
 
@@ -139,15 +140,16 @@ func TestStranicaVodotokaPravoNaAlat(t *testing.T) {
 	}
 
 	admin := stranica(&models.UserPermissions{IsGlobalAdmin: true})
-	imaSve(t, admin, "globalni administrator", append([]string{`karta-uredi-btn`, `class="karta-vodotoka"`}, skripteAlataVodotoka...))
+	imaSve(t, admin, "globalni administrator", []string{`href="/karta#uredi=vodotok:potok-bez-toka"`, `class="karta-vodotoka"`, "js/datoteka-karte.js"})
 
 	ostali := stranica(&models.UserPermissions{AdminSectors: map[string]bool{"B": true}})
-	nemaNista(t, ostali, "administrator sektora", append([]string{`karta-uredi-btn`, `karta-vodotoka`}, skripteAlataVodotoka...))
+	nemaNista(t, ostali, "administrator sektora", []string{`/karta#uredi`, `karta-vodotoka`, "js/datoteka-karte.js"})
 }
 
-// Hrvatski natpisi alata karte postoje samo na jednom mjestu, a obje karte
-// ga učitaju prije svog dijela; vodotok crta samo crte.
-func TestAlatKarteZajednickiNatpisi(t *testing.T) {
+// Alat za crtanje je samo na Karti: hrvatski natpisi su na jednom mjestu, a
+// Karta učita Geoman, mjeru i čitanje datoteke prije uređivača, a uređivač
+// prije karta.js. Stranice objekta i vode Geoman ne učitavaju.
+func TestAlatKarteSamoNaKarti(t *testing.T) {
 	procitaj := func(put string) string {
 		b, err := fs.ReadFile(webassets.Files, put)
 		if err != nil {
@@ -155,38 +157,35 @@ func TestAlatKarteZajednickiNatpisi(t *testing.T) {
 		}
 		return string(b)
 	}
-	if !strings.Contains(procitaj("static/js/uredjivac-karte.js"), "buttonTitles") {
-		t.Error("zajednički dio nema hrvatske natpise")
+	ured := procitaj("static/js/karta-uredjivanje.js")
+	for _, s := range []string{"buttonTitles", "removeLastVertex", "mjeraKarte.prati(karta, grupa)", "datotekaKarte.procitaj"} {
+		if !strings.Contains(ured, s) {
+			t.Errorf("uređivač na Karti: nema %q", s)
+		}
 	}
-	for _, put := range []string{"static/js/uredjivac-objekta.js", "static/js/uredjivac-vodotoka.js", "static/js/app.js"} {
+	for _, put := range []string{"static/js/app.js", "static/js/karta.js"} {
 		if strings.Contains(procitaj(put), "removeLastVertex") {
 			t.Errorf("%s ima vlastite natpise alata karte", put)
 		}
 	}
-	vodotok := procitaj("static/js/uredjivac-vodotoka.js")
-	for _, s := range []string{"drawPolyline: true", "drawMarker: false", "drawPolygon: false", "drawCircleMarker: false", "drawRectangle: false", "drawText: false"} {
-		if !strings.Contains(vodotok, s) {
-			t.Errorf("alat karte vodotoka: nema %q", s)
+	karta := procitaj("templates/karta.html")
+	redom := []string{"leaflet-geoman.min.js", "js/mjera-karte.js", "js/datoteka-karte.js", "js/karta-uredjivanje.js", "js/karta.js"}
+	for i := 1; i < len(redom); i++ {
+		a, b := strings.Index(karta, redom[i-1]), strings.Index(karta, redom[i])
+		if a < 0 || b < 0 || a > b {
+			t.Errorf("karta.html: %s nije učitan prije %s", redom[i-1], redom[i])
 		}
 	}
 	for _, stranica := range []string{"templates/structure_detail.html", "templates/watercourse_detail.html"} {
 		html := procitaj(stranica)
-		zajednicki := strings.Index(html, "js/uredjivac-karte.js")
-		geoman := strings.Index(html, "leaflet-geoman.min.js")
-		if zajednicki < 0 || geoman < 0 || geoman > zajednicki {
-			t.Errorf("%s: Geoman i zajednički dio alata nisu učitani redom", stranica)
+		for _, s := range []string{"geoman", "mjera-karte.js", "uredjivac-", "karta-uredi-btn"} {
+			if strings.Contains(html, s) {
+				t.Errorf("%s: ima %q, a crta se samo na Karti", stranica, s)
+			}
 		}
-		// zajednički dio pali mjeru pri Uredi, pa ona mora biti učitana prije
-		if mjera := strings.Index(html, "js/mjera-karte.js"); mjera < 0 || mjera > zajednicki {
-			t.Errorf("%s: mjera uz pokazivač nije učitana prije zajedničkog dijela alata", stranica)
+		if !strings.Contains(html, "js/datoteka-karte.js") || !strings.Contains(html, "/karta#uredi=") {
+			t.Errorf("%s: nema učitavanja datoteke ili puta na Kartu", stranica)
 		}
-	}
-	if !strings.Contains(procitaj("static/js/uredjivac-karte.js"), "mjeraKarte.prati(karta, sloj)") {
-		t.Error("zajednički dio alata ne pali mjeru uz pokazivač")
-	}
-	objekt := procitaj("templates/structure_detail.html")
-	if strings.Index(objekt, "js/uredjivac-karte.js") > strings.Index(objekt, "js/uredjivac-objekta.js") {
-		t.Error("karta objekta učitava svoj dio prije zajedničkog")
 	}
 }
 

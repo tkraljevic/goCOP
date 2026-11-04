@@ -6,7 +6,8 @@
 {{/* Karta preko cijelog sadržaja; ploča slojeva desno na računalu, odozdo
      na tabletu i mobitelu (Odluke (3. 11. 2026.)). Crte i točke dohvaća
      karta.js s data-podaci, granice županija s data-zupanije. Ista ploča
-     drži i pogled „Što nedostaje”, koji karta.js puni iz istih podataka. */}}
+     drži i pogled „opširnije” sa sloja, s popisima onoga što nedostaje i što
+     je ucrtano, koje karta.js puni iz istih podataka. */}}
 <div class="karta-stranica" data-plocice="{{.Karta.Plocice}}" data-zasluge="{{.Karta.Zasluge}}" data-najvise-z="{{.Karta.NajviseZ}}"
      data-podaci="/karta/podaci.json" data-zupanije="{{.Zupanije}}">
   <div class="karta-platno"></div>
@@ -36,8 +37,8 @@
           {{if .Crta}}<span class="karta-sloj-znak karta-sloj-crta" data-vrsta="{{.Vrsta}}" data-sloj-znak="{{.Kljuc}}"></span>{{else}}<span class="karta-sloj-znak">{{icon .Ikona}}</span>{{end}}
           <span class="karta-sloj-tekst">
             <span class="karta-sloj-naziv">{{.Naziv}}</span>
-            <span class="karta-sloj-broj">{{if .Ukupno}}{{brojHR .Ucrtano}} od {{brojHR .Ukupno}} {{.Opis}}{{else if eq .Kljuc "zupanije"}}granice i imena{{else}}nema ih u registru{{end}}</span>
-            {{if lt .Ucrtano .Ukupno}}<button type="button" class="karta-sloj-nedostaje" aria-label="Što nedostaje: {{.Naziv}}" data-nedostaje="{{.Kljuc}}" data-naziv="{{.Naziv}}" data-crta="{{.Crta}}" data-ukupno="{{.Ukupno}}">što nedostaje{{icon "chevron-right"}}</button>{{end}}
+            <span class="karta-sloj-broj"{{if .Ukupno}} data-broj-sloja="{{.Kljuc}}" data-opis="{{.Opis}}"{{end}}>{{if .Ukupno}}{{brojHR .Ucrtano}} od {{brojHR .Ukupno}} {{.Opis}}{{else if eq .Kljuc "zupanije"}}granice i imena{{else}}nema ih u registru{{end}}</span>
+            {{if .Ukupno}}<button type="button" class="karta-sloj-nedostaje" aria-label="Opširnije, što nedostaje i što je ucrtano: {{.Naziv}}" data-nedostaje="{{.Kljuc}}" data-naziv="{{.Naziv}}" data-crta="{{.Crta}}" data-ukupno="{{.Ukupno}}">opširnije{{icon "chevron-right"}}</button>{{end}}
           </span>
           <input type="checkbox" class="prekidac" role="switch" data-sloj="{{.Kljuc}}" aria-label="{{.Naziv}}"{{if .Ukljucen}} checked{{end}}>
         </li>
@@ -54,10 +55,14 @@
     <div class="karta-pogled-nedostaje" hidden>
       <div class="karta-slojevi-glava">
         <button type="button" class="karta-nedostaje-natrag" aria-label="Natrag na slojeve">{{icon "arrow-left"}}</button>
-        <h2>Što nedostaje</h2>
+        <h2 class="karta-nedostaje-naslov">Opširnije</h2>
         <button type="button" class="karta-slojevi-zatvori" aria-label="Zatvori ploču">{{icon "x"}}</button>
       </div>
       <p class="karta-nedostaje-sazetak"></p>
+      <div class="karta-popis-vrste" role="tablist" aria-label="Popis">
+        <button type="button" role="tab" class="karta-popis-vrsta" data-popis="nedostaje" aria-selected="true">Nedostaje <span class="karta-popis-broj"></span></button>
+        <button type="button" role="tab" class="karta-popis-vrsta" data-popis="ucrtano" aria-selected="false">Ucrtano <span class="karta-popis-broj"></span></button>
+      </div>
       <div class="karta-nedostaje-cipovi" role="group" aria-label="Područje"></div>
       <p class="karta-nedostaje-napomena" hidden><span class="karta-nedostaje-znak" aria-hidden="true"></span><span class="karta-nedostaje-napomena-tekst"></span></p>
       <div class="karta-nedostaje-popis"></div>
@@ -65,8 +70,55 @@
         <button type="button" class="btn btn-link karta-nedostaje-preuzmi">{{icon "download"}} Preuzmi popis</button>
       </div>
     </div>
+
+    {{if .Uredjuje}}
+    {{/* Ucrtavanje jednog objekta, toka ili letve (karta-uredjivanje.js) */}}
+    <div class="karta-pogled-ucrtavanje" hidden>
+      <div class="karta-slojevi-glava">
+        <button type="button" class="karta-ucrtavanje-natrag" aria-label="Odustani i vrati se">{{icon "arrow-left"}}</button>
+        <h2 class="karta-ucrtavanje-naziv"></h2>
+      </div>
+      <div class="karta-ucrtavanje-mjera" aria-live="polite">
+        <div><span class="karta-ucrtavanje-oznaka">Nacrtano</span> <strong class="karta-ucrtavanje-iznos"></strong></div>
+        <div class="karta-ucrtavanje-traka" hidden><span></span></div>
+        <p class="karta-ucrtavanje-dionica" hidden></p>
+        <p class="karta-ucrtavanje-dijelovi" hidden></p>
+      </div>
+      <p class="karta-ucrtavanje-uputa"></p>
+      <label class="karta-ucrtavanje-prekidac" hidden><span>Oznake km<small>Isključeno ih samo skriva; točke km ostaju i spremaju se.</small></span>
+        <input type="checkbox" class="prekidac karta-ucrtavanje-oznake" role="switch" checked></label>
+      <details class="karta-ucrtavanje-stacionaza" hidden>
+        <summary>Generiraj stacionažu</summary>
+        <div class="karta-stacionaza-polja">
+          <label class="karta-stacionaza-po-dionicama-redak"><input type="checkbox" class="karta-stacionaza-po-dionicama"> Svaki dio dobiva km svoje dionice</label>
+          <label>Početni km <input type="text" class="karta-stacionaza-od" inputmode="decimal" autocomplete="off"></label>
+          <label>Početak je na kraju <select class="karta-stacionaza-kraj"><option value="A">A (zelena točka)</option><option value="B">B (crvena točka)</option></select></label>
+          <label class="karta-stacionaza-uskladi-redak"><input type="checkbox" class="karta-stacionaza-uskladi"> Rastegni na duljinu po dionici</label>
+          <label class="karta-stacionaza-praznine-redak"><input type="checkbox" class="karta-stacionaza-praznine" checked> Praznine između dijelova ulaze u km</label>
+          <p class="karta-stacionaza-napomena">Točka km ide na svaki puni kilometar i na oba kraja svakog dijela. Dosadašnje točke km se zamijene, a spremaju se tek gumbom Spremi.</p>
+          <button type="button" class="btn btn-sm btn-secondary karta-stacionaza-generiraj">Generiraj</button>
+        </div>
+      </details>
+      <div class="karta-ucrtavanje-alati">
+        <button type="button" class="btn btn-sm btn-secondary karta-ucrtavanje-prekini" aria-pressed="false" title="Makne komad crte, a nasip ostaje isti zapis u dva dijela">{{icon "scissors"}} Prekini crtu</button>
+        <label class="btn btn-sm btn-secondary karta-ucrtavanje-ucitaj">{{icon "upload"}} Učitaj KML ili GeoJSON<input type="file" class="karta-ucrtavanje-datoteka" hidden></label>
+      </div>
+      <p class="karta-ucrtavanje-prekid-uputa" hidden></p>
+      <p class="karta-ucrtavanje-greska" role="alert" hidden></p>
+      <div class="karta-slojevi-dno karta-ucrtavanje-gumbi">
+        <button type="button" class="btn btn-secondary karta-ucrtavanje-odustani">Odustani</button>
+        <button type="button" class="btn btn-primary karta-ucrtavanje-spremi">{{icon "check"}} Spremi</button>
+      </div>
+    </div>
+    {{end}}
   </aside>
 </div>
 {{end}}
 
-{{define "scripts"}}<script src="{{statika "js/karta.js"}}" defer></script>{{end}}
+{{define "head"}}{{if .Uredjuje}}<link rel="stylesheet" href="{{statika "vendor/geoman/leaflet-geoman.css"}}">{{end}}{{end}}
+
+{{define "scripts"}}{{if .Uredjuje}}<script src="{{statika "vendor/geoman/leaflet-geoman.min.js"}}" defer></script>
+<script src="{{statika "js/mjera-karte.js"}}" defer></script>
+<script src="{{statika "js/datoteka-karte.js"}}" defer></script>
+<script src="{{statika "js/karta-uredjivanje.js"}}" defer></script>{{end}}
+<script src="{{statika "js/karta.js"}}" defer></script>{{end}}

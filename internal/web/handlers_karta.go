@@ -29,6 +29,7 @@ type KartaHandler struct {
 	dionice  func(context.Context) ([]models.Section, error) // za približno mjesto po stacionaži
 	karta    func() KartaPostavke
 	tmpl     *template.Template
+	ured     KartaUredjivanje // uređivanje na Karti (karta_uredjivanje.go)
 }
 
 // NewKartaHandler spaja stranicu Karta s izvorima podataka
@@ -70,6 +71,7 @@ type KartaPageData struct {
 	Karta    KartaPostavke
 	Skupine  []SkupinaSlojeva
 	Zupanije string // adresa granica županija
+	Uredjuje bool   // prijavljeni smije nešto ucrtati, pa stranica nosi alat za crtanje
 }
 
 // ShowKarta prikazuje stranicu Karta. Same crte i točke dohvaća karta.js s
@@ -87,6 +89,7 @@ func (h *KartaHandler) ShowKarta(w http.ResponseWriter, r *http.Request) {
 		data.ErrorMessage = "Dio karte se nije učitao: " + err.Error()
 	}
 	data.Skupine = podaci.skupine
+	data.Uredjuje = podaci.uredjuje
 	if err := h.tmpl.ExecuteTemplate(w, "karta.html", data); err != nil {
 		log.Printf("karta: %v", err)
 	}
@@ -125,6 +128,8 @@ type letvaNaKarti struct {
 	Lat    float64 `json:"lat"`
 	Lon    float64 `json:"lon"`
 	Adresa string  `json:"adresa"`
+
+	Uredjuje bool `json:"uredjuje,omitempty"` // prijavljeni smije pomaknuti letvu
 }
 
 // podaciKarte su crte i točke koje karta.js crta, po slojevima, i popis
@@ -134,13 +139,18 @@ type podaciKarte struct {
 	Vodotoci  geoZbirka          `json:"vodotoci"`
 	Letve     []letvaNaKarti     `json:"letve"`
 	Nedostaje []nedostajeNaKarti `json:"nedostaje"`
+	Ucrtano   []nedostajeNaKarti `json:"ucrtano"`
 	Priblizno geoZbirka          `json:"priblizno"`
+	// Brojevi su ucrtano i ukupno po sloju, da Karta nakon spremanja
+	// osvježi ploču bez ponovnog učitavanja stranice
+	Brojevi map[string][2]int `json:"brojevi"`
 }
 
 // slozenaKarta su podaci za kartu i brojevi za ploču slojeva, iz istog čitanja
 type slozenaKarta struct {
-	zaKartu podaciKarte
-	skupine []SkupinaSlojeva
+	zaKartu  podaciKarte
+	skupine  []SkupinaSlojeva
+	uredjuje bool // barem jedan objekt, tok ili letva smije se ucrtati
 }
 
 // slozi čita objekte, vodotoke i letve i slaže ih po slojevima. Što se ne
@@ -149,7 +159,7 @@ func (h *KartaHandler) slozi(ctx context.Context) (slozenaKarta, error) {
 	var out slozenaKarta
 	out.zaKartu = podaciKarte{Objekti: geoZbirka{Type: "FeatureCollection", Features: []geoZnacajka{}},
 		Vodotoci: geoZbirka{Type: "FeatureCollection", Features: []geoZnacajka{}}, Letve: []letvaNaKarti{},
-		Nedostaje: []nedostajeNaKarti{}, Priblizno: geoZbirka{Type: "FeatureCollection", Features: []geoZnacajka{}}}
+		Nedostaje: []nedostajeNaKarti{}, Ucrtano: []nedostajeNaKarti{}, Priblizno: geoZbirka{Type: "FeatureCollection", Features: []geoZnacajka{}}}
 	var greske []string
 	objekti, err := h.objekti(ctx)
 	if err != nil {
@@ -163,33 +173,58 @@ func (h *KartaHandler) slozi(ctx context.Context) (slozenaKarta, error) {
 	if err != nil {
 		greske = append(greske, "letve: "+err.Error())
 	}
+	smije := h.prava(ctx)
 	var dionice []models.Section
 	if h.dionice != nil {
 		if dionice, err = h.dionice(ctx); err != nil {
 			greske = append(greske, "dionice: "+err.Error())
 		}
 	}
-	zastita := slojeviObjekata(objekti, &out.zaKartu.Objekti)
-	vode := []SlojKarte{slojVodotoka(vodotoci, &out.zaKartu.Vodotoci), slojLetvi(letve, &out.zaKartu.Letve)}
-	tokovi, podrucja := noviTokovi(vodotoci), naziviPodrucja(dionice)
-	nedostajeObjekata(objekti, mjestaIzDionica(dionice), tokovi, podrucja, &out.zaKartu.Nedostaje, &out.zaKartu.Priblizno)
-	nedostajeVodotoka(vodotoci, dionice, podrucja, &out.zaKartu.Nedostaje)
-	nedostajeLetvi(letve, tokovi, &out.zaKartu.Nedostaje, &out.zaKartu.Priblizno)
-	posloziNedostaje(out.zaKartu.Nedostaje)
+	zastita := slojeviObjekata(objekti, &out.zaKartu.Objekti, smije)
+	vode := []SlojKarte{slojVodotoka(vodotoci, &out.zaKartu.Vodotoci, smije), slojLetvi(letve, &out.zaKartu.Letve, smije)}
+	sloziPopise(&out.zaKartu, objekti, vodotoci, letve, dionice, smije)
+	out.uredjuje = smije.ista(objekti, letve)
 	out.skupine = []SkupinaSlojeva{
 		{Kljuc: "zastita", Naziv: "Zaštitni sustav", Slojevi: zastita},
 		{Kljuc: "vode", Naziv: "Vode", Slojevi: vode},
 		{Kljuc: "podrucja", Naziv: "Područja", Slojevi: []SlojKarte{{Kljuc: "zupanije", Naziv: "Županije", Ikona: "map", Ukljucen: true}}},
 	}
+	out.zaKartu.Brojevi = brojeviSlojeva(out.skupine)
 	if len(greske) > 0 {
 		return out, errors.New(strings.Join(greske, "; "))
 	}
 	return out, nil
 }
 
+// sloziPopise slaže popise „Nedostaje” i „Ucrtano” s približnim mjestima i
+// pravom na ucrtavanje
+func sloziPopise(k *podaciKarte, objekti []models.Structure, vodotoci []models.Watercourse, letve []models.Station,
+	dionice []models.Section, smije pravaKarte) {
+	tokovi, podrucja := noviTokovi(vodotoci), naziviPodrucja(dionice)
+	popis := popisKarte{nedostaje: &k.Nedostaje, ucrtano: &k.Ucrtano, priblizno: &k.Priblizno}
+	nedostajeObjekata(objekti, mjestaIzDionica(dionice), tokovi, podrucja, popis)
+	nedostajeVodotoka(vodotoci, dionice, podrucja, popis)
+	nedostajeLetvi(letve, tokovi, popis)
+	for _, p := range [][]nedostajeNaKarti{k.Nedostaje, k.Ucrtano} {
+		posloziNedostaje(p)
+		smije.oznaci(p, objekti, letve)
+	}
+}
+
+// brojeviSlojeva: ucrtano i ukupno po sloju
+func brojeviSlojeva(skupine []SkupinaSlojeva) map[string][2]int {
+	out := map[string][2]int{}
+	for _, sk := range skupine {
+		for _, sl := range sk.Slojevi {
+			out[sl.Kljuc] = [2]int{sl.Ucrtano, sl.Ukupno}
+		}
+	}
+	return out
+}
+
 // slojeviObjekata: jedan sloj po registru objekata (nasipi, crpne stanice,
 // ustave, brane, ostali objekti), kao u izborniku Registri
-func slojeviObjekata(objekti []models.Structure, zbirka *geoZbirka) []SlojKarte {
+func slojeviObjekata(objekti []models.Structure, zbirka *geoZbirka, smije pravaKarte) []SlojKarte {
 	slojevi := make([]SlojKarte, 0, len(models.StructureRegisters))
 	for _, reg := range models.StructureRegisters {
 		sloj := SlojKarte{Kljuc: strings.TrimPrefix(reg.Path, "/"), Naziv: reg.Title, Ikona: reg.Icon, Vrsta: reg.Kind,
@@ -201,6 +236,9 @@ func slojeviObjekata(objekti []models.Structure, zbirka *geoZbirka) []SlojKarte 
 			sloj.Ukupno++
 			znacajke := znacajkeObjekta(s, sloj.Kljuc)
 			if len(znacajke) > 0 {
+				if smije.objekt(s) {
+					znacajke[0].Properties["uredjuje"] = true // isti opis dijele sve značajke objekta
+				}
 				sloj.Ucrtano++
 				zbirka.Features = append(zbirka.Features, znacajke...)
 			}
@@ -217,7 +255,7 @@ func slojeviObjekata(objekti []models.Structure, zbirka *geoZbirka) []SlojKarte 
 // crta (točke stacionaže ostaju na njegovoj stranici); objekt bez ucrtanog
 // dobije točku iz širine i dužine, ako ih ima.
 func znacajkeObjekta(s models.Structure, sloj string) []geoZnacajka {
-	svojstva := map[string]any{"sloj": sloj, "vrsta": s.Kind, "naziv": s.Name, "adresa": s.Path()}
+	svojstva := map[string]any{"sloj": sloj, "vrsta": s.Kind, "naziv": s.Name, "adresa": s.Path(), "id": s.ID.String()}
 	var out []geoZnacajka
 	for _, g := range geometrijeObjekta(s.Geometry) {
 		if s.Kind == models.StructureKindEmbankment && !jeCrtaGeo(g) {
@@ -265,7 +303,7 @@ func jeCrtaGeo(g json.RawMessage) bool {
 
 // slojVodotoka: crte toka svih vodotoka koji ih imaju, pojednostavljene, bez
 // točaka stacionaže
-func slojVodotoka(vodotoci []models.Watercourse, zbirka *geoZbirka) SlojKarte {
+func slojVodotoka(vodotoci []models.Watercourse, zbirka *geoZbirka, smije pravaKarte) SlojKarte {
 	sloj := SlojKarte{Kljuc: "vodotoci", Naziv: "Vodotoci", Crta: true, Opis: "ucrtano", Ukljucen: true, Ukupno: len(vodotoci)}
 	for _, v := range vodotoci {
 		crte := crteVodotoka(v.Geometry)
@@ -278,8 +316,11 @@ func slojVodotoka(vodotoci []models.Watercourse, zbirka *geoZbirka) SlojKarte {
 			naziv = v.Name
 		}
 		g, _ := json.Marshal(map[string]any{"type": "MultiLineString", "coordinates": crte}) // nizovi brojeva se uvijek pretvore
-		zbirka.Features = append(zbirka.Features, geoZnacajka{Type: "Feature",
-			Properties: map[string]any{"sloj": "vodotoci", "naziv": naziv, "adresa": "/watercourses/" + v.Code}, Geometry: g})
+		svojstva := map[string]any{"sloj": "vodotoci", "naziv": naziv, "adresa": "/watercourses/" + v.Code, "kod": v.Code}
+		if smije.vodotok() {
+			svojstva["uredjuje"] = true
+		}
+		zbirka.Features = append(zbirka.Features, geoZnacajka{Type: "Feature", Properties: svojstva, Geometry: g})
 	}
 	return sloj
 }
@@ -370,14 +411,15 @@ func najdaljaOdSpojnice(tocke [][2]float64, od, do int) (int, float64) {
 func zaokruzi6(v float64) float64 { return math.Round(v*1e6) / 1e6 }
 
 // slojLetvi: letve s položajem, s adresom svoje stranice
-func slojLetvi(letve []models.Station, popis *[]letvaNaKarti) SlojKarte {
+func slojLetvi(letve []models.Station, popis *[]letvaNaKarti, smije pravaKarte) SlojKarte {
 	sloj := SlojKarte{Kljuc: "letve", Naziv: "Letve", Ikona: "letva-obicna", Vrsta: models.VrstaLetva, Opis: "s položajem", Ukljucen: true, Ukupno: len(letve)}
 	for _, l := range letve {
 		if !l.ImaKoordinate() {
 			continue
 		}
 		sloj.Ucrtano++
-		*popis = append(*popis, letvaNaKarti{ID: l.ID.String(), Naziv: l.Name, Lat: *l.Latitude, Lon: *l.Longitude, Adresa: "/stations/" + l.ID.String()})
+		*popis = append(*popis, letvaNaKarti{ID: l.ID.String(), Naziv: l.Name, Lat: *l.Latitude, Lon: *l.Longitude,
+			Adresa: "/stations/" + l.ID.String(), Uredjuje: smije.letva(l)})
 	}
 	return sloj
 }

@@ -195,35 +195,65 @@
       <a href="#admin-karta-bez-interneta">Administracija › Karte</a>.</p>
 
     <h3 id="karta-uredjivanje">Crtanje na karti</h3>
-    <p>Objekt i vodotok crtaju se istim alatom. Na stranici objekta pritisnite
-      <em>Uredi na karti</em>, a na stranici vodotoka <em>Uredi tok na karti</em>. Gore lijevo na
-      karti tada se pojavi traka s alatima:</p>
+    <p>Objekti, vodotoci i letve crtaju se i ispravljaju samo na <a href="#karta">Karti</a>, gdje
+      se vide i susjedni nasipi i tokovi. Crtanje se otvara na tri načina: gumbom <em>Uredi na
+      karti</em> u prozorčiću kad kliknete nasip, objekt, tok ili letvu; gumbom <em>Ucrtaj</em> u
+      popisu onoga što nedostaje; ili gumbom <em>Uredi na Karti</em> na stranici objekta, odnosno
+      <em>Uredi tok na Karti</em> na stranici vodotoka. Ploča desno tada pokazuje što se crta, a
+      gore lijevo na karti pojavi se traka s alatima:</p>
     <ul>
-      <li><strong>Nova crta</strong> (kod vodotoka <em>Nova crta toka</em>): kliknite prvu točku,
-        pa sljedeće, a crtu završite klikom na zadnju točku ili gumbom <em>Završi</em>. Kod
-        objekta su tu i <em>Nova točka</em> i <em>Novi poligon</em>.</li>
+      <li><strong>Nova crta</strong>: kliknite prvu točku, pa sljedeće, a crtu završite klikom na
+        zadnju točku ili gumbom <em>Završi</em>. Kod objekata koji nisu nasip ni brana tu su
+        <em>Nova točka</em> i <em>Novi poligon</em>.</li>
       <li><strong>Pomiči točke i vrhove</strong>: povucite vrh na novo mjesto. Desni klik na vrh
         briše ga.</li>
-      <li><strong>Pomakni cijeli dio</strong> objekta ili toka, bez mijenjanja oblika.</li>
-      <li><strong>Obriši dio</strong> objekta ili toka: kliknite crtu, točku ili poligon koji
-        treba maknuti.</li>
+      <li><strong>Pomakni cijeli dio</strong>, bez mijenjanja oblika.</li>
+      <li><strong>Obriši dio</strong>: kliknite crtu, točku ili poligon koji treba maknuti.</li>
     </ul>
+    <p>Ploča pokazuje koliko je nacrtano. Kod nasipa uz to piše duljina po dionicama, na primjer
+      <em>Po dionici 2,19 km (B.16.1 · km 0+000 – 2+185). Crta je dulja za 21 m.</em>, a traka
+      pokazuje koliki je dio nacrtan.</p>
+    <p>Novi vrh i povučeni vrh lijepe se na susjedne crte vodotoka, nasipa i brana te na točke
+      objekata i letvi kad im se približite, pa ušće kanala sjedne na tok u koji se ulijeva, a kraj
+      nasipa na ustavu ili crpnu stanicu. Susjedne crte se pritom ne mijenjaju. Na iscrtkano
+      približno mjesto i na granice županija crta se ne lijepi. Tok na Karti je pojednostavljen
+      do oko 5 m, pa ušće može biti toliko daleko od ucrtanog toka.</p>
     <p>Ništa nije spremljeno dok ne pritisnete <em>Spremi</em>. <em>Odustani</em> vraća kartu
       kakva je bila. Prethodni crtež ostaje u povijesti zapisa.</p>
-    <p>Na nasipu i brani nova točka pita km stacionaže, npr. 1+250. Ako polje ostavite prazno,
-      točka je obična točka. Kad s karte objekta obrišete sve, program prije spremanja pita
-      treba li obrisati crtu objekta.</p>
-    <p>Na vodotoku se spremaju samo crte toka. Točke stacionaže (rkm) ostaju kakve su bile u
-      zapisu, pa ih pomicanje crte ne briše. Tok ne može ostati prazan: ako ste obrisali sve,
-      nacrtajte barem jednu crtu ili pritisnite <em>Odustani</em>. Tok koji još nije ucrtan
-      može se nacrtati od početka.</p>
-    <p>Crtež se može i učitati iz datoteke, gumbom <em>Ucrtaj iz GeoJSON-a</em> ili, kad crtež
-      već postoji, <em>Zamijeni iz GeoJSON-a</em>. Datoteka je GeoJSON u WGS84 (EPSG:4326),
-      npr. izvoz iz QGIS-a. Program je provjeri i, ako ne valja, kaže zašto. Na vodotoku
-      datoteka zamijeni cijeli zapis toka, pa i točke rkm. Prethodni ostaje u povijesti
-      zapisa.</p>
-    <p><strong>Tko smije:</strong> objekt na karti crta onaj tko smije uređivati i sam objekt.
-      Tok vodotoka crta samo globalni administrator. Ostali kartu samo gledaju.</p>
+    <p>Na nasipu i brani <em>Nova točka</em> pita km stacionaže, npr. 1+250. Ako polje ostavite
+      prazno, točka je obična točka. Kad obrišete sve, program prije spremanja pita treba li
+      obrisati crtu objekta.</p>
+    <p><strong>Generiraj stacionažu</strong> postavi točke km uzduž nacrtane crte: na svaki puni
+      kilometar i na oba kraja. Upišite početni km i odaberite kraj na kojem počinje (A je
+      zelena, a B crvena točka na karti). Kvačica <em>Rastegni na duljinu po dionici</em> rasporedi
+      km tako da zadnji bude službeni kraj iz dionice, i kad je nacrtana crta malo kraća ili dulja.
+      Dosadašnje točke km se zamijene, a spremaju se tek gumbom <em>Spremi</em>. Na vodotoku se
+      tako dobiju rkm, s km 0 obično na ušću (kraj B, jer se tok crta nizvodno). Dunavu i
+      Dravi stacionažu računa program prema ENC-u, pa se tamo ne generira. Kad oznake km smetaju
+      pri crtanju, prekidač <em>Oznake km</em> ih skrije; točke ostaju i spremaju se.</p>
+    <p>Nasip nacrtan u više dijelova, na primjer prekinut gdje spojni kanal iz CS Draž ulazi u
+      potok Karašicu, program složi u jedan niz od kraja do kraja i sam okrene dio nacrtan
+      obrnuto. Stacionaža teče kroz cijeli niz, a svaki dio dobije točku km na oba kraja. Praznina
+      između dijelova zadano ulazi u km, jer stacionaža na terenu ne staje na prekidu; kvačicom se
+      to isključi. Kad nasip prolazi kroz više dionica i nacrtan je u isto toliko dijelova, kvačica
+      <em>Svaki dio dobiva km svoje dionice</em> svakom dijelu da km iz njegove dionice, pa spoj
+      dijelova pada točno na granicu, na primjer na 18+000 između B.34.2 i B.34.3.</p>
+    <p><strong>Prekini crtu</strong> napravi takav prekid na već nacrtanoj crti: kliknite na crtu
+      gdje prekid počinje, pa gdje završava, i komad između se makne. Nasip ostaje isti zapis, samo
+      u dva dijela. Dvaput kliknuto isto mjesto razdvoji crtu bez praznine, na primjer na granici
+      dionica. Prekid se sprema gumbom <em>Spremi</em>, kao i sve ostalo.</p>
+    <p>Na vodotoku se bez nove stacionaže spremaju samo crte toka, a upisani rkm ostaju. Tok ne
+      može ostati prazan: ako ste obrisali sve, nacrtajte barem jednu crtu ili pritisnite
+      <em>Odustani</em>.</p>
+    <p>Letva se povuče na pravo mjesto, a letva bez položaja postavi se klikom na kartu.</p>
+    <p>Crtež se može i učitati iz datoteke: KML iz Google Eartha ili GeoJSON u WGS84 (EPSG:4326),
+      npr. izvoz iz QGIS-a. Na Karti gumb <em>Učitaj KML ili GeoJSON</em> doda crtež iz datoteke
+      onome što je već nacrtano, pa se može pregledati i doraditi prije spremanja. Na stranici
+      objekta i vodotoka isti gumb odmah zamijeni cijeli zapis, na vodotoku i točke rkm. Program
+      datoteku provjeri i, ako ne valja, kaže zašto. Prethodni crtež ostaje u povijesti zapisa.</p>
+    <p><strong>Tko smije:</strong> objekt na karti crta onaj tko smije uređivati i sam objekt, a
+      letvu onaj tko smije mijenjati letvu. Tok vodotoka crta samo globalni administrator. Ostali
+      kartu samo gledaju.</p>
   </div>
   {{template "pomocPoglavljeNav" (list "" "" "Početna" "#dashboard")}}
 </section>
@@ -416,21 +446,25 @@
       otvara se odozdo gumbom <em>Slojevi</em>. Prekidač uz naziv skupine pali ili gasi sve
       slojeve u njoj.</p>
     <p>Uz svaki sloj piše koliko ga je ucrtano, na primjer <em>26 od 76 ucrtano</em>: toliko
-      nasipa iz registra ima crtu na karti. Crta se na stranici objekta ili vodotoka
+      nasipa iz registra ima crtu na karti. Crta se ovdje na Karti
       (<a href="#karta-uredjivanje">Crtanje na karti</a>).</p>
-    <p>Kad nešto nije ucrtano, ispod broja stoji <em>što nedostaje</em>. Klik otvara popis po
+    <p>Ispod broja stoji <em>opširnije</em>. Klik otvara dva popisa, <em>Nedostaje</em> i <em>Ucrtano</em>.
+      Popis onoga što nedostaje ide po
       branjenim područjima, a čipovi na vrhu suze ga na jedno područje. Uz svaki nasip piše u
       kojoj je dionici i od kojeg do kojeg km, na primjer <em>B.16.1 · kanal Travnik · kkm 0+000 –
       1+850</em>. Ako je vodotok ucrtan s km, uz njega se iscrtkano vidi približno mjesto nasipa,
       uz lijevu ili desnu obalu. Objekt i letva dobiju iscrtkani krug na svom km. To nije crta
       nasipa ni položaj objekta, samo pomoć da se zna gdje treba crtati. Klik na naziv približi
-      kartu na to mjesto, a <em>Ucrtaj</em> otvori stranicu na kojoj se crta.</p>
+      kartu na to mjesto, a <em>Ucrtaj</em> odmah otvori crtanje tog nasipa, objekta, toka ili
+      letve. Tko ga ne smije crtati, umjesto toga vidi <em>Otvori</em>, koji vodi na njegovu stranicu.
+      U popisu ucrtanog klik na naziv približi kartu na nasip, objekt, tok ili letvu, a <em>Uredi</em>
+      otvori njegovo crtanje.</p>
     <p>Gdje mjesta nema, popis kaže zašto: dionica nema stacionažu, vodotok nije ucrtan, na njemu nisu
       ucrtani km ili su km izvan ucrtanog dijela vodotoka. <em>Preuzmi popis</em> sprema popis kao tablicu za
       Excel.</p>
     <p>Podloga se bira na vrhu ploče: obična karta, satelit i podloge koje je uprava dodala u
       Administraciji › Karte. Klik na nasip, objekt, vodotok ili letvu pokaže naziv i poveznicu
-      na njegovu stranicu.</p>
+      na njegovu stranicu, a onome tko ga smije mijenjati i gumb <em>Uredi na karti</em>.</p>
     <p>Adresa stranice pamti gdje je karta i koji su slojevi uključeni, pa se poveznica može
       poslati kolegi. <em>Vrati zadano</em> uključi sve slojeve, kao kad se Karta otvori.</p>
   </div>

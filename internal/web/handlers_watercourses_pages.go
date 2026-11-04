@@ -193,8 +193,12 @@ func (h *WatercoursesHandler) ShowWatercourseForm(w http.ResponseWriter, r *http
 // napomenaTokaUredljiva: napomenu uz tok Dunava i Drave piše kalibracija
 // prema ENC-u, pa bi upisana ionako bila prepisana pri prikazu
 func napomenaTokaUredljiva(w models.Watercourse) bool {
-	return strings.TrimSpace(w.Geometry) != "" && w.Code != "rijeka-dunav" && w.Code != "rijeka-drava"
+	return strings.TrimSpace(w.Geometry) != "" && !stacionazaIzEnc(w.Code)
 }
+
+// stacionazaIzEnc: stacionažu i napomenu uz tok Dunava i Drave program
+// računa prema ENC-u
+func stacionazaIzEnc(kod string) bool { return kod == "rijeka-dunav" || kod == "rijeka-drava" }
 
 // napuniLetve puni letve vode: vlastite (letva nosi ovu vodu) i dodatne s
 // drugih voda koje je voda sama navela

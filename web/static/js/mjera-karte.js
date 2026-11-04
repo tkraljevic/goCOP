@@ -1,7 +1,7 @@
 // Mjera uz pokazivač dok se na karti crta ili pomiče vrh. Geoman Free sam
 // ne mjeri, pa duljinu crte i površinu poligona računa ovaj dio. Duljina do
 // 1 km piše se u metrima, iznad toga u kilometrima; površina do 1 ha u m²,
-// iznad toga u hektarima. Uključuje je uredjivac-karte.js kad se pritisne Uredi.
+// iznad toga u hektarima. Uključuje je uređivač na Karti (karta-uredjivanje.js).
 (function () {
   var R = 6371000; // polumjer Zemlje u metrima, isti kao u Leafletovu distance
 
@@ -95,9 +95,22 @@
   }
 
   // prati pali mjeru na karti: dok se crta crta ili poligon, i dok se
-  // pomiče vrh nekog dijela u sloju koji se uređuje
+  // pomiče vrh nekog dijela u sloju koji se uređuje. Karta uređuje više
+  // objekata zaredom, pa oznaka i praćenje crtanja idu na kartu jednom.
   function prati(karta, sloj) {
-    var o = oznaka(karta);
+    var o = karta._mjeraKarte;
+    if (!o) {
+      o = karta._mjeraKarte = oznaka(karta);
+      pratiCrtanje(karta, o);
+    }
+    sloj.on('pm:markerdrag', function (e) {
+      var vrh = e.markerEvent && e.markerEvent.target;
+      if (e.layer && vrh && vrh.getLatLng) o.pokazi(tekstSloja(e.layer), vrh.getLatLng());
+    });
+    sloj.on('pm:markerdragend', function () { o.sakrij(2000); });
+  }
+
+  function pratiCrtanje(karta, o) {
     karta.on('pm:drawstart', function (e) {
       if (e.shape !== 'Line' && e.shape !== 'Polygon') return;
       var radni = e.workingLayer, crtac = karta.pm.Draw[e.shape];
@@ -115,11 +128,6 @@
         o.sakrij();
       });
     });
-    sloj.on('pm:markerdrag', function (e) {
-      var vrh = e.markerEvent && e.markerEvent.target;
-      if (e.layer && vrh && vrh.getLatLng) o.pokazi(tekstSloja(e.layer), vrh.getLatLng());
-    });
-    sloj.on('pm:markerdragend', function () { o.sakrij(2000); });
   }
 
   var mjera = { udaljenost: udaljenost, duljina: duljina, opseg: opseg, povrsina: povrsina, metri: metri, hektari: hektari, tekstCrtanja: tekstCrtanja, prati: prati };

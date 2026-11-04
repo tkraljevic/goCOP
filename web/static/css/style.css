@@ -7079,6 +7079,66 @@ button.karta-nedostaje-naziv:hover, .karta-nedostaje-stavka.istaknuto button.kar
 .karta-nedostaje-ucrtaj { flex: none; font-size: 0.875rem; font-weight: 500; color: var(--md-sys-color-primary); text-decoration: none; }
 .karta-nedostaje-ucrtaj:hover { text-decoration: underline; }
 .karta-nedostaje-preuzmi { display: inline-flex; align-items: center; gap: 6px; }
+.karta-sloj-nedostaje[hidden] { display: none; }
+.karta-popis-vrste { display: flex; margin: 0 0 10px; border-bottom: 1px solid var(--border); }
+.karta-popis-vrsta {
+  flex: 1; padding: 10px 8px; border: 0; border-bottom: 3px solid transparent; background: none; cursor: pointer;
+  font: inherit; font-size: 0.875rem; font-weight: 500; color: var(--text-secondary);
+}
+.karta-popis-vrsta[aria-selected="true"] { color: var(--md-sys-color-primary); border-bottom-color: var(--md-sys-color-primary); }
+.karta-popis-broj { font-weight: 400; }
+.karta-nedostaje-prazno { margin: 8px 0; font-size: 0.875rem; color: var(--text-secondary); }
+button.karta-nedostaje-ucrtaj { padding: 0; border: 0; background: none; font-family: inherit; cursor: pointer; }
+
+/* Ucrtavanje na Karti (karta-uredjivanje.js): ploča s mjerom i stacionažom */
+.karta-stranica .leaflet-marker-icon > .letva-stupic { transform: scale(var(--karta-ikona, 1)); }
+.karta-stranica .leaflet-marker-icon > .letva-stupic:hover { transform: scale(calc(var(--karta-ikona, 1) * 1.25)); }
+.karta-prozor-uredi { margin-top: 8px; }
+.karta-pogled-ucrtavanje { flex: 1 0 auto; display: flex; flex-direction: column; gap: 10px; }
+.karta-pogled-ucrtavanje [hidden], .karta-pogled-ucrtavanje[hidden] { display: none !important; }
+.karta-pogled-ucrtavanje .karta-slojevi-glava { justify-content: flex-start; gap: 4px; }
+.karta-pogled-ucrtavanje .karta-slojevi-glava h2 { flex: 1; font-size: 1.125rem; font-weight: 500; }
+.karta-ucrtavanje-natrag {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; margin-left: -8px;
+  border: 0; border-radius: 999px; background: none; color: var(--text); cursor: pointer;
+}
+.karta-ucrtavanje-natrag:hover { background: var(--md-sys-color-surface-container-high); }
+.karta-ucrtavanje-mjera { padding: 10px 12px; border-radius: 12px; background: var(--md-sys-color-surface-container-high); }
+.karta-ucrtavanje-oznaka { font-size: 0.75rem; color: var(--text-secondary); }
+.karta-ucrtavanje-iznos { font-size: 1.25rem; font-weight: 500; color: var(--text); }
+.karta-ucrtavanje-traka { height: 6px; margin: 8px 0 4px; border-radius: 3px; background: var(--md-sys-color-surface-container-highest); overflow: hidden; }
+.karta-ucrtavanje-traka > span { display: block; height: 100%; width: 0; background: #ea580c; transition: width 0.2s; }
+.karta-ucrtavanje-dionica, .karta-ucrtavanje-dijelovi { margin: 4px 0 0; font-size: 0.75rem; color: var(--text-secondary); }
+.karta-ucrtavanje-uputa { margin: 0; font-size: 0.8125rem; color: var(--text-secondary); }
+.karta-ucrtavanje-stacionaza { border: 1px solid var(--border); border-radius: 12px; padding: 8px 12px; }
+.karta-ucrtavanje-stacionaza summary { cursor: pointer; font-size: 0.875rem; font-weight: 500; color: var(--text); }
+.karta-stacionaza-polja { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; font-size: 0.8125rem; color: var(--text); }
+.karta-stacionaza-polja label { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.karta-stacionaza-polja input[type="text"], .karta-stacionaza-polja select { width: 9.5rem; min-height: 32px; font: inherit; }
+.karta-stacionaza-polja .karta-stacionaza-uskladi-redak, .karta-stacionaza-polja .karta-stacionaza-praznine-redak,
+.karta-stacionaza-polja .karta-stacionaza-po-dionicama-redak { justify-content: flex-start; }
+.karta-stacionaza-napomena { margin: 0; font-size: 0.75rem; color: var(--text-secondary); }
+.karta-stacionaza-generiraj { align-self: flex-start; }
+.karta-ucrtavanje-ucitaj { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.karta-ucrtavanje-alati { display: flex; flex-wrap: wrap; gap: 8px; }
+.karta-ucrtavanje-prekini { display: inline-flex; align-items: center; gap: 6px; }
+.karta-ucrtavanje-prekini[aria-pressed="true"] { background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
+.karta-ucrtavanje-prekid-uputa { margin: 0; padding: 8px 12px; border-radius: 8px; font-size: 0.8125rem; background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
+.karta-prekida-crtu .leaflet-container { cursor: crosshair; }
+/* klik na crtu ili ikonu ne bi stigao do karte, pa ga za prekid propuštaju */
+.karta-prekida-crtu .leaflet-overlay-pane path.leaflet-interactive,
+.karta-prekida-crtu .leaflet-marker-pane .leaflet-interactive { pointer-events: none !important; }
+.karta-ucrtavanje-greska { margin: 0; padding: 8px 12px; border-radius: 8px; font-size: 0.8125rem; background: var(--danger-bg); color: var(--danger-fg); }
+.karta-ucrtavanje-gumbi { gap: 8px; }
+.karta-km-oznaka span {
+  display: inline-block; transform: translate(-50%, -50%); padding: 1px 5px; border: 1px solid #ea580c; border-radius: 6px;
+  background: #fff; color: #9a3412; font-size: 11px; font-weight: 600; white-space: nowrap; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.3);
+}
+.karta-kraj-oznaka { font-weight: 700; }
+.karta-bez-oznaka-km .karta-km-oznaka { display: none; }
+.karta-ucrtavanje-prekidac { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 0.875rem; color: var(--text); cursor: pointer; }
+.karta-ucrtavanje-prekidac small { display: block; font-size: 0.75rem; color: var(--text-secondary); }
+.karta-postavlja-letvu .leaflet-container { cursor: crosshair; }
 
 .karta-slojevi-gumb {
   position: absolute; z-index: 1000; top: 12px; right: 12px; display: none; align-items: center; gap: 8px;
@@ -7112,6 +7172,8 @@ button.karta-nedostaje-naziv:hover, .karta-nedostaje-stavka.istaknuto button.kar
   }
   .karta-slojevi-rucka { display: block; align-self: center; width: 32px; height: 4px; margin-bottom: 8px; border-radius: 2px; background: var(--border-strong); opacity: 0.6; }
   .karta-slojevi-gumb { top: auto; bottom: 16px; right: 16px; min-height: 56px; }
+  /* dok se crta, ploča je niža, da se vide karta i alati */
+  .karta-u-uredjivanju .karta-slojevi { max-height: 42%; }
 }
 @media (max-width: 599px) {
   .karta-stranica { height: calc(100dvh - var(--vrh-visina, 64px) - var(--donja-visina, 80px)); }

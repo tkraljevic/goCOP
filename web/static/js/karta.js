@@ -3,9 +3,13 @@
 // data-zupanije; boje i ikone vrsta su iz Administracije › Karte
 // (postavkeKarte u app.js). Adresa pamti položaj, podlogu, isključene
 // slojeve i otvoreni popis: #poz=45.6,18.7,10&podloga=Satelit&bez=letve&nedostaje=nasipi
+// Crta se i ispravlja samo ovdje (karta-uredjivanje.js); stranice objekta i
+// vode otvaraju Kartu s #uredi=objekt:<id>, #uredi=vodotok:<šifra> ili
+// #uredi=letva:<id>.
 (function () {
   var ZADANO = { oko: [45.55, 18.7], zum: 9 };
   var USKI = '(max-width: 839px)';
+  var urediNaKarti = null; // uređivač na Karti, kad ga prijavljeni smije koristiti
 
   function boja(vrsta) {
     var stil = (postavkeKarte().objekti || {})[vrsta] || {};
@@ -20,9 +24,24 @@
     return (getComputedStyle(document.documentElement).getPropertyValue('--karta-priblizno') || '').trim() || '#e8590c';
   }
 
-  function prozor(p) {
-    return '<strong>' + escapeHtml(p.naziv || '') + '</strong>' +
-      (p.adresa ? '<br><a href="' + escapeHtml(p.adresa) + '">Otvori stranicu</a>' : '');
+  // prozorčić na karti: naziv, stranica i, kad prijavljeni smije, uređivanje
+  function prozor(p, uredi) {
+    return function () {
+      var d = document.createElement('div');
+      d.className = 'karta-prozor';
+      d.innerHTML = '<strong>' + escapeHtml(p.naziv || '') + '</strong>' +
+        (p.adresa ? '<br><a href="' + escapeHtml(p.adresa) + '">Otvori stranicu</a>' : '');
+      // dok se nešto crta, drugo se ne otvara za uređivanje
+      if (p.uredjuje && urediNaKarti && !urediNaKarti.radi()) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'btn btn-sm btn-secondary karta-prozor-uredi';
+        b.textContent = 'Uredi na karti';
+        b.addEventListener('click', function () { urediNaKarti.uredi(uredi ? uredi() : p); });
+        d.appendChild(b);
+      }
+      return d;
+    };
   }
 
   // stanje iz adrese: položaj, podloga i isključeni slojevi
@@ -33,7 +52,9 @@
       poz: poz.length === 3 && poz.every(isFinite) ? poz : null,
       podloga: p.get('podloga') || '',
       bez: (p.get('bez') || '').split(',').filter(Boolean),
-      nedostaje: p.get('nedostaje') || ''
+      nedostaje: p.get('nedostaje') || '',
+      popis: p.get('popis') || '', // ucrtano: drugi popis u pogledu opširnije
+      uredi: p.get('uredi') || '' // objekt:<id>, vodotok:<šifra>, letva:<id>
     };
   }
 
@@ -45,7 +66,18 @@
     okvir.querySelectorAll('input[data-sloj]').forEach(function (s) { if (!s.checked) bez.push(s.dataset.sloj); });
     if (bez.length) p.set('bez', bez.join(','));
     if (okvir.dataset.nedostaje) p.set('nedostaje', okvir.dataset.nedostaje);
+    if (okvir.dataset.nedostaje && okvir.dataset.popis === 'ucrtano') p.set('popis', 'ucrtano');
     history.replaceState(null, '', '#' + p.toString().replace(/%2C/g, ','));
+  }
+
+  // Prianjanje pri crtanju (Geoman u načinu opt-in): crte i točke prikaza
+  // ne uređuju se, ali se nova crta i pomaknuti vrh lijepe na njih
+  // (snapIgnore: false), pa ušće kanala sjedne na tok, a kraj nasipa na
+  // crpnu stanicu. Približna mjesta i granice županija nisu stvarne crte,
+  // pa se na njih ne lijepi.
+  function zaPrianjanje(l) {
+    l.options.snapIgnore = false;
+    return l;
   }
 
   // objekti po slojevima: nasip crtom boje svoje vrste, ostali ikonom vrste
@@ -58,12 +90,13 @@
     var out = {};
     Object.keys(poSlojevima).forEach(function (k) {
       out[k] = L.geoJSON({ type: 'FeatureCollection', features: poSlojevima[k] }, {
+        snapIgnore: false,
         style: function (f) {
           var stil = (postavkeKarte().objekti || {})[f.properties.vrsta] || {};
           return { color: boja(f.properties.vrsta), weight: stil.debljina || 4, opacity: 0.9 };
         },
         pointToLayer: function (f, ll) {
-          return tockaObjekta(ll, (postavkeKarte().objekti || {})[f.properties.vrsta] || {}, boja(f.properties.vrsta));
+          return zaPrianjanje(tockaObjekta(ll, (postavkeKarte().objekti || {})[f.properties.vrsta] || {}, boja(f.properties.vrsta)));
         },
         onEachFeature: function (f, l) { l.bindPopup(prozor(f.properties)); }
       });
@@ -71,20 +104,24 @@
     return out;
   }
 
-  // letve su male točke: na karti cijelog sektora ih je stotinjak, a
-  // stupić letve iz ostalih karata ih pretrpa
+  // letve imaju svoju ikonu (stupić letve ili ikonu iz Administracije ›
+  // Karte); na pregledu sektora ikona se smanji (smanjiIkone)
   function slojLetvi(letve) {
     var grupa = L.featureGroup();
-    var b = boja('LETVA');
     letve.forEach(function (l) {
-      L.circleMarker([l.lat, l.lon], { radius: 5, color: '#ffffff', weight: 1.5, fillColor: b, fillOpacity: 1 })
-        .bindTooltip(escapeHtml(l.naziv), { direction: 'top', offset: [0, -4] }).bindPopup(prozor(l)).addTo(grupa);
+      var m = L.marker([l.lat, l.lon], { icon: stvoriLetvaIkonu(), riseOnHover: true, snapIgnore: false });
+      m.podaci = l;
+      m.bindTooltip(escapeHtml(l.naziv), { direction: 'top', offset: [0, -36] })
+        .bindPopup(prozor(l, function () {
+          return { vrsta: 'letva', id: l.id, naziv: l.naziv, adresa: l.adresa, ll: m.getLatLng() };
+        })).addTo(grupa);
     });
     return grupa;
   }
 
   function slojVodotoka(zbirka) {
     return L.geoJSON(zbirka, {
+      snapIgnore: false,
       style: function () { return { color: bojaRijeke(), weight: 3, opacity: 0.85, className: 'rijeka-linija' }; },
       onEachFeature: function (f, l) { l.bindPopup(prozor(f.properties)); }
     });
@@ -92,6 +129,7 @@
 
   function slojZupanija(zbirka) {
     return L.geoJSON(zbirka, {
+      snapIgnore: true,
       style: function () { return { color: '#8e909a', weight: 1.5, dashArray: '6 4', fill: false, interactive: false }; }
     });
   }
@@ -139,7 +177,7 @@
     return trenutna === 'Karta' ? '' : trenutna;
   }
 
-  function plocaSlojeva(okvir, karta) {
+  function plocaSlojeva(okvir) {
     var gumb = okvir.querySelector('.karta-slojevi-gumb');
     function otvori(da) {
       okvir.classList.toggle('karta-slojevi-zatvoreno', !da);
@@ -159,7 +197,7 @@
     okvir.querySelectorAll('.karta-sloj-crta').forEach(function (z) {
       z.style.setProperty('--karta-boja', z.dataset.vrsta ? boja(z.dataset.vrsta) : bojaRijeke());
     });
-    return karta;
+    return { otvori: function () { otvori(true); } };
   }
 
   // ikone se smanjuju kad se karta odzumira, da se na pregledu sektora ne
@@ -168,10 +206,19 @@
     return zum >= 13 ? 1 : zum >= 11 ? 0.8 : zum >= 9 ? 0.6 : 0.45;
   }
 
-  function smanjiIkone(karta, okvir, slojevi) {
-    var m = mjeriloIkona(karta.getZoom());
-    okvir.style.setProperty('--karta-ikona', m);
-    if (slojevi.letve) slojevi.letve.eachLayer(function (l) { if (l.setRadius) l.setRadius(Math.max(2.5, 5 * m)); });
+  function smanjiIkone(karta, okvir) {
+    okvir.style.setProperty('--karta-ikona', mjeriloIkona(karta.getZoom()));
+  }
+
+  // broj uz sloj i gumb „što nedostaje” nakon spremanja na Karti
+  function osvjeziBrojeve(okvir, brojevi) {
+    okvir.querySelectorAll('.karta-sloj-broj[data-opis]').forEach(function (b) {
+      var n = (brojevi || {})[b.dataset.brojSloja];
+      if (!n || !n[1]) return;
+      b.textContent = n[0].toLocaleString('hr-HR') + ' od ' + n[1].toLocaleString('hr-HR') + ' ' + b.dataset.opis;
+      var g = okvir.querySelector('[data-nedostaje="' + b.dataset.brojSloja + '"]');
+      if (g) g.dataset.ukupno = n[1];
+    });
   }
 
   // Što nedostaje: popis onoga što nema crtu ili položaj, po području, s
@@ -197,15 +244,18 @@
     return /[";\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
   }
 
-  function pogledNedostaje(okvir, karta, podaci, promjena) {
+  // Opširnije o sloju: dva popisa, „Nedostaje” i „Ucrtano” (Odluke
+  // (4. 11. 2026.)). Ono što nedostaje ima iscrtkano približno mjesto i gumb
+  // Ucrtaj, a ucrtano Pokaži i Uredi.
+  function pogledNedostaje(okvir, karta, podaci, promjena, slojevi) {
     var pogled = okvir.querySelector('.karta-pogled-nedostaje');
     var slojeviPogled = okvir.querySelector('.karta-pogled-slojevi');
     var cipovi = pogled.querySelector('.karta-nedostaje-cipovi');
     var popis = pogled.querySelector('.karta-nedostaje-popis');
     var napomena = pogled.querySelector('.karta-nedostaje-napomena');
     var grupa = L.featureGroup(), crte = [], mjesta = {};
-    var sloj = null, odabrano = '';
-    var sve = podaci.nedostaje || [];
+    var sloj = null, odabrano = '', vrsta = 'nedostaje';
+    function sve() { return podaci[vrsta] || []; }
 
     function nacrtaj(kljuc) {
       var b = bojaPribliznog();
@@ -217,15 +267,15 @@
         if (p.sloj !== kljuc) return;
         if (f.geometry.type === 'LineString') {
           var tocke = c.map(function (x) { return L.latLng(x[1], x[0]); });
-          l = L.polyline(tocke, { color: b, weight: 3, dashArray: '6 5', opacity: 0.95 });
+          l = L.polyline(tocke, { color: b, weight: 3, dashArray: '6 5', opacity: 0.95, snapIgnore: true });
           granice = L.latLngBounds(tocke);
           crte.push({ l: l, tocke: tocke, pomak: p.obala === 'L' ? POMAK_OBALE : p.obala === 'D' ? -POMAK_OBALE : 0 });
         } else {
-          l = L.circleMarker([c[1], c[0]], { radius: 9, color: b, weight: 2, dashArray: '3 3', fillColor: b, fillOpacity: 0.15 });
+          l = L.circleMarker([c[1], c[0]], { radius: 9, color: b, weight: 2, dashArray: '3 3', fillColor: b, fillOpacity: 0.15, snapIgnore: true });
           granice = L.latLngBounds([[c[1], c[0]], [c[1], c[0]]]);
         }
         l.granice = granice;
-        l.bindTooltip(escapeHtml(p.naziv) + ' · približno', { sticky: true }).bindPopup(prozor(p)).addTo(grupa);
+        l.bindTooltip(escapeHtml(p.naziv) + ' · približno', { sticky: true }).bindPopup(prozor({ naziv: p.naziv, adresa: p.adresa })).addTo(grupa);
         l.on('mouseover', function () { istakni(p.adresa, true); });
         l.on('mouseout', function () { istakni(p.adresa, false); });
         (mjesta[p.adresa] = mjesta[p.adresa] || []).push(l);
@@ -248,9 +298,26 @@
       });
     }
 
-    function pokazi(adresa) {
+    function graniceMjesta(adresa) {
       var granice = L.latLngBounds([]);
       (mjesta[adresa] || []).forEach(function (l) { granice.extend(l.granice); });
+      return granice;
+    }
+
+    // granice ucrtanog zapisa iz sloja prikaza
+    function graniceUcrtanog(adresa) {
+      var granice = L.latLngBounds([]), s = slojevi[sloj.kljuc];
+      if (s && s.eachLayer) s.eachLayer(function (l) {
+        var p = (l.feature && l.feature.properties) || l.podaci || {};
+        if (p.adresa !== adresa) return;
+        if (l.getBounds) granice.extend(l.getBounds());
+        else if (l.getLatLng) granice.extend(l.getLatLng());
+      });
+      return granice;
+    }
+
+    function pokazi(adresa) {
+      var granice = vrsta === 'ucrtano' ? graniceUcrtanog(adresa) : graniceMjesta(adresa);
       if (!granice.isValid()) return;
       // na tabletu i mobitelu ploča pokriva kartu, pa se zatvori
       var uski = window.matchMedia(USKI).matches;
@@ -260,12 +327,35 @@
     }
 
     function stavke() {
-      return sve.filter(function (r) { return r.sloj === sloj.kljuc && (!odabrano || r.skupina === odabrano); });
+      return sve().filter(function (r) { return r.sloj === sloj.kljuc && (!odabrano || r.skupina === odabrano); });
+    }
+
+    // gumb uz redak: Ucrtaj ili Uredi na Karti, a bez prava Otvori stranicu
+    function gumbStavke(r) {
+      var smije = r.uredjuje && urediNaKarti;
+      var g = document.createElement(smije ? 'button' : 'a');
+      g.className = 'karta-nedostaje-ucrtaj';
+      g.textContent = !smije ? 'Otvori' : vrsta === 'ucrtano' ? 'Uredi' : 'Ucrtaj';
+      g.setAttribute('aria-label', g.textContent + ': ' + r.naziv);
+      if (!smije) { g.href = r.adresa; return g; }
+      g.type = 'button';
+      g.addEventListener('click', function () {
+        var p = { id: r.id, kod: r.kod, vrsta: r.vrsta === 'LETVA' ? 'letva' : r.vrsta, naziv: r.naziv, adresa: r.adresa,
+          granice: vrsta === 'ucrtano' ? graniceUcrtanog(r.adresa) : graniceMjesta(r.adresa) };
+        if (p.vrsta === 'letva' && p.granice.isValid()) p.ll = p.granice.getCenter();
+        urediNaKarti.uredi(p);
+      });
+      return g;
     }
 
     function popuni() {
       var brojevi = {}, redom = [];
-      sve.forEach(function (r) {
+      pogled.querySelectorAll('.karta-popis-vrsta').forEach(function (k) {
+        var n = (podaci[k.dataset.popis] || []).filter(function (r) { return r.sloj === sloj.kljuc; }).length;
+        k.querySelector('.karta-popis-broj').textContent = n.toLocaleString('hr-HR');
+        k.setAttribute('aria-selected', k.dataset.popis === vrsta ? 'true' : 'false');
+      });
+      sve().forEach(function (r) {
         if (r.sloj !== sloj.kljuc) return;
         if (!brojevi[r.skupina]) { brojevi[r.skupina] = 0; redom.push(r.skupina); }
         brojevi[r.skupina]++;
@@ -284,6 +374,12 @@
         });
       }
       popis.innerHTML = '';
+      if (!stavke().length) {
+        var prazno = document.createElement('p');
+        prazno.className = 'karta-nedostaje-prazno';
+        prazno.textContent = vrsta === 'ucrtano' ? 'Još ništa nije ucrtano.' : 'Sve je ucrtano.';
+        popis.appendChild(prazno);
+      }
       var skupina = null;
       stavke().forEach(function (r) {
         if (r.skupina !== skupina) {
@@ -296,12 +392,13 @@
         var s = document.createElement('div');
         s.className = 'karta-nedostaje-stavka';
         s.dataset.adresa = r.adresa;
-        var naziv = document.createElement(r.mjesto ? 'button' : 'span');
+        var pokaziMjesto = vrsta === 'ucrtano' || r.mjesto;
+        var naziv = document.createElement(pokaziMjesto ? 'button' : 'span');
         naziv.className = 'karta-nedostaje-naziv';
         naziv.textContent = r.naziv;
-        if (r.mjesto) {
+        if (pokaziMjesto) {
           naziv.type = 'button';
-          naziv.title = 'Pokaži približno mjesto';
+          naziv.title = vrsta === 'ucrtano' ? 'Pokaži na karti' : 'Pokaži približno mjesto';
           naziv.addEventListener('click', function () { pokazi(r.adresa); });
         }
         var gdje = document.createElement('span');
@@ -311,40 +408,44 @@
         tekst.className = 'karta-nedostaje-tekst';
         tekst.appendChild(naziv);
         tekst.appendChild(gdje);
-        var ucrtaj = document.createElement('a');
-        ucrtaj.className = 'karta-nedostaje-ucrtaj';
-        ucrtaj.href = r.adresa;
-        ucrtaj.textContent = 'Ucrtaj';
-        ucrtaj.setAttribute('aria-label', 'Ucrtaj: ' + r.naziv);
         s.appendChild(tekst);
-        s.appendChild(ucrtaj);
+        s.appendChild(gumbStavke(r));
         s.addEventListener('mouseenter', function () { istakni(r.adresa, true); });
         s.addEventListener('mouseleave', function () { istakni(r.adresa, false); });
         popis.appendChild(s);
       });
     }
 
-    function otvori(gumb) {
-      var crta = gumb.dataset.crta === 'true';
-      sloj = { kljuc: gumb.dataset.nedostaje, naziv: gumb.dataset.naziv };
+    // popis koji se pokazuje: zadano ono što nedostaje, a kad nema ništa,
+    // ono što je ucrtano
+    function odaberiVrstu(v) {
+      vrsta = v;
       odabrano = '';
-      var broj = sve.filter(function (r) { return r.sloj === sloj.kljuc; });
-      var bez = sloj.kljuc === 'vodotoci' ? 'bez toka' : crta ? 'bez crte' : 'bez položaja';
-      pogled.querySelector('.karta-nedostaje-sazetak').textContent =
-        sloj.naziv + ' ' + bez + ': ' + broj.length + ' od ' + gumb.dataset.ukupno;
-      var ima = broj.some(function (r) { return r.mjesto; });
+      okvir.dataset.popis = vrsta;
+      var crta = sloj.crta;
+      var ima = vrsta === 'nedostaje' && sve().some(function (r) { return r.sloj === sloj.kljuc && r.mjesto; });
       napomena.hidden = !ima;
+      if (vrsta === 'nedostaje') grupa.addTo(karta); else karta.removeLayer(grupa);
       napomena.classList.toggle('karta-nedostaje-tocka', !crta);
       napomena.querySelector('.karta-nedostaje-napomena-tekst').textContent = crta
         ? 'Iscrtkano je približno mjesto po stacionaži iz dionice. To nije crta nasipa.'
         : 'Iscrtkani krug je približno mjesto po stacionaži. To nije ucrtani položaj.';
+      popuni();
+      promjena();
+    }
+
+    function otvori(gumb, zeljena) {
+      sloj = { kljuc: gumb.dataset.nedostaje, naziv: gumb.dataset.naziv, crta: gumb.dataset.crta === 'true' };
+      var nedostaje = (podaci.nedostaje || []).filter(function (r) { return r.sloj === sloj.kljuc; }).length;
+      var ucrtano = (podaci.ucrtano || []).filter(function (r) { return r.sloj === sloj.kljuc; }).length;
+      pogled.querySelector('.karta-nedostaje-naslov').textContent = sloj.naziv;
+      pogled.querySelector('.karta-nedostaje-sazetak').textContent =
+        (sloj.kljuc === 'letve' ? 'S položajem ' : 'Ucrtano ') + ucrtano.toLocaleString('hr-HR') + ' od ' + (ucrtano + nedostaje).toLocaleString('hr-HR') + '.';
       slojeviPogled.hidden = true;
       pogled.hidden = false;
       okvir.dataset.nedostaje = sloj.kljuc;
       nacrtaj(sloj.kljuc);
-      grupa.addTo(karta);
-      popuni();
-      promjena();
+      odaberiVrstu(zeljena || (nedostaje ? 'nedostaje' : 'ucrtano'));
     }
 
     function zatvori() {
@@ -352,6 +453,7 @@
       pogled.hidden = true;
       slojeviPogled.hidden = false;
       delete okvir.dataset.nedostaje;
+      delete okvir.dataset.popis;
       karta.removeLayer(grupa);
       promjena();
     }
@@ -362,7 +464,7 @@
       var csv = '\ufeff' + redci.map(function (r) { return r.map(poljeCsv).join(';'); }).join('\r\n');
       var a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-      a.download = 'nedostaje-' + sloj.kljuc + '.csv';
+      a.download = vrsta + '-' + sloj.kljuc + '.csv';
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -380,11 +482,27 @@
       if (g) g.focus();
     });
     pogled.querySelector('.karta-nedostaje-preuzmi').addEventListener('click', preuzmi);
+    pogled.querySelectorAll('.karta-popis-vrsta').forEach(function (k) {
+      k.addEventListener('click', function () { if (sloj) odaberiVrstu(k.dataset.popis); });
+    });
     return {
-      otvori: function (kljuc) {
+      otvori: function (kljuc, zeljena) {
         var g = okvir.querySelector('[data-nedostaje="' + kljuc + '"]');
-        if (g) otvori(g);
-      }
+        if (g) otvori(g, zeljena === 'ucrtano' ? 'ucrtano' : '');
+      },
+      // nakon spremanja: novi popisi i približna mjesta, isti otvoreni sloj i popis
+      osvjezi: function (novi) {
+        podaci = novi;
+        if (!sloj) return;
+        var g = okvir.querySelector('[data-nedostaje="' + sloj.kljuc + '"]'), bio = odabrano;
+        otvori(g, vrsta);
+        odabrano = bio;
+        popuni();
+      },
+      nadji: function (id, kod) {
+        return (podaci.nedostaje || []).concat(podaci.ucrtano || []).filter(function (r) { return (id && r.id === id) || (kod && r.kod === kod); })[0];
+      },
+      granice: graniceMjesta
     };
   }
 
@@ -400,14 +518,32 @@
     karta.fitBounds(granice, { paddingTopLeft: [24, 24], paddingBottomRight: [desno + 24, 24], maxZoom: 13 });
   }
 
+  // uređivanje s adrese: stranica objekta ili vode šalje na Kartu
+  function urediSAdrese(uredi, podaci, nedostaje) {
+    var i = uredi.indexOf(':'), vrsta = uredi.slice(0, i), kljuc = uredi.slice(i + 1);
+    if (!urediNaKarti || i < 0 || !kljuc) return;
+    if (vrsta === 'vodotok') { urediNaKarti.uredi({ kod: kljuc }); return; }
+    if (vrsta === 'letva') {
+      var l = (podaci.letve || []).filter(function (x) { return x.id === kljuc; })[0];
+      var r = nedostaje.nadji(kljuc);
+      if (l) urediNaKarti.uredi({ vrsta: 'letva', id: l.id, naziv: l.naziv, adresa: l.adresa, ll: L.latLng(l.lat, l.lon) });
+      else if (r) urediNaKarti.uredi({ vrsta: 'letva', id: r.id, naziv: r.naziv, adresa: r.adresa });
+      return;
+    }
+    if (vrsta === 'objekt') urediNaKarti.uredi({ id: kljuc });
+  }
+
   function pokreni(okvir) {
     var platno = okvir.querySelector('.karta-platno');
     var stanje = procitajAdresu();
+    // Geoman uređuje samo ono što uređivač učita, nikad slojeve prikaza
+    if (L.PM) L.PM.setOptIn(true);
     okvir.querySelectorAll('input[data-sloj]').forEach(function (s) { if (stanje.bez.indexOf(s.dataset.sloj) >= 0) s.checked = false; });
-    var karta = L.map(platno, { scrollWheelZoom: true, zoomControl: true });
+    // u načinu opt-in i karta mora reći da Geoman smije na nju
+    var karta = L.map(platno, { scrollWheelZoom: true, zoomControl: true, pmIgnore: false });
     karta.setView(ZADANO.oko, ZADANO.zum);
     dodajKontroleKarte(karta, platno, { fullscreenTarget: okvir });
-    plocaSlojeva(okvir, karta);
+    var ploca = plocaSlojeva(okvir);
 
     var podloga = '';
     function zapisi() { zapisiAdresu(karta, okvir, podloga); }
@@ -419,18 +555,26 @@
       podloga = cipoviPodloga(karta, okvir, osnovni, stanje.podloga, function (p) { podloga = p; zapisi(); });
     }
 
-    var slojevi = {}, podaciKarte = {};
+    var slojevi = {}, podaciKarte = {}, nedostaje = null;
     var poruka = okvir.querySelector('.karta-ucitava');
-    var podaci = fetch(okvir.dataset.podaci, { credentials: 'same-origin' }).then(function (r) {
-      if (!r.ok) throw new Error(r.status);
-      return r.json();
-    }).then(function (d) {
+    function dohvati() {
+      return fetch(okvir.dataset.podaci, { credentials: 'same-origin' }).then(function (r) {
+        if (!r.ok) throw new Error(r.status);
+        return r.json();
+      });
+    }
+    // slojevi prikaza iz podataka; isti objekt slojevi drži i uređivač
+    function slozi(d) {
       podaciKarte = d;
+      Object.keys(slojevi).forEach(function (k) {
+        if (k !== 'zupanije') { karta.removeLayer(slojevi[k]); delete slojevi[k]; }
+      });
       var objekti = slojeviObjekata(d.objekti || {});
       Object.keys(objekti).forEach(function (k) { slojevi[k] = objekti[k]; });
       slojevi.vodotoci = slojVodotoka(d.vodotoci || {});
       slojevi.letve = slojLetvi(d.letve || []);
-    });
+    }
+    var podaci = dohvati().then(slozi);
     var zupanije = okvir.dataset.zupanije ? fetch(okvir.dataset.zupanije, { credentials: 'same-origin' }).then(function (r) {
       return r.ok ? r.json() : null;
     }).then(function (z) { if (z) slojevi.zupanije = slojZupanija(z); }).catch(function () {}) : Promise.resolve();
@@ -438,12 +582,33 @@
     Promise.all([podaci, zupanije]).then(function () {
       poruka.hidden = true;
       primijeniSlojeve(karta, okvir, slojevi);
-      pocetniPogled(karta, stanje, slojevi);
-      smanjiIkone(karta, okvir, slojevi);
-      karta.on('zoomend', function () { smanjiIkone(karta, okvir, slojevi); });
+      // s adrese uređivanja kartu približi uređivač; dva približavanja
+      // zaredom Leaflet ne radi, drugo zanemari dok prvo traje
+      if (!stanje.uredi) pocetniPogled(karta, stanje, slojevi);
+      smanjiIkone(karta, okvir);
+      karta.on('zoomend', function () { smanjiIkone(karta, okvir); });
       karta.on('moveend', zapisi);
-      var nedostaje = pogledNedostaje(okvir, karta, podaciKarte, zapisi);
-      if (stanje.nedostaje) nedostaje.otvori(stanje.nedostaje);
+      if (window.kartaUredjivanje && L.PM) {
+        urediNaKarti = window.kartaUredjivanje.pokreni({
+          okvir: okvir, karta: karta, slojevi: slojevi,
+          otvoriPlocu: ploca.otvori,
+          // nakon spremanja Karta iznova učita slojeve, popis i brojeve
+          spremljeno: function () {
+            dohvati().then(function (d) {
+              slozi(d);
+              primijeniSlojeve(karta, okvir, slojevi);
+              nedostaje.osvjezi(d);
+              osvjeziBrojeve(okvir, d.brojevi);
+            }).catch(function () {
+              if (window.showToast) window.showToast('Spremljeno je, ali se karta nije osvježila. Osvježite stranicu.');
+            });
+          }
+        });
+      }
+      nedostaje = pogledNedostaje(okvir, karta, podaciKarte, zapisi, slojevi);
+      if (stanje.nedostaje) nedostaje.otvori(stanje.nedostaje, stanje.popis);
+      if (stanje.uredi) urediSAdrese(stanje.uredi, podaciKarte, nedostaje);
+      zapisi();
     }).catch(function () {
       poruka.textContent = 'Ucrtani slojevi se nisu učitali. Osvježite stranicu.';
     });

@@ -16,9 +16,11 @@ import (
 // Slojevi vodi na popis onoga što još nema crtu ili položaj, po branjenim
 // područjima. Uz vodotok se iscrtkano vidi približno mjesto po stacionaži:
 // nasip od km do km iz dionice, objekt i letva na svom km. To nije crta
-// nasipa ni položaj objekta, nego mjesto gdje ih treba ucrtati.
+// nasipa ni položaj objekta, nego mjesto gdje ih treba ucrtati. Isti pogled
+// („opširnije”) ima i popis onoga što je ucrtano, odvojeno (Odluke
+// (4. 11. 2026.)).
 
-// nedostajeNaKarti je redak popisa „Što nedostaje”
+// nedostajeNaKarti je redak popisa „Nedostaje” ili „Ucrtano”
 type nedostajeNaKarti struct {
 	Sloj    string `json:"sloj"`
 	Naziv   string `json:"naziv"`
@@ -26,6 +28,13 @@ type nedostajeNaKarti struct {
 	Skupina string `json:"skupina"` // „BP 16 · Mali sliv Baranja”; kod letve vodotok
 	Gdje    string `json:"gdje"`    // „B.16.1 · kanal Travnik · kkm 0+000 – 1+850”, ili zašto mjesta nema
 	Mjesto  bool   `json:"mjesto"`  // ima približno mjesto na karti
+
+	// za ucrtavanje na Karti (karta_uredjivanje.go): čiji je zapis i smije li
+	// ga prijavljeni ucrtati
+	ID       string `json:"id,omitempty"`  // objekt ili letva
+	Kod      string `json:"kod,omitempty"` // vodotok
+	Vrsta    string `json:"vrsta,omitempty"`
+	Uredjuje bool   `json:"uredjuje,omitempty"`
 
 	redom kljucRedanja
 }
@@ -200,37 +209,64 @@ func (tok tokZaMjesto) tocka(km float64) ([2]float64, bool) {
 	return [2]float64{zaokruzi6(t[0]), zaokruzi6(t[1])}, true
 }
 
-// nedostajeObjekata: objekti bez crte i položaja, s približnim mjestom iz
-// dionica
-func nedostajeObjekata(objekti []models.Structure, mjesta map[string][]mjestoUDionici, tokovi *tokoviZaMjesta, podrucja map[int]string,
-	popis *[]nedostajeNaKarti, priblizno *geoZbirka) {
+// popisKarte su oba popisa pogleda „opširnije” i približna mjesta onoga
+// što nedostaje
+type popisKarte struct {
+	nedostaje, ucrtano *[]nedostajeNaKarti
+	priblizno          *geoZbirka
+}
+
+func (p popisKarte) dodaj(r nedostajeNaKarti, ucrtan bool) {
+	if ucrtan {
+		*p.ucrtano = append(*p.ucrtano, r)
+		return
+	}
+	*p.nedostaje = append(*p.nedostaje, r)
+}
+
+// nedostajeObjekata: objekti po registrima; bez crte i položaja s
+// približnim mjestom iz dionica, a ucrtani samo s mjestom u dionicama
+func nedostajeObjekata(objekti []models.Structure, mjesta map[string][]mjestoUDionici, tokovi *tokoviZaMjesta, podrucja map[int]string, popis popisKarte) {
 	for _, reg := range models.StructureRegisters {
 		kljuc := strings.TrimPrefix(reg.Path, "/")
 		for _, s := range objekti {
-			if !reg.Ima(s.Kind) || len(znacajkeObjekta(s, kljuc)) > 0 {
-				continue
+			if reg.Ima(s.Kind) {
+				ucrtan := len(znacajkeObjekta(s, kljuc)) > 0
+				popis.dodaj(redakObjektaNaKarti(s, kljuc, mjesta[s.ID.String()], tokovi, podrucja, ucrtan, popis.priblizno), ucrtan)
 			}
-			r := nedostajeNaKarti{Sloj: kljuc, Naziv: s.Name, Adresa: s.Path(), Skupina: podrucjeNaKarti(s.AreaID, podrucja),
-				redom: kljucRedanja{bp: redPodrucja(s.AreaID)}}
-			var opisi []opisMjesta
-			for i, m := range mjesta[s.ID.String()] {
-				if i == 0 {
-					r.redom.dionica = m.dionica
-				}
-				opis, znacajka := mjestoObjekta(m, tokovi, map[string]any{"sloj": kljuc, "naziv": s.Name, "adresa": s.Path(), "obala": m.obala})
-				opisi = append(opisi, opis)
-				if znacajka != nil {
-					priblizno.Features = append(priblizno.Features, *znacajka)
-					r.Mjesto = true
-				}
-			}
-			r.Gdje = spojiMjesta(opisi)
-			if len(opisi) == 0 {
-				r.Gdje = "nije ni u jednoj dionici, nema mjesta na karti"
-			}
-			*popis = append(*popis, r)
 		}
 	}
+}
+
+// redakObjektaNaKarti: objekt u popisu, s mjestima u dionicama; onome što nije
+// ucrtano dodaje se i približno mjesto na kartu
+func redakObjektaNaKarti(s models.Structure, kljuc string, mjesta []mjestoUDionici, tokovi *tokoviZaMjesta, podrucja map[int]string,
+	ucrtan bool, priblizno *geoZbirka) nedostajeNaKarti {
+	r := nedostajeNaKarti{Sloj: kljuc, Naziv: s.Name, Adresa: s.Path(), Skupina: podrucjeNaKarti(s.AreaID, podrucja),
+		ID: s.ID.String(), Vrsta: s.Kind, redom: kljucRedanja{bp: redPodrucja(s.AreaID)}}
+	opisi := make([]opisMjesta, 0, len(mjesta))
+	for _, m := range mjesta {
+		opis, znacajka := mjestoObjekta(m, tokovi, map[string]any{"sloj": kljuc, "naziv": s.Name, "adresa": s.Path(), "obala": m.obala})
+		if ucrtan {
+			opis.razlog, znacajka = "", nil // ucrtani ne treba približno mjesto
+		}
+		opisi = append(opisi, opis)
+		if znacajka != nil {
+			priblizno.Features = append(priblizno.Features, *znacajka)
+			r.Mjesto = true
+		}
+	}
+	if len(mjesta) > 0 {
+		r.redom.dionica = mjesta[0].dionica
+	}
+	r.Gdje = spojiMjesta(opisi)
+	switch {
+	case len(opisi) == 0 && ucrtan:
+		r.Gdje = "nije ni u jednoj dionici"
+	case len(opisi) == 0:
+		r.Gdje = "nije ni u jednoj dionici, nema mjesta na karti"
+	}
+	return r
 }
 
 // opisMjesta je jedno mjesto zapisa u dionici, za redak popisa
@@ -306,15 +342,12 @@ func mjestoObjekta(m mjestoUDionici, tokovi *tokoviZaMjesta, svojstva map[string
 	return o, &geoZnacajka{Type: "Feature", Properties: svojstva, Geometry: g}
 }
 
-// nedostajeVodotoka: vodotoci bez toka, uz dionice u kojima su
-func nedostajeVodotoka(vodotoci []models.Watercourse, dionice []models.Section, podrucja map[int]string, popis *[]nedostajeNaKarti) {
+// nedostajeVodotoka: vodotoci, s tokom i bez njega, uz dionice u kojima su
+func nedostajeVodotoka(vodotoci []models.Watercourse, dionice []models.Section, podrucja map[int]string, popis popisKarte) {
 	uDionicama := dioniceVodotoka(dionice)
 	for _, v := range vodotoci {
-		if len(crteVodotoka(v.Geometry)) > 0 {
-			continue
-		}
 		r := nedostajeNaKarti{Sloj: "vodotoci", Naziv: prvoNeprazno(v.OfficialName, v.Name), Adresa: "/watercourses/" + v.Code,
-			Skupina: "Nije ni u jednoj dionici", Gdje: "nije ni u jednoj dionici", redom: kljucRedanja{bp: math.MaxInt}}
+			Kod: v.Code, Vrsta: "vodotok", Skupina: "Nije ni u jednoj dionici", Gdje: "nije ni u jednoj dionici", redom: kljucRedanja{bp: math.MaxInt}}
 		if ds := uDionicama[v.Code]; len(ds) > 0 {
 			sifre := make([]string, len(ds))
 			for i, d := range ds {
@@ -326,7 +359,7 @@ func nedostajeVodotoka(vodotoci []models.Watercourse, dionice []models.Section, 
 			}
 			r.redom = kljucRedanja{bp: redPodrucja(ds[0].AreaID), dionica: ds[0].Code}
 		}
-		*popis = append(*popis, r)
+		popis.dodaj(r, len(crteVodotoka(v.Geometry)) > 0)
 	}
 }
 
@@ -344,16 +377,18 @@ func dioniceVodotoka(dionice []models.Section) map[string][]models.Section {
 	return out
 }
 
-// nedostajeLetvi: letve bez položaja, po vodotoku, s približnim mjestom iz
-// njihove stacionaže
-func nedostajeLetvi(letve []models.Station, tokovi *tokoviZaMjesta, popis *[]nedostajeNaKarti, priblizno *geoZbirka) {
+// nedostajeLetvi: letve po vodotoku; bez položaja s približnim mjestom iz
+// njihove stacionaže, a s položajem samo sa stacionažom
+func nedostajeLetvi(letve []models.Station, tokovi *tokoviZaMjesta, popis popisKarte) {
 	for _, l := range letve {
-		if l.ImaKoordinate() {
-			continue
-		}
 		adresa := "/stations/" + l.ID.String()
 		r := nedostajeNaKarti{Sloj: "letve", Naziv: l.Name, Adresa: adresa, Skupina: prvoNeprazno(l.Watercourse, "Bez vodotoka"),
-			redom: kljucRedanja{bp: math.MaxInt, dionica: l.Watercourse}}
+			ID: l.ID.String(), Vrsta: models.VrstaLetva, redom: kljucRedanja{bp: math.MaxInt, dionica: l.Watercourse}}
+		if l.ImaKoordinate() {
+			r.Gdje = prvoNeprazno(l.Stationing, "bez stacionaže")
+			popis.dodaj(r, true)
+			continue
+		}
 		km, imaKm := hydro.ParseStationingKm(l.Stationing)
 		tok := tokovi.tok(l.WatercourseCode)
 		var t [2]float64
@@ -371,10 +406,10 @@ func nedostajeLetvi(letve []models.Station, tokovi *tokoviZaMjesta, popis *[]ned
 		default:
 			r.Gdje, r.Mjesto = l.Stationing, true
 			g, _ := json.Marshal(map[string]any{"type": "Point", "coordinates": t}) // dva broja se uvijek pretvore
-			priblizno.Features = append(priblizno.Features, geoZnacajka{Type: "Feature",
+			popis.priblizno.Features = append(popis.priblizno.Features, geoZnacajka{Type: "Feature",
 				Properties: map[string]any{"sloj": "letve", "naziv": l.Name, "adresa": adresa}, Geometry: g})
 		}
-		*popis = append(*popis, r)
+		popis.dodaj(r, false)
 	}
 }
 
