@@ -7416,6 +7416,9 @@ button.karta-nedostaje-ucrtaj { padding: 0; border: 0; background: none; font-fa
   background: #173e74; color: #c9d6ee; font-size: 12px; white-space: nowrap; cursor: move; box-shadow: var(--shadow);
 }
 .karta-ispis-natpis strong { color: #ffffff; font-size: 13px; font-weight: 600; }
+.leaflet-marker-icon.karta-ispis-ploha { background: transparent; cursor: move; }
+.karta-ispis-sredina { align-self: flex-start; }
+.karta-ispis-traka { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 12px; max-width: calc(100vw - 32px); }
 .karta-ispis-kut { box-sizing: border-box; width: 14px !important; height: 14px !important; border: 2px solid #173e74; border-radius: 2px; background: #ffffff; cursor: nwse-resize; }
 .karta-ispis-priprema {
   position: fixed; z-index: 3000; left: 50%; top: 16px; transform: translateX(-50%); padding: 10px 16px; border-radius: 8px;
@@ -7439,6 +7442,9 @@ body.karta-ispisuje .leaflet-bottom.leaflet-right { display: none; }
 .karta-ispis-legenda li { display: flex; align-items: center; gap: 6px; break-inside: avoid; }
 .karta-ispis-legenda .karta-sloj-znak { width: 18px; height: 18px; color: #44474e; }
 .karta-ispis-legenda .karta-sloj-znak .icon { width: 14px; height: 14px; }
+/* preglednik pri ispisu zadano izostavi pozadine, pa je crta u legendi rub */
+.karta-ispis-legenda .karta-sloj-crta::before { height: 0; border-radius: 0; background: none; border-top: var(--karta-debljina, 4px) solid var(--karta-boja, #173e74); }
+.karta-ispis-dodaci { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .karta-ispis-sjever { position: absolute; right: 10px; top: 8px; display: flex; flex-direction: column; align-items: center; font-size: 11px; font-weight: 700; }
 .karta-ispis-sjever svg { width: 18px; height: 24px; fill: #1a1b1e; stroke: #ffffff; stroke-width: 1; }
 .karta-ispis-mjerilo { position: absolute; right: 8px; top: 46px; padding: 2px 6px; background: rgb(255 255 255 / 0.92); font-size: 12px; font-weight: 600; }

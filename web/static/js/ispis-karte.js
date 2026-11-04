@@ -1,6 +1,6 @@
 // Ispis Karte na papir ili u PDF: format A4 do A0, uspravno ili položeno, i
-// mjerilo za odabrani okvir. Okvir se povlači po karti, a kut mijenja
-// područje. Mjerilo je obavezno: „Kao na zaslonu” ispisuje okvir kakav jest,
+// mjerilo za odabrani okvir. Okvir se povlači po karti bilo gdje unutra, a
+// kut mijenja područje. Mjerilo je obavezno: „Kao na zaslonu” ispisuje okvir kakav jest,
 // uz izračunato mjerilo, a okruglo mjerilo namjesti okvir točno na sebe.
 // Ispis ide kroz preglednik: karta se za to vrijeme postavi na veličinu
 // papira i točno mjerilo, pa se vrati kakva je bila.
@@ -11,6 +11,7 @@
   var OPSEG = 2 * Math.PI * 6371000; // m, isti polumjer kao mjera i Leafletova traka mjerila
   var PX_MM = 96 / 25.4; // točaka CSS-a u milimetru papira
   var PLAVA = '#173e74';
+  var SVIJET = [[-85, -180], [85, -180], [85, 180], [-85, 180]];
 
   function M() { return window.mjera; }
   function zapamti(k, v) { try { localStorage.setItem('gocop.ispis.' + k, v); } catch (e) { /* bez pamćenja */ } }
@@ -22,7 +23,7 @@
     var el = function (s) { return pogled.querySelector(s); };
     var stanje = { format: sjeti('format', 'A3'), polozaj: sjeti('polozaj', 'polozeno'), mjerilo: null, sredina: null, sirina: 0 };
     if (!PAPIRI[stanje.format]) stanje.format = 'A3';
-    var sloj = null, prethodni = null, ispisuje = false;
+    var sloj = null, dio = null, prethodni = null, ispisuje = false;
 
     function papir() {
       var p = PAPIRI[stanje.format], kraca = Math.min(p[0], p[1]), dulja = Math.max(p[0], p[1]);
@@ -44,16 +45,44 @@
       return L.latLngBounds(pomak(stanje.sredina, -w, -h), pomak(stanje.sredina, w, h));
     }
 
-    // početni okvir: 80 % slobodnog dijela karte (lijevo od ploče na
-    // računalu, iznad nje na tabletu i mobitelu)
-    function pocetniOkvir() {
+    // slobodni dio karte: lijevo od ploče na računalu, iznad nje na tabletu
+    // i mobitelu (ploča se mjeri; dok se otvara, uzme se njezina uobičajena
+    // veličina)
+    function slobodno() {
       var vel = karta.getSize(), uski = window.matchMedia('(max-width: 839px)').matches;
-      var sw = vel.x - (uski ? 0 : 384), sh = uski ? vel.y * 0.45 : vel.y;
-      var w = sw * 0.8, h = sh * 0.8;
+      var k = karta.getContainer().getBoundingClientRect(), p = pogled.parentNode.getBoundingClientRect();
+      if (p.width && p.height) {
+        if (uski) return L.point(vel.x, Math.max(120, Math.min(vel.y, p.top - k.top)));
+        return L.point(Math.max(160, Math.min(vel.x, p.left - k.left)), vel.y);
+      }
+      return L.point(vel.x - (uski ? 0 : 384), uski ? vel.y * 0.45 : vel.y);
+    }
+
+    // početni okvir: 80 % slobodnog dijela karte
+    function pocetniOkvir() {
+      var s = slobodno(), w = s.x * 0.8, h = s.y * 0.8;
       if (w / h > omjer()) w = h * omjer();
-      var c = L.point(sw / 2, sh / 2);
+      var c = L.point(s.x / 2, s.y / 2);
       stanje.sredina = karta.containerPointToLatLng(c);
       stanje.sirina = M().udaljenost(karta.containerPointToLatLng(c.subtract([w / 2, 0])), karta.containerPointToLatLng(c.add([w / 2, 0])));
+    }
+
+    // kad okvir ne stane u slobodni dio karte (npr. A0 u 1 : 5 000), karta se
+    // odmakne da se vidi cijeli
+    function pokaziOkvir() {
+      var g = granice(), s = slobodno(), vel = karta.getSize();
+      var a = karta.latLngToContainerPoint(g.getNorthWest()), b = karta.latLngToContainerPoint(g.getSouthEast());
+      if (a.x >= 0 && a.y >= 0 && b.x <= s.x && b.y <= s.y) return;
+      karta.fitBounds(g, { paddingTopLeft: [24, 24], paddingBottomRight: [vel.x - s.x + 24, vel.y - s.y + 24] });
+    }
+
+    // okvir na sredinu onoga što se vidi, iste veličine i mjerila
+    function naSredinu() {
+      var s = slobodno();
+      stanje.sredina = karta.containerPointToLatLng(L.point(s.x / 2, s.y / 2));
+      nacrtajOkvir();
+      pokaziOkvir();
+      osvjeziPlocu();
     }
 
     function ikona(html, klasa, sidro) {
@@ -62,38 +91,70 @@
 
     function makniOkvir() {
       if (sloj) { karta.removeLayer(sloj); sloj = null; }
+      dio = null;
     }
 
-    // okvir na karti: zatamnjeno izvan, rub, natpis za povlačenje i četiri kuta
+    // vlastito okno za plohu okvira: iznad crta, ispod oznaka na karti
+    function okno() {
+      if (!karta.getPane('ispisOkvir')) karta.createPane('ispisOkvir').style.zIndex = 590;
+      return 'ispisOkvir';
+    }
+
+    function presjek(a, b) {
+      var j = Math.max(a.getSouth(), b.getSouth()), s = Math.min(a.getNorth(), b.getNorth());
+      var z = Math.max(a.getWest(), b.getWest()), i = Math.min(a.getEast(), b.getEast());
+      return j < s && z < i ? L.latLngBounds([j, z], [s, i]) : null;
+    }
+
+    // povlačenje okvira za natpis ili bilo gdje unutra: okvir ide za mišem
+    // ili prstom, a mjerilo ostaje
+    function povlaci(m) {
+      var pocetak = null;
+      m.on('dragstart', function () { pocetak = { ll: m.getLatLng(), sredina: stanje.sredina }; });
+      m.on('drag', function () {
+        var ll = m.getLatLng();
+        stanje.sredina = L.latLng(pocetak.sredina.lat + ll.lat - pocetak.ll.lat, pocetak.sredina.lng + ll.lng - pocetak.ll.lng);
+        osvjeziOblik(m);
+      });
+      m.on('dragend', function () { nacrtajOkvir(); osvjeziPlocu(); });
+    }
+
+    // okvir na karti: zatamnjeno izvan, rub, ploha i natpis za povlačenje te
+    // četiri kuta
     function nacrtajOkvir() {
       makniOkvir();
       if (!stanje.sredina) return;
       var g = granice(), sz = g.getNorthWest(), si = g.getNorthEast(), jz = g.getSouthWest(), ji = g.getSouthEast();
       sloj = L.layerGroup().addTo(karta);
+      dio = { kutovi: [] };
       var nema = { interactive: false, pmIgnore: true, snapIgnore: true };
-      L.polygon([[[-85, -180], [85, -180], [85, 180], [-85, 180]], [sz, si, ji, jz]], L.extend({ stroke: false, fillColor: '#1a1b1e', fillOpacity: 0.35 }, nema)).addTo(sloj);
-      L.rectangle(g, L.extend({ color: '#ffffff', weight: 5, fill: false }, nema)).addTo(sloj);
-      L.rectangle(g, L.extend({ color: PLAVA, weight: 2, fill: false }, nema)).addTo(sloj);
+      // prozirna ploha samo preko vidljivog dijela okvira, da veliki okvir u
+      // krupnom zumu ne bude golem element
+      var vidi = presjek(g, karta.getBounds().pad(0.5));
+      if (vidi) {
+        var a = karta.latLngToLayerPoint(vidi.getNorthWest()), b = karta.latLngToLayerPoint(vidi.getSouthEast());
+        povlaci(L.marker(vidi.getNorthWest(), { pane: okno(), draggable: true, keyboard: false, pmIgnore: true, snapIgnore: true,
+          icon: L.divIcon({ className: 'karta-ispis-ploha', html: '', iconSize: [Math.round(b.x - a.x), Math.round(b.y - a.y)], iconAnchor: [0, 0] }) }).addTo(sloj));
+      }
+      dio.sjena = L.polygon([SVIJET, [sz, si, ji, jz]], L.extend({ stroke: false, fillColor: '#1a1b1e', fillOpacity: 0.35 }, nema)).addTo(sloj);
+      dio.rub = [
+        L.rectangle(g, L.extend({ color: '#ffffff', weight: 5, fill: false }, nema)).addTo(sloj),
+        L.rectangle(g, L.extend({ color: PLAVA, weight: 2, fill: false }, nema)).addTo(sloj)
+      ];
       var tekst = nazivPapira() + (stanje.mjerilo == null ? ' · mjerilo nije odabrano' : ' · ' + M().mjerilo(mjeriloIspisa()));
-      var natpis = L.marker(sz, { draggable: true, keyboard: false, pmIgnore: true, snapIgnore: true, zIndexOffset: 1000,
+      dio.natpis = L.marker(sz, { draggable: true, keyboard: false, pmIgnore: true, snapIgnore: true, zIndexOffset: 1000,
         icon: ikona('<span class="karta-ispis-natpis"><strong>' + escapeHtml(tekst) + '</strong> povucite okvir ili njegov kut</span>', 'karta-ispis-natpis-omot', [0, 38]) }).addTo(sloj);
-      var pocetak = null;
-      natpis.on('dragstart', function () { pocetak = { ll: natpis.getLatLng(), sredina: stanje.sredina }; });
-      natpis.on('drag', function () {
-        var ll = natpis.getLatLng();
-        stanje.sredina = L.latLng(pocetak.sredina.lat + ll.lat - pocetak.ll.lat, pocetak.sredina.lng + ll.lng - pocetak.ll.lng);
-        osvjeziOblik();
-      });
-      natpis.on('dragend', function () { nacrtajOkvir(); osvjeziPlocu(); });
+      povlaci(dio.natpis);
       [[sz, ji, -1, 1], [si, jz, 1, 1], [jz, si, -1, -1], [ji, sz, 1, -1]].forEach(function (k) {
         var kut = L.marker(k[0], { draggable: true, keyboard: false, pmIgnore: true, snapIgnore: true, zIndexOffset: 1000,
           icon: ikona('', 'karta-ispis-kut', [7, 7]) }).addTo(sloj);
+        dio.kutovi.push(kut);
         var suprotni = k[1];
         kut.on('drag', function () {
           var ll = kut.getLatLng(), w = Math.max(50, M().udaljenost(L.latLng(suprotni.lat, ll.lng), suprotni)), h = w / omjer();
           stanje.sirina = w;
           stanje.sredina = pomak(suprotni, k[2] * w / 2, k[3] * h / 2);
-          osvjeziOblik();
+          osvjeziOblik(kut);
         });
         kut.on('dragend', function () {
           // novo područje, novo mjerilo: bira se ponovno
@@ -104,14 +165,21 @@
       });
     }
 
-    // dok se vuče, samo se pomaknu zatamnjenje i rub
-    function osvjeziOblik() {
-      if (!sloj) return;
-      var g = granice(), lista = sloj.getLayers();
-      lista[0].setLatLngs([[[-85, -180], [85, -180], [85, 180], [-85, 180]], [g.getNorthWest(), g.getNorthEast(), g.getSouthEast(), g.getSouthWest()]]);
-      lista[1].setBounds(g);
-      lista[2].setBounds(g);
+    // dok se vuče, zatamnjenje, rub, natpis i kutovi idu za okvirom; ploha
+    // se ponovno nacrta kad se pusti
+    function osvjeziOblik(vuce) {
+      if (!dio) return;
+      var g = granice(), uglovi = [g.getNorthWest(), g.getNorthEast(), g.getSouthWest(), g.getSouthEast()];
+      dio.sjena.setLatLngs([SVIJET, [uglovi[0], uglovi[1], uglovi[3], uglovi[2]]]);
+      dio.rub.forEach(function (r) { r.setBounds(g); });
+      if (dio.natpis !== vuce) dio.natpis.setLatLng(uglovi[0]);
+      dio.kutovi.forEach(function (k, i) { if (k !== vuce) k.setLatLng(uglovi[i]); });
       osvjeziPlocu();
+    }
+
+    // ploha prati vidljivi dio okvira, pa se nacrta iznova kad se karta pomakne
+    function naPomakKarte() {
+      if (sloj && !ispisuje) nacrtajOkvir();
     }
 
     function najblize() {
@@ -141,8 +209,8 @@
       var uputa = el('.karta-ispis-uputa');
       uputa.classList.toggle('karta-ispis-uputa-greska', stanje.mjerilo == null);
       if (stanje.mjerilo == null) uputa.textContent = 'Odaberite mjerilo; bez njega se ne ispisuje, jer na papiru mora pisati mjerilo.';
-      else if (stanje.mjerilo === 'zaslon') uputa.textContent = '„Kao na zaslonu” ispisuje okvir kakav jest, uz izračunato mjerilo. Kut okvira mijenja područje, pa se mjerilo bira ponovno.';
-      else uputa.textContent = 'Okvir je namješten na ' + M().mjerilo(stanje.mjerilo) + ': na papiru 1 cm = ' + M().metri(stanje.mjerilo / 100) + '. Kut okvira mijenja područje, pa se mjerilo bira ponovno.';
+      else if (stanje.mjerilo === 'zaslon') uputa.textContent = '„Kao na zaslonu” ispisuje okvir kakav jest, uz izračunato mjerilo. Okvir povucite na mjesto koje ispisujete; kut mijenja područje, pa se mjerilo bira ponovno.';
+      else uputa.textContent = 'Okvir je namješten na ' + M().mjerilo(stanje.mjerilo) + ': na papiru 1 cm = ' + M().metri(stanje.mjerilo / 100) + '. Okvir povucite na mjesto koje ispisujete; kut mijenja područje, pa se mjerilo bira ponovno.';
       var p = papir();
       el('.karta-ispis-napomena').textContent = nazivPapira() + ' je ' + p[0] + ' × ' + p[1] + ' mm. Na pisaču odaberite isti format i 100 %.' +
         (stanje.format === 'A1' || stanje.format === 'A0' ? ' Za A1 i A0 karta učitava puno pločica, pa priprema traje i do minute.' : '');
@@ -164,6 +232,7 @@
       // okruglo mjerilo drži okvir na sebi i kad se promijeni papir
       if (typeof stanje.mjerilo === 'number') stanje.sirina = stanje.mjerilo * korisno()[0] / 1000;
       nacrtajOkvir();
+      pokaziOkvir();
       osvjeziPlocu();
     }
 
@@ -185,6 +254,7 @@
       okvir.classList.add('karta-u-ispisu');
       o.otvoriPlocu();
       stanje.mjerilo = null;
+      karta.on('moveend', naPomakKarte);
       // ploča se otvara pa karta treba trenutak da zna svoju veličinu
       setTimeout(function () {
         pocetniOkvir();
@@ -194,6 +264,7 @@
     }
 
     function zatvori() {
+      karta.off('moveend', naPomakKarte);
       makniOkvir();
       pogled.hidden = true;
       okvir.classList.remove('karta-u-ispisu');
@@ -275,10 +346,12 @@
       var zum = Math.log2(OPSEG * Math.cos(c.lat * Math.PI / 180) / (256 * S * 0.0254 / 96));
       karta.setView(c, zum, { animate: false });
       var vraceno = false;
+      function naTipku(e) { if (e.key === 'Escape') vrati(); }
+      document.addEventListener('keydown', naTipku);
       function vrati() {
         if (vraceno) return;
         vraceno = true;
-        window.removeEventListener('afterprint', vrati);
+        document.removeEventListener('keydown', naTipku);
         dodatak.remove();
         priprema.remove();
         stranica.remove();
@@ -292,10 +365,35 @@
         if (!pogled.hidden) nacrtajOkvir();
         osvjeziPlocu();
       }
+      // traka na zaslonu (ne ide na papir): ispis ponovno i povratak na kartu
+      function traka() {
+        priprema.textContent = '';
+        priprema.classList.add('karta-ispis-traka');
+        var tekst = document.createElement('span');
+        tekst.textContent = 'Karta je postavljena za ' + nazivPapira() + ' u mjerilu ' + M().mjerilo(S) + '.';
+        var gumb = function (naziv, klasa, radnja) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'btn btn-sm ' + klasa;
+          b.textContent = naziv;
+          b.addEventListener('click', radnja);
+          priprema.appendChild(b);
+          return b;
+        };
+        priprema.appendChild(tekst);
+        gumb('Ispiši ili spremi PDF', 'btn-primary', function () { window.print(); });
+        gumb('Natrag na kartu', 'btn-secondary', vrati).focus();
+      }
       cekajPlocice().then(function () {
-        window.addEventListener('afterprint', vrati);
+        if (vraceno) return;
+        traka();
+        var t0 = Date.now();
         window.print();
-        setTimeout(vrati, 1000);
+        // Neki preglednici čekaju dok se ispis ne zatvori, pa se karta odmah
+        // vraća. Drugi nastave dok je pregled ispisa još otvoren; tada karta
+        // ostaje postavljena za papir dok se ne pritisne „Natrag na kartu” ili
+        // Esc, jer bi je povratak promijenio ispod otvorenog ispisa.
+        if (Date.now() - t0 > 300) vrati();
       });
     }
 
@@ -303,6 +401,7 @@
     el('.karta-ispis-zatvori').addEventListener('click', zatvori);
     el('.karta-ispis-odustani').addEventListener('click', zatvori);
     el('.karta-ispis-ispisi').addEventListener('click', ispisi);
+    el('.karta-ispis-sredina').addEventListener('click', naSredinu);
     return { otvori: otvori, zatvori: zatvori };
   }
 

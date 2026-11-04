@@ -160,12 +160,17 @@ crta na Karti, ne radi. Računica (udaljenost na kugli polumjera 6371 km,
 površina, km) je u `js/mjera.js`, zajednička s mjerom pri crtanju.
 
 Ispis je samo na Karti: format A4 do A0, uspravno ili položeno, i mjerilo
-za okvir koji se povlači po karti (Odluke (4. 11. 2026.)). Mjerilo je
+za okvir koji se povlači po karti (Odluke (4. 11. 2026.)). Okvir se hvata
+bilo gdje unutra i pomiče s istim mjerilom i veličinom; kad u odabranom
+mjerilu ne stane na zaslon, karta se odmakne. Mjerilo je
 obavezno: „Kao na zaslonu” ispisuje okvir uz izračunato mjerilo,
 zaokruženo na stotice, a okruglo mjerilo (1 : 5 000 do 1 : 100 000)
 namjesti okvir točno na sebe. Za ispis se karta postavi na veličinu
 korisnog dijela papira (rub 10 mm) i zum za točno mjerilo, pa ide kroz
-preglednik (ispis ili PDF). Na listu su legenda uključenih slojeva i
+preglednik (ispis ili PDF). Preglednik koji čeka dok se ispis ne zatvori
+vrati kartu sam; kod drugih karta ostaje postavljena za papir dok se ne
+pritisne „Natrag na kartu” ili Esc, jer bi povratak promijenio stranicu ispod
+otvorenog ispisa. Na listu su legenda uključenih slojeva i
 naslov, mjerilo i sjever, te datum, podloga i tko je ispisao. Format i
 položaj papira pamte se na računalu, mjerilo se bira svaki put.
 

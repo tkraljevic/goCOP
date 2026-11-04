@@ -138,7 +138,7 @@ func TestKartaAlatSamoSPravom(t *testing.T) {
 		`class="karta-ucrtavanje-bezcrte"`, `class="karta-ucrtavanje-preklapanje"`, `class="karta-ucrtavanje-datoteka"`}
 	// ispis je za svakoga tko vidi Kartu, s obaveznim mjerilom
 	ispis := []string{"js/ispis-karte.js", `class="karta-pogled-ispis"`, "Mjerilo (obavezno)", `data-format="A0"`, `data-polozaj="polozeno"`,
-		"Ispiši ili spremi PDF"}
+		"Ispiši ili spremi PDF", `class="btn btn-sm btn-link karta-ispis-sredina"`, "Okvir na sredinu karte"}
 
 	h, _ := kartaSUredjivanjem(t, nil)
 	sPravom := stranica(h, &models.UserPermissions{})
