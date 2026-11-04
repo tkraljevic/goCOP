@@ -451,7 +451,7 @@ func TestKarticaIHistorijatSuRazdvojeni(t *testing.T) {
 	// U historijatu: sve povijesno, i put natrag na karticu.
 	for _, want := range []string{
 		"Povratni vodostaji", "Promjene kote nule",
-		"Valovi obrane u nizu", "Obrane vođene po ovoj letvi", "Kartica letve",
+		"Valovi obrane u nizu", "Obrane vođene po ovoj letvi", ">Kartica</a>",
 	} {
 		if !strings.Contains(povijest, want) {
 			t.Errorf("u historijatu nema %q", want)

@@ -233,3 +233,12 @@ func prekidac(ukljucen bool) string {
 	}
 	return "1"
 }
+
+// poStraniciPopisa: popis uz otvorenu letvu nema stranica, jer bi listanje
+// odvelo s letve
+func poStraniciPopisa(okno bool) int {
+	if okno {
+		return 2000
+	}
+	return registryPerPage
+}
