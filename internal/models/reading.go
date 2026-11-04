@@ -286,6 +286,7 @@ type GaugeSummary struct {
 	Key         string
 	Name        string
 	Sub         string // voda, stacionaža ili vrsta objekta
+	Voda        string // voda na kojoj je postaja, za skupine popisa; prazno za objekt
 	URL         string
 	NewURL      string
 	StationID   string
