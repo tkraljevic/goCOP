@@ -121,10 +121,15 @@ func (w Watercourse) IsFirstOrder() bool {
 	return w.Category != ""
 }
 
-// CategoryLabel vraća kategoriju u obliku za prikaz
+// CategoryLabel vraća kategoriju u obliku za prikaz. Voda koje nema na popisu
+// voda I. reda pokazuje svoju skupinu kad je upisana, npr. „kanal II. reda”
+// za kanale Baranje.
 func (w Watercourse) CategoryLabel() string {
 	switch w.Category {
 	case "":
+		if s := strings.TrimSpace(w.Subcategory); s != "" {
+			return s
+		}
 		return "nije voda I. reda"
 	case "MEĐUDRŽAVNE VODE":
 		return "Međudržavna voda"

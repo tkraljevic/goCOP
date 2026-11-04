@@ -45,7 +45,7 @@
     {{if .Water.Source}}<div><dt>Izvor</dt><dd>{{.Water.Source}}</dd></div>{{end}}
     {{if .Water.Mouth}}<div><dt>Ušće</dt><dd>{{.Water.Mouth}}</dd></div>{{end}}
     {{if .Water.FlowsInto}}<div><dt>Ulijeva se u</dt><dd>{{.Water.FlowsInto}}</dd></div>{{end}}
-    {{if .Water.Subcategory}}<div><dt>Skupina u Odluci</dt><dd>{{.Water.Subcategory}}</dd></div>{{end}}
+    {{if and .Water.IsFirstOrder .Water.Subcategory}}<div><dt>Skupina u Odluci</dt><dd>{{.Water.Subcategory}}</dd></div>{{end}}
     <div><dt>Šifra</dt><dd class="font-mono fw-500">{{.Water.Code}}</dd></div>
     {{if .Water.WikiURL}}<div><dt>Wikipedija</dt><dd><a href="{{.Water.WikiURL}}" target="_blank" rel="noopener">{{.Water.WikiNaslov}}</a> <span class="reading-meta">· CC BY-SA 4.0</span></dd></div>{{end}}
   </dl>
