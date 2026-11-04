@@ -4,6 +4,54 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.51-alfa — 4. 11. 2026.
+
+Crtanje na samoj Karti, područja i vodotoci po redu, retencije i
+akumulacije kao površine. Baza i razmjena se ne mijenjaju, pa računala ne
+treba nadograditi isti dan.
+
+- **Crta se na Karti.** Nasipi, objekti, tokovi vode i letve crtaju se i
+  ispravljaju samo na Karti, gdje se vide i susjedni nasipi i tokovi.
+  Crtanje se otvara gumbom „Uredi na karti” u prozorčiću, gumbom „Ucrtaj”
+  u popisu onoga što nedostaje ili gumbom „Uredi na Karti” na stranici
+  objekta i vode. Te stranice sad samo prikazuju kartu i učitavaju KML ili
+  GeoJSON. Ploča desno pokazuje koliko je nacrtano prema duljini nasipa po
+  dionicama, na primjer „2,21 km, po dionici 2,19 km”.
+- **Stacionaža iz nacrtanog.** „Generiraj stacionažu” postavi točke km na
+  svaki puni kilometar i na krajeve, po želji rastegnuto na duljinu po
+  dionici. Nasip nacrtan u više dijelova složi se u niz od kraja do kraja,
+  a praznina između dijelova, na primjer na ušću spojnog kanala, ulazi u
+  km. Kad nasip prolazi kroz više dionica, svaki dio može dobiti km svoje
+  dionice. Prekidač „Oznake km” samo skriva oznake.
+- **Prekini crtu i prianjanje.** „Prekini crtu” makne komad crte između
+  dva klika, a nasip ostaje isti zapis u dva dijela. Nova točka i
+  pomaknuti vrh lijepe se na susjedne vodotoke, nasipe i objekte, pa ušće
+  kanala sjedne na tok u koji se ulijeva.
+- **Letve.** Letve na Karti imaju svoju ikonu iz Administracije › Karte i
+  pomiču se povlačenjem; letva bez položaja postavi se klikom na kartu.
+- **Opširnije.** Uz svaki sloj stoji „opširnije”, a pogled ima dva popisa,
+  „Nedostaje” i „Ucrtano”. Uz ucrtano su „Pokaži” i „Uredi”.
+- **Područja.** Uz županije su gradovi i općine te branjena područja, svako
+  s granicom i imenom. Gradovi i općine zadano su isključeni. Granice su
+  pojednostavljene i bez imena čelnika i kontakata, pa se Karta brže
+  otvara.
+- **Vodotoci po redu.** Vodotoci su u slojevima: međudržavni, I. reda, II.
+  reda te III. i IV. reda, s debljom crtom za veći red. Vodotok kojemu red
+  nije upisan stoji u zasebnom sloju.
+- **Retencije, akumulacije i jezera.** Spadaju pod Vode: u registru voda
+  imaju vrstu jezero, akumulacija ili retencija i crtaju se kao površina,
+  alatom „Novi poligon”, uz površinu u hektarima. Na Karti su u sloju
+  „Retencije, akumulacije i jezera”.
+- **Odziv na klik.** Pritisnuti gumb odmah pokaže da radi, a obrazac se ne
+  šalje dvaput. Kad odgovor kasni, piše „Učitavanje traje dulje nego
+  obično…”, a nakon 45 sekundi „Odgovor nije stigao. Provjerite vezu i
+  pokušajte ponovno.”
+- **Kanal II. reda.** Stranica kanala izvan popisa voda I. reda piše svoju
+  skupinu, na primjer „kanal II. reda”, umjesto „nije voda I. reda”.
+- **MIN i MAX s datumom.** Pločica vodostaja uz najniži i najviši vodostaj
+  piše kad je izmjeren, na primjer „−211 cm · 21. 10. 2026.”. Osijek više
+  ne pokazuje minimum iz 2022. kad je rekord iz 2026.
+
 ## 0.0.50-alfa — 3. 11. 2026.
 
 Nova stranica Karta i duljina dok se crta. Baza i razmjena se ne mijenjaju.
