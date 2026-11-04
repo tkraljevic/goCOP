@@ -4,6 +4,43 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.52-alfa — 4. 11. 2026.
+
+Iste kontrole na svim kartama, ravnalo, ispis Karte u mjerilu i bolji
+uređivač. Baza i razmjena se ne mijenjaju, pa računala ne treba
+nadograditi isti dan.
+
+- **Iste kontrole na svim kartama.** Gore desno su puni zaslon, položaj,
+  ravnalo i, na Karti, ispis. Dolje desno je stupac strelica, zuma i
+  gumba Slojevi, a dolje lijevo mjerilo i zasluge. Gumb Slojevi je kvadrat
+  s ikonom i više ne prekriva puni zaslon. Male karte u stranicama otvaraju
+  malu ploču s podlogom, karta teritorija i sa slojevima županija, gradova,
+  općina i naselja. Na niskoj karti nema strelica, a na najnižoj ni
+  položaja i ravnala; puni zaslon ih vraća. Na mobitelu i tabletu ploča
+  Slojeva zatvara se i povlačenjem prema dolje.
+- **Ravnalo.** Mjeri udaljenost točku po točku, površinu u hektarima i
+  duljinu po nasipu ili vodi između dviju točaka, s km stacionaže na
+  krajevima, na primjer „od km 1+223 do km 3+363, 2,14 km po nasipu”.
+  Ništa se ne sprema, a rezultat se može kopirati. Na mobitelu se karta
+  pomakne pod križić, pa „Dodaj točku”.
+- **Ispis Karte.** A4 do A0, uspravno ili položeno. Okvir onoga što ide
+  na papir povlači se po karti, a mjerilo je obavezno: „Kao na zaslonu”
+  ili okruglo, od 1 : 5 000 do 1 : 100 000, koje namjesti okvir na sebe.
+  Na listu su legenda uključenih slojeva i naslov, mjerilo i sjever te
+  datum, podloga i tko je ispisao. Ispisuje se kroz preglednik, na pisač
+  ili u PDF.
+- **Poništi i Ponovi.** U uređivaču gumbi na traci ili Ctrl+Z i
+  Ctrl+Shift+Z vraćaju i ponavljaju izmjene, do 50 koraka.
+- **Briši vrhove i prianjanje.** Alat „Briši vrhove” briše vrh dodirom, za
+  tablet. Prianjanje se pali i gasi gumbom s magnetom, a dok se drži Alt,
+  isključeno je samo za taj potez.
+- **Nastavak crte i preklapanje.** Nova crta s kraja postojeće nastavlja
+  je u jednu crtu. Kad se nasip dulje od 50 m poklapa s drugim nasipom,
+  ploča upozori i pokaže gdje. Kad ostanu samo točke km bez crte, ploča to
+  kaže i ne da spremiti.
+- **Učitaj i Izvezi.** Ikone su među alatima na karti; izvoz daje GeoJSON
+  ili KML za Google Earth.
+
 ## 0.0.51-alfa — 4. 11. 2026.
 
 Crtanje na samoj Karti, područja i vodotoci po redu, retencije i
