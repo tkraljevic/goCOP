@@ -35,7 +35,7 @@ func TestPrenesiKrajnosti(t *testing.T) {
 	if mn, mx := prenesiKrajnosti(&Krajnost{Cm: -150}, nil, ilok, models.Station{Name: "Bez kote"}); mn != nil || mx != nil {
 		t.Errorf("bez kote nule preneseno je %+v %+v", mn, mx)
 	}
-	if got := mx.Label(); got != "+862 cm · s letve Ilok" {
+	if got := mx.Label(); got != "+862 cm · 1965. · s letve Ilok" {
 		t.Errorf("oznaka: %q", got)
 	}
 	if got := mn.Naslov(); !strings.Contains(got, "najniži izmjereni vodostaj na letvi Ilok (2022.)") {

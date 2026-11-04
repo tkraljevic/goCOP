@@ -332,33 +332,56 @@ func listGrafova(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, letv
 // predmemoriju, ne upit, pa stranica prognoza koja čita najniže vodostaje ne
 // čeka izvoz ni punjenje u pozadini.
 type godisnjiVodostaji struct {
-	mu   sync.Mutex
-	dan  string
-	po   map[string][]repository.GodinaVodostaja
-	puni bool // punjenje u pozadini upravo traje
+	mu    sync.Mutex
+	dan   string
+	po    map[string][]repository.GodinaVodostaja
+	jucer map[string][]repository.GodinaVodostaja // prethodni dan, dok se današnji ne izračuna
+	puni  bool                                    // punjenje u pozadini upravo traje
 }
 
 // danas je dan predmemorije, po našem vremenu.
 func danas() string { return time.Now().In(models.Zagreb).Format("2006-01-02") }
 
+// noviDan počinje predmemoriju iznova, a jučerašnju čuva dok se današnja ne
+// izračuna. Poziva se pod bravom.
+func (g *godisnjiVodostaji) noviDan() {
+	if g.dan == danas() {
+		return
+	}
+	if len(g.po) > 0 {
+		g.jucer = g.po
+	}
+	g.dan, g.po = danas(), map[string][]repository.GodinaVodostaja{}
+}
+
 // izPredmemorije vraća što je za letvu danas već izračunato.
 func (g *godisnjiVodostaji) izPredmemorije(kod string) ([]repository.GodinaVodostaja, bool) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	if g.dan != danas() {
-		g.dan, g.po = danas(), map[string][]repository.GodinaVodostaja{}
-	}
+	g.noviDan()
 	v, ima := g.po[kod]
 	return v, ima
+}
+
+// zadnje vraća današnji izračun letve, a dok ga nema jučerašnji; svjeze je
+// false kad je jučerašnji ili ga nema, pa ga treba izračunati. Tako kartica
+// prognoze iza ponoći ne ostaje bez krajnosti iz arhive.
+func (g *godisnjiVodostaji) zadnje(kod string) (v []repository.GodinaVodostaja, ima, svjeze bool) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.noviDan()
+	if v, ima := g.po[kod]; ima {
+		return v, true, true
+	}
+	v, ima = g.jucer[kod]
+	return v, ima, false
 }
 
 // zapamti sprema izračun letve za danas.
 func (g *godisnjiVodostaji) zapamti(kod string, v []repository.GodinaVodostaja) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	if g.dan != danas() {
-		g.dan, g.po = danas(), map[string][]repository.GodinaVodostaja{}
-	}
+	g.noviDan()
 	g.po[kod] = v
 }
 
@@ -401,24 +424,32 @@ func (h *PrognozeHandler) godisnjeVelicine(ctx context.Context, velicina string,
 // Krajnost je najniži ili najviši izmjereni vodostaj letve: iz arhive, bez
 // godina preračunatih sa susjedne letve, a gdje arhive nema, iz evidencije
 // očitanja — tada Od kaže od kada evidencija ide, da se kratak niz ne čita
-// kao povijest letve.
+// kao povijest letve. Na pločici uvijek stoji kada je krajnost izmjerena:
+// dan iz evidencije, a iz arhive godina.
 type Krajnost struct {
 	Cm           float64
 	Godina       int
 	Najvisi      bool
 	IzEvidencije bool   // očitanje iz evidencije, novije od arhive ili bez nje
+	Datum        string // „21. 10. 2026.", dan očitanja iz evidencije; iz arhive se zna samo godina
 	Od           string // „12. 9. 2026." kad letva nema niz u arhivi
 	Prema        string // letva s koje je krajnost prenesena (izvorKrajnosti)
 }
 
-// Label je krajnost za pločicu: „-160 cm", odnosno „-35 cm · od 12. 9. 2026.".
+// Label je krajnost za pločicu s vremenom kada je izmjerena: „-211 cm ·
+// 21. 10. 2026.", „-160 cm · 2022.", „+862 cm · 1965. · s letve Ilok". Od
+// kada ide kratka evidencija piše samo u opisu (Naslov): na pločici se čitao
+// kao datum krajnosti.
 func (k Krajnost) Label() string {
 	s := fmt.Sprintf("%+d cm", int(k.Cm))
 	switch {
-	case k.Prema != "":
+	case k.Datum != "":
+		s += " · " + k.Datum
+	case k.Godina > 0:
+		s += fmt.Sprintf(" · %d.", k.Godina)
+	}
+	if k.Prema != "" {
 		s += " · s letve " + k.Prema
-	case k.Od != "":
-		s += " · od " + k.Od
 	}
 	return s
 }
@@ -539,21 +570,21 @@ func prenesiKrajnosti(min, max *Krajnost, izvor, letva models.Station) (*Krajnos
 // uzEvidenciju dopunjuje krajnosti iz arhive evidencijom očitanja: očitanje
 // koje arhivu nadmaši ima prednost (novi rekord vidi se odmah, a ne tek kad
 // stigne u arhivu), a letva bez arhive (srpske, mađarske, manje letve BP16)
-// dobiva krajnosti iz evidencije, uz datum od kojeg evidencija ide. Isto
+// dobiva krajnosti iz evidencije, uz datum od kojeg evidencija ide. bezNiza
+// kaže da je arhiva pročitana i letva u njoj nema niz: dok se arhiva još
+// računa, kartica ne smije tvrditi da je evidencija sve što letva ima. Isto
 // pravilo vrijedi na kartici prognoze i na stranici očitanja.
-func uzEvidenciju(ctx context.Context, rs *service.ReadingService, st models.Station, min, max *Krajnost) (*Krajnost, *Krajnost) {
+func uzEvidenciju(ctx context.Context, rs *service.ReadingService, st models.Station, min, max *Krajnost, bezNiza bool) (*Krajnost, *Krajnost) {
 	if rs == nil {
 		return min, max
 	}
 	od := ""
-	if min == nil && max == nil {
-		if kad, ima := rs.PrvoOcitanje(ctx, st.ID.String()); ima {
-			od = kad.In(models.Zagreb).Format("2. 1. 2006.")
-		}
+	if bezNiza && min == nil && max == nil {
+		od = pocetakEvidencije(ctx, rs, st)
 	}
 	for _, k := range rs.Krajnosti(ctx, st.ID.String()) {
 		godina, _ := strconv.Atoi(strings.SplitN(k.OnDate, "-", 2)[0])
-		c := &Krajnost{Cm: float64(k.LevelCm), Godina: godina, Najvisi: k.Kind == models.ExtremeMax, IzEvidencije: true, Od: od}
+		c := &Krajnost{Cm: float64(k.LevelCm), Godina: godina, Datum: danOcitanja(k.OnDate), Najvisi: k.Kind == models.ExtremeMax, IzEvidencije: true, Od: od}
 		if c.Najvisi {
 			if max == nil || c.Cm > max.Cm {
 				max = c
@@ -565,17 +596,41 @@ func uzEvidenciju(ctx context.Context, rs *service.ReadingService, st models.Sta
 	return min, max
 }
 
+// pocetakEvidencije je dan prvog očitanja letve, „29. 11. 2022.", ili prazno
+func pocetakEvidencije(ctx context.Context, rs *service.ReadingService, st models.Station) string {
+	kad, ima := rs.PrvoOcitanje(ctx, st.ID.String())
+	if !ima {
+		return ""
+	}
+	return kad.In(models.Zagreb).Format("2. 1. 2006.")
+}
+
+// danOcitanja piše dan očitanja „2026-10-21" kao „21. 10. 2026."; nepoznat
+// zapis ostaje prazan, pa pločica pokaže godinu
+func danOcitanja(dan string) string {
+	t, err := time.Parse("2006-01-02", dan)
+	if err != nil {
+		return ""
+	}
+	return t.Format("2. 1. 2006.")
+}
+
 // krajnosti vraća najniže i najviše izmjerene vodostaje letvi koje su danas
 // već u predmemoriji, a ostale pušta da se izračunaju u pozadini: stranica
-// prognoza ne smije čekati desetak sekundi arhive. Do kraja punjenja pločice
-// iz arhive na kartici jednostavno još ne stoje.
-func (h *PrognozeHandler) krajnosti(kodovi []string) map[string][2]*Krajnost {
-	out := map[string][2]*Krajnost{}
+// prognoza ne smije čekati desetak sekundi arhive. Dok traje novi izračun,
+// vrijede jučerašnje; letva koje nema ni jučer ide u cekaju, jer za nju još
+// ne znamo ima li niz u arhivi. Računalo bez arhive (ured) ne čeka ništa.
+func (h *PrognozeHandler) krajnosti(kodovi []string) (out map[string][2]*Krajnost, cekaju map[string]bool) {
+	out, cekaju = map[string][2]*Krajnost{}, map[string]bool{}
+	imaArhivu := h.arhiva != nil && h.arhiva() != nil
 	var fale []string
 	for _, kod := range kodovi {
-		godine, ima := h.godisnji.izPredmemorije(kod)
-		if !ima {
+		godine, ima, svjeze := h.godisnji.zadnje(kod)
+		if !svjeze {
 			fale = append(fale, kod)
+		}
+		if !ima {
+			cekaju[kod] = imaArhivu
 			continue
 		}
 		if mn, mx := krajnostiIzGodina(godine); mn != nil || mx != nil {
@@ -598,7 +653,7 @@ func (h *PrognozeHandler) krajnosti(kodovi []string) map[string][2]*Krajnost {
 			}()
 		}
 	}
-	return out
+	return out, cekaju
 }
 
 // Standardno razdoblje karakterističnih vrijednosti: trideset godina, kako ga

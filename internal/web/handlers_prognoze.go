@@ -699,7 +699,7 @@ func (h *PrognozeHandler) opisiLetve(popis map[string]models.Station, letve []Pr
 			kodovi = append(kodovi, l.Letva)
 		}
 	}
-	krajnosti := h.krajnosti(append(kodovi, izvoriKrajnosti(kodovi)...))
+	krajnosti, cekaju := h.krajnosti(append(kodovi, izvoriKrajnosti(kodovi)...))
 	dopuniPrenesenim(krajnosti, kodovi, popis)
 	for _, l := range letve {
 		ulaz := l.Racuna == "" && !l.UlazLanca && jeDnevniUlaz(l.Letva)
@@ -737,7 +737,7 @@ func (h *PrognozeHandler) opisiLetve(popis map[string]models.Station, letve []Pr
 				var mn, mx *Krajnost
 				if !strings.HasPrefix(l.Letva, "he-") {
 					k := krajnosti[l.Letva]
-					mn, mx = uzEvidenciju(context.Background(), h.readings, st, k[0], k[1])
+					mn, mx = uzEvidenciju(context.Background(), h.readings, st, k[0], k[1], !cekaju[l.Letva])
 				}
 				red.Pragovi = pragoviKartice(st, mn, mx)
 				// Za sažetak samo kad je arhiva već pročitana: sama evidencija
