@@ -227,7 +227,7 @@ func TestKartaPraznaBaza(t *testing.T) {
 	w := httptest.NewRecorder()
 	prazno.HandlePodaci(w, httptest.NewRequest("GET", "/karta/podaci.json", nil))
 	if got := strings.TrimSpace(w.Body.String()); got != `{"objekti":{"type":"FeatureCollection","features":[]},"vodotoci":{"type":"FeatureCollection","features":[]},"letve":[],"nedostaje":[],"ucrtano":[],"priblizno":{"type":"FeatureCollection","features":[]},`+
-		`"brojevi":{"brane":[0,0],"branjena-podrucja":[0,0],"crpne-stanice":[0,0],"letve":[0,0],"nasipi":[0,0],"opcine":[0,0],"ostali-objekti":[0,0],`+
+		`"brojevi":{"brane":[0,0],"branjena-podrucja":[0,0],"crpne-stanice":[0,0],"letve":[0,0],"nasipi":[0,0],"opcine":[0,0],"ostali-objekti":[0,0],"retencije":[0,0],`+
 		`"ustave":[0,0],"vodotoci-i":[0,0],"vodotoci-ii":[0,0],"vodotoci-iii-iv":[0,0],"vodotoci-medudrzavni":[0,0],"zupanije":[0,0]}}` {
 		t.Errorf("prazna karta: %s", got)
 	}

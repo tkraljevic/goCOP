@@ -217,3 +217,33 @@ func TestGranicePodrucjaIzvor(t *testing.T) {
 		t.Errorf("nepoznate granice: %v %d", err, len(b))
 	}
 }
+
+// Jezera, akumulacije i retencije su u svom sloju, kao površine, a ne
+// među vodotocima po redu; i u popisu onoga što nedostaje.
+func TestKartaPovrsineVoda(t *testing.T) {
+	povrsina := `{"type":"FeatureCollection","features":[{"type":"Feature","properties":{"tip":"poligon"},"geometry":{"type":"Polygon","coordinates":[[[18,45],[18.1,45],[18.1,45.1],[18,45]]]}}]}`
+	vodotoci := []models.Watercourse{
+		{Code: "akumulacija-borovik", Name: "Borovik", OfficialName: "akumulacija Borovik", Kind: "akumulacija", Geometry: povrsina},
+		{Code: "retencija-kusac", Name: "Kusac", OfficialName: "retencija Kusac", Kind: "retencija"},
+		{Code: "kanal-a", Name: "A", Subcategory: "kanal I. reda"},
+	}
+	var z geoZbirka
+	sloj := slojPovrsina(vodotoci, &z, pravaKarte{})
+	if sloj.Kljuc != "retencije" || sloj.Ucrtano != 1 || sloj.Ukupno != 2 || sloj.Crta {
+		t.Errorf("sloj: %+v", sloj)
+	}
+	if len(z.Features) != 1 || z.Features[0].Properties["vrsta"] != "akumulacija" || !strings.Contains(string(z.Features[0].Geometry), "Polygon") {
+		t.Errorf("površina: %+v", z.Features)
+	}
+	for _, s := range slojeviVodotoka(vodotoci, &geoZbirka{}, pravaKarte{}) {
+		if s.Ukupno > 0 && s.Kljuc != "vodotoci-i" {
+			t.Errorf("površina vode među vodotocima: %+v", s)
+		}
+	}
+	if slojVodotoka(vodotoci[1]) != "retencije" {
+		t.Error("retencija bez površine mora biti u popisu sloja retencije")
+	}
+	if !vodaUcrtana(vodotoci[0]) || vodaUcrtana(vodotoci[1]) {
+		t.Error("akumulacija s površinom je ucrtana, a retencija bez nje nije")
+	}
+}

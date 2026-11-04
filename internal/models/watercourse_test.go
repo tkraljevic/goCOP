@@ -47,3 +47,13 @@ func TestRedVode(t *testing.T) {
 		}
 	}
 }
+
+// Jezero, akumulacija i retencija crtaju se kao površina, i kad je vrsta
+// upisana velikim slovima; ostale vode kao crta toka.
+func TestJePovrsina(t *testing.T) {
+	for kind, htio := range map[string]bool{"akumulacija": true, "Retencija": true, "jezero": true, "kanal": false, "rukavac": false, "": false} {
+		if got := (Watercourse{Kind: kind}).JePovrsina(); got != htio {
+			t.Errorf("%q: %v", kind, got)
+		}
+	}
+}

@@ -54,15 +54,16 @@
 {{if and .Karta.Ima (or .GeometryJSON .CanEdit)}}
 <section class="detail-section" id="karta">
   <div class="detail-section-head d-flex justify-between items-center flex-wrap gap-2">
-    <h2>{{icon "map"}} Karta vodotoka</h2>
+    <h2>{{icon "map"}} {{if .Water.JePovrsina}}Na karti{{else}}Karta vodotoka{{end}}</h2>
     {{if .CanEdit}}
     <div class="karta-akcije d-flex gap-2 items-center">
-      <a class="btn btn-sm btn-secondary karta-uredi-na-karti" href="/karta#uredi=vodotok:{{.Water.Code}}">{{icon "pencil"}} Uredi tok na Karti</a>
+      <a class="btn btn-sm btn-secondary karta-uredi-na-karti" href="/karta#uredi=vodotok:{{.Water.Code}}">{{icon "pencil"}} {{if .Water.JePovrsina}}Uredi na Karti{{else}}Uredi tok na Karti{{end}}</a>
       {{template "ucitaj-tok" .}}
     </div>
     {{end}}
   </div>
-  {{if not .GeometryJSON}}<p class="reg-card-sub">Tok ove vode još nije ucrtan. Nacrtajte ga na Karti gumbom „Uredi tok na Karti” ili učitajte KML ili GeoJSON (WGS84, EPSG:4326); tok iz OpenStreetMapa nosi navod © OpenStreetMap contributors (ODbL).</p>{{end}}
+  {{if and (not .GeometryJSON) .Water.JePovrsina}}<p class="reg-card-sub">Površina ove vode još nije ucrtana. Nacrtajte je na Karti gumbom „Uredi na Karti” ili učitajte KML ili GeoJSON s površinom (WGS84, EPSG:4326).</p>
+  {{else if not .GeometryJSON}}<p class="reg-card-sub">Tok ove vode još nije ucrtan. Nacrtajte ga na Karti gumbom „Uredi tok na Karti” ili učitajte KML ili GeoJSON (WGS84, EPSG:4326); tok iz OpenStreetMapa nosi navod © OpenStreetMap contributors (ODbL).</p>{{end}}
   <div class="karta-vodotoka"
        data-sifra="{{.Water.Code}}"
        data-naziv="{{.Water.Name}}"
@@ -81,10 +82,10 @@
 
 {{if and .CanEdit (not .GeometryJSON) (not .Karta.Ima)}}
 <section class="detail-section" id="karta">
-  <h2>{{icon "map"}} Karta vodotoka</h2>
+  <h2>{{icon "map"}} {{if .Water.JePovrsina}}Na karti{{else}}Karta vodotoka{{end}}</h2>
   <div class="reg-card p-4">
     <p class="page-desc mt-0 mb-3">Tok ove vode još nije ucrtan. Učitajte KML ili GeoJSON s crtom toka u WGS84 (EPSG:4326), na primjer izvoz iz QGIS-a, Google Eartha ili OpenStreetMapa; tok iz OSM-a nosi navod © OpenStreetMap contributors (ODbL).</p>
-    <div class="d-flex gap-2 flex-wrap"><a class="btn btn-sm btn-secondary karta-uredi-na-karti" href="/karta#uredi=vodotok:{{.Water.Code}}">{{icon "pencil"}} Uredi tok na Karti</a>{{template "ucitaj-tok" .}}</div>
+    <div class="d-flex gap-2 flex-wrap"><a class="btn btn-sm btn-secondary karta-uredi-na-karti" href="/karta#uredi=vodotok:{{.Water.Code}}">{{icon "pencil"}} {{if .Water.JePovrsina}}Uredi na Karti{{else}}Uredi tok na Karti{{end}}</a>{{template "ucitaj-tok" .}}</div>
   </div>
 </section>
 {{end}}

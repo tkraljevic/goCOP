@@ -216,7 +216,7 @@ func (h *KartaHandler) HandleTok(w http.ResponseWriter, r *http.Request) {
 	}
 	// stacionažu Dunava i Drave program računa prema ENC-u, pa je Karta ne generira
 	writeJSON(w, map[string]any{"kod": v.Code, "naziv": prvoNeprazno(v.OfficialName, v.Name), "adresa": "/watercourses/" + v.Code,
-		"geojson": v.Geometry, "stacionaza_enc": stacionazaIzEnc(v.Code)})
+		"geojson": v.Geometry, "stacionaza_enc": stacionazaIzEnc(v.Code), "povrsina": v.JePovrsina()})
 }
 
 // HandlePolozajLetve upisuje letvi položaj s Karte

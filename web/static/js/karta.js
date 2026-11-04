@@ -128,7 +128,7 @@
   // vodotoci po redu vode (handlers_karta.go): veći red, deblja crta
   var DEBLJINA_VODE = { 'vodotoci-medudrzavni': 4.5, 'vodotoci-i': 3.5, 'vodotoci-ii': 2.5, 'vodotoci-iii-iv': 2, 'vodotoci-bez-reda': 2 };
 
-  function jeSlojVode(k) { return k.indexOf('vodotoci') === 0; }
+  function jeSlojVode(k) { return k.indexOf('vodotoci') === 0 || k === 'retencije'; }
 
   function slojeviVodotoka(zbirka) {
     var poSlojevima = {}, out = {};
@@ -138,7 +138,12 @@
     Object.keys(poSlojevima).forEach(function (k) {
       out[k] = L.geoJSON({ type: 'FeatureCollection', features: poSlojevima[k] }, {
         snapIgnore: false,
-        style: function () { return { color: bojaRijeke(), weight: DEBLJINA_VODE[k] || 2.5, opacity: 0.85, className: 'rijeka-linija' }; },
+        // jezera, akumulacije i retencije su površine (sloj retencije)
+        style: function () {
+          return k === 'retencije'
+            ? { color: bojaRijeke(), weight: 1.5, opacity: 0.9, fillColor: bojaRijeke(), fillOpacity: 0.3, className: 'rijeka-linija' }
+            : { color: bojaRijeke(), weight: DEBLJINA_VODE[k] || 2.5, opacity: 0.85, className: 'rijeka-linija' };
+        },
         onEachFeature: function (f, l) { l.bindPopup(prozor(f.properties)); }
       });
     });
