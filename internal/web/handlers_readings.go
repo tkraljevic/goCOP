@@ -241,6 +241,16 @@ type ReadingsOverviewData struct {
 	SelectedArea   int
 	SearchQuery    string
 	ShowAll        bool
+	Moje           bool // samo letve koje osoba očitava po navici
+	Skupine        []SkupinaLetava
+	IzborSektora   []IzborFiltra
+	IzborPodrucja  []IzborFiltra
+	NazivSektora   string // natpis čipa sektora kad je odabran
+	NazivPodrucja  string
+	URLMoje        string // čip Moje letve: uključi ili isključi
+	URLSve         string // sve letve iz registara ili samo s očitanjima
+	URLOcisti      string
+	URLKarte       string
 	WithReadings   int
 	TotalGauges    int
 	TotalCount     int
@@ -480,50 +490,25 @@ func (h *ReadingsHandler) ShowOverview(w http.ResponseWriter, r *http.Request) {
 	areaID, _ := strconv.Atoi(q.Get("area"))
 	data := ReadingsOverviewData{
 		CurrentUser: u, Permissions: perms, SelectedSector: sectorID, SelectedArea: areaID,
-		SearchQuery: strings.TrimSpace(q.Get("q")), ShowAll: q.Get("all") == "1",
+		SearchQuery: strings.TrimSpace(q.Get("q")), ShowAll: q.Get("all") == "1", Moje: q.Get("moje") == "1",
 		SuccessMessage: q.Get("success"), ErrorMessage: q.Get("error"),
 		ActiveNav: "readings", ViewAsBanner: viewBanner(r), SkokoviDana: models.CestiSkokoviDana,
 	}
 	data.Sectors, _ = h.userService.ListSectors()
 	data.Areas, _ = h.userService.ListAreas(sectorID)
-	if areaID > 0 {
-		valid := false
-		for _, area := range data.Areas {
-			if area.ID == areaID {
-				valid = true
-				break
-			}
-		}
-		if !valid {
-			areaID = 0
-			data.SelectedArea = 0
-		}
+	if areaID > 0 && !imaPodrucje(data.Areas, areaID) {
+		data.SelectedArea = 0
 	}
 	all, err := h.readingService.Overview(ctx)
 	if err != nil {
 		data.ErrorMessage = err.Error()
 	}
 	data.TotalGauges = len(all)
-	var shown []models.GaugeSummary
-	needle := strings.ToLower(data.SearchQuery)
-	for _, g := range all {
-		if g.Count > 0 {
-			data.WithReadings++
-		}
-		if !data.ShowAll && g.Count == 0 {
-			continue
-		}
-		if sectorID != "" && !gaugeInSector(g, sectorID) {
-			continue
-		}
-		if areaID > 0 && !gaugeInArea(g, areaID) {
-			continue
-		}
-		if needle != "" && !strings.Contains(strings.ToLower(g.Name+" "+g.Sub), needle) {
-			continue
-		}
-		shown = append(shown, g)
+	var moje map[string]bool
+	if data.Moje {
+		moje = h.readingService.MojeLetve(ctx, u)
 	}
+	shown := filtrirajLetve(all, &data, moje)
 	data.Gauges, data.Pager = paginate(shown, r, registryPerPage)
 	data.Protok = map[string]ProtokLetve{}
 	for _, g := range data.Gauges {
@@ -532,10 +517,67 @@ func (h *ReadingsHandler) ShowOverview(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	data.Mjerila = h.znakoviMjerila(ctx, data.Gauges, time.Now())
-	data.TotalCount, _, data.LastAt, _ = h.readingService.Stats(ctx)
+	if n, _, zadnje, err := h.readingService.Stats(ctx); err == nil {
+		data.TotalCount, data.LastAt = n, zadnje
+	}
+	h.slozPopis(&data, q, shown, time.Now())
 	if err := h.tmplOverview.ExecuteTemplate(w, "readings.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// filtrirajLetve ostavlja letve koje prolaze filtre popisa i broji letve s
+// očitanjima
+func filtrirajLetve(all []models.GaugeSummary, data *ReadingsOverviewData, moje map[string]bool) []models.GaugeSummary {
+	var shown []models.GaugeSummary
+	needle := strings.ToLower(data.SearchQuery)
+	for _, g := range all {
+		if g.Count > 0 {
+			data.WithReadings++
+		}
+		if prolaziFiltre(g, data, moje, needle) {
+			shown = append(shown, g)
+		}
+	}
+	return shown
+}
+
+func prolaziFiltre(g models.GaugeSummary, data *ReadingsOverviewData, moje map[string]bool, needle string) bool {
+	if (!data.ShowAll && g.Count == 0) || (data.Moje && !moje[g.Key]) {
+		return false
+	}
+	return uDosegu(g, data.SelectedSector, data.SelectedArea) &&
+		(needle == "" || strings.Contains(strings.ToLower(g.Name+" "+g.Sub), needle))
+}
+
+// uDosegu: letva je u odabranom sektoru i području (prazno = svi)
+func uDosegu(g models.GaugeSummary, sektor string, podrucje int) bool {
+	return (sektor == "" || gaugeInSector(g, sektor)) && (podrucje == 0 || gaugeInArea(g, podrucje))
+}
+
+func imaPodrucje(podrucja []models.Area, id int) bool {
+	for _, a := range podrucja {
+		if a.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
+// slozPopis priprema skupine redaka, čipove i poveznice popisa po dizajnu
+func (h *ReadingsHandler) slozPopis(data *ReadingsOverviewData, q url.Values, shown []models.GaugeSummary, sad time.Time) {
+	var redovi []RedakLetve
+	for _, g := range data.Gauges {
+		redovi = append(redovi, redakOcitanja(g, data.Protok[g.Key], data.Mjerila[g.Key], sad))
+	}
+	data.Skupine = skupineLetava(redovi)
+	data.IzborSektora = izborSektora(q, data.Sectors, data.SelectedSector)
+	data.IzborPodrucja = izborPodrucja(q, data.Areas, data.SelectedArea, data.SelectedSector != "")
+	data.NazivSektora, data.NazivPodrucja = naziviCipova(data.Sectors, data.Areas, data.SelectedSector, data.SelectedArea)
+	data.URLMoje = adresaPopisa(q, map[string]string{"moje": prekidac(data.Moje)})
+	data.URLSve = adresaPopisa(q, map[string]string{"all": prekidac(data.ShowAll)})
+	data.URLOcisti = "/readings"
+	data.URLKarte = adresaKarteLetava(shown)
 }
 
 func gaugeInSector(g models.GaugeSummary, sectorID string) bool {

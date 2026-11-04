@@ -383,6 +383,7 @@ func (s *ReadingService) Overview(ctx context.Context) ([]models.GaugeSummary, e
 			SectorIDs: stationSectors[st.ID.String()], AreaIDs: stationAreas[st.ID.String()],
 		}
 		g.Sub = strings.TrimSpace(strings.Trim(st.Watercourse+" · "+st.Stationing, " ·"))
+		g.Voda = strings.TrimSpace(st.Watercourse)
 		fill(&g, latest, counts)
 		if g.Latest != nil && g.Latest.LevelCm != nil {
 			g.Phase = st.CalculateDefensePhase(*g.Latest.LevelCm)
@@ -578,6 +579,24 @@ func (s *ReadingService) FieldOverview(ctx context.Context, perms *models.UserPe
 		}
 	}
 	return fo, nil
+}
+
+// MojeLetve su ključevi letava koje je osoba očitala u zadnjih 90 dana, isto
+// pravilo navike kao na terenu i Naslovnoj vodočuvara (Odluke (31. 10. 2026.):
+// moje letve nastaju iz navike, ne biraju se na profilu)
+func (s *ReadingService) MojeLetve(ctx context.Context, u *models.User) map[string]bool {
+	out := map[string]bool{}
+	if u == nil {
+		return out
+	}
+	navike, err := s.repo.HabitsFor(ctx, u.ID.String(), u.FullName, time.Now().AddDate(0, 0, -90))
+	if err != nil {
+		return out // čip tada pokaže prazan popis s uputom
+	}
+	for k := range navike {
+		out[k] = true
+	}
+	return out
 }
 
 // UveziZalijepljena upisuje niz očitanja odjednom, kakva se zalijepe s letve

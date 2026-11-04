@@ -3,114 +3,91 @@
 {{define "title"}}goCOP — Očitanja{{end}}
 
 {{define "content"}}
-<div class="page-header">
-  <div>
-    <h1 class="page-title">{{icon "activity"}} Očitanja</h1>
-    <p class="page-desc">
-      Zadnje očitanje na svakoj letvi: vodomjerne postaje i objekti. Očitanje se upisuje s telefona na nasipu,
-      a program iz pragova postaje predlaže fazu obrane.
-    </p>
+{{/* Popis Očitanja po dizajnu (goCOP-m3, 12 · Očitanja): čipovi filtara,
+     letve po vodi, u retku trend, kad i kako je očitano, faza i vodostaj. */}}
+<div class="ocitanja-popis" data-listanje="popis">
+  <div class="ocitanja-glava">
+    <h1 class="ocitanja-naslov">Očitanja</h1>
+    <a class="ocitanja-ikona" href="{{.URLKarte}}" title="Letve na karti" aria-label="Letve na karti">{{icon "map"}}</a>
+    <button type="button" class="ocitanja-ikona" data-otvori-trazi aria-label="Pretraži letve" aria-expanded="{{if .SearchQuery}}true{{else}}false{{end}}" aria-controls="ocitanja-trazi">{{icon "search"}}</button>
   </div>
-</div>
 
-<div class="d-flex gap-2 flex-wrap mb-5">
-  <span class="stat-badge has-items">{{icon "ruler"}} {{.WithReadings}} {{uzBroj .WithReadings "letva" "letve" "letvi"}} s očitanjima</span>
-  <span class="stat-badge has-items">{{icon "history"}} {{.TotalCount}} {{uzBroj .TotalCount "očitanje" "očitanja" "očitanja"}}</span>
-  {{if not .LastAt.IsZero}}<span class="stat-badge">{{icon "clock"}} zadnje {{ago .LastAt}}</span>{{end}}
-</div>
-
-
-<div class="filter-card">
-  <form action="/readings" method="GET">
-    <div class="search-bar-row">
-      <div class="search-input-wrapper">
-        <span class="search-icon">{{icon "search"}}</span>
-        <input type="search" name="q" value="{{.SearchQuery}}" class="search-input" placeholder="Letva (Batina, CS Draž, ustava Bilje)…" autocomplete="off">
-      </div>
-      <button type="submit" class="btn btn-primary">Pretraži</button>
-      {{if or .SearchQuery .SelectedSector .SelectedArea .ShowAll}}<a href="/readings" class="btn btn-secondary">{{icon "x"}}</a>{{end}}
-    </div>
-    <div class="filters-row stupci-14">
-      <div class="filter-group">
-        <label class="filter-label" for="sector">{{icon "building-2"}} {{term "sektor"}}</label>
-        <select id="sector" name="sector" class="filter-select" onchange="document.getElementById('area').value=''; this.form.submit()">
-          <option value="">Svi: {{terml "sektori"}}</option>
-          {{range .Sectors}}<option value="{{.ID}}" {{if eq $.SelectedSector .ID}}selected{{end}}>{{.Name}}</option>{{end}}
-        </select>
-      </div>
-      <div class="filter-group">
-        <label class="filter-label" for="area">{{icon "waves"}} {{term "podrucje"}}</label>
-        <select id="area" name="area" class="filter-select" onchange="this.form.submit()">
-          <option value="">{{if .SelectedSector}}Sva područja odabranog sektora{{else}}Sva {{terml "podrucja"}}{{end}}</option>
-          {{range .Areas}}<option value="{{.ID}}" {{if eq $.SelectedArea .ID}}selected{{end}}>{{.ID}}: {{.Name}}</option>{{end}}
-        </select>
-      </div>
-      <div class="filter-group">
-        <label class="filter-label" for="all">{{icon "eye"}} Prikaz</label>
-        <select id="all" name="all" class="filter-select" onchange="this.form.submit()">
-          <option value="" {{if not .ShowAll}}selected{{end}}>Samo letve s očitanjima</option>
-          <option value="1" {{if .ShowAll}}selected{{end}}>Sve letve iz registara ({{.TotalGauges}})</option>
-        </select>
-      </div>
-    </div>
+  <form id="ocitanja-trazi" class="ocitanja-trazi" action="/readings" method="GET" role="search"{{if not .SearchQuery}} hidden{{end}}>
+    {{if .SelectedSector}}<input type="hidden" name="sector" value="{{.SelectedSector}}">{{end}}
+    {{if .SelectedArea}}<input type="hidden" name="area" value="{{.SelectedArea}}">{{end}}
+    {{if .ShowAll}}<input type="hidden" name="all" value="1">{{end}}
+    {{if .Moje}}<input type="hidden" name="moje" value="1">{{end}}
+    <span class="ocitanja-trazi-ikona">{{icon "search"}}</span>
+    <input type="search" name="q" value="{{.SearchQuery}}" placeholder="Letva (Batina, CS Draž, ustava Bilje)…" autocomplete="off" aria-label="Naziv letve">
+    {{if .SearchQuery}}<a class="ocitanja-ikona" href="{{.URLOcisti}}" aria-label="Očisti pretragu">{{icon "x"}}</a>{{end}}
   </form>
-</div>
 
-<div data-listanje="popis">
-{{template "pager" .Pager}}
+  <div class="ocitanja-cipovi" role="group" aria-label="Filtri">
+    <a class="ocitanja-cip" href="{{.URLMoje}}" aria-pressed="{{if .Moje}}true{{else}}false{{end}}">{{if .Moje}}{{icon "check"}}{{end}}Moje letve</a>
+    <details class="ocitanja-izbor">
+      <summary class="ocitanja-cip" {{if .SelectedSector}}data-odabran{{end}}>{{if .NazivSektora}}{{.NazivSektora}}{{else}}Sektor{{end}}{{icon "chevron-down"}}</summary>
+      <div class="ocitanja-izbornik" role="menu">
+        {{range .IzborSektora}}<a role="menuitemradio" aria-checked="{{if .Odabran}}true{{else}}false{{end}}" href="{{.URL}}">{{.Naziv}}</a>{{end}}
+      </div>
+    </details>
+    <details class="ocitanja-izbor">
+      <summary class="ocitanja-cip" {{if .SelectedArea}}data-odabran{{end}}>{{if .NazivPodrucja}}{{.NazivPodrucja}}{{else}}Područje{{end}}{{icon "chevron-down"}}</summary>
+      <div class="ocitanja-izbornik" role="menu">
+        {{range .IzborPodrucja}}<a role="menuitemradio" aria-checked="{{if .Odabran}}true{{else}}false{{end}}" href="{{.URL}}">{{.Naziv}}</a>{{end}}
+      </div>
+    </details>
+  </div>
 
-<div class="reg-list">
-  {{range .Gauges}}{{$g := .}}
-  <article class="reg-card">
-    <a class="reg-card-link" href="{{.URL}}" style="padding-bottom:0.5rem;">
-      <div class="reg-card-head">
-        <div>
-          <h3 class="reg-card-title">{{.Name}}</h3>
-          <div class="reg-card-sub">{{.Sub}}</div>
-        </div>
-        {{if and .Latest .Phase.InForce}}<span class="badge {{.Phase.BadgeClass}}">{{.Phase.Label}}</span>{{end}}
-        {{with index $.Mjerila .Key}}
-        {{if .Kvar}}<span class="badge badge-warning" title="{{.Kvar}}" data-znak-kvara>{{icon "triangle-alert"}} {{if .NaDnu}}ispod dosega uređaja{{else}}kvar uređaja{{end}}</span>{{end}}
-        {{if .Skokova}}<span class="badge badge-warning" title="Broj lažnih skokova u zadnjih {{$.SkokoviDana}} dana: {{.Skokova}}." data-znak-skokova>{{icon "triangle-alert"}} česti skokovi</span>{{end}}
-        {{end}}
-      </div>
-      {{if .Latest}}
-      <div style="display:flex; align-items:baseline; gap:0.75rem; flex-wrap:wrap; margin-top:0.35rem;">
-        <div class="reading-value">
-          {{if .Latest.LevelCm}}{{intOf .Latest.LevelCm}}<small>cm</small>{{else if .Latest.Level2Cm}}<span class="c-muted">—</span>{{else}}<span style="font-size:1rem; color:var(--text-muted); font-weight:500;">nije očitan</span>{{end}}
-        </div>
-        {{with .Trend}}
-          {{if gt (intOf .) 0}}<span class="reading-trend up">{{icon "trending-up"}} +{{intOf .}}</span>
-          {{else if lt (intOf .) 0}}<span class="reading-trend down">{{icon "trending-down"}} {{intOf .}}</span>
-          {{else}}<span class="reading-trend flat">{{icon "minus"}} 0</span>{{end}}
-        {{end}}
-        {{if .Latest.Level2Cm}}<span class="reading-meta">nizvodno <strong>{{intOf .Latest.Level2Cm}} cm</strong></span>{{end}}
-        {{with index $.Protok .Key}}<span class="reading-meta" title="{{if .Izmjeren}}izmjereni protok{{else}}procjena iz HQ krivulje{{end}}">{{.Q}} m³/s{{if not .Izmjeren}} <span class="c-muted">iz krivulje</span>{{end}}{{if .Izvan}} <span class="izvan-krivulje">izvan raspona krivulje</span>{{end}}</span>{{end}}
-        {{if .Latest.TempC}}<span class="reading-meta" title="temperatura vode">{{brojHRf (deref .Latest.TempC) 1}} °C</span>{{end}}
-      </div>
-      <div class="reading-meta mt-1">
-        <span class="{{if .Stale}}reading-stale{{end}}" title="{{formatDate .Latest.LocalTime}}">{{ago .Latest.MeasuredAt}}</span>
-        {{if .Latest.StructureState}} · {{.Latest.StateLabel}}{{end}}
-        {{if .Latest.Gate}} · zapornica {{.Latest.GateLabel}}{{end}}
-        {{if .Latest.Observer}} · {{.Latest.Observer}}{{end}}
-      </div>
-      {{else}}
-      <div class="reading-meta" style="margin-top:0.35rem; color:var(--text-muted);">Još nema očitanja.</div>
+  {{range .Skupine}}
+  <section class="ocitanja-skupina" aria-label="{{.Voda}}">
+    <h2 class="ocitanja-voda">{{.Voda}}</h2>
+    <ul class="ocitanja-letve">
+      {{range .Letve}}
+      <li>
+        <a class="ocitanja-redak{{if .Odabran}} je-odabran{{end}}" href="{{.G.URL}}"{{if .Odabran}} aria-current="page"{{end}}>
+          <span class="ocitanja-trend{{if .Kvar}} ocitanja-trend-kvar{{end}}" aria-hidden="true">
+            {{if .Kvar}}{{icon "triangle-alert"}}{{else if eq .Trend "gore"}}{{icon "trending-up"}}{{else if eq .Trend "dolje"}}{{icon "trending-down"}}{{else if eq .Trend "ravno"}}{{icon "minus"}}{{end}}
+          </span>
+          <span class="ocitanja-tekst">
+            <span class="ocitanja-ime">{{.G.Name}}</span>
+            {{if .G.Latest}}<span class="ocitanja-opis{{if .G.Stale}} reading-stale{{end}}" title="{{formatDate .G.Latest.LocalTime}}">{{.Kad}} · {{.Opis}}</span>
+            {{else}}<span class="ocitanja-opis">Još nema očitanja{{with .G.Sub}} · {{.}}{{end}}</span>{{end}}
+            {{if and .G.Latest .G.Phase.InForce}}<span class="badge {{.G.Phase.BadgeClass}} ocitanja-faza">{{.G.Phase.Label}}</span>{{end}}
+            {{if .Kvar}}<span class="ocitanja-kvar" title="{{.KvarZa}}" data-znak-kvara>{{.Kvar}}</span>{{end}}
+            {{if .Skokova}}<span class="ocitanja-kvar" title="Broj lažnih skokova u zadnjih {{$.SkokoviDana}} dana: {{.Skokova}}." data-znak-skokova>Česti lažni skokovi mjernog uređaja.</span>{{end}}
+          </span>
+          {{if .Vrijed}}<span class="ocitanja-vrijednost">{{.Vrijed}}</span>{{end}}
+        </a>
+      </li>
       {{end}}
-      <div class="reg-card-foot">
-        <span class="reg-chip {{if eq .Count 0}}empty{{end}}">{{icon "history"}} {{.Count}} {{uzBroj .Count "očitanje" "očitanja" "očitanja"}}</span>
-        {{if .Latest}}<span class="reg-origin">{{.Latest.SourceLabel}}{{with .Latest.OriginLabel}} · {{.}}{{end}}</span>{{end}}
-      </div>
-    </a>
-    <div style="padding:0 1rem 0.85rem;">
-      <a href="{{.NewURL}}" class="btn btn-secondary btn-sm" style="min-height:40px;">{{icon "plus"}} Upiši očitanje</a>
-    </div>
-  </article>
+    </ul>
+  </section>
   {{else}}
-  <div class="reg-empty">Nijedna letva ne odgovara zadanim filtrima.</div>
+  <p class="ocitanja-prazno">{{if .Moje}}Još nemate svojih letvi. Letve koje očitavate pojavit će se ovdje same, po navici.{{else}}Nijedna letva ne odgovara zadanim filtrima.{{end}}</p>
   {{end}}
-</div>
 
-{{template "pager" .Pager}}
+  {{template "pager" .Pager}}
+
+  <p class="ocitanja-podnozje">
+    {{brojHR .WithReadings}} {{uzBroj .WithReadings "letva" "letve" "letvi"}} s očitanjima, ukupno {{brojHR .TotalCount}} {{uzBroj .TotalCount "očitanje" "očitanja" "očitanja"}}{{if not .LastAt.IsZero}}, zadnje {{ago .LastAt}}{{end}}.
+    <a href="{{.URLSve}}">{{if .ShowAll}}Samo letve s očitanjima{{else}}Sve letve iz registara ({{brojHR .TotalGauges}}){{end}}</a>
+  </p>
 </div>
+<script>
+document.querySelectorAll('[data-otvori-trazi]').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var f = document.getElementById(b.getAttribute('aria-controls')), otvori = f.hidden;
+    f.hidden = !otvori;
+    b.setAttribute('aria-expanded', otvori ? 'true' : 'false');
+    if (otvori) f.querySelector('input[type=search]').focus();
+  });
+});
+// izbornik čipa zatvara se klikom izvan njega i Escom
+document.addEventListener('click', function (e) {
+  document.querySelectorAll('.ocitanja-izbor[open]').forEach(function (d) { if (!d.contains(e.target)) d.open = false; });
+});
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') document.querySelectorAll('.ocitanja-izbor[open]').forEach(function (d) { d.open = false; });
+});
+</script>
 {{end}}

@@ -151,6 +151,10 @@ func TestOkvirIZnakKvaraMjerila(t *testing.T) {
 		!strings.Contains(popis, `title="Mjerenje stoji na 412 cm`) {
 		t.Errorf("znakovi u popisu: kvar %d, skokovi %d", strings.Count(popis, "data-znak-kvara"), strings.Count(popis, "data-znak-skokova"))
 	}
+	// čip Moje letve: osoba koja nije očitavala nema svojih letava
+	if moje := zoviKao(t, mux, "/readings?moje=1&area=999"); !strings.Contains(moje, "Još nemate svojih letvi.") || strings.Contains(moje, "data-znak-kvara") {
+		t.Error("Moje letve bez navike")
+	}
 }
 
 // Kvar bez potvrde susjeda: okvir kaže da ga prognoza ipak uzima. Kad se
@@ -179,7 +183,7 @@ func TestOkvirKvaraBezSusjedaIGreska(t *testing.T) {
 	if strings.Contains(tijelo, "Mjerni uređaj je vjerojatno u kvaru.") {
 		t.Error("dno mjerila javljeno kao kvar")
 	}
-	if popis := zoviKao(t, mux, "/readings"); !strings.Contains(popis, "ispod dosega uređaja</span>") {
+	if popis := zoviKao(t, mux, "/readings"); !strings.Contains(popis, "Voda je vjerojatno ispod dosega mjernog uređaja.</span>") {
 		t.Error("znak dna mjerila u popisu")
 	}
 	mux, donji, _, _ = stranicaKvara(t, kvaroviZadani{greska: errors.New("baza zaključana")})

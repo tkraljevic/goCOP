@@ -577,6 +577,19 @@ func TestTerenskiPogled(t *testing.T) {
 	if got := imena(fo.Mine); got != "CS Probni,Primjerovo,Uzvodna" {
 		t.Errorf("moje letve: %s", got)
 	}
+	// isti popis daje čip „Moje letve” na popisu Očitanja
+	moje := o.rs.MojeLetve(ctx, pp)
+	if len(moje) != len(fo.Mine) {
+		t.Errorf("MojeLetve: %v", moje)
+	}
+	for _, g := range fo.Mine {
+		if !moje[g.Key] {
+			t.Errorf("MojeLetve bez %s", g.Name)
+		}
+	}
+	if len(o.rs.MojeLetve(ctx, nil)) != 0 {
+		t.Error("MojeLetve bez osobe")
+	}
 	// ostale letve područja 1: letve dionica i objekti područja koji primaju očitanja
 	if got := imena(fo.Others); got != "Granica" {
 		t.Errorf("ostale letve: %s", got)
@@ -763,5 +776,16 @@ func TestPregledBezDijelaBaze(t *testing.T) {
 	}
 	if _, err := o.rs.Delete(ctx, o.adminOvl, uuid.New()); err == nil {
 		t.Error("brisanje bez tablice")
+	}
+}
+
+// Kad se navike ne daju pročitati, čip Moje letve ostaje prazan, a popis
+// radi dalje
+func TestMojeLetveBezBaze(t *testing.T) {
+	o := novaOkolinaCitanja(t)
+	pp, _ := o.pperic(t, "pperic", dionicaDuznost("P.1.1", 1))
+	_ = o.baza.Close() // navike se više ne daju pročitati
+	if moje := o.rs.MojeLetve(context.Background(), pp); len(moje) != 0 {
+		t.Errorf("MojeLetve bez baze: %v", moje)
 	}
 }

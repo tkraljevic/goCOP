@@ -55,6 +55,7 @@
       uz: (p.get('uz') || '').split(',').filter(Boolean), // slojevi koji su zadano isključeni, a uključeni su
       nedostaje: p.get('nedostaje') || '',
       popis: p.get('popis') || '', // ucrtano: drugi popis u pogledu opširnije
+      letve: (p.get('letve') || '').split(',').filter(Boolean), // otvori zumirano na ove letve (popis Očitanja, kartica letve)
       uredi: p.get('uredi') || '' // objekt:<id>, vodotok:<šifra>, letva:<id>
     };
   }
@@ -632,13 +633,22 @@
 
   function pocetniPogled(karta, stanje, slojevi) {
     if (stanje.poz) { karta.setView([stanje.poz[0], stanje.poz[1]], stanje.poz[2]); return; }
+    var desno = window.matchMedia(USKI).matches ? 0 : 384;
+    // glavna Karta zumirana na zadane letve (Odluke (4. 11. 2026.))
+    if (stanje.letve.length && slojevi.letve) {
+      var oko = L.latLngBounds([]);
+      slojevi.letve.eachLayer(function (m) { if (m.podaci && stanje.letve.indexOf(m.podaci.id) >= 0) oko.extend(m.getLatLng()); });
+      if (oko.isValid()) {
+        karta.fitBounds(oko.pad(0.1), { paddingTopLeft: [48, 48], paddingBottomRight: [desno + 48, 48], maxZoom: 14 });
+        return;
+      }
+    }
     var granice = L.latLngBounds([]);
     Object.keys(slojevi).forEach(function (k) {
       if (!jeSlojVode(k) && k !== 'letve' && !PODRUCJA[k] && slojevi[k].getBounds) granice.extend(slojevi[k].getBounds());
     });
     if (!granice.isValid() && slojevi.letve) granice = slojevi.letve.getBounds();
     if (!granice.isValid()) { karta.setView(ZADANO.oko, ZADANO.zum); return; }
-    var desno = window.matchMedia(USKI).matches ? 0 : 384;
     karta.fitBounds(granice, { paddingTopLeft: [24, 24], paddingBottomRight: [desno + 24, 24], maxZoom: 13 });
   }
 
@@ -665,6 +675,7 @@
     okvir.querySelectorAll('input[data-sloj]').forEach(function (s) {
       if (stanje.bez.indexOf(s.dataset.sloj) >= 0) s.checked = false;
       if (stanje.uz.indexOf(s.dataset.sloj) >= 0) s.checked = true;
+      if (stanje.letve.length && s.dataset.sloj === 'letve') s.checked = true;
     });
     // u načinu opt-in i karta mora reći da Geoman smije na nju
     var karta = L.map(platno, { scrollWheelZoom: true, zoomControl: true, pmIgnore: false });

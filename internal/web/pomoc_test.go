@@ -114,6 +114,7 @@ func TestPomocObjasnjavaKontroleKarte(t *testing.T) {
 		"ne sprema se", "Moj položaj", "HTTPS veze", "Ravnalo", "po nasipu", "Dodaj točku",
 		"Briši vrhove", "Prianjanje</strong> (magnet)", "Poništi", "Ctrl+Z", "poklapa s nasipom", "Mjerilo je obavezno", "Kao na\n      zaslonu", "A0",
 		"bilo gdje unutra", "Okvir na sredinu karte", "Natrag na kartu",
+		"<strong>Moje letve</strong> ostavlja letve koje ste", "Kartu zumiranu na letve s popisa",
 	} {
 		if !strings.Contains(h, want) {
 			t.Errorf("pomoć ne objašnjava kontrolu karte %q", want)
