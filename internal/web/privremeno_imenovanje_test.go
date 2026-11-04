@@ -53,6 +53,11 @@ func TestPrivremenoImenovanjeKrozObrazac(t *testing.T) {
 		t.Fatal(err)
 	}
 	krajObrane := time.Now().UTC().Truncate(time.Hour).Add(72 * time.Hour)
+	// kraj u ponoć piše se kao „zaključno s”, pa ga u prvom satu dana
+	// pomakni sat dalje
+	if models.PrestajeUPonoc(krajObrane) {
+		krajObrane = krajObrane.Add(time.Hour)
+	}
 	godinaRoka := time.Now().Year() + 1
 	rok := fmt.Sprintf("%d-12-31", godinaRoka)
 	users.SetPrestanakObrane(func(models.Duty) *models.PrestanakObrane {
