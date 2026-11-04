@@ -170,7 +170,7 @@ func TestPragoviKartice(t *testing.T) {
 	for _, p := range pragoviKartice(st, &Krajnost{Cm: -160, Godina: 2026}, &Krajnost{Cm: 797, Godina: 1956, Najvisi: true}) {
 		got = append(got, p.Oznaka+" "+p.Vrijednost+" "+p.Klasa)
 	}
-	want := "P +300 cm prep|R +500 cm regular|IS +800 cm crit|MAX +775 cm record|MIN -160 cm min"
+	want := "P +300 cm prep|R +500 cm regular|IS +800 cm crit|MAX +775 cm record|MIN -160 cm · 2026. min"
 	if strings.Join(got, "|") != want {
 		t.Errorf("pločice %v, želim %s", got, want)
 	}
@@ -185,11 +185,14 @@ func TestMaxIzArhiveKadGaRegistarNema(t *testing.T) {
 	for _, p := range pragoviKartice(models.Station{Prep: models.Threshold{Cm: cm(300)}}, mn, mx) {
 		got = append(got, p.Oznaka+" "+p.Vrijednost+" · "+p.Naslov)
 	}
-	want := "P +300 cm · pripremno stanje|MAX +512 cm · najviši izmjereni vodostaj (2014.), iz arhive|MIN -94 cm · najniži izmjereni vodostaj (2022.), iz arhive"
+	want := "P +300 cm · pripremno stanje|MAX +512 cm · 2014. · najviši izmjereni vodostaj (2014.), iz arhive|MIN -94 cm · 2022. · najniži izmjereni vodostaj (2022.), iz arhive"
 	if strings.Join(got, "|") != want {
 		t.Errorf("pločice\n%v\nželim\n%s", strings.Join(got, "|"), want)
 	}
-	if k := (Krajnost{Cm: -35, Godina: 2026, Od: "12. 9. 2026."}); k.Label() != "-35 cm · od 12. 9. 2026." {
-		t.Errorf("krajnost iz kratke evidencije: %q", k.Label())
+	// od kada ide kratka evidencija piše samo u opisu: na pločici se čitao kao
+	// datum krajnosti (Osijek, 4. 11. 2026.)
+	k := Krajnost{Cm: -35, Godina: 2026, Datum: "3. 10. 2026.", IzEvidencije: true, Od: "12. 9. 2026."}
+	if k.Label() != "-35 cm · 3. 10. 2026." || !strings.Contains(k.Naslov(), "evidencija ide od 12. 9. 2026.") {
+		t.Errorf("krajnost iz kratke evidencije: %q · %q", k.Label(), k.Naslov())
 	}
 }

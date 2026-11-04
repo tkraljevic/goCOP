@@ -199,7 +199,7 @@ func (h *ReadingsHandler) krajnostiOcitanja(ctx context.Context, st *models.Stat
 	if h.krajnosti != nil {
 		min, max = h.krajnosti(ctx, st.Code)
 	}
-	return uzEvidenciju(ctx, h.readingService, *st, min, max)
+	return uzEvidenciju(ctx, h.readingService, *st, min, max, true) // arhiva se ovdje čita odmah
 }
 
 // SetArhiva daje rukovatelju hidrološku arhivu. Dohvatnik, a ne vrijednost:
