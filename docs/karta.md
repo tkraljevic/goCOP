@@ -86,9 +86,9 @@ imati najviše 2 GB.
 
 Kartu čvor daje samo prijavljenim korisnicima. Na kartama u programu
 prvo stoji obična karta, a „Karta bez interneta” bira se gumbom sa
-slojevima, gore desno, kao i satelit. Na karti teritorijalnih jedinica
-popis podloga stoji stalno otvoren. Karta pokazuje samo izvezeno
-područje. Iznad povećanja do kojeg je izvezena karta ne dobiva nove
+slojevima, dolje desno, kao i satelit. Na karti teritorijalnih jedinica
+isti gumb otvara i slojeve županija, gradova, općina i naselja. Karta
+pokazuje samo izvezeno područje. Iznad povećanja do kojeg je izvezena karta ne dobiva nove
 pojedinosti. Uz prazan `plocice` ostale karte nema, pa ni karte bez
 interneta, jer se podloge biraju uz običnu kartu (niže). Karta
 teritorijalnih jedinica tada uzima zadani OpenStreetMap.

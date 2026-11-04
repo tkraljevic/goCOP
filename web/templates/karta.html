@@ -13,7 +13,8 @@
   <div class="karta-platno"></div>
   <p class="karta-bez-mreze karta-stranica-poruka" hidden>{{icon "triangle-alert"}} Pločice karte nisu dostupne. Ucrtani slojevi se i dalje vide.</p>
   <p class="karta-stranica-poruka karta-ucitava" role="status">Karta se učitava…</p>
-  <button type="button" class="karta-slojevi-gumb" aria-controls="karta-slojevi" aria-expanded="true">{{icon "layers"}}<span>Slojevi</span></button>
+  {{/* gumb Slojevi karta.js premjesti na dno stupca kontrola dolje desno */}}
+  <button type="button" class="karta-slojevi-gumb gocop-karta-kontrola gocop-karta-slojevi" aria-controls="karta-slojevi" aria-expanded="true" aria-label="Slojevi" title="Slojevi">{{icon "layers"}}</button>
 
   <aside class="karta-slojevi" id="karta-slojevi" aria-label="Slojevi karte">
     <div class="karta-slojevi-rucka" aria-hidden="true"></div>
