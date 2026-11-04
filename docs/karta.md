@@ -107,6 +107,15 @@ i IV. reda (po upisanoj skupini). Vodotok bez kategorije i bez skupine s
 redom ide u sloj „Vodotoci bez upisanog reda”, koji se pokazuje samo kad
 takvih ima.
 
+Jezera, akumulacije i retencije su vode s vrstom „jezero”, „akumulacija”
+ili „retencija” u registru voda (Odluke (4. 11. 2026.)). Na Karti su u
+sloju „Retencije, akumulacije i jezera” kao površina, a ne kao crta toka.
+Crtež takve vode prima Polygon i MultiPolygon (`PripremiPovrsinuVode`), a
+crta smije ostati uz površinu. Na Karti se crta alatom „Novi poligon” i
+sprema cijeli crtež; stacionaže ni prekida crte tu nema. Polja za
+zapreminu, površinu iz dokumentacije i branu još nema; zasad su u
+napomeni.
+
 Skupina Područja ima županije, gradove i općine te branjena područja.
 Karta ih dohvaća s `/karta/podrucja/{sloj}.geojson`: granice su
 pojednostavljene (županije oko 80 m, općine i branjena područja oko 30 m)

@@ -359,8 +359,17 @@ func nedostajeVodotoka(vodotoci []models.Watercourse, dionice []models.Section, 
 			}
 			r.redom = kljucRedanja{bp: redPodrucja(ds[0].AreaID), dionica: ds[0].Code}
 		}
-		popis.dodaj(r, len(crteVodotoka(v.Geometry)) > 0)
+		popis.dodaj(r, vodaUcrtana(v))
 	}
+}
+
+// vodaUcrtana: vodotok ima crtu toka, a jezero, akumulacija i retencija
+// površinu (ili bilo kakav crtež)
+func vodaUcrtana(v models.Watercourse) bool {
+	if v.JePovrsina() {
+		return len(geometrijeObjekta(v.Geometry)) > 0
+	}
+	return len(crteVodotoka(v.Geometry)) > 0
 }
 
 // dioniceVodotoka: u kojim je dionicama koji vodotok, svaka dionica jednom

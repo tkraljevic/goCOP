@@ -293,9 +293,9 @@
       }
 
       function kontrole(vrsta) {
-        var crta = !!CRTE[vrsta];
+        var crta = !!CRTE[vrsta], povrsina = vrsta === 'povrsina-vode';
         return {
-          position: 'topleft', drawMarker: !crta || !!S_KM[vrsta], drawPolyline: crta, drawPolygon: !crta,
+          position: 'topleft', drawMarker: (!crta && !povrsina) || !!S_KM[vrsta], drawPolyline: crta, drawPolygon: !crta,
           drawCircle: false, drawCircleMarker: false, drawRectangle: false, drawText: false,
           editMode: true, dragMode: true, cutPolygon: false, removalMode: true, rotateMode: false
         };
@@ -316,6 +316,9 @@
 
       function uputa(a) {
         if (a.vrsta === 'letva') return 'Povucite letvu na pravo mjesto ili kliknite na karti gdje stoji.';
+        if (a.vrstaObjekta === 'povrsina-vode') {
+          return 'Alatom „Novi poligon” kliknite točku po točku uz obalu, a površinu zatvorite klikom na prvu točku. Vrh pomičete povlačenjem, a desnim klikom ga brišete.';
+        }
         var u = CRTE[a.vrstaObjekta]
           ? 'Alatom „Nova crta” kliknite točku po točku, a zadnju dvaput ili „Završi”. Vrh pomičete povlačenjem, a desnim klikom ga brišete.'
           : 'Alatom „Nova točka” postavite objekt, a „Novi poligon” crta površinu. Točku pomičete povlačenjem.';
@@ -561,6 +564,10 @@
           return ['/karta/letva/' + encodeURIComponent(a.id) + '/polozaj', { lat: ll.lat, lon: ll.lng }];
         }
         var gj = geojsonGrupe();
+        if (a.vrsta === 'vodotok' && a.vrstaObjekta === 'povrsina-vode') {
+          if (!gj.features.length) throw new Error('Površina ne može ostati prazna. Nacrtajte je ili pritisnite Odustani.');
+          return ['/api/watercourses/geometry', { code: a.kod, geojson: JSON.stringify(gj), samo_crte: false }];
+        }
         if (a.vrsta === 'vodotok') {
           var crte = gj.features.filter(function (f) { return /LineString$/.test(f.geometry.type); });
           if (!crte.length) throw new Error('Tok ne može ostati prazan. Nacrtajte crtu toka ili pritisnite Odustani.');
@@ -639,7 +646,8 @@
         }
         if (p.kod) {
           return ucitajJson('/karta/vodotok/' + encodeURIComponent(p.kod), 'Tok vode se nije učitao.').then(function (d) {
-            pocni({ vrsta: 'vodotok', kod: d.kod, naziv: d.naziv, adresa: d.adresa, vrstaObjekta: 'vodotok', stacionazaEnc: !!d.stacionaza_enc, granice: p.granice },
+            pocni({ vrsta: 'vodotok', kod: d.kod, naziv: d.naziv, adresa: d.adresa, vrstaObjekta: d.povrsina ? 'povrsina-vode' : 'vodotok',
+              stacionazaEnc: !!d.stacionaza_enc, granice: p.granice },
               d.geojson ? JSON.parse(d.geojson) : null);
           });
         }

@@ -1143,9 +1143,11 @@ function dodajKontroleKarte(karta, platno, opcije) {
   }
 
   // sloj oznaka: stacionaža (rkm) i ostale točke uz tok, ne uređuju se
+  // točke stacionaže i, kod jezera, akumulacija i retencija, površina vode
   function slojOznaka(ostalo) {
     return L.geoJSON(ostalo, {
       pmIgnore: true,
+      style: function () { return { color: '#0284c7', weight: 2, fillColor: '#0284c7', fillOpacity: 0.25 }; },
       pointToLayer: function (feat, latlng) {
         if (feat.properties && feat.properties.tip === 'rkm') {
           var marker = L.circleMarker(latlng, {

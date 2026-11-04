@@ -77,7 +77,11 @@ func (s *WatercourseService) SetWatercourseGeometry(ctx context.Context, perms *
 	if w == nil {
 		return fmt.Errorf("vodno tijelo %q ne postoji", code)
 	}
-	geojson, err = PripremiGeometrijuVode(geojson)
+	if w.JePovrsina() {
+		geojson, err = PripremiPovrsinuVode(geojson)
+	} else {
+		geojson, err = PripremiGeometrijuVode(geojson)
+	}
 	if err != nil {
 		return err
 	}

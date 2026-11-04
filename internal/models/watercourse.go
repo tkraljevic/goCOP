@@ -121,6 +121,20 @@ func (w Watercourse) IsFirstOrder() bool {
 	return w.Category != ""
 }
 
+// VrstePovrsineVode su vode koje se crtaju kao površina, ne kao crta toka:
+// jezera, akumulacije i retencije (Odluke (4. 11. 2026.))
+var VrstePovrsineVode = []string{"jezero", "akumulacija", "retencija"}
+
+// JePovrsina javlja crta li se voda kao površina
+func (w Watercourse) JePovrsina() bool {
+	for _, v := range VrstePovrsineVode {
+		if strings.EqualFold(w.Kind, v) {
+			return true
+		}
+	}
+	return false
+}
+
 // Red vode za slojeve Karte: međudržavne vode, vode I. reda (popis iz
 // Odluke ili skupina „kanal I. reda”), II. reda te III. i IV. reda. Prazno je
 // kad red nije upisan.

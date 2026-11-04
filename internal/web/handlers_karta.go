@@ -182,7 +182,8 @@ func (h *KartaHandler) slozi(ctx context.Context) (slozenaKarta, error) {
 		}
 	}
 	zastita := slojeviObjekata(objekti, &out.zaKartu.Objekti, smije)
-	vode := append(slojeviVodotoka(vodotoci, &out.zaKartu.Vodotoci, smije), slojLetvi(letve, &out.zaKartu.Letve, smije))
+	vode := append(slojeviVodotoka(vodotoci, &out.zaKartu.Vodotoci, smije),
+		slojPovrsina(vodotoci, &out.zaKartu.Vodotoci, smije), slojLetvi(letve, &out.zaKartu.Letve, smije))
 	sloziPopise(&out.zaKartu, objekti, vodotoci, letve, dionice, smije)
 	out.uredjuje = smije.ista(objekti, letve)
 	out.skupine = []SkupinaSlojeva{
@@ -322,8 +323,42 @@ var slojReda = func() map[string]string {
 	return out
 }()
 
-// slojVodotoka: ključ sloja u kojem je vodotok, po redu vode
-func slojVodotoka(v models.Watercourse) string { return slojReda[v.RedVode()] }
+// slojPovrsinaVoda su jezera, akumulacije i retencije (Odluke (4. 11. 2026.))
+const slojPovrsinaVoda = "retencije"
+
+// slojVodotoka: ključ sloja u kojem je voda: površina vode u svom sloju,
+// vodotok po redu vode
+func slojVodotoka(v models.Watercourse) string {
+	if v.JePovrsina() {
+		return slojPovrsinaVoda
+	}
+	return slojReda[v.RedVode()]
+}
+
+// slojPovrsina: jezera, akumulacije i retencije s nacrtanom površinom
+func slojPovrsina(vodotoci []models.Watercourse, zbirka *geoZbirka, smije pravaKarte) SlojKarte {
+	sloj := SlojKarte{Kljuc: slojPovrsinaVoda, Naziv: "Retencije, akumulacije i jezera", Ikona: "waves", Opis: "ucrtano", Ukljucen: true}
+	for _, v := range vodotoci {
+		if !v.JePovrsina() {
+			continue
+		}
+		sloj.Ukupno++
+		geometrije := geometrijeObjekta(v.Geometry)
+		if len(geometrije) == 0 {
+			continue
+		}
+		sloj.Ucrtano++
+		svojstva := map[string]any{"sloj": slojPovrsinaVoda, "naziv": prvoNeprazno(v.OfficialName, v.Name), "adresa": "/watercourses/" + v.Code,
+			"kod": v.Code, "vrsta": v.Kind}
+		if smije.vodotok() {
+			svojstva["uredjuje"] = true
+		}
+		for _, g := range geometrije {
+			zbirka.Features = append(zbirka.Features, geoZnacajka{Type: "Feature", Properties: svojstva, Geometry: g})
+		}
+	}
+	return sloj
+}
 
 // slojeviVodotoka: crte toka svih vodotoka koji ih imaju, pojednostavljene,
 // bez točaka stacionaže, u slojevima po redu vode. Sloj bez upisanog reda
@@ -336,6 +371,9 @@ func slojeviVodotoka(vodotoci []models.Watercourse, zbirka *geoZbirka, smije pra
 		poKljucu[r.kljuc] = &slojevi[i]
 	}
 	for _, v := range vodotoci {
+		if v.JePovrsina() {
+			continue // u sloju površina vode (slojPovrsina)
+		}
 		kljuc := slojVodotoka(v)
 		sloj := poKljucu[kljuc]
 		sloj.Ukupno++

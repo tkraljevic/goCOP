@@ -16,64 +16,128 @@ import (
 // (EPSG:4326), redom dužina pa širina. Izvoz u HTRS96/TM daje metre, a neki
 // alati zamijene redoslijed; oba bi ucrtala rijeku izvan karte, pa se
 // odbijaju s objašnjenjem umjesto da se tiho upišu.
-func PripremiGeometrijuVode(geojson string) (string, error) {
+func PripremiGeometrijuVode(geojson string) (string, error) { return pripremiVodu(geojson, false) }
+
+// PripremiPovrsinuVode je isto za jezero, akumulaciju i retenciju, koje se
+// crtaju kao površina (Polygon ili MultiPolygon); crta uz površinu smije
+// ostati (Odluke (4. 11. 2026.))
+func PripremiPovrsinuVode(geojson string) (string, error) { return pripremiVodu(geojson, true) }
+
+func pripremiVodu(geojson string, povrsina bool) (string, error) {
 	var root map[string]any
 	if err := json.Unmarshal([]byte(geojson), &root); err != nil {
 		return "", errors.New("datoteka nije ispravan GeoJSON")
 	}
 	vrsta, _ := root["type"].(string)
-	izvorno := vrsta == "FeatureCollection" // zbirka se upisuje kakva je stigla
-	switch vrsta {
-	case "FeatureCollection":
-	case "Feature":
-		root = map[string]any{"type": "FeatureCollection", "features": []any{root}}
-	case "LineString", "MultiLineString":
-		root = map[string]any{"type": "FeatureCollection", "features": []any{
-			map[string]any{"type": "Feature", "properties": map[string]any{}, "geometry": root},
-		}}
-	default:
-		return "", fmt.Errorf("GeoJSON vrste %q nije tok — očekuje se crta (LineString ili MultiLineString)", vrsta)
+	root, err := zbirkaVode(root, vrsta, povrsina)
+	if err != nil {
+		return "", err
 	}
-
 	features, _ := root["features"].([]any)
-	crta := 0
-	for _, f := range features {
-		fm, _ := f.(map[string]any)
-		g, _ := fm["geometry"].(map[string]any)
-		gv, _ := g["type"].(string)
-		var nizovi []any
-		switch gv {
-		case "LineString":
-			nizovi = []any{g["coordinates"]}
-		case "MultiLineString":
-			nizovi, _ = g["coordinates"].([]any)
-		default:
-			continue
-		}
-		for _, n := range nizovi {
-			tocke, _ := n.([]any)
-			if len(tocke) < 2 {
-				return "", errors.New("crta toka ima manje od dvije točke")
-			}
-			for _, t := range tocke {
-				if err := provjeriTocku(t); err != nil {
-					return "", err
-				}
-			}
-		}
-		crta++
+	crta, plosna, err := prebrojiVodu(features, povrsina)
+	if err != nil {
+		return "", err
 	}
-	if crta == 0 {
-		return "", errors.New("u datoteci nema crte toka (LineString ili MultiLineString)")
+	if err := imaCrteza(crta, plosna, povrsina); err != nil {
+		return "", err
 	}
-	if izvorno {
-		return geojson, nil
+	if vrsta == "FeatureCollection" {
+		return geojson, nil // zbirka se upisuje kakva je stigla
 	}
 	out, err := json.Marshal(root)
 	if err != nil {
 		return "", err
 	}
 	return string(out), nil
+}
+
+// zbirkaVode: značajka ili gola geometrija postaje zbirka; što nije crta
+// ni (kod površine vode) poligon, odbija se
+func zbirkaVode(root map[string]any, vrsta string, povrsina bool) (map[string]any, error) {
+	geometrija := vrsta == "LineString" || vrsta == "MultiLineString" || (povrsina && (vrsta == "Polygon" || vrsta == "MultiPolygon"))
+	switch {
+	case vrsta == "FeatureCollection":
+		return root, nil
+	case vrsta == "Feature":
+		return map[string]any{"type": "FeatureCollection", "features": []any{root}}, nil
+	case geometrija:
+		return map[string]any{"type": "FeatureCollection", "features": []any{
+			map[string]any{"type": "Feature", "properties": map[string]any{}, "geometry": root},
+		}}, nil
+	case povrsina:
+		return nil, fmt.Errorf("GeoJSON vrste %q nije površina vode — očekuje se Polygon ili MultiPolygon", vrsta)
+	}
+	return nil, fmt.Errorf("GeoJSON vrste %q nije tok — očekuje se crta (LineString ili MultiLineString)", vrsta)
+}
+
+// imaCrteza: tok treba bar jednu crtu, a površina vode crtu ili površinu
+func imaCrteza(crta, plosna int, povrsina bool) error {
+	if povrsina && crta+plosna == 0 {
+		return errors.New("u datoteci nema površine (Polygon ili MultiPolygon) ni crte")
+	}
+	if !povrsina && crta == 0 {
+		return errors.New("u datoteci nema crte toka (LineString ili MultiLineString)")
+	}
+	return nil
+}
+
+// prebrojiVodu broji crte i, kad se smiju, površine, i provjerava im točke
+func prebrojiVodu(features []any, povrsina bool) (crta, plosna int, err error) {
+	for _, f := range features {
+		fm, _ := f.(map[string]any)
+		g, _ := fm["geometry"].(map[string]any)
+		c, p, err := provjeriGeometrijuVode(g, povrsina)
+		if err != nil {
+			return 0, 0, err
+		}
+		crta, plosna = crta+c, plosna+p
+	}
+	return crta, plosna, nil
+}
+
+const (
+	porukaCrte     = "crta toka ima manje od dvije točke"
+	porukaPovrsine = "površina ima prsten s manje od četiri točke"
+)
+
+// provjeriGeometrijuVode: jedna geometrija; vraća je li crta ili površina,
+// a ostalo (točke stacionaže) preskače
+func provjeriGeometrijuVode(g map[string]any, povrsina bool) (crta, plosna int, err error) {
+	gv, _ := g["type"].(string)
+	koordinate, _ := g["coordinates"].([]any)
+	switch {
+	case gv == "LineString":
+		return 1, 0, provjeriNizove([]any{g["coordinates"]}, 2, porukaCrte)
+	case gv == "MultiLineString":
+		return 1, 0, provjeriNizove(koordinate, 2, porukaCrte)
+	case povrsina && gv == "Polygon":
+		return 0, 1, provjeriNizove(koordinate, 4, porukaPovrsine)
+	case povrsina && gv == "MultiPolygon":
+		for _, p := range koordinate {
+			prsteni, _ := p.([]any)
+			if err := provjeriNizove(prsteni, 4, porukaPovrsine); err != nil {
+				return 0, 0, err
+			}
+		}
+		return 0, 1, nil
+	}
+	return 0, 0, nil
+}
+
+// provjeriNizove: svaki niz ima bar najmanje točaka, a svaka je točka u WGS84
+func provjeriNizove(nizovi []any, najmanje int, poruka string) error {
+	for _, n := range nizovi {
+		tocke, _ := n.([]any)
+		if len(tocke) < najmanje {
+			return errors.New(poruka)
+		}
+		for _, t := range tocke {
+			if err := provjeriTocku(t); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // provjeriTocku traži [dužina, širina] u stupnjevima, na našem dijelu Europe
