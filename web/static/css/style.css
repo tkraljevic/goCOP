@@ -7416,6 +7416,9 @@ button.karta-nedostaje-ucrtaj { padding: 0; border: 0; background: none; font-fa
   background: #173e74; color: #c9d6ee; font-size: 12px; white-space: nowrap; cursor: move; box-shadow: var(--shadow);
 }
 .karta-ispis-natpis strong { color: #ffffff; font-size: 13px; font-weight: 600; }
+.leaflet-marker-icon.karta-ispis-ploha { background: transparent; cursor: move; }
+.karta-ispis-sredina { align-self: flex-start; }
+.karta-ispis-traka { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 12px; max-width: calc(100vw - 32px); }
 .karta-ispis-kut { box-sizing: border-box; width: 14px !important; height: 14px !important; border: 2px solid #173e74; border-radius: 2px; background: #ffffff; cursor: nwse-resize; }
 .karta-ispis-priprema {
   position: fixed; z-index: 3000; left: 50%; top: 16px; transform: translateX(-50%); padding: 10px 16px; border-radius: 8px;
