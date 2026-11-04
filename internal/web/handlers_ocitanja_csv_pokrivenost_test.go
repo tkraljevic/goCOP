@@ -275,7 +275,7 @@ func TestIzvozOcitanjaObjekta(t *testing.T) {
 func TestUvozOcitanjaOdbijeniSlucajevi(t *testing.T) {
 	p := noviPosluziteljOcitanja(t)
 	put := "/readings/station/" + p.letva.ID.String() + "/ocitanja/uvoz"
-	natrag := "/readings/station/" + p.letva.ID.String()
+	natrag := "/readings/station/" + p.letva.ID.String() + "/uvoz-izvoz"
 
 	p.dodajStranca(t) // osoba iz drugog sektora ne upisuje na letvu P
 
@@ -372,7 +372,7 @@ func TestPotvrdaIspravkaOcitanja(t *testing.T) {
 		"obrisi":      {"", "da", "", ""},
 	}
 	putanja, poruka := porukaPreusmjerenja(t, p.obrazac("vodočuvar", put, forma), "success")
-	if putanja != "/readings/station/"+p.letva.ID.String() ||
+	if putanja != "/readings/station/"+p.letva.ID.String()+"/uvoz-izvoz" ||
 		poruka != "Ispravljeno 1 očitanje, obrisano 1 očitanje. Svaka izmjena stoji u knjizi verzija s vašim imenom." {
 		t.Errorf("potvrda: %s %q", putanja, poruka)
 	}

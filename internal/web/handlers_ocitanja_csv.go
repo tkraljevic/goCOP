@@ -68,6 +68,15 @@ func vezaLetve(station *models.Station, structure *models.Structure) string {
 	return "/readings"
 }
 
+// povratakIspravaka: ispravci očitanja letve vraćaju se na karticu Uvoz i
+// izvoz, a objekta na njegova očitanja
+func povratakIspravaka(station *models.Station, structure *models.Structure) string {
+	if station != nil && structure == nil {
+		return vezaLetve(station, nil) + "/uvoz-izvoz"
+	}
+	return vezaLetve(station, structure)
+}
+
 // HandleOcitanjaIzvoz šalje očitanja letve kao CSV, za pregled i ispravak.
 func (h *ReadingsHandler) HandleOcitanjaIzvoz(w http.ResponseWriter, r *http.Request) {
 	station, structure := h.letvaIzPutanje(r)
@@ -441,7 +450,7 @@ func (h *ReadingsHandler) HandleOcitanjaUvoz(w http.ResponseWriter, r *http.Requ
 		http.NotFound(w, r)
 		return
 	}
-	back := vezaLetve(station, structure)
+	back := povratakIspravaka(station, structure)
 	u, perms := h.base(r)
 	if !h.smijeMijenjati(perms, station, structure) {
 		redirectWith(w, r, back, "error", "Nemate pravo mijenjati očitanja ove letve")
@@ -511,7 +520,7 @@ func (h *ReadingsHandler) HandleOcitanjaPotvrda(w http.ResponseWriter, r *http.R
 		http.NotFound(w, r)
 		return
 	}
-	back := vezaLetve(station, structure)
+	back := povratakIspravaka(station, structure)
 	_, perms := h.base(r)
 	if !h.smijeMijenjati(perms, station, structure) {
 		redirectWith(w, r, back, "error", "Nemate pravo mijenjati očitanja ove letve")

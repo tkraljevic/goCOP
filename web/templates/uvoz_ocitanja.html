@@ -3,7 +3,7 @@
 {{define "title"}}Uvoz očitanja — {{.GaugeName}} — goCOP{{end}}
 {{define "content"}}
 <nav class="breadcrumb"><a href="/readings">Očitanja</a> ›
-  <a href="/readings/station/{{.Station.ID}}">{{.GaugeName}}</a> › Uvoz</nav>
+  <a href="/readings/station/{{.Station.ID}}/uvoz-izvoz">{{.GaugeName}}</a> › Uvoz</nav>
 
 <div class="page-head">
   <h1 class="page-title">{{icon "file-text"}} Što bi se upisalo</h1>
@@ -64,7 +64,7 @@
     <button type="submit" class="btn" {{if not .Novih}}disabled{{end}}>
       {{icon "check"}} Upiši {{brojHR .Novih}} {{uzBroj .Novih "očitanje" "očitanja" "očitanja"}}
     </button>
-    <a href="/readings/station/{{.Station.ID}}" class="btn btn-secondary">Odustani</a>
+    <a href="/readings/station/{{.Station.ID}}/uvoz-izvoz" class="btn btn-secondary">Odustani</a>
   </div>
   {{if .Razlicitih}}
   <p class="page-desc mt-2">

@@ -7573,3 +7573,20 @@ summary.ocitanja-cip { padding-right: 8px; }
   }
   .letva-izbornik > .btn-link { flex: none; }
 }
+
+/* Kartica Uvoz i izvoz: ploče u dvama stupcima, skupni unos preko cijele
+   širine (goCOP-m3, 12 · Očitanja) */
+.letva-mreza { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; align-items: start; }
+.letva-ploca {
+  display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid var(--md-sys-color-outline-variant, var(--border));
+  border-radius: 12px; background: var(--md-sys-color-surface-container-low, var(--surface));
+}
+.letva-ploca h2 { margin: 0; font-size: 1rem; font-weight: 500; }
+.letva-ploca-siroka { grid-column: 1 / -1; }
+.letva-uputa { margin: 0; color: var(--text-secondary); font-size: 0.875rem; }
+.letva-polje { display: flex; flex-direction: column; gap: 8px; margin: 0; }
+.letva-polje > label { font-size: 0.75rem; color: var(--text-secondary); }
+.letva-polje .filter-select { max-width: 16rem; }
+.letva-polje > .btn { align-self: flex-start; }
+.letva-gumbi { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.letva-zalijepi { font-family: ui-monospace, monospace; font-size: 0.85rem; }
