@@ -346,7 +346,7 @@ func mjestoObjekta(m mjestoUDionici, tokovi *tokoviZaMjesta, svojstva map[string
 func nedostajeVodotoka(vodotoci []models.Watercourse, dionice []models.Section, podrucja map[int]string, popis popisKarte) {
 	uDionicama := dioniceVodotoka(dionice)
 	for _, v := range vodotoci {
-		r := nedostajeNaKarti{Sloj: "vodotoci", Naziv: prvoNeprazno(v.OfficialName, v.Name), Adresa: "/watercourses/" + v.Code,
+		r := nedostajeNaKarti{Sloj: slojVodotoka(v), Naziv: prvoNeprazno(v.OfficialName, v.Name), Adresa: "/watercourses/" + v.Code,
 			Kod: v.Code, Vrsta: "vodotok", Skupina: "Nije ni u jednoj dionici", Gdje: "nije ni u jednoj dionici", redom: kljucRedanja{bp: math.MaxInt}}
 		if ds := uDionicama[v.Code]; len(ds) > 0 {
 			sifre := make([]string, len(ds))

@@ -233,7 +233,7 @@ func TestKartaNedostajeVodotociILetve(t *testing.T) {
 		},
 	}.slozi(t)
 
-	if r := redak(t, d.Nedostaje, "potok Neucrtan"); r.Sloj != "vodotoci" || r.Gdje != "dionice B.16.2, B.16.10" || r.Skupina != "BP 16 · Mali sliv Proba" || r.Adresa != "/watercourses/potok-neucrtan" {
+	if r := redak(t, d.Nedostaje, "potok Neucrtan"); r.Sloj != "vodotoci-bez-reda" || r.Gdje != "dionice B.16.2, B.16.10" || r.Skupina != "BP 16 · Mali sliv Proba" || r.Adresa != "/watercourses/potok-neucrtan" {
 		t.Errorf("vodotok u dionicama: %+v", r)
 	}
 	if r := redak(t, d.Nedostaje, "Sam"); r.Gdje != "nije ni u jednoj dionici" || r.Skupina != "Nije ni u jednoj dionici" {

@@ -7034,7 +7034,16 @@ html:not(.js) .nav-caret { display: none; }
 .karta-skupina-slojevi[hidden] { display: none; }
 .karta-sloj { display: flex; align-items: center; gap: 12px; padding: 6px 0 6px 36px; }
 .karta-sloj-znak { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; color: var(--text-secondary); }
-.karta-sloj-crta::before { content: ""; width: 20px; height: 4px; border-radius: 2px; background: var(--karta-boja, var(--primary)); }
+.karta-sloj-crta::before { content: ""; width: 20px; height: var(--karta-debljina, 4px); border-radius: 2px; background: var(--karta-boja, var(--primary)); }
+/* imena područja na Karti (karta.js, PODRUCJA) */
+.karta-natpis-podrucja { background: none; border: 0; }
+.karta-natpis-podrucja span {
+  display: inline-block; transform: translate(-50%, -50%); white-space: nowrap; pointer-events: none;
+  font-size: 12px; font-weight: 600; color: #5f6368; text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 2px #fff;
+}
+.karta-natpis-zupanije span { font-size: 13px; letter-spacing: 0.02em; text-transform: uppercase; color: #6b7280; }
+.karta-natpis-opcine span { font-size: 11px; font-weight: 500; color: #4b5563; }
+.karta-natpis-branjena-podrucja span { color: #6d28d9; }
 .karta-sloj-tekst { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .karta-sloj-naziv { font-size: 0.875rem; color: var(--text); }
 .karta-sloj-broj { font-size: 0.75rem; color: var(--text-secondary); }

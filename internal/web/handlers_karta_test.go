@@ -40,7 +40,7 @@ func probniIzvori() (func(context.Context) ([]models.Structure, error), func(con
 		{"type":"Feature","properties":{"tip":"vodotok"},"geometry":{"type":"LineString","coordinates":[[18.0,45.0],[18.1,45.000001],[18.2,45.0]]}},
 		{"type":"Feature","properties":{"tip":"rkm"},"geometry":{"type":"Point","coordinates":[18.0,45.0]}}]}`
 	vodotoci := []models.Watercourse{
-		{Code: "potok-proba", Name: "Proba", OfficialName: "potok Proba", Geometry: tok},
+		{Code: "potok-proba", Name: "Proba", OfficialName: "potok Proba", Subcategory: "kanal II. reda", Geometry: tok},
 		{Code: "kanal-bez-toka", Name: "Bez toka"},
 	}
 	letve := []models.Station{
@@ -79,7 +79,7 @@ func TestKartaBrojiUcrtano(t *testing.T) {
 		ucrtano, ukupno int
 	}{
 		{"nasipi", 1, 2}, {"crpne-stanice", 1, 1}, {"ustave", 1, 1}, {"brane", 0, 0}, {"ostali-objekti", 0, 1},
-		{"vodotoci", 1, 2}, {"letve", 1, 2},
+		{"vodotoci-ii", 1, 1}, {"vodotoci-bez-reda", 0, 1}, {"vodotoci-i", 0, 0}, {"letve", 1, 2},
 	} {
 		if got := sloj(t, k.skupine, s.kljuc); got.Ucrtano != s.ucrtano || got.Ukupno != s.ukupno {
 			t.Errorf("%s: %d od %d, htio %d od %d", s.kljuc, got.Ucrtano, got.Ukupno, s.ucrtano, s.ukupno)
@@ -226,8 +226,9 @@ func TestKartaPraznaBaza(t *testing.T) {
 		func(context.Context) ([]models.Station, error) { return nil, nil }, nil, nil, nil)
 	w := httptest.NewRecorder()
 	prazno.HandlePodaci(w, httptest.NewRequest("GET", "/karta/podaci.json", nil))
-	if got := strings.TrimSpace(w.Body.String()); got != `{"objekti":{"type":"FeatureCollection","features":[]},"vodotoci":{"type":"FeatureCollection","features":[]},"letve":[],"nedostaje":[],"ucrtano":[],"priblizno":{"type":"FeatureCollection","features":[]},` +
-		`"brojevi":{"brane":[0,0],"crpne-stanice":[0,0],"letve":[0,0],"nasipi":[0,0],"ostali-objekti":[0,0],"ustave":[0,0],"vodotoci":[0,0],"zupanije":[0,0]}}` {
+	if got := strings.TrimSpace(w.Body.String()); got != `{"objekti":{"type":"FeatureCollection","features":[]},"vodotoci":{"type":"FeatureCollection","features":[]},"letve":[],"nedostaje":[],"ucrtano":[],"priblizno":{"type":"FeatureCollection","features":[]},`+
+		`"brojevi":{"brane":[0,0],"branjena-podrucja":[0,0],"crpne-stanice":[0,0],"letve":[0,0],"nasipi":[0,0],"opcine":[0,0],"ostali-objekti":[0,0],`+
+		`"ustave":[0,0],"vodotoci-i":[0,0],"vodotoci-ii":[0,0],"vodotoci-iii-iv":[0,0],"vodotoci-medudrzavni":[0,0],"zupanije":[0,0]}}` {
 		t.Errorf("prazna karta: %s", got)
 	}
 }
@@ -256,7 +257,7 @@ func TestStranicaKarta(t *testing.T) {
 	h.ShowKarta(w, req)
 	html := w.Body.String()
 	for _, trazi := range []string{
-		`class="karta-stranica"`, `data-podaci="/karta/podaci.json"`, `data-zupanije="/territories/zupanije.geojson"`,
+		`class="karta-stranica"`, `data-podaci="/karta/podaci.json"`, `data-podrucja="/karta/podrucja/"`,
 		`data-sloj="nasipi"`, `1 od 2 ucrtano`, `data-sloj="letve"`, `1 od 2 s položajem`, `nema ih u registru`,
 		`data-sloj="zupanije"`, `granice i imena`, `data-skupina-prekidac`, `Vrati zadano`, `js/karta.js`,
 		`href="/karta" class="nav-link active"`, `<h1 class="vrh-naslov">Karta</h1>`,

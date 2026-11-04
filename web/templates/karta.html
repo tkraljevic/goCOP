@@ -5,11 +5,11 @@
 {{define "content"}}
 {{/* Karta preko cijelog sadržaja; ploča slojeva desno na računalu, odozdo
      na tabletu i mobitelu (Odluke (3. 11. 2026.)). Crte i točke dohvaća
-     karta.js s data-podaci, granice županija s data-zupanije. Ista ploča
+     karta.js s data-podaci, granice područja s data-podrucja. Ista ploča
      drži i pogled „opširnije” sa sloja, s popisima onoga što nedostaje i što
      je ucrtano, koje karta.js puni iz istih podataka. */}}
 <div class="karta-stranica" data-plocice="{{.Karta.Plocice}}" data-zasluge="{{.Karta.Zasluge}}" data-najvise-z="{{.Karta.NajviseZ}}"
-     data-podaci="/karta/podaci.json" data-zupanije="{{.Zupanije}}">
+     data-podaci="/karta/podaci.json" data-podrucja="/karta/podrucja/">
   <div class="karta-platno"></div>
   <p class="karta-bez-mreze karta-stranica-poruka" hidden>{{icon "triangle-alert"}} Pločice karte nisu dostupne. Ucrtani slojevi se i dalje vide.</p>
   <p class="karta-stranica-poruka karta-ucitava" role="status">Karta se učitava…</p>
@@ -37,10 +37,10 @@
           {{if .Crta}}<span class="karta-sloj-znak karta-sloj-crta" data-vrsta="{{.Vrsta}}" data-sloj-znak="{{.Kljuc}}"></span>{{else}}<span class="karta-sloj-znak">{{icon .Ikona}}</span>{{end}}
           <span class="karta-sloj-tekst">
             <span class="karta-sloj-naziv">{{.Naziv}}</span>
-            <span class="karta-sloj-broj"{{if .Ukupno}} data-broj-sloja="{{.Kljuc}}" data-opis="{{.Opis}}"{{end}}>{{if .Ukupno}}{{brojHR .Ucrtano}} od {{brojHR .Ukupno}} {{.Opis}}{{else if eq .Kljuc "zupanije"}}granice i imena{{else}}nema ih u registru{{end}}</span>
+            <span class="karta-sloj-broj"{{if .Ukupno}} data-broj-sloja="{{.Kljuc}}" data-opis="{{.Opis}}"{{end}}>{{if .Ukupno}}{{brojHR .Ucrtano}} od {{brojHR .Ukupno}} {{.Opis}}{{else if .Granice}}granice i imena{{else}}nema ih u registru{{end}}</span>
             {{if .Ukupno}}<button type="button" class="karta-sloj-nedostaje" aria-label="Opširnije, što nedostaje i što je ucrtano: {{.Naziv}}" data-nedostaje="{{.Kljuc}}" data-naziv="{{.Naziv}}" data-crta="{{.Crta}}" data-ukupno="{{.Ukupno}}">opširnije{{icon "chevron-right"}}</button>{{end}}
           </span>
-          <input type="checkbox" class="prekidac" role="switch" data-sloj="{{.Kljuc}}" aria-label="{{.Naziv}}"{{if .Ukljucen}} checked{{end}}>
+          <input type="checkbox" class="prekidac" role="switch" data-sloj="{{.Kljuc}}" aria-label="{{.Naziv}}"{{if .Ukljucen}} checked{{else}} data-zadano="false"{{end}}>
         </li>
         {{end}}
       </ul>

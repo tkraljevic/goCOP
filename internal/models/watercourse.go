@@ -121,6 +121,37 @@ func (w Watercourse) IsFirstOrder() bool {
 	return w.Category != ""
 }
 
+// Red vode za slojeve Karte: međudržavne vode, vode I. reda (popis iz
+// Odluke ili skupina „kanal I. reda”), II. reda te III. i IV. reda. Prazno je
+// kad red nije upisan.
+const (
+	RedMedudrzavni  = "medudrzavni"
+	RedPrvi         = "i"
+	RedDrugi        = "ii"
+	RedTreciCetvrti = "iii-iv"
+)
+
+// RedVode vraća red vode iz kategorije s popisa voda I. reda ili iz upisane
+// skupine („kanal II. reda”, „potok III. reda”)
+func (w Watercourse) RedVode() string {
+	if w.Category == "MEĐUDRŽAVNE VODE" {
+		return RedMedudrzavni
+	}
+	if w.Category != "" {
+		return RedPrvi
+	}
+	skupina := strings.ToLower(w.Subcategory)
+	switch {
+	case strings.Contains(skupina, "iii. reda"), strings.Contains(skupina, "iv. reda"):
+		return RedTreciCetvrti
+	case strings.Contains(skupina, "ii. reda"):
+		return RedDrugi
+	case strings.Contains(skupina, "i. reda"):
+		return RedPrvi
+	}
+	return ""
+}
+
 // CategoryLabel vraća kategoriju u obliku za prikaz. Voda koje nema na popisu
 // voda I. reda pokazuje svoju skupinu kad je upisana, npr. „kanal II. reda”
 // za kanale Baranje.
