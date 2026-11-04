@@ -1249,6 +1249,18 @@ func (s *Server) setupRoutes() {
 		func() KartaPostavke { return s.karta }, s.templates["karta.html"])
 	s.mux.Handle("GET /karta", s.authMiddleware(http.HandlerFunc(kartaH.ShowKarta)))
 	s.mux.Handle("GET /karta/podaci.json", s.authMiddleware(http.HandlerFunc(kartaH.HandlePodaci)))
+	kartaH.SetUredjivanje(KartaUredjivanje{
+		SmijeObjekt: s.structureService.CanEdit,
+		SmijeLetvu: func(perms *models.UserPermissions, st *models.Station) bool {
+			return s.stationService.ProvjeriIzmjenu(perms, st) == nil
+		},
+		Objekt:       s.structureService.Get,
+		Tok:          s.watercourseService.GetWatercourse,
+		PolozajLetve: s.stationService.PostaviPolozaj,
+	})
+	s.mux.Handle("GET /karta/objekt/{id}", s.authMiddleware(http.HandlerFunc(kartaH.HandleObjekt)))
+	s.mux.Handle("GET /karta/vodotok/{kod}", s.authMiddleware(http.HandlerFunc(kartaH.HandleTok)))
+	s.mux.Handle("POST /karta/letva/{id}/polozaj", s.authMiddleware(http.HandlerFunc(kartaH.HandlePolozajLetve)))
 	slivH := NewSlivoviHandler(func() *service.KisomjerService { return s.kisomjeri }, s.watercourseService, s.stationService,
 		func(ime string) *template.Template { return s.templates[ime] }, func() KartaPostavke { return s.karta })
 	s.mux.Handle("GET /slivovi", s.authMiddleware(http.HandlerFunc(slivH.ShowSlivovi)))
@@ -1810,7 +1822,7 @@ var modulePaths = []struct{ prefix, module string }{
 	// zasebnog modula Akti nema, pa akti, vodočuvarski dnevnik i događanja
 	// idu pod Dnevnike (Odluke (30. 10. 2026.), 11)
 	{"/akti", models.ModuleJournals}, {"/vodocuvar", models.ModuleJournals}, {"/dogadjanja", models.ModuleJournals},
-	{"/sredstva", models.ModuleRegisters}, {"/api/structures", models.ModuleRegisters},
+	{"/sredstva", models.ModuleRegisters}, {"/api/structures", models.ModuleRegisters}, {"/karta/letva", models.ModuleRegisters},
 	{"/api/sections", models.ModuleRegisters}, {"/api/stations", models.ModuleRegisters},
 	{"/api/watercourses", models.ModuleRegisters}, {"/api/slivovi", models.ModuleRegisters}, {"/api/settlements", models.ModuleRegisters},
 	{"/api/counties", models.ModuleRegisters}, {"/api/municipalities", models.ModuleRegisters}, {"/api/prijepis", models.ModuleRegisters},

@@ -1033,18 +1033,18 @@ function dodajKontroleKarte(karta, platno, opcije) {
       input.addEventListener('change', function () {
         var f = input.files && input.files[0];
         if (!f) return;
-        if (f.size > 20 * 1024 * 1024) { alert('Datoteka je veća od 20 MB — pojednostavnite crtu prije učitavanja.'); input.value = ''; return; }
-        if (input.dataset.ima && !confirm('Zamijeniti ucrtani objekt onim iz datoteke „' + f.name + '”? Prethodni ostaje u povijesti zapisa.')) { input.value = ''; return; }
-        f.text().then(function (tekst) {
+        // KML i GeoJSON čita datoteka-karte.js; program crtu zatim provjeri
+        window.datotekaKarte.procitaj(f).then(function (gj) {
+          if (input.dataset.ima && !confirm('Zamijeniti ucrtani objekt onim iz datoteke „' + f.name + '”? Prethodni ostaje u povijesti zapisa.')) return;
           return fetch('/api/structures/geometry', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: input.dataset.id, geojson: tekst })
+            body: JSON.stringify({ id: input.dataset.id, geojson: JSON.stringify(gj) })
+          }).then(function (res) {
+            if (!res.ok) return res.text().then(function (t) { alert('Objekt nije ucrtan: ' + t.trim()); });
+            location.hash = 'karta';
+            location.reload();
           });
-        }).then(function (res) {
-          if (!res.ok) return res.text().then(function (t) { alert('Objekt nije ucrtan: ' + t.trim()); });
-          location.hash = 'karta';
-          location.reload();
-        }).finally(function () { input.value = ''; });
+        }).catch(function (e) { alert(e.message); }).finally(function () { input.value = ''; });
       });
     });
 
@@ -1100,16 +1100,13 @@ function dodajKontroleKarte(karta, platno, opcije) {
       if (granice.isValid()) karta.fitBounds(granice, { padding: [24, 24], maxZoom: 16 });
       else if (!isNaN(lat) && !isNaN(lon)) karta.setView([lat, lon], 15);
       else karta.setView([45.55, 18.7], 9);
-      // uređivač (uredjivac-objekta.js) radi na istoj karti i istom sloju
-      okvir._karta = karta;
-      okvir._objekt = objekt;
     });
   });
 })();
 
 // Karta vodotoka: prikazuje poliliniju toka rijeke, stacionaže (rkm) i vodomjerne postaje.
-// Tok se uređuje alatom karte (uredjivac-vodotoka.js) na istoj karti i
-// sloju toka; stacionaža i postaje se pri uređivanju ne miču (pmIgnore).
+// Tok se crta i ispravlja na Karti (karta-uredjivanje.js); ovdje se samo
+// prikazuje i učitava iz datoteke.
 (function () {
   function escapeHtml(text) {
     if (!text) return '';
@@ -1252,10 +1249,6 @@ function dodajKontroleKarte(karta, platno, opcije) {
       var oznake = slojOznaka(ostalo).addTo(karta);
       var postaje = dodajPostaje(karta, stationsData);
       namjestiObuhvat(karta, tok, oznake, postaje);
-
-      okvir._karta = karta;
-      okvir._tok = tok;
-      okvir._stilToka = STIL_TOKA;
     });
   });
 })();

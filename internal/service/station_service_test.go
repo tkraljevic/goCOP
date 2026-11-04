@@ -355,3 +355,43 @@ func TestFilterPostajaPoDrzavi(t *testing.T) {
 		t.Errorf("ListStations Hrvatska = %+v, want [batina]", hr)
 	}
 }
+
+// Karta letvi mijenja samo položaj; pragovi i ostalo ostaju kako su upisani,
+// a tko nema pravo na sektor letve, ne pomiče je.
+func TestPolozajLetveSKarte(t *testing.T) {
+	svc, repo, st := letvaZaIzmjenu(t)
+	ctx := context.Background()
+	if err := svc.PostaviPolozaj(ctx, globalAdmin(), st.ID, 45.123456, 18.654321); err != nil {
+		t.Fatal(err)
+	}
+	got := ucitaj(t, repo, st.ID)
+	if got.Latitude == nil || *got.Latitude != 45.123456 || got.Longitude == nil || *got.Longitude != 18.654321 {
+		t.Errorf("položaj: %v, %v", got.Latitude, got.Longitude)
+	}
+	if got.Prep.Cm == nil || *got.Prep.Cm != 300 || got.Name != "Batina" {
+		t.Errorf("uz položaj se promijenilo i drugo: %+v", got)
+	}
+	if err := svc.PostaviPolozaj(ctx, &models.UserPermissions{}, st.ID, 45.5, 18.5); err == nil {
+		t.Error("bez prava na sektor letva se ne smije pomaknuti")
+	}
+	if err := svc.PostaviPolozaj(ctx, globalAdmin(), uuid.New(), 45.5, 18.5); err == nil {
+		t.Error("nepoznata letva mora javiti grešku")
+	}
+}
+
+// Kad se baza ne čita, položaj se ne upisuje i greška se vrati.
+func TestPolozajLetveBezBaze(t *testing.T) {
+	database, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "letva-zatvorena.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := ledger.New(database, "test-node")
+	svc := service.NewStationService(repository.NewStationRepository(database, rec),
+		service.NewSectionService(repository.NewSectionRepository(database, rec), service.NewSSEBroker()), service.NewSSEBroker())
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.PostaviPolozaj(context.Background(), globalAdmin(), uuid.New(), 45.5, 18.5); err == nil {
+		t.Error("zatvorena baza mora javiti grešku")
+	}
+}

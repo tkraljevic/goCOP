@@ -48,6 +48,23 @@ func (s *StationService) GetStation(ctx context.Context, id uuid.UUID) (*models.
 	return s.stationRepo.GetStationByID(ctx, id)
 }
 
+// PostaviPolozaj upisuje letvi položaj nacrtan na Karti. Ostala polja
+// ostaju kakva jesu, a pravo je isto kao za obrazac letve.
+func (s *StationService) PostaviPolozaj(ctx context.Context, perms *models.UserPermissions, id uuid.UUID, lat, lon float64) error {
+	st, err := s.stationRepo.GetStationByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if st == nil {
+		return fmt.Errorf("vodomjerna postaja nije pronađena")
+	}
+	if err := s.ProvjeriIzmjenu(perms, st); err != nil {
+		return err
+	}
+	st.Latitude, st.Longitude = &lat, &lon
+	return s.UpdateStation(ctx, perms, st)
+}
+
 // GetStationByCode vraća postaju po šifri. Arhiva letvu zna samo po šifri —
 // stablo vodostaji/ je po njoj i složeno — pa se preko nje dolazi do dionica
 // na kojima letva stoji, a time i do toga smije li je netko dirati.

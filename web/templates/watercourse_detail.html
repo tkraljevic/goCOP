@@ -2,12 +2,9 @@
 
 {{define "title"}}goCOP — {{.Water.Name}}{{end}}
 
-{{define "head"}}{{if .CanEdit}}<link rel="stylesheet" href="{{statika "vendor/geoman/leaflet-geoman.css"}}">{{end}}{{end}}
-
-{{define "scripts"}}{{if .CanEdit}}<script src="{{statika "vendor/geoman/leaflet-geoman.min.js"}}" defer></script>
-<script src="{{statika "js/mjera-karte.js"}}" defer></script>
-<script src="{{statika "js/uredjivac-karte.js"}}" defer></script>
-<script src="{{statika "js/uredjivac-vodotoka.js"}}" defer></script>{{end}}{{end}}
+{{/* Tok se crta samo na Karti (Odluke (4. 11. 2026.)); ovdje se vidi i
+     učitava iz datoteke (datoteka-karte.js, ucitajTokVode niže). */}}
+{{define "scripts"}}{{if .CanEdit}}<script src="{{statika "js/datoteka-karte.js"}}" defer></script>{{end}}{{end}}
 
 {{define "content"}}
 <div class="breadcrumb"><a href="/watercourses">Vodotoci</a> › {{.Water.Name}}</div>
@@ -60,14 +57,12 @@
     <h2>{{icon "map"}} Karta vodotoka</h2>
     {{if .CanEdit}}
     <div class="karta-akcije d-flex gap-2 items-center">
-      <button type="button" class="btn btn-sm btn-secondary karta-uredi-btn">{{icon "pencil"}} Uredi tok na karti</button>
-      <button type="button" class="btn btn-sm btn-primary karta-spremi-btn" hidden>{{icon "check"}} Spremi</button>
-      <button type="button" class="btn btn-sm btn-secondary karta-odustani-btn" hidden>Odustani</button>
-      <label class="btn btn-sm btn-secondary" style="cursor:pointer; display:inline-flex; width:auto;" title="GeoJSON s crtom toka u WGS84 (EPSG:4326), npr. izvoz iz QGIS-a ili OpenStreetMapa">{{icon "upload"}} {{if .GeometryJSON}}Zamijeni iz GeoJSON-a{{else}}Ucrtaj iz GeoJSON-a{{end}}<input type="file" accept=".geojson,.json,application/geo+json,application/json" hidden data-sifra="{{.Water.Code}}" data-ima="{{if .GeometryJSON}}1{{end}}" onchange="ucitajTokVode(this)"></label>
+      <a class="btn btn-sm btn-secondary karta-uredi-na-karti" href="/karta#uredi=vodotok:{{.Water.Code}}">{{icon "pencil"}} Uredi tok na Karti</a>
+      {{template "ucitaj-tok" .}}
     </div>
     {{end}}
   </div>
-  {{if not .GeometryJSON}}<p class="reg-card-sub">Tok ove vode još nije ucrtan. Nacrtajte ga gumbom „Uredi tok na karti” ili učitajte GeoJSON iz QGIS-a (WGS84, EPSG:4326); tok iz OpenStreetMapa nosi navod © OpenStreetMap contributors (ODbL).</p>{{end}}
+  {{if not .GeometryJSON}}<p class="reg-card-sub">Tok ove vode još nije ucrtan. Nacrtajte ga na Karti gumbom „Uredi tok na Karti” ili učitajte KML ili GeoJSON (WGS84, EPSG:4326); tok iz OpenStreetMapa nosi navod © OpenStreetMap contributors (ODbL).</p>{{end}}
   <div class="karta-vodotoka"
        data-sifra="{{.Water.Code}}"
        data-naziv="{{.Water.Name}}"
@@ -88,8 +83,8 @@
 <section class="detail-section" id="karta">
   <h2>{{icon "map"}} Karta vodotoka</h2>
   <div class="reg-card p-4">
-    <p class="page-desc mt-0 mb-3">Tok ove vode još nije ucrtan. Učitajte GeoJSON s crtom toka u WGS84 (EPSG:4326) — izvoz iz QGIS-a, geojson.io ili OpenStreetMapa; tok iz OSM-a nosi navod © OpenStreetMap contributors (ODbL).</p>
-    {{with "Ucrtaj iz GeoJSON-a"}}<label class="btn btn-sm btn-secondary" style="cursor:pointer; display:inline-flex; width:auto;" title="GeoJSON s crtom toka u WGS84 (EPSG:4326), npr. izvoz iz QGIS-a ili OpenStreetMapa">{{icon "upload"}} {{.}}<input type="file" accept=".geojson,.json,application/geo+json,application/json" hidden data-sifra="{{$.Water.Code}}" onchange="ucitajTokVode(this)"></label>{{end}}
+    <p class="page-desc mt-0 mb-3">Tok ove vode još nije ucrtan. Učitajte KML ili GeoJSON s crtom toka u WGS84 (EPSG:4326), na primjer izvoz iz QGIS-a, Google Eartha ili OpenStreetMapa; tok iz OSM-a nosi navod © OpenStreetMap contributors (ODbL).</p>
+    <div class="d-flex gap-2 flex-wrap"><a class="btn btn-sm btn-secondary karta-uredi-na-karti" href="/karta#uredi=vodotok:{{.Water.Code}}">{{icon "pencil"}} Uredi tok na Karti</a>{{template "ucitaj-tok" .}}</div>
   </div>
 </section>
 {{end}}
@@ -203,18 +198,18 @@
 </section>
 {{if .CanEdit}}
 <script>
-// ucitajTokVode upisuje tok vode iz GeoJSON datoteke; program ga provjeri
-// (crta, WGS84, redoslijed dužina–širina) i odbije s objašnjenjem.
+// ucitajTokVode upisuje tok vode iz KML ili GeoJSON datoteke; program ga
+// provjeri (crta, WGS84, redoslijed dužina–širina) i odbije s objašnjenjem.
 async function ucitajTokVode(input) {
   const f = input.files && input.files[0];
   if (!f) return;
   try {
-    if (f.size > 20 * 1024 * 1024) { alert('Datoteka je veća od 20 MB — pojednostavnite tok prije učitavanja.'); return; }
-    const tekst = await f.text();
+    let gj;
+    try { gj = await window.datotekaKarte.procitaj(f); } catch (e) { alert(e.message); return; }
     if (input.dataset.ima && !confirm('Zamijeniti ucrtani tok tokom iz datoteke „' + f.name + '”? Prethodni ostaje u povijesti zapisa.')) return;
     const res = await fetch('/api/watercourses/geometry', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({code: input.dataset.sifra, geojson: tekst})
+      body: JSON.stringify({code: input.dataset.sifra, geojson: JSON.stringify(gj)})
     });
     if (!res.ok) { alert('Tok nije upisan: ' + (await res.text()).trim()); return; }
     location.hash = 'karta';
@@ -224,3 +219,5 @@ async function ucitajTokVode(input) {
 </script>
 {{end}}
 {{end}}
+
+{{define "ucitaj-tok"}}<label class="btn btn-sm btn-secondary" style="cursor:pointer; display:inline-flex; width:auto;" title="KML iz Google Eartha ili GeoJSON s crtom toka u WGS84 (EPSG:4326), npr. izvoz iz QGIS-a ili OpenStreetMapa">{{icon "upload"}} {{if .GeometryJSON}}Zamijeni iz KML-a ili GeoJSON-a{{else}}Učitaj KML ili GeoJSON{{end}}<input type="file" accept=".geojson,.json,.kml,application/geo+json,application/json,application/vnd.google-earth.kml+xml" hidden data-sifra="{{.Water.Code}}" data-ima="{{if .GeometryJSON}}1{{end}}" onchange="ucitajTokVode(this)"></label>{{end}}

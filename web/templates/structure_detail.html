@@ -2,12 +2,9 @@
 
 {{define "title"}}goCOP — {{.Structure.Name}}{{end}}
 
-{{define "head"}}{{if .CanEdit}}<link rel="stylesheet" href="{{statika "vendor/geoman/leaflet-geoman.css"}}">{{end}}{{end}}
-
-{{define "scripts"}}{{if .CanEdit}}<script src="{{statika "vendor/geoman/leaflet-geoman.min.js"}}" defer></script>
-<script src="{{statika "js/mjera-karte.js"}}" defer></script>
-<script src="{{statika "js/uredjivac-karte.js"}}" defer></script>
-<script src="{{statika "js/uredjivac-objekta.js"}}" defer></script>{{end}}{{end}}
+{{/* Crta se samo na Karti (Odluke (4. 11. 2026.)); ovdje se objekt vidi i
+     učitava iz datoteke (datoteka-karte.js, app.js). */}}
+{{define "scripts"}}{{if .CanEdit}}<script src="{{statika "js/datoteka-karte.js"}}" defer></script>{{end}}{{end}}
 
 {{define "content"}}
 <div class="breadcrumb"><a href="{{.Register.Path}}">{{.Register.Title}}</a> › <a href="{{.Register.Path}}?area={{.Structure.AreaID}}">BP {{.Structure.AreaID}}</a> › {{.Structure.Name}}</div>
@@ -65,14 +62,12 @@
     <h2>{{icon "map"}} Na karti</h2>
     {{if .CanEdit}}
     <div class="karta-akcije d-flex gap-2 items-center">
-      <button type="button" class="btn btn-sm btn-secondary karta-uredi-btn">{{icon "pencil"}} Uredi na karti</button>
-      <button type="button" class="btn btn-sm btn-primary karta-spremi-btn" hidden>{{icon "check"}} Spremi</button>
-      <button type="button" class="btn btn-sm btn-secondary karta-odustani-btn" hidden>Odustani</button>
-      <label class="btn btn-sm btn-secondary" style="cursor:pointer; display:inline-flex; width:auto;" title="GeoJSON u WGS84 (EPSG:4326), npr. izvoz iz QGIS-a; nasip kao crta, stacionaža kao točke">{{icon "upload"}} {{if .GeometryJSON}}Zamijeni iz GeoJSON-a{{else}}Ucrtaj iz GeoJSON-a{{end}}<input type="file" accept=".geojson,.json,application/geo+json,application/json" hidden class="karta-objekta-datoteka" data-id="{{.Structure.ID}}" data-ima="{{if .GeometryJSON}}1{{end}}"></label>
+      <a class="btn btn-sm btn-secondary karta-uredi-na-karti" href="/karta#uredi=objekt:{{.Structure.ID}}">{{icon "pencil"}} Uredi na Karti</a>
+      <label class="btn btn-sm btn-secondary" style="cursor:pointer; display:inline-flex; width:auto;" title="KML iz Google Eartha ili GeoJSON u WGS84 (EPSG:4326), npr. izvoz iz QGIS-a; nasip kao crta, stacionaža kao točke">{{icon "upload"}} {{if .GeometryJSON}}Zamijeni iz KML-a ili GeoJSON-a{{else}}Učitaj KML ili GeoJSON{{end}}<input type="file" accept=".geojson,.json,.kml,application/geo+json,application/json,application/vnd.google-earth.kml+xml" hidden class="karta-objekta-datoteka" data-id="{{.Structure.ID}}" data-ima="{{if .GeometryJSON}}1{{end}}"></label>
     </div>
     {{end}}
   </div>
-  {{if not .GeometryJSON}}<p class="reg-card-sub">Objekt još nije ucrtan. Nacrtajte ga gumbom „Uredi na karti” ili učitajte GeoJSON iz QGIS-a{{if eq .Structure.Kind "NASIP"}}: crtu nasipa i, po želji, točke stacionaže s brojem km{{end}}.</p>{{end}}
+  {{if not .GeometryJSON}}<p class="reg-card-sub">Objekt još nije ucrtan. Nacrtajte ga na Karti gumbom „Uredi na Karti” ili učitajte KML ili GeoJSON{{if eq .Structure.Kind "NASIP"}}: crtu nasipa i, po želji, točke stacionaže s brojem km{{end}}.</p>{{end}}
   <div class="karta-objekta"
        data-id="{{.Structure.ID}}"
        data-vrsta="{{.Structure.Kind}}"

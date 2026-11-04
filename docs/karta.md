@@ -98,25 +98,36 @@ briše s ovog računala. Na ostalima datoteka ostaje dok ne stigne nova
 karta, a nedovršeno preuzimanje se briše. *Vrati zadano* na istoj stranici
 kartu bez interneta ne dira.
 
-## Crte na karti objekta i vodotoka
+## Crtanje na Karti
 
-Karta objekta i karta vodotoka imaju isti alat za crtanje (Leaflet-Geoman
-Free 2.20.2, licenca MIT, ugrađen u program). Gumbom *Uredi na karti*,
-odnosno *Uredi tok na karti*, crta se nova crta, pomiču se vrhovi (desni
-klik briše vrh) i pomiče se ili briše cijeli dio. Na kraju *Spremi* ili
-*Odustani*. Crta se može i učitati iz GeoJSON-a u WGS84 (EPSG:4326), npr.
-izvezenog iz QGIS-a.
+Objekti, tokovi vodotoka i letve crtaju se i ispravljaju samo na Karti
+(Odluke (4. 11. 2026.)), alatom Leaflet-Geoman Free 2.20.2 (licenca MIT,
+ugrađen u program). Crtanje se otvara gumbom *Uredi na karti* u
+prozorčiću, gumbom *Ucrtaj* ili *Uredi* u pogledu *opširnije* uz sloj, ili
+gumbom *Uredi na Karti* na stranici objekta, odnosno *Uredi tok na Karti*
+na stranici vodotoka. Stranice objekta i vodotoka kartu samo prikazuju i
+učitavaju KML ili GeoJSON, koji odmah zamijeni cijeli zapis.
 
-Objekt crta onaj tko smije uređivati objekt. Na karti objekta crtaju se i
-točke i poligoni, a nova točka na nasipu ili brani pita za km stacionaže.
+Na Karti se crta nova crta, pomiču se vrhovi (desni klik briše vrh), pomiče
+se ili briše cijeli dio, a *Prekini crtu* makne komad crte između dva
+klika. Novi i povučeni vrh lijepe se na crte vodotoka, nasipa i brana te na
+točke objekata i letvi. Ploča desno pokazuje nacrtanu duljinu prema
+duljini nasipa po dionicama. *Generiraj stacionažu* postavi točke km na
+svaki puni km i na krajeve dijelova: dijelovi se slože u niz, praznina
+između njih zadano ulazi u km, a nasip kroz više dionica nacrtan u isto
+toliko dijelova može dobiti km svake dionice. Datoteka KML ili GeoJSON na
+Karti se doda crtežu, pa se pregleda prije spremanja. Na kraju *Spremi* ili
+*Odustani*.
 
-Tok vodotoka mijenja samo globalni administrator. Tok koji još nije
-ucrtan može se nacrtati ravno na karti, a prazan tok se ne sprema. Kad
-se tok crta na karti, spremaju se samo crte, a točke stacionaže (rkm)
-ostaju iz spremljenog zapisa, jer karta Dunava i Drave pokazuje
-stacionažu preračunatu prema [ENC kartama](stacionaza-enc.md), a ne
-spremljenu. Učitani GeoJSON zamijeni cijeli tok, pa i točke rkm.
-Prethodni tok ostaje u povijesti zapisa.
+Objekt crta onaj tko smije uređivati objekt, a letvu onaj tko smije
+mijenjati letvu. Za objekt se crtaju i točke i poligoni, a nova točka na
+nasipu ili brani pita za km stacionaže.
+
+Tok vodotoka mijenja samo globalni administrator. Prazan tok se ne sprema.
+Bez nove stacionaže spremaju se samo crte, a točke rkm ostaju iz
+spremljenog zapisa. Karta Dunava i Drave pokazuje stacionažu preračunatu
+prema [ENC kartama](stacionaza-enc.md), pa se za njih ne generira.
+Prethodni crtež ostaje u povijesti zapisa.
 
 ## Izvor pločica
 
