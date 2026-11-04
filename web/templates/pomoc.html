@@ -190,6 +190,13 @@
       Položaj služi samo za orijentaciju: ne sprema se i ne šalje programu.
       Na obrascu prijave poseban gumb <em>Moj položaj</em> namjerno upisuje koordinate u obrazac.
       Određivanje položaja radi na lokalnom računalu ili preko zaštićene HTTPS veze.</p>
+    <p><strong>Ravnalo</strong> je gumb gore desno, ispod položaja. Mjeri <em>udaljenost</em> točku
+      po točku, uz duljinu svakog dijela, <em>površinu</em> lika u hektarima s opsegom, i duljinu
+      <em>po nasipu</em> ili vodi između dviju točaka, s km stacionaže na oba kraja kad ih crta
+      ima. Klik se lijepi na letve, objekte i crte. Dvoklik završava, Backspace miče zadnju
+      točku, a Esc zatvara ravnalo. Rezultat se može kopirati, a ništa se ne sprema. Na mobitelu
+      se karta pomakne da križić bude na točki, pa <em>Dodaj točku</em>. Dok se crta, ravnalo ne
+      radi, jer uređivač sam piše duljinu.</p>
     <p><strong>Podloga</strong> se bira gumbom sa slojevima, dolje desno. Prva je uvijek obična
       karta, a uz nju mogu biti satelit i druge podloge iz Administracije › Karte. Te podloge
       obično dolaze s interneta. Kad interneta nema, izaberite podlogu
@@ -208,11 +215,21 @@
     <ul>
       <li><strong>Nova crta</strong>: kliknite prvu točku, pa sljedeće, a crtu završite klikom na
         zadnju točku ili gumbom <em>Završi</em>. Kod objekata koji nisu nasip ni brana tu su
-        <em>Nova točka</em> i <em>Novi poligon</em>.</li>
+        <em>Nova točka</em> i <em>Novi poligon</em>. Nova crta koja počne ili završi na kraju
+        postojeće nastavlja je, pa ostaje jedna crta.</li>
+      <li><strong>Učitaj</strong> i <strong>Izvezi</strong>: KML ili GeoJSON iz datoteke, odnosno
+        crtež u datoteku, GeoJSON ili KML za Google Earth.</li>
       <li><strong>Pomiči točke i vrhove</strong>: povucite vrh na novo mjesto. Desni klik na vrh
         briše ga.</li>
+      <li><strong>Briši vrhove</strong>: dok je uključen, dodir ili klik na vrh ga briše. Za
+        tablet, gdje desnog klika nema. Isključuje ga <em>Gotovo</em>.</li>
       <li><strong>Pomakni cijeli dio</strong>, bez mijenjanja oblika.</li>
       <li><strong>Obriši dio</strong>: kliknite crtu, točku ili poligon koji treba maknuti.</li>
+      <li><strong>Prianjanje</strong> (magnet): pali i gasi lijepljenje na susjedne crte i točke.
+        Zadano je uključeno i program pamti izbor. Dok držite tipku Alt, prianjanje je isključeno
+        samo za taj potez.</li>
+      <li><strong>Poništi</strong> i <strong>Ponovi</strong> (Ctrl+Z, Ctrl+Shift+Z): korak natrag
+        i naprijed, do 50 koraka, dok crtež nije spremljen.</li>
     </ul>
     <p>Ploča pokazuje koliko je nacrtano. Kod nasipa uz to piše duljina po dionicama, na primjer
       <em>Po dionici 2,19 km (B.16.1 · km 0+000 – 2+185). Crta je dulja za 21 m.</em>, a traka
@@ -223,7 +240,12 @@
       približno mjesto i na granice županija crta se ne lijepi. Tok na Karti je pojednostavljen
       do oko 5 m, pa ušće može biti toliko daleko od ucrtanog toka.</p>
     <p>Ništa nije spremljeno dok ne pritisnete <em>Spremi</em>. <em>Odustani</em> vraća kartu
-      kakva je bila. Prethodni crtež ostaje u povijesti zapisa.</p>
+      kakva je bila. Prethodni crtež ostaje u povijesti zapisa. Kad je crta nasipa obrisana, a
+      ostale su samo točke km, ploča to kaže i <em>Spremi</em> ne radi: nacrtajte crtu, vratite je
+      s <em>Poništi</em> ili pritisnite <em>Odustani</em>.</p>
+    <p>Kad se crta nasipa dulje od 50 m poklapa s drugim nasipom, bliže od 10 m, ploča upozori,
+      na primjer <em>Crta se 456 m poklapa s nasipom Državna granica – Draž</em>. Kraj jednog
+      nasipa treba biti početak drugog. <em>Prikaži na karti</em> pokaže taj komad.</p>
     <p>Na nasipu i brani <em>Nova točka</em> pita km stacionaže, npr. 1+250. Ako polje ostavite
       prazno, točka je obična točka. Kad obrišete sve, program prije spremanja pita treba li
       obrisati crtu objekta.</p>
@@ -251,8 +273,8 @@
       <em>Odustani</em>.</p>
     <p>Letva se povuče na pravo mjesto, a letva bez položaja postavi se klikom na kartu.</p>
     <p>Crtež se može i učitati iz datoteke: KML iz Google Eartha ili GeoJSON u WGS84 (EPSG:4326),
-      npr. izvoz iz QGIS-a. Na Karti gumb <em>Učitaj KML ili GeoJSON</em> doda crtež iz datoteke
-      onome što je već nacrtano, pa se može pregledati i doraditi prije spremanja. Na stranici
+      npr. izvoz iz QGIS-a. Na Karti alat <em>Učitaj</em> doda crtež iz datoteke onome što je već
+      nacrtano, pa se može pregledati i doraditi prije spremanja. Na stranici
       objekta i vodotoka isti gumb odmah zamijeni cijeli zapis, na vodotoku i točke rkm. Program
       datoteku provjeri i, ako ne valja, kaže zašto. Prethodni crtež ostaje u povijesti zapisa.</p>
     <p><strong>Tko smije:</strong> objekt na karti crta onaj tko smije uređivati i sam objekt, a
@@ -449,6 +471,14 @@
       prekidačima u ploči <em>Slojevi</em>. Na računalu je ploča desno, a na tabletu i mobitelu
       otvara se odozdo gumbom sa slojevima, dolje desno. Zatvara se s × ili povlačenjem prema
       dolje. Prekidač uz naziv skupine pali ili gasi sve slojeve u njoj.</p>
+    <p><strong>Ispis</strong> otvara gumb s pisačem gore desno. Odaberite format, od A4 do A0, i
+      položaj papira, uspravno ili položeno. Na karti se pokaže okvir onoga što ide na papir;
+      povucite ga za natpis, a kutom mu promijenite veličinu. Mjerilo je obavezno: <em>Kao na
+      zaslonu</em> ispisuje okvir kakav jest, uz izračunato mjerilo, a okruglo mjerilo, na primjer
+      1 : 25 000, namjesti okvir točno na sebe (najbliže okviru je označeno). Naslov se upisuje,
+      a prekidači biraju legendu, mjerilo i sjever te datum, podlogu i tko je ispisao. Gumb
+      <em>Ispiši ili spremi PDF</em> otvara ispis preglednika; na pisaču odaberite isti format i
+      100 %.</p>
     <p>Vodotoci su u skupini <em>Vode</em> po redu vode: međudržavni, I. reda, II. reda te III. i
       IV. reda, a veći red ima deblju crtu. Vodotok kojemu red nije upisan u registru voda stoji u
       sloju <em>Vodotoci bez upisanog reda</em>, dok se red ne upiše. Jezera, akumulacije i retencije

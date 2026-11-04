@@ -9,7 +9,7 @@
      drži i pogled „opširnije” sa sloja, s popisima onoga što nedostaje i što
      je ucrtano, koje karta.js puni iz istih podataka. */}}
 <div class="karta-stranica" data-plocice="{{.Karta.Plocice}}" data-zasluge="{{.Karta.Zasluge}}" data-najvise-z="{{.Karta.NajviseZ}}"
-     data-podaci="/karta/podaci.json" data-podrucja="/karta/podrucja/">
+     data-podaci="/karta/podaci.json" data-podrucja="/karta/podrucja/"{{if .CurrentUser}} data-korisnik="{{.CurrentUser.FullName}}"{{end}}>
   <div class="karta-platno"></div>
   <p class="karta-bez-mreze karta-stranica-poruka" hidden>{{icon "triangle-alert"}} Pločice karte nisu dostupne. Ucrtani slojevi se i dalje vide.</p>
   <p class="karta-stranica-poruka karta-ucitava" role="status">Karta se učitava…</p>
@@ -72,6 +72,42 @@
       </div>
     </div>
 
+    {{/* Ispis Karte (ispis-karte.js): papir, položaj i mjerilo za okvir na karti */}}
+    <div class="karta-pogled-ispis" hidden>
+      <div class="karta-slojevi-glava">
+        <h2>Ispis karte</h2>
+        <button type="button" class="karta-ispis-zatvori" aria-label="Zatvori ispis">{{icon "x"}}</button>
+      </div>
+      <div class="karta-podloge-naslov">Format</div>
+      <div class="karta-ispis-izbor karta-ispis-formati" role="group" aria-label="Format papira">
+        <button type="button" class="karta-cip" data-format="A4" aria-pressed="false">A4</button>
+        <button type="button" class="karta-cip" data-format="A3" aria-pressed="false">A3</button>
+        <button type="button" class="karta-cip" data-format="A2" aria-pressed="false">A2</button>
+        <button type="button" class="karta-cip" data-format="A1" aria-pressed="false">A1</button>
+        <button type="button" class="karta-cip" data-format="A0" aria-pressed="false">A0</button>
+      </div>
+      <div class="karta-podloge-naslov">Položaj papira</div>
+      <div class="karta-ispis-polozaj" role="group" aria-label="Položaj papira">
+        <button type="button" data-polozaj="uspravno" aria-pressed="false"><span class="karta-ispis-list karta-ispis-list-uspravno" aria-hidden="true"></span>Uspravno</button>
+        <button type="button" data-polozaj="polozeno" aria-pressed="false"><span class="karta-ispis-list karta-ispis-list-polozeno" aria-hidden="true"></span>Položeno</button>
+      </div>
+      <div class="karta-podloge-naslov">Mjerilo (obavezno)</div>
+      <p class="karta-ispis-okvir"></p>
+      <div class="karta-ispis-izbor karta-ispis-mjerila" role="group" aria-label="Mjerilo"></div>
+      <p class="karta-ispis-uputa" aria-live="polite"></p>
+      <label class="karta-ispis-polje"><span class="karta-podloge-naslov">Naslov</span>
+        <input type="text" class="karta-ispis-naslov" maxlength="120" value="Karta" autocomplete="off"></label>
+      <div class="karta-podloge-naslov">Na ispisu</div>
+      <label class="karta-ucrtavanje-prekidac"><span>Legenda slojeva i naslov</span><input type="checkbox" class="prekidac" role="switch" data-ispis="legenda" checked></label>
+      <label class="karta-ucrtavanje-prekidac"><span>Mjerilo i strelica sjevera</span><input type="checkbox" class="prekidac" role="switch" data-ispis="mjerilo" checked></label>
+      <label class="karta-ucrtavanje-prekidac"><span>Datum, podloga i tko je ispisao</span><input type="checkbox" class="prekidac" role="switch" data-ispis="podnozje" checked></label>
+      <p class="karta-ispis-napomena"></p>
+      <div class="karta-slojevi-dno karta-ispis-gumbi">
+        <button type="button" class="btn btn-secondary karta-ispis-odustani">Odustani</button>
+        <button type="button" class="btn btn-primary karta-ispis-ispisi" disabled>{{icon "printer"}} Ispiši ili spremi PDF</button>
+      </div>
+    </div>
+
     {{if .Uredjuje}}
     {{/* Ucrtavanje jednog objekta, toka ili letve (karta-uredjivanje.js) */}}
     <div class="karta-pogled-ucrtavanje" hidden>
@@ -84,6 +120,12 @@
         <div class="karta-ucrtavanje-traka" hidden><span></span></div>
         <p class="karta-ucrtavanje-dionica" hidden></p>
         <p class="karta-ucrtavanje-dijelovi" hidden></p>
+      </div>
+      <p class="karta-ucrtavanje-bezcrte" role="alert" hidden>Ostale su samo točke km. Nacrtajte crtu, vratite je s Poništi (Ctrl+Z) ili pritisnite Odustani.</p>
+      <div class="karta-ucrtavanje-preklapanje" role="alert" hidden>
+        <strong>{{icon "triangle-alert"}} Preklapa se s drugim nasipom</strong>
+        <p class="karta-ucrtavanje-preklapanje-tekst"></p>
+        <button type="button" class="karta-ucrtavanje-preklapanje-pokazi">Prikaži na karti {{icon "chevron-right"}}</button>
       </div>
       <p class="karta-ucrtavanje-uputa"></p>
       <label class="karta-ucrtavanje-prekidac" hidden><span>Oznake km<small>Isključeno ih samo skriva; točke km ostaju i spremaju se.</small></span>
@@ -102,7 +144,8 @@
       </details>
       <div class="karta-ucrtavanje-alati">
         <button type="button" class="btn btn-sm btn-secondary karta-ucrtavanje-prekini" aria-pressed="false" title="Makne komad crte, a nasip ostaje isti zapis u dva dijela">{{icon "scissors"}} Prekini crtu</button>
-        <label class="btn btn-sm btn-secondary karta-ucrtavanje-ucitaj">{{icon "upload"}} Učitaj KML ili GeoJSON<input type="file" class="karta-ucrtavanje-datoteka" hidden></label>
+        {{/* datoteku otvara gumb Učitaj među alatima na karti */}}
+        <input type="file" class="karta-ucrtavanje-datoteka" hidden>
       </div>
       <p class="karta-ucrtavanje-prekid-uputa" hidden></p>
       <p class="karta-ucrtavanje-greska" role="alert" hidden></p>
@@ -122,4 +165,5 @@
 <script src="{{statika "js/mjera-karte.js"}}" defer></script>
 <script src="{{statika "js/datoteka-karte.js"}}" defer></script>
 <script src="{{statika "js/karta-uredjivanje.js"}}" defer></script>{{end}}
+<script src="{{statika "js/ispis-karte.js"}}" defer></script>
 <script src="{{statika "js/karta.js"}}" defer></script>{{end}}

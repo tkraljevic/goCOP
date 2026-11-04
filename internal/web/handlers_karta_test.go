@@ -278,8 +278,10 @@ func TestStranicaKarta(t *testing.T) {
 			t.Errorf("stranica ne treba %q", nema)
 		}
 	}
-	if strings.Count(html, `class="prekidac"`) != strings.Count(html, `data-sloj="`)+3 {
-		t.Error("svaki sloj i svaka skupina trebaju svoj prekidač")
+	// uz slojeve i skupine, ploča ispisa ima tri svoja prekidača
+	ispis := strings.Count(html, `data-ispis="`)
+	if ispis != 3 || strings.Count(html, `class="prekidac"`) != strings.Count(html, `data-sloj="`)+3+ispis {
+		t.Error("svaki sloj i svaka skupina trebaju svoj prekidač, a ispis svoja tri")
 	}
 }
 

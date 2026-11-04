@@ -1005,6 +1005,16 @@ function dodajKontroleKarte(karta, platno, opcije) {
       lokacija.setAttribute('aria-label', lokacija.title);
       L.DomEvent.on(lokacija, 'click', L.DomEvent.stop).on(lokacija, 'click', pronadiPolozaj);
     }
+    // ravnalo na svim kartama (ravnalo-karte.js), ispis samo gdje ga karta nudi
+    if (window.ravnaloKarte && opcije.ravnalo !== false) window.ravnaloKarte.gumb(karta, okvir);
+    if (typeof opcije.ispis === 'function') {
+      var ispis = L.DomUtil.create('button', 'gocop-karta-kontrola gocop-karta-ispis', okvir);
+      ispis.type = 'button';
+      ispis.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6"/><path d="M6 18H4v-8h16v8h-2"/><path d="M6 14h12v7H6Z"/></svg>';
+      ispis.title = 'Ispis karte na papir ili u PDF';
+      ispis.setAttribute('aria-label', 'Ispis karte');
+      L.DomEvent.on(ispis, 'click', L.DomEvent.stop).on(ispis, 'click', function () { opcije.ispis(ispis); });
+    }
     L.DomEvent.disableClickPropagation(okvir);
     L.DomEvent.disableScrollPropagation(okvir);
     return okvir;
@@ -1041,7 +1051,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
   L.control.scale({ position: 'bottomleft', imperial: false }).addTo(karta);
 
   // na niskoj karti u stranici nema mjesta za sve: bez strelica ispod
-  // 400 px, a ispod 300 px i bez položaja; puni zaslon vraća sve
+  // 400 px, a ispod 300 px i bez položaja i ravnala; puni zaslon vraća sve
   function premaVisini() {
     var visina = karta.getSize().y;
     platno.classList.toggle('karta-niska', visina < 400);

@@ -134,16 +134,39 @@ func TestKartaAlatSamoSPravom(t *testing.T) {
 		h.ShowKarta(w, sPravima(httptest.NewRequest("GET", "/karta", nil), perms))
 		return w.Body.String()
 	}
-	alat := []string{"leaflet-geoman.min.js", "js/karta-uredjivanje.js", "js/datoteka-karte.js", `class="karta-pogled-ucrtavanje"`, "Generiraj stacionažu"}
+	alat := []string{"leaflet-geoman.min.js", "js/karta-uredjivanje.js", "js/datoteka-karte.js", `class="karta-pogled-ucrtavanje"`, "Generiraj stacionažu",
+		`class="karta-ucrtavanje-bezcrte"`, `class="karta-ucrtavanje-preklapanje"`, `class="karta-ucrtavanje-datoteka"`}
+	// ispis je za svakoga tko vidi Kartu, s obaveznim mjerilom
+	ispis := []string{"js/ispis-karte.js", `class="karta-pogled-ispis"`, "Mjerilo (obavezno)", `data-format="A0"`, `data-polozaj="polozeno"`,
+		"Ispiši ili spremi PDF"}
 
 	h, _ := kartaSUredjivanjem(t, nil)
-	imaSve(t, stranica(h, &models.UserPermissions{}), "smije nasip", alat)
+	sPravom := stranica(h, &models.UserPermissions{})
+	imaSve(t, sPravom, "smije nasip", append(append([]string{}, alat...), ispis...))
+	// Učitaj je ikona među alatima na karti, ne gumb u ploči
+	nemaNista(t, sPravom, "smije nasip", []string{"Učitaj KML ili GeoJSON<input"})
 
 	o, v, l := probniIzvori()
 	samoPrikaz := NewKartaHandler(o, v, l, nil, nil, predlozakKarte(t))
 	html := stranica(samoPrikaz, &models.UserPermissions{})
 	nemaNista(t, html, "bez prava", alat)
-	imaSve(t, html, "bez prava", []string{"js/karta.js"})
+	imaSve(t, html, "bez prava", append([]string{"js/karta.js"}, ispis...))
+}
+
+// Ravnalo je na svim kartama: računica mjere i ravnalo učitaju se prije
+// app.js, koji ih stavlja u kontrole svake karte.
+func TestRavnaloNaSvimKartama(t *testing.T) {
+	base := procitaj(t, "../../web/templates/base.html")
+	redom := []string{"js/mjera.js", "js/ravnalo-karte.js", "js/app.js"}
+	for i := 1; i < len(redom); i++ {
+		a, b := strings.Index(base, redom[i-1]), strings.Index(base, redom[i])
+		if a < 0 || b < 0 || a > b {
+			t.Errorf("base.html: %s nije učitan prije %s", redom[i-1], redom[i])
+		}
+	}
+	if !strings.Contains(procitaj(t, "../../web/static/js/app.js"), "window.ravnaloKarte.gumb(karta, okvir)") {
+		t.Error("dodajKontroleKarte ne stavlja ravnalo u kontrole karte")
+	}
 }
 
 // Objekt za uređivanje dolazi cijel, sa stranicom i službenom duljinom iz

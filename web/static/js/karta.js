@@ -669,7 +669,8 @@
     // u načinu opt-in i karta mora reći da Geoman smije na nju
     var karta = L.map(platno, { scrollWheelZoom: true, zoomControl: true, pmIgnore: false });
     karta.setView(ZADANO.oko, ZADANO.zum);
-    dodajKontroleKarte(karta, platno, { fullscreenTarget: okvir });
+    var ispis = null;
+    dodajKontroleKarte(karta, platno, { fullscreenTarget: okvir, ispis: function () { if (ispis) ispis.otvori(); } });
     var ploca = plocaSlojeva(okvir, karta);
 
     var podloga = '';
@@ -680,6 +681,10 @@
       var promasaja = 0;
       osnovni.on('tileerror', function () { if (++promasaja >= 3) okvir.querySelector('.karta-bez-mreze').hidden = false; });
       podloga = cipoviPodloga(karta, okvir, osnovni, stanje.podloga, function (p) { podloga = p; zapisi(); });
+    }
+    // ispis Karte (ispis-karte.js): ploča ispisa i okvir na karti
+    if (window.ispisKarte) {
+      ispis = window.ispisKarte.pokreni({ okvir: okvir, karta: karta, otvoriPlocu: ploca.otvori, podloga: function () { return podloga || 'Karta'; } });
     }
 
     var slojevi = {}, podaciKarte = {}, nedostaje = null;
