@@ -171,6 +171,264 @@
 
       karta.pm.setLang('hr', HR, 'en');
 
+      // Koraci natrag i naprijed: snimka crteža (GeoJSON) nakon svake
+      // izmjene, do 50 koraka. Brišu se kad se ucrtavanje završi.
+      var povijest = { natrag: [], naprijed: [], sada: null, vracam: false, cekam: null };
+
+      function snimka() { return JSON.stringify(geojsonGrupe()); }
+
+      function osvjeziKorake() {
+        var tb = karta.pm.Toolbar;
+        if (!tb.buttons.ponisti) return;
+        tb.setButtonDisabled('ponisti', !povijest.natrag.length);
+        tb.setButtonDisabled('ponovi', !povijest.naprijed.length);
+      }
+
+      function pocniPovijest() {
+        clearTimeout(povijest.cekam);
+        povijest.natrag = [];
+        povijest.naprijed = [];
+        povijest.sada = grupa ? snimka() : null;
+        osvjeziKorake();
+      }
+
+      // jedna radnja pošalje više događaja; snimka ide jednom, kad se smire
+      function zabiljezi() {
+        if (!aktivno || !grupa || povijest.vracam) return;
+        clearTimeout(povijest.cekam);
+        povijest.cekam = setTimeout(function () {
+          if (!grupa) return;
+          var s = snimka();
+          if (s === povijest.sada) return;
+          if (povijest.sada !== null) povijest.natrag.push(povijest.sada);
+          if (povijest.natrag.length > 50) povijest.natrag.shift();
+          povijest.naprijed = [];
+          povijest.sada = s;
+          osvjeziKorake();
+        }, 0);
+      }
+
+      function vrati(iz, u) {
+        if (!iz.length || !grupa) return;
+        clearTimeout(povijest.cekam);
+        u.push(povijest.sada);
+        povijest.sada = iz.pop();
+        povijest.vracam = true;
+        var pm = karta.pm, nacin = { uredi: pm.globalEditModeEnabled(), pomakni: pm.globalDragModeEnabled(), brisi: pm.globalRemovalModeEnabled() };
+        pm.disableGlobalEditMode();
+        pm.disableGlobalDragMode();
+        pm.disableGlobalRemovalMode();
+        grupa.clearLayers();
+        slojZaUredjivanje(JSON.parse(povijest.sada)).eachLayer(function (l) { grupa.addLayer(l); });
+        if (nacin.uredi) pm.enableGlobalEditMode();
+        if (nacin.pomakni) pm.enableGlobalDragMode();
+        if (nacin.brisi) pm.enableGlobalRemovalMode();
+        if (pm.Toolbar.buttons.brisiVrhove && pm.Toolbar.buttons.brisiVrhove.toggled()) brisiVrhove(true);
+        povijest.vracam = false;
+        osvjeziMjeru();
+        osvjeziKorake();
+      }
+      function ponisti() { vrati(povijest.natrag, povijest.naprijed); }
+      function ponovi() { vrati(povijest.naprijed, povijest.natrag); }
+
+      // Briši vrhove: dok je uključeno, dodir ili klik na vrh ga briše (na
+      // tabletu desnog klika nema); inače vrh briše desni klik. Uključuje se
+      // sloj po sloj, jer bi Geomanov globalni način uređivanja isključio
+      // ovaj gumb kao da je pritisnut gumb „Pomiči točke i vrhove”.
+      function brisiVrhove(da) {
+        slojeviGrupe(function (l) { return l instanceof L.Polyline && l.pm; }).forEach(function (l) {
+          if (da) l.pm.enable({ removeVertexOn: 'click' });
+          else { l.pm.disable(); l.pm.setOptions({ removeVertexOn: 'contextmenu' }); }
+        });
+        okvir.classList.toggle('karta-brise-vrhove', !!da);
+      }
+
+      // Prianjanje se pali i gasi gumbom (pamti se na računalu); dok se drži
+      // Alt, privremeno je isključeno, i usred crtanja ili povlačenja vrha
+      var PRIANJANJE = 'gocop.karta.prianjanje', alt = false;
+      function prianjanjeUkljuceno() {
+        try { return localStorage.getItem(PRIANJANJE) !== '0'; } catch (e) { return true; }
+      }
+      function primijeniPrianjanje() {
+        karta.pm.setGlobalOptions({ snappable: prianjanjeUkljuceno() && !alt });
+      }
+      function prianjanje(da) {
+        try { localStorage.setItem(PRIANJANJE, da ? '1' : '0'); } catch (e) { /* samo za ovaj pogled */ }
+        primijeniPrianjanje();
+      }
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Alt' && aktivno && !alt) { alt = true; primijeniPrianjanje(); }
+      });
+      document.addEventListener('keyup', function (e) {
+        if (e.key === 'Alt' && alt) { alt = false; if (aktivno) primijeniPrianjanje(); }
+      });
+      window.addEventListener('blur', function () { if (alt) { alt = false; if (aktivno) primijeniPrianjanje(); } });
+
+      function izvezi(vrsta) {
+        var gj = geojsonGrupe();
+        karta.pm.Toolbar.toggleButton('izvezi', false);
+        if (!gj.features.length) { greska('Na karti nema ničega za izvoz.'); return; }
+        window.datotekaKarte.preuzmi(gj, aktivno.naziv, vrsta);
+      }
+
+      // Učitaj, Izvezi, Briši vrhove, Poništi i Ponovi među Geomanovim
+      // alatima; prave se jednom, a pokazuju sa svakim ucrtavanjem
+      function alati() {
+        var tb = karta.pm.Toolbar;
+        if (tb.buttons.ucitaj) return;
+        tb.createCustomControl({ name: 'ucitaj', block: 'draw', title: 'Učitaj KML ili GeoJSON', className: 'gocop-pm-ucitaj', toggle: false,
+          onClick: function () { el('.karta-ucrtavanje-datoteka').click(); } });
+        tb.createCustomControl({ name: 'izvezi', block: 'draw', title: 'Izvezi crtež kao GeoJSON ili KML', className: 'gocop-pm-izvezi', toggle: true,
+          actions: [{ name: 'izvezi-geojson', text: 'GeoJSON', onClick: function () { izvezi('geojson'); } },
+            { name: 'izvezi-kml', text: 'KML (Google Earth)', onClick: function () { izvezi('kml'); } }, 'cancel'] });
+        // Poništi i Ponovi ga ne gase; gasi ga drugi način (uređivanje,
+        // pomicanje, brisanje dijela, crtanje), vidi ugasiBrisanjeVrhova
+        tb.createCustomControl({ name: 'brisiVrhove', block: 'edit', title: 'Briši vrhove: dodir ili klik na vrh ga briše', className: 'gocop-pm-brisi-vrh', toggle: true,
+          disableByOtherButtons: false,
+          actions: [{ name: 'brisi-uputa', text: 'Dodirnite ili kliknite vrh da ga obrišete', onClick: function () {} },
+            { name: 'brisi-gotovo', text: 'Gotovo', onClick: function () { tb.toggleButton('brisiVrhove', false); brisiVrhove(false); } }],
+          afterClick: function (e, ctx) { brisiVrhove(ctx.button.toggled()); } });
+        tb.createCustomControl({ name: 'prianjanje', block: 'options', title: 'Prianjanje na susjedne crte i točke (Alt ga privremeno isključi)',
+          className: 'gocop-pm-prianjanje', toggle: true, disableOtherButtons: false, disableByOtherButtons: false,
+          afterClick: function (e, ctx) { prianjanje(ctx.button.toggled()); } });
+        tb.createCustomControl({ name: 'ponisti', block: 'custom', title: 'Poništi zadnju izmjenu (Ctrl+Z)', className: 'gocop-pm-ponisti',
+          toggle: false, disableOtherButtons: false, onClick: ponisti });
+        tb.createCustomControl({ name: 'ponovi', block: 'custom', title: 'Ponovi (Ctrl+Shift+Z)', className: 'gocop-pm-ponovi',
+          toggle: false, disableOtherButtons: false, onClick: ponovi });
+      }
+
+      function ugasiBrisanjeVrhova(e) {
+        var b = karta.pm.Toolbar.buttons.brisiVrhove;
+        if (!b || !b.toggled() || (e && e.enabled === false)) return;
+        karta.pm.Toolbar.toggleButton('brisiVrhove', false, false);
+        brisiVrhove(false);
+      }
+      karta.on('pm:globaleditmodetoggled pm:globaldragmodetoggled pm:globalremovalmodetoggled pm:drawstart', ugasiBrisanjeVrhova);
+
+      document.addEventListener('keydown', function (e) {
+        if (!aktivno || !grupa || !(e.ctrlKey || e.metaKey)) return;
+        var t = e.target && e.target.tagName;
+        if (t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT') return;
+        var tipka = (e.key || '').toLowerCase();
+        if (tipka === 'z' && !e.shiftKey) { e.preventDefault(); ponisti(); }
+        else if ((tipka === 'z' && e.shiftKey) || tipka === 'y') { e.preventDefault(); ponovi(); }
+      });
+
+      // Nova crta koja počne ili završi na kraju postojeće spaja se s njom u
+      // jednu crtu, umjesto novog dijela. Kraj se broji do 8 točaka zaslona
+      // (najmanje 5 m), jer prianjanje zna sjesti na susjednu crtu tik uz
+      // vrh; spojena crta preuzme točan kraj postojeće, bez praznine.
+      function nastavi(nova) {
+        var t = nova.getLatLngs(), d = window.mjera.udaljenost, spojeno = false;
+        if (t.length < 2) return false;
+        var prag = Math.max(5, d(karta.containerPointToLatLng([0, 0]), karta.containerPointToLatLng([8, 0])));
+        var prvi = t[0], zadnji = t[t.length - 1], obrnuto = t.slice().reverse();
+        crteGrupe().forEach(function (l) {
+          if (spojeno || l === nova) return;
+          var lt = l.getLatLngs(), dij = lt.length && Array.isArray(lt[0]) ? lt.slice() : [lt];
+          dij.forEach(function (dio, i) {
+            if (spojeno || dio.length < 2) return;
+            var pocetak = dio[0], kraj = dio[dio.length - 1], novi = null;
+            if (d(prvi, kraj) < prag) novi = dio.concat(t.slice(1));
+            else if (d(zadnji, pocetak) < prag) novi = t.slice(0, -1).concat(dio);
+            else if (d(prvi, pocetak) < prag) novi = obrnuto.slice(0, -1).concat(dio);
+            else if (d(zadnji, kraj) < prag) novi = dio.concat(obrnuto.slice(1));
+            if (!novi) return;
+            dij[i] = novi;
+            l.setLatLngs(dij.length === 1 ? dij[0] : dij);
+            spojeno = true;
+          });
+        });
+        if (!spojeno) return false;
+        grupa.removeLayer(nova);
+        if (window.showToast) window.showToast('Crta je nastavljena (+' + window.mjera.metri(window.mjera.duljina(t)) + '). Ctrl+Z poništava.');
+        return true;
+      }
+
+      // Preklapanje s drugim nasipom: točke crte svakih 10 m bliže od 10 m
+      // nekom drugom nasipu, u komadu duljem od 50 m. Kraj jednog nasipa
+      // treba biti početak drugog (Draž i usporni nasip Karašice, 4. 11.).
+      var preklapanje = { cekam: null, sloj: null, tocke: null };
+
+      function uzorci(dio, korak) {
+        var out = [dio[0]], ostatak = korak, M = window.mjera;
+        for (var i = 0; i + 1 < dio.length; i++) {
+          var a = dio[i], b = dio[i + 1], duz = M.udaljenost(a, b), pre = 0;
+          while (duz - pre >= ostatak) {
+            pre += ostatak;
+            var u = pre / duz;
+            out.push(L.latLng(a.lat + u * (b.lat - a.lat), a.lng + u * (b.lng - a.lng)));
+            ostatak = korak;
+          }
+          ostatak -= duz - pre;
+        }
+        return out;
+      }
+
+      function drugiNasipi(granice) {
+        var out = [];
+        Object.keys(k.slojevi).forEach(function (kljuc) {
+          var s = k.slojevi[kljuc];
+          if (!s || !s.eachLayer) return;
+          s.eachLayer(function (l) {
+            var p = l.feature && l.feature.properties;
+            if (!p || p.vrsta !== 'NASIP' || p.adresa === aktivno.adresa || !(l instanceof L.Polyline)) return;
+            if (!l.getBounds().pad(0.05).intersects(granice)) return;
+            var t = l.getLatLngs();
+            out.push({ naziv: p.naziv, crte: t.length && Array.isArray(t[0]) ? t : [t] });
+          });
+        });
+        return out;
+      }
+
+      function nadjiPreklapanje() {
+        var dij = dijeloviCrta(), M = window.mjera, nalaz = null;
+        if (!dij.length) return null;
+        var granice = L.latLngBounds(dij[0]);
+        dij.forEach(function (dio) { granice.extend(L.latLngBounds(dio)); });
+        drugiNasipi(granice).forEach(function (o) {
+          var naj = [], niz = [];
+          dij.forEach(function (dio) {
+            uzorci(dio, 10).forEach(function (u) {
+              var blizu = o.crte.some(function (c) { var m = M.naCrti(c, u); return m && m.udaljenost < 10; });
+              if (blizu) niz.push(u);
+              else { if (niz.length > naj.length) naj = niz; niz = []; }
+            });
+            if (niz.length > naj.length) naj = niz;
+            niz = [];
+          });
+          var duz = (naj.length - 1) * 10;
+          if (duz >= 50 && (!nalaz || duz > nalaz.duz)) nalaz = { naziv: o.naziv, duz: duz, tocke: naj };
+        });
+        return nalaz;
+      }
+
+      function makniOznakuPreklapanja() {
+        if (preklapanje.sloj) { karta.removeLayer(preklapanje.sloj); preklapanje.sloj = null; }
+      }
+
+      function provjeriPreklapanje() {
+        clearTimeout(preklapanje.cekam);
+        preklapanje.cekam = setTimeout(function () {
+          var kutija = el('.karta-ucrtavanje-preklapanje');
+          makniOznakuPreklapanja();
+          var n = aktivno && aktivno.vrstaObjekta === 'NASIP' && grupa ? nadjiPreklapanje() : null;
+          preklapanje.tocke = n && n.tocke;
+          kutija.hidden = !n;
+          if (n) {
+            el('.karta-ucrtavanje-preklapanje-tekst').textContent = 'Crta se ' + window.mjera.metri(n.duz) + ' poklapa s nasipom ' + n.naziv +
+              '. Kraj jednog nasipa treba biti početak drugog.';
+          }
+        }, 300);
+      }
+
+      function pokaziPreklapanje() {
+        if (!preklapanje.tocke) return;
+        makniOznakuPreklapanja();
+        preklapanje.sloj = L.polyline(preklapanje.tocke, { color: '#f59f00', weight: 14, opacity: 0.55, interactive: false, pmIgnore: true, snapIgnore: true }).addTo(karta);
+        prikazi(preklapanje.sloj.getBounds().pad(0.5));
+      }
+
       function vidljivPogled() {
         return Array.prototype.filter.call(okvir.querySelectorAll('.karta-pogled-slojevi, .karta-pogled-nedostaje'), function (p) { return !p.hidden; })[0];
       }
@@ -208,9 +466,16 @@
         var crte = crteGrupe(), plosne = plosneGrupe(), dij = dijeloviCrta(), m = 0, tocaka = 0;
         dij.forEach(function (d) { m += mjera.duljina(d); tocaka += d.length; });
         var niz = dij.length > 1 ? sloziNiz(dij) : null;
+        // crta nasipa ili toka obrisana, a točke km ostale: tako se ne sprema
+        var bezCrte = !!CRTE[aktivno.vrstaObjekta] && !crte.length && slojeviGrupe(function () { return true; }).length > 0;
         if (crte.length) iznos.textContent = mjera.metri(m);
         else if (plosne.length) iznos.textContent = mjera.hektari(plosne.reduce(function (z, l) { return z + mjera.povrsina(l.getLatLngs()[0]); }, 0));
+        else if (bezCrte) iznos.textContent = 'crte nema';
         else iznos.textContent = slojeviGrupe(function () { return true; }).length ? 'točka' : 'još ništa';
+        el('.karta-ucrtavanje-mjera').classList.toggle('karta-ucrtavanje-bez-crte', bezCrte);
+        el('.karta-ucrtavanje-bezcrte').hidden = !bezCrte;
+        el('.karta-ucrtavanje-spremi').disabled = bezCrte;
+        provjeriPreklapanje();
         var sl = aktivno.duljina_km;
         traka.hidden = !(sl > 0 && crte.length);
         dionica.hidden = !(sl > 0);
@@ -297,7 +562,8 @@
         return {
           position: 'topleft', drawMarker: (!crta && !povrsina) || !!S_KM[vrsta], drawPolyline: crta, drawPolygon: !crta,
           drawCircle: false, drawCircleMarker: false, drawRectangle: false, drawText: false,
-          editMode: true, dragMode: true, cutPolygon: false, removalMode: true, rotateMode: false
+          editMode: true, dragMode: true, cutPolygon: false, removalMode: true, rotateMode: false,
+          ucitaj: true, izvezi: true, brisiVrhove: true, prianjanje: true, ponisti: true, ponovi: true
         };
       }
 
@@ -317,10 +583,10 @@
       function uputa(a) {
         if (a.vrsta === 'letva') return 'Povucite letvu na pravo mjesto ili kliknite na karti gdje stoji.';
         if (a.vrstaObjekta === 'povrsina-vode') {
-          return 'Alatom „Novi poligon” kliknite točku po točku uz obalu, a površinu zatvorite klikom na prvu točku. Vrh pomičete povlačenjem, a desnim klikom ga brišete.';
+          return 'Alatom „Novi poligon” kliknite točku po točku uz obalu, a površinu zatvorite klikom na prvu točku. Vrh pomičete povlačenjem, a brišete desnim klikom ili alatom Briši vrhove. Ctrl+Z poništava.';
         }
         var u = CRTE[a.vrstaObjekta]
-          ? 'Alatom „Nova crta” kliknite točku po točku, a zadnju dvaput ili „Završi”. Vrh pomičete povlačenjem, a desnim klikom ga brišete.'
+          ? 'Alatom „Nova crta” kliknite točku po točku, a zadnju dvaput ili „Završi”. Novu crtu počnite na kraju postojeće i nastavit će je. Vrh pomičete povlačenjem, a brišete desnim klikom ili alatom Briši vrhove. Ctrl+Z poništava.'
           : 'Alatom „Nova točka” postavite objekt, a „Novi poligon” crta površinu. Točku pomičete povlačenjem.';
         if (S_KM[a.vrstaObjekta]) u += ' „Nova točka” pita za km stacionaže.';
         return u;
@@ -336,8 +602,10 @@
         karta.closePopup();
         el('.karta-ucrtavanje-naziv').textContent = a.naziv;
         el('.karta-ucrtavanje-uputa').textContent = uputa(a);
-        el('.karta-ucrtavanje-ucitaj').hidden = a.vrsta === 'letva';
         prekidaj(false);
+        // dok se crta, ravnalo ne radi (ravnalo-karte.js)
+        karta._uredjuje = true;
+        if (window.ravnaloKarte) window.ravnaloKarte.iskljuci(karta);
         el('.karta-ucrtavanje-stacionaza').open = false;
         el('.karta-stacionaza-od').value = km3(a.odKm || 0);
         el('.karta-stacionaza-kraj').value = a.vrsta === 'vodotok' ? 'B' : 'A';
@@ -353,9 +621,14 @@
         }
         grupa = slojZaUredjivanje(gj).addTo(karta);
         karta.pm.setGlobalOptions({ layerGroup: grupa, snappable: true, snapDistance: 15, pathOptions: { color: NARANCASTA, weight: 4 } });
+        alati();
         karta.pm.addControls(kontrole(a.vrstaObjekta));
+        karta.pm.Toolbar.toggleButton('prianjanje', prianjanjeUkljuceno(), false);
+        primijeniPrianjanje();
         if (window.mjeraKarte) window.mjeraKarte.prati(karta, grupa);
         grupa.on('pm:edit pm:dragend pm:markerdragend pm:vertexremoved pm:remove layeradd layerremove', osvjeziMjeru);
+        grupa.on('pm:edit pm:dragend pm:markerdragend pm:vertexremoved pm:remove pm:cut layeradd layerremove', zabiljezi);
+        pocniPovijest();
         var g = grupa.getBounds();
         prikazi(g.isValid() ? g : a.granice);
         osvjeziMjeru();
@@ -384,6 +657,14 @@
         okvir.classList.remove('karta-u-uredjivanju', 'karta-postavlja-letvu');
         if (letva) { karta.removeLayer(letva); letva = null; }
         if (oznakeKrajeva) { karta.removeLayer(oznakeKrajeva); oznakeKrajeva = null; }
+        karta._uredjuje = false;
+        makniOznakuPreklapanja();
+        el('.karta-ucrtavanje-preklapanje').hidden = true;
+        el('.karta-ucrtavanje-spremi').disabled = false;
+        if (karta.pm.Toolbar.buttons.brisiVrhove && karta.pm.Toolbar.buttons.brisiVrhove.toggled()) {
+          karta.pm.Toolbar.toggleButton('brisiVrhove', false);
+          brisiVrhove(false);
+        }
         if (grupa) {
           karta.pm.disableDraw();
           karta.pm.disableGlobalEditMode();
@@ -394,6 +675,7 @@
           grupa = null;
         }
         aktivno = null;
+        pocniPovijest();
         pogled.hidden = true;
         if (prethodni) prethodni.hidden = false;
       }
@@ -472,6 +754,7 @@
         var novi = [prije, poslije].filter(function (d) { return d.length >= 2 && window.mjeraKarte.duljina(d) > 0.5; });
         dijelovi.splice.apply(dijelovi, [a.dio, 1].concat(novi));
         a.l.setLatLngs(dijelovi.length === 1 ? dijelovi[0] : dijelovi);
+        zabiljezi();
         prekidaj(false);
         greska('');
         osvjeziMjeru();
@@ -600,6 +883,7 @@
       el('.karta-ucrtavanje-natrag').addEventListener('click', odustani);
       el('.karta-ucrtavanje-spremi').addEventListener('click', spremi);
       el('.karta-ucrtavanje-prekini').addEventListener('click', function () { prekidaj(!prekid); });
+      el('.karta-ucrtavanje-preklapanje-pokazi').addEventListener('click', pokaziPreklapanje);
       el('.karta-stacionaza-generiraj').addEventListener('click', generiraj);
       el('.karta-ucrtavanje-stacionaza').addEventListener('toggle', osvjeziMjeru);
       // oznake km se samo skrivaju; točke ostaju u crtežu i spremaju se
@@ -617,6 +901,7 @@
         var l = e.layer;
         l.options.pmIgnore = false;
         L.PM.reInitLayer(l);
+        if (l instanceof L.Polyline && !(l instanceof L.Polygon) && nastavi(l)) { osvjeziMjeru(); return; }
         if (l instanceof L.Marker && S_KM[aktivno.vrstaObjekta]) {
           var km = (window.prompt('Km stacionaže za ovu točku (npr. 1+250). Ostavite prazno za običnu točku.', '') || '').trim();
           if (km) {

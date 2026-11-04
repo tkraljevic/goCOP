@@ -1,7 +1,8 @@
 // Čitanje crte iz datoteke: GeoJSON (QGIS, geojson.io, OpenStreetMap) ili
 // KML (Google Earth, Moje karte). KML se pretvori u GeoJSON ovdje, a program
 // ga zatim provjeri kao i svaki drugi GeoJSON. Koriste ga Karta
-// (karta-uredjivanje.js) te stranice objekta i vode (app.js).
+// (karta-uredjivanje.js) te stranice objekta i vode (app.js). Izvoz radi
+// obrnuto: crtež s Karte u GeoJSON ili KML za Google Earth.
 (function () {
   var NAJVISE = 20 * 1024 * 1024;
 
@@ -67,5 +68,57 @@
     });
   }
 
-  window.datotekaKarte = { procitaj: procitaj, kmlUGeojson: kmlUGeojson, prihvaca: '.geojson,.json,.kml,application/geo+json,application/json,application/vnd.google-earth.kml+xml' };
+  function xml(t) {
+    return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function kmlKoordinate(niz) {
+    return niz.map(function (c) { return c[0] + ',' + c[1]; }).join(' ');
+  }
+
+  // KML geometrija jedne GeoJSON geometrije; više dijelova ide u MultiGeometry
+  function kmlGeometrija(g) {
+    switch (g.type) {
+    case 'Point': return '<Point><coordinates>' + kmlKoordinate([g.coordinates]) + '</coordinates></Point>';
+    case 'MultiPoint': return '<MultiGeometry>' + g.coordinates.map(function (c) { return kmlGeometrija({ type: 'Point', coordinates: c }); }).join('') + '</MultiGeometry>';
+    case 'LineString': return '<LineString><coordinates>' + kmlKoordinate(g.coordinates) + '</coordinates></LineString>';
+    case 'MultiLineString': return '<MultiGeometry>' + g.coordinates.map(function (c) { return kmlGeometrija({ type: 'LineString', coordinates: c }); }).join('') + '</MultiGeometry>';
+    case 'Polygon': return '<Polygon><outerBoundaryIs><LinearRing><coordinates>' + kmlKoordinate(g.coordinates[0]) + '</coordinates></LinearRing></outerBoundaryIs></Polygon>';
+    case 'MultiPolygon': return '<MultiGeometry>' + g.coordinates.map(function (c) { return kmlGeometrija({ type: 'Polygon', coordinates: c }); }).join('') + '</MultiGeometry>';
+    }
+    return '';
+  }
+
+  // geojsonUKml: svaka značajka je Placemark; točka km nosi km kao ime
+  function geojsonUKml(gj, naziv) {
+    var mjesta = (gj.features || []).map(function (f) {
+      var p = f.properties || {}, ime = p.km || (p.rkm != null ? p.oznaka || String(p.rkm) : '') || p.naziv || naziv;
+      var g = f.geometry && kmlGeometrija(f.geometry);
+      return g ? '<Placemark><name>' + xml(ime) + '</name>' + g + '</Placemark>' : '';
+    }).join('\n');
+    return '<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>' + xml(naziv) + '</name>\n' + mjesta + '\n</Document></kml>\n';
+  }
+
+  // ime datoteke od naziva: mala slova, bez dijakritika i razmaka
+  function imeDatoteke(naziv, nastavak) {
+    var t = String(naziv || 'crtez').toLowerCase().replace(/đ/g, 'd').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    return (t || 'crtez') + '.' + nastavak;
+  }
+
+  // preuzmi spremi crtež u datoteku na računalu (GeoJSON ili KML)
+  function preuzmi(gj, naziv, vrsta) {
+    var kml = vrsta === 'kml';
+    var tekst = kml ? geojsonUKml(gj, naziv) : JSON.stringify(gj);
+    var blob = new Blob([tekst], { type: kml ? 'application/vnd.google-earth.kml+xml' : 'application/geo+json' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = imeDatoteke(naziv, kml ? 'kml' : 'geojson');
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+
+  window.datotekaKarte = { procitaj: procitaj, kmlUGeojson: kmlUGeojson, geojsonUKml: geojsonUKml, preuzmi: preuzmi,
+    prihvaca: '.geojson,.json,.kml,application/geo+json,application/json,application/vnd.google-earth.kml+xml' };
 })();

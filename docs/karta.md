@@ -134,16 +134,40 @@ gumbom *Uredi na Karti* na stranici objekta, odnosno *Uredi tok na Karti*
 na stranici vodotoka. Stranice objekta i vodotoka kartu samo prikazuju i
 učitavaju KML ili GeoJSON, koji odmah zamijeni cijeli zapis.
 
-Na Karti se crta nova crta, pomiču se vrhovi (desni klik briše vrh), pomiče
-se ili briše cijeli dio, a *Prekini crtu* makne komad crte između dva
-klika. Novi i povučeni vrh lijepe se na crte vodotoka, nasipa i brana te na
+Na Karti se crta nova crta, pomiču se vrhovi (desni klik briše vrh, a na
+tabletu alat *Briši vrhove* dodirom), pomiče se ili briše cijeli dio, a
+*Prekini crtu* makne komad crte između dva klika. Nova crta koja počne ili
+završi na kraju postojeće nastavlja je. Prianjanje (magnet) se pali i gasi,
+a dok se drži Alt, isključeno je samo za taj potez. *Poništi* i *Ponovi* (Ctrl+Z,
+Ctrl+Shift+Z) pamte do 50 koraka do spremanja. Kad se nasip dulje od 50 m
+poklapa s drugim nasipom (bliže od 10 m), ploča upozori. Bez crte, samo s
+točkama km, nasip se ne sprema. Novi i povučeni vrh lijepe se na crte vodotoka, nasipa i brana te na
 točke objekata i letvi. Ploča desno pokazuje nacrtanu duljinu prema
 duljini nasipa po dionicama. *Generiraj stacionažu* postavi točke km na
 svaki puni km i na krajeve dijelova: dijelovi se slože u niz, praznina
 između njih zadano ulazi u km, a nasip kroz više dionica nacrtan u isto
 toliko dijelova može dobiti km svake dionice. Datoteka KML ili GeoJSON na
-Karti se doda crtežu, pa se pregleda prije spremanja. Na kraju *Spremi* ili
-*Odustani*.
+Karti se doda crtežu (alat *Učitaj*), pa se pregleda prije spremanja, a
+alat *Izvezi* spremi crtež u GeoJSON ili KML za Google Earth. Na kraju
+*Spremi* ili *Odustani*.
+
+## Ravnalo i ispis
+
+Ravnalo je na svim kartama, gumb gore desno. Mjeri udaljenost, površinu i
+duljinu po nasipu ili vodi; za km stacionaže dohvati punu crtu s
+`/karta/objekt/{id}` ili `/karta/vodotok/{kod}`. Ništa ne sprema, a dok se
+crta na Karti, ne radi. Računica (udaljenost na kugli polumjera 6371 km,
+površina, km) je u `js/mjera.js`, zajednička s mjerom pri crtanju.
+
+Ispis je samo na Karti: format A4 do A0, uspravno ili položeno, i mjerilo
+za okvir koji se povlači po karti (Odluke (4. 11. 2026.)). Mjerilo je
+obavezno: „Kao na zaslonu” ispisuje okvir uz izračunato mjerilo,
+zaokruženo na stotice, a okruglo mjerilo (1 : 5 000 do 1 : 100 000)
+namjesti okvir točno na sebe. Za ispis se karta postavi na veličinu
+korisnog dijela papira (rub 10 mm) i zum za točno mjerilo, pa ide kroz
+preglednik (ispis ili PDF). Na listu su legenda uključenih slojeva i
+naslov, mjerilo i sjever, te datum, podloga i tko je ispisao. Format i
+položaj papira pamte se na računalu, mjerilo se bira svaki put.
 
 Objekt crta onaj tko smije uređivati objekt, a letvu onaj tko smije
 mijenjati letvu. Za objekt se crtaju i točke i poligoni, a nova točka na

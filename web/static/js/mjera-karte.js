@@ -1,49 +1,10 @@
 // Mjera uz pokazivač dok se na karti crta ili pomiče vrh. Geoman Free sam
-// ne mjeri, pa duljinu crte i površinu poligona računa ovaj dio. Duljina do
-// 1 km piše se u metrima, iznad toga u kilometrima; površina do 1 ha u m²,
-// iznad toga u hektarima. Uključuje je uređivač na Karti (karta-uredjivanje.js).
+// ne mjeri, pa duljinu crte i površinu poligona ovaj dio piše uz pokazivač;
+// računica je u mjera.js. Uključuje je uređivač na Karti (karta-uredjivanje.js).
 (function () {
-  var R = 6371000; // polumjer Zemlje u metrima, isti kao u Leafletovu distance
-
-  function broj(n, dec) {
-    return Number(n).toLocaleString('hr-HR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
-  }
-
-  // udaljenost dviju točaka po kugli ({lat, lng}, u metrima)
-  function udaljenost(a, b) {
-    var r = Math.PI / 180, f1 = a.lat * r, f2 = b.lat * r;
-    var h = Math.pow(Math.sin((f2 - f1) / 2), 2) + Math.cos(f1) * Math.cos(f2) * Math.pow(Math.sin((b.lng - a.lng) * r / 2), 2);
-    return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
-  }
-
-  function duljina(tocke) {
-    var d = 0;
-    for (var i = 1; i < tocke.length; i++) d += udaljenost(tocke[i - 1], tocke[i]);
-    return d;
-  }
-
-  function opseg(tocke) {
-    return tocke.length < 2 ? 0 : duljina(tocke) + udaljenost(tocke[tocke.length - 1], tocke[0]);
-  }
-
-  // površina poligona na kugli, u m² (isti račun kao geodesicArea u Leaflet.draw)
-  function povrsina(tocke) {
-    if (tocke.length < 3) return 0;
-    var r = Math.PI / 180, a = 0;
-    for (var i = 0; i < tocke.length; i++) {
-      var p1 = tocke[i], p2 = tocke[(i + 1) % tocke.length];
-      a += (p2.lng - p1.lng) * r * (2 + Math.sin(p1.lat * r) + Math.sin(p2.lat * r));
-    }
-    return Math.abs(a * R * R / 2);
-  }
-
-  function metri(m) {
-    return m < 1000 ? broj(Math.round(m), 0) + ' m' : broj(m / 1000, 2) + ' km';
-  }
-
-  function hektari(m2) {
-    return m2 < 10000 ? broj(Math.round(m2), 0) + ' m²' : broj(m2 / 10000, 2) + ' ha';
-  }
+  // računica je zajednička s ravnalom (mjera.js)
+  var M = window.mjera;
+  var udaljenost = M.udaljenost, duljina = M.duljina, opseg = M.opseg, povrsina = M.povrsina, metri = M.metri, hektari = M.hektari;
 
   function tekstPovrsine(prsten) {
     return hektari(povrsina(prsten)) + ' · opseg ' + metri(opseg(prsten));
@@ -132,5 +93,4 @@
 
   var mjera = { udaljenost: udaljenost, duljina: duljina, opseg: opseg, povrsina: povrsina, metri: metri, hektari: hektari, tekstCrtanja: tekstCrtanja, prati: prati };
   if (typeof window !== 'undefined') window.mjeraKarte = mjera;
-  if (typeof module !== 'undefined') module.exports = mjera;
 })();

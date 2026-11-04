@@ -111,7 +111,8 @@ func TestPomocObjasnjavaKontroleKarte(t *testing.T) {
 	h := pomocHTML(t)
 	for _, want := range []string{
 		"puni zaslon", "vaš položaj", "Kotačić miša", "dva prsta", "Strelice su jedan kvadrat", "dolje desno, iznad gumba sa slojevima",
-		"ne sprema se", "Moj položaj", "HTTPS veze",
+		"ne sprema se", "Moj položaj", "HTTPS veze", "Ravnalo", "po nasipu", "Dodaj točku",
+		"Briši vrhove", "Prianjanje</strong> (magnet)", "Poništi", "Ctrl+Z", "poklapa s nasipom", "Mjerilo je obavezno", "Kao na\n      zaslonu", "A0",
 	} {
 		if !strings.Contains(h, want) {
 			t.Errorf("pomoć ne objašnjava kontrolu karte %q", want)
