@@ -36,8 +36,9 @@ type IzborPrognoze struct {
 	Opis        string // „dio u sektoru B, do ušća u Dunav”
 	NaslovLetvi string // „Letve na Dravi, od uzvodne prema nizvodnoj”
 
-	kodovi []string   // letve koje stranica pokazuje, redom pregleda
-	upit   url.Values // sektor, vodotok i cijeli, za adrese
+	kodovi []string          // letve koje stranica pokazuje, redom pregleda
+	upit   url.Values        // sektor, vodotok i cijeli, za adrese
+	tudji  map[string]string // šifra letve → „sektor A” kad je odabrani sektor samo prati
 }
 
 // ulazIzbora je sve iz čega se izbor slaže.
@@ -46,13 +47,14 @@ type ulazIzbora struct {
 	redom   []string // sve letve izdanja redom pregleda
 	moji    []string // sektori iz dužnosti osobe
 	granica granicaDunava
-	usce    map[string]string // šifra letve → voda u koju se njezin vodotok ulijeva
+	usce    map[string]string   // šifra letve → voda u koju se njezin vodotok ulijeva
+	maticni map[string][]string // šifra letve → sektori kojima pripada (maticniSektori)
 }
 
 // imaLetvi javlja ima li sektor ijednu letvu u izdanju.
 func (s SektorPrognoze) imaLetvi() bool { return len(s.Vodotoci) > 0 }
 
-// Ostale javlja je li to skupina „Ostale letve” (letve bez sektora).
+// Ostale javlja je li to skupina „Bez sektora” (letve bez sektora).
 func (s SektorPrognoze) Ostale() bool { return s.ID == oznakaOstalih }
 
 // odaberiSektor: traženi sektor ako ima letve, inače prvi iz dužnosti
@@ -120,6 +122,12 @@ func izborIzAdrese(q url.Values, ul ulazIzbora) *IzborPrognoze {
 			URL: adresaPrognoza(upitIzbora(s.ID, x.Oznaka, false), dan), Odabran: x.Oznaka == v.Oznaka})
 	}
 	iz.NaslovLetvi = naslovLetvi(v, iz.Cijeli)
+	iz.tudji = map[string]string{}
+	for kod, m := range ul.maticni {
+		if t := tudjiSektor(m, s.ID); t != "" {
+			iz.tudji[kod] = t
+		}
+	}
 	switch {
 	case iz.Cijeli:
 		iz.kodovi = cijeli
@@ -144,11 +152,11 @@ func usceDijela(v VodotokPrognoze, usce map[string]string) string {
 
 // cipoviSektora su čipovi svih sektora; sektor bez letvi je prazan. Prazan
 // sektor ne mora biti bez prognoze: letve mu možda još nisu povezane u
-// registru (sektor A), pa napomena upućuje na „Ostale letve”.
+// registru (sektor A), pa napomena upućuje na „Bez sektora”.
 func cipoviSektora(skupine []SektorPrognoze, odabran, dan string) []CipPrognoze {
 	napomena := "Nijedna letva iz prognoze nije povezana s ovim sektorom."
 	if slices.ContainsFunc(skupine, SektorPrognoze.Ostale) {
-		napomena += " Nepovezane letve su pod „" + OstaleLetve + "”."
+		napomena += " Letve kojima u registru nije upisan sektor su pod „" + BezSektora + "”."
 	}
 	out := make([]CipPrognoze, 0, len(skupine))
 	for _, s := range skupine {
@@ -230,6 +238,9 @@ func suziStranicu(data *PrognozePageData) {
 		return
 	}
 	letve := samoLetve(letveRedom(data.Tablice), skupKodova(data.Izbor.kodovi))
+	for i := range letve {
+		letve[i].TudjiSektor = data.Izbor.tudji[letve[i].Kod]
+	}
 	data.Tablice = []TablicaPrognoza{{Naslov: data.Izbor.NaslovLetvi, Letve: letve}}
 }
 
@@ -298,6 +309,7 @@ func (h *PrognozeHandler) izborPrognoze(r *http.Request, letve []LetvaPrognoze, 
 	ul := ulazIzbora{
 		skupine: skupinePrognoza(letve, postaje, sektori, vlastitiSektori(postaje, dionice, podrucja)),
 		moji:    perms.SektoriRada(), granica: granicaIzRegistra(postaje), usce: h.uscaLetvi(r.Context(), postaje),
+		maticni: maticniSektori(postaje, dionice, podrucja),
 	}
 	for _, l := range letve {
 		ul.redom = append(ul.redom, l.Kod)

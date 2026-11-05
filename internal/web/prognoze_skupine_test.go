@@ -3,6 +3,7 @@ package web
 import (
 	"net/url"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -96,7 +97,7 @@ func TestSkupinePrognozaSektorB(t *testing.T) {
 		"inundacija-dunava": "Inundacija Dunava: zlatna-greda",
 		"drava":             "Drava: novo-virje donji-miholjac dravaszabolcs osijek",
 		"karasica":          "Karašica: kapelna",
-		"ostale":            "Ostale letve: bez-vode",
+		"ostale":            "Bez vodotoka: bez-vode",
 	}
 	if got := vodotociSektora(sk[1]); !reflect.DeepEqual(got, zeli) {
 		t.Errorf("sektor B:\n%v\nželim\n%v", got, zeli)
@@ -112,7 +113,7 @@ func TestSkupinePrognozaSektorB(t *testing.T) {
 		t.Errorf("sektor A: %v", got)
 	}
 	if got := vodotociSektora(sk[3]); !reflect.DeepEqual(got, map[string]string{"mura": "Mura: granicni-brod pogranicje mursko",
-		"drava": "Drava: prolaz", "ostale": "Ostale letve: nepoznata"}) {
+		"drava": "Drava: prolaz", "ostale": "Bez vodotoka: nepoznata"}) {
 		t.Errorf("ostale letve: %v", got)
 	}
 	cijela := cijeliVodotok(sk, "Drava", letveKodovi(letve))
@@ -234,7 +235,7 @@ func TestNaslovIOpisDijela(t *testing.T) {
 		{VodotokPrognoze{Oznaka: "drava", Ime: "Drava", Voda: "Drava"}, "Letve na Dravi, od uzvodne prema nizvodnoj"},
 		{VodotokPrognoze{Oznaka: "dunav-uzvodno", Ime: DunavUzvodno, Voda: "Dunav"}, "Letve na Dunavu uzvodno, od uzvodne prema nizvodnoj"},
 		{VodotokPrognoze{Oznaka: "inundacija-dunava", Ime: SkupinaInundacije}, "Letve u inundaciji Dunava, redom kako voda teče"},
-		{VodotokPrognoze{Oznaka: oznakaOstalih, Ime: OstaleLetve}, OstaleLetve},
+		{VodotokPrognoze{Oznaka: oznakaOstalih, Ime: BezVodotoka}, BezVodotoka},
 		{VodotokPrognoze{Oznaka: "jezero-proba", Ime: "jezero Proba", Voda: "jezero Proba"}, "Letve: jezero Proba, od uzvodne prema nizvodnoj"},
 		{VodotokPrognoze{Oznaka: "prokop", Ime: "Prokop", Voda: "Prokop"}, "Letve na Prokopu, od uzvodne prema nizvodnoj"},
 		{VodotokPrognoze{Oznaka: "kanal-o", Ime: "Kanalo", Voda: "Kanalo"}, "Letve: Kanalo, od uzvodne prema nizvodnoj"},
@@ -348,13 +349,13 @@ func TestIzborIzAdrese(t *testing.T) {
 		cipovi[c.Oznaka] = c
 	}
 	if c := cipovi["C"]; !c.Prazan || c.URL != "" || c.Naziv != "C · Prazni primjer" ||
-		c.Napomena != "Nijedna letva iz prognoze nije povezana s ovim sektorom. Nepovezane letve su pod „Ostale letve”." {
+		c.Napomena != "Nijedna letva iz prognoze nije povezana s ovim sektorom. Letve kojima u registru nije upisan sektor su pod „Bez sektora”." {
 		t.Errorf("prazan sektor %+v", c)
 	}
 	if c := cipovi["B"]; !c.Odabran || c.URL != "/prognoze?dan=2&sektor=B" {
 		t.Errorf("čip B %+v", c)
 	}
-	if c := cipovi[oznakaOstalih]; c.Naziv != OstaleLetve {
+	if c := cipovi[oznakaOstalih]; c.Naziv != BezSektora {
 		t.Errorf("čip ostalih %+v", c)
 	}
 	if v := iz.Vodotoci[3]; !v.Odabran || v.URL != "/prognoze?dan=2&sektor=B&vodotok=drava" {
@@ -472,5 +473,50 @@ func TestUsceDijelaBezLetvi(t *testing.T) {
 	}
 	if usceDijela(VodotokPrognoze{Letve: []string{"a", "x"}}, map[string]string{"x": "Dunav"}) != "Dunav" {
 		t.Error("ušće zadnje letve")
+	}
+}
+
+// Sektor kojem letva pripada (dionica ili upisano područje) i sektor koji je
+// samo prati (Odluke 5. 11. 2026.): Mursko Središće pripada sektoru A preko
+// BP 33, a sektor B ga prati, pa u sektoru B uz njega piše „sektor A”.
+func TestMaticniITudjiSektor(t *testing.T) {
+	mursko, dalj, strana := uuid.New(), uuid.New(), uuid.New()
+	postaje := map[string]models.Station{
+		"mursko":  {ID: mursko, Name: "Mursko Središće", PrateSektori: []string{"B"}, PratePodrucja: []int{33}},
+		"dalj":    {ID: dalj, Name: "Dalj"},
+		"letenye": {ID: strana, Name: "Letenye (Mađarska)", PrateSektori: []string{"A", "B"}},
+	}
+	dionice := map[string][]string{dalj.String(): {"B"}}
+	podrucja := []models.Area{{ID: 33, SectorID: "A"}, {ID: 34, SectorID: "B"}}
+	m := maticniSektori(postaje, dionice, podrucja)
+	if !slices.Equal(m["mursko"], []string{"A"}) || !slices.Equal(m["dalj"], []string{"B"}) {
+		t.Errorf("matični sektori %v", m)
+	}
+	if _, ima := m["letenye"]; ima {
+		t.Errorf("letva samo s upisanim sektorima nema svoj sektor: %v", m["letenye"])
+	}
+	for _, c := range []struct {
+		maticni []string
+		odabran string
+		zeli    string
+	}{
+		{[]string{"A"}, "B", "sektor A"},
+		{[]string{"A"}, "A", ""},
+		{nil, "B", ""},
+		{[]string{"A", "C"}, "B", "sektor A, C"},
+		{[]string{"A", "B"}, "B", ""},
+	} {
+		if got := tudjiSektor(c.maticni, c.odabran); got != c.zeli {
+			t.Errorf("tudjiSektor(%v, %s) = %q, a treba %q", c.maticni, c.odabran, got, c.zeli)
+		}
+	}
+	// Na stranici: natpis stoji uz letvu u kartici odabranog sektora.
+	data := PrognozePageData{
+		Tablice: []TablicaPrognoza{{Letve: []LetvaPrognoze{{Kod: "mursko", Naziv: "Mursko Središće"}, {Kod: "dalj", Naziv: "Dalj"}}}},
+		Izbor:   &IzborPrognoze{kodovi: []string{"mursko", "dalj"}, tudji: map[string]string{"mursko": tudjiSektor(m["mursko"], "B")}},
+	}
+	suziStranicu(&data)
+	if l := data.Tablice[0].Letve; l[0].TudjiSektor != "sektor A" || l[1].TudjiSektor != "" {
+		t.Errorf("natpisi na stranici: %q, %q", l[0].TudjiSektor, l[1].TudjiSektor)
 	}
 }

@@ -132,8 +132,11 @@ type LetvaPrognoze struct {
 	Rezerva         string // poruka kad se letva računa iz rezervnih ulaza
 	Preneseno       string // srpska letva: odakle je prognoza prenesena i koliko odnos drži
 	Upozorenje      string // zašto je prognoza letve u ovom izdanju upitna
-	Pragovi         []PragKartice
-	Prelazak        *Prelazak // od kojeg termina prognoza doseže višu fazu obrane nego sada
+	// TudjiSektor je „sektor A” uz letvu koju odabrani sektor samo prati, da
+	// se njezin stupanj ne čita kao obrana u tom sektoru (Odluke 5. 11. 2026.)
+	TudjiSektor string
+	Pragovi     []PragKartice
+	Prelazak    *Prelazak // od kojeg termina prognoza doseže višu fazu obrane nego sada
 	// Najniži i najviši zabilježeni vodostaj kao brojevi, za sažetak izvoza
 	KrajMin, KrajMax *Krajnost
 }

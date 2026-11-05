@@ -5047,6 +5047,7 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .prog-termin.dan-moguce-regular { border-color: var(--faza-r-crta); }
 .prog-termin.dan-moguce-emerg { border-color: var(--faza-i-crta); }
 .prog-termin.dan-moguce-crit { border-color: var(--faza-s-crta); }
+.prog-tudji-sektor { font-weight: 500; color: var(--md-sys-color-on-surface, var(--text)); }
 .prog-povuci { display: none; margin: 8px 0 0; font-size: 0.75rem; color: var(--text-muted); }
 /* Mobitel: termini u jednom redu, oko četiri vidljiva, ostali povlačenjem */
 @media (max-width: 599px) {
