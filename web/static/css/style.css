@@ -7608,3 +7608,17 @@ summary.ocitanja-cip { padding-right: 8px; }
 .letva-plocica > small { color: var(--text-secondary); font-size: 0.8125rem; }
 .letva-pragovi { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 12px; }
 .letva-ploca .graf-niza, .letva-ploca .korito-graf { border: 0; box-shadow: none; background: none; }
+
+/* Kartica letve: odjeljci kao ploče u dva stupca */
+.letva-ploce { margin-bottom: 16px; }
+.letva-ploce > .detail-section {
+  margin: 0; padding: 16px; border: 1px solid var(--md-sys-color-outline-variant, var(--border)); border-radius: 12px;
+  background: var(--md-sys-color-surface-container-low, var(--surface)); min-width: 0;
+}
+.letva-ploce > .detail-section > h2 { margin: 0 0 12px; font-size: 1rem; font-weight: 500; }
+.letva-ploce > .detail-section > h2 > .icon:first-child { display: none; }
+.letva-ploce > .detail-section .reg-card, .letva-ploce > .detail-section .table-card { box-shadow: none; }
+.letva-ploce .karta-letve .karta-platno { min-height: 240px; }
+.letva-ploce { grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)); }
+@media (max-width: 599px) { .letva-ploce { grid-template-columns: minmax(0, 1fr); } }
+.letva-ploce-jedan { grid-template-columns: minmax(0, 1fr); }

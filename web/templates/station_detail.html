@@ -25,10 +25,13 @@
 
 {{if .Station.NeedsReview}}<div class="alert alert-warning">{{.Station.ReviewNote}}</div>{{end}}
 
+{{/* Kartica letve u pločama (goCOP-m3, 12 · Očitanja), dosadašnjim redom:
+     pragovi i kota nule, ekstremi i položaj, napomena i povijest, dionice
+     preko cijele širine */}}
+<div class="letva-mreza letva-ploce">
 {{template "letva-pragovi" .}}
 {{template "letva-kota-nule" .}}
 {{template "letva-ekstremi" .}}
-
 {{if .Station.ImaKoordinate}}
 <section class="detail-section mt-0">
   <h2>{{icon "map-pin"}} Položaj letve</h2>
@@ -36,8 +39,9 @@
        gap:0.5rem 1.5rem; align-items:baseline;">
     <span><strong>{{.Station.KoordinateHR}}</strong></span>
     <span class="reg-card-sub mono">{{brojHRd .Station.Latitude 6}}, {{brojHRd .Station.Longitude 6}}</span>
+    <a href="/karta#letve={{.Station.ID}}" class="btn btn-secondary btn-sm">{{icon "map"}} Na Karti</a>
     <a href="{{.Station.KartaURL}}" target="_blank" rel="noopener noreferrer"
-       class="btn btn-secondary btn-sm">{{icon "map"}} Otvori u pregledniku</a>
+       class="btn btn-link btn-sm">Otvori u pregledniku</a>
   </div>
   {{if .Karta.Ima}}
   <div class="karta-letve"
@@ -56,7 +60,6 @@
   {{end}}
 </section>
 {{end}}
-
 {{if .Station.Notes}}
 <section class="detail-section">
   <h2>{{icon "file-text"}} Napomena</h2>
@@ -65,7 +68,6 @@
   </div>
 </section>
 {{end}}
-
 {{if or .Station.Povijest .Station.OpisVodokaza .Station.DatumOsnivanja}}
 <section class="detail-section">
   <h2>{{icon "history"}} Povijest postaje</h2>
@@ -80,10 +82,7 @@
   </div>
 </section>
 {{end}}
-
-
-
-<section class="detail-section">
+<section class="detail-section letva-ploca-siroka">
   <h2>{{icon "file-text"}} Mjerodavna za dionice <span class="reg-chip">{{len .Sections}}</span></h2>
   <div class="reg-list station-sections-list">
     {{range .Sections}}
@@ -109,6 +108,10 @@
   </p>
   {{end}}
 </section>
+</div>
+
+
+
 
 <div class="kartica-podnozje">
   <a href="/stations/{{.Station.ID}}/izvjesce.xlsx" class="btn btn-secondary"
