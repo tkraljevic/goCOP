@@ -643,7 +643,10 @@ type stationForm struct {
 	ReviewNote            string `json:"review_note"`
 	JavniURL              string `json:"javni_url"`
 	TelemetrijaUvoz       string `json:"telemetrija_uvoz"`
-	JavniUvoz             string `json:"javni_uvoz"`
+	// TelemetrijaSite je poveznica ili šifra postaje na telemetriji; nil kad
+	// je zahtjev ne nosi, pa veza ostaje kakva je.
+	TelemetrijaSite *string `json:"telemetrija_site"`
+	JavniUvoz       string  `json:"javni_uvoz"`
 
 	// Sektori i branjena područja koji letvu prate (Odluke (8. 10. 2026.),
 	// pitanje 8). Nil znači da ih zahtjev ne nosi — JSON klijent koji polja
@@ -706,6 +709,10 @@ func decodeStationForm(r *http.Request) (stationForm, error) {
 	form.JavniURL = r.FormValue("javni_url")
 	form.JavniUvoz = r.FormValue("javni_uvoz")
 	form.TelemetrijaUvoz = r.FormValue("telemetrija_uvoz")
+	if _, ima := r.Form["telemetrija_site"]; ima {
+		v := r.FormValue("telemetrija_site")
+		form.TelemetrijaSite = &v
+	}
 	form.PrateSektori, form.PratePodrucja = pracenjeIzObrasca(r.Form)
 
 	return form, nil
@@ -801,6 +808,15 @@ func (f stationForm) primijeni(st *models.Station) {
 // nego da letva svaki sat javlja da postaje nema.
 func (h *StationsHandler) namjestiTelemetriju(ctx context.Context, st *models.Station, f stationForm) string {
 	zeli := f.TelemetrijaUvoz == "1" || f.TelemetrijaUvoz == "on" || f.TelemetrijaUvoz == "true"
+	if f.TelemetrijaSite != nil {
+		site, ok := siteIzUnosa(*f.TelemetrijaSite)
+		if !ok {
+			st.TelemetrijaUvoz = false
+			return "Čitanje s telemetrije nije uključeno: poveznica postaje nije prepoznata. " +
+				"Zalijepite adresu postaje kako ju otvara preglednik, npr. https://hdv.voda.hr/#/site/…/latest."
+		}
+		st.TelemetrijaSite = site
+	}
 	if !zeli {
 		st.TelemetrijaUvoz = false
 		return ""
@@ -826,16 +842,11 @@ func (h *StationsHandler) namjestiTelemetriju(ctx context.Context, st *models.St
 		st.TelemetrijaUvoz = false
 		return "Čitanje s telemetrije nije uključeno: " + err.Error()
 	}
-	var nasao *hidroview.Postaja
-	for i := range postaje {
-		if !strings.EqualFold(strings.TrimSpace(postaje[i].Site.Naziv), strings.TrimSpace(st.Name)) {
-			continue
-		}
-		// Postaja ondje ima dva zapisivača, tlačni i radarski; uzima se onaj
-		// koji se javlja.
-		if nasao == nil || postaje[i].Zadnje > nasao.Zadnje {
-			nasao = &postaje[i]
-		}
+	nasao, istih := odaberiPostajuTelemetrije(postaje, *st)
+	if istih > 1 {
+		st.TelemetrijaUvoz = false
+		return "Čitanje s telemetrije nije uključeno: na tom sustavu ima " + strconv.Itoa(istih) +
+			" postaja pod nazivom " + st.Name + ". Zalijepite poveznicu prave postaje u polje Postaja na telemetriji."
 	}
 	if nasao == nil {
 		st.TelemetrijaUvoz = false

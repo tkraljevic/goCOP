@@ -316,6 +316,15 @@
       pa se ovdje može uključiti.
     {{end}}
   </div>
+  {{if .TelemetrijaMoguca}}
+  <div class="form-group mb-4">
+    <label for="telemetrija_site">Postaja na telemetriji</label>
+    <input type="text" id="telemetrija_site" name="telemetrija_site" class="form-control mono"
+           value="{{.Station.TelemetrijaSite}}" placeholder="https://hdv.voda.hr/#/site/…/latest" autocomplete="off">
+    <div class="form-help">Prazno: postaja se traži po nazivu letve. Kad ondje više postaja nosi isti naziv
+      (Belišće ima tri), zalijepite poveznicu prave postaje iz preglednika.</div>
+  </div>
+  {{end}}
   <p class="form-help" style="margin:-0.5rem 0 1rem;">
     Isto što se danas zalijepi rukom: zadnja dva-tri dana satnih vodostaja, s podrijetlom te stranice.
     Sat na koji letva već ima očitanje, iz bilo kojeg izvora, ne dira se.
