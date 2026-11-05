@@ -354,10 +354,17 @@ func TestPrimateljPokazujeUpozorenjeIzdavaca(t *testing.T) {
 			t.Errorf("stranica nema %q", want)
 		}
 	}
-	// na vrhu je samo redak s brojem, a popis je na dnu, ispod prognoze
-	vrh, popis, prognoza := strings.Index(html, "Upozorenja uz ovo izdanje: 1"), strings.Index(html, `id="upozorenja-izdanja"`), strings.Index(html, `class="detail-section prog-o"`)
-	if vrh < 0 || prognoza < 0 || !(vrh < prognoza && prognoza < popis) {
-		t.Errorf("redak na vrhu %d, prognoza %d, popis %d", vrh, prognoza, popis)
+	// na vrhu je traka s glavnim upozorenjem, a popis je ispod letvi, sklopljen
+	vrh, popis, letva := strings.Index(html, `class="prog-traka prog-glavno-upozorenje"`), strings.Index(html, `id="upozorenja-izdanja"`), strings.Index(html, `class="prog-kartica`)
+	if vrh < 0 || letva < 0 || !(vrh < letva && letva < popis) {
+		t.Errorf("traka na vrhu %d, letva %d, popis %d", vrh, letva, popis)
+	}
+	if glavno := html[vrh:letva]; !strings.Contains(glavno, "Srednji Brod (primjer.hu): nema mjerenja od 8. 10. u 10 h") || strings.Contains(glavno, "i još") {
+		t.Errorf("traka ne piše jedino upozorenje cijelim tekstom: %s", glavno)
+	}
+	if !strings.Contains(html, `<details class="prog-sva-upozorenja" id="upozorenja-izdanja">`) ||
+		!strings.Contains(html, "<summary>Sva upozorenja i napomene uz izdanje (2)</summary>") {
+		t.Error("popis upozorenja i napomena nije sklopljen ispod letvi")
 	}
 }
 
@@ -690,5 +697,60 @@ func TestUpozorenjeBezDvijeTocke(t *testing.T) {
 		if got := p.uLetvi(tc.letva, tc.tekst); got != tc.want {
 			t.Errorf("uLetvi(%q, %q) = %q, želim %q", tc.letva, tc.tekst, got, tc.want)
 		}
+	}
+}
+
+// Glavno upozorenje je najteže, a od jednako teških prvo po redu.
+func TestGlavnoUpozorenje(t *testing.T) {
+	if g := glavnoUpozorenje(nil); g != nil {
+		t.Errorf("bez upozorenja glavno je %+v", g)
+	}
+	u := []UpozorenjeStranice{{Sto: "prvo", tezina: 2}, {Sto: "drugo", tezina: 3}, {Sto: "treće", tezina: 3}}
+	if g := glavnoUpozorenje(u); g == nil || g.Sto != "drugo" {
+		t.Errorf("najteže pa prvo po redu: %+v", g)
+	}
+	if g := glavnoUpozorenje(u[:1]); g == nil || g.Sto != "prvo" {
+		t.Errorf("jedino upozorenje: %+v", g)
+	}
+	d := PrognozePageData{Upozorenja: u, Napomene: []UpozorenjeStranice{{Sto: "napomena"}}}
+	if d.JosUpozorenja() != 2 || d.SvaUpozorenja() != 4 || (PrognozePageData{}).JosUpozorenja() != 0 {
+		t.Errorf("još %d, svih %d", d.JosUpozorenja(), d.SvaUpozorenja())
+	}
+}
+
+// Traka ispod zaglavlja piše glavno upozorenje cijelim tekstom i „i još N”
+// kao poveznicu na sklopljeni popis; popis broji upozorenja i napomene, a
+// adresa s #upozorenja-izdanja ga otvara skriptom.
+func TestTrakaGlavnogUpozorenja(t *testing.T) {
+	data := PrognozePageData{CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		ActiveNav: "prognoze", Izdano: "8.10.2026. u 21:00", Udio: 70,
+		Upozorenja: []UpozorenjeStranice{{Sto: "Gornji Most ne javlja od 5 h.", tezina: 2},
+			{Sto: "Donji Grad: prognoza ide po dnevnom modelu.", Upitno: "Satna upitna od +8 h.", tezina: 3},
+			{Sto: "Treće upozorenje.", tezina: 2}},
+		Napomene: []UpozorenjeStranice{{Sto: "Četvrti Most: nema prognoze."}}}
+	html := stdhtml.UnescapeString(iscrtaj(t, "prognoze.html", data))
+	vrh := strings.Index(html, `class="prog-traka prog-glavno-upozorenje"`)
+	if vrh < 0 {
+		t.Fatal("nema trake glavnog upozorenja")
+	}
+	traka := html[vrh : vrh+strings.Index(html[vrh:], "</div>")]
+	for _, want := range []string{"Donji Grad: prognoza ide po dnevnom modelu.", "Satna upitna od +8 h.",
+		`<a href="#upozorenja-izdanja" class="prog-jos">i još 2</a>`} {
+		if !strings.Contains(traka, want) {
+			t.Errorf("traka nema %q: %s", want, traka)
+		}
+	}
+	if strings.Contains(traka, "Gornji Most") {
+		t.Error("u traci je lakše upozorenje umjesto najtežeg")
+	}
+	for _, want := range []string{"<summary>Sva upozorenja i napomene uz izdanje (4)</summary>", "Upozorenja uz ovo izdanje",
+		"Gornji Most ne javlja od 5 h.", "Treće upozorenje.", "Napomene uz ovo izdanje (1)", "Četvrti Most: nema prognoze.",
+		"location.hash !== '#upozorenja-izdanja'", "popis.open = true"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("stranica nema %q", want)
+		}
+	}
+	if strings.Contains(html, "Upozorenja uz ovo izdanje:") {
+		t.Error("ostao je stari redak s brojem upozorenja")
 	}
 }

@@ -1636,8 +1636,14 @@ a:hover { color: var(--accent); }
 
 /* Pragovi na kartici prognoze: isti znakovi kao na stranici letve, sitniji,
    ispod naziva, da uz vrijednosti odmah stoji koliko je do obrane. */
-.prog-pragovi { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.4rem; }
-.prog-pragovi .threshold-pill { font-size: 0.7rem; padding: 0.05rem 0.35rem; white-space: nowrap; }
+.prog-pragovi { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.prog-pragovi .threshold-pill { font-size: 0.75rem; font-weight: 400; line-height: 16px; padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
+.prog-pragovi .threshold-pill.prep { border-color: var(--faza-p-crta); }
+.prog-pragovi .threshold-pill.regular { border-color: var(--faza-r-crta); }
+.prog-pragovi .threshold-pill.emerg { border-color: var(--faza-i-crta); }
+.prog-pragovi .threshold-pill.record, .prog-pragovi .threshold-pill.min {
+  background: none; color: var(--text-muted); border: 1px solid var(--md-sys-color-outline-variant, var(--border));
+}
 
 /* Protok uz vodostaj istoga praga: ista boja veže dvije mjere istoga stupnja,
    a obris umjesto ispune kaže da je to druga veličina, ne drugi prag. */
@@ -4948,86 +4954,117 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .graf-oblacic .znak { display: block; margin-top: 2px; font-size: 0.72rem;
   text-transform: uppercase; letter-spacing: 0.04em; color: var(--faza-i-crta); }
 
-/* ── Pregled prognoza ────────────────────────────────────────────────────
+/* ── Pregled prognoza (goCOP-m3, 13 · Prognoze) ──────────────────────────
+   Zaglavlje: izdanje, udio i kiša lijevo, radnje kao tekstni gumbi desno; na
+   užem zaslonu radnje prelaze ispod. Upozorenje izdanja i letve je traka s
+   crtom lijevo. Kartica letve je ploča, termini pločice: dan iznad praga u
+   boji faze, „moguće” isprekidanim obrubom faze, tuđa prognoza tirkizno.
    Raspon stoji uz brojku, ali sitnije: on je ograda, a ne podatak. Doseg na
-   kojem prognoza ne pobjeđuje postojanost blijedi — nije kriv, samo nije
-   koristan, pa neka se i ne čita prvi. */
-.prognoze-tablica .prog-raspon { font-size: 0.78em; color: var(--text-muted); white-space: nowrap; }
-.prognoze-tablica .prog-jed { font-size: 0.8em; color: var(--text-muted); }
-/* Druga veličina stoji pod prvom: ista prognoza, drugim mjerilom. Sitnija je
-   jer se u obrani čita vodostaj, a protok je uz njega. */
-.prognoze-tablica .prog-druga { font-size: 0.82em; color: var(--text-muted); margin-top: 1px; }
-.prognoze-tablica .prog-slabija { opacity: 0.45; }
-.graf-natpis .prog-slabija { opacity: 0.45; }
-.prog-voda { margin: 1.25rem 0 0.5rem; font-size: 1.1rem; }
+   kojem prognoza ne pobjeđuje postojanost blijedi. */
+.prog-zaglavlje { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 4px 16px; margin: 0 0 16px; }
+.prog-izdanje { min-width: 0; }
+.prog-izdanje p { margin: 0; }
+.prog-izdano { font-size: 0.875rem; line-height: 20px; color: var(--md-sys-color-on-surface, var(--text)); }
+.prog-udio, .prog-nacin { font-size: 0.8125rem; line-height: 18px; color: var(--text-muted); }
+.prog-oborina-bez { color: var(--faza-r-fg); font-weight: 600; }
+.prog-radnje { display: flex; flex-wrap: wrap; gap: 0 4px; margin-right: -12px; }
+.prog-radnje .btn-link { color: var(--md-sys-color-primary, var(--primary)); }
+@media (max-width: 839px) {
+  .prog-zaglavlje { flex-direction: column; }
+  .prog-radnje { margin: 0 0 0 -12px; }
+}
+.prog-traka {
+  display: flex; align-items: flex-start; gap: 12px; margin: 0 0 16px; padding: 12px 16px;
+  border-left: 4px solid var(--upozorenje-tehnicko-rub); border-radius: 12px;
+  background: var(--upozorenje-tehnicko-ploha); color: var(--md-sys-color-on-surface, var(--text));
+  font-size: 0.875rem; line-height: 20px;
+}
+.prog-traka > .icon { flex: none; width: 20px; height: 20px; margin-top: 0; color: var(--upozorenje-tehnicko-rub); }
+.prog-traka .prog-jos { white-space: nowrap; margin-left: 4px; }
+.prog-kartica .prog-traka { margin: 12px 0 0; padding: 8px 12px; font-size: 0.8125rem; line-height: 18px; }
+.prog-kartica .prog-nepovezana { border-left-color: var(--md-sys-color-outline-variant, var(--border)); color: var(--text-muted); }
+.prog-kartica .prog-nepovezana > .icon { color: var(--text-muted); }
+.prog-voda { margin: 24px 0 8px; font-size: 1rem; font-weight: 500; }
 .prog-o dl { margin: 0; max-width: 60rem; font-size: 0.88rem; line-height: 1.5; }
 .prog-o dt { font-weight: 600; margin-top: 0.7rem; }
 .prog-o dd { margin: 0.15rem 0 0; color: var(--text-muted); }
-.prog-kartice { display: flex; flex-direction: column; gap: 0.5rem; }
+.prog-kartice { display: flex; flex-direction: column; gap: 8px; }
 .prog-kartica {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r-kartica);
-  box-shadow: var(--sjena-kartica);
-  padding: 0.6rem 0.75rem 0.7rem;
+  padding: 16px 20px 20px; border: 1px solid var(--md-sys-color-outline-variant, var(--border));
+  border-radius: 12px; background: var(--md-sys-color-surface-container-low, var(--surface));
 }
-.prog-kartica.prog-sporedna { box-shadow: none; opacity: 0.92; }
-.prog-glava { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; }
-.prog-ime a { font-weight: 600; }
-.prog-sad { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.prog-sad-cm { font-size: 1.35rem; font-weight: 700; }
+.prog-kartica.prog-sporedna { opacity: 0.92; }
+.prog-glava { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.prog-ime { min-width: 0; }
+.prog-naziv { margin: 0; font-size: 1.125rem; font-weight: 400; line-height: 24px; }
+.prog-naziv a { color: var(--md-sys-color-primary, var(--primary)); text-decoration: none; }
+.prog-naziv a:hover { text-decoration: underline; }
+.prog-opis { margin-top: 2px; font-size: 0.8125rem; line-height: 18px; color: var(--text-muted); }
+.prog-sad { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.prog-sad-cm { font-size: 1.75rem; font-weight: 400; line-height: 34px; }
+.prog-sad-cm .prog-jed { font-size: inherit; }
+.prog-sad > .prog-druga { font-size: 0.9375rem; color: var(--text-muted); }
+.prog-prelazak {
+  margin-top: 4px; padding: 1px 8px; border: 1px solid currentColor; border-radius: 6px;
+  font-size: 0.75rem; line-height: 16px; background: none;
+}
+.prog-prelazak.prelazak-prep { color: var(--faza-p-crta); }
+.prog-prelazak.prelazak-regular { color: var(--faza-r-crta); }
+.prog-prelazak.prelazak-emerg { color: var(--faza-i-crta); }
+.prog-prelazak.prelazak-crit { color: var(--faza-s-crta); }
 .prog-termini {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(5.6rem, 1fr));
-  gap: 0.35rem;
-  margin-top: 0.55rem;
+  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
+  gap: 8px; margin-top: 16px;
 }
 .prog-termin {
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0.3rem 0.4rem;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.25;
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 6px;
+  border: 1px solid var(--md-sys-color-outline-variant, var(--border)); border-radius: 10px;
+  background: var(--md-sys-color-surface-container-lowest, var(--surface));
+  text-align: center; font-variant-numeric: tabular-nums; line-height: 1.25;
 }
-.prog-termin-naslov { font-size: 0.72em; color: var(--text-muted); white-space: nowrap; }
-.prog-vr { font-size: 1.05rem; font-weight: 600; }
-.prog-nema { color: var(--text-muted); font-weight: 400; }
-.prog-termin .prog-raspon, .prog-termin .prog-druga { font-size: 0.74em; color: var(--text-muted); white-space: nowrap; }
-.prog-termin.prog-slabija { opacity: 0.45; }
-.prog-termin .prog-tuda { font-size: 0.74em; white-space: nowrap; }
-.prog-termin.dan-prep { background: var(--faza-p-bg); color: var(--faza-p-fg); }
-.prog-termin.dan-regular { background: var(--faza-r-bg); color: var(--faza-r-fg); }
-.prog-termin.dan-emerg { background: var(--faza-i-bg); color: var(--faza-i-fg); }
-.prog-termin.dan-crit { background: var(--faza-s-bg); color: var(--faza-s-fg); }
-.prog-termin.dan-moguce-prep { box-shadow: inset 0 0 0 2px var(--faza-p-crta); }
-.prog-termin.dan-moguce-regular { box-shadow: inset 0 0 0 2px var(--faza-r-crta); }
-.prog-termin.dan-moguce-emerg { box-shadow: inset 0 0 0 2px var(--faza-i-crta); }
-.prog-termin.dan-moguce-crit { box-shadow: inset 0 0 0 2px var(--faza-s-crta); }
-@media (max-width: 520px) {
-  .prog-kartica { padding: 0.5rem 0.55rem 0.6rem; }
-  .prog-termini { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.3rem; }
-  .prog-sad-cm { font-size: 1.15rem; }
-}
-.prognoze-tablica .prog-tuda { font-size: 0.78em; margin-top: 2px; white-space: nowrap; }
-.prog-tuda-hu { color: #b45309; }
-.prog-tuda-rs { color: #7c3aed; }
-.prog-tuda-at { color: #b91c1c; }
-
-:root[data-theme="dark"] .prog-tuda-hu { color: #f0b35a; }
-:root[data-theme="dark"] .prog-tuda-rs { color: #c4b5fd; }
-:root[data-theme="dark"] .prog-tuda-at { color: #fca5a5; }
-.prognoze-tablica .prog-oznaka, .graf-natpis .prog-oznaka { font-size: 0.7em; color: var(--text-muted); margin-left: 1px; }
-/* Satna umjesto dnevne: dnevni model za to izdanje nije računao */
+.prog-termin-naslov { font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; }
+.prog-vr { font-size: 1.375rem; font-weight: 400; line-height: 28px; white-space: nowrap; }
+.prog-nema { color: var(--text-muted); }
+.prog-oznaka { font-size: 0.6em; color: var(--text-muted); margin-left: 1px; }
 .prog-oznaka.prog-oznaka-satna { color: var(--faza-r-fg); font-weight: 600; }
-.prognoze-tablica td.dan-prep { background: var(--faza-p-bg); color: var(--faza-p-fg); }
-.prognoze-tablica td.dan-regular { background: var(--faza-r-bg); color: var(--faza-r-fg); }
-.prognoze-tablica td.dan-emerg { background: var(--faza-i-bg); color: var(--faza-i-fg); }
-.prognoze-tablica td.dan-crit { background: var(--faza-s-bg); color: var(--faza-s-fg); }
-.prognoze-tablica td.dan-moguce-prep { box-shadow: inset 0 0 0 2px var(--faza-p-crta); }
-.prognoze-tablica td.dan-moguce-regular { box-shadow: inset 0 0 0 2px var(--faza-r-crta); }
-.prognoze-tablica td.dan-moguce-emerg { box-shadow: inset 0 0 0 2px var(--faza-i-crta); }
-.prognoze-tablica td.dan-moguce-crit { box-shadow: inset 0 0 0 2px var(--faza-s-crta); }
+.prog-termin .prog-raspon, .prog-termin .prog-druga { font-size: 0.8125rem; color: var(--text-muted); white-space: nowrap; }
+.prog-slabija { opacity: 0.45; }
+.prog-termin .prog-tuda { font-size: 0.8125rem; white-space: nowrap; }
+.prog-tuda, .prog-tuda-hu, .prog-tuda-rs, .prog-tuda-at { color: var(--tuđa-prognoza); }
+.prog-termin.dan-prep { background: var(--faza-p-bg); border-color: var(--faza-p-crta); }
+.prog-termin.dan-regular { background: var(--faza-r-bg); border-color: var(--faza-r-crta); }
+.prog-termin.dan-emerg { background: var(--faza-i-bg); border-color: var(--faza-i-crta); }
+.prog-termin.dan-crit { background: var(--faza-s-bg); border-color: var(--faza-s-crta); color: var(--faza-s-fg); }
+.prog-termin.dan-crit .prog-termin-naslov, .prog-termin.dan-crit .prog-raspon, .prog-termin.dan-crit .prog-druga,
+.prog-termin.dan-crit .prog-oznaka, .prog-termin.dan-crit .prog-tuda { color: inherit; }
+.prog-termin[class*="dan-moguce-"] { border-style: dashed; border-width: 2px; padding: 9px 5px; }
+.prog-termin.dan-moguce-prep { border-color: var(--faza-p-crta); }
+.prog-termin.dan-moguce-regular { border-color: var(--faza-r-crta); }
+.prog-termin.dan-moguce-emerg { border-color: var(--faza-i-crta); }
+.prog-termin.dan-moguce-crit { border-color: var(--faza-s-crta); }
+.prog-povuci { display: none; margin: 8px 0 0; font-size: 0.75rem; color: var(--text-muted); }
+/* Mobitel: termini u jednom redu, oko četiri vidljiva, ostali povlačenjem */
+@media (max-width: 599px) {
+  .prog-kartica { padding: 12px 12px 14px; }
+  /* pragovi preko cijele širine kartice, ispod imena i sadašnjeg vodostaja */
+  .prog-glava { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto 1fr auto; column-gap: 12px; }
+  .prog-ime { display: contents; }
+  .prog-naziv { grid-column: 1; grid-row: 1; }
+  .prog-opis { grid-column: 1; grid-row: 2; }
+  .prog-pragovi { grid-column: 1 / -1; grid-row: 3; }
+  .prog-sad { grid-column: 2; grid-row: 1 / 3; }
+  .prog-sad-cm { font-size: 1.5rem; line-height: 30px; }
+  .prog-termini {
+    grid-auto-columns: calc((100% - 3 * 6px) / 4); gap: 6px; overflow-x: auto;
+    scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none;
+  }
+  .prog-termini::-webkit-scrollbar { display: none; }
+  .prog-termin { scroll-snap-align: start; padding: 8px 4px; }
+  .prog-termin[class*="dan-moguce-"] { padding: 7px 3px; }
+  .prog-vr { font-size: 1.25rem; line-height: 26px; }
+  .prog-termin .prog-raspon, .prog-termin .prog-druga, .prog-termin .prog-tuda { font-size: 0.75rem; }
+  .prog-povuci { display: block; }
+}
 
 /* ── Uzdužni profil ──────────────────────────────────────────────────────
    Vodno lice uzduž toka. Jutarnja crta je puna i u glavnoj boji, prognoze su
@@ -5226,23 +5263,24 @@ body.uzd-puni-zaslon-otvoren { overflow: hidden; }
 .prog-napredak-ispis { max-height: 16rem; overflow: auto; margin: 0.4rem 0 0; padding: 0.5rem 0.7rem; background: var(--bg-subtle);
   border: 1px solid var(--border); border-radius: 6px; font-size: 0.78rem; line-height: 1.5; white-space: pre-wrap; }
 
-/* Letva koja u satu izdanja nije povezana sa živom vodom (Tikveš pri maloj vodi) */
-.prog-nepovezana { margin: 0.5rem 0 0; padding: 0.45rem 0.7rem; font-size: 0.85rem; color: var(--text-muted);
-  background: var(--bg-subtle); border-left: 3px solid var(--border); border-radius: 4px; }
-.prog-rezerva { border-left-color: var(--faza-r-crta); color: var(--text); }
-/* Upozorenja uz izdanje prognoze: redak na vrhu, popis i sklopljene
-   napomene na dnu stranice */
-.prog-upozorenja { margin: 1.5rem 0 1rem; }
-.prog-upozorenja-kratko { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0 1rem; }
-.prog-upozorenja-naslov { font-size: 1rem; margin: 0.1rem 0 0.35rem; display: flex; align-items: center; gap: 0.4rem; }
+/* Sva upozorenja i napomene uz izdanje: sklopljena ploča ispod letvi */
+.prog-sva-upozorenja {
+  margin: 16px 0; border: 1px solid var(--md-sys-color-outline-variant, var(--border)); border-radius: 12px;
+  background: var(--md-sys-color-surface-container-low, var(--surface)); font-size: 0.875rem;
+}
+.prog-sva-upozorenja > summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px;
+  cursor: pointer; list-style: none; line-height: 24px;
+}
+.prog-sva-upozorenja > summary::-webkit-details-marker { display: none; }
+.prog-sva-upozorenja > summary::after { content: "›"; font-size: 1.25rem; transition: transform 0.15s; }
+.prog-sva-upozorenja[open] > summary::after { transform: rotate(90deg); }
+.prog-sva-upozorenja > :not(summary) { margin-left: 16px; margin-right: 16px; }
+.prog-sva-upozorenja > :last-child { margin-bottom: 16px; }
+.prog-upozorenja-naslov { font-size: 0.9375rem; font-weight: 500; margin: 8px 0 4px; display: flex; align-items: center; gap: 0.4rem; }
 .prog-upozorenja-popis { margin: 0; padding-left: 1.2rem; }
 .prog-upozorenja-popis li { margin: 0.3rem 0; }
 .prog-upitno { color: var(--text-muted); }
-.prog-napomene { margin: 0.4rem 0; font-size: 0.88rem; }
-.prog-napomene summary { cursor: pointer; color: var(--text-muted); }
-.prog-upozorenje { border-left-color: var(--faza-r-crta); background: var(--faza-r-bg); color: var(--faza-r-fg); }
-.prog-oborina { margin-top: 0.25rem; }
-.prog-oborina-bez { color: var(--faza-r-crta, #b45309); font-weight: 600; }
 .prog-izvozi { margin: 0.5rem 0; padding-left: 1.2rem; }
 .prog-izvozi li { margin: 0.35rem 0; }
 

@@ -3,28 +3,29 @@
 {{define "title"}}goCOP — Prognoze{{end}}
 
 {{define "content"}}
-<div class="detail-head">
-  <div>
-    <h1>{{icon "trending-up"}} Prognoze</h1>
-    {{if .Izdano}}<p class="reg-card-sub">Izdano {{.Izdano}}{{if .IzdaoCvor}}, izdao {{.IzdaoCvor}}{{end}} · voda ostaje
-      u rasponu u {{.Udio}} % slučajeva</p>{{end}}
-    {{if .Oborina}}<p class="reg-card-sub prog-oborina{{if .BezKise}} prog-oborina-bez{{end}}">{{icon "cloud-rain"}} {{.Oborina}}</p>{{end}}
-    {{if .NacinPrikaza}}<p class="reg-card-sub">{{icon "chart-column"}} Dani u tablici i na grafovima: {{.NacinPrikaza}}.
+{{/* Naslov stranice stoji u gornjoj traci (base.html), pa ga sadržaj ne
+     ponavlja. Ispod je izdanje, udio i kiša, a desno radnje; na užem
+     zaslonu radnje prelaze ispod (goCOP-m3, 13 · Prognoze). */}}
+<div class="prog-zaglavlje">
+  <div class="prog-izdanje">
+    {{if .Izdano}}<p class="prog-izdano">Izdano {{.Izdano}}{{if .IzdaoCvor}} · izdao {{.IzdaoCvor}}{{end}}</p>
+    <p class="prog-udio">Voda ostaje u rasponu u {{.Udio}} % slučajeva{{if .Oborina}} · <span class="prog-oborina{{if .BezKise}} prog-oborina-bez{{end}}">{{.Oborina}}</span>{{end}}</p>{{end}}
+    {{if .NacinPrikaza}}<p class="prog-nacin">Dani u tablici i na grafovima: {{.NacinPrikaza}}.
       {{if or .MozeGenerirati .MozePripremiti}}<a href="/prognoze/postavke#prikaz">Promijeni</a>{{end}}</p>{{end}}
   </div>
-  <div class="page-actions">
-    <a href="/prognoze/o-prognozi" class="btn btn-secondary"
-      title="Kako se prognoza računa">{{icon "info"}} O prognozi</a>
-    {{if .Tablice}}<a href="/prognoze.xlsx?t={{svjeze}}" class="btn btn-secondary"
-      title="Prognoza po vodama, kao uredska tablica">{{icon "download"}} Izvoz u Excel</a>{{end}}
-    {{if or .MozeGenerirati .MozePripremiti .Tablice}}<a href="/prognoze/postavke" class="btn btn-secondary"
-      title="Izdavanje prognoze, priprema modela i ranije prognoze">{{icon "settings"}} Postavke</a>{{end}}
+  <div class="prog-radnje">
+    <a href="/prognoze/o-prognozi" class="btn btn-link" title="Kako se prognoza računa">O prognozi</a>
+    {{if .Tablice}}<a href="/prognoze.xlsx?t={{svjeze}}" class="btn btn-link"
+      title="Prognoza po vodama, kao uredska tablica">Izvoz u Excel</a>{{end}}
+    {{if or .MozeGenerirati .MozePripremiti .Tablice}}<a href="/prognoze/postavke" class="btn btn-link"
+      title="Izdavanje prognoze, priprema modela i ranije prognoze">Postavke</a>{{end}}
   </div>
 </div>
 
-{{if .Zastarjelo}}<div class="razmjena-upozorenje prog-zastarjelo" role="alert">{{icon "clock"}} {{.Zastarjelo}}</div>{{end}}
-{{if .Upozorenja}}<div class="razmjena-upozorenje prog-upozorenja-kratko" role="alert">{{icon "triangle-alert"}}
-  <span><b>Upozorenja uz ovo izdanje: {{len .Upozorenja}}</b> · <a href="#upozorenja-izdanja">pročitajte ih na dnu stranice</a></span></div>{{end}}
+{{if .Zastarjelo}}<div class="prog-traka prog-zastarjelo" role="alert">{{icon "clock"}}<span>{{.Zastarjelo}}</span></div>{{end}}
+{{with .GlavnoUpozorenje}}<div class="prog-traka prog-glavno-upozorenje" role="alert">{{icon "triangle-alert"}}
+  <span>{{.Sto}}{{if .Upitno}} <span class="prog-upitno">{{.Upitno}}</span>{{end}}{{if $.JosUpozorenja}}
+    <a href="#upozorenja-izdanja" class="prog-jos">i još {{$.JosUpozorenja}}</a>{{end}}</span></div>{{end}}
 
 {{if .Nema}}
 <div class="table-card" style="padding:1.25rem;">
@@ -93,14 +94,14 @@
 {{end}}
 
 {{range .Tablice}}
-<h2 class="prog-voda">{{icon "waves"}} {{.Naslov}}</h2>
+<h2 class="prog-voda">{{.Naslov}}</h2>
 <div class="prog-kartice">
   {{range .Letve}}
   <article class="prog-kartica{{if or .Pregledna .Ulaz}} prog-sporedna{{end}}">
     <header class="prog-glava">
       <div class="prog-ime">
-        {{if .URL}}<a href="{{.URL}}">{{.Naziv}}</a>{{else}}{{.Naziv}}{{end}}
-        <div class="reg-card-sub">
+        <h3 class="prog-naziv">{{if .URL}}<a href="{{.URL}}">{{.Naziv}}</a>{{else}}{{.Naziv}}{{end}}</h3>
+        <div class="prog-opis">
           {{if .Voda}}{{.Voda}}{{if .Stacionaza}} · {{.Stacionaza}}{{end}}{{end}}
           {{if .Racuna}}· računa se u {{if eq .Racuna "protok"}}protoku{{else}}vodostaju{{end}}
           {{else if .NasVrh}}· vrh lanca; dalje od mjerenja ide po našem dnevnom modelu{{if .DnevniOpis}} ({{.DnevniOpis}}){{end}}
@@ -115,13 +116,15 @@
         {{if .Pragovi}}<div class="prog-pragovi">{{range .Pragovi}}<span class="threshold-pill {{.Klasa}}" title="{{.Naslov}}">{{.Oznaka}} {{.Vrijednost}}</span>{{end}}</div>{{end}}
       </div>
       <div class="prog-sad">
-        {{if .SadaCm}}<div><span class="prog-sad-cm">{{.SadaCm}}</span> <span class="prog-jed">{{if .SadaJed}}{{.SadaJed}}{{else}}cm{{end}}</span></div>{{end}}
+        {{if .SadaCm}}<div class="prog-sad-cm">{{.SadaCm}} <span class="prog-jed">{{if .SadaJed}}{{.SadaJed}}{{else}}cm{{end}}</span></div>{{end}}
         {{if .SadaQ}}<div class="prog-druga">{{.SadaQ}} m³/s</div>{{end}}
+        {{with .Prelazak}}<span class="prog-prelazak prelazak-{{.Razina}}"
+          title="Prvi termin u kojem prognoza doseže višu fazu obrane nego sada">{{.Tekst}}</span>{{end}}
       </div>
     </header>
-    {{if .Nepovezana}}<p class="prog-nepovezana">{{icon "info"}} {{.Nepovezana}}</p>{{end}}
-    {{if .Rezerva}}<p class="prog-nepovezana prog-rezerva">{{icon "refresh-cw"}} {{.Rezerva}}</p>{{end}}
-    {{if .Upozorenje}}<p class="prog-nepovezana prog-upozorenje">{{icon "triangle-alert"}} {{.Upozorenje}}</p>{{end}}
+    {{if .Nepovezana}}<p class="prog-traka prog-nepovezana">{{icon "info"}}<span>{{.Nepovezana}}</span></p>{{end}}
+    {{if .Rezerva}}<p class="prog-traka prog-rezerva">{{icon "refresh-cw"}}<span>{{.Rezerva}}</span></p>{{end}}
+    {{if .Upozorenje}}<p class="prog-traka prog-upozorenje">{{icon "triangle-alert"}}<span>{{.Upozorenje}}</span></p>{{end}}
     {{if .ImaTermina}}
     <div class="prog-termini">
       {{range .Vrijednosti}}
@@ -146,10 +149,46 @@
       </div>
       {{end}}
     </div>
+    <p class="prog-povuci">Povuci termine ulijevo za ostale dane.</p>
     {{end}}
   </article>
   {{end}}
 </div>
+{{end}}
+
+{{/* Sva upozorenja i napomene uz izdanje: ispod letvi, sklopljeno, da dugi
+     popis ne gura prognozu ispod ruba zaslona; glavno stoji u traci gore.
+     Poveznica „i još N” i adresa s #upozorenja-izdanja ga otvaraju. */}}
+{{if or .Upozorenja .Napomene}}
+<details class="prog-sva-upozorenja" id="upozorenja-izdanja">
+  <summary>Sva upozorenja i napomene uz izdanje ({{.SvaUpozorenja}})</summary>
+  {{if .Upozorenja}}<h3 class="prog-upozorenja-naslov">{{icon "triangle-alert"}} Upozorenja uz ovo izdanje</h3>
+  <ul class="prog-upozorenja-popis">{{range .Upozorenja}}
+    <li>{{.Sto}}{{if .Upitno}}<br><span class="prog-upitno">{{.Upitno}}</span>{{end}}</li>{{end}}
+  </ul>{{end}}
+  {{if .Napomene}}<h3 class="prog-upozorenja-naslov">Napomene uz ovo izdanje ({{len .Napomene}})</h3>
+  <ul class="prog-upozorenja-popis">{{range .Napomene}}
+    <li>{{.Sto}}{{if .Upitno}} <span class="prog-upitno">{{.Upitno}}</span>{{end}}</li>{{end}}
+  </ul>{{end}}
+</details>
+<script>
+// Popis upozorenja je sklopljen; „i još N” i adresa s #upozorenja-izdanja ga
+// otvaraju i pomaknu do njega.
+(function () {
+  var popis = document.getElementById('upozorenja-izdanja');
+  if (!popis) { return; }
+  function otvori() {
+    if (location.hash !== '#upozorenja-izdanja') { return; }
+    popis.open = true;
+    popis.scrollIntoView({ block: 'start' });
+  }
+  otvori();
+  window.addEventListener('hashchange', otvori);
+  document.querySelectorAll('a[href="#upozorenja-izdanja"]').forEach(function (a) {
+    a.addEventListener('click', function () { popis.open = true; });
+  });
+})();
+</script>
 {{end}}
 
 <script>
@@ -350,11 +389,8 @@
       zaustavi();
       var naslov = panel.querySelector('.uzd-legenda') ? (panel.getAttribute('data-ime') || '') : '';
       var izdano = '';
-      Array.prototype.some.call(document.querySelectorAll('p.reg-card-sub'), function (p) {
-        var t = p.textContent.replace(/\s+/g, ' ').trim();
-        if (t.indexOf('Izdano') === 0) { izdano = t.split(' · ')[0]; return true; }
-        return false;
-      });
+      var redak = document.querySelector('.prog-izdano');
+      if (redak) { izdano = redak.textContent.replace(/\s+/g, ' ').trim().split(' · ')[0]; }
       var legenda = Array.prototype.map.call(panel.querySelectorAll('.uzd-legenda-stavka'), function (l) { return l.textContent.trim(); }).join(' · ');
       var pad = panel.querySelector('.graf-natpis') ? panel.querySelector('.graf-natpis').textContent.split('.')[0] : '';
       var w = window.open('', '_blank');
@@ -459,9 +495,11 @@
       iznad i ispod. Za odluku gledajte gornju granicu, ne samo sredinu.</dd>
 
     <dt>Boje</dt>
-    <dd>Termin u boji faze obrane doseže prag, a obrubljen ga doseže tek gornjom granicom raspona. Termin
-      pisan <span class="prog-slabija">svjetlije</span> nije bolji od zadnjeg mjerenja, pa ondje vjerujte
-      mjerenju. Veliki dravski val od trećeg dana prognoza podcjenjuje; ondje pratite obrub.</dd>
+    <dd>Termin u boji faze obrane doseže prag, a s isprekidanim obrubom ga doseže tek gornjom granicom
+      raspona. Termin pisan <span class="prog-slabija">svjetlije</span> nije bolji od zadnjeg mjerenja, pa ondje
+      vjerujte mjerenju. Veliki dravski val od trećeg dana prognoza podcjenjuje; ondje pratite obrub.
+      Oznaka ispod sadašnjeg vodostaja, na primjer „↑ pripremno od uto 3.11.”, kaže od kojeg termina
+      prognoza doseže višu fazu obrane nego što je sada.</dd>
 
     <dt>Tuđe prognoze</dt>
     <dd>Sitno ispod naše vrijednosti stoje <span class="prog-tuda-hu">HU</span> mađarska,
@@ -472,25 +510,6 @@
 </section>
 
 
-{{end}}
-
-{{/* Upozorenja i napomene uz izdanje su na dnu: dugi popis inače gura
-     prognozu ispod ruba zaslona, a na vrhu ostaje redak s brojem */}}
-{{if or .Upozorenja .Napomene}}
-<section class="prog-upozorenja" id="upozorenja-izdanja" aria-label="{{if .Upozorenja}}Upozorenja{{else}}Napomene{{end}} uz ovo izdanje">
-  {{if .Upozorenja}}<div class="razmjena-upozorenje">
-    <h2 class="prog-upozorenja-naslov">{{icon "triangle-alert"}} Upozorenja uz ovo izdanje</h2>
-    <ul class="prog-upozorenja-popis">{{range .Upozorenja}}
-      <li>{{.Sto}}{{if .Upitno}}<br><span class="prog-upitno">{{.Upitno}}</span>{{end}}</li>{{end}}
-    </ul>
-  </div>{{end}}
-  {{if .Napomene}}<details class="prog-napomene">
-    <summary>Napomene uz ovo izdanje ({{len .Napomene}})</summary>
-    <ul class="prog-upozorenja-popis">{{range .Napomene}}
-      <li>{{.Sto}}{{if .Upitno}} <span class="prog-upitno">{{.Upitno}}</span>{{end}}</li>{{end}}
-    </ul>
-  </details>{{end}}
-</section>
 {{end}}
 
 {{end}}
