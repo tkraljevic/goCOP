@@ -3718,6 +3718,26 @@ body.karta-puni-zaslon-otvoren { overflow: hidden; }
   .ekstremi-siroko, .valovi-siroko { display: none; }
   .ekstremi-usko { display: block; }
 }
+
+/* Zabilježeni ekstremi na kartici letve: svaki ekstrem svoja pločica unutar
+   ploče (goCOP-m3). Vodostaj krupno, da se na prvi pogled vidi koliko je
+   bilo; vrsta iznad, datum i izvor sitnije ispod. */
+.ekstremi-plocice {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px;
+}
+.ekstremi-plocice > li {
+  display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 12px;
+  border: 1px solid var(--md-sys-color-outline-variant, var(--border)); border-radius: 8px;
+  background: var(--md-sys-color-surface-container-lowest, var(--surface));
+}
+.ekstremi-plocice .ex-vrsta { font-size: 0.8125rem; color: var(--text-secondary); }
+.ekstremi-plocice .ex-vrijednost { font-size: 1.375rem; line-height: 28px; font-weight: 500; white-space: nowrap; }
+.ekstremi-plocice .ex-datum, .ekstremi-plocice .ex-izvor { font-size: 0.8125rem; color: var(--text-secondary); overflow-wrap: anywhere; }
+.ex-nije-mjereno { color: var(--md-sys-color-error, var(--danger)); }
+.ex-vise { margin-top: 4px; }
+.ex-vise > summary { cursor: pointer; font-size: 0.8125rem; color: var(--md-sys-color-primary, var(--primary)); }
+.ex-vise > p { margin: 4px 0 0; }
 @media (min-width: 701px) {
   .valovi-usko { display: none; }
 }

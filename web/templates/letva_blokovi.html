@@ -55,36 +55,24 @@
        obrane, ekstrem kad se piše izvješće. Na kartici letve su predmet i
        ostaju otvoreni. */}}
   {{if .Sazeto}}<details class="ekstremi-sklop"><summary>{{.Station.SazetakEkstrema}}</summary>{{end}}
-  <div class="table-card ekstremi-siroko"><div class="table-responsive">
-    <table class="data-table">
-      <thead><tr><th>Vrsta</th><th>Vodostaj</th><th>Datum</th><th>Podrijetlo</th><th>Izvor i način</th></tr></thead>
-      <tbody>
-      {{range .Station.Extremes}}
-      <tr>
-        <td>{{if eq .Kind "MAX"}}najviši{{else}}najniži{{end}}</td>
-        <td class="mono">{{.Label}}</td>
-        <td class="mono">{{if .OnDate}}{{datumHR .OnDate}}{{else}}—{{end}}</td>
-        <td>{{if .IsMeasured}}<span class="badge">izmjereno</span>{{else}}<span class="badge badge-inactive" title="nije mjereno na ovoj letvi">{{qualityLabel .Quality}}</span>{{end}}</td>
-        <td class="celija-blok">{{.Source}}{{if .Method}} <span class="ekstrem-nacin">— {{.Method}}</span>{{end}}
-          {{if and .Note (ne .Note $.Station.ZajednickaNapomenaEkstrema)}}<div class="ekstrem-napomena">{{.Note}}</div>{{end}}</td>
-      </tr>
-      {{end}}
-      </tbody>
-    </table>
-  </div></div>
-
-  <ul class="ekstremi-usko">
+  {{/* Pločice kao u dizajnu (goCOP-m3, Kartica letve): svaki ekstrem svoja
+       kartica, vodostaj krupno, ispod datum, podrijetlo i izvor. Način i
+       napomena znaju biti dugi pa stoje sklopljeni na dnu pločice. */}}
+  <ul class="ekstremi-plocice">
     {{range .Station.Extremes}}
     <li>
-      <div class="ex-glava">
-        <span class="ex-vrsta">{{if eq .Kind "MAX"}}najviši{{else}}najniži{{end}}</span>
-        <strong class="ex-vrijednost">{{.Label}}</strong>
-        <span class="ex-datum">{{if .OnDate}}{{datumHR .OnDate}}{{end}}</span>
-        {{if .IsMeasured}}<span class="badge">izmjereno</span>
-        {{else}}<span class="badge badge-inactive" title="nije mjereno na ovoj letvi">{{qualityLabel .Quality}}</span>{{end}}
-      </div>
-      <div class="ex-izvor">{{.Source}}{{if .Method}} <span class="ekstrem-nacin">— {{.Method}}</span>{{end}}</div>
-      {{if and .Note (ne .Note $.Station.ZajednickaNapomenaEkstrema)}}<div class="ekstrem-napomena">{{.Note}}</div>{{end}}
+      <span class="ex-vrsta">{{if eq .Kind "MAX"}}Najviši{{else}}Najniži{{end}}</span>
+      <strong class="ex-vrijednost">{{.Label}}</strong>
+      {{if .OnDate}}<span class="ex-datum">{{datumHR .OnDate}}</span>{{end}}
+      <span class="ex-izvor">{{if .IsMeasured}}izmjereno{{else}}<span class="ex-nije-mjereno" title="nije mjereno na ovoj letvi">{{qualityLabel .Quality}}</span>{{end}}{{if .Source}} · {{.Source}}{{end}}</span>
+      {{$napomena := and .Note (ne .Note $.Station.ZajednickaNapomenaEkstrema)}}
+      {{if or .Method $napomena}}
+      <details class="ex-vise">
+        <summary>Kako je zabilježeno</summary>
+        {{if .Method}}<p class="ekstrem-nacin">{{.Method}}</p>{{end}}
+        {{if $napomena}}<p class="ekstrem-napomena">{{.Note}}</p>{{end}}
+      </details>
+      {{end}}
     </li>
     {{end}}
   </ul>
