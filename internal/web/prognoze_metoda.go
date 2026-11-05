@@ -462,8 +462,8 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 			tekstM("Letve stoje redom niz tok, ali razmak nije u mjerilu, da gusto posađene letve dobiju mjesta za "+
 				"natpis. Iznad letve piše jutarnji vodostaj, a boja točke je faza obrane. Prije 7 h stoji zadnje "+
 				"očitanje od 4 h. Peti i šesti dan daje dnevni model; letva bez njega uzima te dane od susjeda, a "+
-				"gdje nema ni toga, crta prestaje. Pragovi obrane ucrtaju se kad im se voda približi. Do 96. sata "+
-				"oko plave crte je svijetla ploha raspona."),
+				"gdje nema ni toga, crta prestaje. Pragovi obrane ucrtaju se kad im se voda približi. Oko "+
+				"plave crte je svijetla ploha raspona, i za peti i šesti dan, ondje gdje ih daje dnevni model."),
 			tekstM("Profil Dunava kreće od Komároma. Nagybajcs i Wildungsmauer imaju samo satni lanac, koji vrh drži "+
 				"na zadnjem mjerenju, pa bi na profilu Komárom rastao sam; u tablici prognoza i dalje stoje."),
 		),
