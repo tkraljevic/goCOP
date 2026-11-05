@@ -2,7 +2,56 @@
 
 {{define "title"}}goCOP — Prognoze{{end}}
 
+{{/* progDio je natpis „dio u sektoru B, do ušća u Dunav” s poveznicom
+     „Cijeli vodotok” (ili natrag na sektor): u glavi profila, a bez
+     profila iznad letvi. */}}
+{{define "progDio"}}{{with .}}{{if or .Opis .CijeliURL .SektorURL}}<p class="uzd-dio">{{if .Opis}}<span class="uzd-dio-opis">{{.Opis}}</span>{{end}}
+  {{if .CijeliURL}}<a href="{{.CijeliURL}}" class="btn btn-link">Cijeli vodotok</a>{{end}}
+  {{if .SektorURL}}<a href="{{.SektorURL}}" class="btn btn-link">Samo sektor {{.Sektor.ID}}</a>{{end}}</p>{{end}}{{end}}{{end}}
+
 {{define "content"}}
+{{with .Izbor}}
+{{/* Izbor u dvije razine: sektor, pa vodotoci sektora (goCOP-m3, 13 ·
+     Prognoze). Sektor bez letvi u izdanju je zasivljen. Na mobitelu su to
+     dva padajuća izbornika: obrazac radi i bez skripte (gumb „Prikaži”), a
+     sa skriptom ga šalje sama promjena izbornika. */}}
+<nav class="prog-izbor" aria-label="Sektor i vodotok">
+  <div class="prog-cipovi prog-sektori">
+    {{range .Sektori}}{{if .Prazan}}<span class="uzd-cip prog-cip prog-cip-prazan" title="nema prognoze za ovaj sektor" aria-disabled="true">{{.Naziv}}</span>
+    {{else}}<a href="{{.URL}}" class="uzd-cip prog-cip"{{if .Odabran}} aria-current="true"{{end}}>{{.Naziv}}</a>
+    {{end}}{{end}}
+  </div>
+  <div class="prog-cipovi prog-vodotoci">
+    <span class="prog-cipovi-naslov">{{if eq .Sektor.ID "ostale"}}Ostale letve po vodotoku:{{else}}Vodotoci sektora {{.Sektor.ID}}:{{end}}</span>
+    {{range .Vodotoci}}<a href="{{.URL}}" class="uzd-cip prog-cip prog-cip-vodotok"{{if .Odabran}} aria-current="true"{{end}}>{{.Naziv}}</a>
+    {{end}}
+  </div>
+</nav>
+<form method="get" action="/prognoze" class="prog-izbor-mob">
+  <label class="prog-polje"><span class="prog-polje-natpis">Sektor</span>
+    <select name="sektor" class="prog-polje-izbor">
+      {{range .Sektori}}<option value="{{.Oznaka}}"{{if .Odabran}} selected{{end}}{{if .Prazan}} disabled{{end}}>{{.Naziv}}{{if .Prazan}} (nema prognoze){{end}}</option>
+      {{end}}
+    </select>{{icon "chevron-down"}}</label>
+  <label class="prog-polje"><span class="prog-polje-natpis">Vodotok</span>
+    <select name="vodotok" class="prog-polje-izbor">
+      {{range .Vodotoci}}<option value="{{.Oznaka}}"{{if .Odabran}} selected{{end}}>{{.Naziv}}</option>
+      {{end}}
+    </select>{{icon "chevron-down"}}</label>
+  {{with $.DanUAdresi}}<input type="hidden" name="dan" value="{{.}}">{{end}}
+  <button type="submit" class="btn btn-secondary prog-prikazi">Prikaži</button>
+</form>
+<script>
+// Sa skriptom izbornik sam šalje obrazac; novi sektor kreće od svog prvog vodotoka.
+(function () {
+  var f = document.querySelector('.prog-izbor-mob');
+  if (!f) { return; }
+  f.querySelector('.prog-prikazi').hidden = true;
+  f.sektor.addEventListener('change', function () { f.vodotok.disabled = true; f.submit(); });
+  f.vodotok.addEventListener('change', function () { f.submit(); });
+})();
+</script>
+{{end}}
 {{/* Naslov stranice stoji u gornjoj traci (base.html), pa ga sadržaj ne
      ponavlja. Ispod je izdanje, udio i kiša, a desno radnje; na užem
      zaslonu radnje prelaze ispod (goCOP-m3, 13 · Prognoze). */}}
@@ -15,8 +64,8 @@
   </div>
   <div class="prog-radnje">
     <a href="/prognoze/o-prognozi" class="btn btn-link" title="Kako se prognoza računa">O prognozi</a>
-    {{if .Tablice}}<a href="/prognoze.xlsx?t={{svjeze}}" class="btn btn-link"
-      title="Prognoza po vodama, kao uredska tablica">Izvoz u Excel</a>{{end}}
+    {{if .Tablice}}<a href="{{.AdresaIzvoza}}t={{svjeze}}" class="btn btn-link"
+      title="{{if .Izbor}}Letve odabranog vodotoka{{else}}Prognoza po vodama{{end}}, kao uredska tablica">Izvoz u Excel</a>{{end}}
     {{if or .MozeGenerirati .MozePripremiti .Tablice}}<a href="/prognoze/postavke" class="btn btn-link"
       title="Izdavanje prognoze, priprema modela i ranije prognoze">Postavke</a>{{end}}
   </div>
@@ -42,7 +91,7 @@
      čip je poveznica ?dan=, pa poslužitelj crta taj termin. Na mobitelu je
      profil redak koji se otvara preko cijelog zaslona (goCOP-m3, 13 · Prognoze). */}}
 <section class="detail-section prog-profili">
-  {{if gt (len .Profili) 1}}
+  {{if and (not .Izbor) (gt (len .Profili) 1)}}
   <div class="kartice" role="tablist" aria-label="Vodotok">
     {{range $i, $p := .Profili}}
     <button type="button" class="kartica-gumb" role="tab" aria-selected="{{if eq $i 0}}true{{else}}false{{end}}"
@@ -58,6 +107,7 @@
     </button>
     <div class="uzd-glava">
       <h2 class="uzd-naslov">{{$p.Naslov}}</h2>
+      {{template "progDio" $.Izbor}}
       <div class="uzd-gumbi">
         <button type="button" class="uzd-gumb uzd-ispis" title="Ispiši crtež odabranog termina (bijela pozadina)" aria-label="Ispiši crtež">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6M6 18H3v-7h18v7h-3M6 14h12v7H6z"/></svg>
@@ -68,7 +118,7 @@
       </div>
     </div>
     <nav class="uzd-termini" aria-label="Termin na profilu i u karticama letvi">
-      {{range $.Termini}}<a href="?dan={{.Oznaka}}#profil-{{$p.Oznaka}}" class="uzd-cip" data-termin="{{.Oznaka}}" data-doseg="{{.Doseg}}"
+      {{range $.Termini}}<a href="{{$.AdresaDana .Oznaka}}#profil-{{$p.Oznaka}}" class="uzd-cip" data-termin="{{.Oznaka}}" data-doseg="{{.Doseg}}"
          data-opis="{{.Opis}}"{{if eq .Oznaka $.Termin.Oznaka}} aria-current="true"{{end}}>{{.Naslov}}</a>{{end}}
     </nav>
     <div class="uzduzni">
@@ -95,6 +145,7 @@
   {{end}}
 </section>
 {{else}}
+{{template "progDio" .Izbor}}
 {{if .BezProfila}}<p class="graf-natpis">{{.BezProfila}}</p>{{end}}
 {{end}}
 

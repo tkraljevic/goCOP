@@ -43,6 +43,9 @@ func (h *PrognozeHandler) IzvoziPrognoze(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	oznaciRanije(&data, r)
+	if izvozPoIzboru(r.URL.Query()) {
+		suziIzvoz(&data) // samo letve odabranog vodotoka; bez parametara cijelo izdanje
+	}
 	z := h.zaglavljeIzvoza(data.CurrentUser)
 	k := &xlsxw.Knjiga{LogoPNG: z.LogoPNG}
 	h.listSazetka(r.Context(), k, z, data)

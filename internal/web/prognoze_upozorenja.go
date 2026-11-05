@@ -44,8 +44,15 @@ func glavnoUpozorenje(u []UpozorenjeStranice) *UpozorenjeStranice {
 	return &u[g]
 }
 
-// GlavnoUpozorenje je upozorenje u traci ispod zaglavlja stranice.
+// GlavnoUpozorenje je upozorenje u traci ispod zaglavlja stranice: među
+// upozorenjima koja se tiču odabranog vodotoka, a kad takvih nema, glavno
+// upozorenje izdanja. „i još N” i popis na dnu i dalje nose sva.
 func (d PrognozePageData) GlavnoUpozorenje() *UpozorenjeStranice {
+	if d.Izbor != nil {
+		if g := glavnoUpozorenje(upozorenjaLetvi(d.Upozorenja, d.Izbor.kodovi)); g != nil {
+			return g
+		}
+	}
 	return glavnoUpozorenje(d.Upozorenja)
 }
 

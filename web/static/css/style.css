@@ -5122,6 +5122,40 @@ table.akt-poveznice { margin-top: 0.75rem; }
 }
 .uzd-cip:hover { background: var(--md-sys-color-surface-container-high, var(--bg-subtle)); text-decoration: none; }
 .uzd-cip[aria-current="true"] { border-color: transparent; background: var(--md-sys-color-ploha-odabrano); color: var(--md-sys-color-naplohi-odabrano); }
+/* Izbor sektora pa vodotoka iznad zaglavlja (goCOP-m3, 13 · Prognoze): dva
+   reda čipova; sektor bez letvi zasivljen. Na mobitelu dva padajuća
+   izbornika umjesto čipova. */
+.prog-izbor { display: flex; flex-direction: column; gap: 12px; margin: 0 0 16px; }
+.prog-cipovi { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.prog-cip { min-height: 32px; }
+.prog-cip-vodotok { min-height: 32px; padding: 0 16px; font-size: 0.875rem; }
+.prog-cip-prazan { opacity: 0.38; cursor: default; }
+.prog-cip-prazan:hover { background: none; }
+.prog-cipovi-naslov { font-size: 0.8125rem; color: var(--md-sys-color-on-surface-variant, var(--text-muted)); }
+.prog-izbor-mob { display: none; }
+.prog-izbor-mob .prog-prikazi[hidden] { display: none; }
+.uzd-dio { display: flex; align-items: center; gap: 0 4px; margin: 0; flex: none; font-size: 0.8125rem;
+  color: var(--md-sys-color-on-surface-variant, var(--text-muted)); }
+.uzd-dio .btn-link { color: var(--md-sys-color-primary, var(--primary)); }
+.prog-polje { position: relative; display: flex; flex-direction: column; padding: 8px 40px 8px 16px;
+  border: 1px solid var(--md-sys-color-outline, var(--border)); border-radius: 4px;
+  background: var(--md-sys-color-surface, var(--surface)); }
+.prog-polje-natpis { font-size: 0.75rem; line-height: 16px; color: var(--md-sys-color-on-surface-variant, var(--text-muted)); }
+.prog-polje-izbor { appearance: none; -webkit-appearance: none; width: 100%; margin: 0; padding: 0; border: 0; background: none;
+  font: inherit; font-size: 1rem; line-height: 24px; color: var(--md-sys-color-on-surface, var(--text)); }
+.prog-polje-izbor:focus { outline: none; }
+.prog-polje:focus-within { border-color: var(--md-sys-color-primary, var(--primary)); box-shadow: inset 0 0 0 1px var(--md-sys-color-primary, var(--primary)); }
+.prog-polje > .icon { position: absolute; right: 12px; top: 50%; width: 24px; height: 24px; margin-top: -12px; pointer-events: none;
+  color: var(--md-sys-color-on-surface-variant, var(--text-muted)); }
+@media (max-width: 839px) {
+  .uzd-glava { flex-wrap: wrap; }
+  .uzd-dio { order: 3; flex-basis: 100%; flex-wrap: wrap; }
+}
+@media (max-width: 599px) {
+  .prog-izbor { display: none; }
+  .prog-izbor-mob { display: flex; flex-direction: column; gap: 12px; margin: 0 0 12px; }
+  .prog-izbor-mob .prog-prikazi { align-self: flex-start; }
+}
 /* Mobitel: redak „Uzdužni profil” koji otvara cijeli zaslon; na širem zaslonu ga nema */
 .uzd-redak { display: none; width: 100%; align-items: center; gap: 8px; padding: 12px 12px 12px 16px; margin: 0;
   border: 1px solid var(--md-sys-color-outline-variant, var(--border)); border-radius: 12px; background: var(--md-sys-color-surface-container-low, var(--surface));
