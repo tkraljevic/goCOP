@@ -32,6 +32,7 @@ type PorastLetve struct {
 	Cm    float64
 	Dan   int
 	Ima   bool
+	Kad   time.Time // kraj dana najvećeg porasta (dnevna u 7 h); nula kad se ne zna
 }
 
 // SlivUKisi je međusliv na pločici
@@ -160,6 +161,7 @@ func slivUKisi(st prognoza.StanjeSliva, naziv string, nazivLetve map[string]stri
 			pl.Naziv = l
 		}
 		pl.Cm, pl.Dan, pl.Ima = najveciPorast(dnevne[l])
+		pl.Kad = krajDana(dnevne[l], pl.Dan)
 		if izdano.IsZero() && len(dnevne[l]) > 0 {
 			*izdano = time.Unix(dnevne[l][0].Izdano*3600, 0) // izdanje je isto za sve letve
 		}
@@ -167,6 +169,16 @@ func slivUKisi(st prognoza.StanjeSliva, naziv string, nazivLetve map[string]stri
 	}
 	x.Klasa, x.Oznaka = razineKise[st.Razina][0], razineKise[st.Razina][1]
 	return x
+}
+
+// krajDana je sat kojim završava dan dan dnevne prognoze; nula kad ga nema
+func krajDana(d []prognoza.DnevnaIzdana, dan int) time.Time {
+	for _, x := range d {
+		if x.Dan == dan && dan > 0 && x.Ciljni > 0 {
+			return time.Unix(x.Ciljni*3600, 0)
+		}
+	}
+	return time.Time{}
 }
 
 // najveciPorast vraća najveći porast prema današnjoj vrijednosti u dnevnoj

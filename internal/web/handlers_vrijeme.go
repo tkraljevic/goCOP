@@ -40,17 +40,23 @@ type PlocaVremena struct {
 	Lokacija           bool // točka je iz preglednika
 	Zupanija           dhmz.Zupanija
 	Upozorenja, Ostala []dhmz.Upozorenje
+	// UpozorenjaProcitano je kad su upozorenja pročitana s DHMZ-a (svaka
+	// datoteka se čuva 15 minuta)
+	UpozorenjaProcitano time.Time
 	// ZelenoDo je do kada DHMZ za županiju javlja zeleno (nema upozorenja):
 	// zeleno se ne prikazuje kao upozorenje, samo kao razdoblje bez njih
 	ZelenoDo time.Time
 
-	Postaja     *dhmz.Postaja
-	PostajaKm   float64
-	Termin      time.Time
-	Regija      string
-	Prognoza    string
-	Rijeke      []RijekaBiltena
-	BiltenDatum string
+	Postaja   *dhmz.Postaja
+	PostajaKm float64
+	Termin    time.Time
+	Regija    string
+	Prognoza  string
+	// PrognozaDatum je datum iz prognoze regije, kako ga DHMZ piše
+	// („05.11.2026.”)
+	PrognozaDatum string
+	Rijeke        []RijekaBiltena
+	BiltenDatum   string
 
 	Izmjereno *IzmjerenaKisa
 	Prognozno *PrognoznaKisa
@@ -68,6 +74,14 @@ type IzmjerenaKisa struct {
 	Km               float64
 	ZadnjiSat, Danas *float64
 	Javljeno         time.Time
+
+	// Kišomjerski dan: satni kišomjer (DHMZ) zbraja sate od 7 h, a
+	// kišomjer s dnevnim zbrojem (pljusak) ima dan od ponoći, pa je tada
+	// OdPonoci, DanasOd7 prazan, a Jucer dnevni zbroj jučerašnjeg dana.
+	DanasOd7, Jucer *float64
+	OdPonoci        bool
+	BezSatiDanas    int // koliko satnih vrijednosti od 7 h nedostaje
+	BezSatiJucer    int // isto za jučer, od 7 do 7 h
 }
 
 // PrognoznaKisa je prognoza kiše na najbližoj izvedenoj točki (Open-Meteo)
@@ -111,10 +125,7 @@ func (h *VrijemeHandler) Ploca(r *http.Request) PlocaVremena {
 	p.Zupanija = dhmz.ZupanijaZa(p.Lat, p.Lon)
 	h.upozorenja(ctx, &p)
 	h.sada(ctx, &p)
-	p.Regija = dhmz.NazivRegije[p.Zupanija.Regija]
-	if t, err := h.dhmz.Regije(ctx); err == nil {
-		p.Prognoza = t.Tekst[p.Zupanija.Regija]
-	}
+	h.prognozaRegije(ctx, &p)
 	h.bilten(ctx, &p)
 	h.kisa(&p)
 	return p
@@ -123,12 +134,13 @@ func (h *VrijemeHandler) Ploca(r *http.Request) PlocaVremena {
 // upozorenja dijeli upozorenja DHMZ-a na ona za županiju mjesta i ostala;
 // zeleno se ne prikazuje, samo se pamti do kada vrijedi
 func (h *VrijemeHandler) upozorenja(ctx context.Context, p *PlocaVremena) {
-	u, _, err := h.dhmz.Upozorenja(ctx)
+	u, procitano, err := h.dhmz.Upozorenja(ctx)
 	if err != nil {
 		p.Greske = append(p.Greske, "upozorenja DHMZ-a nisu dostupna")
 		p.BezUpozorenja = true
 		return
 	}
+	p.UpozorenjaProcitano = procitano
 	for _, x := range u {
 		switch {
 		case x.Razina <= 1:
@@ -154,6 +166,15 @@ func (h *VrijemeHandler) sada(ctx context.Context, p *PlocaVremena) {
 	}
 	if pos, km := v.Najbliza(p.Lat, p.Lon); pos != nil {
 		p.Postaja, p.PostajaKm, p.Termin = pos, km, v.Termin
+	}
+}
+
+// prognozaRegije upisuje regiju županije mjesta i tekst DHMZ-ove prognoze
+// za nju (samo za danas, bez brojki po danima)
+func (h *VrijemeHandler) prognozaRegije(ctx context.Context, p *PlocaVremena) {
+	p.Regija = dhmz.NazivRegije[p.Zupanija.Regija]
+	if t, err := h.dhmz.Regije(ctx); err == nil {
+		p.Prognoza, p.PrognozaDatum = t.Tekst[p.Zupanija.Regija], t.Datum
 	}
 }
 
@@ -212,7 +233,8 @@ func poUdaljenosti(tocke []models.Kisomjer, lat, lon float64) {
 
 // najblizeIzmjereno upisuje kišu s najbližeg aktivnog stvarnog kišomjera
 // unutar 40 km koji je javio zadnji sat ili današnji zbroj; nijemi se
-// preskaču, jer ih ima i koji danima ništa ne šalju
+// preskaču, jer ih ima i koji danima ništa ne šalju. Čita se zadnjih 56
+// sati, da stane i jučerašnji kišomjerski dan (od 7 do 7 h).
 func najblizeIzmjereno(p *PlocaVremena, sp *kisomjeri.Spremiste, tocke []models.Kisomjer, sada time.Time) {
 	for _, t := range tocke {
 		if !t.Aktivan || !t.JeStvarni() {
@@ -222,12 +244,13 @@ func najblizeIzmjereno(p *PlocaVremena, sp *kisomjeri.Spremiste, tocke []models.
 		if km > 40 {
 			break
 		}
-		m, err := sp.Od(t.Code, sada.Add(-26*time.Hour))
+		m, err := sp.Od(t.Code, sada.Add(-56*time.Hour))
 		if err != nil || len(m) == 0 {
 			continue
 		}
 		iz := &IzmjerenaKisa{Naziv: t.Naziv, Izvor: t.Izvor, Km: km}
 		upisiMjerenja(iz, m, sada)
+		zbrojiDane(iz, m, sada)
 		if iz.ZadnjiSat != nil || iz.Danas != nil {
 			p.Izmjereno = iz
 			break
@@ -247,6 +270,66 @@ func upisiMjerenja(iz *IzmjerenaKisa, m []kisomjeri.Mjerenje, sada time.Time) {
 			iz.Danas = &v
 		}
 	}
+}
+
+// zbrojiDane upisuje današnji i jučerašnji kišomjerski dan. Dnevni zbroj
+// (pljusak) ide od ponoći: jučer je zapis koji završava ponoćas. Satni
+// kišomjer (DHMZ) zbraja sate od zadnjih 7 h do sada, a jučer od 7 do 7 h;
+// sat koji nije stigao broji se kao da nedostaje, ne kao suh.
+func zbrojiDane(iz *IzmjerenaKisa, m []kisomjeri.Mjerenje, sada time.Time) {
+	jutro := zadnjeJutro(sada)
+	ponoc := ponocDana(sada)
+	var danas, jucer float64
+	nDanas, nJucer := 0, 0
+	for _, x := range m {
+		switch {
+		case x.Sati == 24:
+			iz.OdPonoci = true
+			if x.Kraj.Equal(ponoc) {
+				v := x.Oborina
+				iz.Jucer = &v
+			}
+		case x.Sati != 1 || x.Kraj.After(sada):
+		case x.Kraj.After(jutro):
+			danas += x.Oborina
+			nDanas++
+		case x.Kraj.After(jutro.Add(-24 * time.Hour)):
+			jucer += x.Oborina
+			nJucer++
+		}
+	}
+	if iz.OdPonoci {
+		return
+	}
+	iz.DanasOd7, iz.BezSatiDanas = zbrojSati(danas, nDanas, int(sada.Sub(jutro)/time.Hour))
+	iz.Jucer, iz.BezSatiJucer = zbrojSati(jucer, nJucer, 24)
+}
+
+// zbrojSati vraća zbroj zaokružen na desetinku i koliko od ocekivano sati
+// nedostaje; bez ijednog sata zbroja nema
+func zbrojSati(zbroj float64, n, ocekivano int) (*float64, int) {
+	if n == 0 {
+		return nil, 0
+	}
+	v := math.Round(zbroj*10) / 10
+	return &v, max(ocekivano-n, 0)
+}
+
+// zadnjeJutro je zadnjih 7 h po našem vremenu do sada: početak
+// kišomjerskog dana
+func zadnjeJutro(sada time.Time) time.Time {
+	l := sada.In(models.Zagreb)
+	j := time.Date(l.Year(), l.Month(), l.Day(), 7, 0, 0, 0, models.Zagreb)
+	if j.After(sada) {
+		j = j.AddDate(0, 0, -1)
+	}
+	return j
+}
+
+// ponocDana je ponoć kojom je počeo današnji dan po našem vremenu
+func ponocDana(sada time.Time) time.Time {
+	l := sada.In(models.Zagreb)
+	return time.Date(l.Year(), l.Month(), l.Day(), 0, 0, 0, 0, models.Zagreb)
 }
 
 // najblizaPrognoza upisuje prognozu s najbliže aktivne izvedene točke; kad
@@ -304,6 +387,32 @@ func zbrojiPrognozu(pk *PrognoznaKisa, r *sql.Rows, sat int64) int {
 	return n
 }
 
+// ikoneVremena su ikone redom provjere i riječi iz DHMZ-ova opisa po kojima
+// se prepoznaju; prva koja se nađe pobjeđuje (grmljavina prije kiše)
+var ikoneVremena = []struct {
+	ikona  string
+	rijeci []string
+}{
+	{"zap", []string{"grmljav", "munj"}},
+	{"cloud-rain", []string{"kiš", "kis", "pljus", "oborin"}},
+	{"wind", []string{"vjet", "oluj", "magl"}},
+	{"sun-moon", []string{"oblač", "oblac", "pretežno"}},
+}
+
+// ikonaVremena pogađa ikonu iz DHMZ-ova opisa vremena; bez prepoznate
+// riječi je sunce
+func ikonaVremena(opis string) string {
+	opis = strings.ToLower(opis)
+	for _, iv := range ikoneVremena {
+		for _, r := range iv.rijeci {
+			if strings.Contains(opis, r) {
+				return iv.ikona
+			}
+		}
+	}
+	return "sun"
+}
+
 var plocaVremenaTmpl = template.Must(template.New("ploca").Funcs(template.FuncMap{
 	"mm": func(v float64) string { return strconv.FormatFloat(v, 'f', 1, 64) },
 	"br": func(v *float64, dec int) string {
@@ -324,21 +433,7 @@ var plocaVremenaTmpl = template.Must(template.New("ploca").Funcs(template.FuncMa
 	"icon": func(name string) template.HTML {
 		return template.HTML(`<svg class="icon" aria-hidden="true"><use href="/static/img/icons.svg#` + template.HTMLEscapeString(name) + `"/></svg>`)
 	},
-	"ikonaVremena": func(opis string) string {
-		opis = strings.ToLower(opis)
-		switch {
-		case strings.Contains(opis, "grmljav") || strings.Contains(opis, "munj"):
-			return "zap"
-		case strings.Contains(opis, "kiš") || strings.Contains(opis, "kis") || strings.Contains(opis, "pljus") || strings.Contains(opis, "oborin"):
-			return "cloud-rain"
-		case strings.Contains(opis, "vjet") || strings.Contains(opis, "oluj") || strings.Contains(opis, "magl"):
-			return "wind"
-		case strings.Contains(opis, "oblač") || strings.Contains(opis, "oblac") || strings.Contains(opis, "pretežno"):
-			return "sun-moon"
-		default:
-			return "sun"
-		}
-	},
+	"ikonaVremena": ikonaVremena,
 	"rijekaTrend": func(tekst string) string {
 		t := strings.ToLower(tekst)
 		switch {
