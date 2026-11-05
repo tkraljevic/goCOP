@@ -47,29 +47,36 @@
 {{end}}
 
 {{if .Latest}}
-<section class="detail-section mt-0">
-  <div class="reg-card p-4">
-    <div class="d-flex items-baseline gap-3 flex-wrap">
-      <div class="reading-value" style="font-size:2.5rem;">
-        {{if .Latest.LevelCm}}{{intOf .Latest.LevelCm}}<small>cm</small>{{else}}<span style="font-size:1rem; color:var(--text-muted); font-weight:500;">nije očitan</span>{{end}}
+{{/* Zadnje očitanje po dizajnu (goCOP-m3, 12 · Očitanja): velika vrijednost
+     sa stupnjem obrane, kad i tko, pa pločice kote vode i protoka */}}
+<section class="letva-ploca letva-zadnje">
+  <div>
+    <div class="letva-vrh">
+      <div class="letva-vodostaj">
+        {{if .Latest.LevelCm}}{{intOf .Latest.LevelCm}} cm{{else}}<span class="letva-nije">nije očitan</span>{{end}}
       </div>
       {{if .Latest.Level2Cm}}<span class="reading-meta">nizvodno <strong>{{intOf .Latest.Level2Cm}} cm</strong></span>{{end}}
       {{if .Latest.Phase.InForce}}<span class="badge {{.Latest.Phase.BadgeClass}}">{{.Latest.Phase.Label}}</span>{{end}}
     </div>
-    <div class="reading-meta" style="margin-top:0.35rem;">
+    <div class="reading-meta letva-kad">
       zadnje očitanje {{ago .Latest.MeasuredAt}}{{if zastarjelo .Latest.LocalTime}}
       <span class="badge badge-inactive" title="Nema novijeg očitanja više od dana">{{icon "triangle-alert"}} kasni</span>{{end}} · {{formatDate .Latest.LocalTime}}
-      {{if and .Station .Latest.LevelCm}}{{range .Station.Kote (intOf .Latest.LevelCm)}}
-      · <strong>{{brojHRf .Kota 3}} m</strong> {{.Sustav}}{{end}}{{end}}
       {{if .Latest.TempC}} · voda <strong>{{brojHRf (deref .Latest.TempC) 1}} °C</strong>{{end}}
-      {{if .Latest.FlowM3s}} · protok <strong>{{brojHRf (deref .Latest.FlowM3s) 1}} m³/s</strong> izmjereno{{else}}{{with protokHR .Krivulje .Latest.LocalTime .Latest.LevelCm}} · <strong>{{.}} m³/s</strong> <span title="procjena iz HQ krivulje">iz krivulje</span> {{if protokIzvan $.Krivulje $.Latest.LocalTime $.Latest.LevelCm}}<span class="badge badge-inactive" title="vodostaj je do {{prosirenjeKrivulje}} cm izvan raspona u kojem je krivulja umjerena; procjena je produljenje rubnog odsječka">izvan raspona krivulje</span>{{end}}{{end}}{{end}}
+      {{if not .Station}}{{if .Latest.FlowM3s}} · protok <strong>{{brojHRf (deref .Latest.FlowM3s) 1}} m³/s</strong> izmjereno{{else}}{{with protokHR .Krivulje .Latest.LocalTime .Latest.LevelCm}} · <strong>{{.}} m³/s</strong> <span title="procjena iz HQ krivulje">iz krivulje</span> {{if protokIzvan $.Krivulje $.Latest.LocalTime $.Latest.LevelCm}}<span class="badge badge-inactive" title="vodostaj je do {{prosirenjeKrivulje}} cm izvan raspona u kojem je krivulja umjerena; procjena je produljenje rubnog odsječka">izvan raspona krivulje</span>{{end}}{{end}}{{end}}{{end}}
       {{if .Latest.StructureState}} · {{.Latest.StateLabel}}{{end}}
       {{if .Latest.Gate}} · zapornica {{.Latest.GateLabel}}{{end}}
       {{if .Latest.Observer}} · očitao {{.Latest.Observer}}{{end}}
       · {{.Latest.SourceLabel}}{{with .Latest.OriginLabel}} ({{.}}){{end}}
     </div>
+    {{if and .Station .Latest.LevelCm}}
+    <div class="letva-plocice">
+      {{range .Station.Kote (intOf .Latest.LevelCm)}}<div class="letva-plocica"><span>Kota vode</span><strong>{{brojHRf .Kota 2}} m n. m.</strong> <small>{{.Sustav}}</small></div>{{end}}
+      {{if $.Latest.FlowM3s}}<div class="letva-plocica"><span>Protok</span><strong>{{brojHRf (deref $.Latest.FlowM3s) 1}} m³/s</strong> <small>izmjereno</small></div>
+      {{else}}{{with protokHR $.Krivulje $.Latest.LocalTime $.Latest.LevelCm}}<div class="letva-plocica"><span>Protok</span><strong>≈ {{.}} m³/s</strong> <small>iz krivulje protoka{{if protokIzvan $.Krivulje $.Latest.LocalTime $.Latest.LevelCm}}, izvan raspona krivulje{{end}}</small></div>{{end}}{{end}}
+    </div>
+    {{end}}
     {{if .Station}}
-    <div class="reading-meta" style="margin-top:0.5rem; display:flex; gap:0.4rem; flex-wrap:wrap;">
+    <div class="reading-meta letva-pragovi">
       <span class="threshold-pill prep">P {{.Station.Prep.Label}}</span>
       <span class="threshold-pill regular">R {{.Station.Regular.Label}}</span>
       <span class="threshold-pill emerg">I {{.Station.Emergency.Label}}</span>
@@ -84,8 +91,8 @@
 {{end}}
 
 {{if .Chart}}
-<section class="detail-section">
-  <h2>{{icon "chart-column"}} Kretanje vodostaja <span class="reg-chip">{{.PogledOpis}}</span>{{if .Chart.Praznina}} <span class="reg-chip">{{.Chart.Praznina}} {{uzBroj .Chart.Praznina "prekid" "prekida" "prekida"}} u nizu</span>{{end}}{{if .Chart.ImaPrognozu}} <span class="reg-chip">s prognozom</span>{{end}}</h2>
+<section class="letva-ploca">
+  <h2>Vodostaj i prognoza <span class="reg-chip">{{.PogledOpis}}</span>{{if .Chart.Praznina}} <span class="reg-chip">{{.Chart.Praznina}} {{uzBroj .Chart.Praznina "prekid" "prekida" "prekida"}} u nizu</span>{{end}}{{if .Chart.ImaPrognozu}} <span class="reg-chip">s prognozom</span>{{end}}</h2>
   <div class="reg-card chart graf-niza graf-siroki" data-tocke="{{.Chart.Tocke}}" data-prognoza="{{.Chart.PrognozaTocke}}">
     {{template "grafNiza" .Chart}}
     <div class="graf-oblacic" hidden></div>
@@ -97,9 +104,11 @@
   </div>
   {{end}}
   {{if .Chart.ImaPrognozu}}<p class="graf-natpis">{{.Chart.PrognozaNatpis}}</p>{{end}}
+</section>
 
   {{with .Korito}}
-  <h3 class="part-label" style="margin:1rem 0 0.35rem 0;">Gdje je voda u koritu</h3>
+<section class="letva-ploca">
+  <h2>Gdje je voda u koritu</h2>
   <div class="reg-card korito-graf graf-siroki" style="padding:0.75rem 0.5rem 0.5rem;">
     {{template "presjekKorita" .}}
   </div>
@@ -131,8 +140,8 @@
       <strong>{{brojHR .}} cm</strong> do ruba snimljenog profila.</p>
     {{end}}{{end}}
   </div>
-  {{end}}
 </section>
+  {{end}}
 {{end}}
 
 <section class="detail-section">

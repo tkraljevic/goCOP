@@ -7590,3 +7590,21 @@ summary.ocitanja-cip { padding-right: 8px; }
 .letva-polje > .btn { align-self: flex-start; }
 .letva-gumbi { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .letva-zalijepi { font-family: ui-monospace, monospace; font-size: 0.85rem; }
+
+/* Kartica Očitanja: zadnje očitanje, graf i korito kao ploče (goCOP-m3) */
+.letva-detalj > .letva-ploca { margin-bottom: 16px; }
+.letva-detalj > .letva-ploca > h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.letva-vrh { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.letva-vodostaj { font-size: 2.25rem; font-weight: 400; line-height: 44px; font-variant-numeric: tabular-nums; }
+.letva-nije { font-size: 1rem; color: var(--text-muted); }
+.letva-kad { margin-top: 4px; }
+.letva-plocice { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; margin-top: 12px; }
+.letva-plocica {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; padding: 10px 12px; border-radius: 8px;
+  background: var(--md-sys-color-surface-container-high, var(--surface-hover));
+}
+.letva-plocica > span { flex: 1 0 100%; font-size: 0.8125rem; color: var(--text-secondary); }
+.letva-plocica > strong { font-size: 1rem; font-weight: 400; font-variant-numeric: tabular-nums; }
+.letva-plocica > small { color: var(--text-secondary); font-size: 0.8125rem; }
+.letva-pragovi { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 12px; }
+.letva-ploca .graf-niza, .letva-ploca .korito-graf { border: 0; box-shadow: none; background: none; }

@@ -126,7 +126,7 @@ func TestTemperaturaIProtokKrozRute(t *testing.T) {
 	}
 
 	// povijest letve i pregled
-	mora(zovi(http.MethodGet, "/readings/station/"+st.ID.String(), nil), "povijest", "12,5 °C", "1.250,0 m³/s</strong> izmjereno", "led uz obalu", "ADCP", "profil kod mosta", "letva oštećena")
+	mora(zovi(http.MethodGet, "/readings/station/"+st.ID.String(), nil), "povijest", "12,5 °C", "1.250,0 m³/s</strong> <small>izmjereno", "led uz obalu", "ADCP", "profil kod mosta", "letva oštećena")
 	mora(zovi(http.MethodGet, "/readings", nil), "pregled", "1.250 m³/s", "12,5 °C")
 
 	// samo temperatura, bez vodostaja, je valjano očitanje
