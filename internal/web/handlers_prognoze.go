@@ -133,6 +133,7 @@ type LetvaPrognoze struct {
 	Preneseno       string // srpska letva: odakle je prognoza prenesena i koliko odnos drži
 	Upozorenje      string // zašto je prognoza letve u ovom izdanju upitna
 	Pragovi         []PragKartice
+	Prelazak        *Prelazak // od kojeg termina prognoza doseže višu fazu obrane nego sada
 	// Najniži i najviši zabilježeni vodostaj kao brojevi, za sažetak izvoza
 	KrajMin, KrajMax *Krajnost
 }
@@ -604,6 +605,7 @@ func (h *PrognozeHandler) podaci(r *http.Request, nacin string) PrognozePageData
 		izdanoH: data.IzdanoSat, nacin: nacin, susjedi: susjedi, srednjak: srednjaci, krivulje: h.krivuljeSusjeda(r.Context())})
 	celijeIzNiza(data.Letve, data.prikaz, ciljevi, data.IzdanoSat, postaje)
 	satniStupci(data.Letve, data.prikaz)
+	oznaciPrelaske(data.Letve, postaje, ciljevi, data.IzdanoSat)
 	upozorenjaStranice(&data, c, izdano, sadZahtjeva(r), postaje)
 	data.Tablice = poVodama(data.Letve, postaje)
 	data.Izdaje = h.centar(data.CurrentUser)

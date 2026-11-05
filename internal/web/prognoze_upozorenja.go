@@ -26,7 +26,34 @@ type UpozorenjeStranice struct {
 	Sto    string // što ne radi
 	Upitno string // što je zbog toga upitno; prazno kad ništa posebno
 	letve  []string
+	tezina int // prognoza.Tezina*: koje upozorenje ide u traku ispod zaglavlja
 }
+
+// glavnoUpozorenje je upozorenje za traku ispod zaglavlja: najteže, a od
+// jednako teških prvo po redu. Bez upozorenja nema ni trake.
+func glavnoUpozorenje(u []UpozorenjeStranice) *UpozorenjeStranice {
+	if len(u) == 0 {
+		return nil
+	}
+	g := 0
+	for i := range u {
+		if u[i].tezina > u[g].tezina {
+			g = i
+		}
+	}
+	return &u[g]
+}
+
+// GlavnoUpozorenje je upozorenje u traci ispod zaglavlja stranice.
+func (d PrognozePageData) GlavnoUpozorenje() *UpozorenjeStranice {
+	return glavnoUpozorenje(d.Upozorenja)
+}
+
+// JosUpozorenja je koliko je upozorenja osim glavnoga, za poveznicu „i još N”.
+func (d PrognozePageData) JosUpozorenja() int { return max(len(d.Upozorenja)-1, 0) }
+
+// SvaUpozorenja je broj upozorenja i napomena u sklopljenom popisu.
+func (d PrognozePageData) SvaUpozorenja() int { return len(d.Upozorenja) + len(d.Napomene) }
 
 // pisacUpozorenja piše upozorenja imenima letvi i danima pregleda.
 type pisacUpozorenja struct {
@@ -78,7 +105,7 @@ func satOdEpohe(sat int64) time.Time { return time.Unix(sat*3600, 0) }
 // slozi piše upozorenja: otvorena i sklopljena.
 func (p pisacUpozorenja) slozi(u []prognoza.Upozorenje) (otvorena, napomene []UpozorenjeStranice) {
 	for _, x := range u {
-		s := UpozorenjeStranice{Sto: p.sto(x), Upitno: p.upitno(x), letve: letveUpozorenja(x)}
+		s := UpozorenjeStranice{Sto: p.sto(x), Upitno: p.upitno(x), letve: letveUpozorenja(x), tezina: x.Tezina}
 		if x.Tezina >= prognoza.TezinaUpozorenje {
 			otvorena = append(otvorena, s)
 		} else {
