@@ -17,6 +17,9 @@
   {{template "letvaIzbornik" .}}
 </div>
 
+{{/* Historijat u pločama, istim redom kao i prije (goCOP-m3) */}}
+<div class="letva-mreza letva-ploce letva-ploce-jedan">
+
 {{if .Spojevi}}
 <section class="detail-section" id="spoj">
   <h2>{{icon "activity"}} Vodostaj i protok</h2>
@@ -566,6 +569,8 @@
   </div>
 </section>
 {{end}}
+</div>
+
 <div class="kartica-podnozje">
   {{if .Permissions.IsGlobalAdmin}}
   {{/* Paket na disku je put koji radi kad ne radi ništa drugo — ni mreža, ni
