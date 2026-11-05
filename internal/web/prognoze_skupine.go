@@ -4,6 +4,7 @@ import (
 	"math"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"gocop/internal/models"
 )
@@ -173,12 +174,12 @@ func vlastitiSektori(postaje map[string]models.Station, dionice map[string][]str
 }
 
 // izvedeniSektori daje sektor i letvama koje ga u registru nemaju, preko
-// lanca: letva računata iz letve sektora i tuđa letva koja je ulaz letve
-// sektora idu u taj sektor. Sektor dalje uz lanac prenosi samo letva koja
-// ga ima po registru ili je tuđa — tako mađarski Dunav od Budimpešte do
-// Mohácsa ide uz sektor B, a Botovo, ulaz Novog Virja, ne vuče za sobom Muru
-// i gornju Dravu. Tuđa letva bez ikakve veze ide uz najbližu letvu na istoj
-// vodi.
+// lanca: letva računata iz letve sektora ide u taj sektor, a tuđa letva i
+// kad je ulaz letve sektora. Naša letva koja je samo ulaz (Botovo za Novo
+// Virje) sektor ne dobiva: to mora pisati u registru, inače je u „Ostale
+// letve”. Sektor dalje uz lanac prenosi samo letva koja ga ima po registru
+// ili je tuđa — tako mađarski Dunav od Budimpešte do Mohácsa ide uz sektor
+// B. Tuđa letva bez ikakve veze ide uz najbližu letvu na istoj vodi.
 func izvedeniSektori(letve []LetvaPrognoze, postaje map[string]models.Station, vlastiti map[string][]string) map[string][]string {
 	out := map[string][]string{}
 	for _, l := range letve {
@@ -198,7 +199,7 @@ func izvedeniSektori(letve []LetvaPrognoze, postaje map[string]models.Station, v
 			if len(out[l.Kod]) > 0 {
 				continue
 			}
-			if s := sektoriVeza(l, letve, prenosi); len(s) > 0 {
+			if s := sektoriVeza(l, tudaLetva(postaje[l.Kod]), letve, prenosi); len(s) > 0 {
 				out[l.Kod], promjena = s, true
 			}
 		}
@@ -207,15 +208,15 @@ func izvedeniSektori(letve []LetvaPrognoze, postaje map[string]models.Station, v
 	return out
 }
 
-// sektoriVeza su sektori letvi iz kojih se letva računa i, za tuđu letvu,
-// letvi kojima je ulaz.
-func sektoriVeza(l LetvaPrognoze, letve []LetvaPrognoze, prenosi func(string) []string) []string {
+// sektoriVeza su sektori letvi iz kojih se letva računa i, samo za tuđu
+// letvu, letvi kojima je ulaz.
+func sektoriVeza(l LetvaPrognoze, tuda bool, letve []LetvaPrognoze, prenosi func(string) []string) []string {
 	var s []string
 	for _, u := range l.Ulazi {
 		s = append(s, prenosi(u)...)
 	}
 	for _, m := range letve {
-		if slices.Contains(m.Ulazi, l.Kod) {
+		if tuda && slices.Contains(m.Ulazi, l.Kod) {
 			s = append(s, prenosi(m.Kod)...)
 		}
 	}
@@ -340,20 +341,24 @@ func cijeliVodotok(skupine []SektorPrognoze, voda string, redom []string) []stri
 	return out
 }
 
-// lokativ je ime vode u lokativu, za „Letve na Dravi”: na -a u -i, na
-// suglasnik dodaje -u; ostalo (više riječi, -o, -e) se ne mijenja i javlja
+// lokativ je ime vode u lokativu, za „Letve na Dravi”: na -a u -i, na -ac
+// u -cu (Vujnovac → Vujnovcu), na suglasnik dodaje -u. Ostalo (više riječi,
+// pridjev na -ska, ime na samoglasnik, „Sió”) se ne mijenja i javlja
 // ok=false.
 func lokativ(ime string) (string, bool) {
-	if ime == "" || strings.Contains(ime, " ") {
+	if ime == "" || strings.ContainsAny(ime, " -") || strings.HasSuffix(ime, "ska") {
 		return ime, false
 	}
-	switch zadnje := ime[len(ime)-1]; {
+	zadnje, _ := utf8.DecodeLastRuneInString(ime)
+	switch {
 	case zadnje == 'a':
 		return ime[:len(ime)-1] + "i", true
-	case strings.ContainsRune("eiou", rune(zadnje)):
-		return ime, false
+	case strings.HasSuffix(ime, "ac"):
+		return strings.TrimSuffix(ime, "ac") + "cu", true
+	case strings.ContainsRune("bcčćdđfghjklmnprsštvzž", zadnje):
+		return ime + "u", true
 	}
-	return ime + "u", true
+	return ime, false
 }
 
 // naslovLetvi je naslov iznad kartica letvi: „Letve na Dravi, od uzvodne
@@ -389,7 +394,7 @@ func opisDijela(sektor SektorPrognoze, v VodotokPrognoze, cijeli []string, g gra
 	case DunavNizvodno:
 		return "od " + imenaGranice(g) + " nizvodno"
 	}
-	if sektor.ID == oznakaOstalih || len(cijeli) <= len(v.Letve) || len(v.Letve) == 0 {
+	if sektor.Ostale() || len(cijeli) <= len(v.Letve) || len(v.Letve) == 0 {
 		return ""
 	}
 	opis := "dio u sektoru " + sektor.ID

@@ -43,12 +43,17 @@ func (h *PrognozeHandler) IzvoziPrognoze(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	oznaciRanije(&data, r)
+	// Sažetak je kratki pregled cijelog izdanja (stalne postaje Dunava i
+	// Drave, sva upozorenja), pa ostaje isti i kad ostali listovi nose samo
+	// odabrani vodotok.
+	sazetak, ime := data, imeIzvoza(r)
 	if izvozPoIzboru(r.URL.Query()) {
 		suziIzvoz(&data) // samo letve odabranog vodotoka; bez parametara cijelo izdanje
+		ime = imeSuzenogIzvoza(ime, data.Izbor)
 	}
 	z := h.zaglavljeIzvoza(data.CurrentUser)
 	k := &xlsxw.Knjiga{LogoPNG: z.LogoPNG}
-	h.listSazetka(r.Context(), k, z, data)
+	h.listSazetka(r.Context(), k, z, sazetak)
 	for _, t := range data.Tablice {
 		listPrognoze(k, z, data, t)
 	}
@@ -63,7 +68,7 @@ func (h *PrognozeHandler) IzvoziPrognoze(w http.ResponseWriter, r *http.Request)
 	listMetode(k, z, h.metoda(r))
 	// Skriveni list s podacima grafova ide na kraj knjige.
 	sort.SliceStable(k.Listovi, func(i, j int) bool { return !k.Listovi[i].Skriven && k.Listovi[j].Skriven })
-	posaljiXLSX(w, imeIzvoza(r), k)
+	posaljiXLSX(w, ime, k)
 }
 
 // listPrognoze piše jednu vodu.

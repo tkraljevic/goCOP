@@ -20,7 +20,8 @@ import (
 type CipPrognoze struct {
 	Oznaka, Naziv, URL string
 	Odabran            bool
-	Prazan             bool // sektor bez ijedne letve u izdanju: zasivljen, bez poveznice
+	Prazan             bool   // sektor bez ijedne letve u izdanju: zasivljen, bez poveznice
+	Napomena           string // zašto je sektor prazan, u oblačiću čipa
 }
 
 // IzborPrognoze je odabrani sektor i vodotok, s čipovima i natpisima.
@@ -50,6 +51,9 @@ type ulazIzbora struct {
 
 // imaLetvi javlja ima li sektor ijednu letvu u izdanju.
 func (s SektorPrognoze) imaLetvi() bool { return len(s.Vodotoci) > 0 }
+
+// Ostale javlja je li to skupina „Ostale letve” (letve bez sektora).
+func (s SektorPrognoze) Ostale() bool { return s.ID == oznakaOstalih }
 
 // odaberiSektor: traženi sektor ako ima letve, inače prvi iz dužnosti
 // osobe s letvama, inače prvi s letvama; −1 kad letvi nema nigdje.
@@ -138,15 +142,23 @@ func usceDijela(v VodotokPrognoze, usce map[string]string) string {
 	return usce[v.Letve[len(v.Letve)-1]]
 }
 
-// cipoviSektora su čipovi svih sektora; sektor bez letvi je prazan.
+// cipoviSektora su čipovi svih sektora; sektor bez letvi je prazan. Prazan
+// sektor ne mora biti bez prognoze: letve mu možda još nisu povezane u
+// registru (sektor A), pa napomena upućuje na „Ostale letve”.
 func cipoviSektora(skupine []SektorPrognoze, odabran, dan string) []CipPrognoze {
+	napomena := "Nijedna letva iz prognoze nije povezana s ovim sektorom."
+	if slices.ContainsFunc(skupine, SektorPrognoze.Ostale) {
+		napomena += " Nepovezane letve su pod „" + OstaleLetve + "”."
+	}
 	out := make([]CipPrognoze, 0, len(skupine))
 	for _, s := range skupine {
 		c := CipPrognoze{Oznaka: s.ID, Naziv: s.ID + " · " + s.Ime, Odabran: s.ID == odabran, Prazan: !s.imaLetvi()}
-		if s.ID == oznakaOstalih {
+		if s.Ostale() {
 			c.Naziv = s.Ime
 		}
-		if !c.Prazan {
+		if c.Prazan {
+			c.Napomena = napomena
+		} else {
 			c.URL = adresaPrognoza(url.Values{"sektor": {s.ID}}, dan)
 		}
 		out = append(out, c)
@@ -238,6 +250,19 @@ func suziIzvoz(data *PrognozePageData) {
 		}
 	}
 	data.Tablice, data.Letve = tablice, samoLetve(data.Letve, kodovi)
+}
+
+// imeSuzenogIzvoza dodaje imenu datoteke sektor i vodotok, da se vidi da
+// izvoz nije cijelo izdanje: prognoza_2026-11-05_15h_B_drava.xlsx.
+func imeSuzenogIzvoza(ime string, iz *IzborPrognoze) string {
+	if iz == nil {
+		return ime
+	}
+	dio := "_" + iz.Sektor.ID + "_" + iz.Vodotok.Oznaka
+	if iz.Cijeli {
+		dio = "_" + oznakaImena(iz.Vodotok.Voda) + "_cijeli"
+	}
+	return strings.TrimSuffix(ime, ".xlsx") + dio + ".xlsx"
 }
 
 // upozorenjaLetvi su upozorenja koja se tiču ijedne od letvi.

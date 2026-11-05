@@ -14,7 +14,8 @@ import (
 // registarSektora oponaša stvarni registar sektora B: Dunav od Budimpešte
 // do Bačke Palanke s Batinom i Bezdanom na granici, Drava s mađarskim
 // letvama, Botovo kao ulaz iz gornje Drave, Varaždin u sektoru A, Mura bez
-// sektora, inundacija, letva bez vodotoka i letva koje u registru nema.
+// sektora s mađarskom i austrijskom letvom, naša letva bez sektora koja je
+// samo ulaz, inundacija, letva bez vodotoka i letva koje u registru nema.
 // Šifre, kilometri i veze su izmišljeni po uzoru na stvarne.
 func registarSektora() ([]LetvaPrognoze, map[string]models.Station, []models.Sector, map[string][]string) {
 	type red struct {
@@ -34,9 +35,12 @@ func registarSektora() ([]LetvaPrognoze, map[string]models.Station, []models.Sec
 		{"backa-palanka", "Bačka Palanka (Srbija)", "Dunav", "rkm 1.298,56", nil, nil},
 		{"zlatna-greda", "Zlatna Greda", "Kormanjski Dunavac", "", []string{"batina"}, nil},
 		{"varazdin", "Varaždin", "Drava", "rkm 288+185", nil, []string{"A"}},
-		{"mursko", "Mursko Središće", "Mura", "rkm 67,70", nil, nil},
+		{"granicni-brod", "Granični Brod (Austrija)", "Mura", "", nil, nil},
+		{"pogranicje", "Pogranicje (Mađarska)", "Mura", "rkm 80,10", nil, nil},
+		{"mursko", "Mursko Središće", "Mura", "rkm 67,70", []string{"pogranicje"}, nil},
 		{"botovo", "Botovo", "Drava", "rkm 226,83", []string{"varazdin", "mursko"}, nil},
-		{"novo-virje", "Novo Virje", "Drava", "rkm 200,60", []string{"botovo"}, []string{"B"}},
+		{"prolaz", "Prolaz", "Drava", "rkm 210,00", nil, nil},
+		{"novo-virje", "Novo Virje", "Drava", "rkm 200,60", []string{"botovo", "prolaz"}, []string{"B"}},
 		{"donji-miholjac", "Donji Miholjac", "Drava", "rkm 80,60", []string{"novo-virje"}, []string{"B"}},
 		{"dravaszabolcs", "Drávaszabolcs (Mađarska)", "Drava", "rkm 77,70", []string{"donji-miholjac"}, nil},
 		{"osijek", "Osijek", "Drava", "rkm 19,10", []string{"donji-miholjac"}, []string{"B"}},
@@ -71,11 +75,12 @@ func vodotociSektora(s SektorPrognoze) map[string]string {
 }
 
 // Sektor B: Dunav podijeljen kod Batine i Bezdana (Mohács uzvodno, Bezdan i
-// Bačka Palanka nizvodno), mađarski Dunav uz B jer je ulaz Batine, Drava s
-// Botovom (ulaz Novog Virja) i Drávaszabolcsom (računat iz Donjeg
-// Miholjca), inundacija uz B jer se računa iz Batine. Drava je i u A
-// (Varaždin, i Botovo koje se iz njega računa), Mura bez sektora u
-// ostalima — Botovo je ne povlači za sobom.
+// Bačka Palanka nizvodno), mađarski Dunav uz B jer je ulaz Batine, Drava od
+// Novog Virja s Drávaszabolcsom (računat iz Donjeg Miholjca), inundacija uz
+// B jer se računa iz Batine. Botovo i Prolaz su naše letve koje su samo ulaz
+// Novog Virja, pa ne idu u B: Botovo je u A jer se računa iz Varaždina,
+// Prolaz u ostalima. Mura bez sektora je u ostalima, s mađarskom letvom
+// (nema naše letve sa sektorom na Muri) i austrijskom bez kilometra i veze.
 func TestSkupinePrognozaSektorB(t *testing.T) {
 	letve, postaje, sektori, vlastiti := registarSektora()
 	sk := skupinePrognoza(letve, postaje, sektori, vlastiti)
@@ -89,7 +94,7 @@ func TestSkupinePrognozaSektorB(t *testing.T) {
 		"dunav-uzvodno":     "Dunav uzvodno: wildungsmauer komarom budapest paks mohacs",
 		"dunav-nizvodno":    "Dunav nizvodno: bezdan batina vukovar backa-palanka",
 		"inundacija-dunava": "Inundacija Dunava: zlatna-greda",
-		"drava":             "Drava: botovo novo-virje donji-miholjac dravaszabolcs osijek",
+		"drava":             "Drava: novo-virje donji-miholjac dravaszabolcs osijek",
 		"karasica":          "Karašica: kapelna",
 		"ostale":            "Ostale letve: bez-vode",
 	}
@@ -106,11 +111,12 @@ func TestSkupinePrognozaSektorB(t *testing.T) {
 	if got := vodotociSektora(sk[0]); !reflect.DeepEqual(got, map[string]string{"drava": "Drava: varazdin botovo"}) {
 		t.Errorf("sektor A: %v", got)
 	}
-	if got := vodotociSektora(sk[3]); !reflect.DeepEqual(got, map[string]string{"mura": "Mura: mursko", "ostale": "Ostale letve: nepoznata"}) {
+	if got := vodotociSektora(sk[3]); !reflect.DeepEqual(got, map[string]string{"mura": "Mura: granicni-brod pogranicje mursko",
+		"drava": "Drava: prolaz", "ostale": "Ostale letve: nepoznata"}) {
 		t.Errorf("ostale letve: %v", got)
 	}
 	cijela := cijeliVodotok(sk, "Drava", letveKodovi(letve))
-	if strings.Join(cijela, " ") != "varazdin botovo novo-virje donji-miholjac dravaszabolcs osijek" {
+	if strings.Join(cijela, " ") != "varazdin botovo prolaz novo-virje donji-miholjac dravaszabolcs osijek" {
 		t.Errorf("cijela Drava: %v", cijela)
 	}
 	if cijeliVodotok(sk, "", letveKodovi(letve)) != nil {
@@ -145,8 +151,8 @@ func TestZbrojLetviSkupinaJeCijeloIzdanje(t *testing.T) {
 	if len(jedinstvene) != len(letve) {
 		t.Errorf("u skupinama %d letvi, u izdanju %d", len(jedinstvene), len(letve))
 	}
-	if ukupno != len(letve)+2 { // Osijek i Botovo su u A i B
-		t.Errorf("Osijek i Botovo moraju biti u oba sektora: %d pojava", ukupno)
+	if ukupno != len(letve)+1 { // Osijek je u A i B
+		t.Errorf("Osijek mora biti u oba sektora, ostale letve u jednoj skupini: %d pojava", ukupno)
 	}
 	// i bez ijednog sektora sve ide u ostale
 	sk = skupinePrognoza(letve, postaje, nil, nil)
@@ -232,6 +238,11 @@ func TestNaslovIOpisDijela(t *testing.T) {
 		{VodotokPrognoze{Oznaka: "jezero-proba", Ime: "jezero Proba", Voda: "jezero Proba"}, "Letve: jezero Proba, od uzvodne prema nizvodnoj"},
 		{VodotokPrognoze{Oznaka: "prokop", Ime: "Prokop", Voda: "Prokop"}, "Letve na Prokopu, od uzvodne prema nizvodnoj"},
 		{VodotokPrognoze{Oznaka: "kanal-o", Ime: "Kanalo", Voda: "Kanalo"}, "Letve: Kanalo, od uzvodne prema nizvodnoj"},
+		{VodotokPrognoze{Oznaka: "vujnovac", Ime: "Vujnovac", Voda: "Vujnovac"}, "Letve na Vujnovcu, od uzvodne prema nizvodnoj"},
+		{VodotokPrognoze{Oznaka: "peric", Ime: "Perić", Voda: "Perić"}, "Letve na Periću, od uzvodne prema nizvodnoj"},
+		{VodotokPrognoze{Oznaka: "sio", Ime: "Sió", Voda: "Sió"}, "Letve: Sió, od uzvodne prema nizvodnoj"},
+		{VodotokPrognoze{Oznaka: "vocinska", Ime: "Voćinska", Voda: "Voćinska"}, "Letve: Voćinska, od uzvodne prema nizvodnoj"},
+		{VodotokPrognoze{Oznaka: "skres-jelenska", Ime: "Skres-Jelenska", Voda: "Skres-Jelenska"}, "Letve: Skres-Jelenska, od uzvodne prema nizvodnoj"},
 	} {
 		if got := naslovLetvi(x.v, false); got != x.zeli {
 			t.Errorf("%s: %q", x.v.Ime, got)
@@ -310,7 +321,8 @@ func TestIzborIzAdrese(t *testing.T) {
 		"sektor=C":                    "A drava",
 		"sektor=B&vodotok=nepoznat":   "B dunav-uzvodno",
 		"sektor=ostale&vodotok=mura":  "ostale mura",
-		"vodotok=drava&sektor=ostale": "ostale mura",
+		"vodotok=vuka&sektor=ostale":  "ostale mura",
+		"vodotok=drava&sektor=ostale": "ostale drava",
 	} {
 		iz := izbor(upit)
 		if got := iz.Sektor.ID + " " + iz.Vodotok.Oznaka; got != zeli {
@@ -328,14 +340,15 @@ func TestIzborIzAdrese(t *testing.T) {
 	if iz.CijeliURL != "/prognoze?cijeli=1&dan=2&sektor=B&vodotok=drava" || iz.SektorURL != "" {
 		t.Errorf("cijeli vodotok %q, natrag %q", iz.CijeliURL, iz.SektorURL)
 	}
-	if strings.Join(iz.kodovi, " ") != "botovo novo-virje donji-miholjac dravaszabolcs osijek" {
+	if strings.Join(iz.kodovi, " ") != "novo-virje donji-miholjac dravaszabolcs osijek" {
 		t.Errorf("letve Drave u B: %v", iz.kodovi)
 	}
 	cipovi := map[string]CipPrognoze{}
 	for _, c := range iz.Sektori {
 		cipovi[c.Oznaka] = c
 	}
-	if c := cipovi["C"]; !c.Prazan || c.URL != "" || c.Naziv != "C · Prazni primjer" {
+	if c := cipovi["C"]; !c.Prazan || c.URL != "" || c.Naziv != "C · Prazni primjer" ||
+		c.Napomena != "Nijedna letva iz prognoze nije povezana s ovim sektorom. Nepovezane letve su pod „Ostale letve”." {
 		t.Errorf("prazan sektor %+v", c)
 	}
 	if c := cipovi["B"]; !c.Odabran || c.URL != "/prognoze?dan=2&sektor=B" {
@@ -357,7 +370,7 @@ func TestIzborIzAdrese(t *testing.T) {
 
 	iz = izbor("sektor=B&vodotok=drava&cijeli=1")
 	if !iz.Cijeli || iz.CijeliURL != "" || iz.SektorURL != "/prognoze?sektor=B&vodotok=drava" ||
-		strings.Join(iz.kodovi, " ") != "varazdin botovo novo-virje donji-miholjac dravaszabolcs osijek" {
+		strings.Join(iz.kodovi, " ") != "varazdin botovo prolaz novo-virje donji-miholjac dravaszabolcs osijek" {
 		t.Errorf("cijela Drava: %+v %v", iz, iz.kodovi)
 	}
 	if got := (PrognozePageData{Izbor: iz}).AdresaDana("1"); got != "?cijeli=1&dan=1&sektor=B&vodotok=drava" {
@@ -401,13 +414,13 @@ func TestSuziStranicuIIzvoz(t *testing.T) {
 	}
 	izvoz := data
 	suziIzvoz(&izvoz)
-	if len(izvoz.Tablice) != 1 || izvoz.Tablice[0].Naslov != "Drava i Mura" || len(izvoz.Letve) != 5 ||
+	if len(izvoz.Tablice) != 1 || izvoz.Tablice[0].Naslov != "Drava i Mura" || len(izvoz.Letve) != 4 ||
 		strings.Join(letveKodovi(izvoz.Tablice[0].Letve), " ") != strings.Join(iz.kodovi, " ") {
 		t.Errorf("izvoz Drave: %+v", izvoz.Tablice)
 	}
 	suziStranicu(&data)
 	if len(data.Tablice) != 1 || data.Tablice[0].Naslov != "Letve na Dravi, od uzvodne prema nizvodnoj" ||
-		strings.Join(letveKodovi(data.Tablice[0].Letve), " ") != "botovo novo-virje donji-miholjac dravaszabolcs osijek" {
+		strings.Join(letveKodovi(data.Tablice[0].Letve), " ") != "novo-virje donji-miholjac dravaszabolcs osijek" {
 		t.Errorf("stranica Drave: %+v", data.Tablice)
 	}
 	if len(data.Letve) != len(letve) {

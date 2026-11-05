@@ -17,12 +17,12 @@
      sa skriptom ga šalje sama promjena izbornika. */}}
 <nav class="prog-izbor" aria-label="Sektor i vodotok">
   <div class="prog-cipovi prog-sektori">
-    {{range .Sektori}}{{if .Prazan}}<span class="uzd-cip prog-cip prog-cip-prazan" title="nema prognoze za ovaj sektor" aria-disabled="true">{{.Naziv}}</span>
+    {{range .Sektori}}{{if .Prazan}}<span class="uzd-cip prog-cip prog-cip-prazan" title="{{.Napomena}}" aria-disabled="true">{{.Naziv}}</span>
     {{else}}<a href="{{.URL}}" class="uzd-cip prog-cip"{{if .Odabran}} aria-current="true"{{end}}>{{.Naziv}}</a>
     {{end}}{{end}}
   </div>
   <div class="prog-cipovi prog-vodotoci">
-    <span class="prog-cipovi-naslov">{{if eq .Sektor.ID "ostale"}}Ostale letve po vodotoku:{{else}}Vodotoci sektora {{.Sektor.ID}}:{{end}}</span>
+    <span class="prog-cipovi-naslov">{{if .Sektor.Ostale}}Ostale letve po vodotoku:{{else}}Vodotoci sektora {{.Sektor.ID}}:{{end}}</span>
     {{range .Vodotoci}}<a href="{{.URL}}" class="uzd-cip prog-cip prog-cip-vodotok"{{if .Odabran}} aria-current="true"{{end}}>{{.Naziv}}</a>
     {{end}}
   </div>
@@ -30,7 +30,7 @@
 <form method="get" action="/prognoze" class="prog-izbor-mob">
   <label class="prog-polje"><span class="prog-polje-natpis">Sektor</span>
     <select name="sektor" class="prog-polje-izbor">
-      {{range .Sektori}}<option value="{{.Oznaka}}"{{if .Odabran}} selected{{end}}{{if .Prazan}} disabled{{end}}>{{.Naziv}}{{if .Prazan}} (nema prognoze){{end}}</option>
+      {{range .Sektori}}<option value="{{.Oznaka}}"{{if .Odabran}} selected{{end}}{{if .Prazan}} disabled{{end}}>{{.Naziv}}{{if .Prazan}} (nema povezanih letvi){{end}}</option>
       {{end}}
     </select>{{icon "chevron-down"}}</label>
   <label class="prog-polje"><span class="prog-polje-natpis">Vodotok</span>

@@ -114,13 +114,13 @@ func TestStranicaIzboraSektoraIVodotoka(t *testing.T) {
 		`<nav class="prog-izbor" aria-label="Sektor i vodotok">`,
 		`aria-current="true">B · Dunav i donja Drava</a>`,
 		`href="/prognoze?dan=2&amp;sektor=A" class="uzd-cip prog-cip">A · Mura i gornja Drava</a>`,
-		`title="nema prognoze za ovaj sektor" aria-disabled="true">C · Gornja Sava</span>`,
+		`title="Nijedna letva iz prognoze nije povezana s ovim sektorom." aria-disabled="true">C · Gornja Sava</span>`,
 		"Vodotoci sektora B:",
 		`href="/prognoze?dan=2&amp;sektor=B&amp;vodotok=brodska-rijeka" class="uzd-cip prog-cip prog-cip-vodotok" aria-current="true">Brodska rijeka</a>`,
 		`<h2 class="prog-voda">Letve: Brodska rijeka, od uzvodne prema nizvodnoj</h2>`,
 		`href="/prognoze.xlsx?sektor=B&amp;vodotok=brodska-rijeka&amp;t=`,
 		`<select name="sektor" class="prog-polje-izbor">`, `<option value="B" selected>B · Dunav i donja Drava</option>`,
-		` disabled>C · Gornja Sava (nema prognoze)</option>`, `<input type="hidden" name="dan" value="2">`, `>Prikaži</button>`,
+		` disabled>C · Gornja Sava (nema povezanih letvi)</option>`, `<input type="hidden" name="dan" value="2">`, `>Prikaži</button>`,
 		"Uzdužnog profila nema", // u sektoru B je samo jedna letva te vode
 		`>Cijeli vodotok</a>`, `<span class="uzd-dio-opis">dio u sektoru B</span>`,
 		kartica("Donji Brod"),
@@ -199,12 +199,62 @@ func TestIzvozSlijediIzbor(t *testing.T) {
 	if txt := xlsxTekst(t, cijeli.Body.Bytes(), "PROGNOZA VODOSTAJA — Pritoke"); !strings.Contains(txt, "Gornji Brod") || !strings.Contains(txt, "Donji Brod") {
 		t.Error("izvoz cijelog vodotoka nosi obje letve")
 	}
-	// Isti ulaz, isti izvoz: bez parametara knjiga je jednaka izvozu
-	// rukovatelja bez registra sektora (kakav je bio prije izbora), osim
-	// potpisnika iz imenika.
+	// Isti ulaz, isti izvoz: bez parametara knjiga rukovatelja s registrom
+	// sektora (stranica uvijek slaže zadani izbor) jednaka je knjizi
+	// rukovatelja bez registra, kakva je bila prije izbora. Sektori u
+	// registru nemaju odjel ni centar, pa ni potpis nije drukčiji.
 	bez := rukovateljSektora(t)
 	bez.users = nil
+	if a, c := xlsxTekst(t, sve.Body.Bytes()), xlsxTekst(t, izvezi(bez, "").Body.Bytes()); a != c {
+		t.Error("bez parametara izvoz mora biti isti kao prije izbora")
+	}
 	if a, c := xlsxTekst(t, izvezi(bez, "").Body.Bytes()), xlsxTekst(t, izvezi(bez, "?sektor=B").Body.Bytes()); a != c {
 		t.Error("bez registra sektora izbor ne smije mijenjati izvoz")
+	}
+
+	// Sažetak je pregled cijelog izdanja i u suženom izvozu; ime datoteke
+	// kaže da je izvoz samo dio.
+	const sazetak = "PROGNOZA VODOSTAJA — KRATKI PREGLED"
+	if a, c := xlsxTekst(t, sve.Body.Bytes(), sazetak), xlsxTekst(t, b.Body.Bytes(), sazetak); a == "" || a != c || !strings.Contains(c, "Gornji Brod") {
+		t.Error("sažetak suženog izvoza mora biti isti kao u izvozu cijelog izdanja")
+	}
+	for w, zeli := range map[*httptest.ResponseRecorder]string{sve: "h.xlsx", b: "h_B_brodska-rijeka.xlsx", cijeli: "h_brodska-rijeka_cijeli.xlsx"} {
+		if d := w.Header().Get("Content-Disposition"); !strings.Contains(d, zeli+`"`) && !strings.HasSuffix(d, zeli) {
+			t.Errorf("ime datoteke %q, želim kraj %q", d, zeli)
+		}
+	}
+	if imeSuzenogIzvoza("prognoza.xlsx", nil) != "prognoza.xlsx" {
+		t.Error("bez izbora ime ostaje")
+	}
+}
+
+// Registar sa sektorima bez područja, ili registar koji se ne da pročitati:
+// izbora nema, a stranica i izvoz nose sve letve kao prije izbora.
+func TestIzborBezPodrucjaSektora(t *testing.T) {
+	h := rukovateljSektora(t)
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "bez.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	korisnici := repository.NewUserRepository(baza, ledger.New(baza, "test"))
+	h.SetUsers(service.NewUserService(korisnici, service.NewAuthService(korisnici, repository.NewSessionRepository(baza)), service.NewSSEBroker()))
+	if _, err := baza.Exec(`INSERT INTO sectors (id, name, vgo_name, center_cop, address, phone, email, level) VALUES ('B', 'Sektor B — Primjer', '', '', '', '', '', 2)`); err != nil {
+		t.Fatal(err)
+	}
+	r := httptest.NewRequest(http.MethodGet, "/prognoze?sektor=B", nil)
+	if h.izborPrognoze(r, nil, nil) != nil {
+		t.Error("sektor bez područja nije izbor")
+	}
+	html := stranicaIzbora(t, h, "?sektor=B")
+	imaSve(t, html, "bez područja", []string{">Gornji Brod</a></h3>", ">Donji Brod</a></h3>", `href="/prognoze.xlsx?t=`})
+	if strings.Contains(html, `class="prog-izbor"`) {
+		t.Error("bez područja nema čipova sektora")
+	}
+	if txt := xlsxTekst(t, izvezi(h, "?sektor=B").Body.Bytes(), "PROGNOZA VODOSTAJA — Pritoke"); !strings.Contains(txt, "Gornji Brod") || !strings.Contains(txt, "Donji Brod") {
+		t.Error("bez izbora izvoz nosi cijelo izdanje")
+	}
+	baza.Close()
+	if h.izborPrognoze(r, nil, nil) != nil {
+		t.Error("nečitljiv registar sektora nije izbor")
 	}
 }
