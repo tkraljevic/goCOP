@@ -379,6 +379,10 @@ type PrognozePageData struct {
 	Generira        bool   // krug upravo traje
 	ZadnjiKrug      string // kad je zadnji krug prošao i što je donio
 	Napredak        javnivodostaji.Napredak
+
+	// Podrucja su branjena područja s letvama iz zadnjeg izdanja, za
+	// karticu „Model po branjenim područjima” na postavkama (samo čitanje).
+	Podrucja []PodrucjeModela
 }
 
 // TablicaPrognoza je jedna voda na pregledu, letve od uzvodne prema nizvodnoj.
@@ -407,13 +411,9 @@ func (h *PrognozeHandler) ShowPostavke(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/prognoze", http.StatusSeeOther)
 		return
 	}
-	if h.citac != nil {
-		if c := h.citac(); c != nil {
-			if izdano, _, err := c.Pregled(); err == nil && !izdano.IsZero() {
-				data.Izdano = izdano.In(models.Zagreb).Format("2.1.2006. u 15:04")
-			}
-		}
-	}
+	var letve []PregledLetve
+	data.Izdano, letve = h.zadnjeIzdanje()
+	data.Podrucja = h.podrucjaPrognoze(r.Context(), letve)
 	data.Opcije = h.nacini(r.Context())
 	data.SmijeMijenjati = h.izmijeniOpcije != nil && data.Permissions != nil && data.Permissions.IsGlobalAdmin
 	if err := h.postavkeTmpl.ExecuteTemplate(w, "prognoze_postavke.html", data); err != nil {

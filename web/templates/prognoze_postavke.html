@@ -3,59 +3,84 @@
 {{define "title"}}goCOP — Postavke prognoze{{end}}
 
 {{define "content"}}
-<div class="detail-head">
+{{/* Raspored po dizajnu (goCOP-m3, 13 · Prognoze · Postavke): kartice M3 redom
+     Satni ili dnevni model, Model po branjenim područjima, Generiranje,
+     Ranija prognoza i Priprema modela. */}}
+<a href="/prognoze" class="prog-str-natrag">← Prognoze</a>
+<div class="prog-str-glava">
   <div>
-    <h1>{{icon "settings"}} Postavke prognoze</h1>
-    <p class="reg-card-sub">{{if .Izdano}}Zadnje izdanje {{.Izdano}}. {{end}}Generiranje izdaje prognozu odmah, priprema
+    <h1>Postavke prognoze</h1>
+    <p class="prog-str-podnaslov">{{if .Izdano}}Zadnje izdanje {{.Izdano}}. {{end}}Generiranje izdaje prognozu odmah, priprema
       modela iznova uči lanac iz arhive, a ranija prognoza izvozi se za odabrani dan i sat.</p>
   </div>
-  <div class="page-actions">
-    <a href="/prognoze" class="btn btn-secondary">{{icon "trending-up"}} Prognoze</a>
-    <a href="/prognoze/o-prognozi" class="btn btn-secondary">{{icon "info"}} O prognozi</a>
+  <div class="prog-str-gumbi">
+    <a href="/prognoze/o-prognozi" class="btn prog-obrub">O prognozi</a>
   </div>
 </div>
 
-<section class="detail-section" id="prikaz">
-  <h2>{{icon "chart-column"}} Satni ili dnevni model</h2>
-  <p class="reg-card-sub">Satni lanac seže 96 sati; dnevni model daje dane do šestog. Kombinacija na Dravi uzima dnevni
+<div class="prog-ploce">
+<section class="letva-ploca prog-ploca" id="prikaz">
+  <h2>Satni ili dnevni model</h2>
+  <p>Satni lanac seže 96 sati; dnevni model daje dane do šestog. Kombinacija na Dravi uzima dnevni
     model od dana koji je provjera odredila za svaku letvu i za vodostaj u satu izdavanja; tablica je na stranici O
     prognozi. Na Komáromu, Budimpešti, Batini, Aljmašu, Vukovaru i Iloku do 96. sata daje satni lanac i dnevni model
     zajedno, a dalje dnevni model. Oznaka uz vrijednost kaže iz čega je: s satni lanac, d dnevni model, ds oboje zajedno, p susjedi. Tablica, uzdužni profil, graf letve i izvoz u Excel pokazuju
     isto: između dana koje daju različiti modeli crta kroz dan postupno prelazi s jednoga na drugi.</p>
   <form method="POST" action="/prognoze/postavke" class="prog-prikaz-obrazac">
     {{$o := .Opcije}}
-    <div class="prog-prikaz-red"><label for="prognoza_prikaz">Tablica, grafovi i izvoz</label>
-      <select name="prognoza_prikaz" id="prognoza_prikaz" class="form-control"{{if not $.SmijeMijenjati}} disabled{{end}}>
-        <option value=""{{if eq $o.PrognozaPrikaz ""}} selected{{end}}>kombinacija</option>
-        <option value="satni"{{if eq $o.PrognozaPrikaz "satni"}} selected{{end}}>satni lanac</option>
-        <option value="dnevni"{{if eq $o.PrognozaPrikaz "dnevni"}} selected{{end}}>dnevni model</option>
+    <fieldset class="prog-segment"{{if not $.SmijeMijenjati}} disabled{{end}}>
+      <legend>Tablica, grafovi i izvoz</legend>
+      <div class="prog-segment-gumbi">
+        <label><input type="radio" name="prognoza_prikaz" value=""{{if eq $o.PrognozaPrikaz ""}} checked{{end}}><span>kombinacija</span></label>
+        <label><input type="radio" name="prognoza_prikaz" value="satni"{{if eq $o.PrognozaPrikaz "satni"}} checked{{end}}><span>satni lanac</span></label>
+        <label><input type="radio" name="prognoza_prikaz" value="dnevni"{{if eq $o.PrognozaPrikaz "dnevni"}} checked{{end}}><span>dnevni model</span></label>
+      </div>
+    </fieldset>
+    <div class="prog-postavke-polje"><label for="prognoza_susjedi">Letve bez dnevnog modela</label>
+      <select name="prognoza_susjedi" id="prognoza_susjedi" class="form-control"{{if not $.SmijeMijenjati}} disabled{{end}}>
+        <option value="1"{{if not $o.PrognozaBezSusjeda}} selected{{end}}>prema susjedima s dnevnim modelom (oznaka p): na Dravi od 2. dana, na Dunavu uz satni lanac</option>
+        <option value=""{{if $o.PrognozaBezSusjeda}} selected{{end}}>samo satni lanac, dokle seže</option>
       </select></div>
-    <div class="prog-prikaz-red"><label for="prognoza_susjedi">Letve bez dnevnog modela</label>
-      <span><input type="checkbox" name="prognoza_susjedi" id="prognoza_susjedi" value="1"{{if not $o.PrognozaBezSusjeda}} checked{{end}}{{if not $.SmijeMijenjati}} disabled{{end}}>
-        prema susjedima s dnevnim modelom (oznaka p): na Dravi od 2. dana, na Dunavu uz satni lanac</span></div>
-    {{if .SmijeMijenjati}}<button type="submit" class="btn btn-primary">{{icon "check"}} Spremi</button>
+    <div class="prog-postavke-gumbi">
+    {{if .SmijeMijenjati}}<button type="submit" class="btn btn-primary">Spremi</button>
     {{else}}<p class="reg-card-sub">Način prikaza mijenja uprava organizacije.</p>{{end}}
+    </div>
   </form>
 </section>
 
+<section class="letva-ploca prog-ploca" id="podrucja">
+  <h2>Model po branjenim područjima</h2>
+  {{if .Podrucja}}
+  <p>Branjena područja s letvama u prognozi. Uređivanje modela po branjenim područjima je u izradi.</p>
+  <ul class="prog-podrucja">
+    {{range .Podrucja}}<li><span>BP {{.Broj}} · {{.Naziv}}</span><span class="prog-bp-oznaka">U izradi</span></li>
+    {{end}}
+  </ul>
+  {{else}}<p>Uređivanje modela po branjenim područjima je u izradi.</p>{{end}}
+</section>
+
 {{if .MozeGenerirati}}
-<section class="detail-section prog-generiraj" id="generiraj" data-u-tijeku="{{if .Generira}}1{{else}}0{{end}}">
-  <h2>{{icon "refresh-cw"}} Generiranje prognoze</h2>
-  <p class="reg-card-sub">Isto što poslužitelj radi svaki sat, samo odmah: preuzme vodostaje svih povezanih letvi i
+<section class="letva-ploca prog-ploca prog-generiraj" id="generiraj" data-u-tijeku="{{if .Generira}}1{{else}}0{{end}}">
+  <h2>Generiranje prognoze</h2>
+  <p>Isto što poslužitelj radi svaki sat, samo odmah: preuzme vodostaje svih povezanih letvi i
     tuđe prognoze, pa izračuna i zapiše našu. Traje minutu-dvije.{{if .ZadnjiKrug}} Zadnji krug {{.ZadnjiKrug}}.{{end}}</p>
+  <div class="prog-generiraj-red">
   {{if .SmijeGenerirati}}
   <form method="POST" action="/prognoze/generiraj" class="prog-generiraj-obrazac">
     <button type="submit" class="btn btn-primary"{{if .Generira}} disabled{{end}}>
-      {{icon "refresh-cw"}} {{if .Generira}}Generiranje u tijeku…{{else}}Generiraj{{end}}</button>
+      {{if .Generira}}Generiranje u tijeku…{{else}}Generiraj{{end}}</button>
   </form>
-  {{else}}<p class="reg-card-sub">Prognozu rukom pokreću dežurni operater, voditelj centra, uprava sektora i globalni administrator. Ako vam treba odmah, javite dežurnom.</p>{{end}}
+  {{end}}
   <div class="prog-napredak"{{if not .Generira}} hidden{{end}} role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{.Napredak.Postotak}}">
-    <div class="prog-napredak-traka"><div class="prog-napredak-ispuna" style="width:{{.Napredak.Postotak}}%"></div></div>
     <div class="prog-napredak-tekst"><span class="prog-napredak-postotak">{{.Napredak.Postotak}} %</span> · <span class="prog-napredak-faza">{{.Napredak.Faza}}</span>
       <span class="prog-napredak-brojka">{{if .Napredak.Ukupno}}· letva {{.Napredak.Gotovo}} od {{.Napredak.Ukupno}} · {{.Napredak.Novih}} {{uzBroj .Napredak.Novih "novo očitanje" "nova očitanja" "novih očitanja"}}{{end}}</span></div>
+    <div class="prog-napredak-traka"><div class="prog-napredak-ispuna" style="width:{{.Napredak.Postotak}}%"></div></div>
   </div>
-  <details class="prog-napredak-detalji"{{if .Napredak.Redci}} open{{end}}{{if not .Napredak.Redci}} hidden{{end}}>
-    <summary>Detalji postupka</summary>
+  </div>
+  {{if not .SmijeGenerirati}}<p class="reg-card-sub">Prognozu rukom pokreću dežurni operater, voditelj centra, uprava sektora i globalni administrator. Ako vam treba odmah, javite dežurnom.</p>{{end}}
+  <details class="prog-sklop prog-napredak-detalji"{{if .Napredak.Redci}} open{{end}}{{if not .Napredak.Redci}} hidden{{end}}>
+    <summary><span class="prog-sklop-naslov">Detalji postupka</span>
+      <span class="prog-sklop-opis">ispis zadnjeg kruga, korak po korak</span></summary>
     <pre class="prog-napredak-ispis">{{range .Napredak.Redci}}{{.}}
 {{end}}</pre>
   </details>
@@ -63,9 +88,9 @@
 {{end}}
 
 {{if .Ranije.Od}}
-<section class="detail-section" id="ranije">
-  <h2>{{icon "history"}} Ranija prognoza</h2>
-  <p class="reg-card-sub">Baza prognoza čuva svako izdanje; najstarije je od {{.Ranije.Od}}. Odaberite dan i sat:
+<section class="letva-ploca prog-ploca" id="ranije">
+  <h2>Ranija prognoza</h2>
+  <p>Baza prognoza čuva svako izdanje; najstarije je od {{.Ranije.Od}}. Odaberite dan i sat:
     izvoz u Excel isti je kao za zadnje izdanje, s brojkama, upozorenjima, dnevnom prognozom i kišom toga izdanja, a
     mjerenja na grafovima sežu do sata izdanja. Koji dan daje satni, a koji dnevni model ide po izboru „Tablica, grafovi i izvoz”
     gore. Kad u tom satu prognoza nije izdana, nudi se najbliže ranije izdanje;
@@ -78,11 +103,11 @@
       <select name="sat" id="ranije_sat" class="form-control">{{$sat := .Ranije.Sat}}{{range .Ranije.Sati}}
         <option value="{{.}}"{{if eq . $sat}} selected{{end}}>{{printf "%02d" .}}:00</option>{{end}}
       </select></span>
-    <button type="submit" class="btn btn-secondary">{{icon "search"}} Pronađi izdanje</button>
+    <button type="submit" class="btn prog-obrub">Pronađi izdanje</button>
   </form>
   {{if .Ranije.Trazeno}}<div class="prog-ranije-ishod" role="status">
     {{if .Ranije.URL}}<p>{{.Ranije.Poruka}}</p>
-    <a href="{{.Ranije.URL}}" class="btn btn-primary">{{icon "download"}} Izvoz u Excel</a>
+    <a href="{{.Ranije.URL}}" class="btn btn-link">{{icon "download"}} Izvoz u Excel</a>
     {{else}}<p class="razmjena-upozorenje">{{icon "triangle-alert"}} {{.Ranije.Poruka}}</p>{{end}}
     {{with .Ranije.Drugi}}{{if .URL}}<p>{{.Tekst}} <a href="{{.URL}}">{{.Poveznica}}</a></p>{{end}}{{end}}
   </div>{{end}}
@@ -90,17 +115,19 @@
 {{end}}
 
 {{if .MozePripremiti}}
-<section class="detail-section" id="priprema">
-  <h2>{{icon "settings"}} Priprema modela</h2>
-  <p class="reg-card-sub">Nakon promjene u arhivi ili lancu: iz cijele arhive iznova namjesti veze letvi i modele
+<section class="letva-ploca prog-ploca" id="priprema">
+  <h2>Priprema modela</h2>
+  <p>Nakon promjene u arhivi ili lancu: iz cijele arhive iznova namjesti veze letvi i modele
     ispuštanja elektrana, provjerom unatrag zapiše promašaje iz kojih prognoza uzima ispravak i raspon, nauči
     dnevni model iznova, pa odmah izda prognozu novim modelom. Traje desetak minuta i vrti se na poslužitelju.</p>
-  <form method="POST" action="/prognoze/pripremi-model"
+  <form method="POST" action="/prognoze/pripremi-model" class="prog-postavke-gumbi"
         onsubmit="return confirm('Pripremiti model iznova? Mijenja brojke svih prognoza.');">
-    <button type="submit" class="btn btn-secondary">{{icon "settings"}} Pripremi model</button>
+    <button type="submit" class="btn prog-obrub prog-obrub-opasno">Pripremi model</button>
+    <span class="reg-card-sub">Mijenja brojke svih prognoza, pa traži potvrdu.</span>
   </form>
 </section>
 {{end}}
+</div>
 
 <script>
 // Generiranje: dok krug traje, stranica svake dvije sekunde pita za napredak

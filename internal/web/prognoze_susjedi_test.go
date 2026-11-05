@@ -384,19 +384,22 @@ func TestDaniIzSusjedaNaStraniciIUExcelu(t *testing.T) {
 	}
 }
 
-// Kvadratić na Postavkama prognoze: označen dok su dani iz susjeda
-// uključeni; spremanje bez njega ih isključuje, s njim uključuje.
+// Izbor „Letve bez dnevnog modela” na Postavkama prognoze: „prema
+// susjedima” odabran dok su dani iz susjeda uključeni; spremanje bez
+// vrijednosti 1 ih isključuje, s njom uključuje.
 func TestPostavkeDanaIzSusjeda(t *testing.T) {
 	osnova := PrognozePageData{
 		CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		ActiveNav: "prognoze", MozeGenerirati: true, SmijeMijenjati: true,
 	}
-	if html := iscrtaj(t, "prognoze_postavke.html", osnova); !strings.Contains(html, `name="prognoza_susjedi" id="prognoza_susjedi" value="1" checked`) {
-		t.Error("kvadratić dana iz susjeda mora biti označen dok su uključeni")
+	if html := iscrtaj(t, "prognoze_postavke.html", osnova); !strings.Contains(html, `name="prognoza_susjedi" id="prognoza_susjedi"`) ||
+		!strings.Contains(html, `<option value="1" selected>prema susjedima`) {
+		t.Error("dani iz susjeda moraju biti odabrani dok su uključeni")
 	}
 	osnova.Opcije.PrognozaBezSusjeda = true
-	if html := iscrtaj(t, "prognoze_postavke.html", osnova); strings.Contains(html, `id="prognoza_susjedi" value="1" checked`) {
-		t.Error("kvadratić dana iz susjeda označen, a isključeni su")
+	if html := iscrtaj(t, "prognoze_postavke.html", osnova); strings.Contains(html, `<option value="1" selected>`) ||
+		!strings.Contains(html, `<option value="" selected>samo satni lanac`) {
+		t.Error("dani iz susjeda odabrani, a isključeni su")
 	}
 	var spremljeno models.Opcije
 	h := &PrognozeHandler{}
