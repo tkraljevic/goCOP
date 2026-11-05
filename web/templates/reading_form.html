@@ -5,15 +5,15 @@
 {{define "content"}}
 <div class="breadcrumb"><a href="/readings">Očitanja</a> › <a href="{{.BackURL}}">{{.GaugeName}}</a> › {{if .IsEdit}}Uređivanje{{else}}Novo očitanje{{end}}</div>
 
-<div class="page-header">
+<div class="page-header upis-glava">
   <div>
-    <h1 class="page-title">{{icon "activity"}} {{.GaugeName}}</h1>
+    <h1 class="page-title">{{if .IsEdit}}Uređivanje očitanja{{else}}Novo očitanje{{end}} · {{.GaugeName}}</h1>
     <p class="page-desc">{{.GaugeSub}}{{if .Latest}} · zadnje {{if .Latest.LevelCm}}<strong>{{intOf .Latest.LevelCm}} cm</strong>{{else}}bez vodostaja{{end}} {{ago .Latest.MeasuredAt}}{{end}}</p>
   </div>
 </div>
 
 
-<form class="form-page" method="POST" action="{{if .IsEdit}}/readings/update{{else}}/readings/create{{end}}">
+<form class="form-page upis-dijalog" method="POST" action="{{if .IsEdit}}/readings/update{{else}}/readings/create{{end}}">
   {{if .IsEdit}}<input type="hidden" name="id" value="{{.Reading.ID}}">
   <input type="hidden" name="measured_at_utc" value="{{.IzvornoUTC}}">{{end}}
   <input type="hidden" name="station_id" value="{{.Reading.StationID}}">
@@ -263,8 +263,8 @@
   </script>
 
   <div class="form-actions">
-    <a href="{{.BackURL}}" class="btn btn-secondary">Odustani</a>
-    <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi izmjene{{else}}Upiši očitanje{{end}}</button>
+    <a href="{{.BackURL}}" class="btn btn-link">Odustani</a>
+    <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi izmjene{{else}}Spremi očitanje{{end}}</button>
   </div>
 </form>
 

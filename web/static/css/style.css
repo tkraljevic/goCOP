@@ -7622,3 +7622,11 @@ summary.ocitanja-cip { padding-right: 8px; }
 .letva-ploce { grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)); }
 @media (max-width: 599px) { .letva-ploce { grid-template-columns: minmax(0, 1fr); } }
 .letva-ploce-jedan { grid-template-columns: minmax(0, 1fr); }
+
+/* Upis očitanja kao dijalog (goCOP-m3): uža ploča, veći zaobljeni rub,
+   Odustani kao tekst uz Spremi očitanje */
+.upis-glava .page-title { font-size: 1.5rem; font-weight: 400; }
+.form-page.upis-dijalog { max-width: 560px; border-radius: 28px; padding: 24px; }
+.form-page.upis-dijalog::before { display: none; }
+.upis-dijalog .form-actions { justify-content: flex-end; }
+.letva-razdoblje { padding-top: 0; }

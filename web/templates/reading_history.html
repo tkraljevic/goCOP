@@ -92,6 +92,10 @@
 
 {{if .Chart}}
 <section class="letva-ploca">
+  <div class="ocitanja-cipovi letva-razdoblje" role="group" aria-label="Razdoblje grafa">
+    <a class="ocitanja-cip" href="?pogled=7" aria-pressed="{{if eq .Pogled "7"}}true{{else}}false{{end}}">{{if eq .Pogled "7"}}{{icon "check"}}{{end}}7 dana</a>
+    <a class="ocitanja-cip" href="?pogled=30" aria-pressed="{{if eq .Pogled "30"}}true{{else}}false{{end}}">{{if eq .Pogled "30"}}{{icon "check"}}{{end}}30 dana</a>
+  </div>
   <h2>Vodostaj i prognoza <span class="reg-chip">{{.PogledOpis}}</span>{{if .Chart.Praznina}} <span class="reg-chip">{{.Chart.Praznina}} {{uzBroj .Chart.Praznina "prekid" "prekida" "prekida"}} u nizu</span>{{end}}{{if .Chart.ImaPrognozu}} <span class="reg-chip">s prognozom</span>{{end}}</h2>
   <div class="reg-card chart graf-niza graf-siroki" data-tocke="{{.Chart.Tocke}}" data-prognoza="{{.Chart.PrognozaTocke}}">
     {{template "grafNiza" .Chart}}
@@ -191,6 +195,7 @@
   <form method="GET" action="" id="pogled" class="d-flex gap-2 items-center flex-wrap mb-3">
     <label class="filter-label m-0" for="pogledSel">Pogled</label>
     <select id="pogledSel" name="pogled" class="filter-select" style="max-width:12rem;" onchange="this.form.submit()">
+      <option value="7" {{if eq .Pogled "7"}}selected{{end}}>zadnjih 7 dana</option>
       <option value="30" {{if eq .Pogled "30"}}selected{{end}}>zadnjih 30 dana</option>
       <option value="90" {{if eq .Pogled "90"}}selected{{end}}>zadnjih 90 dana</option>
       <option value="365" {{if eq .Pogled "365"}}selected{{end}}>zadnjih godinu dana</option>
