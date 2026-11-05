@@ -4,8 +4,9 @@ package peers
 // potpisom izdavača, u istom ZIP obliku kao paket kanala. Ne ide u knjigu
 // verzija: razmjenom putuje samo opis karte (models.VektorskaKarta u
 // zasebnoj postavci karta_bez_interneta), a datoteka se na svaki čvor
-// učitava ovim paketom. Opis nosi i otiske dijelova karte; oni se ne
-// potpisuju, nego se pri spremanju računaju iz bajtova.
+// može učitati ovim paketom ili dobiti u dijelovima (karta_dijelovi.go).
+// Opis nosi i otiske dijelova karte; oni se ne potpisuju, nego se pri
+// spremanju računaju iz bajtova.
 //
 // Unutra je ZIP:
 //   manifest.json   vrsta "karta", opis karte, izdavač i potpis
@@ -150,11 +151,12 @@ func raspakirajKartu(kf *zip.File, opis models.VektorskaKarta, mapa string) (mod
 		return opis, errors.New("karta u paketu se ne da otvoriti")
 	}
 	defer func() { _ = rc.Close() }() // samo čitanje
-	k, err := SpremiKartu(rc, mapa, opis.Naziv, opis.Izvor)
-	if err == nil && (k.Otisak != opis.Otisak || k.Bajtova != opis.Bajtova) {
-		_ = os.Remove(PutKarte(mapa, k.Otisak)) // mogla je biti i prije: tada je ista karta, pa ponovno učitavanje vraća
-		err = errors.New("karta u paketu ne odgovara otisku iz manifesta")
-	}
+	k, err := spremiKartu(rc, mapa, opis.Naziv, opis.Izvor, func(k models.VektorskaKarta) error {
+		if k.Otisak != opis.Otisak || k.Bajtova != opis.Bajtova {
+			return errors.New("karta u paketu ne odgovara otisku iz manifesta")
+		}
+		return nil
+	})
 	if err != nil {
 		return opis, err
 	}
@@ -262,6 +264,13 @@ var VelicinaDijelaKarte int64 = 4 << 20
 // zaglavlja čita područje i najveće povećanje, a usput računa otiske
 // dijelova. Prima samo vektorsku kartu.
 func SpremiKartu(r io.Reader, mapa, naziv, izvor string) (models.VektorskaKarta, error) {
+	return spremiKartu(r, mapa, naziv, izvor, nil)
+}
+
+// spremiKartu objavljuje datoteku tek nakon svih provjera, uključujući opis
+// iz potpisanog paketa. Odbijanje dira samo privremenu datoteku: karta s
+// istim otiskom možda već postoji i služi ovom čvoru ili razmjeni dijelova.
+func spremiKartu(r io.Reader, mapa, naziv, izvor string, provjeri func(models.VektorskaKarta) error) (models.VektorskaKarta, error) {
 	k := models.VektorskaKarta{Naziv: strings.TrimSpace(naziv), Izvor: strings.TrimSpace(izvor)}
 	if err := os.MkdirAll(mapa, 0o750); err != nil {
 		return k, err
@@ -277,6 +286,11 @@ func SpremiKartu(r io.Reader, mapa, naziv, izvor string) (models.VektorskaKarta,
 	k.Otisak, k.Bajtova, k.Dio, k.Dijelovi = u.otisak, u.n, VelicinaDijelaKarte, u.dijelovi
 	if _, err := k.Provjereno(); err != nil {
 		return k, err
+	}
+	if provjeri != nil {
+		if err := provjeri(k); err != nil {
+			return k, err
+		}
 	}
 	return k, os.Rename(u.put, PutKarte(mapa, k.Otisak))
 }

@@ -187,8 +187,12 @@ func TestPaketKarteOdbija(t *testing.T) {
 		"paket podataka":    {prepakiraj(t, put, func(m *KartaManifest) { m.Vrsta = "" }, nil), "nije paket karte"},
 		"tuđe ime":          {prepakiraj(t, put, func(m *KartaManifest) { m.Izdao = "nepoznati-cvor" }, nil), "potpis ne odgovara"},
 	} {
-		if _, err := b.UveziKartu(ctxRub, c.put, t.TempDir()); err == nil || !strings.Contains(err.Error(), c.zeli) {
+		mapaB := t.TempDir()
+		if _, err := b.UveziKartu(ctxRub, c.put, mapaB); err == nil || !strings.Contains(err.Error(), c.zeli) {
 			t.Errorf("%s: %v, želi %q", opis, err, c.zeli)
+		}
+		if f, err := os.ReadDir(mapaB); err != nil || len(f) != 0 {
+			t.Errorf("%s: odbijeni paket ostavio u mapi %v (%v)", opis, f, err)
 		}
 	}
 }
@@ -274,8 +278,12 @@ func TestPaketKarteRubovi(t *testing.T) {
 		"opis se ne da otvoriti":  {cudanOpis, "nema opisa karte"},
 		"karta nije PMTiles":      {prepakiraj(t, put, nil, []byte("nije karta")), "nije karta u obliku PMTiles"},
 	} {
-		if _, err := b.UveziKartu(ctxRub, c.put, t.TempDir()); err == nil || !strings.Contains(err.Error(), c.zeli) {
+		mapaB := t.TempDir()
+		if _, err := b.UveziKartu(ctxRub, c.put, mapaB); err == nil || !strings.Contains(err.Error(), c.zeli) {
 			t.Errorf("%s: %v, želi %q", opis, err, c.zeli)
+		}
+		if f, err := os.ReadDir(mapaB); err != nil || len(f) != 0 {
+			t.Errorf("%s: odbijeni paket ostavio u mapi %v (%v)", opis, f, err)
 		}
 	}
 
