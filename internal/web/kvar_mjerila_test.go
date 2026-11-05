@@ -155,6 +155,11 @@ func TestOkvirIZnakKvaraMjerila(t *testing.T) {
 	if moje := zoviKao(t, mux, "/readings?moje=1&area=999"); !strings.Contains(moje, "Još nemate svojih letvi.") || strings.Contains(moje, "data-znak-kvara") {
 		t.Error("Moje letve bez navike")
 	}
+	// popis uz otvorenu letvu: samo popis, bez okvira stranice, s letvom istaknutom
+	okno := zoviKao(t, mux, "/readings?okno=1&odabrana=station:"+srednji.ID.String())
+	if !strings.Contains(okno, "ocitanja-popis u-oknu") || strings.Contains(okno, "<html") || strings.Count(okno, `aria-current="page"`) != 1 {
+		t.Error("popis uz letvu")
+	}
 }
 
 // Kvar bez potvrde susjeda: okvir kaže da ga prognoza ipak uzima. Kad se

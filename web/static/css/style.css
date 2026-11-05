@@ -7525,3 +7525,51 @@ summary.ocitanja-cip { padding-right: 8px; }
   /* izbornik čipa kao ploča preko cijele širine, iznad donje trake */
   .ocitanja-izbornik { position: fixed; top: auto; left: 16px; right: 16px; bottom: 96px; max-width: none; max-height: 50vh; border-radius: 12px; }
 }
+
+/* Letva: zaglavlje s radnjama i karticama (goCOP-m3, 12 · Očitanja). Izbornik
+   letve se razlije u zaglavlje: naslov lijevo, Uredi i Upiši desno, kartice
+   ispod preko cijele širine. */
+.detail-head:has(.letva-izbornik) { align-items: center; gap: 0.5rem 0.75rem; margin-bottom: 1rem; }
+.detail-head:has(.letva-izbornik) > div:first-child { flex: 1 1 auto; min-width: 0; }
+.detail-head:has(.letva-izbornik) .page-title { font-size: 1.375rem; font-weight: 400; line-height: 28px; }
+.detail-head:has(.letva-izbornik) .page-desc { margin: 2px 0 0; font-size: 0.8125rem; }
+.letva-izbornik { display: contents; }
+.letva-kartice {
+  flex: 1 0 100%; order: 10; display: flex; margin-top: 0.25rem; border-bottom: 1px solid var(--md-sys-color-outline-variant, var(--border));
+  overflow-x: auto; scrollbar-width: none;
+}
+.letva-kartica {
+  position: relative; flex: 1 0 auto; display: flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 16px;
+  color: var(--md-sys-color-on-surface-variant, var(--text-secondary)); font-size: 0.875rem; font-weight: 500; text-decoration: none; white-space: nowrap;
+}
+.letva-kartica:hover { background: var(--surface-hover); color: var(--text); text-decoration: none; }
+.letva-kartica[aria-current="page"] { color: var(--md-sys-color-primary, var(--primary)); }
+.letva-kartica[aria-current="page"]::after {
+  content: ""; position: absolute; left: 50%; bottom: 0; width: min(100%, 64px); height: 3px; transform: translateX(-50%);
+  border-radius: 3px 3px 0 0; background: currentColor;
+}
+
+/* Popis uz letvu na širokom zaslonu (ocitanja-okno.js): lijevo 400 px, crta,
+   letva desno; popis ima svoj klizač */
+.letva-okno[hidden] { display: none; }
+@media (min-width: 1200px) {
+  body.ima-okno-popisa .main-content { max-width: 1440px; }
+  .letva-raspored:has(.letva-okno:not([hidden])) { display: grid; grid-template-columns: 400px minmax(0, 1fr); align-items: start; }
+  .letva-okno {
+    position: sticky; top: 0; max-height: calc(100vh - 72px); overflow-y: auto; margin-right: 24px; padding-right: 8px;
+    border-right: 1px solid var(--md-sys-color-outline-variant, var(--border)); scrollbar-width: thin;
+  }
+  .letva-okno .ocitanja-popis { max-width: none; }
+  .letva-okno .breadcrumb { display: none; }
+}
+@media (max-width: 1199px) {
+  .letva-okno { display: none !important; }
+}
+@media (max-width: 839px) {
+  /* na tabletu i mobitelu Upiši očitanje je plutajući gumb iznad donje trake */
+  .letva-izbornik > .btn-primary {
+    position: fixed; z-index: 40; right: 16px; bottom: calc(var(--donja-visina, 80px) + 16px); flex: none;
+    min-height: 56px; padding: 0 20px; border-radius: 16px; box-shadow: var(--shadow);
+  }
+  .letva-izbornik > .btn-link { flex: none; }
+}

@@ -5,14 +5,20 @@
 {{define "content"}}
 {{/* Popis Očitanja po dizajnu (goCOP-m3, 12 · Očitanja): čipovi filtara,
      letve po vodi, u retku trend, kad i kako je očitano, faza i vodostaj. */}}
-<div class="ocitanja-popis" data-listanje="popis">
+{{template "ocitanjaPopis" .}}
+{{end}}
+
+{{/* Popis letava: na stranici Očitanja i, na širokom zaslonu, uz otvorenu
+     letvu (?okno=1, ocitanja-okno.js) */}}
+{{define "ocitanjaPopis"}}
+<div class="ocitanja-popis{{if .Okno}} u-oknu{{end}}" data-listanje="popis">
   <div class="ocitanja-glava">
-    <h1 class="ocitanja-naslov">Očitanja</h1>
+    {{if .Okno}}<h2 class="ocitanja-naslov">Očitanja</h2>{{else}}<h1 class="ocitanja-naslov">Očitanja</h1>{{end}}
     <a class="ocitanja-ikona" href="{{.URLKarte}}" title="Letve na karti" aria-label="Letve na karti">{{icon "map"}}</a>
-    <button type="button" class="ocitanja-ikona" data-otvori-trazi aria-label="Pretraži letve" aria-expanded="{{if .SearchQuery}}true{{else}}false{{end}}" aria-controls="ocitanja-trazi">{{icon "search"}}</button>
+    <button type="button" class="ocitanja-ikona" data-otvori-trazi aria-label="Pretraži letve" aria-expanded="{{if .SearchQuery}}true{{else}}false{{end}}" aria-controls="ocitanja-trazi{{if .Okno}}-okno{{end}}">{{icon "search"}}</button>
   </div>
 
-  <form id="ocitanja-trazi" class="ocitanja-trazi" action="/readings" method="GET" role="search"{{if not .SearchQuery}} hidden{{end}}>
+  <form id="ocitanja-trazi{{if .Okno}}-okno{{end}}" class="ocitanja-trazi" action="/readings" method="GET" role="search"{{if not .SearchQuery}} hidden{{end}}>
     {{if .SelectedSector}}<input type="hidden" name="sector" value="{{.SelectedSector}}">{{end}}
     {{if .SelectedArea}}<input type="hidden" name="area" value="{{.SelectedArea}}">{{end}}
     {{if .ShowAll}}<input type="hidden" name="all" value="1">{{end}}
@@ -66,28 +72,11 @@
   <p class="ocitanja-prazno">{{if .Moje}}Još nemate svojih letvi. Letve koje očitavate pojavit će se ovdje same, po navici.{{else}}Nijedna letva ne odgovara zadanim filtrima.{{end}}</p>
   {{end}}
 
-  {{template "pager" .Pager}}
+  {{if not .Okno}}{{template "pager" .Pager}}{{end}}
 
   <p class="ocitanja-podnozje">
     {{brojHR .WithReadings}} {{uzBroj .WithReadings "letva" "letve" "letvi"}} s očitanjima, ukupno {{brojHR .TotalCount}} {{uzBroj .TotalCount "očitanje" "očitanja" "očitanja"}}{{if not .LastAt.IsZero}}, zadnje {{ago .LastAt}}{{end}}.
     <a href="{{.URLSve}}">{{if .ShowAll}}Samo letve s očitanjima{{else}}Sve letve iz registara ({{brojHR .TotalGauges}}){{end}}</a>
   </p>
 </div>
-<script>
-document.querySelectorAll('[data-otvori-trazi]').forEach(function (b) {
-  b.addEventListener('click', function () {
-    var f = document.getElementById(b.getAttribute('aria-controls')), otvori = f.hidden;
-    f.hidden = !otvori;
-    b.setAttribute('aria-expanded', otvori ? 'true' : 'false');
-    if (otvori) f.querySelector('input[type=search]').focus();
-  });
-});
-// izbornik čipa zatvara se klikom izvan njega i Escom
-document.addEventListener('click', function (e) {
-  document.querySelectorAll('.ocitanja-izbor[open]').forEach(function (d) { if (!d.contains(e.target)) d.open = false; });
-});
-document.addEventListener('keydown', function (e) {
-  if (e.key === 'Escape') document.querySelectorAll('.ocitanja-izbor[open]').forEach(function (d) { d.open = false; });
-});
-</script>
 {{end}}

@@ -3,14 +3,16 @@
 {{define "title"}}goCOP — {{.Station.Name}}, historijat{{end}}
 
 {{define "content"}}
+<div class="letva-raspored">
+<aside class="letva-okno" data-okno-popisa="station:{{.Station.ID}}" aria-label="Popis letava" hidden></aside>
+<div class="letva-detalj">
 <div class="breadcrumb"><a href="/stations">Vodomjerne postaje</a> ›
   <a href="/stations/{{.Station.ID}}">{{.Station.Name}}</a> › Historijat</div>
 
 <div class="detail-head">
   <div>
-    <h1 class="page-title">{{icon "history"}} {{.Station.Name}} — historijat</h1>
-    <p class="page-desc">Sve što je na ovoj letvi zabilježeno i sve što je iz njezina niza izračunato.
-      Kartica letve govori što letva jest; ovdje stoji što se dogodilo.</p>
+    <h1 class="page-title">{{.Station.Name}}</h1>
+    <p class="page-desc">{{if .Station.HasWatercourse}}{{.Station.Watercourse}}{{else}}vodotok nije određen{{end}}{{if .Station.Stationing}} · {{.Station.Stationing}}{{end}}</p>
   </div>
   {{template "letvaIzbornik" .}}
 </div>
@@ -583,4 +585,6 @@
      title="Sažetak historijata i izračuna kao oblikovana Excelova datoteka">{{icon "download"}} Excel</a>
 </div>
 
+</div>
+</div>
 {{end}}

@@ -242,6 +242,8 @@ type ReadingsOverviewData struct {
 	SearchQuery    string
 	ShowAll        bool
 	Moje           bool // samo letve koje osoba očitava po navici
+	Okno           bool   // popis uz otvorenu letvu na širokom zaslonu, bez okvira stranice
+	Odabrana       string // ključ letve otvorene uz popis
 	Skupine        []SkupinaLetava
 	IzborSektora   []IzborFiltra
 	IzborPodrucja  []IzborFiltra
@@ -509,7 +511,8 @@ func (h *ReadingsHandler) ShowOverview(w http.ResponseWriter, r *http.Request) {
 		moje = h.readingService.MojeLetve(ctx, u)
 	}
 	shown := filtrirajLetve(all, &data, moje)
-	data.Gauges, data.Pager = paginate(shown, r, registryPerPage)
+	data.Okno, data.Odabrana = q.Get("okno") == "1", q.Get("odabrana")
+	data.Gauges, data.Pager = paginate(shown, r, poStraniciPopisa(data.Okno))
 	data.Protok = map[string]ProtokLetve{}
 	for _, g := range data.Gauges {
 		if p := h.protokLetve(ctx, g); p.Q != "" {
@@ -521,7 +524,11 @@ func (h *ReadingsHandler) ShowOverview(w http.ResponseWriter, r *http.Request) {
 		data.TotalCount, data.LastAt = n, zadnje
 	}
 	h.slozPopis(&data, q, shown, time.Now())
-	if err := h.tmplOverview.ExecuteTemplate(w, "readings.html", data); err != nil {
+	predlozak := "readings.html"
+	if data.Okno {
+		predlozak = "ocitanjaPopis"
+	}
+	if err := h.tmplOverview.ExecuteTemplate(w, predlozak, data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -568,7 +575,9 @@ func imaPodrucje(podrucja []models.Area, id int) bool {
 func (h *ReadingsHandler) slozPopis(data *ReadingsOverviewData, q url.Values, shown []models.GaugeSummary, sad time.Time) {
 	var redovi []RedakLetve
 	for _, g := range data.Gauges {
-		redovi = append(redovi, redakOcitanja(g, data.Protok[g.Key], data.Mjerila[g.Key], sad))
+		red := redakOcitanja(g, data.Protok[g.Key], data.Mjerila[g.Key], sad)
+		red.Odabran = g.Key == data.Odabrana
+		redovi = append(redovi, red)
 	}
 	data.Skupine = skupineLetava(redovi)
 	data.IzborSektora = izborSektora(q, data.Sectors, data.SelectedSector)

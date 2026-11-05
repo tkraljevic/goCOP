@@ -33,7 +33,7 @@ func TestSveStraniceLetveNoseIstiIzbornik(t *testing.T) {
 
 	for ime, html := range stranice {
 		izbornik := dioIzbornika(t, ime, html)
-		for _, gumb := range []string{"Upiši očitanje", "Kartica letve", "Očitanja", "Historijat", "Uredi"} {
+		for _, gumb := range []string{"Upiši očitanje", ">Kartica<", "Očitanja", "Historijat", "Uredi", `class="letva-kartice"`} {
 			if !strings.Contains(izbornik, gumb) {
 				t.Errorf("%s: u izborniku nema %q", ime, gumb)
 			}

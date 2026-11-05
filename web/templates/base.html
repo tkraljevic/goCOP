@@ -20,6 +20,7 @@
   <script src="{{statika "js/mjera.js"}}" defer></script>
   <script src="{{statika "js/ravnalo-karte.js"}}" defer></script>
   <script src="{{statika "js/app.js"}}" defer></script>
+  <script src="{{statika "js/ocitanja-okno.js"}}" defer></script>
   <script src="{{statika "js/odziv.js"}}" defer></script>
 </head>
 <body class="skoljka">
@@ -254,42 +255,29 @@
      Uredi i Generiraj izvješće mijenjaju cilj po stranici — svaka uređuje i
      prilaže ono što je na njoj. */}}
 <div class="detail-actions letva-izbornik">
-  {{if .CanRecord}}<a href="/readings/new?station={{.Station.ID}}" class="btn btn-primary">{{icon "plus"}} Upiši očitanje</a>{{end}}
-
-  {{if eq .LetvaStranica "kartica"}}
-  <span class="btn btn-secondary je-ovdje" aria-current="page">{{icon "ruler"}} Kartica letve</span>
-  {{else}}
-  <a href="/stations/{{.Station.ID}}" class="btn btn-secondary">{{icon "ruler"}} Kartica letve</a>
-  {{end}}
-
-  {{if eq .LetvaStranica "ocitanja"}}
-  <span class="btn btn-secondary je-ovdje" aria-current="page">{{icon "activity"}} Očitanja</span>
-  {{else}}
-  <a href="/readings/station/{{.Station.ID}}" class="btn btn-secondary">{{icon "activity"}} Očitanja</a>
-  {{end}}
-
-  {{if eq .LetvaStranica "historijat"}}
-  <span class="btn btn-secondary je-ovdje" aria-current="page">{{icon "history"}} Historijat</span>
-  {{else}}
-  <a href="/stations/{{.Station.ID}}/historijat" class="btn btn-secondary"
-     title="Arhiva, povratni vodostaji, promjene kote nule, valovi obrane i proglašene obrane">{{icon "history"}} Historijat</a>
-  {{end}}
-
   {{if .CanEdit}}
   {{/* Svaki Uredi mijenja ono što je na svojoj stranici: kartica opis letve,
        historijat zabilježenu povijest, očitanja same vrijednosti. Zato tri
        cilja pod istim imenom — isto ime jer je i radnja ista. */}}
   {{if eq .LetvaStranica "ocitanja"}}
-  <a href="#ispravci" class="btn btn-secondary"
-     title="Ispravak upisanih očitanja">{{icon "pencil"}} Uredi</a>
+  <a href="#ispravci" class="btn btn-link" title="Ispravak upisanih očitanja">Uredi</a>
   {{else if eq .LetvaStranica "historijat"}}
-  <a href="/stations/{{.Station.ID}}/historijat/uredi" class="btn btn-secondary"
-     title="Povratni vodostaji, promjene kote nule i ograde uz nizove">{{icon "pencil"}} Uredi</a>
+  <a href="/stations/{{.Station.ID}}/historijat/uredi" class="btn btn-link"
+     title="Povratni vodostaji, promjene kote nule i ograde uz nizove">Uredi</a>
   {{else}}
-  <a href="/stations/{{.Station.ID}}/edit" class="btn btn-secondary"
-     title="Pragovi, kota nule, ekstremi, položaj i napomena">{{icon "pencil"}} Uredi</a>
+  <a href="/stations/{{.Station.ID}}/edit" class="btn btn-link"
+     title="Pragovi, kota nule, ekstremi, položaj i napomena">Uredi</a>
   {{end}}
   {{end}}
+  {{if .CanRecord}}<a href="/readings/new?station={{.Station.ID}}" class="btn btn-primary">Upiši očitanje</a>{{end}}
+
+  {{/* kartice letve (M3): stranica na kojoj se stoji je oznaka, ne poveznica */}}
+  <nav class="letva-kartice" aria-label="Letva {{.Station.Name}}">
+    {{if eq .LetvaStranica "kartica"}}<span class="letva-kartica" aria-current="page">Kartica</span>{{else}}<a class="letva-kartica" href="/stations/{{.Station.ID}}">Kartica</a>{{end}}
+    {{if eq .LetvaStranica "ocitanja"}}<span class="letva-kartica" aria-current="page">Očitanja</span>{{else}}<a class="letva-kartica" href="/readings/station/{{.Station.ID}}">Očitanja</a>{{end}}
+    {{if eq .LetvaStranica "historijat"}}<span class="letva-kartica" aria-current="page">Historijat</span>{{else}}<a class="letva-kartica" href="/stations/{{.Station.ID}}/historijat"
+       title="Arhiva, povratni vodostaji, promjene kote nule, valovi obrane i proglašene obrane">Historijat</a>{{end}}
+  </nav>
 </div>
 {{end}}
 
