@@ -337,8 +337,8 @@ func TestGrafLetveIzPrikaza(t *testing.T) {
 	}
 }
 
-// Uzdužni profil crta isti niz: klizač seže do kraja šestog dana, dokle
-// seže dnevni model. Letva bez kote nule ili bez kilometra ne ulazi.
+// Uzdužni profil crta isti niz: termin +12 h i svaki dan čipova, do šestog
+// dana, dokle seže dnevni model. Letva bez kote nule ili bez kilometra ne ulazi.
 func TestProfilCrtaNizPrikaza(t *testing.T) {
 	p := novaProbaPrikaza(t)
 	_, prikaz := p.tablica(models.PrognozaKombinacija)
@@ -355,8 +355,18 @@ func TestProfilCrtaNizPrikaza(t *testing.T) {
 	mjesec := NulaProfila{Cm: map[string]float64{"botovo": 90, "terezino-polje": -290}}
 	uobicajeno := map[string]Sredina{"botovo": {Medijan: 95, Srednjak: 97}}
 	profili := uzduzniProfili(postaje, p.pregled, prikaz, p.izdano, nil, nil, uobicajeno, mjesec, jutro)
-	if len(profili) != 1 || profili[0].SatDo != SatiPrikaza {
-		t.Fatalf("profili %+v: želim jedan profil Drave do %d. sata", profili, SatiPrikaza)
+	if len(profili) != 1 {
+		t.Fatalf("profili %+v: želim jedan profil Drave", profili)
+	}
+	dani, ciljevi := daniPregleda(p.izdano)
+	crte := map[int]bool{}
+	for _, c := range profili[0].Crte {
+		crte[c.Doseg] = true
+	}
+	for _, tm := range terminiProfila(dani, ciljevi, p.izdano.Unix()/3600)[1:] {
+		if !crte[tm.Doseg] {
+			t.Errorf("profil nema crtu za %s (%d h); ima %v", tm.Naslov, tm.Doseg, crte)
+		}
 	}
 	if n := string(profili[0].Niz); !strings.Contains(n, "Botovo") || strings.Contains(n, "Samotna") || strings.Contains(n, "Vukovar") {
 		t.Errorf("na profilu su Botovo i Terezino Polje, a ne letve bez kote ili kilometra: %s", n)

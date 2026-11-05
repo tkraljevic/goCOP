@@ -5085,23 +5085,13 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .uzduzni svg { width: 100%; height: auto; }
 .uzduzni .grid { stroke: var(--border); stroke-width: 1; }
 .uzduzni .tick { font-size: 12px; fill: var(--text-muted); }
-/* Dosezi: jedna boja od svjetlije prema tamnijoj kako doseg raste; paleta
-   provjerena za svijetlu i tamnu podlogu (jedan ton, jednoliki koraci). */
-:root { --prog-h1: #f4b089; --prog-h2: #ef8c5c; --prog-h3: #e86b34; --prog-h4: #d3531f; --prog-h5: #b04217; --prog-h6: #8a3211; --prog-h7: #6b270d; --prog-h8: #4d1c09; }
-
-:root[data-theme="dark"] { --prog-h1: #fbe3d3; --prog-h2: #f9d2ba; --prog-h3: #f5ab86; --prog-h4: #ef8756; --prog-h5: #e5642c; --prog-h6: #c94d1d; --prog-h7: #a03a14; --prog-h8: #7c2c0f; }
-.uzd-crta { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; transition: opacity 0.15s; }
-.uzd-crta.h1 { stroke: var(--prog-h1); } .uzd-crta.h2 { stroke: var(--prog-h2); } .uzd-crta.h3 { stroke: var(--prog-h3); }
-.uzd-crta.h4 { stroke: var(--prog-h4); } .uzd-crta.h5 { stroke: var(--prog-h5); } .uzd-crta.h6 { stroke: var(--prog-h6); }
-.uzd-crta.h7 { stroke: var(--prog-h7); } .uzd-crta.h8 { stroke: var(--prog-h8); }
-.uzd-crta.h7, .uzd-crta.h8 { stroke-dasharray: 7 4; }
-.uzd-svg:has(.uzd-istaknuta) .uzd-crta:not(.uzd-istaknuta) { opacity: 0.3; }
-.uzd-crta.uzd-istaknuta { stroke-width: 3; }
-.uzd-pojas { display: none; fill-opacity: 0.13; stroke: none; }
-.uzd-pojas.uzd-aktivna { display: block; }
-.uzd-pojas.h1 { fill: var(--prog-h1); } .uzd-pojas.h2 { fill: var(--prog-h2); } .uzd-pojas.h3 { fill: var(--prog-h3); }
-.uzd-pojas.h4 { fill: var(--prog-h4); } .uzd-pojas.h5 { fill: var(--prog-h5); } .uzd-pojas.h6 { fill: var(--prog-h6); }
-.uzd-pojas.h7 { fill: var(--prog-h7); } .uzd-pojas.h8 { fill: var(--prog-h8); }
+/* Termini: u crtežu je crta svakog termina, a vidi se samo odabrani, u
+   primarnoj plavoj, s rasponom kao svijetlom plohom (goCOP-m3, 13 · Prognoze). */
+.uzd-crta { display: none; fill: none; stroke: var(--md-sys-color-primary, var(--primary)); stroke-width: 3;
+  stroke-linejoin: round; stroke-linecap: round; }
+.uzd-crta.uzd-odabrana { display: inline; }
+.uzd-pojas { display: none; fill: var(--md-sys-color-primary, var(--primary)); fill-opacity: 0.13; stroke: none; }
+.uzd-pojas.uzd-odabrana { display: inline; }
 .uzd-svg { width: 100%; height: auto; display: block; }
 .uzd-vodilica { stroke: var(--border); stroke-width: 1; stroke-dasharray: 2 4; }
 .uzd-usce { fill: var(--primary); }
@@ -5111,35 +5101,37 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .uzd-brana-natpis { font-size: 11px; fill: var(--text-muted); font-weight: 600; }
 .uzd-tocka.stanje-prep { fill: var(--faza-p-crta); } .uzd-tocka.stanje-regular { fill: var(--faza-r-crta); }
 .uzd-tocka.stanje-emerg, .uzd-tocka.stanje-crit { fill: var(--faza-i-crta); }
-.uzd-klizac-crta { fill: none; stroke: var(--uzd-prognoza); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
-.uzd-klizac-crta.mjereno { stroke: var(--uzd-mjereno); }
-.uzd-klizac-tocke circle { fill: var(--surface); stroke: var(--uzd-prognoza); stroke-width: 2.5; }
-.uzd-klizac-tocke.mjereno circle { stroke: var(--uzd-mjereno); }
-.uzd-svg.uzd-klizac-aktivan .uzd-crta { opacity: 0.35; }
-.uzd-svg.uzd-klizac-aktivan .uzd-pojas { opacity: 0.5; }
-/* Bljesak: crta dosega na koju je pokretna crta legla zasvijetli i ugasi se,
-   a s njom i njezin raspon (68 % slučajeva). */
-@keyframes uzd-bljesak-crta { 0% { opacity: 1; stroke-width: 7; } 35% { opacity: 1; stroke-width: 5; } 100% { opacity: 0.35; stroke-width: 2; } }
-@keyframes uzd-bljesak-pojas { 0% { opacity: 1; fill-opacity: 0.4; } 100% { opacity: 0.5; fill-opacity: 0.13; } }
-.uzd-svg .uzd-crta.uzd-bljesak { animation: uzd-bljesak-crta 1.1s ease-out; }
-.uzd-svg .uzd-pojas.uzd-bljesak { display: block; animation: uzd-bljesak-pojas 1.1s ease-out; }
-@media (prefers-reduced-motion: reduce) { .uzd-svg .uzd-crta.uzd-bljesak, .uzd-svg .uzd-pojas.uzd-bljesak { animation-duration: 0.01s; } }
-.uzd-legenda { display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; margin: 0 0 0.5rem; font-size: 0.85rem; color: var(--text-muted); }
-.uzd-legenda-gumb { background: none; border: 1px solid transparent; border-radius: 4px; padding: 0.1rem 0.4rem; color: inherit; font: inherit; cursor: pointer; }
-.uzd-legenda-gumb:hover { border-color: var(--border); }
-.uzd-legenda-gumb.uzd-odabran { border-color: var(--primary); color: var(--text); }
-.uzd-klizac { display: flex; align-items: center; gap: 0.75rem; margin: 0.5rem 0 0.25rem; }
-.uzd-klizac-raspon { flex: 1; accent-color: var(--primary); }
-.uzd-klizac-natpis { min-width: 13rem; font-size: 0.85rem; font-variant-numeric: tabular-nums; color: var(--text-muted); }
-.uzd-klizac-igraj { padding: 0.3rem 0.55rem; }
-.uzd-klizac-igraj.uzd-igra { background: var(--gumb); color: var(--gumb-tekst); }
-/* Broj uz točku klizača: pločica u boji klizača (plava za mjereno, zelena za
-   prognozu), bijela slova — vidi se na svijetloj i tamnoj podlozi i preko
-   svake crte, jer stoji zadnja u crtežu. */
-.uzd-klizac-broj rect { fill: var(--uzd-prognoza-plocica); stroke: #fff; stroke-width: 1; stroke-opacity: 0.85; }
-.uzd-klizac-brojevi.mjereno .uzd-klizac-broj rect { fill: var(--uzd-mjereno-plocica); }
-.uzd-klizac-broj text { font-size: 12px; font-weight: 700; fill: #fff; font-variant-numeric: tabular-nums; }
-.uzd-gumbi { position: absolute; top: 0.5rem; right: 0.5rem; z-index: 4; display: flex; gap: 0.25rem; }
+.uzd-legenda { margin: 0.5rem 0 0.25rem; font-size: 0.75rem; line-height: 1.4; color: var(--text-muted); }
+/* Glava profila: čipovi termina lijevo, ispis i cijeli zaslon desno */
+.uzd-glava { display: flex; align-items: center; gap: 0.5rem 1rem; margin: 0 0 0.5rem; }
+.uzd-termini { display: flex; flex-wrap: wrap; gap: 8px; flex: 1 1 auto; min-width: 0; }
+.uzd-cip {
+  display: inline-flex; align-items: center; min-height: 28px; padding: 0 12px; border: 1px solid var(--md-sys-color-outline-variant, var(--border));
+  border-radius: 8px; color: var(--md-sys-color-on-surface-variant, var(--text-secondary)); font-size: 0.8125rem; text-decoration: none; white-space: nowrap;
+}
+.uzd-cip:hover { background: var(--md-sys-color-surface-container-high, var(--bg-subtle)); text-decoration: none; }
+.uzd-cip[aria-current="true"] { border-color: transparent; background: var(--md-sys-color-ploha-odabrano); color: var(--md-sys-color-naplohi-odabrano); }
+/* Mobitel: redak „Uzdužni profil” koji otvara cijeli zaslon; na širem zaslonu ga nema */
+.uzd-redak { display: none; width: 100%; align-items: center; gap: 12px; padding: 12px 16px; margin: 0 0 10px;
+  border: 1px solid var(--md-sys-color-outline-variant, var(--border)); border-radius: 12px; background: var(--md-sys-color-surface-container-low, var(--surface));
+  color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.uzd-redak-tekst { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+.uzd-redak-naslov { font-size: 1rem; font-weight: 500; }
+.uzd-redak-opis { font-size: 0.75rem; color: var(--text-muted); }
+.prog-termin.prog-odabran { background: var(--md-sys-color-ploha-odabrano); }
+.prog-termin.prog-odabran .prog-termin-naslov, .prog-termin.prog-odabran .prog-vr, .prog-termin.prog-odabran .prog-raspon,
+.prog-termin.prog-odabran .prog-druga { color: var(--md-sys-color-naplohi-odabrano); }
+@media (max-width: 599px) {
+  .uzd-profil.uzd-sklopivo:not(.uzd-puni-zaslon):not(:fullscreen) .uzd-redak { display: flex; }
+  .uzd-profil.uzd-sklopivo:not(.uzd-puni-zaslon):not(:fullscreen) .uzduzni,
+  .uzd-profil.uzd-sklopivo:not(.uzd-puni-zaslon):not(:fullscreen) .uzd-gumbi,
+  .uzd-profil.uzd-sklopivo:not(.uzd-puni-zaslon):not(:fullscreen) .uzd-legenda,
+  .uzd-profil.uzd-sklopivo:not(.uzd-puni-zaslon):not(:fullscreen) .graf-natpis { display: none; }
+  .uzd-termini { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
+  .uzd-termini::-webkit-scrollbar { display: none; }
+  .uzd-cip { min-height: 36px; padding: 0 14px; font-size: 0.875rem; }
+}
+.uzd-gumbi { display: flex; gap: 0.25rem; flex: none; }
 .uzd-gumb { width: 32px; height: 32px; padding: 5px; border: 1px solid var(--border); border-radius: 6px;
   background: var(--surface); color: var(--text); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 .uzd-gumb:hover { background: var(--bg-subtle); }
@@ -5151,8 +5143,8 @@ table.akt-poveznice { margin-top: 0.75rem; }
   position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; margin: 0; overflow: hidden;
   padding: max(0.75rem, env(safe-area-inset-top)) max(1.5rem, env(safe-area-inset-right)) max(0.75rem, env(safe-area-inset-bottom)) max(1.5rem, env(safe-area-inset-left));
   border: 0; border-radius: 0; background: var(--bg); z-index: 1000; display: flex; flex-direction: column; }
-/* Preko cijelog zaslona crtež dobiva sav prostor koji ostane od legende i
-   klizača; opis ostaje ispod crteža na stranici. */
+/* Preko cijelog zaslona crtež dobiva sav prostor koji ostane od čipova i
+   legende; opis ostaje ispod crteža na stranici. */
 .uzd-profil.uzd-puni-zaslon .graf-natpis, .uzd-profil:fullscreen .graf-natpis, .uzd-profil:-webkit-full-screen .graf-natpis { display: none; }
 .uzd-profil.uzd-puni-zaslon .uzduzni, .uzd-profil:fullscreen .uzduzni, .uzd-profil:-webkit-full-screen .uzduzni {
   flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
@@ -5163,32 +5155,24 @@ table.akt-poveznice { margin-top: 0.75rem; }
 /* Uski zaslon (mobitel): crtež je visok toliko da se natpisi letvi čitaju,
    a lista se prstom vodoravno, niz tok; preko cijelog zaslona popuni visinu. */
 @media (max-width: 900px) {
-  .uzd-gumbi { position: static; justify-content: flex-end; margin: 0 0 0.35rem; }
   .uzd-pomak { overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
   .uzd-pomak .uzd-svg { width: auto; height: min(60vh, 440px); min-width: 100%; max-width: none; }
-  .uzd-klizac { flex-wrap: wrap; gap: 0.5rem 0.75rem; }
-  .uzd-klizac-natpis { min-width: 0; flex: 1 0 100%; }
   .uzd-profil.uzd-puni-zaslon, .uzd-profil:fullscreen, .uzd-profil:-webkit-full-screen {
     padding: max(0.5rem, env(safe-area-inset-top)) max(0.5rem, env(safe-area-inset-right)) max(0.5rem, env(safe-area-inset-bottom)) max(0.5rem, env(safe-area-inset-left)); }
   .uzd-profil.uzd-puni-zaslon .uzd-legenda, .uzd-profil:fullscreen .uzd-legenda, .uzd-profil:-webkit-full-screen .uzd-legenda {
-    flex-wrap: nowrap; overflow-x: auto; font-size: 0.78rem; margin-bottom: 0.25rem; padding-bottom: 0.15rem; }
-  .uzd-profil.uzd-puni-zaslon .uzd-legenda-stavka, .uzd-profil:fullscreen .uzd-legenda-stavka, .uzd-profil:-webkit-full-screen .uzd-legenda-stavka { white-space: nowrap; flex: none; }
+    white-space: nowrap; overflow-x: auto; margin: 0.25rem 0 0; padding-bottom: 0.15rem; }
   .uzd-profil.uzd-puni-zaslon .uzd-pomak, .uzd-profil:fullscreen .uzd-pomak, .uzd-profil:-webkit-full-screen .uzd-pomak { display: block; }
   .uzd-profil.uzd-puni-zaslon .uzd-pomak .uzd-svg, .uzd-profil:fullscreen .uzd-pomak .uzd-svg, .uzd-profil:-webkit-full-screen .uzd-pomak .uzd-svg {
     height: 100%; width: auto; min-width: 100%; max-height: none; }
-  .uzd-profil.uzd-puni-zaslon .uzd-klizac, .uzd-profil:fullscreen .uzd-klizac, .uzd-profil:-webkit-full-screen .uzd-klizac { margin: 0.35rem 0 0; }
 }
-/* Položeni mobitel preko cijelog zaslona: malo visine, pa oznaka sata ide uz
-   klizač, a gumbi preko kuta crteža (crtež je tada pregled cijelog toka). */
+/* Položeni mobitel preko cijelog zaslona: malo visine, pa legenda otpada,
+   a čipovi i gumbi ostaju u jednom retku iznad crteža. */
 @media (max-width: 900px) and (max-height: 520px) {
-  .uzd-profil.uzd-puni-zaslon .uzd-gumbi, .uzd-profil:fullscreen .uzd-gumbi, .uzd-profil:-webkit-full-screen .uzd-gumbi {
-    position: absolute; top: 0.25rem; right: 0.25rem; margin: 0; }
-  .uzd-profil.uzd-puni-zaslon .uzduzni, .uzd-profil:fullscreen .uzduzni, .uzd-profil:-webkit-full-screen .uzduzni { position: relative; }
-  .uzd-profil.uzd-puni-zaslon .uzd-klizac, .uzd-profil:fullscreen .uzd-klizac, .uzd-profil:-webkit-full-screen .uzd-klizac { flex-wrap: nowrap; }
-  .uzd-profil.uzd-puni-zaslon .uzd-klizac-natpis, .uzd-profil:fullscreen .uzd-klizac-natpis, .uzd-profil:-webkit-full-screen .uzd-klizac-natpis { flex: 0 0 auto; }
+  .uzd-profil.uzd-puni-zaslon .uzd-legenda, .uzd-profil:fullscreen .uzd-legenda, .uzd-profil:-webkit-full-screen .uzd-legenda { display: none; }
+  .uzd-profil.uzd-puni-zaslon .uzd-termini, .uzd-profil:fullscreen .uzd-termini, .uzd-profil:-webkit-full-screen .uzd-termini { flex-wrap: nowrap; overflow-x: auto; }
 }
 body.uzd-puni-zaslon-otvoren { overflow: hidden; }
-@media print { .uzd-gumbi { display: none; } }
+@media print { .uzd-gumbi, .uzd-termini, .uzd-redak { display: none; } }
 .uzd-oblacic { position: absolute; z-index: 3; background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
   box-shadow: var(--shadow); padding: 0.4rem 0.6rem; font-size: 0.8rem; line-height: 1.55; pointer-events: none; white-space: nowrap; }
 .uzd-prag { fill: none; stroke-width: 1.5; stroke-dasharray: 4 3; }
@@ -5201,12 +5185,10 @@ body.uzd-puni-zaslon-otvoren { overflow: hidden; }
 .uzd-kota { font-size: 11px; fill: var(--text-muted); font-variant-numeric: tabular-nums; }
 /* Nula je voda zadnjih 30 dana, tanka puna crta; uobičajena voda deset godina
    crtkana, srednji vodostaj točkast, obje sive; jutarnje stanje
-   je puna ljubičasta crta — mjera prema kojoj se cijeli dan čita. Klizač je
-   plav dok pokazuje mjereno, a zelen kad prijeđe u prognozu. */
-:root { --uzd-jutro: #7a3db8; --uzd-mjereno: #1d68c9; --uzd-prognoza: #1e8f4e;
-  --uzd-mjereno-plocica: #1a5fb8; --uzd-prognoza-plocica: #17773f; --uzd-srednjak: #6b7280; }
+   je puna ljubičasta crta — mjera prema kojoj se cijeli dan čita. */
+:root { --uzd-jutro: #7a3db8; --uzd-srednjak: #6b7280; }
 
-:root[data-theme="dark"] { --uzd-jutro: #b98ceb; --uzd-mjereno: #6ea8f2; --uzd-prognoza: #52c98a; --uzd-srednjak: #9ca3af; }
+:root[data-theme="dark"] { --uzd-jutro: #b98ceb; --uzd-srednjak: #9ca3af; }
 .uzd-nula-napomena { font-size: 12px; font-weight: 600; fill: var(--text-muted); }
 .uzd-dugi { fill: none; stroke: var(--uzd-srednjak); stroke-width: 1.5; stroke-dasharray: 8 4; }
 .uzd-srednjak { fill: none; stroke: var(--uzd-srednjak); stroke-width: 1.5; stroke-dasharray: 1.5 4; stroke-linecap: round; }
@@ -5216,18 +5198,8 @@ body.uzd-puni-zaslon-otvoren { overflow: hidden; }
 .uzd-znak { display: inline-block; width: 1.1rem; height: 0; vertical-align: middle;
   margin-right: 0.15rem; border-top-width: 2.5px; border-top-style: solid; }
 .uzd-znak.jutro { border-color: var(--uzd-jutro); border-top-width: 3px; }
-.uzd-znak.mjereno { border-color: var(--uzd-mjereno); border-top-width: 3px; }
-.uzd-znak.prognoza { border-color: var(--uzd-prognoza); border-top-width: 3px; }
+.uzd-znak.odabrano { border-color: var(--md-sys-color-primary, var(--primary)); border-top-width: 3px; }
 .uzd-znak.srednjak { border-color: var(--uzd-srednjak); border-top-width: 2px; border-top-style: dotted; }
-.uzd-znak.nula { border-color: var(--text-muted); border-top-width: 1.5px; }
-.uzd-znak.uobicajeno { border-color: var(--uzd-srednjak); border-top-width: 1.5px; border-top-style: dashed; }
-.uzd-znak.h1 { border-color: var(--prog-h1); } .uzd-znak.h2 { border-color: var(--prog-h2); } .uzd-znak.h3 { border-color: var(--prog-h3); }
-.uzd-znak.h4 { border-color: var(--prog-h4); } .uzd-znak.h5 { border-color: var(--prog-h5); } .uzd-znak.h6 { border-color: var(--prog-h6); }
-.uzd-znak.h7 { border-color: var(--prog-h7); border-top-style: dashed; } .uzd-znak.h8 { border-color: var(--prog-h8); border-top-style: dashed; }
-.uzd-znak.prep { border-color: var(--faza-p-crta); border-top-style: dashed; }
-.uzd-znak.regular { border-color: var(--faza-r-crta); border-top-style: dashed; }
-.uzd-znak.emerg { border-color: var(--faza-i-crta); border-top-style: dashed; }
-
 /* O prognozi: opis metode */
 .prog-metoda p { font-size: 0.92rem; line-height: 1.6; margin: 0.4rem 0; max-width: 62rem; }
 .prog-formula {

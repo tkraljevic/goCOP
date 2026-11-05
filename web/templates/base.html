@@ -353,7 +353,7 @@
      za odabrani doseg, i klizač vremena kojem skripta crta jednu crtu po satu. */}}
 {{define "uzduzniProfil"}}
 <svg viewBox="0 0 {{.Width}} {{.Height}}" role="img" aria-label="{{.Opis}}" class="uzd-svg"
-     data-niz='{{.Niz}}' data-nula-y="{{printf "%.1f" .NulaY}}">
+     data-niz='{{.Niz}}'>
   {{range .YTicks}}
   <line class="grid" x1="{{printf "%.1f" $.LijevoX}}" x2="{{printf "%.1f" $.DesnoX}}"
         y1="{{printf "%.1f" .Pos}}" y2="{{printf "%.1f" .Pos}}"/>
@@ -364,7 +364,9 @@
   {{range .Pragovi}}
   <path class="uzd-prag {{.Class}}" d="{{.Put}}"/>
   {{end}}
-  {{range $i, $c := .Crte}}{{if .Pojas}}<path class="uzd-pojas {{.Class}}{{if eq $i 0}} uzd-aktivna{{end}}" data-doseg="{{.Doseg}}" d="{{.Pojas}}"/>{{end}}{{end}}
+  {{/* Crta i raspon svakog termina su u crtežu, a vidi se samo odabrani
+       (uzd-odabrana); čipovi iznad crteža mijenjaju koji. */}}
+  {{range .Crte}}{{if .Pojas}}<path class="uzd-pojas{{if eq .Doseg $.Odabrano}} uzd-odabrana{{end}}" data-doseg="{{.Doseg}}" d="{{.Pojas}}"/>{{end}}{{end}}
   {{/* Uobičajena voda: crta na nuli, mjera prema kojoj se sve ostalo čita. */}}
   {{if .NulaUSlici}}
   <line class="uzd-nula" x1="{{printf "%.1f" .LijevoX}}" x2="{{printf "%.1f" .DesnoX}}"
@@ -373,12 +375,10 @@
   {{end}}
   {{if .DugiPut}}<path class="uzd-dugi" d="{{.DugiPut}}"/>{{end}}
   {{if .SrednjakPut}}<path class="uzd-srednjak" d="{{.SrednjakPut}}"/>{{end}}
-  {{range .Crte}}
-  <path class="uzd-crta {{.Class}}" data-doseg="{{.Doseg}}" d="{{.Put}}"/>
-  {{end}}
   {{if .JutroPut}}<path class="uzd-jutro" d="{{.JutroPut}}"/>{{end}}
-  <path class="uzd-klizac-crta" d=""/>
-  <g class="uzd-klizac-tocke"></g>
+  {{range .Crte}}
+  <path class="uzd-crta{{if eq .Doseg $.Odabrano}} uzd-odabrana{{end}}" data-doseg="{{.Doseg}}" d="{{.Put}}"/>
+  {{end}}
   {{range .Tocke}}
   <line class="uzd-vodilica" x1="{{printf "%.1f" .X}}" x2="{{printf "%.1f" .X}}"
         y1="{{printf "%.1f" $.Vrh}}" y2="{{printf "%.1f" $.DnoY}}"/>
@@ -411,8 +411,6 @@
   <text class="tick" x="{{printf "%.1f" .Pos}}" y="{{printf "%.1f" $.OsX}}"
         text-anchor="{{.Anchor}}">{{.Label}}</text>
   {{end}}
-  {{/* Brojevi klizača (promjena od jutra) idu zadnji, iznad svega. */}}
-  <g class="uzd-klizac-brojevi"></g>
 </svg>
 {{end}}
 

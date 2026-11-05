@@ -35,7 +35,12 @@
 {{else}}
 
 {{if .Profili}}
-<section class="detail-section prog-profili" data-izdano="{{.IzdanoSat}}">
+{{/* Uzdužni profil: čipovi termina (sada, +12 h, šest dana) iznad crteža biraju
+     koji se termin crta plavo, uz jutro (ljubičasto) i uobičajenu vodu
+     (isprekidano); isti termin se ističe i u karticama letvi. Bez skripte
+     čip je poveznica ?dan=, pa poslužitelj crta taj termin. Na mobitelu je
+     profil redak koji se otvara preko cijelog zaslona (goCOP-m3, 13 · Prognoze). */}}
+<section class="detail-section prog-profili" data-termin="{{.Termin.Oznaka}}">
   <h2>{{icon "waves"}} Uzdužni profil</h2>
   {{if gt (len .Profili) 1}}
   <div class="kartice" role="tablist" aria-label="Vodotok">
@@ -47,42 +52,37 @@
   {{end}}
   {{range $i, $p := .Profili}}
   <div id="profil-{{$p.Oznaka}}" class="kartica uzd-profil" role="tabpanel" data-ime="{{$p.Ime}}" data-nula="{{$p.NulaKratko}}"{{if ne $i 0}} hidden{{end}}>
-    <div class="uzd-legenda" role="group" aria-label="Dosezi prognoze">
-      <span class="uzd-legenda-stavka"><span class="uzd-znak jutro"></span> {{$p.JutroOpis}}</span>
-      <span class="uzd-legenda-stavka" title="Nula crteža: medijan vode zadnjih 30 dana"><span class="uzd-znak nula"></span> {{$p.NulaNaziv}}</span>
-      <span class="uzd-legenda-stavka" title="Medijan dnevnih vodostaja zadnjih deset godina"><span class="uzd-znak uobicajeno"></span> uobičajena voda (10 g.)</span>
-      <span class="uzd-legenda-stavka" title="Srednji vodostaj (SV) zadnjih deset godina"><span class="uzd-znak srednjak"></span> srednji vodostaj</span>
-      <span class="uzd-legenda-stavka" title="Crta klizača dok pokazuje mjerenja"><span class="uzd-znak mjereno"></span> klizač: mjereno</span>
-      <span class="uzd-legenda-stavka" title="Crta klizača kad prijeđe u prognozu"><span class="uzd-znak prognoza"></span> klizač: prognoza</span>
-      {{range $p.Crte}}
-      <button type="button" class="uzd-legenda-stavka uzd-legenda-gumb" data-doseg="{{.Doseg}}"
-              title="Pokaži raspon prognoze za ovaj doseg"><span class="uzd-znak {{.Class}}"></span> {{.Naziv}}</button>
-      {{end}}
-      {{range $p.Pragovi}}<span class="uzd-legenda-stavka"><span class="uzd-znak {{.Class}}"></span> {{.Naziv}}</span>{{end}}
-    </div>
-    <div class="reg-card uzduzni">
+    <button type="button" class="uzd-redak">
+      <span class="uzd-redak-tekst"><span class="uzd-redak-naslov">Uzdužni profil · {{$p.Ime}}</span>
+        <span class="uzd-redak-opis">otvara se preko cijelog zaslona</span></span>{{icon "chevron-right"}}
+    </button>
+    <div class="uzd-glava">
+      <nav class="uzd-termini" aria-label="Termin na profilu i u karticama letvi">
+        {{range $.Termini}}<a href="?dan={{.Oznaka}}#profil-{{$p.Oznaka}}" class="uzd-cip" data-termin="{{.Oznaka}}" data-doseg="{{.Doseg}}"
+           data-opis="{{.Opis}}"{{if eq .Oznaka $.Termin.Oznaka}} aria-current="true"{{end}}>{{.Naslov}}</a>{{end}}
+      </nav>
       <div class="uzd-gumbi">
-        <button type="button" class="uzd-gumb uzd-ispis" title="Ispiši crtež u ovom trenutku vala (bijela pozadina)" aria-label="Ispiši crtež">
+        <button type="button" class="uzd-gumb uzd-ispis" title="Ispiši crtež odabranog termina (bijela pozadina)" aria-label="Ispiši crtež">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6M6 18H3v-7h18v7h-3M6 14h12v7H6z"/></svg>
         </button>
         <button type="button" class="uzd-gumb uzd-puni" title="Prikaži profil preko cijelog zaslona" aria-label="Prikaži profil preko cijelog zaslona" aria-pressed="false">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/></svg>
         </button>
       </div>
+    </div>
+    <div class="reg-card uzduzni">
       <div class="uzd-pomak">
         {{template "uzduzniProfil" $p}}
         <div class="uzd-oblacic" hidden></div>
       </div>
     </div>
-    <div class="uzd-klizac" data-od="{{$p.SatOd}}" data-do="{{$p.SatDo}}">
-      <button type="button" class="btn btn-secondary uzd-klizac-igraj" aria-label="Pokreni kretanje vala" title="Pokreni ili zaustavi kretanje vala">▶</button>
-      <input type="range" class="uzd-klizac-raspon" min="{{$p.SatOd}}" max="{{$p.SatDo}}" step="1" value="0"
-             aria-label="Sat prema izdanju prognoze">
-      <span class="uzd-klizac-natpis">sad</span>
-    </div>
-    <p class="graf-natpis">{{$p.Pad}}. Visina je vodostaj prema vodi zadnjih 30 dana, a ne kota, pa se val vidi
-      kao brijeg. Razmak letvi nije u mjerilu. Ljubičasta crta je stanje u 7 h. Klizač pomiče vrijeme: plavo su
-      mjerenja, zeleno prognoza. Broj uz točku je promjena od jutra, a boja točke faza obrane.
+    <p class="uzd-legenda">Ljubičasto: {{$p.JutroOpis}} · plavo: <span class="uzd-legenda-termin">{{$.Termin.Opis}}</span>
+      {{- if $p.DugiPut}} · isprekidano: uobičajena voda (10 godina){{end}}
+      {{- if $p.SrednjakPut}} · točkasto: srednji vodostaj{{end}}
+      {{- if $p.NulaUSlici}} · tanka crta: {{$p.NulaNaziv}}{{end}}
+      {{- if $p.Pragovi}} · crtkano u boji faze: {{range $k, $x := $p.Pragovi}}{{if $k}}, {{end}}{{$x.Naziv}}{{end}}{{end}}</p>
+    <p class="graf-natpis">{{$p.Pad}}. Visina je vodostaj prema vodi zadnjih 30 dana, a ne kota. Razmak letvi nije
+      u mjerilu. Svijetla ploha oko plave crte je raspon prognoze.
       <a href="/prognoze/o-prognozi">Više na stranici O prognozi</a>.</p>
     {{if $p.Izostavljeno}}<p class="graf-natpis uzd-izostavljeno">Izostavljeno s profila:
       {{range $k, $x := $p.Izostavljeno}}{{if $k}}; {{end}}{{$x}}{{end}}.</p>{{end}}
@@ -128,8 +128,8 @@
     {{if .ImaTermina}}
     <div class="prog-termini">
       {{range .Vrijednosti}}
-      <div class="prog-termin{{if .Slabija}} prog-slabija{{end}}"
-           {{if .Slabija}}title="Ovdje je zadnje mjerenje pouzdanije od prognoze"{{end}}>
+      <div class="prog-termin{{if .Slabija}} prog-slabija{{end}}{{if eq (printf "%dh" .DosegH) $.Termin.Oznaka}} prog-odabran{{end}}"
+           data-termin="{{.DosegH}}h"{{if .Slabija}} title="Ovdje je zadnje mjerenje pouzdanije od prognoze"{{end}}>
         <div class="prog-termin-naslov">+{{.DosegH}} h</div>
         {{if .Ima}}
           {{if .Cm}}<div class="prog-vr">{{.Cm}}{{with .Oznaka}}{{if .Tekst}}<sup class="prog-oznaka" title="{{.Naslov}}">{{.Tekst}}</sup>{{end}}{{end}}</div>{{if .CmRaspon}}<div class="prog-raspon">{{.CmRaspon}}</div>{{end}}{{end}}
@@ -138,8 +138,8 @@
       </div>
       {{end}}
       {{range .Dani}}
-      <div class="prog-termin dan-{{.Razina}}{{if .Moguce}} dan-moguce-{{.Moguce}}{{end}}{{if .Slabija}} prog-slabija{{end}}"
-           {{if .Moguce}}title="Gornja granica raspona doseže prag obrane"{{end}}>
+      <div class="prog-termin dan-{{.Razina}}{{if .Moguce}} dan-moguce-{{.Moguce}}{{end}}{{if .Slabija}} prog-slabija{{end}}{{if and .Termin (eq .Termin $.Termin.Oznaka)}} prog-odabran{{end}}"
+           {{with .Termin}}data-termin="{{.}}"{{end}}{{if .Moguce}} title="Gornja granica raspona doseže prag obrane"{{end}}>
         <div class="prog-termin-naslov">{{.Naslov}}</div>
         {{if .Cm}}<div class="prog-vr">{{.Cm}}{{with .Oznaka}}{{if .Tekst}}<sup class="prog-oznaka{{if .Upozorenje}} prog-oznaka-satna{{end}}" title="{{.Naslov}}">{{.Tekst}}</sup>{{end}}{{end}}</div>
           {{if .Raspon}}<div class="prog-raspon">{{.Raspon}}</div>{{end}}
@@ -194,32 +194,64 @@
 {{end}}
 
 <script>
-// Uzdužni profil: kartice po vodotoku, raspon po odabranom dosegu, klizač
-// vremena i oblačić s vrijednostima letve. Bez skripte ostaje statični crtež.
+// Uzdužni profil: kartice po vodotoku, čipovi termina, oblačić s vrijednostima
+// letve, ispis i cijeli zaslon. Bez skripte čipovi su poveznice (?dan=), pa
+// poslužitelj crta odabrani termin.
 (function () {
-  document.querySelectorAll('.prog-profili').forEach(function (odjeljak) {
-    var gumbi = odjeljak.querySelectorAll('.kartica-gumb');
-    gumbi.forEach(function (g) {
-      g.addEventListener('click', function () {
-        gumbi.forEach(function (x) {
-          var otvorena = x === g;
-          x.setAttribute('aria-selected', otvorena ? 'true' : 'false');
-          var panel = document.getElementById(x.getAttribute('aria-controls'));
-          if (panel) {
-            panel.hidden = !otvorena;
-            if (otvorena && panel.uzdNizvodno) { requestAnimationFrame(panel.uzdNizvodno); }
-          }
-        });
+  var odjeljak = document.querySelector('.prog-profili');
+  if (!odjeljak) { return; }
+  var gumbi = odjeljak.querySelectorAll('.kartica-gumb');
+  gumbi.forEach(function (g) {
+    g.addEventListener('click', function () {
+      gumbi.forEach(function (x) {
+        var otvorena = x === g;
+        x.setAttribute('aria-selected', otvorena ? 'true' : 'false');
+        var panel = document.getElementById(x.getAttribute('aria-controls'));
+        if (panel) {
+          panel.hidden = !otvorena;
+          if (otvorena && panel.uzdNizvodno) { requestAnimationFrame(panel.uzdNizvodno); }
+        }
       });
     });
-    var izdano = Number(odjeljak.dataset.izdano || 0);
-    odjeljak.querySelectorAll('.uzd-profil').forEach(function (panel) { profil(panel, izdano); });
   });
 
-  function profil(panel, izdanoSat) {
+  // Odabrani termin: plava crta i njezin raspon na svakom profilu, istaknuta
+  // pločica istog termina u svim karticama letvi i opis u legendi. Adresa
+  // pamti odabir (?dan=), da ga osvježavanje i ispis ne izgube.
+  function odaberi(oznaka) {
+    var cip = odjeljak.querySelector('.uzd-cip[data-termin="' + oznaka + '"]');
+    if (!cip) { return; }
+    odjeljak.dataset.termin = oznaka;
+    odjeljak.querySelectorAll('.uzd-cip').forEach(function (c) {
+      if (c.dataset.termin === oznaka) { c.setAttribute('aria-current', 'true'); } else { c.removeAttribute('aria-current'); }
+    });
+    odjeljak.querySelectorAll('.uzd-crta, .uzd-pojas').forEach(function (el) {
+      el.classList.toggle('uzd-odabrana', el.dataset.doseg === cip.dataset.doseg);
+    });
+    odjeljak.querySelectorAll('.uzd-legenda-termin').forEach(function (el) { el.textContent = cip.dataset.opis; });
+    document.querySelectorAll('.prog-termin[data-termin]').forEach(function (el) {
+      el.classList.toggle('prog-odabran', el.dataset.termin === oznaka);
+    });
+    var adresa = new URL(window.location.href);
+    if (oznaka === 'sada') { adresa.searchParams.delete('dan'); } else { adresa.searchParams.set('dan', oznaka); }
+    history.replaceState(history.state, '', adresa.pathname + adresa.search + adresa.hash);
+  }
+  odjeljak.querySelectorAll('.uzd-cip').forEach(function (c) {
+    c.addEventListener('click', function (ev) {
+      if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) { return; }
+      ev.preventDefault();
+      odaberi(c.dataset.termin);
+    });
+  });
+
+  odjeljak.querySelectorAll('.uzd-profil').forEach(profil);
+
+  function profil(panel) {
     var svg = panel.querySelector('.uzd-svg');
     var niz = null;
     try { niz = JSON.parse(svg.dataset.niz); } catch (e) { niz = null; }
+    // Na mobitelu je profil redak; dodir ga otvara preko cijelog zaslona.
+    panel.classList.add('uzd-sklopivo');
 
     // Na uskom zaslonu crtež je visok koliko treba za natpise, a širinu
     // izvodi iz omjera viewBoxa (i Safari); lista se vodoravno, a počinje
@@ -233,107 +265,7 @@
     if (!panel.hidden) { requestAnimationFrame(nizvodno); }
     panel.uzdNizvodno = nizvodno;
 
-    // Raspon: samo za odabrani doseg, da se pojasi ne slažu jedan na drugi.
-    panel.querySelectorAll('.uzd-legenda-gumb').forEach(function (g) {
-      g.addEventListener('click', function () {
-        var d = g.dataset.doseg;
-        svg.querySelectorAll('.uzd-pojas').forEach(function (p) { p.classList.toggle('uzd-aktivna', p.dataset.doseg === d); });
-        panel.querySelectorAll('.uzd-legenda-gumb').forEach(function (x) { x.classList.toggle('uzd-odabran', x === g); });
-        svg.querySelectorAll('.uzd-crta').forEach(function (c) { c.classList.toggle('uzd-istaknuta', c.dataset.doseg === d); });
-      });
-    });
-
-    if (!niz || !niz.sati || !niz.sati.length) { return; }
-    var crta = svg.querySelector('.uzd-klizac-crta');
-    var tocke = svg.querySelector('.uzd-klizac-tocke');
-    var brojevi = svg.querySelector('.uzd-klizac-brojevi');
-    var raspon = panel.querySelector('.uzd-klizac-raspon');
-    var natpis = panel.querySelector('.uzd-klizac-natpis');
-    var igraj = panel.querySelector('.uzd-klizac-igraj');
-    var dani = ['ned', 'pon', 'uto', 'sri', 'čet', 'pet', 'sub'];
-
-    function y(v) { return niz.nulaY - v * niz.poCm; }
-    // Ista glatka krivulja kao u crtežu: centripetalni Catmull–Rom u Bézierove lukove.
-    function krivulja(t) {
-      if (!t.length) { return ''; }
-      var s = 'M' + t[0][0].toFixed(1) + ' ' + t[0][1].toFixed(1);
-      if (t.length === 2) { return s + ' L' + t[1][0].toFixed(1) + ' ' + t[1][1].toFixed(1); }
-      var ud = function (a, b) { return Math.sqrt(Math.hypot(b[0] - a[0], b[1] - a[1])); };
-      for (var i = 0; i + 1 < t.length; i++) {
-        var p1 = t[i], p2 = t[i + 1], p0 = i > 0 ? t[i - 1] : p1, p3 = i + 2 < t.length ? t[i + 2] : p2;
-        var d1 = ud(p0, p1), d2 = ud(p1, p2), d3 = ud(p2, p3), b1 = [0, 0], b2 = [0, 0];
-        for (var k = 0; k < 2; k++) {
-          b1[k] = d1 < 1e-9 ? p1[k] : (p2[k] * d1 * d1 - p0[k] * d2 * d2 + p1[k] * (2 * d1 * d1 + 3 * d1 * d2 + d2 * d2)) / (3 * d1 * (d1 + d2));
-          b2[k] = d3 < 1e-9 ? p2[k] : (p1[k] * d3 * d3 - p3[k] * d2 * d2 + p2[k] * (2 * d3 * d3 + 3 * d3 * d2 + d2 * d2)) / (3 * d3 * (d3 + d2));
-        }
-        s += ' C' + b1[0].toFixed(1) + ' ' + b1[1].toFixed(1) + ' ' + b2[0].toFixed(1) + ' ' + b2[1].toFixed(1) + ' ' + p2[0].toFixed(1) + ' ' + p2[1].toFixed(1);
-      }
-      return s;
-    }
-    function opisSata(h) {
-      var kad = '';
-      if (izdanoSat) {
-        var d = new Date((izdanoSat + h) * 3600000);
-        kad = ' · ' + dani[d.getDay()] + ' ' + d.getDate() + '.' + (d.getMonth() + 1) + '. ' + String(d.getHours()).padStart(2, '0') + ' h';
-      }
-      if (h === 0) { return 'sad' + kad; }
-      if (h < 0) { return 'prije ' + (-h) + ' h (mjereno)' + kad; }
-      return 'za ' + h + ' h' + kad;
-    }
-    function nacrtaj(h) {
-      var i = niz.sati.indexOf(h);
-      // Letva bez vrijednosti u tom satu se preskače, susjedi se spoje — osim
-      // iza satnog lanca, gdje dnevni model ima samo dio letvi: ondje se crta
-      // prekida, da ravan potez preko letvi bez prognoze ne izgleda kao val.
-      // Bez barem dvije prave letve nema ničega — ni crte, ni točke ušća,
-      // ni usamljene točke jedne letve: jedna točka ne kaže kamo val ide.
-      var dijelovi = [[]], krugovi = '', natpisi = '', pravih = 0, prekidaj = niz.prekidOd && h > niz.prekidOd;
-      niz.v.forEach(function (red, k) {
-        var v = i >= 0 ? red[i] : null;
-        if (v === null || v === undefined) { return; }
-        if (!(niz.usce && niz.usce[k]) && !(niz.akum && niz.akum[k])) { pravih++; }
-      });
-      niz.v.forEach(function (red, k) {
-        var v = i >= 0 ? red[i] : null;
-        var prava = !(niz.usce && niz.usce[k]) && !(niz.akum && niz.akum[k]);
-        if ((v === null || v === undefined) && prekidaj && prava && dijelovi[dijelovi.length - 1].length) { dijelovi.push([]); }
-        if (v === null || v === undefined || pravih < 2) { return; }
-        var px = niz.x[k], py = y(v);
-        if (niz.akum && niz.akum[k] && niz.dno) { py = Math.max(niz.vrh, Math.min(niz.dno, py)); }
-        // Razina akumulacije: točka se diže i spušta s klizačem, ali u
-        // krivulju vala ne ulazi — to je bazen uz branu, ne rijeka.
-        if (!(niz.akum && niz.akum[k])) { dijelovi[dijelovi.length - 1].push([px, py]); }
-        // Uz svaku točku piše koliko se od jutra diglo ili spustilo.
-        var cm = niz.uob[k] + v, broj = Math.round(cm - niz.jutro[k]);
-        var predznak = broj > 0 ? '+' : (broj < 0 ? '−' : '±');
-        krugovi += '<circle cx="' + px.toFixed(1) + '" cy="' + py.toFixed(1) + '" r="4.5"><title>' + niz.letve[k] + ': ' + Math.round(cm) + ' cm, ' + predznak + Math.abs(broj) + ' od jutra</title></circle>';
-        // Broj u pločici boje klizača, bijelim slovima: vidi se na svijetloj i
-        // tamnoj podlozi i preko svake crte. Kad nema mjesta iznad, ide ispod.
-        var tekst = predznak + Math.abs(broj), sir = 8 + tekst.length * 7.4, vis = 17;
-        var gore = py - 10 - vis > 4, ty = gore ? py - 10 - vis : py + 10;
-        natpisi += '<g class="uzd-klizac-broj"><rect x="' + (px - sir / 2).toFixed(1) + '" y="' + ty.toFixed(1) + '" width="' + sir.toFixed(1) + '" height="' + vis + '" rx="8.5"/>' +
-          '<text x="' + px.toFixed(1) + '" y="' + (ty + vis / 2).toFixed(1) + '" text-anchor="middle" dominant-baseline="central">' + tekst + '</text></g>';
-      });
-      crta.setAttribute('d', pravih >= 2 ? dijelovi.filter(function (d) { return d.length > 1; }).map(krivulja).join(' ') : '');
-      crta.classList.toggle('mjereno', h <= 0);
-      tocke.classList.toggle('mjereno', h <= 0);
-      tocke.innerHTML = krugovi;
-      brojevi.innerHTML = natpisi;
-      brojevi.classList.toggle('mjereno', h <= 0);
-      svg.classList.toggle('uzd-klizac-aktivan', true);
-      natpis.textContent = opisSata(h);
-      // Kad klizač stigne na sat ucrtanog dosega, ta crta i njezin raspon
-      // zabljesnu: pokretna crta legne točno na njih, i to se vidi.
-      var stigao = false;
-      svg.querySelectorAll('.uzd-crta[data-doseg="' + h + '"], .uzd-pojas[data-doseg="' + h + '"]').forEach(function (el) {
-        el.classList.remove('uzd-bljesak'); void el.getBoundingClientRect(); el.classList.add('uzd-bljesak'); stigao = true;
-      });
-      return stigao;
-    }
-    svg.addEventListener('animationend', function (ev) { ev.target.classList.remove('uzd-bljesak'); });
-    raspon.addEventListener('input', function () { zaustavi(); nacrtaj(Number(raspon.value)); });
-
-    // Puni zaslon: cijela kartica profila, s legendom i klizačem, kao i karta.
+    // Puni zaslon: cijela kartica profila, s čipovima i legendom, kao i karta.
     // Kad preglednik ne da pravi puni zaslon, kartica se raširi preko stranice.
     var puni = panel.querySelector('.uzd-puni');
     var cssPuni = false;
@@ -380,82 +312,77 @@
         if (r && typeof r.catch === 'function') { r.catch(zamjena); }
       } catch (e) { zamjena(); }
     });
+    panel.querySelector('.uzd-redak').addEventListener('click', function () { puni.click(); });
     document.addEventListener('fullscreenchange', osvjeziPuni);
     document.addEventListener('webkitfullscreenchange', osvjeziPuni);
     document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && cssPuni) { cssPuni = false; osvjeziPuni(); } });
 
-    // Ispis: zaustavi val i ispiši crtež kakav je u tom trenutku, uvijek na
-    // bijeloj pozadini — novi prozor sa svijetlom temom, bez ostatka stranice.
+    // Ispis: crtež odabranog termina, uvijek na bijeloj pozadini — novi
+    // prozor sa svijetlom temom, bez ostatka stranice.
     var ispis = panel.querySelector('.uzd-ispis');
     ispis.addEventListener('click', function () {
-      zaustavi();
-      var naslov = panel.querySelector('.uzd-legenda') ? (panel.getAttribute('data-ime') || '') : '';
+      var naslov = panel.getAttribute('data-ime') || '';
       var izdano = '';
       var redak = document.querySelector('.prog-izdano');
       if (redak) { izdano = redak.textContent.replace(/\s+/g, ' ').trim().replace(' · izdao ', ', izdao '); }
-      var legenda = Array.prototype.map.call(panel.querySelectorAll('.uzd-legenda-stavka'), function (l) { return l.textContent.trim(); }).join(' · ');
+      var cip = panel.querySelector('.uzd-cip[aria-current="true"]');
+      var legenda = panel.querySelector('.uzd-legenda') ? panel.querySelector('.uzd-legenda').textContent.replace(/\s+/g, ' ').trim() : '';
       var pad = panel.querySelector('.graf-natpis') ? panel.querySelector('.graf-natpis').textContent.split('.')[0] : '';
       var w = window.open('', '_blank');
       if (!w) { window.alert('Preglednik je zaustavio otvaranje prozora za ispis.'); return; }
       var css = document.querySelector('link[href*="style.css"]');
       var tema = document.querySelector('link[href^="/tema.css"]');
-      w.document.write('<!DOCTYPE html><html lang="hr" data-theme="light"><head><meta charset="utf-8"><title>Uzdužni profil ' + naslov + '</title>' +
+      var oko = document.createElement('div');
+      [['h1', 'Uzdužni profil · ' + naslov], ['p', izdano + (izdano ? ' · ' : '') + 'termin: ' + (cip ? cip.dataset.opis : 'sada')]].forEach(function (x) {
+        var el = document.createElement(x[0]); el.textContent = x[1]; oko.appendChild(el);
+      });
+      oko.insertAdjacentHTML('beforeend', svg.outerHTML);
+      [legenda, pad + '.'].forEach(function (t) { var el = document.createElement('p'); el.textContent = t; oko.appendChild(el); });
+      w.document.write('<!DOCTYPE html><html lang="hr" data-theme="light"><head><meta charset="utf-8"><title>Uzdužni profil · ' + naslov + '</title>' +
         (css ? '<link rel="stylesheet" href="' + css.getAttribute('href') + '">' : '') +
         (tema ? '<link rel="stylesheet" href="' + tema.getAttribute('href') + '">' : '') +
         '<style>html,body{background:#fff !important;color:#111 !important;margin:0}body{padding:10mm;font-family:system-ui,sans-serif}' +
         'h1{font-size:16pt;margin:0 0 4pt}p{font-size:10pt;margin:2pt 0;color:#333}svg{width:100%;height:auto;background:#fff}' +
         '@page{size:A4 landscape;margin:10mm}@media print{.ne-ispisuj{display:none}}</style></head><body>' +
-        '<h1>Uzdužni profil ' + naslov + '</h1>' +
-        '<p>' + izdano + (izdano ? ' · ' : '') + 'trenutak: ' + natpis.textContent + '</p>' +
-        svg.outerHTML +
-        '<p>' + legenda + '</p><p>' + pad + '.</p>' +
+        oko.innerHTML +
         '<p class="ne-ispisuj"><button onclick="window.print()">Ispiši</button></p></body></html>');
       w.document.close();
       w.addEventListener('load', function () { w.setTimeout(function () { w.focus(); w.print(); }, 250); });
     });
 
-    // Kretanje vala: sat po sat, od početka do kraja, pa opet.
-    var tajmer = null;
-    function zaustavi() { if (tajmer) { clearInterval(tajmer); tajmer = null; igraj.classList.remove('uzd-igra'); igraj.textContent = '▶'; } }
-    igraj.addEventListener('click', function () {
-      if (tajmer) { zaustavi(); return; }
-      igraj.classList.add('uzd-igra'); igraj.textContent = '❚❚';
-      if (Number(raspon.value) >= Number(raspon.max)) { raspon.value = raspon.min; }
-      var zadrzi = 0; // na satu dosega val zastane, da se bljesak vidi
-      tajmer = setInterval(function () {
-        if (zadrzi > 0) { zadrzi--; return; }
-        var h = Number(raspon.value) + 1;
-        if (h > Number(raspon.max)) { zaustavi(); return; }
-        raspon.value = h;
-        if (nacrtaj(h)) { zadrzi = 7; }
-      }, 90);
-    });
-
-    // Oblačić: najbliža letva po vodoravnom položaju, sa svim dosezima;
-    // mišem pod pokazivačem, na dodirnom zaslonu dodirom (ostaje dok se ne
-    // dodirne drugdje).
+    // Oblačić: najbliža letva po vodoravnom položaju, s jutrom, zadnjim
+    // mjerenjem i odabranim terminom; mišem pod pokazivačem, na dodirnom
+    // zaslonu dodirom (ostaje dok se ne dodirne drugdje).
+    if (!niz || !niz.x || !niz.x.length) { return; }
     var oblacic = panel.querySelector('.uzd-oblacic');
-    var crte = Array.prototype.slice.call(svg.querySelectorAll('.uzd-crta'));
-    var dosezi = crte.map(function (c) { return Number(c.dataset.doseg); });
+    function cm(v) { return Math.round(v) + ' cm'; }
+    function odJutra(v, jutro) {
+      var b = Math.round(v - jutro);
+      return (b > 0 ? '+' : (b < 0 ? '−' : '±')) + Math.abs(b) + ' od jutra';
+    }
     function pokazi(ev) {
       var okvir = svg.getBoundingClientRect();
       var mx = (ev.clientX - okvir.left) / okvir.width * svg.viewBox.baseVal.width;
       var naj = -1, najD = Infinity;
       niz.x.forEach(function (x, k) { var d = Math.abs(x - mx); if (d < najD) { najD = d; naj = k; } });
       if (naj < 0 || najD > 120) { oblacic.hidden = true; return; }
-      var jutro = niz.jutro[naj], uob = niz.uob[naj];
-      var odJutra = function (cm) { var b = Math.round(cm - jutro); return (b > 0 ? '+' : (b < 0 ? '−' : '±')) + Math.abs(b) + ' od jutra'; };
-      var redci = ['<strong>' + niz.letve[naj] + '</strong> · ' + (panel.dataset.nula || 'zadnjih 30 dana') + ' ' + Math.round(uob) + ' cm',
-        (niz.dugi && niz.dugi[naj] ? 'uobičajeno (10 g.) ' + Math.round(niz.dugi[naj]) + ' cm' : '') + (niz.sv && niz.sv[naj] ? ' · SV ' + Math.round(niz.sv[naj]) + ' cm' : ''),
-        '<span class="uzd-znak jutro"></span> jutro ' + Math.round(jutro) + ' cm'];
-      if (niz.sada[naj] !== null && niz.sada[naj] !== undefined) {
-        redci.push('sad ' + Math.round(niz.sada[naj]) + ' cm · ' + odJutra(niz.sada[naj]));
+      var jutro = niz.jutro[naj], sada = niz.sada[naj];
+      var redci = [];
+      if (niz.akum && niz.akum[naj]) {
+        redci.push('<strong>' + niz.letve[naj] + '</strong>', 'jutro ' + (jutro / 100).toFixed(2).replace('.', ',') + ' m n. m.');
+        if (sada !== null && sada !== undefined) { redci.push('sada ' + (sada / 100).toFixed(2).replace('.', ',') + ' m n. m.'); }
+      } else {
+        redci.push('<strong>' + niz.letve[naj] + '</strong> · ' + (panel.dataset.nula || 'zadnjih 30 dana') + ' ' + cm(niz.uob[naj]),
+          (niz.dugi && niz.dugi[naj] ? 'uobičajeno (10 g.) ' + cm(niz.dugi[naj]) : '') + (niz.sv && niz.sv[naj] ? ' · SV ' + cm(niz.sv[naj]) : ''),
+          '<span class="uzd-znak jutro"></span> jutro ' + cm(jutro));
+        if (sada !== null && sada !== undefined) { redci.push('sada ' + cm(sada) + ' · ' + odJutra(sada, jutro)); }
+        var cip = panel.querySelector('.uzd-cip[aria-current="true"]');
+        var i = cip ? niz.sati.indexOf(Number(cip.dataset.doseg)) : -1;
+        var v = i >= 0 ? niz.v[naj][i] : null;
+        if (cip && cip.dataset.termin !== 'sada' && v !== null && v !== undefined) {
+          redci.push('<span class="uzd-znak odabrano"></span> ' + cip.textContent + ': ' + cm(v) + ' · ' + odJutra(v, jutro));
+        }
       }
-      dosezi.forEach(function (d, j) {
-        var i = niz.sati.indexOf(d); var v = i >= 0 ? niz.v[naj][i] : null;
-        if (v === null || v === undefined) { return; }
-        redci.push('<span class="uzd-znak ' + crte[j].classList[1] + '"></span> ' + (d > 96 ? 'za ' + (d / 24) + ' d' : 'za ' + d + ' h') + ': ' + Math.round(uob + v) + ' cm · ' + odJutra(uob + v));
-      });
       oblacic.innerHTML = redci.filter(Boolean).join('<br>');
       oblacic.hidden = false;
       // položaj u .uzd-pomak, unutar dijela koji se vidi i kad je pomaknuta

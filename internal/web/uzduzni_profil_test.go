@@ -7,6 +7,7 @@ import (
 	"gocop/internal/prognoza"
 	"math"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -281,37 +282,60 @@ func TestSvakiDosegImaSvojuCrtu(t *testing.T) {
 	}
 }
 
-// Klizač dobiva niz po satu: mjerenja unatrag, nulu u satu izdanja i prognozu
-// naprijed, preslikano u koordinate crteža; sat bez vrijednosti je null.
-func TestNizZaKlizac(t *testing.T) {
-	a, b := letvaProfila("a", 200, 120, 50), letvaProfila("b", 100, 80, 50)
+// Oblačić dobiva vrijednost svake letve u svakom terminu (isti dosezi kao
+// data-doseg crta), uz jutro i zadnje mjerenje; termin bez vrijednosti je
+// null. Niz po satu ne ide na stranicu, ali ulazi u mjerilo: val od prije dva
+// dana stane u crtež.
+func TestNizZaOblacic(t *testing.T) {
+	a, b, c := letvaProfila("a", 200, 120, 50), letvaProfila("b", 100, 80, 50), letvaProfila("c", 50, 70, 50)
 	a.Niz = map[int]float64{-48: 30, -1: 48, 24: 70, 96: 90}
 	b.Niz = map[int]float64{-24: 40, 24: 60}
-	p := crtajUzduzni("Drava", []LetvaProfila{a, b}, nil)
-	if p.SatOd != KlizacOd || p.SatDo != 96 {
-		t.Errorf("raspon klizača %d..%d", p.SatOd, p.SatDo)
-	}
+	a.Cm[0], b.Cm[0] = 50, 50
+	delete(b.Cm, 48)
+	p := crtajUzduzni("Drava", []LetvaProfila{a, b, c}, nil)
 	var n nizProfila
 	if err := json.Unmarshal([]byte(p.Niz), &n); err != nil {
 		t.Fatalf("niz nije JSON: %v", err)
 	}
-	if len(n.Sati) != 96-KlizacOd+1 || n.Sati[0] != KlizacOd || len(n.V) != 2 {
-		t.Fatalf("sati %d (prvi %d), letvi %d", len(n.Sati), n.Sati[0], len(n.V))
+	if fmt.Sprint(n.Sati) != "[0 24 48]" || len(n.V) != 3 {
+		t.Fatalf("termini %v, letvi %d", n.Sati, len(n.V))
 	}
-	i0 := -KlizacOd // sat izdanja
-	if n.V[0][i0] == nil || *n.V[0][i0] != 0 {
-		t.Error("u satu izdanja odstupanje nije nula")
+	for i, c := range p.Crte {
+		if c.Doseg != n.Sati[i] {
+			t.Errorf("crta %d ima doseg %d, oblačić %d", i, c.Doseg, n.Sati[i])
+		}
 	}
-	if n.V[0][0] == nil || *n.V[0][0] != -20 {
-		t.Errorf("prije 48 h letva a bila je 20 cm niže, a niz kaže %v", n.V[0][0])
+	if p.Crte[0].Naziv != "sada" || p.Crte[0].Pojas != "" {
+		t.Errorf("crta zadnjeg mjerenja: %q, pojas %q", p.Crte[0].Naziv, p.Crte[0].Pojas)
 	}
-	if n.V[1][0] != nil {
-		t.Error("letva b prije 48 h nema mjerenje, a niz ima vrijednost")
+	if n.V[0][1] == nil || *n.V[0][1] != 70 || n.V[0][0] == nil || *n.V[0][0] != 50 || n.V[2][0] != nil {
+		t.Errorf("letva a: sada i za 24 h %v", n.V[0])
+	}
+	if n.V[1][2] != nil {
+		t.Error("letva b nema vrijednost za 48 h, a niz je ima")
 	}
 	// Mjerenje od prije dva dana ulazi u mjerilo: −20 cm mora stati u sliku.
-	if n.NulaY-(-20)*n.PoCm > float64(p.Height)-p.Dno {
-		t.Error("mjerenje unatrag ispada iz crteža")
+	if y := visinaNaCrtezu(t, p, -20); y > p.DnoY() {
+		t.Errorf("mjerenje unatrag ispada iz crteža: %.1f ispod dna %.1f", y, p.DnoY())
 	}
+}
+
+// visinaNaCrtezu preračuna centimetre u točku crteža iz dviju oznaka osi.
+func visinaNaCrtezu(t *testing.T, p *UzduzniProfil, cm float64) float64 {
+	t.Helper()
+	if len(p.YTicks) < 2 {
+		t.Fatal("os ima manje od dvije oznake")
+	}
+	broj := func(s string) float64 {
+		v, err := strconv.ParseFloat(strings.NewReplacer("−", "-", ".", "", ",", ".").Replace(s), 64)
+		if err != nil {
+			t.Fatalf("oznaka %q: %v", s, err)
+		}
+		return v
+	}
+	a, b := p.YTicks[0], p.YTicks[1]
+	va, vb := broj(a.Label), broj(b.Label)
+	return a.Pos + (cm-va)*(b.Pos-a.Pos)/(vb-va)
 }
 
 // Letve preblizu jedna drugoj dobiju natpis u drugom redu, naizmjence; kad
@@ -391,7 +415,7 @@ func TestUsceIzmeduLetvi(t *testing.T) {
 }
 
 // Točka ušća ne smije sama tvoriti crtu: kad vrijednost ima samo jedna prava
-// letva, crte za taj doseg nema — ni u crtežu ni u nizu za klizač.
+// letva, crte za taj doseg nema. Oblačić ušće ne nudi: ono nije letva.
 func TestUsceSamoProduzujeKrivulju(t *testing.T) {
 	botovo, osijek := letvaProfila("Botovo", 226.8, 121.3, -3), letvaProfila("Osijek", 19.1, 79.8, -144)
 	aljmas := letvaProfila("Aljmaš", 0, 77.4, -47)
@@ -405,8 +429,8 @@ func TestUsceSamoProduzujeKrivulju(t *testing.T) {
 		}
 	}
 	var n nizProfila
-	if err := json.Unmarshal([]byte(p.Niz), &n); err != nil || len(n.Usce) != 3 || !n.Usce[2] || n.Usce[0] {
-		t.Errorf("niz ne označava točku ušća: %v %v", n.Usce, err)
+	if err := json.Unmarshal([]byte(p.Niz), &n); err != nil || fmt.Sprint(n.Letve) != "[Botovo Osijek]" {
+		t.Errorf("oblačić nudi i točku ušća: %v %v", n.Letve, err)
 	}
 }
 
@@ -489,13 +513,14 @@ func TestJutarnjaCrtaOdUobicajeneVode(t *testing.T) {
 	if q := crtajUzduzni("Dunav", []LetvaProfila{bp, bez, bt}, nil); len(q.Tocke) != 2 {
 		t.Errorf("letva bez jutra ušla je u profil: %+v", q.Tocke)
 	}
-	// Klizač nosi jutro i uobičajenu vodu, da uz točku piše promjena od jutra.
+	// Oblačić nosi jutro, uobičajenu vodu i zadnje mjerenje, da uz letvu
+	// piše promjena od jutra.
 	var n nizProfila
 	if err := json.Unmarshal([]byte(p.Niz), &n); err != nil || n.Jutro[0] != 450 || n.Uob[0] != 300 {
 		t.Errorf("niz: jutro %v uob %v (%v)", n.Jutro, n.Uob, err)
 	}
-	if v := n.V[0][-KlizacOd]; v == nil || *v != 150 {
-		t.Errorf("u satu izdanja Budimpešta je 150 cm iznad uobičajenog, niz kaže %v", v)
+	if v := n.Sada[0]; v == nil || *v != 450 {
+		t.Errorf("Budimpešta je sada 450 cm, niz kaže %v", v)
 	}
 }
 
@@ -569,7 +594,7 @@ func TestAkumulacijaJeTockaIzvanKrivulje(t *testing.T) {
 		t.Errorf("akumulacija ne dobiva oznaku kilometra: %+v", p.XTicks)
 	}
 	if !strings.Contains(string(p.Niz), `"akum":[false,true,false]`) {
-		t.Errorf("niz za klizač mora označiti akumulaciju: %s", p.Niz)
+		t.Errorf("niz za oblačić mora označiti akumulaciju: %s", p.Niz)
 	}
 	if !strings.Contains(p.Pad, "Varaždin → botovo") && !strings.Contains(p.Pad, "varazdin → botovo") {
 		t.Errorf("krajevi profila su prave letve: %s", p.Pad)

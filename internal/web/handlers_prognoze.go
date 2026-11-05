@@ -220,6 +220,7 @@ var tudiIzvori = []struct{ izvor, oznaka, klasa, naslov string }{
 type CelijaDana struct {
 	CmV, QV    *float64 // iste vrijednosti kao broj, za izvoz
 	Naslov     string   // dan u tjednu i datum
+	Termin     string   // oznaka termina (1 … 6), kao čip profila: ?dan=
 	Cm, Raspon string
 	Q, QRaspon string       // protok, gdje letva ima krivulju
 	Tude       []TudaCelija // tuđe prognoze za isti termin, svaka svojom bojom
@@ -325,7 +326,7 @@ type PrognozePageData struct {
 
 	Izdano     string
 	IzdaoCvor  string // čvor koji je izdao, kad je izdanje stiglo razmjenom
-	IzdanoSat  int64  // sat izdanja od epohe, za klizač vremena na profilu
+	IzdanoSat  int64  // sat izdanja od epohe
 	Oborina    string // je li dnevni model računao s kišom, i zašto ne
 	BezKise    bool
 	Nema       bool
@@ -335,6 +336,10 @@ type PrognozePageData struct {
 	Letve      []LetvaPrognoze
 	Profili    []*UzduzniProfil
 	BezProfila string // zašto profila nema, kad ga nema
+	// Termini su čipovi iznad profila (sada, +12 h, dani); Termin je
+	// odabrani, iz adrese (?dan=), istaknut na profilu i u karticama letvi.
+	Termini []TerminProfila
+	Termin  TerminProfila
 
 	Bliski   []int
 	Dani     []string // naslovi stupaca po danima
@@ -573,6 +578,8 @@ func (h *PrognozeHandler) podaci(r *http.Request, nacin string) PrognozePageData
 	}
 	var ciljevi []int64
 	data.Dani, ciljevi = daniPregleda(izdano)
+	data.Termini = terminiProfila(data.Dani, ciljevi, data.IzdanoSat)
+	data.Termin = odabraniTermin(data.Termini, r.URL.Query().Get("dan"))
 	for i := range data.Letve {
 		kod := data.Letve[i].Kod
 		poIzvoru := map[string]map[int64]TudaVrijednost{}
@@ -582,7 +589,7 @@ func (h *PrognozeHandler) podaci(r *http.Request, nacin string) PrognozePageData
 		data.Letve[i].Dani = celijeDana(kod, odDanaZa(kod, nacin, letve[i]), letve[i], ciljevi, dnevne[kod], poIzvoru, postaje[kod])
 		for k := range data.Letve[i].Dani {
 			d := &data.Letve[i].Dani[k]
-			d.Naslov = data.Dani[k]
+			d.Naslov, d.Termin = data.Dani[k], oznakaDana(k)
 			if len(d.Tude) > 0 {
 				data.ImaTudih = true
 			}
@@ -615,6 +622,9 @@ func (h *PrognozeHandler) podaci(r *http.Request, nacin string) PrognozePageData
 	data.Profili = uzduzniProfili(postaje, letve, data.prikaz, izdano,
 		h.mjerenoUnatrag(r.Context(), postaje, letve, izdano), h.usca(r.Context(), postaje, letve),
 		h.uobicajeno(r.Context(), postaje, naProfilu), h.mjesecno(r.Context(), postaje, naProfilu, jutro.Dan), jutro)
+	for _, p := range data.Profili {
+		p.Odabrano = data.Termin.Doseg
+	}
 	if len(data.Profili) == 0 {
 		data.BezProfila = "Uzdužnog profila nema: treba barem dvije letve sa stacionažom, " +
 			"kotom nule, jutarnjim očitanjem i nizom u arhivi."
@@ -964,12 +974,15 @@ func uDosezima(d int) bool {
 // crtež kroz obje pokazivao bi skok na ušću koji nije val nego spoj dvaju
 // tokova.
 //
-// Uz prognozu po dosezima svaka letva nosi i niz po satu za klizač vremena:
-// mjerenja unatrag, a unaprijed niz koji pokazuje i tablica (prikaz).
+// Svaka letva nosi vrijednost u svakom terminu čipova (sada, +12 h, dani u
+// 7 h, iz niza koji pokazuje i tablica), a uz to i niz po satu za mjerilo:
+// mjerenja unatrag i prognozu naprijed.
 func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve,
 	prikaz map[string]nizPrikaza, izdano time.Time,
 	mjereno map[string]map[int]float64, usca map[string][]UsceUlaz,
 	uobicajeno map[string]Sredina, mjesec NulaProfila, jutro Jutro) []*UzduzniProfil {
+	dani, ciljevi := daniPregleda(izdano)
+	termini := terminiProfila(dani, ciljevi, izdano.Unix()/3600)
 	poVodi := map[string][]LetvaProfila{}
 	var redom []string
 	for _, l := range letve {
@@ -998,6 +1011,7 @@ func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve,
 		if v, ima := l.Sada["vodostaj"]; ima {
 			lp.SadaCm, lp.ImaSada = v, true
 			lp.Razina = razinaObrane(st, v)
+			lp.Cm[0] = v // termin „sada”: zadnje mjerenje
 		}
 		for h, v := range mjereno[l.Letva] {
 			lp.Niz[h] = v
@@ -1008,8 +1022,8 @@ func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve,
 				lp.Niz[h] = niz[h].Vrijednost
 			}
 		}
-		for _, d := range dosezniProfila {
-			if d < len(niz) && niz[d].Ima {
+		for _, t := range termini {
+			if d := t.Doseg; d > 0 && d < len(niz) && niz[d].Ima {
 				lp.Cm[d] = niz[d].Vrijednost
 				lp.Granice[d] = [2]float64{niz[d].Dolje, niz[d].Gore}
 			}
@@ -1389,7 +1403,7 @@ func (h *PrognozeHandler) mjerenoUnatrag(ctx context.Context, postaje map[string
 		return nil
 	}
 	out := map[string]map[int]float64{}
-	od := izdano.Add(time.Duration(KlizacOd) * time.Hour).Add(-30 * time.Minute)
+	od := izdano.Add(time.Duration(MjerenoOd) * time.Hour).Add(-30 * time.Minute)
 	for _, l := range letve {
 		st, ima := postaje[l.Letva]
 		if !ima {
@@ -1410,7 +1424,7 @@ func (h *PrognozeHandler) mjerenoUnatrag(ctx context.Context, postaje map[string
 			}
 			razmak := rd.MeasuredAt.Sub(izdano)
 			sat := int(math.Round(razmak.Hours()))
-			if sat >= 0 || sat < KlizacOd {
+			if sat >= 0 || sat < MjerenoOd {
 				continue
 			}
 			o := (razmak - time.Duration(sat)*time.Hour).Abs()
