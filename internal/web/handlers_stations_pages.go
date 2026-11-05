@@ -74,6 +74,8 @@ type StationPageData struct {
 	WaterRegistry     []models.Watercourse
 	CanEdit           bool
 	CanRecord         bool // smije li upisati očitanje
+	// UpisUzIzvor: tuđa letva, a osoba smije upisati jedno očitanje uz izvor
+	UpisUzIzvor bool
 	// UnosUArhivu: osoba smije uređivati letvu, a ovaj čvor drži njezine
 	// izvorne datoteke, pa kartica nudi gumb „Unos u arhivu” (Odluke
 	// (30. 10. 2026.), 5)
@@ -424,7 +426,8 @@ func (h *StationsHandler) podaciLetve(w http.ResponseWriter, r *http.Request) (S
 	data.Station = *st
 	data.CanEdit = h.canEditStation(data.Permissions, *st)
 	if h.readingService != nil {
-		data.CanRecord = h.readingService.CanRecordStation(data.Permissions, st)
+		p := h.readingService.PravaNaLetvu(data.Permissions, st)
+		data.CanRecord, data.UpisUzIzvor = p.Upisuje, p.UzIzvor
 	}
 	data.BrojOcitanja = h.stationService.BrojOcitanja(ctx, st.ID)
 	if h.karta != nil {

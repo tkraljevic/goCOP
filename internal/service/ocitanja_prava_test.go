@@ -326,3 +326,58 @@ func TestOcitanjeObjektaPoStaromPravilu(t *testing.T) {
 		t.Error("neispravan objekt")
 	}
 }
+
+// Upis na tuđu letvu uz izvor (Odluke 5. 11. 2026.): dežurni sektora Q
+// dobije vodostaj Mohácsa (prati ga samo sektor P) telefonom, jer
+// telemetrija ne radi. Upisati smije jedno očitanje kad navede tko je
+// očitao i kako; bez toga ne, a niz, ispravak tuđih i brisanje ostaju
+// sektoru letve. Gost ne upisuje ni uz izvor.
+func TestUpisNaTudjuLetvuUzIzvor(t *testing.T) {
+	o := novaOkolinaPracenja(t)
+	ctx := context.Background()
+	prosla := time.Now().Add(-time.Hour)
+	dezurniQ := ovlastiOsobe(duznost(models.RoleOperator, models.ScopeSector, "Q", 0, ""))
+
+	p := o.rs.PravaNaLetvu(dezurniQ, o.mohacs)
+	if p.Upisuje || !p.UzIzvor || !p.MozeUpisati() || p.Odgovara || p.MozeObrisati() {
+		t.Fatalf("prava dežurnog Q na Mohács: %+v", p)
+	}
+	if o.rs.CanRecordStation(dezurniQ, o.mohacs) {
+		t.Error("uvoz niza i ostalo što traži CanRecordStation ostaju sektoru letve")
+	}
+	if _, err := o.rs.UveziZalijepljena(ctx, dezurniQ, o.mohacs, []models.Reading{{StationID: o.mohacs.ID.String(), MeasuredAt: prosla, LevelCm: cmP(5)}}); err == nil {
+		t.Error("niz očitanja na tuđu letvu ne ide ni uz izvor")
+	}
+
+	bez := &models.Reading{StationID: o.mohacs.ID.String(), MeasuredAt: prosla, LevelCm: cmP(410)}
+	if err := o.rs.Create(ctx, dezurniQ, bez); err != ErrTrebaIzvor {
+		t.Errorf("bez izvora: %v", err)
+	}
+	razmak := &models.Reading{StationID: o.mohacs.ID.String(), MeasuredAt: prosla, LevelCm: cmP(410), Observer: "   "}
+	if err := o.rs.Create(ctx, dezurniQ, razmak); err != ErrTrebaIzvor {
+		t.Errorf("izvor od samih razmaka: %v", err)
+	}
+	uz := &models.Reading{StationID: o.mohacs.ID.String(), MeasuredAt: prosla, LevelCm: cmP(410), Observer: "vodočuvar Ivo Probni, telefonom"}
+	if err := o.rs.Create(ctx, dezurniQ, uz); err != nil {
+		t.Fatalf("uz izvor: %v", err)
+	}
+	spremljeno, err := o.rs.Get(ctx, uz.ID)
+	if err != nil || spremljeno == nil || spremljeno.Observer != "vodočuvar Ivo Probni, telefonom" || spremljeno.UserID != dezurniQ.User.ID.String() {
+		t.Errorf("spremljeno očitanje: %+v, %v", spremljeno, err)
+	}
+
+	// svoja letva i dalje bez izvora; Gost i bez ovlasti ni uz izvor
+	if err := o.rs.Create(ctx, dezurniQ, &models.Reading{StationID: o.drugdje.ID.String(), MeasuredAt: prosla, LevelCm: cmP(7)}); err != nil {
+		t.Errorf("svoja letva: %v", err)
+	}
+	gost := ovlastiOsobe(duznost(models.RoleGuest, models.ScopeAll, "", 0, ""))
+	if p := o.rs.PravaNaLetvu(gost, o.mohacs); p.MozeUpisati() {
+		t.Errorf("Gost: %+v", p)
+	}
+	if err := o.rs.Create(ctx, gost, &models.Reading{StationID: o.mohacs.ID.String(), MeasuredAt: prosla, LevelCm: cmP(3), Observer: "telefonom"}); err == nil || err == ErrTrebaIzvor {
+		t.Errorf("Gost uz izvor: %v", err)
+	}
+	if err := o.rs.Create(ctx, dezurniQ, &models.Reading{StationID: "nije-uuid", MeasuredAt: prosla, LevelCm: cmP(3)}); err == nil {
+		t.Error("neispravna postaja")
+	}
+}

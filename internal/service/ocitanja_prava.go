@@ -1,6 +1,10 @@
 package service
 
 import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"gocop/internal/models"
@@ -98,9 +102,14 @@ const RokIspravkaOcitanja = 72 * time.Hour
 
 // PravaLetve je ono što osoba smije s očitanjima jedne letve postaje
 type PravaLetve struct {
-	Upisuje  bool   // upisuje novo očitanje (CanRecordStation)
-	Odgovara bool   // odgovara za letvu: briše i ispravlja i tuđa očitanja
-	osoba    string // tko pita, za vlastita očitanja
+	Upisuje  bool // upisuje novo očitanje (CanRecordStation)
+	Odgovara bool // odgovara za letvu: briše i ispravlja i tuđa očitanja
+	// UzIzvor: letva nije u sektoru osobe, ali osoba igdje upisuje očitanja,
+	// pa smije upisati jedno očitanje kad navede tko ga je očitao i kako je
+	// vrijednost dobivena (npr. telefonom kad telemetrija ne radi; Odluke
+	// 5. 11. 2026.). Uvoz niza, ispravak i brisanje tuđih ostaju sektoru.
+	UzIzvor bool
+	osoba   string // tko pita, za vlastita očitanja
 }
 
 // PravaNaLetvu slaže prava osobe na očitanja letve postaje; bez osobe ili
@@ -115,8 +124,16 @@ func (s *ReadingService) PravaNaLetvu(perms *models.UserPermissions, st *models.
 	d := s.dosegLetve(st)
 	p := PravaLetve{Odgovara: odgovaraZaLetvu(perms, d), osoba: perms.User.ID.String()}
 	p.Upisuje = p.Odgovara || upisujeNaLetvu(perms, d) || s.pravoPremaDionicama(perms, d)
+	p.UzIzvor = !p.Upisuje && hasAnyWriteRight(perms)
 	return p
 }
+
+// ErrTrebaIzvor: tuđa letva, a izvor očitanja nije upisan
+var ErrTrebaIzvor = errors.New("ova letva nije u vašem sektoru: upišite tko je očitao i kako ste dobili vrijednost, npr. „vodočuvar, telefonom”")
+
+// MozeUpisati javlja smije li osoba upisati jedno očitanje na letvu, svoju
+// ili tuđu uz izvor (PravaLetve.UzIzvor)
+func (p PravaLetve) MozeUpisati() bool { return p.Upisuje || p.UzIzvor }
 
 // MozeIspraviti javlja smije li osoba ispraviti očitanje u trenutku sad: tko
 // odgovara za letvu svako, autor svoje dok upisuje na letvu, a nakon toga
@@ -166,4 +183,23 @@ func odgovaraZaDionicu(perms *models.UserPermissions, dionice []*models.Section)
 		}
 	}
 	return false
+}
+
+// pravoNaUpisPostaje: osoba smije upisati očitanje na letvu postaje kad je
+// letva njezina, ili kad je tuđa a izvor je upisan (Observer)
+func (s *ReadingService) pravoNaUpisPostaje(ctx context.Context, perms *models.UserPermissions, rd *models.Reading) (*models.Station, error) {
+	st, err := s.postajaZaUpis(ctx, rd.StationID)
+	if err != nil {
+		return nil, err
+	}
+	p := s.PravaNaLetvu(perms, st)
+	switch {
+	case p.Upisuje:
+		return st, nil
+	case p.UzIzvor && strings.TrimSpace(rd.Observer) != "":
+		return st, nil
+	case p.UzIzvor:
+		return nil, ErrTrebaIzvor
+	}
+	return nil, fmt.Errorf("nemate pravo upisivati očitanja na %s", st.Name)
 }

@@ -241,7 +241,7 @@ type ReadingsOverviewData struct {
 	SelectedArea   int
 	SearchQuery    string
 	ShowAll        bool
-	Moje           bool // samo letve koje osoba očitava po navici
+	Moje           bool   // samo letve koje osoba očitava po navici
 	Okno           bool   // popis uz otvorenu letvu na širokom zaslonu, bez okvira stranice
 	Odabrana       string // ključ letve otvorene uz popis
 	Skupine        []SkupinaLetava
@@ -299,6 +299,8 @@ type ReadingHistoryData struct {
 	Profil    *models.ProfilKorita
 	CanRecord bool
 	CanEdit   bool
+	// UpisUzIzvor: tuđa letva, a osoba smije upisati jedno očitanje uz izvor
+	UpisUzIzvor bool
 	// Ispravlja su očitanja na stranici koja osoba smije ispraviti: olovka
 	// stoji samo uz njih (Odluke (8. 10. 2026.), pitanje 9)
 	Ispravlja map[uuid.UUID]bool
@@ -356,6 +358,8 @@ type ReadingHistoryData struct {
 }
 
 type ReadingFormData struct {
+	// TraziIzvor: tuđa letva, pa je „Očitao” obavezno (tko i kako je dobio vrijednost)
+	TraziIzvor  bool
 	CurrentUser *models.User
 	Permissions *models.UserPermissions
 	Reading     *models.Reading
@@ -724,7 +728,8 @@ func (h *ReadingsHandler) podaciOcitanja(w http.ResponseWriter, r *http.Request)
 	} else {
 		f.StationID = station.ID.String()
 		data.NewURL = "/readings/new?station=" + f.StationID
-		data.CanRecord = h.readingService.CanRecordStation(perms, station)
+		p := h.readingService.PravaNaLetvu(perms, station)
+		data.CanRecord, data.UpisUzIzvor = p.Upisuje, p.UzIzvor
 	}
 	data.CanEdit = data.CanRecord
 	all, err := h.readingService.List(ctx, f)
@@ -973,12 +978,9 @@ func (h *ReadingsHandler) ShowForm(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if !data.IsEdit {
-		if data.Structure != nil && !h.readingService.CanRecordStructure(perms, data.Structure) ||
-			data.Station != nil && !h.readingService.CanRecordStation(perms, data.Station) {
-			http.Error(w, "Nemate pravo upisivati očitanja na ovu letvu", http.StatusForbidden)
-			return
-		}
+	if !data.IsEdit && !h.pravoNaNovoUObrascu(perms, &data) {
+		http.Error(w, "Nemate pravo upisivati očitanja na ovu letvu", http.StatusForbidden)
+		return
 	}
 	data.Reading = rd
 	data.GaugeName, data.GaugeSub = gaugeNames(data.Station, data.Structure)
@@ -1194,6 +1196,17 @@ func (h *ReadingsHandler) protokLetve(ctx context.Context, g models.GaugeSummary
 	krivulje, _ := a.Krivulje(ctx, st.Code)
 	q, izvan := protokIzKrivulje(krivulje, g.Latest.LocalTime(), g.Latest.LevelCm)
 	return ProtokLetve{Q: q, Izvan: izvan}
+}
+
+// pravoNaNovoUObrascu javlja smije li osoba otvoriti obrazac novog
+// očitanja; na tuđu letvu postaje obrazac traži izvor (TraziIzvor)
+func (h *ReadingsHandler) pravoNaNovoUObrascu(perms *models.UserPermissions, data *ReadingFormData) bool {
+	if data.Structure != nil {
+		return h.readingService.CanRecordStructure(perms, data.Structure)
+	}
+	p := h.readingService.PravaNaLetvu(perms, data.Station)
+	data.TraziIzvor = !p.Upisuje && p.UzIzvor
+	return p.MozeUpisati()
 }
 
 func (h *ReadingsHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {

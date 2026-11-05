@@ -269,7 +269,8 @@
      title="Pragovi, kota nule, ekstremi, položaj i napomena">Uredi</a>
   {{end}}
   {{end}}
-  {{if .CanRecord}}<a href="/readings/new?station={{.Station.ID}}" class="btn btn-primary">Upiši očitanje</a>{{end}}
+  {{if or .CanRecord .UpisUzIzvor}}<a href="/readings/new?station={{.Station.ID}}" class="btn btn-primary"
+    {{if not .CanRecord}}title="Letva nije u vašem sektoru: upis uz izvor, npr. telefonom"{{end}}>Upiši očitanje</a>{{end}}
 
   {{/* kartice letve (M3): stranica na kojoj se stoji je oznaka, ne poveznica */}}
   <nav class="letva-kartice" aria-label="Letva {{.Station.Name}}">
