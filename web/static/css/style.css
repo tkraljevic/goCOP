@@ -4961,8 +4961,9 @@ table.akt-poveznice { margin-top: 0.75rem; }
    boji faze, „moguće” isprekidanim obrubom faze, tuđa prognoza tirkizno.
    Raspon stoji uz brojku, ali sitnije: on je ograda, a ne podatak. Doseg na
    kojem prognoza ne pobjeđuje postojanost blijedi. */
-.prog-zaglavlje { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; margin: 0 0 16px; }
-.prog-izdanje { min-width: 0; }
+.prog-zaglavlje { display: flex; flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: 4px 16px; margin: 0 0 16px; }
+.prog-izdanje { flex: 1 1 0; min-width: 0; }
+.prog-radnje { flex: 0 0 auto; }
 .prog-izdanje p { margin: 0; }
 .prog-izdano { font-size: 0.875rem; line-height: 20px; color: var(--md-sys-color-on-surface, var(--text)); }
 .prog-udio, .prog-nacin { font-size: 0.8125rem; line-height: 18px; color: var(--text-muted); }
@@ -5072,6 +5073,8 @@ table.akt-poveznice { margin-top: 0.75rem; }
   .prog-vr { font-size: 1.25rem; line-height: 26px; }
   .prog-termin .prog-raspon, .prog-termin .prog-druga, .prog-termin .prog-tuda { font-size: 0.75rem; }
   .prog-povuci { display: block; }
+  /* uputa jednom, uz prvu letvu na stranici, a ne pod svakom */
+  .prog-kartice ~ .prog-kartice .prog-povuci, .prog-kartica ~ .prog-kartica .prog-povuci { display: none; }
 }
 
 /* ── Uzdužni profil ──────────────────────────────────────────────────────
