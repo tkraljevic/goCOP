@@ -94,7 +94,7 @@ func TestKarticaJacihOborina(t *testing.T) {
 // Vrijeme: upozorenja županije pojedinačno, ostale županije u jednom retku,
 // pa trenutno vrijeme i prognoza regije
 func TestKarticaVremena(t *testing.T) {
-	temp, vjetar, kisa := 12.0, 20.0, 6.2
+	temp, vjetar, kisa := 12.0, 5.6, 6.2 // DHMZ daje vjetar u m/s
 	od := time.Date(2026, 11, 2, 14, 0, 0, 0, models.Zagreb)
 	p := PlocaVremena{Mjesto: "Osijek", Regija: "istočna Hrvatska",
 		Upozorenja: []dhmz.Upozorenje{{Dogadjaj: "kiša", Razina: 2, Podrucje: "Osječko-baranjska", Od: od, Do: od.Add(6 * time.Hour)}},
@@ -115,7 +115,7 @@ func TestKarticaVremena(t *testing.T) {
 		o.Sporedno != "Narančasto upozorenje za vjetar · Žuto upozorenje za kišu" {
 		t.Errorf("ostale županije: %+v", o)
 	}
-	if s := k.Redovi[2]; s.Glavno != "12 °C · kiša" || s.Sporedno != "vjetar S 20 km/h · kišomjer Osijek: 6,2 mm danas" {
+	if s := k.Redovi[2]; s.Glavno != "12 °C · kiša" || s.Sporedno != "južni vjetar 20 km/h · kišomjer Osijek: 6,2 mm danas" {
 		t.Errorf("sada: %+v", s)
 	}
 	if pr := k.Redovi[3]; pr.Glavno != "Prognoza · istočna Hrvatska" || !strings.HasSuffix(pr.Sporedno, "…") || len([]rune(pr.Sporedno)) > 161 {

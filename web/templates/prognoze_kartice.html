@@ -1,0 +1,7 @@
+{{/* Kartice Prognoza: Vodostaji i Vrijeme (goCOP-m3, 13 · Prognoze). To su
+     poveznice, pa rade i bez skripte; odabrana nosi aria-current. Ulaz je
+     ime odabrane kartice: "vodostaji" ili "vrijeme". */}}
+{{define "prognozeKartice"}}<nav class="prog-odjeli" aria-label="Prognoze">
+  <a href="/prognoze" class="prog-odjel"{{if eq . "vodostaji"}} aria-current="page"{{end}}>Vodostaji</a>
+  <a href="/prognoze/vrijeme" class="prog-odjel"{{if eq . "vrijeme"}} aria-current="page"{{end}}>Vrijeme</a>
+</nav>{{end}}

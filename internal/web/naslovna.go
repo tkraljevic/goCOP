@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"slices"
+	"strings"
 	"time"
 
 	"gocop/internal/models"
@@ -113,9 +114,20 @@ func karticeUloge(perms *models.UserPermissions) []string {
 func (h *DashboardHandler) kartice(r *http.Request, perms *models.UserPermissions, data *DashboardViewData) []KarticaNaslovne {
 	var out []KarticaNaslovne
 	for _, id := range karticeUloge(perms) {
-		out = append(out, h.kartica(r, perms, data, id))
+		out = append(out, poveznicaKojuVidi(h.kartica(r, perms, data, id), data.Modules))
 	}
 	return out
+}
+
+// poveznicaKojuVidi skida poveznicu kartice koja vodi u modul koji račun ne
+// vidi, da ne vodi na zabranjenu stranicu (voditelj usluga ima karticu
+// Vrijeme, a modul Očitanja s Prognozama zadano nema)
+func poveznicaKojuVidi(k KarticaNaslovne, vis models.Visibility) KarticaNaslovne {
+	putanja, _, _ := strings.Cut(k.URL, "?")
+	if m := moduleForPath(putanja); m != "" && !vis.Sees(m) {
+		k.Poveznica, k.URL = "", ""
+	}
+	return k
 }
 
 // kartica slaže jednu karticu po oznaci
@@ -171,7 +183,7 @@ func (h *DashboardHandler) imenaSektora() map[string]string {
 var glaveKartica = map[string]KarticaNaslovne{
 	kZaRijesiti:  {Naslov: "Za riješiti"},
 	kVodostaji:   {Naslov: "Vodostaji", Poveznica: "Prognoze", URL: "/prognoze"},
-	kVrijeme:     {Naslov: "Vrijeme"},
+	kVrijeme:     {Naslov: "Vrijeme", Poveznica: "Prognoze", URL: "/prognoze/vrijeme"},
 	kJaceOborine: {Naslov: "Jače oborine", Poveznica: "Slivovi", URL: "/slivovi"},
 	kSustav:      {Naslov: "Sustav", Poveznica: "Administracija", URL: "/administracija"},
 	kMojeLetve:   {Naslov: "Moje letve", Poveznica: "Sve letve područja", URL: "/teren"},
@@ -216,7 +228,8 @@ func (h *DashboardHandler) ShowKartica(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	k := h.sporaKartica(r, perms, id)
+	vis, _ := r.Context().Value(contextKeyModules).(models.Visibility)
+	k := poveznicaKojuVidi(h.sporaKartica(r, perms, id), vis)
 	var b bytes.Buffer
 	if err := h.tmpl.ExecuteTemplate(&b, "karticaNaslovne", k); err != nil {
 		log.Printf("kartica naslovne %s: %v", id, err)

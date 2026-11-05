@@ -10,6 +10,7 @@
   {{if .SektorURL}}<a href="{{.SektorURL}}" class="btn btn-link">Samo sektor {{.Sektor.ID}}</a>{{end}}</p>{{end}}{{end}}{{end}}
 
 {{define "content"}}
+{{template "prognozeKartice" "vodostaji"}}
 {{with .Izbor}}
 {{/* Izbor u dvije razine: sektor, pa vodotoci sektora (goCOP-m3, 13 ·
      Prognoze). Sektor bez letvi u izdanju je zasivljen. Na mobitelu su to

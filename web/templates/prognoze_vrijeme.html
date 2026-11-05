@@ -1,0 +1,174 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Prognoze · Vrijeme{{end}}
+
+{{define "content"}}
+{{template "prognozeKartice" "vrijeme"}}
+{{/* Regije DHMZ-a kao čipovi, na mobitelu padajući izbornik „Regija”
+     (goCOP-m3, 13 · Prognoze). Čip je poveznica, a obrazac radi i bez
+     skripte (gumb „Prikaži”); sa skriptom ga šalje sama promjena. */}}
+<nav class="prog-izbor" aria-label="Regija">
+  <div class="prog-cipovi">
+    {{range .Regije}}<a href="{{.URL}}" class="uzd-cip prog-cip prog-cip-vodotok"{{if .Odabran}} aria-current="true"{{end}}>{{.Naziv}}</a>
+    {{end}}
+  </div>
+</nav>
+<form method="get" action="/prognoze/vrijeme" class="prog-izbor-mob pv-regija-mob">
+  <label class="prog-polje"><span class="prog-polje-natpis">Regija</span>
+    <select name="regija" class="prog-polje-izbor">
+      {{range .Regije}}<option value="{{.Oznaka}}"{{if .Odabran}} selected{{end}}>{{.Naziv}}</option>
+      {{end}}
+    </select>{{icon "chevron-down"}}</label>
+  <button type="submit" class="btn btn-secondary prog-prikazi">Prikaži</button>
+</form>
+
+<div class="pv-mjesto">
+  <h2 class="pv-mjesto-naslov">{{.Mjesto.NaslovMjesta}}<span class="pv-samo-siroko"> · {{.Mjesto.NaslovZupanije}}</span></h2>
+  <div class="pv-mjesto-radnje">
+    <button type="button" class="btn btn-link pv-lokacija" hidden>Moja lokacija</button>
+    <details class="pv-promijeni">
+      <summary class="btn btn-link"><span>Promijeni<span class="pv-samo-siroko"> mjesto</span></span></summary>
+      <div class="pv-promijeni-ploca">
+        {{if .Podrucja}}
+        <form method="get" action="/prognoze/vrijeme" class="pv-promijeni-obrazac">
+          <label class="prog-polje"><span class="prog-polje-natpis">Ured branjenog područja</span>
+            <select name="podrucje" class="prog-polje-izbor">
+              {{range .Podrucja}}<option value="{{.Oznaka}}"{{if .Odabran}} selected{{end}}>{{.Naziv}}</option>
+              {{end}}
+            </select>{{icon "chevron-down"}}</label>
+          <button type="submit" class="btn btn-secondary">Prikaži</button>
+        </form>
+        {{else}}
+        <p class="kartica-prazna izrada">U izradi: mjesto se zasad bira regijom ili lokacijom.</p>
+        {{end}}
+      </div>
+    </details>
+  </div>
+</div>
+
+<section class="pv-dio" id="pv-dio" data-url="{{.DioURL}}" aria-live="polite">
+  <p class="kartica-ceka">Učitavam vrijeme…</p>
+</section>
+<noscript><p class="kartica-prazna nedostupno">Vrijeme se učitava naknadno, a za to preglednik mora dopustiti skripte.</p></noscript>
+<script>
+// Vrijeme stiže naknadno, da spor DHMZ ne zadrži stranicu. „Moja lokacija”
+// postoji samo kad preglednik smije dati lokaciju (https ili localhost).
+(function () {
+  var f = document.querySelector('.pv-regija-mob');
+  if (f) {
+    f.querySelector('.prog-prikazi').hidden = true;
+    f.regija.addEventListener('change', function () { f.submit(); });
+  }
+  var gumb = document.querySelector('.pv-lokacija');
+  if (gumb && window.isSecureContext && navigator.geolocation) {
+    gumb.hidden = false;
+    gumb.addEventListener('click', function () {
+      gumb.disabled = true;
+      navigator.geolocation.getCurrentPosition(function (p) {
+        window.location.href = '/prognoze/vrijeme?lat=' + p.coords.latitude.toFixed(4) + '&lon=' + p.coords.longitude.toFixed(4);
+      }, function () { gumb.disabled = false; gumb.textContent = 'Lokacija nije dopuštena'; }, { timeout: 10000 });
+    });
+  }
+  var okvir = document.getElementById('pv-dio');
+  if (!okvir || !window.fetch) { return; }
+  fetch(okvir.dataset.url, { credentials: 'same-origin' })
+    .then(function (r) { return r.ok ? r.text() : Promise.reject(r.status); })
+    .then(function (html) { okvir.innerHTML = html; })
+    .catch(function () {
+      okvir.innerHTML = '<p class="kartica-prazna nedostupno">Vrijeme trenutačno nije dostupno. Pokušajte ponovno za nekoliko minuta.</p>';
+    });
+})();
+</script>
+{{end}}
+
+{{/* praznoVremena je prazna kartica po odlukama (1. 11.): potvrda s
+     kvačicom, neutralno što se očekuje, crta upozorenja kad podaci nisu
+     stigli, ili „U izradi”. */}}
+{{define "praznoVremena"}}{{with .}}<p class="kartica-prazna {{.Vrsta}}">{{if eq .Vrsta "gotovo"}}{{icon "check"}} {{else if eq .Vrsta "nedostupno"}}{{icon "triangle-alert"}} {{end}}{{.Tekst}}</p>{{end}}{{end}}
+
+{{/* vrijemeDio je ono što stiže naknadno (/prognoze/vrijeme/dio). Na
+     računalu dva stupca (Sada | kišomjer), ispod preko širine kiša po
+     slivovima i prognoza; na tabletu i mobitelu jedan stupac. Na mobitelu
+     je redak sliva naziv s „palo · očekivano mm” i ispod porast, bez
+     stupca rijetkosti (pv-samo-siroko / pv-samo-usko). Upozorenje
+     DHMZ-a je crta i natpis, nikad ploha u boji (Odluke (31. 10. 2026.)). */}}
+{{define "vrijemeDio"}}
+<div class="pv-upozorenja">
+  {{range .Upozorenja}}
+  <div class="pv-upozorenje dhmz-{{.Razina}}">
+    {{icon "triangle-alert"}}
+    <div class="pv-upozorenje-tekst"><span class="pv-upozorenje-naslov">{{.Naslov}}</span>{{if .Opis}}<span class="pv-upozorenje-opis">{{.Opis}}</span>{{end}}</div>
+    {{if $.Procitano}}<span class="pv-izvor">{{$.Procitano}}</span>{{end}}
+  </div>
+  {{end}}
+  {{template "praznoVremena" .UpozorenjaPrazno}}
+  {{if .Ostalih}}<p class="pv-sitno pv-ostala">DHMZ ima još {{.Ostalih}} {{if eq .Ostalih 1}}upozorenje{{else}}upozorenja{{end}} za druga područja.</p>{{end}}
+</div>
+
+<div class="pv-stupci">
+  <section class="pv-kartica pv-sada">
+    {{with .Sada}}
+    {{/* na mobitelu bez naslova: postaja i sat idu u drugi redak opisa */}}
+    <h3 class="pv-naslov pv-samo-siroko">Sada · postaja {{.Postaja}}, {{.Km}} km</h3>
+    <div class="pv-sada-tijelo">
+      {{if .Ikona}}<span class="pv-sada-ikona">{{icon .Ikona}}</span>{{end}}
+      <span class="pv-sada-temp">{{.Temp}}</span>
+      <div class="pv-sada-opis">{{if .Opis}}<span>{{.Opis}}</span>{{end}}{{if .Detalji}}<span class="pv-sitno pv-samo-siroko">{{.Detalji}}</span>{{end}}<span class="pv-sitno pv-samo-usko">{{.Postaja}}{{if .Sat}} · {{.Sat}}{{end}}</span></div>
+    </div>
+    {{else}}
+    <h3 class="pv-naslov">Sada</h3>
+    {{template "praznoVremena" .SadaPrazno}}
+    {{end}}
+  </section>
+
+  <section class="pv-kartica pv-kisomjer">
+    {{with .Kisomjer}}
+    <h3 class="pv-naslov"><span class="pv-samo-siroko">Kiša · kišomjer</span><span class="pv-samo-usko">Kišomjer</span> {{.Mjesto}}</h3>
+    <dl class="pv-kisa-redovi">
+      {{range .Redovi}}<div class="pv-kisa-redak"><dt>{{.Natpis}}{{if .Napomena}} <span class="pv-sitno">({{.Napomena}})</span>{{end}}</dt><dd>{{.Vrijednost}}</dd></div>
+      {{end}}
+    </dl>
+    {{if .Javljeno}}<p class="pv-sitno pv-javljeno">{{.Javljeno}}</p>{{end}}
+    {{else}}
+    <h3 class="pv-naslov">Kiša · kišomjer</h3>
+    {{template "praznoVremena" .KisomjerPrazno}}
+    {{end}}
+  </section>
+</div>
+
+<section class="pv-kartica pv-slivovi">
+  <div class="pv-glava"><h3 class="pv-naslov">Kiša po slivovima</h3><span class="pv-sitno"><span class="pv-samo-siroko">palo u zadnja 24 h i očekivano u idućih 48 h</span><span class="pv-samo-usko">palo 24 h · očekivano 48 h</span></span></div>
+  {{if .Slivovi}}
+  <table class="pv-tablica">
+    <thead><tr><th>Međusliv</th><th>Palo 24 h</th><th>Očekivano 48 h</th><th>Koliko je rijetko</th><th>Gdje raste voda</th></tr></thead>
+    <tbody>
+    {{range .Slivovi}}<tr{{if .Klasa}} class="{{.Klasa}}"{{end}}>
+      <td class="pv-sliv-naziv"><span>{{.Naziv}}</span><span class="pv-samo-usko pv-sliv-mm">{{.Ukratko}}</span></td>
+      <td class="pv-samo-siroko">{{.Palo24}}</td>
+      <td class="pv-samo-siroko">{{.Dolazi48}}</td>
+      <td class="pv-samo-siroko">{{.Rijetko}}</td>
+      <td class="pv-raste{{if eq .Raste "—"}} pv-bez-porasta{{end}}">{{.Raste}}</td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+  <p class="pv-sitno">Srednjak međusliva, prema onome što je na njemu uobičajeno (ERA5 od 1990.). <a href="/slivovi">Slivovi</a></p>
+  {{else}}
+  {{template "praznoVremena" .SlivoviPrazno}}
+  {{end}}
+</section>
+
+<section class="pv-kartica pv-prognoza">
+  <div class="pv-glava"><h3 class="pv-naslov">Prognoza za {{.Regija.ZaNaziv}}</h3><span class="pv-sitno">{{.PrognozaDatum}}</span></div>
+  {{if .Prognoza}}<p class="pv-prognoza-tekst">{{.Prognoza}}</p>{{else}}{{template "praznoVremena" .PrognozaPrazno}}{{end}}
+  {{if .Dani}}
+  <ul class="pv-dani">
+    {{range .Dani}}<li class="pv-dan"><span class="pv-dan-naslov">{{.Naslov}}</span>{{if .Ikona}}{{icon .Ikona}}{{end}}{{if .Temp}}<span>{{.Temp}}</span>{{end}}<span class="pv-sitno">{{.Kisa}}</span></li>
+    {{end}}
+  </ul>
+  <p class="pv-sitno">{{.DaniIzvor}}</p>
+  {{else}}
+  {{template "praznoVremena" .DaniPrazno}}
+  {{end}}
+</section>
+{{end}}
