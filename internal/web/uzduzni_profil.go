@@ -603,8 +603,10 @@ func dosezniLetvi(korisne []LetvaProfila) []int {
 	return dosezi
 }
 
-// crteDosega povlači crtu za svaki doseg koji ima barem dvije letve, a satnom
-// lancu dodaje i pojas granica.
+// crteDosega povlači crtu za svaki doseg koji ima barem dvije letve, i oko
+// nje pojas granica (voda u njemu ostaje u 70 % slučajeva). Peti i šesti dan
+// daje dnevni model samo na dijelu letvi, pa se i pojas tada lomi na dijelove
+// kao i crta.
 func crteDosega(korisne []LetvaProfila, xOf, yOf func(float64) float64) []ProfilCrta {
 	var crte []ProfilCrta
 	for _, d := range dosezniLetvi(korisne) {
@@ -621,7 +623,10 @@ func crteDosega(korisne []LetvaProfila, xOf, yOf func(float64) float64) []Profil
 		if c.Put == "" {
 			continue
 		}
-		if d > 0 && d <= SatniLanacDo {
+		switch {
+		case d > SatniLanacDo:
+			c.Pojas = plohaGranicaUDijelovima(korisne, d, xOf, yOf)
+		case d > 0:
 			c.Pojas = plohaGranica(korisne, d, xOf, yOf)
 		}
 		crte = append(crte, c)
@@ -953,6 +958,32 @@ func crtaUDijelovima(letve []LetvaProfila, xOf, yOf func(float64) float64,
 		if !l.Usce && !l.Akumulacija {
 			prava = t
 			pravih++
+		}
+	}
+	zatvori()
+	return strings.Join(dijelovi, " ")
+}
+
+// plohaGranicaUDijelovima je plohaGranica za dnevni model: pojas se prekida
+// na letvi bez granica, kao i crta (crtaUDijelovima); dio s jednom letvom
+// pojasa nema.
+func plohaGranicaUDijelovima(letve []LetvaProfila, doseg int, xOf, yOf func(float64) float64) string {
+	var dijelovi []string
+	var dio []LetvaProfila
+	zatvori := func() {
+		if p := plohaGranica(dio, doseg, xOf, yOf); p != "" {
+			dijelovi = append(dijelovi, p)
+		}
+		dio = nil
+	}
+	for _, l := range letve {
+		if l.Akumulacija {
+			continue
+		}
+		if _, ima := l.Granice[doseg]; ima {
+			dio = append(dio, l)
+		} else if !l.Usce {
+			zatvori()
 		}
 	}
 	zatvori()
