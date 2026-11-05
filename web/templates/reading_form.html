@@ -167,9 +167,15 @@
 
   <div class="form-row">
     <div class="form-group">
+      {{if .TraziIzvor}}
+      <label class="form-label" for="observer">Tko je očitao i kako ste dobili vrijednost</label>
+      <input type="text" id="observer" name="observer" class="form-control" value="{{.Reading.Observer}}" placeholder="npr. vodočuvar Ivan, telefonom" autocomplete="off" required>
+      <div class="form-help">Letva nije u vašem sektoru, pa se očitanje upisuje uz izvor, npr. kad vrijednost dobijete telefonom, a telemetrija ne radi.</div>
+      {{else}}
       <label class="form-label" for="observer">Očitao</label>
       <input type="text" id="observer" name="observer" class="form-control" value="{{.Reading.Observer}}" placeholder="{{if .CurrentUser}}{{.CurrentUser.FullName}}{{end}}" autocomplete="off">
       <div class="form-help">Prazno znači prijavljeni korisnik.</div>
+      {{end}}
     </div>
   </div>
 

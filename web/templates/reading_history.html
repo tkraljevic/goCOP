@@ -20,7 +20,7 @@
   </div>
   {{if .Station}}{{template "letvaIzbornik" .}}{{else}}
   <div class="detail-actions">
-    {{if .CanRecord}}<a href="{{.NewURL}}" class="btn btn-primary">{{icon "plus"}} Upiši očitanje</a>{{end}}
+    {{if or .CanRecord .UpisUzIzvor}}<a href="{{.NewURL}}" class="btn btn-primary">{{icon "plus"}} Upiši očitanje</a>{{end}}
   </div>
   {{end}}
 </div>

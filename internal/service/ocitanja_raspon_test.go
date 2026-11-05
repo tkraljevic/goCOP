@@ -94,10 +94,10 @@ func TestKotaLetveBezPostaje(t *testing.T) {
 			t.Errorf("%q: letva bez oznake ne vodi kotu", id)
 		}
 	}
-	if kota, err := o.rs.pravoNaLetvu(ctx, o.adminOvl, &models.Reading{StructureID: o.csProbni.ID.String()}); err != nil || kota {
+	if kota, err := o.rs.pravoNaNovo(ctx, o.adminOvl, &models.Reading{StructureID: o.csProbni.ID.String()}); err != nil || kota {
 		t.Errorf("objekt: kota %v, %v", kota, err)
 	}
-	if kota, err := o.rs.pravoNaLetvu(ctx, o.adminOvl, &models.Reading{StationID: "nije-uuid"}); err == nil || kota {
+	if kota, err := o.rs.pravoNaNovo(ctx, o.adminOvl, &models.Reading{StationID: "nije-uuid"}); err == nil || kota {
 		t.Errorf("neispravna postaja: kota %v, %v", kota, err)
 	}
 }

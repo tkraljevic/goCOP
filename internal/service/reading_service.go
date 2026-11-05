@@ -254,9 +254,8 @@ func (s *ReadingService) pravoNaObjekt(ctx context.Context, perms *models.UserPe
 	return nil
 }
 
-// pravoNaPostaju javlja grešku ako osoba ne smije upisivati na letvu
-// postaje; inače vraća postaju
-func (s *ReadingService) pravoNaPostaju(ctx context.Context, perms *models.UserPermissions, stationID string) (*models.Station, error) {
+// postajaZaUpis je postaja na koju se upisuje očitanje, s porukom kad je nema
+func (s *ReadingService) postajaZaUpis(ctx context.Context, stationID string) (*models.Station, error) {
 	id, err := uuid.Parse(stationID)
 	if err != nil {
 		return nil, fmt.Errorf("neispravna postaja")
@@ -265,19 +264,17 @@ func (s *ReadingService) pravoNaPostaju(ctx context.Context, perms *models.UserP
 	if err != nil || st == nil {
 		return nil, fmt.Errorf("postaja ne postoji")
 	}
-	if !s.CanRecordStation(perms, st) {
-		return nil, fmt.Errorf("nemate pravo upisivati očitanja na %s", st.Name)
-	}
 	return st, nil
 }
 
-// pravoNaLetvu javlja grešku ako osoba ne smije upisivati na letvu
-// očitanja, i vodi li ta letva kotu u cm n. m. (objekt je ne vodi)
-func (s *ReadingService) pravoNaLetvu(ctx context.Context, perms *models.UserPermissions, rd *models.Reading) (bool, error) {
+// pravoNaNovo javlja grešku ako osoba ne smije upisati novo očitanje, i
+// vodi li letva kotu u cm n. m. (objekt je ne vodi). Na tuđu letvu postaje
+// smije se upisati uz izvor (PravaLetve.UzIzvor).
+func (s *ReadingService) pravoNaNovo(ctx context.Context, perms *models.UserPermissions, rd *models.Reading) (bool, error) {
 	if rd.StructureID != "" {
 		return false, s.pravoNaObjekt(ctx, perms, rd.StructureID)
 	}
-	st, err := s.pravoNaPostaju(ctx, perms, rd.StationID)
+	st, err := s.pravoNaUpisPostaje(ctx, perms, rd)
 	return st != nil && st.KotaNM, err
 }
 
@@ -298,7 +295,7 @@ func (s *ReadingService) kotaLetve(ctx context.Context, stationID string) bool {
 func (s *ReadingService) Create(ctx context.Context, perms *models.UserPermissions, rd *models.Reading) error {
 	// Identifikator novog očitanja uvijek daje program, a ne obrazac
 	rd.ID = uuid.Nil
-	kota, err := s.pravoNaLetvu(ctx, perms, rd)
+	kota, err := s.pravoNaNovo(ctx, perms, rd)
 	if err != nil {
 		return err
 	}
