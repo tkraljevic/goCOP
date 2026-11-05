@@ -18,7 +18,7 @@ func TestCelijeDana(t *testing.T) {
 		Prep: models.Threshold{Cm: cm(300)}, Regular: models.Threshold{Cm: cm(500)}}
 	izdano := time.Date(2026, 9, 23, 20, 0, 0, 0, time.UTC) // 22 h po lokalnom
 	naslovi, ciljevi := daniPregleda(izdano)
-	if naslovi[0] != "čet 24.9." || len(ciljevi) != prognoza.DnevniDosezi {
+	if naslovi[0] != "čet 24. 9." || len(ciljevi) != prognoza.DnevniDosezi {
 		t.Fatalf("dani %v", naslovi)
 	}
 	sat := izdano.Unix() / 3600

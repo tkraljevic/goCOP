@@ -348,9 +348,9 @@
 {{end}}
 
 {{/* Uzdužni profil — prima UzduzniProfil. Vodostaj uzduž toka prema
-     uobičajenoj vodi svake letve: jutarnja crta (7 h, stoji cijeli dan), crta
-     po dosegu od najsvjetlije (za 6 h) do najtamnije (šesti dan), pojas raspona
-     za odabrani doseg, i klizač vremena kojem skripta crta jednu crtu po satu. */}}
+     uobičajenoj vodi svake letve: jutarnja crta (7 h, stoji cijeli dan) i crta
+     s rasponom za svaki termin čipova (sada, +12 h, dani); vidi se samo
+     odabrani termin (Odabrano), a čipovi mijenjaju koji. */}}
 {{define "uzduzniProfil"}}
 <svg viewBox="0 0 {{.Width}} {{.Height}}" role="img" aria-label="{{.Opis}}" class="uzd-svg"
      data-niz='{{.Niz}}'>

@@ -35,13 +35,13 @@
 {{else}}
 
 {{if .Profili}}
-{{/* Uzdužni profil: čipovi termina (sada, +12 h, šest dana) iznad crteža biraju
-     koji se termin crta plavo, uz jutro (ljubičasto) i uobičajenu vodu
-     (isprekidano); isti termin se ističe i u karticama letvi. Bez skripte
+{{/* Uzdužni profil: svaki vodotok je kartica s naslovom, ispisom i cijelim
+     zaslonom gore, čipovima termina (sada, +12 h, šest dana) ispod, pa crtežom i
+     legendom. Odabrani termin crta se plavo, uz jutro (ljubičasto) i uobičajenu
+     vodu (isprekidano); isti termin se ističe i u karticama letvi. Bez skripte
      čip je poveznica ?dan=, pa poslužitelj crta taj termin. Na mobitelu je
      profil redak koji se otvara preko cijelog zaslona (goCOP-m3, 13 · Prognoze). */}}
-<section class="detail-section prog-profili" data-termin="{{.Termin.Oznaka}}">
-  <h2>{{icon "waves"}} Uzdužni profil</h2>
+<section class="detail-section prog-profili">
   {{if gt (len .Profili) 1}}
   <div class="kartice" role="tablist" aria-label="Vodotok">
     {{range $i, $p := .Profili}}
@@ -51,16 +51,13 @@
   </div>
   {{end}}
   {{range $i, $p := .Profili}}
-  <div id="profil-{{$p.Oznaka}}" class="kartica uzd-profil" role="tabpanel" data-ime="{{$p.Ime}}" data-nula="{{$p.NulaKratko}}"{{if ne $i 0}} hidden{{end}}>
+  <div id="profil-{{$p.Oznaka}}" class="kartica uzd-profil" role="tabpanel" data-ime="{{$p.Ime}}" data-naslov="{{$p.Naslov}}" data-nula="{{$p.NulaKratko}}"{{if ne $i 0}} hidden{{end}}>
     <button type="button" class="uzd-redak">
-      <span class="uzd-redak-tekst"><span class="uzd-redak-naslov">Uzdužni profil · {{$p.Ime}}</span>
+      <span class="uzd-redak-tekst"><span class="uzd-redak-naslov">{{$p.Naslov}}</span>
         <span class="uzd-redak-opis">otvara se preko cijelog zaslona</span></span>{{icon "chevron-right"}}
     </button>
     <div class="uzd-glava">
-      <nav class="uzd-termini" aria-label="Termin na profilu i u karticama letvi">
-        {{range $.Termini}}<a href="?dan={{.Oznaka}}#profil-{{$p.Oznaka}}" class="uzd-cip" data-termin="{{.Oznaka}}" data-doseg="{{.Doseg}}"
-           data-opis="{{.Opis}}"{{if eq .Oznaka $.Termin.Oznaka}} aria-current="true"{{end}}>{{.Naslov}}</a>{{end}}
-      </nav>
+      <h2 class="uzd-naslov">{{$p.Naslov}}</h2>
       <div class="uzd-gumbi">
         <button type="button" class="uzd-gumb uzd-ispis" title="Ispiši crtež odabranog termina (bijela pozadina)" aria-label="Ispiši crtež">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6M6 18H3v-7h18v7h-3M6 14h12v7H6z"/></svg>
@@ -70,13 +67,21 @@
         </button>
       </div>
     </div>
-    <div class="reg-card uzduzni">
+    <nav class="uzd-termini" aria-label="Termin na profilu i u karticama letvi">
+      {{range $.Termini}}<a href="?dan={{.Oznaka}}#profil-{{$p.Oznaka}}" class="uzd-cip" data-termin="{{.Oznaka}}" data-doseg="{{.Doseg}}"
+         data-opis="{{.Opis}}"{{if eq .Oznaka $.Termin.Oznaka}} aria-current="true"{{end}}>{{.Naslov}}</a>{{end}}
+    </nav>
+    <div class="uzduzni">
       <div class="uzd-pomak">
         {{template "uzduzniProfil" $p}}
         <div class="uzd-oblacic" hidden></div>
       </div>
     </div>
-    <p class="uzd-legenda">Ljubičasto: {{$p.JutroOpis}} · plavo: <span class="uzd-legenda-termin">{{$.Termin.Opis}}</span>
+    {{/* Termin bez crte (dnevni model ne seže do svih letvi) legenda tako i
+         kaže, umjesto da obeća plavu crtu koje nema. */}}
+    <p class="uzd-legenda">Ljubičasto: {{$p.JutroOpis}} · <span class="uzd-legenda-termin">
+      {{- if $p.ImaCrtu $.Termin.Doseg}}plavo: {{$.Termin.Opis}}{{else}}{{$.Termin.Naslov}}: za taj termin na profilu nema prognoze{{end -}}
+      </span>
       {{- if $p.DugiPut}} · isprekidano: uobičajena voda (10 godina){{end}}
       {{- if $p.SrednjakPut}} · točkasto: srednji vodostaj{{end}}
       {{- if $p.NulaUSlici}} · tanka crta: {{$p.NulaNaziv}}{{end}}
@@ -221,14 +226,18 @@
   function odaberi(oznaka) {
     var cip = odjeljak.querySelector('.uzd-cip[data-termin="' + oznaka + '"]');
     if (!cip) { return; }
-    odjeljak.dataset.termin = oznaka;
     odjeljak.querySelectorAll('.uzd-cip').forEach(function (c) {
       if (c.dataset.termin === oznaka) { c.setAttribute('aria-current', 'true'); } else { c.removeAttribute('aria-current'); }
     });
     odjeljak.querySelectorAll('.uzd-crta, .uzd-pojas').forEach(function (el) {
       el.classList.toggle('uzd-odabrana', el.dataset.doseg === cip.dataset.doseg);
     });
-    odjeljak.querySelectorAll('.uzd-legenda-termin').forEach(function (el) { el.textContent = cip.dataset.opis; });
+    // Termin bez crte na nekom profilu legenda tako i opiše.
+    odjeljak.querySelectorAll('.uzd-profil').forEach(function (panel) {
+      var ima = panel.querySelector('.uzd-crta[data-doseg="' + cip.dataset.doseg + '"]');
+      var legenda = panel.querySelector('.uzd-legenda-termin');
+      if (legenda) { legenda.textContent = ima ? 'plavo: ' + cip.dataset.opis : cip.textContent + ': za taj termin na profilu nema prognoze'; }
+    });
     document.querySelectorAll('.prog-termin[data-termin]').forEach(function (el) {
       el.classList.toggle('prog-odabran', el.dataset.termin === oznaka);
     });
@@ -245,6 +254,17 @@
   });
 
   odjeljak.querySelectorAll('.uzd-profil').forEach(profil);
+
+  // Adresa s #profil-dunav (čip otvoren u novoj kartici preglednika, ili
+  // kopirana poveznica) otvara karticu tog vodotoka, a ne uvijek prvu.
+  var trazeni = location.hash.indexOf('#profil-') === 0 ? location.hash.slice(1) : '';
+  gumbi.forEach(function (g) {
+    if (trazeni && g.getAttribute('aria-controls') === trazeni && g.getAttribute('aria-selected') !== 'true') {
+      g.click();
+      var panel = document.getElementById(trazeni);
+      if (panel) { panel.scrollIntoView({ block: 'start' }); }
+    }
+  });
 
   function profil(panel) {
     var svg = panel.querySelector('.uzd-svg');
@@ -321,7 +341,7 @@
     // prozor sa svijetlom temom, bez ostatka stranice.
     var ispis = panel.querySelector('.uzd-ispis');
     ispis.addEventListener('click', function () {
-      var naslov = panel.getAttribute('data-ime') || '';
+      var naslov = panel.getAttribute('data-naslov') || 'Uzdužni profil';
       var izdano = '';
       var redak = document.querySelector('.prog-izdano');
       if (redak) { izdano = redak.textContent.replace(/\s+/g, ' ').trim().replace(' · izdao ', ', izdao '); }
@@ -333,12 +353,12 @@
       var css = document.querySelector('link[href*="style.css"]');
       var tema = document.querySelector('link[href^="/tema.css"]');
       var oko = document.createElement('div');
-      [['h1', 'Uzdužni profil · ' + naslov], ['p', izdano + (izdano ? ' · ' : '') + 'termin: ' + (cip ? cip.dataset.opis : 'sada')]].forEach(function (x) {
+      [['h1', naslov], ['p', izdano + (izdano ? ' · ' : '') + 'termin: ' + (cip ? cip.dataset.opis : 'sada')]].forEach(function (x) {
         var el = document.createElement(x[0]); el.textContent = x[1]; oko.appendChild(el);
       });
       oko.insertAdjacentHTML('beforeend', svg.outerHTML);
       [legenda, pad + '.'].forEach(function (t) { var el = document.createElement('p'); el.textContent = t; oko.appendChild(el); });
-      w.document.write('<!DOCTYPE html><html lang="hr" data-theme="light"><head><meta charset="utf-8"><title>Uzdužni profil · ' + naslov + '</title>' +
+      w.document.write('<!DOCTYPE html><html lang="hr" data-theme="light"><head><meta charset="utf-8"><title>' + naslov + '</title>' +
         (css ? '<link rel="stylesheet" href="' + css.getAttribute('href') + '">' : '') +
         (tema ? '<link rel="stylesheet" href="' + tema.getAttribute('href') + '">' : '') +
         '<style>html,body{background:#fff !important;color:#111 !important;margin:0}body{padding:10mm;font-family:system-ui,sans-serif}' +

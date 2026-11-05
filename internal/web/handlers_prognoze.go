@@ -41,7 +41,7 @@ type PrognozeHandler struct {
 	citac    func() *CitacPrognoza
 	stations *service.StationService
 	users    *service.UserService    // zaglavlje i potpisnici izvoza
-	readings *service.ReadingService // mjerenja unatrag, za klizač vremena na profilu
+	readings *service.ReadingService // mjerenja unatrag, za mjerilo uzdužnog profila
 
 	watercourses *service.WatercourseService // geometrija tokova, za ušća na profilu
 
@@ -72,7 +72,7 @@ type PrognozeHandler struct {
 // SetUsers daje izvozu sektore i osobe za zaglavlje i potpise.
 func (h *PrognozeHandler) SetUsers(u *service.UserService) { h.users = u }
 
-// SetReadings daje profilu mjerenja unatrag, da klizač vremena pokaže odakle je val došao.
+// SetReadings daje profilu mjerenja unatrag, da val koji je upravo prošao stane u mjerilo crteža.
 func (h *PrognozeHandler) SetReadings(r *service.ReadingService) { h.readings = r }
 
 // SetJavniUvoz daje stranici krug preuzimanja vodostaja, da ga dežurni može
@@ -1042,8 +1042,8 @@ func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve,
 	}
 	// Kraj pritoke dobije vrijednosti najbliže letve glavnog toka: vodostaj
 	// Drave na ušću diktira Dunav, pa se krivulja Drave provuče do ušća s
-	// promjenom Aljmaša. To nije letva — natpisa i oznake nema, ali crta,
-	// raspon i klizač do ušća idu.
+	// promjenom Aljmaša. To nije letva — natpisa i oznake nema, ali crta i
+	// raspon odabranog termina idu do ušća.
 	svaka := map[string]LetvaProfila{}
 	for _, ls := range poVodi {
 		for _, l := range ls {
@@ -1395,8 +1395,8 @@ func rijecniKm(stacionaza string) (float64, bool) {
 }
 
 // mjerenoUnatrag čita vodostaje zadnjih dva dana za letve na profilu, po
-// satu prema izdanju: klizač vremena njima pokazuje odakle je val došao. Kad
-// očitanja nisu na puni sat, uzima se najbliže punom satu.
+// satu prema izdanju. Služe samo mjerilu crteža, da val koji je upravo prošao
+// stane u sliku. Kad očitanja nisu na puni sat, uzima se najbliže punom satu.
 func (h *PrognozeHandler) mjerenoUnatrag(ctx context.Context, postaje map[string]models.Station,
 	letve []PregledLetve, izdano time.Time) map[string]map[int]float64 {
 	if h.readings == nil {
@@ -1466,7 +1466,7 @@ func daniPregleda(izdano time.Time) ([]string, []int64) {
 	var sati []int64
 	for k := 0; k < prognoza.DnevniDosezi; k++ {
 		d := jutro.AddDate(0, 0, k)
-		naslovi = append(naslovi, daniUTjednu[d.Weekday()]+" "+d.Format("2.1."))
+		naslovi = append(naslovi, fmt.Sprintf("%s %d. %d.", daniUTjednu[d.Weekday()], d.Day(), int(d.Month())))
 		sati = append(sati, d.UTC().Unix()/3600)
 	}
 	return naslovi, sati

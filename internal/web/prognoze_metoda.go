@@ -451,8 +451,8 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 		detaljiM("Uzdužni profil",
 			tekstM("Profil ne crta kote nego koliko je voda iznad ili ispod vode zadnjih 30 dana na svakoj letvi: "+
 				"medijana satnih vodostaja mjeseca prije današnjeg jutra. Mirna voda je tako ravna crta, a val se "+
-				"vidi kao brijeg koji putuje nizvodno. Jutarnja crta (7 h) stoji cijeli dan, a crte prognoze "+
-				"pokazuju kamo val ide; klizač pomiče vrijeme i uz točku piše promjenu od jutra."),
+				"vidi kao brijeg koji putuje nizvodno. Jutarnja crta (7 h) stoji cijeli dan. Čipovi iznad crteža "+
+				"biraju termin (sada, +12 h ili dan u 7 h), a odabrani se crta plavo, pa se uz jutro vidi kamo val ide."),
 			tekstM("Nula se računa iz istih dana na svim letvama jednog toka. S profila ispada letva čiji mjerni uređaj "+
 				"danima stoji dok se susjedna pomakne, i letva koja nakon prekida mjerenja nastavi bitno niže ili "+
 				"više; ispod crteža piše koje su izostavljene i zašto. Uobičajena voda zadnjih deset godina "+
@@ -461,8 +461,8 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 			tekstM("Letve stoje redom niz tok, ali razmak nije u mjerilu, da gusto posađene letve dobiju mjesta za "+
 				"natpis. Iznad letve piše jutarnji vodostaj, a boja točke je faza obrane. Prije 7 h stoji zadnje "+
 				"očitanje od 4 h. Peti i šesti dan daje dnevni model; letva bez njega uzima te dane od susjeda, a "+
-				"gdje nema ni toga, crta prestaje. Pragovi obrane ucrtaju se kad im se voda približi, a klik na "+
-				"doseg u legendi pokaže njegov raspon."),
+				"gdje nema ni toga, crta prestaje. Pragovi obrane ucrtaju se kad im se voda približi. Do 96. sata "+
+				"oko plave crte je svijetla ploha raspona."),
 			tekstM("Profil Dunava kreće od Komároma. Nagybajcs i Wildungsmauer imaju samo satni lanac, koji vrh drži "+
 				"na zadnjem mjerenju, pa bi na profilu Komárom rastao sam; u tablici prognoza i dalje stoje."),
 		),

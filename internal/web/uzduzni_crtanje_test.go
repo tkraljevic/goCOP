@@ -109,7 +109,7 @@ func TestUzduzniProfilDraveOstajeIsti(t *testing.T) {
 	// Zadnji doseg satnog lanca spaja susjede preko Barcsa, kao i ostali sati.
 	for _, c := range p.Crte {
 		if c.Doseg == SatniLanacDo && strings.Count(c.Put, "M") != 1 {
-			t.Errorf("crta %s prekinuta: %s", c.Naziv, c.Put)
+			t.Errorf("crta za %d h prekinuta: %s", c.Doseg, c.Put)
 		}
 	}
 }
@@ -129,7 +129,7 @@ func zaokruziZapis(s string) string {
 
 var reDecimalni = regexp.MustCompile(`-?\d+\.\d+(e[-+]\d+)?`)
 
-const sazetakDrave = "f058a9391939e47abfe6c4f00eefa08c6fa1cbd80b40fe50e4e65bfe558be192"
+const sazetakDrave = "2e92a6e330b0078fe32eaa3643cf150088cc272b6d7650bf03c001cfd190fa65"
 
 // letveDunava slaže Dunav od Bratislave do Bačke Palanke pri visokoj vodi, s
 // pragovima blizu vala: bez ušća i akumulacije, pa pragovi ulaze u crtež.
@@ -187,7 +187,7 @@ func TestUzduzniProfilDunavaOstajeIsti(t *testing.T) {
 	}
 }
 
-const sazetakDunava = "5eef643147f97c8da6c741b710b6b5e692cf68d89ef35dc170dd4ad3a8176375"
+const sazetakDunava = "e16dc7de71e34c8cf18e518bf7952b7f81046131e560af83a17ae9bf602f778b"
 
 // Kad je voda velika, nula i referentne crte ostaju ispod crteža, pa i
 // napomena ide dolje; jedna stvar „je”, više njih „su”.

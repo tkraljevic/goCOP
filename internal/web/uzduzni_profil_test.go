@@ -76,7 +76,7 @@ func TestMjeriloSeRavnaPremaValu(t *testing.T) {
 	}
 	visina := float64(p.Height) - p.Vrh - p.Dno
 	for _, c := range p.Crte {
-		if c.Naziv != "za 48 h" {
+		if c.Doseg != 48 {
 			continue
 		}
 		// Crta ide od nule do +40 cm; mora zauzeti barem trećinu plohe.
@@ -101,8 +101,8 @@ func TestMirnaVodaNeRastegneMjerilo(t *testing.T) {
 	visina := float64(p.Height) - p.Vrh - p.Dno
 	for _, c := range p.Crte {
 		if v := visinaCrte(c.Put); v > visina/2 {
-			t.Errorf("crta %q zauzima %.0f od %.0f — dva centimetra izgledaju kao val",
-				c.Naziv, v, visina)
+			t.Errorf("crta za %d h zauzima %.0f od %.0f — dva centimetra izgledaju kao val",
+				c.Doseg, v, visina)
 		}
 	}
 }
@@ -172,10 +172,10 @@ func TestPojasJeValjanPut(t *testing.T) {
 			continue
 		}
 		if m := loše.FindString(c.Pojas); m != "" {
-			t.Errorf("pojas %q ima dva poteza zaredom: %q", c.Naziv, m)
+			t.Errorf("pojas za %d h ima dva poteza zaredom: %q", c.Doseg, m)
 		}
 		if !strings.HasPrefix(c.Pojas, "M") || !strings.HasSuffix(c.Pojas, " Z") {
-			t.Errorf("pojas %q nije zatvorena ploha", c.Naziv)
+			t.Errorf("pojas za %d h nije zatvorena ploha", c.Doseg)
 		}
 	}
 }
@@ -188,7 +188,7 @@ func TestLetvaBezVrijednostiSePreskace(t *testing.T) {
 	delete(b.Granice, 24)
 	p := crtajUzduzni("Drava", []LetvaProfila{a, b, c}, nil)
 	for _, cr := range p.Crte {
-		if cr.Naziv != "za 24 h" {
+		if cr.Doseg != 24 {
 			continue
 		}
 		if strings.Count(cr.Put, "M") != 1 || strings.Contains(cr.Put, "C") {
@@ -201,7 +201,7 @@ func TestLetvaBezVrijednostiSePreskace(t *testing.T) {
 	delete(c.Cm, 24)
 	p = crtajUzduzni("Drava", []LetvaProfila{a, b, c}, nil)
 	for _, cr := range p.Crte {
-		if cr.Naziv == "za 24 h" {
+		if cr.Doseg == 24 {
 			t.Error("crta kroz jednu letvu ne postoji, a nacrtana je")
 		}
 	}
@@ -261,8 +261,7 @@ func TestCrtaJeGlatkaIProlaziKrozLetve(t *testing.T) {
 	}
 }
 
-// Svaki doseg ima svoju crtu, redom od 6 h do šestog dana, a peti i šesti
-// dan pišu se u danima.
+// Svaki doseg ima svoju crtu, redom od 6 h do šestog dana.
 func TestSvakiDosegImaSvojuCrtu(t *testing.T) {
 	a, b := letvaProfila("a", 200, 120, 50), letvaProfila("b", 100, 80, 50)
 	for _, l := range []*LetvaProfila{&a, &b} {
@@ -274,11 +273,8 @@ func TestSvakiDosegImaSvojuCrtu(t *testing.T) {
 	if len(p.Crte) != len(dosezniProfila) {
 		t.Fatalf("%d crta za %d dosega", len(p.Crte), len(dosezniProfila))
 	}
-	if p.Crte[0].Naziv != "za 6 h" || p.Crte[0].Class != "h1" {
-		t.Errorf("prva crta %q/%q", p.Crte[0].Naziv, p.Crte[0].Class)
-	}
-	if zadnja := p.Crte[len(p.Crte)-1]; zadnja.Naziv != "za 6 d" || zadnja.Class != "h8" {
-		t.Errorf("zadnja crta %q/%q", zadnja.Naziv, zadnja.Class)
+	if p.Crte[0].Doseg != 6 || p.Crte[len(p.Crte)-1].Doseg != 144 {
+		t.Errorf("prva crta za %d h, zadnja za %d h", p.Crte[0].Doseg, p.Crte[len(p.Crte)-1].Doseg)
 	}
 }
 
@@ -305,8 +301,8 @@ func TestNizZaOblacic(t *testing.T) {
 			t.Errorf("crta %d ima doseg %d, oblačić %d", i, c.Doseg, n.Sati[i])
 		}
 	}
-	if p.Crte[0].Naziv != "sada" || p.Crte[0].Pojas != "" {
-		t.Errorf("crta zadnjeg mjerenja: %q, pojas %q", p.Crte[0].Naziv, p.Crte[0].Pojas)
+	if p.Crte[0].Doseg != 0 || p.Crte[0].Pojas != "" {
+		t.Errorf("crta zadnjeg mjerenja: za %d h, pojas %q", p.Crte[0].Doseg, p.Crte[0].Pojas)
 	}
 	if n.V[0][1] == nil || *n.V[0][1] != 70 || n.V[0][0] == nil || *n.V[0][0] != 50 || n.V[2][0] != nil {
 		t.Errorf("letva a: sada i za 24 h %v", n.V[0])
@@ -424,7 +420,7 @@ func TestUsceSamoProduzujeKrivulju(t *testing.T) {
 	delete(botovo.Granice, 48)
 	p := crtajUzduzni("Drava", []LetvaProfila{botovo, osijek, aljmas}, nil)
 	for _, c := range p.Crte {
-		if c.Naziv == "za 48 h" {
+		if c.Doseg == 48 {
 			t.Errorf("crta za 48 h razapeta između Osijeka i ušća: %q", c.Put)
 		}
 	}
@@ -678,7 +674,7 @@ func TestAkumulacijaNijeUCrtama(t *testing.T) {
 	}
 	for _, c := range p.Crte {
 		if strings.Contains(c.Put, " C") {
-			t.Errorf("crta %s prolazi kroz akumulaciju: %q", c.Naziv, c.Put)
+			t.Errorf("crta za %d h prolazi kroz akumulaciju: %q", c.Doseg, c.Put)
 		}
 	}
 }

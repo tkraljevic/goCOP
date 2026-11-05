@@ -25,7 +25,7 @@ func TestTerminiProfila(t *testing.T) {
 	for _, tm := range termini {
 		naslovi, oznake = append(naslovi, tm.Naslov), append(oznake, tm.Oznaka)
 	}
-	if got := strings.Join(naslovi, " | "); got != "sada | +12 h | ned 1.11. | pon 2.11. | uto 3.11. | sri 4.11. | čet 5.11. | pet 6.11." {
+	if got := strings.Join(naslovi, " | "); got != "sada | +12 h | ned 1. 11. | pon 2. 11. | uto 3. 11. | sri 4. 11. | čet 5. 11. | pet 6. 11." {
 		t.Errorf("naslovi čipova: %s", got)
 	}
 	if got := strings.Join(oznake, " "); got != "sada 12h 1 2 3 4 5 6" {
@@ -37,7 +37,7 @@ func TestTerminiProfila(t *testing.T) {
 			t.Errorf("%s: doseg %d h, želim %d", tm.Naslov, tm.Doseg, 23+24*k)
 		}
 	}
-	if termini[0].Doseg != 0 || termini[1].Doseg != 12 || termini[3].Opis != "odabrani dan, pon 2.11. u 7 h" {
+	if termini[0].Doseg != 0 || termini[1].Doseg != 12 || termini[3].Opis != "odabrani dan, pon 2. 11. u 7 h" {
 		t.Errorf("sada %d, +12 h %d, opis %q", termini[0].Doseg, termini[1].Doseg, termini[3].Opis)
 	}
 }
@@ -48,8 +48,8 @@ func TestOdabraniTermin(t *testing.T) {
 	izdano := time.Date(2026, 10, 31, 8, 0, 0, 0, models.Zagreb)
 	dani, ciljevi := daniPregleda(izdano)
 	termini := terminiProfila(dani, ciljevi, izdano.Unix()/3600)
-	for upit, zeli := range map[string]string{"": "sada", "sada": "sada", "12h": "+12 h", "2": "pon 2.11.",
-		"6": "pet 6.11.", "7": "sada", "0": "sada", "pon": "sada", "<script>": "sada"} {
+	for upit, zeli := range map[string]string{"": "sada", "sada": "sada", "12h": "+12 h", "2": "pon 2. 11.",
+		"6": "pet 6. 11.", "7": "sada", "0": "sada", "pon": "sada", "<script>": "sada"} {
 		if got := odabraniTermin(termini, upit); got.Naslov != zeli {
 			t.Errorf("?dan=%s → %q, želim %q", upit, got.Naslov, zeli)
 		}
@@ -110,8 +110,8 @@ func TestStranicaProfilOdabraniTermin(t *testing.T) {
 	termini := []TerminProfila{
 		{Oznaka: "sada", Naslov: "sada", Opis: "sada, zadnje mjerenje"},
 		{Oznaka: "12h", Naslov: "+12 h", Opis: "za 12 h", Doseg: 12},
-		{Oznaka: "1", Naslov: "pon 2.11.", Opis: "odabrani dan, pon 2.11. u 7 h", Doseg: 24},
-		{Oznaka: "2", Naslov: "uto 3.11.", Opis: "odabrani dan, uto 3.11. u 7 h", Doseg: 48},
+		{Oznaka: "1", Naslov: "pon 2. 11.", Opis: "odabrani dan, pon 2. 11. u 7 h", Doseg: 24},
+		{Oznaka: "2", Naslov: "uto 3. 11.", Opis: "odabrani dan, uto 3. 11. u 7 h", Doseg: 48},
 	}
 	odabran := odabraniTermin(termini, "2")
 	p := crtajUzduzni("Drava", letve, uscaDrave, braneDrave()...)
@@ -120,24 +120,25 @@ func TestStranicaProfilOdabraniTermin(t *testing.T) {
 		CurrentUser: &models.User{FullName: "Ivka Proba"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		ActiveNav: "prognoze", Izdano: "2.11.2026. u 08:00", Udio: 90, Bliski: BliziDosezi,
 		Profili: []*UzduzniProfil{p}, Termini: termini, Termin: odabran,
-		Dani: []string{"pon 2.11.", "uto 3.11."},
+		Dani: []string{"pon 2. 11.", "uto 3. 11."},
 		Tablice: []TablicaPrognoza{{Naslov: "Drava", Letve: []LetvaPrognoze{{
 			Kod: "botovo", Naziv: "Botovo", Voda: "Drava", Racuna: "vodostaj", SadaCm: "210", ImaTermina: true,
 			Vrijednosti: []VrijednostPrognoze{{DosegH: 6, Ima: true, Cm: "212"}, {DosegH: 12, Ima: true, Cm: "214"}},
-			Dani:        []CelijaDana{{Naslov: "pon 2.11.", Termin: "1", Cm: "236"}, {Naslov: "uto 3.11.", Termin: "2", Cm: "247"}},
+			Dani:        []CelijaDana{{Naslov: "pon 2. 11.", Termin: "1", Cm: "236"}, {Naslov: "uto 3. 11.", Termin: "2", Cm: "247"}},
 		}}}},
 	})
-	imaSve(t, html, "odabran uto 3.11.", []string{
+	imaSve(t, html, "odabran uto 3. 11.", []string{
 		`href="?dan=2#profil-drava" class="uzd-cip" data-termin="2" data-doseg="48"`,
-		`plavo: <span class="uzd-legenda-termin">odabrani dan, uto 3.11. u 7 h</span>`,
+		`<span class="uzd-legenda-termin">plavo: odabrani dan, uto 3. 11. u 7 h</span>`,
+		`<h2 class="uzd-naslov">Uzdužni profil Drave</h2>`, `<span class="uzd-redak-naslov">Uzdužni profil Drave</span>`,
 		"Ljubičasto: jutro 2. 11. u 7 h", "isprekidano: uobičajena voda (10 godina)",
 		"Više na stranici O prognozi",
 		"otvara se preko cijelog zaslona", `class="uzd-gumb uzd-ispis"`, `class="uzd-gumb uzd-puni"`,
 	})
 	cipovi := html[strings.Index(html, `<nav class="uzd-termini"`):]
 	cipovi = cipovi[:strings.Index(cipovi, "</nav>")]
-	if n := strings.Count(cipovi, `aria-current="true"`); n != 1 || !regexp.MustCompile(`data-termin="2"[^>]*aria-current="true">uto 3.11.</a>`).MatchString(html) {
-		t.Errorf("istaknut mora biti samo čip uto 3.11.; aria-current %d puta", n)
+	if n := strings.Count(cipovi, `aria-current="true"`); n != 1 || !regexp.MustCompile(`data-termin="2"[^>]*aria-current="true">uto 3. 11.</a>`).MatchString(html) {
+		t.Errorf("istaknut mora biti samo čip uto 3. 11.; aria-current %d puta", n)
 	}
 	if !strings.Contains(html, `class="uzd-crta uzd-odabrana" data-doseg="48"`) || strings.Count(html, "uzd-crta uzd-odabrana") != 1 {
 		t.Error("plava crta nije ona za 48 h, ili ih je više")
@@ -147,9 +148,24 @@ func TestStranicaProfilOdabraniTermin(t *testing.T) {
 	}
 	odabrane := regexp.MustCompile(`class="prog-termin[^"]*prog-odabran"\s+data-termin="([^"]+)"`).FindAllStringSubmatch(html, -1)
 	if len(odabrane) != 1 || odabrane[0][1] != "2" {
-		t.Errorf("u kartici mora biti istaknut stupac uto 3.11.: %v", odabrane)
+		t.Errorf("u kartici mora biti istaknut stupac uto 3. 11.: %v", odabrane)
 	}
-	nemaNista(t, html, "bez klizača", []string{`type="range"`, "uzd-klizac", "▶", "uzd-legenda-gumb", "data-nula-y"})
+	nemaNista(t, html, "bez klizača", []string{`type="range"`, "uzd-klizac", "▶", "uzd-legenda-gumb", "data-nula-y",
+		"na profilu nema prognoze</span>", "reg-card uzduzni"})
+
+	// Termin za koji na profilu nema crte (dnevni model ne seže do svih
+	// letvi, ili u tjednu promjene sata šesti dan pada na 145. sat) legenda
+	// tako i kaže, umjesto da obeća plavu crtu.
+	bez := TerminProfila{Oznaka: "6", Naslov: "pon 26. 10.", Opis: "odabrani dan, pon 26. 10. u 7 h", Doseg: 145}
+	p.Odabrano = bez.Doseg
+	html = iscrtaj(t, "prognoze.html", PrognozePageData{
+		CurrentUser: &models.User{FullName: "Ivka Proba"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		ActiveNav: "prognoze", Izdano: "x", Profili: []*UzduzniProfil{p}, Termini: append(termini, bez), Termin: bez,
+	})
+	imaSve(t, html, "termin bez crte", []string{`<span class="uzd-legenda-termin">pon 26. 10.: za taj termin na profilu nema prognoze</span>`})
+	if strings.Contains(html, "uzd-crta uzd-odabrana") {
+		t.Error("termin bez crte, a jedna crta je odabrana")
+	}
 
 	// „+12 h” ističe stupac +12 h, a „sada” nijedan.
 	html = iscrtaj(t, "prognoze.html", PrognozePageData{
@@ -191,6 +207,37 @@ func TestStranicaPrognozaDanIzAdrese(t *testing.T) {
 	for _, upit := range []string{"/prognoze?dan=99", "/prognoze", "/prognoze?dan=sada"} {
 		if w = p.posalji("dežurni", http.MethodGet, upit, nil, ""); odabrano.MatchString(w.Body.String()) {
 			t.Errorf("%s: istaknut je stupac, a termin je „sada”", upit)
+		}
+	}
+}
+
+// U tjednu kad sat prelazi na zimsko vrijeme šesti dan pada na 145. sat od
+// izdanja u 7 h, a niz prikaza ide do 144.: čip ostaje, crte nema, pa
+// legenda kaže da za taj termin prognoze na profilu nema.
+func TestTerminiUTjednuPromjeneSata(t *testing.T) {
+	izdano := time.Date(2026, 10, 20, 7, 0, 0, 0, models.Zagreb)
+	dani, ciljevi := daniPregleda(izdano)
+	termini := terminiProfila(dani, ciljevi, izdano.Unix()/3600)
+	zadnji := termini[len(termini)-1]
+	if zadnji.Naslov != "pon 26. 10." || zadnji.Doseg != SatiPrikaza+1 {
+		t.Errorf("šesti dan %q za %d h", zadnji.Naslov, zadnji.Doseg)
+	}
+	p := &UzduzniProfil{Crte: []ProfilCrta{{Doseg: 0}, {Doseg: 120}}}
+	if !p.ImaCrtu(120) || p.ImaCrtu(zadnji.Doseg) {
+		t.Error("ImaCrtu ne prepoznaje koje crte ima profil")
+	}
+}
+
+// Naslov profila je u genitivu: „Uzdužni profil Drave”, „… Dunava”; ime
+// koje se ne da promijeniti ostaje u nominativu iza točke.
+func TestNaslovProfila(t *testing.T) {
+	for ime, want := range map[string]string{
+		"Drava": "Uzdužni profil Drave", "Dunav": "Uzdužni profil Dunava", "Karašica": "Uzdužni profil Karašice",
+		"Brodska rijeka": "Uzdužni profil Brodske rijeke", "Drava i Mura": "Uzdužni profil Drave i Mure",
+		"ostalo": "Uzdužni profil · ostalo", "Kanal 2": "Uzdužni profil · Kanal 2", "": "Uzdužni profil · ",
+	} {
+		if got := (&UzduzniProfil{Ime: ime}).Naslov(); got != want {
+			t.Errorf("%q: %q, želim %q", ime, got, want)
 		}
 	}
 }

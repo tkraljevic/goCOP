@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // Uzdužni profil: kako se voda mijenja uzduž toka, od uzvodne letve prema ušću.
@@ -56,9 +57,9 @@ type LetvaProfila struct {
 
 // ProfilCrta je jedna crta uzduž toka.
 type ProfilCrta struct {
-	Naziv string
-	Class string
-	Doseg int
+	Naziv string // samo prag obrane: „pripremno stanje”
+	Class string // samo prag obrane: boja faze
+	Doseg int    // samo termin: sati od izdanja, 0 je zadnje mjerenje
 	Put   string
 	Pojas string // granice prognoze, kao zatvorena ploha
 }
@@ -119,15 +120,49 @@ func (p *UzduzniProfil) DnoY() float64    { return float64(p.Height) - p.Dno }
 func (p *UzduzniProfil) OsY() float64     { return p.Lijevo - 8 }
 func (p *UzduzniProfil) OsX() float64     { return float64(p.Height) - 8 }
 
-// nazivDosega piše doseg kako ga dežurni izgovara: sati do četvrtog dana, dalje dani.
-func nazivDosega(d int) string {
-	if d == 0 {
-		return "sada"
+// Naslov je naslov profila u glavi kartice i u retku na mobitelu:
+// „Uzdužni profil Drave”, „Uzdužni profil Dunava”.
+func (p *UzduzniProfil) Naslov() string {
+	if g, ok := genitivVodotoka(p.Ime); ok {
+		return "Uzdužni profil " + g
 	}
-	if d > 96 && d%24 == 0 {
-		return fmt.Sprintf("za %d d", d/24)
+	return "Uzdužni profil · " + p.Ime
+}
+
+// genitivVodotoka mijenja ime toka riječ po riječ: na -a u -e (Drava →
+// Drave, Brodska rijeka → Brodske rijeke), a na suglasnik dodaje -a (Dunav →
+// Dunava); veznik „i” ostaje. Ime koje se tako ne da promijeniti (na -o, -e
+// …) vraća se s ok=false, pa naslov ostaje u nominativu.
+func genitivVodotoka(ime string) (string, bool) {
+	rijeci := strings.Fields(ime)
+	if len(rijeci) == 0 {
+		return "", false
 	}
-	return fmt.Sprintf("za %d h", d)
+	for i, r := range rijeci {
+		zadnje := []rune(r)[len([]rune(r))-1]
+		switch {
+		case r == "i":
+		case zadnje == 'a':
+			rijeci[i] = strings.TrimSuffix(r, "a") + "e"
+		case strings.ContainsRune("eiouEIOU", zadnje) || !unicode.IsLetter(zadnje):
+			return "", false
+		default:
+			rijeci[i] = r + "a"
+		}
+	}
+	return strings.Join(rijeci, " "), true
+}
+
+// ImaCrtu kaže je li za termin s tim dosegom na profilu nacrtana crta.
+// Termin bez nje (dnevni model ne seže do svih letvi, ili ima samo jednu)
+// legenda tako i opiše, umjesto da obeća plavu crtu koje nema.
+func (p *UzduzniProfil) ImaCrtu(doseg int) bool {
+	for _, c := range p.Crte {
+		if c.Doseg == doseg {
+			return true
+		}
+	}
+	return false
 }
 
 var pragoviProfila = []struct{ kljuc, naziv, class string }{
@@ -572,8 +607,8 @@ func dosezniLetvi(korisne []LetvaProfila) []int {
 // lancu dodaje i pojas granica.
 func crteDosega(korisne []LetvaProfila, xOf, yOf func(float64) float64) []ProfilCrta {
 	var crte []ProfilCrta
-	for i, d := range dosezniLetvi(korisne) {
-		c := ProfilCrta{Naziv: nazivDosega(d), Class: fmt.Sprintf("h%d", i+1), Doseg: d}
+	for _, d := range dosezniLetvi(korisne) {
+		c := ProfilCrta{Doseg: d}
 		vrijednost := func(l LetvaProfila) (float64, bool) { v, ima := l.Cm[d]; return v - l.UobicajenoCm, ima }
 		if d > SatniLanacDo {
 			// Dnevni model ima vrijednosti samo na dijelu letvi: crta se

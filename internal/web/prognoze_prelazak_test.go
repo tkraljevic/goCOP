@@ -20,7 +20,7 @@ func karticaPrelaska(sada *float64, blizi [2]*float64, dani ...string) LetvaProg
 	for i, v := range blizi {
 		lp.Vrijednosti = append(lp.Vrijednosti, VrijednostPrognoze{DosegH: BliziDosezi[i], CmV: v, Ima: v != nil})
 	}
-	naslovi := []string{"ned 1.11.", "pon 2.11.", "uto 3.11.", "sri 4.11.", "čet 5.11.", "pet 6.11."}
+	naslovi := []string{"ned 1. 11.", "pon 2. 11.", "uto 3. 11.", "sri 4. 11.", "čet 5. 11.", "pet 6. 11."}
 	for i, r := range dani {
 		lp.Dani = append(lp.Dani, CelijaDana{Naslov: naslovi[i], Razina: r})
 	}
@@ -47,16 +47,16 @@ func TestOznakaPrelaska(t *testing.T) {
 		{"prelazak na +12 h", karticaPrelaska(uCm(240), [2]*float64{uCm(245), uCm(251)}), letvaPrelaska,
 			&Prelazak{Razina: "prep", Tekst: "↑ pripremno od +12 h"}},
 		{"prelazak na danu", karticaPrelaska(uCm(210), [2]*float64{uCm(212), uCm(214)}, "", "", "prep", "prep"), letvaPrelaska,
-			&Prelazak{Razina: "prep", Tekst: "↑ pripremno od uto 3.11."}},
+			&Prelazak{Razina: "prep", Tekst: "↑ pripremno od uto 3. 11."}},
 		{"više faza: prvi termin i njegova faza", karticaPrelaska(uCm(210), [2]*float64{uCm(212), uCm(214)}, "", "regular", "emerg", "crit"),
-			letvaPrelaska, &Prelazak{Razina: "regular", Tekst: "↑ redovna obrana od pon 2.11."}},
+			letvaPrelaska, &Prelazak{Razina: "regular", Tekst: "↑ redovna obrana od pon 2. 11."}},
 		{"sada već iznad praga, viša faza kasnije", karticaPrelaska(uCm(310), [2]*float64{uCm(320), uCm(330)}, "regular", "regular", "emerg"),
-			letvaPrelaska, &Prelazak{Razina: "emerg", Tekst: "↑ izvanredna obrana od uto 3.11."}},
+			letvaPrelaska, &Prelazak{Razina: "emerg", Tekst: "↑ izvanredna obrana od uto 3. 11."}},
 		{"izvanredno stanje", karticaPrelaska(uCm(360), [2]*float64{uCm(380), uCm(401)}), letvaPrelaska,
 			&Prelazak{Razina: "crit", Tekst: "↑ izvanredno stanje od +12 h"}},
 		{"pad se ne označava", karticaPrelaska(uCm(310), [2]*float64{uCm(290), uCm(260)}, "prep", ""), letvaPrelaska, nil},
 		{"bliski doseg samo u protoku", karticaPrelaska(uCm(240), [2]*float64{nil, nil}, "prep"), letvaPrelaska,
-			&Prelazak{Razina: "prep", Tekst: "↑ pripremno od ned 1.11."}},
+			&Prelazak{Razina: "prep", Tekst: "↑ pripremno od ned 1. 11."}},
 		{"letva bez pragova", karticaPrelaska(uCm(500), [2]*float64{uCm(600), uCm(700)}, "", ""), bezPragova, nil},
 		{"bez sadašnjeg vodostaja", karticaPrelaska(nil, [2]*float64{uCm(300), uCm(320)}, "regular"), letvaPrelaska, nil},
 	} {
@@ -83,8 +83,8 @@ func TestOznakaPrelaskaPoSatu(t *testing.T) {
 		doDana []int
 		want   string
 	}{
-		{"prvo jutro prije +12 h", [2]*float64{uCm(245), uCm(255)}, []int{11, 35, 59}, "↑ pripremno od ned 1.11."},
-		{"prvo jutro prije +6 h", [2]*float64{uCm(255), uCm(260)}, []int{3, 27, 51}, "↑ pripremno od ned 1.11."},
+		{"prvo jutro prije +12 h", [2]*float64{uCm(245), uCm(255)}, []int{11, 35, 59}, "↑ pripremno od ned 1. 11."},
+		{"prvo jutro prije +6 h", [2]*float64{uCm(255), uCm(260)}, []int{3, 27, 51}, "↑ pripremno od ned 1. 11."},
 		{"isti sat kao +12 h", [2]*float64{uCm(245), uCm(255)}, []int{12, 36}, "↑ pripremno od +12 h"},
 		{"dan bez sata", [2]*float64{uCm(245), uCm(255)}, []int{}, "↑ pripremno od +12 h"},
 		{"jutro poslije +12 h", [2]*float64{uCm(245), uCm(255)}, izdanoU8, "↑ pripremno od +12 h"},
@@ -104,7 +104,7 @@ func TestPrelazakNaKartici(t *testing.T) {
 	letve[0].Naziv, letve[0].SadaCm, letve[0].ImaTermina = "Gornji Brod", "240", true
 	izdanoH := int64(500000)
 	oznaciPrelaske(letve, map[string]models.Station{"gornji-brod": letvaPrelaska}, []int64{izdanoH + 23, izdanoH + 47}, izdanoH)
-	if letve[0].Prelazak == nil || letve[0].Prelazak.Tekst != "↑ pripremno od pon 2.11." || letve[1].Prelazak != nil {
+	if letve[0].Prelazak == nil || letve[0].Prelazak.Tekst != "↑ pripremno od pon 2. 11." || letve[1].Prelazak != nil {
 		t.Fatalf("prelasci %+v, %+v", letve[0].Prelazak, letve[1].Prelazak)
 	}
 	html := stdhtml.UnescapeString(iscrtaj(t, "prognoze.html", PrognozePageData{
@@ -112,7 +112,7 @@ func TestPrelazakNaKartici(t *testing.T) {
 		ActiveNav: "prognoze", Udio: 70, Izdano: "1.11.2026. u 08:00",
 		Tablice: []TablicaPrognoza{{Naslov: "Rijeka", Letve: letve[:1]}}}))
 	sad, oznaka := strings.Index(html, `class="prog-sad-cm"`), strings.Index(html, `class="prog-prelazak prelazak-prep"`)
-	if sad < 0 || oznaka < sad || !strings.Contains(html, "↑ pripremno od pon 2.11.") {
+	if sad < 0 || oznaka < sad || !strings.Contains(html, "↑ pripremno od pon 2. 11.") {
 		t.Errorf("oznaka prelaska nije ispod sadašnjeg vodostaja (%d, %d)", sad, oznaka)
 	}
 	if !strings.Contains(html, "Povuci termine ulijevo za ostale dane.") {
