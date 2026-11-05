@@ -8,31 +8,29 @@
 {{end}}
 
 {{define "content"}}
-<div class="detail-head">
+{{/* Raspored po dizajnu (goCOP-m3, 13 · Prognoze · O prognozi): odjeljci kao
+     kartice M3 redom Lanac postaja, Provjera na poplavnim valovima, Postaje,
+     opis metode, Detalji (sklopljeno) i Suradnja i podaci. */}}
+<a href="/prognoze" class="prog-str-natrag">← Prognoze</a>
+<div class="prog-str-glava">
   <div>
-    <h1>{{icon "info"}} O prognozi</h1>
-    <p class="reg-card-sub">Kako prognoza {{if .Izdaje}}{{.Izdaje}} {{end}}nastaje: odakle su brojevi i kojim su
+    <h1>O prognozi</h1>
+    <p class="prog-str-podnaslov">Kako prognoza {{if .Izdaje}}{{.Izdaje}} {{end}}nastaje: odakle su brojevi i kojim su
       računom izvedeni{{if .Izdano}} · zadnje izdanje {{.Izdano}}{{end}}</p>
   </div>
-  <div class="page-actions">
-    <a href="/prognoze" class="btn btn-secondary">{{icon "trending-up"}} Prognoze</a>
-    <a href="/prognoze.xlsx?t={{svjeze}}" class="btn btn-secondary" title="Sažetak, prognoza po vodama, grafovi te godišnji vodostaji i protoci; kratak opis metode na listu „O prognozi”">{{icon "download"}} Izvoz u Excel</a>
-    <a href="/prognoze/pricuvno.xlsx?t={{svjeze}}" class="btn btn-secondary" title="Kad naša prognoza ne radi: iz mađarskih i srpskih prognoza izračunaj naše letve, u Excelu bez programa">{{icon "shield"}} Pričuvni izračun</a>
+  <div class="prog-str-gumbi">
+    <a href="/prognoze.xlsx?t={{svjeze}}" class="btn prog-obrub" title="Sažetak, prognoza po vodama, grafovi te godišnji vodostaji i protoci; kratak opis metode na listu „O prognozi”">Izvoz u Excel</a>
+    <a href="/prognoze/pricuvno.xlsx?t={{svjeze}}" class="btn prog-obrub" title="Kad naša prognoza ne radi: iz mađarskih i srpskih prognoza izračunaj naše letve, u Excelu bez programa">Pričuvni izračun</a>
   </div>
 </div>
 
-<div class="prog-metoda">
-  {{range .Glavni}}
-  <section class="detail-section">
-    <h2>{{.Naslov}}</h2>
-    {{template "prognoze-metoda-odlomci" .}}
-  </section>
-  {{if and (eq .Naslov "Kako čitati prognozu") $.Lanac}}
-  <section class="detail-section prog-lanac">
+<div class="prog-metoda prog-ploce">
+  {{with .Lanac}}
+  <section class="letva-ploca prog-ploca prog-lanac" id="lanac">
     <h2>Lanac postaja</h2>
     <p>Kako su postaje povezane i odakle vrhu svakog lanca budućnost. Puna strelica je glavni ulaz, isprekidana
       pritoka ili drugi ulaz. Crtež se slaže iz namještenih pojasa, pa uvijek pokazuje trenutačno stanje.</p>
-    {{with $.Lanac}}
+    <div class="prog-lanac-okvir">
     <svg viewBox="0 0 {{.Width}} {{.Height}}" role="img" aria-label="Lanac postaja" class="prog-lanac-svg">
       <defs><marker id="lanac-strelica" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z"/></marker></defs>
       {{range .Rijeke}}<text class="prog-lanac-rijeka" x="12" y="{{printf "%.0f" .Y}}" dy="4">{{.Naziv}}</text>{{end}}
@@ -40,14 +38,13 @@
       {{range .Cvorovi}}<g class="prog-lanac-cvor {{.Vrsta}}"><circle cx="{{printf "%.0f" .X}}" cy="{{printf "%.0f" .Y}}" r="9"><title>{{.Naziv}}{{if .Izvor}} · {{.Izvor}}{{end}}</title></circle>
         <text x="{{printf "%.0f" .X}}" y="{{printf "%.0f" .Y}}" dy="{{if .Dolje}}38{{else}}24{{end}}" text-anchor="middle">{{.Naziv}}</text></g>{{end}}
     </svg>
+    </div>
     <div class="prog-lanac-legenda">{{range .Legenda}}<span class="prog-lanac-cvor {{.Vrsta}}"><svg viewBox="0 0 20 20" width="14" height="14"><circle cx="10" cy="10" r="8"/></svg> {{.Tekst}}</span>{{end}}</div>
-    {{end}}
   </section>
-  {{end}}
   {{end}}
 
   {{with .Valovi}}
-  <section class="detail-section">
+  <section class="letva-ploca prog-ploca" id="valovi">
     <h2>Provjera na poplavnim valovima</h2>
     <p>{{.Valova}} {{uzBroj .Valova "val" "vala" "valova"}} iz arhive (vrh iznad pripremnog stanja), svaki provjeren modelom koji ga nije vidio:
       valove do 2013. model namješten na podacima od 2014., valove od 2014. model namješten na podacima do
@@ -57,12 +54,12 @@
       ispravak sustavnog pomaka, pa je živa prognoza na 72 i 96 h nešto bolja od ovih brojki. Dunavske valove do 2013. model precjenjuje desetak centimetara jer uči
       na koritu kakvo je od 2014.: Baja je 2002.–2004. prema Paksu stajala 20–30 cm niže nego danas, pa je
       stari val stroži ispit od novoga.</p>
-    <div class="table-card"><div class="table-responsive">
-      <table class="data-table prog-metoda-tablica">
+    <div class="table-responsive">
+      <table class="prog-retci prog-metoda-tablica">
         <thead><tr><th>Rijeka · model</th><th>Valova</th><th>Doseg</th><th>Pogreška vrha</th><th>Pristranost</th><th>Postojanost</th></tr></thead>
         <tbody>
         {{range .Skupine}}{{$s := .}}{{range $i, $d := .Dosezi}}
-        <tr>
+        <tr{{if $i}} class="prog-retci-nastavak"{{end}}>
           {{if eq $i 0}}<td rowspan="{{len $s.Dosezi}}"><strong>{{$s.Rijeka}}</strong><div class="reg-card-sub">{{$s.Model}}</div></td>
           <td rowspan="{{len $s.Dosezi}}">{{$s.Valova}}</td>{{end}}
           <td class="nowrap">{{$d.Doseg}} h</td>
@@ -73,11 +70,11 @@
         {{end}}{{end}}
         </tbody>
       </table>
-    </div></div>
+    </div>
     {{if .Najveci}}
-    <p class="mt-4">Najveći valovi, pogreška najavljenog vrha (prognoza − izmjereno), cm:</p>
-    <div class="table-card"><div class="table-responsive">
-      <table class="data-table prog-metoda-tablica">
+    <p>Najveći valovi, pogreška najavljenog vrha (prognoza − izmjereno), cm:</p>
+    <div class="table-responsive">
+      <table class="prog-retci prog-metoda-tablica">
         <thead><tr><th>Val</th><th>Letva</th><th>Vrh</th>{{range .DoseziVrh}}<th>{{.}} h</th>{{end}}</tr></thead>
         <tbody>
         {{range .Najveci}}
@@ -85,48 +82,13 @@
         {{end}}
         </tbody>
       </table>
-    </div></div>
+    </div>
     {{end}}
     <p class="reg-card-sub">Iz datoteke {{.Datoteka}} (zapisano {{.Zapisano}}); ista je za preuzimanje dolje.</p>
   </section>
   {{end}}
 
-  {{with .Detaljni}}
-  <section class="detail-section">
-    <h2>Detalji</h2>
-    <p>Za one koji provjeravaju račun: podaci, formule, provjere i povijest izmjena. Odjeljak se otvara klikom
-      na naslov.</p>
-    {{range .}}
-    <details class="prog-detalji">
-      <summary>{{.Naslov}}</summary>
-      {{template "prognoze-metoda-odlomci" .}}
-    </details>
-    {{end}}
-  </section>
-  {{end}}
-
-  <section class="detail-section">
-    <h2>Suradnja i podaci</h2>
-    <p>Model je nastao u neslužbenoj suradnji Tomislava Kraljevića i
-      <a href="{{.SuradnjaVeza}}" target="_blank" rel="noopener">prof. dr. Nenada Šuvaka</a>
-      s Fakulteta primijenjene matematike i informatike Sveučilišta u Osijeku.</p>
-    <p>Za ponavljanje računa izvan aplikacije daju se sirovi parovi prognoza–mjerenje, u CSV-u s točka-zarezom
-      (kako ga čitaju hrvatske postavke Excela; R i Python čitaju ga uz <code>sep=";"</code>). Vremena su u UTC,
-      vodostaji u cm na nuli letve, protoci u m³/s.</p>
-    <ul class="prog-izvozi">
-      {{range .Izvozi}}
-      <li><a href="{{.URL}}">{{icon "download"}} {{.Naziv}}</a>{{if .Velicina}} <span class="reg-card-sub">({{.Velicina}})</span>{{end}}
-        <div class="reg-card-sub">{{.Opis}}</div></li>
-      {{end}}
-    </ul>
-    <p class="reg-card-sub">Stupci: izdano_utc, letva, velicina, ciljni_utc, doseg_h, prognoza, dolje, gore (granice raspona),
-      model (lanac-1 za satni lanac; dnevni-1 samo uz mjerenje u satu izdanja na letvama dnevnog modela izvan lanca),
-      iz_krivulje (da kad je vrijednost preračunata krivuljom protoka), izmjereno (prazno dok mjerenje ne stigne).
-      Prognoza dnevnog modela (1.–6. dan) u izdanja.csv ne ulazi. Provjera unatrag nema stupaca model i iz_krivulje,
-      a ima stupac postojanost — vrijednost u satu izdanja, kao pretpostavka da se ništa neće promijeniti.</p>
-  </section>
-
-  <section class="detail-section">
+  <section class="letva-ploca prog-ploca" id="postaje">
     <h2>Postaje</h2>
     {{if .Letve}}
     <p>Iz čega se svaka postaja računa. Kod satnog lanca uz ulaz stoji veličina, kašnjenje (raspon po pojasima
@@ -135,8 +97,8 @@
       lanca imaju samo dnevni model. „Dnevni od” je dan prijelaza na Dravi pri visokoj vodi; pri niskoj i srednjoj
       vrijedi tablica u odjeljku „Koji model daje koji dan”. Na Batini, Aljmašu, Vukovaru i Iloku prijelaza nema: do
       96. sata rade oba modela zajedno (ds).</p>
-    <div class="table-card"><div class="table-responsive">
-      <table class="data-table prog-metoda-tablica">
+    <div class="table-responsive">
+      <table class="prog-retci prog-metoda-tablica">
         <thead><tr>
           <th>Postaja</th><th>Satni lanac — ulazi</th><th>R</th><th>Raspon</th><th>Dnevni model — ulazi</th><th>Dnevni od</th>
         </tr></thead>
@@ -153,19 +115,61 @@
         {{end}}
         </tbody>
       </table>
-    </div></div>
+    </div>
     {{else}}<p class="reg-card-sub">{{.BezLetvi}}</p>{{end}}
+  </section>
+
+  {{range .Glavni}}
+  <section class="letva-ploca prog-ploca">
+    <h2>{{.Naslov}}</h2>
+    {{template "prognoze-metoda-odlomci" .}}
+  </section>
+  {{end}}
+
+  {{with .Detaljni}}
+  <details class="letva-ploca prog-ploca prog-sklop" id="detalji">
+    <summary><h2 class="prog-sklop-naslov">Detalji</h2>
+      <span class="prog-sklop-opis">Za one koji provjeravaju račun: podaci, formule, provjere i povijest izmjena.</span></summary>
+    <p>Odjeljak se otvara klikom na naslov.</p>
+    {{range .}}
+    <details class="prog-detalji">
+      <summary>{{.Naslov}}</summary>
+      {{template "prognoze-metoda-odlomci" .}}
+    </details>
+    {{end}}
+  </details>
+  {{end}}
+
+  <section class="letva-ploca prog-ploca" id="suradnja">
+    <h2>Suradnja i podaci</h2>
+    <p>Model je nastao u neslužbenoj suradnji Tomislava Kraljevića i
+      <a href="{{.SuradnjaVeza}}" target="_blank" rel="noopener">prof. dr. Nenada Šuvaka</a>
+      s Fakulteta primijenjene matematike i informatike Sveučilišta u Osijeku.</p>
+    <p>Za ponavljanje računa izvan aplikacije daju se sirovi parovi prognoza–mjerenje, u CSV-u s točka-zarezom
+      (kako ga čitaju hrvatske postavke Excela; R i Python čitaju ga uz <code>sep=";"</code>). Vremena su u UTC,
+      vodostaji u cm na nuli letve, protoci u m³/s.</p>
+    <ul class="prog-izvozi">
+      {{range .Izvozi}}
+      <li><a href="{{.URL}}" class="btn prog-obrub">{{icon "download"}} {{.Naziv}}</a>{{if .Velicina}} <span class="reg-card-sub">({{.Velicina}})</span>{{end}}
+        <div class="reg-card-sub">{{.Opis}}</div></li>
+      {{end}}
+    </ul>
+    <p class="reg-card-sub">Stupci: izdano_utc, letva, velicina, ciljni_utc, doseg_h, prognoza, dolje, gore (granice raspona),
+      model (lanac-1 za satni lanac; dnevni-1 samo uz mjerenje u satu izdanja na letvama dnevnog modela izvan lanca),
+      iz_krivulje (da kad je vrijednost preračunata krivuljom protoka), izmjereno (prazno dok mjerenje ne stigne).
+      Prognoza dnevnog modela (1.–6. dan) u izdanja.csv ne ulazi. Provjera unatrag nema stupaca model i iz_krivulje,
+      a ima stupac postojanost — vrijednost u satu izdanja, kao pretpostavka da se ništa neće promijeniti.</p>
   </section>
 </div>
 {{end}}
 
 {{define "prognoze-metoda-odlomci"}}
     {{range .Odlomci}}{{if .Formula}}<div class="prog-formula" data-tex="{{.TeX}}">{{.Tekst}}</div>
-    {{else if .Tablica}}<div class="table-card prog-metoda-tablica-kartica"><div class="table-responsive">
-      <table class="data-table prog-metoda-tablica">{{if .Tablica.Naslov}}<caption>{{.Tablica.Naslov}}</caption>{{end}}
+    {{else if .Tablica}}<div class="table-responsive prog-metoda-tablica-kartica">
+      <table class="prog-retci prog-metoda-tablica">{{if .Tablica.Naslov}}<caption>{{.Tablica.Naslov}}</caption>{{end}}
         <thead><tr>{{range .Tablica.Stupci}}<th>{{.}}</th>{{end}}</tr></thead>
         <tbody>{{range .Tablica.Redci}}<tr>{{range $i, $c := .}}<td{{if $i}} class="nowrap"{{end}}>{{$c}}</td>{{end}}</tr>{{end}}</tbody>
-      </table></div></div>
+      </table></div>
     {{else if .Popis}}<ul class="prog-popis">{{range .Popis}}<li>{{.}}</li>{{end}}</ul>
     {{else}}<p>{{.Tekst}}</p>{{end}}{{end}}
 {{end}}

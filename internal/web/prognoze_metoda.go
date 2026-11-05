@@ -87,7 +87,8 @@ type PrognozeMetodaData struct {
 	Lanac        *SlikaLanca     // crtež lanca postaja, iz namještenih pojasa
 }
 
-// Glavni su odjeljci za dežurnog, na vrhu stranice.
+// Glavni su odjeljci za dežurnog, otvoreni ispod tablice postaja (dizajn
+// goCOP-m3: na vrhu su lanac, provjera na valovima i postaje).
 func (m PrognozeMetodaData) Glavni() []OdjeljakMetode { return odjeljciGdje(m.Odjeljci, false) }
 
 // Detaljni su odjeljci s formulama, provjerama i poviješću.
