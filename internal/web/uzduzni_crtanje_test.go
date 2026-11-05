@@ -15,7 +15,7 @@ import (
 // pažljivo, pa promjena ovdje znači promjenu slike.
 
 // letveDrave slaže Dravu od Varaždina do ušća s akumulacijama, pragovima,
-// prognozom na svim dosezima i nizom za klizač. Dnevni model nema vrijednosti
+// prognozom na svim dosezima i nizom po satu. Dnevni model nema vrijednosti
 // na svakoj letvi, kao ni u stvarnosti; Barcsu nedostaje i zadnji doseg
 // satnog lanca.
 func letveDrave() []LetvaProfila {
@@ -48,7 +48,7 @@ func letveDrave() []LetvaProfila {
 				l.Granice[d] = [2]float64{l.Cm[d] - float64(d)/8, l.Cm[d] + float64(d)/6}
 			}
 		}
-		for h := KlizacOd; h <= 144; h += 3 {
+		for h := MjerenoOd; h <= 144; h += 3 {
 			l.Niz[h] = math.Round(val(h)*10) / 10
 		}
 		letve = append(letve, l)
@@ -69,6 +69,11 @@ func letveDrave() []LetvaProfila {
 	usce.Pragovi = map[string]float64{}
 	return append(letve, usce)
 }
+
+// dosezniProfila su dosezi kojima su probe crteža pisane: satni lanac do
+// 96 h, pa dnevni model za peti i šesti dan. Stranica crta termine čipova
+// (terminiProfila), a crtež isto za bilo koji skup dosega.
+var dosezniProfila = []int{6, 12, 24, 48, 72, 96, 120, 144}
 
 var uscaDrave = []UsceUlaz{
 	{Naziv: "ušće Mure", Rkm: 236.3, Tekst: "Goričan 210 cm", Vezano: true},
@@ -104,7 +109,7 @@ func TestUzduzniProfilDraveOstajeIsti(t *testing.T) {
 	// Zadnji doseg satnog lanca spaja susjede preko Barcsa, kao i ostali sati.
 	for _, c := range p.Crte {
 		if c.Doseg == SatniLanacDo && strings.Count(c.Put, "M") != 1 {
-			t.Errorf("crta %s prekinuta: %s", c.Naziv, c.Put)
+			t.Errorf("crta za %d h prekinuta: %s", c.Doseg, c.Put)
 		}
 	}
 }
@@ -124,7 +129,7 @@ func zaokruziZapis(s string) string {
 
 var reDecimalni = regexp.MustCompile(`-?\d+\.\d+(e[-+]\d+)?`)
 
-const sazetakDrave = "c75b738e635310684dbc4cf5c1636b43c5ea9e448a1a46bd6ff12bfd291d5691"
+const sazetakDrave = "2e92a6e330b0078fe32eaa3643cf150088cc272b6d7650bf03c001cfd190fa65"
 
 // letveDunava slaže Dunav od Bratislave do Bačke Palanke pri visokoj vodi, s
 // pragovima blizu vala: bez ušća i akumulacije, pa pragovi ulaze u crtež.
@@ -159,7 +164,7 @@ func letveDunava() []LetvaProfila {
 				l.Granice[d] = [2]float64{l.Cm[d] - 5 - float64(d)/10, l.Cm[d] + 5 + float64(d)/7}
 			}
 		}
-		for h := KlizacOd; h <= 144; h += 2 {
+		for h := MjerenoOd; h <= 144; h += 2 {
 			l.Niz[h] = math.Round(val(h)*10) / 10
 		}
 		letve = append(letve, l)
@@ -182,7 +187,7 @@ func TestUzduzniProfilDunavaOstajeIsti(t *testing.T) {
 	}
 }
 
-const sazetakDunava = "2b8beb4b83e370e0659edea1e3bac844d69558b361b81be03a9329189cf395d5"
+const sazetakDunava = "e16dc7de71e34c8cf18e518bf7952b7f81046131e560af83a17ae9bf602f778b"
 
 // Kad je voda velika, nula i referentne crte ostaju ispod crteža, pa i
 // napomena ide dolje; jedna stvar „je”, više njih „su”.

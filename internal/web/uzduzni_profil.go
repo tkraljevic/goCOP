@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // Uzdužni profil: kako se voda mijenja uzduž toka, od uzvodne letve prema ušću.
@@ -22,12 +23,11 @@ import (
 // koji je jutros u Budimpešti na njoj je brijeg iznad Budimpešte, a crte
 // prognoze pokazuju kako se taj brijeg pomiče prema Batini i kako se usput
 // razvlači. Jutro stoji zato da se u svako doba dana vidi koliko je koja
-// letva od jutra porasla ili pala — to piše uz svaku točku klizača.
+// letva od jutra porasla ili pala.
 //
-// Svaki doseg ima svoju crtu, od najsvjetlije (za 6 h) do najtamnije (šesti
-// dan), a uz crtež ide i klizač vremena kojim se ista slika gleda sat po sat,
-// od mjerenja prije dva dana do kraja prognoze — tako se vidi da val doista
-// putuje nizvodno.
+// Svaki termin (sada, +12 h, šest dana u 7 h) ima svoju crtu, ali se vidi
+// samo odabrani: čipovi iznad crteža biraju koji (terminiProfila). Tako se
+// crte ne slažu jedna preko druge, a val se prati klikom od dana do dana.
 
 // LetvaProfila je jedna letva na uzdužnom profilu.
 type LetvaProfila struct {
@@ -42,20 +42,24 @@ type LetvaProfila struct {
 	DugiMedijanCm float64 // uobičajena voda: medijan dnevnih vodostaja zadnjih deset godina (0 = nema)
 	SrednjakCm    float64 // srednji vodostaj (SV) istih deset godina (0 = nema)
 	ImaUobicajeno bool
-	Cm            map[int]float64    // doseg u satima → prognozirani vodostaj
+	Cm            map[int]float64    // doseg u satima → vodostaj; 0 je zadnje mjerenje, ostalo prognoza
 	Granice       map[int][2]float64 // doseg → donja i gornja granica
 	Pragovi       map[string]float64 // prep | regular | emerg → cm
-	Niz           map[int]float64    // sat prema izdanju (SatOd … SatDo) → vodostaj, za klizač
 	Razina        string             // faza obrane danas: prep | regular | emerg | crit
 	Usce          bool               // nije letva nego kraj pritoke s vrijednostima letve glavnog toka: u krivulji jest, natpisa nema
-	Akumulacija   bool               // razina akumulacije uz branu: kota nad morem, točka koja se s klizačem diže i spušta, u krivulju vala ne ulazi
+	Akumulacija   bool               // razina akumulacije uz branu: kota nad morem, samo točka, u krivulju vala ne ulazi
+
+	// Niz je vodostaj po satu prema izdanju: mjerenja zadnja dva dana i
+	// prognoza. Ne crta se, ali ulazi u mjerilo, pa crtež ne skače kad se
+	// odabere drugi termin.
+	Niz map[int]float64
 }
 
 // ProfilCrta je jedna crta uzduž toka.
 type ProfilCrta struct {
-	Naziv string
-	Class string
-	Doseg int
+	Naziv string // samo prag obrane: „pripremno stanje”
+	Class string // samo prag obrane: boja faze
+	Doseg int    // samo termin: sati od izdanja, 0 je zadnje mjerenje
 	Put   string
 	Pojas string // granice prognoze, kao zatvorena ploha
 }
@@ -96,10 +100,10 @@ type UzduzniProfil struct {
 	Pad                     string // koliko voda pada od prve do zadnje letve
 	Usca                    []UsceProfila
 	Brane                   []BranaProfila
-	SatOd, SatDo            int // raspon klizača, sati prema izdanju
-	Niz                     template.JS
-	NulaKratko              string   // razdoblje nule: „zadnjih 30 dana” ili „od 20. 9.”
-	Izostavljeno            []string // letve koje nisu na crtežu i zašto: „Siga — mjerni uređaj stoji …”
+	Niz                     template.JS // vrijednosti letvi po terminu, za oblačić
+	Odabrano                int         // doseg odabranog termina: ta crta se vidi, ostale su skrivene
+	NulaKratko              string      // razdoblje nule: „zadnjih 30 dana” ili „od 20. 9.”
+	Izostavljeno            []string    // letve koje nisu na crtežu i zašto: „Siga — mjerni uređaj stoji …”
 }
 
 // NulaNaziv je natpis crte nule: „voda zadnjih 30 dana”.
@@ -116,18 +120,49 @@ func (p *UzduzniProfil) DnoY() float64    { return float64(p.Height) - p.Dno }
 func (p *UzduzniProfil) OsY() float64     { return p.Lijevo - 8 }
 func (p *UzduzniProfil) OsX() float64     { return float64(p.Height) - 8 }
 
-// dosezniProfila su prognoze koje se crtaju uz jutarnje stanje: satni lanac do
-// 96 sati, pa dnevni model za peti i šesti dan. Dosezi se broje od izdanja,
-// pa crte idu naprijed sa svakim novim izdanjem, a jutro stoji. Boje idu od
-// najsvjetlije do najtamnije, kako doseg raste.
-var dosezniProfila = []int{6, 12, 24, 48, 72, 96, 120, 144}
-
-// nazivDosega piše doseg kako ga dežurni izgovara: sati do četvrtog dana, dalje dani.
-func nazivDosega(d int) string {
-	if d > 96 && d%24 == 0 {
-		return fmt.Sprintf("za %d d", d/24)
+// Naslov je naslov profila u glavi kartice i u retku na mobitelu:
+// „Uzdužni profil Drave”, „Uzdužni profil Dunava”.
+func (p *UzduzniProfil) Naslov() string {
+	if g, ok := genitivVodotoka(p.Ime); ok {
+		return "Uzdužni profil " + g
 	}
-	return fmt.Sprintf("za %d h", d)
+	return "Uzdužni profil · " + p.Ime
+}
+
+// genitivVodotoka mijenja ime toka riječ po riječ: na -a u -e (Drava →
+// Drave, Brodska rijeka → Brodske rijeke), a na suglasnik dodaje -a (Dunav →
+// Dunava); veznik „i” ostaje. Ime koje se tako ne da promijeniti (na -o, -e
+// …) vraća se s ok=false, pa naslov ostaje u nominativu.
+func genitivVodotoka(ime string) (string, bool) {
+	rijeci := strings.Fields(ime)
+	if len(rijeci) == 0 {
+		return "", false
+	}
+	for i, r := range rijeci {
+		zadnje := []rune(r)[len([]rune(r))-1]
+		switch {
+		case r == "i":
+		case zadnje == 'a':
+			rijeci[i] = strings.TrimSuffix(r, "a") + "e"
+		case strings.ContainsRune("eiouEIOU", zadnje) || !unicode.IsLetter(zadnje):
+			return "", false
+		default:
+			rijeci[i] = r + "a"
+		}
+	}
+	return strings.Join(rijeci, " "), true
+}
+
+// ImaCrtu kaže je li za termin s tim dosegom na profilu nacrtana crta.
+// Termin bez nje (dnevni model ne seže do svih letvi, ili ima samo jednu)
+// legenda tako i opiše, umjesto da obeća plavu crtu koje nema.
+func (p *UzduzniProfil) ImaCrtu(doseg int) bool {
+	for _, c := range p.Crte {
+		if c.Doseg == doseg {
+			return true
+		}
+	}
+	return false
 }
 
 var pragoviProfila = []struct{ kljuc, naziv, class string }{
@@ -146,9 +181,9 @@ const NajmanjiRaspon = 20.0
 // u sliku — i to je trenutak kad je i treba vidjeti.
 const KolikoDalekoPrag = 2.0
 
-// KlizacOd je koliko sati unatrag klizač vremena seže: dva dana mjerenja,
-// da se vidi odakle je val došao.
-const KlizacOd = -48
+// MjerenoOd je koliko sati unatrag se čitaju mjerenja za mjerilo crteža: dva
+// dana, da val koji je upravo prošao stane u isti crtež.
+const MjerenoOd = -48
 
 // KolikoDalekoNula kaže koliko daleko nula, dugogodišnji medijan i srednjak
 // smiju biti da se još crtaju, u širinama vala. Dalje od toga spljoštili bi val.
@@ -261,7 +296,7 @@ func crtajUzduzni(ime string, letve []LetvaProfila, usca []UsceUlaz, brane ...Br
 	korisne = akumulacijeMeduLetvama(korisne)
 
 	p := &UzduzniProfil{Ime: ime, Oznaka: oznakaImena(ime), Width: 1600, Height: 560,
-		Lijevo: 86, Desno: 96, Vrh: 64, Dno: 76, SatOd: KlizacOd}
+		Lijevo: 86, Desno: 96, Vrh: 64, Dno: 76}
 	r, uSlici, dugiUSlici, svUSlici := visinaCrteza(korisne, p)
 	najOd, najDo := r.najOd, r.najDo
 	rub := (najDo - najOd) / 10
@@ -290,7 +325,7 @@ func crtajUzduzni(ime string, letve []LetvaProfila, usca []UsceUlaz, brane ...Br
 
 	p.YTicks = oznakeVisine(najOd, najDo, yOf)
 	opisiProfila(p, ime, prva, zadnja)
-	p.Niz = nizZaKlizac(korisne, p, xOf, yOf)
+	p.Niz = nizZaOblacic(korisne, p.Crte, xOf)
 	return p
 }
 
@@ -345,7 +380,7 @@ func (r *rasponCrteza) uzmi(cm float64) {
 // visinaCrteza odlučuje što ulazi u visinu crteža: val, a uz njega pragovi,
 // nula, dugogodišnji medijan i srednjak, ali samo oni koji su mu blizu.
 func visinaCrteza(korisne []LetvaProfila, p *UzduzniProfil) (r rasponCrteza, uSlici []int, dugiUSlici, svUSlici bool) {
-	r = rasponVala(korisne, p)
+	r = rasponVala(korisne)
 	if r.najDo-r.najOd < NajmanjiRaspon {
 		sredina := (r.najOd + r.najDo) / 2
 		r.najOd, r.najDo = sredina-NajmanjiRaspon/2, sredina+NajmanjiRaspon/2
@@ -373,37 +408,28 @@ func visinaCrteza(korisne []LetvaProfila, p *UzduzniProfil) (r rasponCrteza, uSl
 	return r, uSlici, dugiUSlici, svUSlici
 }
 
-// rasponVala skuplja jutro, prognozu, granice i niz klizača svake letve, i
-// usput produžuje klizač do zadnjeg sata niza.
-func rasponVala(korisne []LetvaProfila, p *UzduzniProfil) rasponCrteza {
+// rasponVala skuplja jutro, termine, granice i niz po satu svake letve.
+func rasponVala(korisne []LetvaProfila) rasponCrteza {
 	r := rasponCrteza{math.Inf(1), math.Inf(-1)}
 	for _, l := range korisne {
 		// Razina akumulacije ne ravna mjerilo: elektrana je u danu diže i
 		// spušta metar i više, pa bi rijeka stala u tanku traku. Kad ne stane,
 		// točka joj stoji na rubu crteža.
 		if l.Akumulacija {
-			for h := range l.Niz {
-				p.SatDo = max(p.SatDo, h)
-			}
 			continue
 		}
 		r.uzmi(l.JutroCm - l.UobicajenoCm)
-		for _, d := range dosezniProfila {
-			if v, ima := l.Cm[d]; ima {
-				r.uzmi(v - l.UobicajenoCm)
-			}
-			if g, ima := l.Granice[d]; ima {
-				r.uzmi(g[0] - l.UobicajenoCm)
-				r.uzmi(g[1] - l.UobicajenoCm)
-			}
-		}
-		// I ono što klizač pokazuje mora stati u sliku: val koji je prošao
-		// prije dva dana dio je iste priče.
-		for h, v := range l.Niz {
+		for _, v := range l.Cm {
 			r.uzmi(v - l.UobicajenoCm)
-			if h > p.SatDo {
-				p.SatDo = h
-			}
+		}
+		for _, g := range l.Granice {
+			r.uzmi(g[0] - l.UobicajenoCm)
+			r.uzmi(g[1] - l.UobicajenoCm)
+		}
+		// I niz po satu mora stati u sliku: val koji je prošao prije dva
+		// dana dio je iste priče, a mjerilo ostaje isto za svaki termin.
+		for _, v := range l.Niz {
+			r.uzmi(v - l.UobicajenoCm)
 		}
 	}
 	return r
@@ -561,12 +587,28 @@ func referentneCrte(p *UzduzniProfil, korisne []LetvaProfila, xOf, yOf func(floa
 	}
 }
 
-// crteDosega povlači crtu prognoze za svaki doseg koji ima barem dvije letve,
-// a satnom lancu dodaje i pojas granica.
+// dosezniLetvi su svi dosezi za koje neka letva ima vrijednost, redom.
+func dosezniLetvi(korisne []LetvaProfila) []int {
+	vidjen := map[int]bool{}
+	var dosezi []int
+	for _, l := range korisne {
+		for d := range l.Cm {
+			if !vidjen[d] && !l.Akumulacija {
+				vidjen[d] = true
+				dosezi = append(dosezi, d)
+			}
+		}
+	}
+	sort.Ints(dosezi)
+	return dosezi
+}
+
+// crteDosega povlači crtu za svaki doseg koji ima barem dvije letve, a satnom
+// lancu dodaje i pojas granica.
 func crteDosega(korisne []LetvaProfila, xOf, yOf func(float64) float64) []ProfilCrta {
 	var crte []ProfilCrta
-	for i, d := range dosezniProfila {
-		c := ProfilCrta{Naziv: nazivDosega(d), Class: fmt.Sprintf("h%d", i+1), Doseg: d}
+	for _, d := range dosezniLetvi(korisne) {
+		c := ProfilCrta{Doseg: d}
 		vrijednost := func(l LetvaProfila) (float64, bool) { v, ima := l.Cm[d]; return v - l.UobicajenoCm, ima }
 		if d > SatniLanacDo {
 			// Dnevni model ima vrijednosti samo na dijelu letvi: crta se
@@ -579,7 +621,7 @@ func crteDosega(korisne []LetvaProfila, xOf, yOf func(float64) float64) []Profil
 		if c.Put == "" {
 			continue
 		}
-		if d <= SatniLanacDo {
+		if d > 0 && d <= SatniLanacDo {
 			c.Pojas = plohaGranica(korisne, d, xOf, yOf)
 		}
 		crte = append(crte, c)
@@ -765,11 +807,11 @@ func opisiProfila(p *UzduzniProfil, ime string, prva, zadnja LetvaProfila) {
 		", u centimetrima iznad ili ispod vode zadnjih 30 dana, jutros i u prognozi"
 }
 
-// nizProfila je ono što klizač vremena treba: za svaki sat i svaku letvu
-// odstupanje od uobičajene vode, i jutro i uobičajena voda svake letve, da se
-// uz točku može napisati koliko je od jutra poraslo ili palo.
+// nizProfila je ono što oblačić treba: za svaku letvu vrijednost u svakom
+// terminu, jutro, nula, uobičajena voda i srednji vodostaj, da se uz letvu
+// može napisati koliko je od jutra poraslo ili palo.
 type nizProfila struct {
-	Sati  []int        `json:"sati"`
+	Sati  []int        `json:"sati"` // dosezi termina, isti kao data-doseg crta
 	Letve []string     `json:"letve"`
 	X     []float64    `json:"x"`
 	Sada  []*float64   `json:"sada"`  // po letvi: zadnje izmjereno, cm
@@ -777,28 +819,20 @@ type nizProfila struct {
 	Uob   []float64    `json:"uob"`   // po letvi: nula, medijan vode zadnjih 30 dana, cm
 	Dugi  []float64    `json:"dugi"`  // po letvi: uobičajena voda deset godina (medijan), cm
 	SV    []float64    `json:"sv"`    // po letvi: srednji vodostaj, cm
-	NulaY float64      `json:"nulaY"`
-	PoCm  float64      `json:"poCm"` // točaka crteža po centimetru
-	Usce  []bool       `json:"usce"` // po letvi: točka ušća, koja krivulju samo produžuje
-	Akum  []bool       `json:"akum"` // po letvi: razina akumulacije, točka izvan krivulje
-	V     [][]*float64 `json:"v"`    // po letvi, po satu: odstupanje od uobičajene vode; null gdje nema
-	// PrekidOd je sat iza kojega crta klizača prekida ondje gdje letva nema
-	// vrijednosti (dnevni model), umjesto da spoji susjede.
-	PrekidOd int `json:"prekidOd"`
-	// Vrh i Dno omeđuju crtež: točka akumulacije izvan njih stoji na rubu.
-	Vrh float64 `json:"vrh"`
-	Dno float64 `json:"dno"`
+	Akum  []bool       `json:"akum"`  // po letvi: razina akumulacije, kota nad morem u cm
+	V     [][]*float64 `json:"v"`     // po letvi, po terminu: vodostaj u cm; null gdje nema
 }
 
-func nizZaKlizac(korisne []LetvaProfila, p *UzduzniProfil, xOf, yOf func(float64) float64) template.JS {
-	n := nizProfila{NulaY: p.NulaY, PoCm: yOf(0) - yOf(1), PrekidOd: SatniLanacDo,
-		Vrh: p.Vrh + RubAkumulacije, Dno: p.DnoY() - RubAkumulacije}
-	for h := p.SatOd; h <= p.SatDo; h++ {
-		n.Sati = append(n.Sati, h)
+func nizZaOblacic(korisne []LetvaProfila, crte []ProfilCrta, xOf func(float64) float64) template.JS {
+	var n nizProfila
+	for _, c := range crte {
+		n.Sati = append(n.Sati, c.Doseg)
 	}
 	for _, l := range korisne {
+		if l.Usce {
+			continue // točka ušća nije letva: natpisa nema, pa ni oblačića
+		}
 		n.Letve = append(n.Letve, l.Naziv)
-		n.Usce = append(n.Usce, l.Usce)
 		n.Akum = append(n.Akum, l.Akumulacija)
 		n.X = append(n.X, math.Round(xOf(l.Rkm)*10)/10)
 		n.Jutro = append(n.Jutro, l.JutroCm)
@@ -812,14 +846,10 @@ func nizZaKlizac(korisne []LetvaProfila, p *UzduzniProfil, xOf, yOf func(float64
 		}
 		n.Sada = append(n.Sada, sada)
 		red := make([]*float64, len(n.Sati))
-		for i, h := range n.Sati {
-			v, ima := l.Niz[h]
-			if h == 0 {
-				v, ima = l.SadaCm, l.ImaSada
-			}
-			if ima {
-				d := math.Round((v-l.UobicajenoCm)*10) / 10
-				red[i] = &d
+		for i, d := range n.Sati {
+			if v, ima := l.Cm[d]; ima {
+				v = math.Round(v*10) / 10
+				red[i] = &v
 			}
 		}
 		n.V = append(n.V, red)
