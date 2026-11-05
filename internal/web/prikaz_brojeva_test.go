@@ -1879,26 +1879,26 @@ func TestZabiljezeniEkstremiRazlikujuPodrijetlo(t *testing.T) {
 		"14.6.2013.", "7.1.1909.", "22.8.2026.", // datumi hrvatski
 		"-151 cm", "-127 cm",
 		"izmjereno", "rekonstruirano",
-		"— preračun iz vodostaja Bezdana", // način odvojen crticom
+		"preračun iz vodostaja Bezdana",
 	} {
 		if !strings.Contains(html, want) {
-			t.Errorf("u tablici ekstrema nema %q", want)
+			t.Errorf("u ekstremima nema %q", want)
 		}
 	}
 	// način i napomena ne smiju se slijepiti u jednu rečenicu
 	if strings.Contains(html, "Bezdana Bezdan je") {
 		t.Error("način i napomena su slijepljeni")
 	}
-	// Ekstremi se ispisuju dvaput: tablicom za širok zaslon i karticama za
-	// uzak. Oba minimuma moraju biti u oba oblika.
-	if strings.Count(html, "najniži") != 4 {
-		t.Errorf("dva minimuma u dva oblika daju četiri spomena, nađeno %d",
-			strings.Count(html, "najniži"))
+	// Svaki ekstrem je jedna pločica, isti oblik na svim zaslonima.
+	if n := strings.Count(html, "Najniži"); n != 2 {
+		t.Errorf("dva minimuma daju dvije pločice, nađeno %d", n)
 	}
-	for _, oblik := range []string{"ekstremi-siroko", "ekstremi-usko"} {
-		if !strings.Contains(html, oblik) {
-			t.Errorf("nedostaje oblik %q", oblik)
-		}
+	if !strings.Contains(html, "ekstremi-plocice") {
+		t.Error("ekstremi nisu u pločicama")
+	}
+	// Način se ne prikazuje uz broj nego sklopljen ispod.
+	if !strings.Contains(html, "Kako je zabilježeno") {
+		t.Error("način nije sklopljen ispod pločice")
 	}
 	// Način i napomena su objašnjenje, ne vrijednost — ukoso i sitnije.
 	if !strings.Contains(html, "ekstrem-nacin") {
