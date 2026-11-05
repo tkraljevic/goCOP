@@ -36,7 +36,8 @@ mijenjaju, pa računala ne treba nadograditi isti dan.
   veže na onaj koji zalijepiš u polje „Postaja na telemetriji”, a ne na
   onaj koji se zadnji javio.
 - **Karta.** Okvir ispisa u zadanom mjerilu povlači se po karti; ispis
-  radi i u Safariju, a legenda ispisuje i crte.
+  radi i u Safariju, a legenda ispisuje i crte. Paket karte koji ne
+  odgovara svom opisu više ne briše kartu koju računalo već ima.
 
 ## 0.0.52-alfa — 4. 11. 2026.
 
