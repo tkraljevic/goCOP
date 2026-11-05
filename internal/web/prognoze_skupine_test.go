@@ -96,7 +96,7 @@ func TestSkupinePrognozaSektorB(t *testing.T) {
 		"inundacija-dunava": "Inundacija Dunava: zlatna-greda",
 		"drava":             "Drava: novo-virje donji-miholjac dravaszabolcs osijek",
 		"karasica":          "Karašica: kapelna",
-		"ostale":            "Ostale letve: bez-vode",
+		"ostale":            "Bez vodotoka: bez-vode",
 	}
 	if got := vodotociSektora(sk[1]); !reflect.DeepEqual(got, zeli) {
 		t.Errorf("sektor B:\n%v\nželim\n%v", got, zeli)
@@ -112,7 +112,7 @@ func TestSkupinePrognozaSektorB(t *testing.T) {
 		t.Errorf("sektor A: %v", got)
 	}
 	if got := vodotociSektora(sk[3]); !reflect.DeepEqual(got, map[string]string{"mura": "Mura: granicni-brod pogranicje mursko",
-		"drava": "Drava: prolaz", "ostale": "Ostale letve: nepoznata"}) {
+		"drava": "Drava: prolaz", "ostale": "Bez vodotoka: nepoznata"}) {
 		t.Errorf("ostale letve: %v", got)
 	}
 	cijela := cijeliVodotok(sk, "Drava", letveKodovi(letve))
@@ -234,7 +234,7 @@ func TestNaslovIOpisDijela(t *testing.T) {
 		{VodotokPrognoze{Oznaka: "drava", Ime: "Drava", Voda: "Drava"}, "Letve na Dravi, od uzvodne prema nizvodnoj"},
 		{VodotokPrognoze{Oznaka: "dunav-uzvodno", Ime: DunavUzvodno, Voda: "Dunav"}, "Letve na Dunavu uzvodno, od uzvodne prema nizvodnoj"},
 		{VodotokPrognoze{Oznaka: "inundacija-dunava", Ime: SkupinaInundacije}, "Letve u inundaciji Dunava, redom kako voda teče"},
-		{VodotokPrognoze{Oznaka: oznakaOstalih, Ime: OstaleLetve}, OstaleLetve},
+		{VodotokPrognoze{Oznaka: oznakaOstalih, Ime: BezVodotoka}, BezVodotoka},
 		{VodotokPrognoze{Oznaka: "jezero-proba", Ime: "jezero Proba", Voda: "jezero Proba"}, "Letve: jezero Proba, od uzvodne prema nizvodnoj"},
 		{VodotokPrognoze{Oznaka: "prokop", Ime: "Prokop", Voda: "Prokop"}, "Letve na Prokopu, od uzvodne prema nizvodnoj"},
 		{VodotokPrognoze{Oznaka: "kanal-o", Ime: "Kanalo", Voda: "Kanalo"}, "Letve: Kanalo, od uzvodne prema nizvodnoj"},
@@ -348,13 +348,13 @@ func TestIzborIzAdrese(t *testing.T) {
 		cipovi[c.Oznaka] = c
 	}
 	if c := cipovi["C"]; !c.Prazan || c.URL != "" || c.Naziv != "C · Prazni primjer" ||
-		c.Napomena != "Nijedna letva iz prognoze nije povezana s ovim sektorom. Nepovezane letve su pod „Ostale letve”." {
+		c.Napomena != "Nijedna letva iz prognoze nije povezana s ovim sektorom. Letve kojima u registru nije upisan sektor su pod „Bez sektora”." {
 		t.Errorf("prazan sektor %+v", c)
 	}
 	if c := cipovi["B"]; !c.Odabran || c.URL != "/prognoze?dan=2&sektor=B" {
 		t.Errorf("čip B %+v", c)
 	}
-	if c := cipovi[oznakaOstalih]; c.Naziv != OstaleLetve {
+	if c := cipovi[oznakaOstalih]; c.Naziv != BezSektora {
 		t.Errorf("čip ostalih %+v", c)
 	}
 	if v := iz.Vodotoci[3]; !v.Odabran || v.URL != "/prognoze?dan=2&sektor=B&vodotok=drava" {

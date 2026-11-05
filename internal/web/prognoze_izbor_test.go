@@ -119,6 +119,8 @@ func TestStranicaIzboraSektoraIVodotoka(t *testing.T) {
 		`href="/prognoze?dan=2&amp;sektor=B&amp;vodotok=brodska-rijeka" class="uzd-cip prog-cip prog-cip-vodotok" aria-current="true">Brodska rijeka</a>`,
 		`<h2 class="prog-voda">Letve: Brodska rijeka, od uzvodne prema nizvodnoj</h2>`,
 		`href="/prognoze.xlsx?sektor=B&amp;vodotok=brodska-rijeka&amp;t=`,
+		// uz odabrani vodotok uvijek i izvoz cijelog izdanja (Odluke 5. 11. 2026.)
+		`href="/prognoze.xlsx?t=`, ">Izvoz cijelog izdanja</a>",
 		`<select name="sektor" class="prog-polje-izbor">`, `<option value="B" selected>B · Dunav i donja Drava</option>`,
 		` disabled>C · Gornja Sava (nema povezanih letvi)</option>`, `<input type="hidden" name="dan" value="2">`, `>Prikaži</button>`,
 		"Uzdužnog profila nema", // u sektoru B je samo jedna letva te vode

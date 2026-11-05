@@ -14,7 +14,7 @@ import (
 // upisanog sektora ili područja. Tuđa letva (mađarska, slovenska, srpska)
 // ide uz sektor kojem je ulaz ili koji je iz nje računa, a kad ni to ne
 // postoji, uz najbližu letvu na istoj vodi. Dunav se dijeli kod Batine i
-// Bezdana. Letva bez sektora ide u „Ostale letve”, da ne nestane.
+// Bezdana. Letva bez sektora ide u „Bez sektora”, da ne nestane.
 
 // SektorPrognoze je sektor s vodotocima na kojima ima letve izdanja.
 type SektorPrognoze struct {
@@ -33,8 +33,11 @@ type VodotokPrognoze struct {
 }
 
 const (
-	// OstaleLetve je skupina letvi bez sektora ili bez vodotoka.
-	OstaleLetve   = "Ostale letve"
+	// BezSektora je skupina letvi kojima u registru nije upisan sektor (ni
+	// dionicom, ni sektorom koji je prati); BezVodotoka su letve bez vodotoka.
+	// Sektor se letvi može upisati bilo kada, u obrascu letve.
+	BezSektora    = "Bez sektora"
+	BezVodotoka   = "Bez vodotoka"
 	oznakaOstalih = "ostale"
 	DunavUzvodno  = "Dunav uzvodno"
 	DunavNizvodno = "Dunav nizvodno"
@@ -114,7 +117,7 @@ func vodotokLetve(kod string, postaje map[string]models.Station, g granicaDunava
 	ime := voda
 	switch voda {
 	case "":
-		return VodotokPrognoze{Oznaka: oznakaOstalih, Ime: OstaleLetve}
+		return VodotokPrognoze{Oznaka: oznakaOstalih, Ime: BezVodotoka}
 	case "Dunav":
 		ime = dioDunava(st, g)
 	}
@@ -264,7 +267,7 @@ func najblizaNaVodi(poznata []mjestoNaVodi, voda string, km float64) []string {
 
 // skupinePrognoza slaže letve izdanja (redom pregleda) u sektore i
 // vodotoke. Svaki sektor iz popisa dobije svoju skupinu, i kad nema letvi
-// (čip „nema prognoze”); letve bez sektora idu u skupinu „Ostale letve” na
+// (čip „nema prognoze”); letve bez sektora idu u skupinu „Bez sektora” na
 // kraju. Vodotok kroz više sektora stoji u svakom.
 func skupinePrognoza(letve []LetvaPrognoze, postaje map[string]models.Station, sektori []models.Sector,
 	vlastiti map[string][]string) []SektorPrognoze {
@@ -276,7 +279,7 @@ func skupinePrognoza(letve []LetvaPrognoze, postaje map[string]models.Station, s
 		mjesto[s.ID] = len(out)
 		out = append(out, SektorPrognoze{ID: s.ID, Ime: imeSektora(s)})
 	}
-	ostale := SektorPrognoze{ID: oznakaOstalih, Ime: OstaleLetve}
+	ostale := SektorPrognoze{ID: oznakaOstalih, Ime: BezSektora}
 	for _, l := range letve {
 		v := vodotokLetve(l.Kod, postaje, g)
 		smjestena := false
@@ -371,7 +374,7 @@ func naslovLetvi(v VodotokPrognoze, cijeli bool) string {
 	}
 	switch {
 	case v.Oznaka == oznakaOstalih:
-		return OstaleLetve
+		return BezVodotoka
 	case ime == SkupinaInundacije:
 		return "Letve u inundaciji Dunava, redom kako voda teče"
 	}

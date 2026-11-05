@@ -22,7 +22,7 @@
     {{end}}{{end}}
   </div>
   <div class="prog-cipovi prog-vodotoci">
-    <span class="prog-cipovi-naslov">{{if .Sektor.Ostale}}Ostale letve po vodotoku:{{else}}Vodotoci sektora {{.Sektor.ID}}:{{end}}</span>
+    <span class="prog-cipovi-naslov">{{if .Sektor.Ostale}}Letve bez sektora, po vodotoku:{{else}}Vodotoci sektora {{.Sektor.ID}}:{{end}}</span>
     {{range .Vodotoci}}<a href="{{.URL}}" class="uzd-cip prog-cip prog-cip-vodotok"{{if .Odabran}} aria-current="true"{{end}}>{{.Naziv}}</a>
     {{end}}
   </div>
@@ -65,7 +65,9 @@
   <div class="prog-radnje">
     <a href="/prognoze/o-prognozi" class="btn btn-link" title="Kako se prognoza računa">O prognozi</a>
     {{if .Tablice}}<a href="{{.AdresaIzvoza}}t={{svjeze}}" class="btn btn-link"
-      title="{{if .Izbor}}Letve odabranog vodotoka{{else}}Prognoza po vodama{{end}}, kao uredska tablica">Izvoz u Excel</a>{{end}}
+      title="{{if .Izbor}}Letve odabranog vodotoka{{else}}Prognoza po vodama{{end}}, kao uredska tablica">Izvoz u Excel</a>
+    {{if .Izbor}}<a href="/prognoze.xlsx?t={{svjeze}}" class="btn btn-link"
+      title="Sve letve izdanja, kao uredska tablica">Izvoz cijelog izdanja</a>{{end}}{{end}}
     {{if or .MozeGenerirati .MozePripremiti .Tablice}}<a href="/prognoze/postavke" class="btn btn-link"
       title="Izdavanje prognoze, priprema modela i ranije prognoze">Postavke</a>{{end}}
   </div>

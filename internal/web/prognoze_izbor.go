@@ -52,7 +52,7 @@ type ulazIzbora struct {
 // imaLetvi javlja ima li sektor ijednu letvu u izdanju.
 func (s SektorPrognoze) imaLetvi() bool { return len(s.Vodotoci) > 0 }
 
-// Ostale javlja je li to skupina „Ostale letve” (letve bez sektora).
+// Ostale javlja je li to skupina „Bez sektora” (letve bez sektora).
 func (s SektorPrognoze) Ostale() bool { return s.ID == oznakaOstalih }
 
 // odaberiSektor: traženi sektor ako ima letve, inače prvi iz dužnosti
@@ -144,11 +144,11 @@ func usceDijela(v VodotokPrognoze, usce map[string]string) string {
 
 // cipoviSektora su čipovi svih sektora; sektor bez letvi je prazan. Prazan
 // sektor ne mora biti bez prognoze: letve mu možda još nisu povezane u
-// registru (sektor A), pa napomena upućuje na „Ostale letve”.
+// registru (sektor A), pa napomena upućuje na „Bez sektora”.
 func cipoviSektora(skupine []SektorPrognoze, odabran, dan string) []CipPrognoze {
 	napomena := "Nijedna letva iz prognoze nije povezana s ovim sektorom."
 	if slices.ContainsFunc(skupine, SektorPrognoze.Ostale) {
-		napomena += " Nepovezane letve su pod „" + OstaleLetve + "”."
+		napomena += " Letve kojima u registru nije upisan sektor su pod „" + BezSektora + "”."
 	}
 	out := make([]CipPrognoze, 0, len(skupine))
 	for _, s := range skupine {
