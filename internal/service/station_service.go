@@ -39,6 +39,12 @@ func (s *StationService) ListStations(ctx context.Context, search, watercourse, 
 	return s.stationRepo.ListStations(ctx, search, watercourse, country, onlyNeedsReview)
 }
 
+// StationScopes vraća sektore i branjena područja do kojih letva dolazi
+// preko svojih dionica, po ID-u postaje.
+func (s *StationService) StationScopes(ctx context.Context) (map[string][]string, map[string][]int, error) {
+	return s.stationRepo.StationScopes(ctx)
+}
+
 // BrojOcitanja govori koliko je očitanja upisano na letvi.
 func (s *StationService) BrojOcitanja(ctx context.Context, id uuid.UUID) int {
 	return s.stationRepo.BrojOcitanja(ctx, id)

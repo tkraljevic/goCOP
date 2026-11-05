@@ -354,7 +354,7 @@ func TestProfilCrtaNizPrikaza(t *testing.T) {
 	jutro := Jutro{Cm: map[string]float64{"botovo": 100, "terezino-polje": -300}}
 	mjesec := NulaProfila{Cm: map[string]float64{"botovo": 90, "terezino-polje": -290}}
 	uobicajeno := map[string]Sredina{"botovo": {Medijan: 95, Srednjak: 97}}
-	profili := uzduzniProfili(postaje, p.pregled, prikaz, p.izdano, nil, nil, uobicajeno, mjesec, jutro)
+	profili := uzduzniProfili(postaje, p.pregled, prikaz, p.izdano, nil, nil, uobicajeno, mjesec, jutro, nil)
 	if len(profili) != 1 {
 		t.Fatalf("profili %+v: želim jedan profil Drave", profili)
 	}

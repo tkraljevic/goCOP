@@ -132,8 +132,11 @@ type LetvaPrognoze struct {
 	Rezerva         string // poruka kad se letva računa iz rezervnih ulaza
 	Preneseno       string // srpska letva: odakle je prognoza prenesena i koliko odnos drži
 	Upozorenje      string // zašto je prognoza letve u ovom izdanju upitna
-	Pragovi         []PragKartice
-	Prelazak        *Prelazak // od kojeg termina prognoza doseže višu fazu obrane nego sada
+	// TudjiSektor je „sektor A” uz letvu koju odabrani sektor samo prati, da
+	// se njezin stupanj ne čita kao obrana u tom sektoru (Odluke 5. 11. 2026.)
+	TudjiSektor string
+	Pragovi     []PragKartice
+	Prelazak    *Prelazak // od kojeg termina prognoza doseže višu fazu obrane nego sada
 	// Najniži i najviši zabilježeni vodostaj kao brojevi, za sažetak izvoza
 	KrajMin, KrajMax *Krajnost
 }
@@ -347,6 +350,10 @@ type PrognozePageData struct {
 	Tablice  []TablicaPrognoza
 	Izdaje   string // centar koji prognozu izdaje, npr. COP Osijek
 
+	// Izbor je sektor pa vodotok (?sektor=B&vodotok=drava): stranica
+	// pokazuje samo njegove letve i profil. Nil kad registra sektora nema.
+	Izbor *IzborPrognoze
+
 	// Upozorenja uz izdanje: otvorena, sklopljene napomene i zastarjelost
 	Upozorenja, Napomene []UpozorenjeStranice
 	Zastarjelo           string
@@ -382,7 +389,9 @@ type TablicaPrognoza struct {
 
 func (h *PrognozeHandler) ShowPrognoze(w http.ResponseWriter, r *http.Request) {
 	o := h.nacini(r.Context())
-	h.iscrtaj(w, h.podaci(r, o.PrognozaPrikaz))
+	data := h.podaci(r, o.PrognozaPrikaz)
+	suziStranicu(&data)
+	h.iscrtaj(w, data)
 }
 
 // ShowPostavke je stranica „Postavke prognoze”: generiranje i priprema modela,
@@ -617,11 +626,16 @@ func (h *PrognozeHandler) podaci(r *http.Request, nacin string) PrognozePageData
 	data.Tablice = poVodama(data.Letve, postaje)
 	data.Izdaje = h.centar(data.CurrentUser)
 	data.pregled, data.dnevne, data.postajeM = letve, dnevne, postaje
+	data.Izbor = h.izborPrognoze(r, letveRedom(data.Tablice), postaje)
+	var samo map[string]bool // letve izbora; nil crta sve vode
+	if data.Izbor != nil {
+		samo = skupKodova(data.Izbor.kodovi)
+	}
 	naProfilu := letveProfila(postaje, letve)
 	jutro := h.jutarnje(r.Context(), postaje, naProfilu, sadZahtjeva(r))
 	data.Profili = uzduzniProfili(postaje, letve, data.prikaz, izdano,
 		h.mjerenoUnatrag(r.Context(), postaje, letve, izdano), h.usca(r.Context(), postaje, letve),
-		h.uobicajeno(r.Context(), postaje, naProfilu), h.mjesecno(r.Context(), postaje, naProfilu, jutro.Dan), jutro)
+		h.uobicajeno(r.Context(), postaje, naProfilu), h.mjesecno(r.Context(), postaje, naProfilu, jutro.Dan), jutro, samo)
 	for _, p := range data.Profili {
 		p.Odabrano = data.Termin.Doseg
 	}
@@ -980,7 +994,7 @@ func uDosezima(d int) bool {
 func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve,
 	prikaz map[string]nizPrikaza, izdano time.Time,
 	mjereno map[string]map[int]float64, usca map[string][]UsceUlaz,
-	uobicajeno map[string]Sredina, mjesec NulaProfila, jutro Jutro) []*UzduzniProfil {
+	uobicajeno map[string]Sredina, mjesec NulaProfila, jutro Jutro, samo map[string]bool) []*UzduzniProfil {
 	dani, ciljevi := daniPregleda(izdano)
 	termini := terminiProfila(dani, ciljevi, izdano.Unix()/3600)
 	poVodi := map[string][]LetvaProfila{}
@@ -1075,10 +1089,26 @@ func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve,
 	}
 	var out []*UzduzniProfil
 	for _, voda := range redom {
-		if p := crtajUzduzni(voda, poVodi[voda], usca[voda], brane[voda]...); p != nil {
+		if p := crtajUzduzni(voda, samoIzbora(poVodi[voda], samo), usca[voda], brane[voda]...); p != nil {
 			p.JutroOpis = opisJutra(jutro.Dan)
 			mjesec.opisi(p, voda)
 			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// samoIzbora ostavlja na profilu letve izbora i kraj pritoke na ušću; bez
+// izbora (nil) ostaje sve. Ušća se slažu iz svih letvi, pa Drava i kad je
+// odabrana sama ide do ušća s vodostajem Aljmaša.
+func samoIzbora(letve []LetvaProfila, samo map[string]bool) []LetvaProfila {
+	if samo == nil {
+		return letve
+	}
+	var out []LetvaProfila
+	for _, l := range letve {
+		if l.Usce || samo[l.Letva] {
+			out = append(out, l)
 		}
 	}
 	return out

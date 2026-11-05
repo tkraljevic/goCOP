@@ -5047,6 +5047,7 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .prog-termin.dan-moguce-regular { border-color: var(--faza-r-crta); }
 .prog-termin.dan-moguce-emerg { border-color: var(--faza-i-crta); }
 .prog-termin.dan-moguce-crit { border-color: var(--faza-s-crta); }
+.prog-tudji-sektor { font-weight: 500; color: var(--md-sys-color-on-surface, var(--text)); }
 .prog-povuci { display: none; margin: 8px 0 0; font-size: 0.75rem; color: var(--text-muted); }
 /* Mobitel: termini u jednom redu, oko četiri vidljiva, ostali povlačenjem */
 @media (max-width: 599px) {
@@ -5122,6 +5123,44 @@ table.akt-poveznice { margin-top: 0.75rem; }
 }
 .uzd-cip:hover { background: var(--md-sys-color-surface-container-high, var(--bg-subtle)); text-decoration: none; }
 .uzd-cip[aria-current="true"] { border-color: transparent; background: var(--md-sys-color-ploha-odabrano); color: var(--md-sys-color-naplohi-odabrano); }
+/* Izbor sektora pa vodotoka iznad zaglavlja (goCOP-m3, 13 · Prognoze): dva
+   reda čipova; sektor bez letvi zasivljen. Na mobitelu dva padajuća
+   izbornika umjesto čipova. */
+.prog-izbor { display: flex; flex-direction: column; gap: 16px; margin: 0 0 16px; }
+.prog-cipovi { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.prog-cip { min-height: 30px; }
+.prog-cip-vodotok { min-height: 31px; padding: 0 16px; font-size: 0.875rem; }
+.prog-cip-prazan { opacity: 0.38; cursor: default; }
+.prog-cip-prazan:hover { background: none; }
+.prog-cipovi-naslov { font-size: 0.8125rem; color: var(--md-sys-color-on-surface-variant, var(--text-muted)); }
+.prog-izbor-mob { display: none; }
+.prog-izbor-mob .prog-prikazi[hidden] { display: none; }
+.uzd-dio { display: flex; align-items: center; gap: 0 4px; margin: 0; flex: none; font-size: 0.8125rem;
+  color: var(--md-sys-color-on-surface-variant, var(--text-muted)); }
+.uzd-dio .btn-link { color: var(--md-sys-color-primary, var(--primary)); }
+/* do gumba za ispis 16 px, kao u dizajnu: desni unutarnji razmak poveznice ne broji se */
+.uzd-dio .btn-link:last-child { margin-right: -12px; }
+.prog-polje { position: relative; display: flex; flex-direction: column; gap: 1px; padding: 8px 40px 8px 16px;
+  border: 1px solid var(--md-sys-color-outline-variant, var(--border)); border-radius: 4px;
+  background: var(--md-sys-color-surface, var(--surface)); }
+.prog-polje-natpis { font-size: 0.75rem; line-height: 15px; color: var(--md-sys-color-on-surface-variant, var(--text-muted)); }
+.prog-polje-izbor { appearance: none; -webkit-appearance: none; width: 100%; margin: 0; padding: 0; border: 0; background: none;
+  font: inherit; font-size: 1rem; line-height: 19px; color: var(--md-sys-color-on-surface, var(--text)); }
+.prog-polje-izbor:focus { outline: none; }
+.prog-polje:focus-within { border-color: var(--md-sys-color-primary, var(--primary)); box-shadow: inset 0 0 0 1px var(--md-sys-color-primary, var(--primary)); }
+.prog-polje > .icon { position: absolute; right: 7px; top: 50%; width: 24px; height: 24px; margin-top: -12px; pointer-events: none;
+  color: var(--md-sys-color-on-surface-variant, var(--text-muted)); }
+/* Na tabletu natpis dijela stoji u retku s naslovom, kao u dizajnu; u novi
+   red prelazi samo kad nema mjesta. Na mobitelu (cijeli zaslon) ide ispod. */
+@media (max-width: 839px) {
+  .uzd-glava { flex-wrap: wrap; }
+}
+@media (max-width: 599px) {
+  .uzd-dio { order: 3; flex-basis: 100%; flex-wrap: wrap; }
+  .prog-izbor { display: none; }
+  .prog-izbor-mob { display: flex; flex-direction: column; gap: 12px; margin: 0 0 12px; }
+  .prog-izbor-mob .prog-prikazi { align-self: flex-start; }
+}
 /* Mobitel: redak „Uzdužni profil” koji otvara cijeli zaslon; na širem zaslonu ga nema */
 .uzd-redak { display: none; width: 100%; align-items: center; gap: 8px; padding: 12px 12px 12px 16px; margin: 0;
   border: 1px solid var(--md-sys-color-outline-variant, var(--border)); border-radius: 12px; background: var(--md-sys-color-surface-container-low, var(--surface));

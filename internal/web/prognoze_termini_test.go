@@ -72,7 +72,7 @@ func TestCipDanaCrtaSvojDoseg(t *testing.T) {
 	}
 	jutro := Jutro{Cm: map[string]float64{"botovo": 100, "terezino-polje": -300}}
 	mjesec := NulaProfila{Cm: map[string]float64{"botovo": 90, "terezino-polje": -290}}
-	profili := uzduzniProfili(postaje, p.pregled, prikaz, p.izdano, nil, nil, nil, mjesec, jutro)
+	profili := uzduzniProfili(postaje, p.pregled, prikaz, p.izdano, nil, nil, nil, mjesec, jutro, nil)
 	if len(profili) != 1 {
 		t.Fatalf("%d profila", len(profili))
 	}

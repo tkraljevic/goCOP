@@ -90,3 +90,13 @@ func TestPracenjeLetveUObrascu(t *testing.T) {
 	odbijeno("registar se ne čita", svc.CreateStation(ctx, globalAdmin(), &models.Station{Name: "Barcs probni", PrateSektori: []string{"P"}}, ""),
 		"greška pri provjeri registra")
 }
+
+// Sektori i područja letve preko dionica dolaze iz repozitorija, i kad
+// nijedna letva nije vezana na dionicu (prazno, bez greške).
+func TestStationScopesKrozServis(t *testing.T) {
+	svc, _, _ := letveSektoraP(t)
+	sektori, podrucja, err := svc.StationScopes(context.Background())
+	if err != nil || sektori == nil || podrucja == nil {
+		t.Fatalf("sektori %v, područja %v, greška %v", sektori, podrucja, err)
+	}
+}
