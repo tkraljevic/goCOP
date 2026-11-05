@@ -4,6 +4,40 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.53-alfa — 5. 11. 2026.
+
+Očitanja i Prognoze u novom izgledu, izbor sektora i vodotoka, kartica
+Vrijeme i upis vodostaja na tuđu letvu uz izvor. Baza i razmjena se ne
+mijenjaju, pa računala ne treba nadograditi isti dan.
+
+- **Očitanja.** Popis je po vodama, s čipovima Moje letve, Sektor i
+  Područje; na širokom zaslonu popis stoji uz otvorenu letvu. Letva ima
+  kartice Kartica, Očitanja, Historijat te Uvoz i izvoz. Zadnje očitanje je
+  krupno, s kotom vode i protokom, a upis je uži dijalog. Zabilježeni
+  ekstremi su pločice.
+- **Prognoze, vodostaji.** Prvo se bira sektor, pa vodotok; Dunav je
+  podijeljen kod Batine i Bezdana. Letva koju sektor samo prati nosi
+  natpis „sektor A”. Gore je glavno upozorenje, a sva su sklopljena ispod
+  letvi. Kartica letve ima oznaku „↑ pripremno od …”, dane iznad praga u
+  boji faze i tuđe prognoze tirkizno. Uzdužni profil bira dan čipovima
+  umjesto klizača, uz pojas od 70 % i za peti i šesti dan. Izvoz u Excel
+  slijedi odabir, a uz njega je i izvoz cijelog izdanja.
+- **Prognoze, vrijeme.** Nova kartica Vrijeme: regije DHMZ-a, upozorenje,
+  Sada, kišomjer, kiša po slivovima i prognoza regije, za istočnu i
+  središnju Hrvatsku i po danima.
+- **O prognozi i Postavke** u novom rasporedu; Postavke imaju popis
+  modela po branjenim područjima (uređivanje dolazi poslije).
+- **Upis na tuđu letvu.** Vodostaj letve drugog sektora, dobiven npr.
+  telefonom kad telemetrija ne radi, smije upisati svatko tko igdje
+  upisuje očitanja, uz obavezan izvor u polju „Očitao”.
+- **Belišće bez mjerenja** procjenjuje se iz Drávaszabolcsa, Osijeka i
+  Donjeg Miholjca, pa dnevni model i dalje računa Belišće i Osijek.
+- **Telemetrija.** Kad na Geoluxu više zapisivača nosi isti naziv, letva se
+  veže na onaj koji zalijepiš u polje „Postaja na telemetriji”, a ne na
+  onaj koji se zadnji javio.
+- **Karta.** Okvir ispisa u zadanom mjerilu povlači se po karti; ispis
+  radi i u Safariju, a legenda ispisuje i crte.
+
 ## 0.0.52-alfa — 4. 11. 2026.
 
 Iste kontrole na svim kartama, ravnalo, ispis Karte u mjerilu i bolji
