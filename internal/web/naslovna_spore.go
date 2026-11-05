@@ -352,8 +352,8 @@ func redakSada(p PlocaVremena) (RedakKartice, bool) {
 		glavno = strings.TrimSuffix(brojHRf(*p.Postaja.Temp, 0)+" °C · "+p.Postaja.Opis, " · ")
 	}
 	var sporedno []string
-	if p.Postaja.VjetarBrzina != nil {
-		sporedno = append(sporedno, strings.TrimSpace("vjetar "+p.Postaja.VjetarSmjer+" "+brojHRf(*p.Postaja.VjetarBrzina, 0)+" km/h"))
+	if v := vjetarRijecima(p.Postaja.VjetarSmjer, p.Postaja.VjetarBrzina); v != "" { // isto kao na Prognozama › Vrijeme
+		sporedno = append(sporedno, v)
 	}
 	if i := p.Izmjereno; i != nil && i.Danas != nil {
 		sporedno = append(sporedno, "kišomjer "+i.Naziv+": "+brojHRf(*i.Danas, 1)+" mm danas")

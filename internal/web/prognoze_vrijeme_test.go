@@ -239,11 +239,11 @@ func TestDioVremena(t *testing.T) {
 	s := stdhtml.UnescapeString(w.Body.String())
 	for _, trazi := range []string{
 		`class="pv-upozorenje dhmz-3"`, "DHMZ · Narančasto upozorenje za kišu", "do 25 mm", "pročitano u ",
-		"DHMZ ima još 1 upozorenje za druge županije.",
+		"DHMZ ima još 1 upozorenje za druga područja.",
 		"Sada · postaja Osijek-Čepin, 12 km", "12,0 °C", "slaba kiša, sjeverni vjetar 20 km/h", "vlaga 88 % · tlak 1.012 hPa · u 08:00",
-		"Kiša · kišomjer Točka stv, 2 km", "<dt>zadnji sat</dt><dd>0,4 mm</dd>", "<dt>danas od ponoći</dt><dd>6,2 mm</dd>", "<dt>jučer</dt><dd>1,8 mm</dd>",
+		">Osijek-Čepin · 08:00<", ">Kiša · kišomjer</span>", ">Kišomjer</span> Točka stv, 2 km", "<dt>zadnji sat</dt><dd>0,4 mm</dd>", "<dt>danas od ponoći</dt><dd>6,2 mm</dd>", "<dt>jučer</dt><dd>1,8 mm</dd>",
 		"javljeno u ", "· pljusak",
-		"Terezino Polje → Donji Miholjac", "3 mm", "21 mm", "uobičajeno", `<tr class="kisa-narancasto">`, "jednom godišnje", "Osijek +45 cm u pon.",
+		"Terezino Polje → Donji Miholjac", "3 mm", "21 mm", ">3 · 21 mm<", "palo 24 h · očekivano 48 h", "uobičajeno", `<tr class="kisa-narancasto">`, "jednom godišnje", "Osijek +45 cm u pon.",
 		"Prognoza za istočnu Hrvatsku", "DHMZ, 26. 9.", "Oblačno s kišom.", "Danas", "kiša 12 mm", "Po danima: Open-Meteo za točku Točka izv, 6 km.",
 	} {
 		if !strings.Contains(s, trazi) {
@@ -283,11 +283,13 @@ func TestDioVremenaPrazno(t *testing.T) {
 			t.Errorf("%s: gola „Nema podataka”", upit)
 		}
 	}
-	provjeri("?regija=gorska", "Upozorenja DHMZ-a trenutačno nisu dostupna.", "Trenutno vrijeme DHMZ-a trenutačno nije dostupno.",
+	provjeri("?regija=gorska", "Upozorenja DHMZ-a trenutačno nisu dostupna.", "Podaci postaje DHMZ-a trenutačno nisu dostupni.",
 		"Podaci kišomjera trenutačno nisu dostupni.", "U izradi: kiša po slivovima zasad se računa samo za slivove Drave, Mure i Dunava.",
-		"Prognoza za gorsku Hrvatsku", "Prognoza DHMZ-a trenutačno nije dostupna.", "Prognoza po danima zasad postoji samo za mjesta u slivu Drave i Dunava.",
+		"Prognoza za gorsku Hrvatsku", "Prognoza DHMZ-a trenutačno nije dostupna.", "Prognoza po danima trenutačno nije dostupna.",
 		`class="kartica-prazna nedostupno"`, `class="kartica-prazna izrada"`)
-	provjeri("", "Podaci o kiši po slivovima trenutačno nisu dostupni.")
+	// Osijek je u slivu Drave: bez izvora kiše dani nisu „samo za slivove”,
+	// nego trenutačno nedostupni
+	provjeri("", "Podaci o kiši po slivovima trenutačno nisu dostupni.", "Prognoza po danima trenutačno nije dostupna.")
 
 	// izvor kiše po slivovima javi grešku; rukovatelja vremena nema
 	h.vrijeme = nil
@@ -309,7 +311,7 @@ func TestUpozorenjaDijelaBezUpozorenja(t *testing.T) {
 		t.Errorf("bez razdoblja: %q", pr.Tekst)
 	}
 	u, _ = upozorenjaDijela(PlocaVremena{Upozorenja: []dhmz.Upozorenje{{Dogadjaj: "kiša", Razina: 2}}}, m, sada)
-	if len(u) != 1 || u[0].Naslov != "DHMZ · Žuto upozorenje: kiša" || u[0].Opis != "" {
+	if len(u) != 1 || u[0].Naslov != "DHMZ · žuto upozorenje: kiša" || u[0].Opis != "" {
 		t.Errorf("samo događaj: %+v", u)
 	}
 }
@@ -385,6 +387,28 @@ func TestZbrojiDane(t *testing.T) {
 		iz.Jucer == nil || *iz.Jucer != 11 || iz.BezSatiJucer != 2 {
 		t.Errorf("satni: %+v danas %v jučer %v", iz, iz.DanasOd7, iz.Jucer)
 	}
+	// zadnji sat još nije objavljen (DHMZ oko :40): nije rupa; dva sata
+	// šutnje jesu, ali bez zadnjega
+	for _, s := range []struct {
+		sati []int
+		bez  int
+	}{{[]int{8, 9}, 0}, {[]int{8}, 1}, {nil, 0}} {
+		var mm []kisomjeri.Mjerenje
+		for _, h := range s.sati {
+			mm = append(mm, mjerenje("d", sat(5, h), 1, 1))
+		}
+		iz := &IzmjerenaKisa{}
+		zbrojiDane(iz, mm, sada)
+		if iz.BezSatiDanas != s.bez {
+			t.Errorf("sati %v: bez %d, a treba %d", s.sati, iz.BezSatiDanas, s.bez)
+		}
+	}
+	if ocekivanoDanas(sat(5, 7), sat(5, 7).Add(30*time.Minute), sat(5, 7)) != 0 {
+		t.Error("prvi sat dana")
+	}
+	if !maxVrijeme(sat(5, 9), sat(5, 8)).Equal(sat(5, 9)) || !maxVrijeme(sat(5, 8), sat(5, 9)).Equal(sat(5, 9)) {
+		t.Error("kasnije vrijeme")
+	}
 	// prije 7 h kišomjerski dan počeo je jučer u 7 h
 	iz = &IzmjerenaKisa{}
 	zbrojiDane(iz, nil, time.Date(2026, 11, 5, 6, 0, 0, 0, models.Zagreb))
@@ -407,17 +431,26 @@ func TestZbrojiDane(t *testing.T) {
 func TestKisomjerDijela(t *testing.T) {
 	sada := time.Date(2026, 11, 5, 10, 30, 0, 0, models.Zagreb)
 	v := 3.3
-	k, pr := kisomjerDijela(&IzmjerenaKisa{Naziv: "Jankovac", Izvor: "dhmz", Km: 12.4, DanasOd7: &v, BezSatiJucer: 1}, true, sada)
-	if pr != nil || k.Naslov != "Kiša · kišomjer Jankovac, 12 km" || k.Javljeno != "DHMZ" || len(k.Redovi) != 3 ||
+	k, pr := kisomjerDijela(PlocaVremena{Izmjereno: &IzmjerenaKisa{Naziv: "Jankovac", Izvor: "dhmz", Km: 12.4, DanasOd7: &v, BezSatiJucer: 1}}, true, sada)
+	if pr != nil || k.Mjesto != "Jankovac, 12 km" || k.Javljeno != "DHMZ" || len(k.Redovi) != 3 ||
 		k.Redovi[0].Vrijednost != "—" || k.Redovi[1] != (RedakKise{"danas od 7 h", "3,3 mm", ""}) ||
 		k.Redovi[2] != (RedakKise{"jučer, od 7 do 7 h", "—", "bez 1 h"}) {
 		t.Errorf("satni: %+v", k)
 	}
-	if _, pr := kisomjerDijela(nil, true, sada); pr.Vrsta != PraznoCeka || !strings.Contains(pr.Tekst, "40 km") {
+	if _, pr := kisomjerDijela(PlocaVremena{}, true, sada); pr.Vrsta != PraznoCeka || pr.Tekst != "Do 40 km od mjesta nemamo kišomjer." {
 		t.Errorf("bez kišomjera: %+v", pr)
 	}
-	if _, pr := kisomjerDijela(nil, false, sada); pr.Vrsta != PraznoNedostupno {
+	if _, pr := kisomjerDijela(PlocaVremena{KisomjerBlizu: true}, true, sada); pr.Vrsta != PraznoNedostupno ||
+		pr.Tekst != "Kišomjeri do 40 km od mjesta trenutačno se ne javljaju." {
+		t.Errorf("kišomjeri se ne javljaju: %+v", pr)
+	}
+	if _, pr := kisomjerDijela(PlocaVremena{}, false, sada); pr.Vrsta != PraznoNedostupno {
 		t.Errorf("bez izvora: %+v", pr)
+	}
+	for izvor, naziv := range map[string]string{"dhmz": "DHMZ", "pljusak": "pljusak", "danubehis": "DanubeHIS", "novi": "novi"} {
+		if g := izvorKisomjera(izvor); g != naziv {
+			t.Errorf("izvor %q: %q", izvor, g)
+		}
 	}
 }
 
@@ -425,14 +458,24 @@ func TestKisomjerDijela(t *testing.T) {
 // imena, porast bez dana dnevne piše redni dan.
 func TestRedakSliva(t *testing.T) {
 	r := redakSliva(SlivUKisi{StanjeSliva: prognoza.StanjeSliva{Sliv: "J"}, Letve: []PorastLetve{{Naziv: "Aljmaš", Cm: 12, Dan: 2, Ima: true}}})
-	if r != (RedakSliva{Naziv: "J", Palo24: "—", Dolazi48: "—", Rijetko: "—", Raste: "Aljmaš +12 cm (2. dan)"}) {
+	if r != (RedakSliva{Naziv: "J", Palo24: "—", Dolazi48: "—", Ukratko: "—", Rijetko: "—", Raste: "Aljmaš +12 cm (2. dan)"}) {
 		t.Errorf("bez podataka: %+v", r)
 	}
 	if mmSliva(0.4) != "0,4 mm" || mmSliva(0) != "0 mm" || mmSliva(17.6) != "18 mm" {
 		t.Error("milimetri sliva")
 	}
-	if rijetkostKise(1, "") != "uobičajeno" || rijetkostKise(3, "toliko padne u prosjeku jednom u pet godina") != "jednom u pet godina" {
+	if rijetkostKise(1, "", "") != "uobičajeno" || rijetkostKise(3, "toliko padne u prosjeku jednom u pet godina", "palo u zadnja 24 sata") != "jednom u pet godina" {
 		t.Error("rijetkost")
+	}
+	// razinu daje kiša palih 72 sata: uz rijetkost piše razdoblje, jer ga
+	// stupci (palo 24 h, očekivano 48 h) ne pokazuju
+	r = redakSliva(SlivUKisi{StanjeSliva: prognoza.StanjeSliva{Sliv: "G", Ima: true, Palo24: 10, Dolazi48: 0, Palo72: 70, Razina: 2,
+		Zasto: "palo u zadnja 72 sata", Ucestalost: "toliko padne u prosjeku jednom godišnje"}})
+	if r.Rijetko != "jednom godišnje · palo u 72 h" || r.Ukratko != "10 · 0 mm" {
+		t.Errorf("tri dana: %+v", r)
+	}
+	if g := rijetkostKise(1, "toliko padne u prosjeku tri puta godišnje", "palo i očekuje se u 72 sata"); g != "tri puta godišnje · palo i očekivano u 72 h" {
+		t.Errorf("palo i očekivano: %q", g)
 	}
 	if s, pr := slivoviDijela(regijeVremena[0], &kisaSlivovaPodaci{}); s != nil || pr.Vrsta != PraznoNedostupno {
 		t.Errorf("prazan izvor: %+v", pr)
@@ -446,10 +489,10 @@ func TestDanTocke(t *testing.T) {
 	f := func(v float64) sql.NullFloat64 { return sql.NullFloat64{Float64: v, Valid: true} }
 	z.dodaj(sql.NullFloat64{}, f(1), f(30))
 	z.dodaj(f(0.6), sql.NullFloat64{}, f(-0.4))
-	z.dodaj(f(0.6), f(2), sql.NullFloat64{})
+	z.dodaj(f(0.6), f(3/0.7), sql.NullFloat64{}) // Open-Meteo 3 cm snijega spremljen kao mm vode
 	z.dodaj(f(0), f(0), f(4.6))
 	d := z.dan(time.Date(2026, 11, 6, 0, 0, 0, 0, models.Zagreb), 1)
-	if z.sati != 3 || d != (DanVremena{Naslov: "Pet 6. 11.", Ikona: "cloud-rain", Temp: "0 / 5 °C", Kisa: "kiša 1 mm · snijeg 2 cm"}) {
+	if z.sati != 3 || d != (DanVremena{Naslov: "Pet 6. 11.", Ikona: "cloud-rain", Temp: "0 / 5 °C", Kisa: "kiša 1 mm · snijeg 3 cm"}) {
 		t.Errorf("dan: %+v %+v", z, d)
 	}
 	if d := (zbrojDana{}).dan(time.Now(), 0); d.Naslov != "Danas" || d.Temp != "" || d.Ikona != "" {
@@ -461,22 +504,27 @@ func TestDanTocke(t *testing.T) {
 	}
 }
 
-// Dani prognoze: točka dalje od 40 km, točka bez satnih i bez izvora daju
-// ništa.
+// Dani prognoze: bez točke do 40 km „U izradi”, a točka bez satnih, izvor
+// koji ne odgovori i bez izvora crta upozorenja.
 func TestDaniPrognozeBezTocke(t *testing.T) {
 	sada := time.Now()
-	if d, iz := (&VrijemeHandler{}).daniPrognoze(context.Background(), osijekLat, osijekLon, sada); d != nil || iz != "" {
+	if d := (&VrijemeHandler{}).daniPrognoze(context.Background(), osijekLat, osijekLon, sada); d.Dani != nil || d.Izvor != "" || d.Prazno != daniNedostupni {
 		t.Error("bez izvora")
 	}
 	o := novaKisaOkolina(t)
 	o.tocka("stv", models.KisomjerStvarni, 0.01, true)
 	o.tocka("ugasena", models.KisomjerIzvedeni, 0.02, false)
 	o.tocka("prazna", models.KisomjerIzvedeni, 0.1, true)
-	if d, _ := o.h.daniPrognoze(context.Background(), osijekLat, osijekLon, sada); d != nil {
+	if d := o.h.daniPrognoze(context.Background(), osijekLat, osijekLon, sada); d.Dani != nil || d.Prazno != daniNedostupni {
 		t.Errorf("točka bez satnih: %+v", d)
 	}
-	if d, _ := o.h.daniPrognoze(context.Background(), osijekLat+1, osijekLon, sada); d != nil {
+	if d := o.h.daniPrognoze(context.Background(), osijekLat+1, osijekLon, sada); d.Dani != nil || d.Prazno != daniUIzradi {
 		t.Errorf("točka dalje od 40 km: %+v", d)
+	}
+	gotov, otkazi := context.WithCancel(context.Background())
+	otkazi()
+	if d := o.h.daniPrognoze(gotov, osijekLat, osijekLon, sada); d.Prazno != daniNedostupni {
+		t.Errorf("izvor nije odgovorio: %+v", d)
 	}
 	if _, err := o.obo.Exec(`DROP TABLE satne`); err != nil {
 		t.Fatal(err)
@@ -487,7 +535,7 @@ func TestDaniPrognozeBezTocke(t *testing.T) {
 	if _, err := o.reg.Exec(`DROP TABLE kisomjeri`); err != nil {
 		t.Fatal(err)
 	}
-	if d, _ := o.h.daniPrognoze(context.Background(), osijekLat, osijekLon, sada); d != nil {
+	if d := o.h.daniPrognoze(context.Background(), osijekLat, osijekLon, sada); d.Prazno != daniNedostupni {
 		t.Error("bez registra")
 	}
 }
@@ -506,7 +554,7 @@ func TestDaniPrognozeSamoStvarni(t *testing.T) {
 	o := novaKisaOkolina(t)
 	o.tocka("stv", models.KisomjerStvarni, 0.01, true)
 	sada := time.Now()
-	if d, _ := o.h.daniPrognoze(context.Background(), osijekLat, osijekLon, sada); d != nil {
+	if d := o.h.daniPrognoze(context.Background(), osijekLat, osijekLon, sada); d.Dani != nil || d.Prazno != daniUIzradi {
 		t.Errorf("samo stvarni kišomjer: %+v", d)
 	}
 	ponoc := ponocDana(sada).Unix() / 3600
@@ -540,5 +588,89 @@ func TestIkonaVremena(t *testing.T) {
 		if g := ikonaVremena(opis); g != ikona {
 			t.Errorf("%q: %q, a treba %q", opis, g, ikona)
 		}
+	}
+}
+
+// Upozorenje DHMZ-a za više područja broji se jednom.
+func TestBrojUpozorenja(t *testing.T) {
+	od := time.Date(2026, 11, 5, 14, 0, 0, 0, models.Zagreb)
+	u := func(podrucje string, razina int) dhmz.Upozorenje {
+		return dhmz.Upozorenje{Dogadjaj: "Žuto upozorenje za vjetar", Razina: razina, Od: od, Do: od.Add(6 * time.Hour), Podrucje: podrucje}
+	}
+	if n := brojUpozorenja([]dhmz.Upozorenje{u("Zadarska", 2), u("Splitsko-dalmatinska", 2), u("Srednji Jadran", 2), u("Zadarska", 3)}); n != 2 {
+		t.Errorf("upozorenja: %d", n)
+	}
+	if brojUpozorenja(nil) != 0 {
+		t.Error("bez upozorenja")
+	}
+}
+
+// Dan pomaka sata ima 23 sata, a sutra je i dalje sutra.
+func TestImeDanaUzPomakSata(t *testing.T) {
+	sada := time.Date(2026, 3, 28, 22, 0, 0, 0, models.Zagreb) // sutra se sat pomiče naprijed
+	if g := imeDana(time.Date(2026, 3, 29, 23, 0, 0, 0, models.Zagreb), sada); g != "sutra" {
+		t.Errorf("sutra uz pomak: %q", g)
+	}
+	if g := imeDana(time.Date(2026, 3, 30, 1, 0, 0, 0, models.Zagreb), sada); g != "30. 3." {
+		t.Errorf("prekosutra: %q", g)
+	}
+}
+
+// Kišomjer na stranici računa se u satu koji stranica zada: u 6:30 je
+// kišomjerski dan počeo jučer u 7 h, pa sati od jučer 8 h idu u „danas”.
+func TestDioVremenaPrije7(t *testing.T) {
+	o := novaKisaOkolina(t)
+	o.tocka("stv", models.KisomjerStvarni, 0.02, true)
+	sada := time.Date(2026, 11, 5, 6, 30, 0, 0, models.Zagreb)
+	for h := 8; h <= 30; h++ { // od 4. 11. u 8 h do 5. 11. u 6 h
+		o.mjeri(mjerenje("stv", time.Date(2026, 11, 4, h, 0, 0, 0, models.Zagreb).UTC(), 1, 0.5))
+	}
+	o.mjeri(mjerenje("stv", time.Date(2026, 11, 4, 7, 0, 0, 0, models.Zagreb).UTC(), 1, 2))
+	h := &VrijemePrognozaHandler{tmpl: predlozakVremena(t), vrijeme: func() *VrijemeHandler { return o.h }, sada: func() time.Time { return sada }}
+	w := httptest.NewRecorder()
+	h.ShowDio(w, zahtjevAdmina("/prognoze/vrijeme/dio"))
+	s := stdhtml.UnescapeString(w.Body.String())
+	for _, trazi := range []string{"<dt>zadnji sat</dt><dd>0,5 mm</dd>", "<dt>danas od 7 h</dt><dd>11,5 mm</dd>", "<dt>jučer, od 7 do 7 h <span class=\"pv-sitno\">(bez 23 h)</span></dt><dd>2,0 mm</dd>"} {
+		if !strings.Contains(s, trazi) {
+			t.Errorf("dio nema %q:\n%s", trazi, s)
+		}
+	}
+}
+
+// Kišomjer do 40 km koji se ne javlja nije isto što i mjesto bez kišomjera.
+func TestKisomjerBlizuSeNeJavlja(t *testing.T) {
+	o := novaKisaOkolina(t)
+	o.tocka("nijemi", models.KisomjerStvarni, 0.02, true)
+	if p := o.ploca(); p.Izmjereno != nil || !p.KisomjerBlizu {
+		t.Errorf("nijemi kišomjer: %+v", p)
+	}
+}
+
+// Poveznica kartice Naslovne u modul koji račun ne vidi se skida: voditelj
+// usluga ima karticu Vrijeme, a Prognoze su u modulu Očitanja.
+func TestPoveznicaKojuVidi(t *testing.T) {
+	usluga := models.Visibility{}
+	for _, m := range models.DefaultModules(models.RoleServiceLeaderForeman) {
+		usluga[m] = true
+	}
+	if k := poveznicaKojuVidi(glaveKartica[kVrijeme], usluga); k.Poveznica != "" || k.URL != "" || k.Naslov != "Vrijeme" {
+		t.Errorf("usluga: %+v", k)
+	}
+	if k := poveznicaKojuVidi(glaveKartica[kVrijeme], models.Visibility{models.ModuleReadings: true}); k.URL != "/prognoze/vrijeme" {
+		t.Errorf("s Očitanjima: %+v", k)
+	}
+	if k := poveznicaKojuVidi(KarticaNaslovne{Poveznica: "Plan", URL: "/profile"}, usluga); k.URL != "/profile" {
+		t.Errorf("izvan modula: %+v", k)
+	}
+	o := novaOkolinaNaslovne(t)
+	r := httptest.NewRequest(http.MethodGet, "/naslovna/kartica/vrijeme", nil)
+	perms := dozvoleNaslovne(true)
+	ctx := context.WithValue(r.Context(), contextKeyUser, &perms.User)
+	ctx = context.WithValue(ctx, contextKeyPerms, perms)
+	ctx = context.WithValue(ctx, contextKeyModules, usluga)
+	w := httptest.NewRecorder()
+	o.mux.ServeHTTP(w, r.WithContext(ctx))
+	if w.Code != http.StatusOK || strings.Contains(w.Body.String(), "/prognoze/vrijeme") {
+		t.Errorf("spora kartica bez modula: %d %s", w.Code, w.Body.String())
 	}
 }

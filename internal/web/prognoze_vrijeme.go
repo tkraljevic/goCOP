@@ -3,8 +3,10 @@ package web
 import (
 	"context"
 	"html/template"
+	"math"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -212,37 +214,57 @@ func cipoviPodrucja(podrucja []models.Area, odabrano int) []CipPrognoze {
 	return out
 }
 
-// ShowDio vraća vrijeme za mjesto kao dio stranice. Kiša po slivovima
-// računa se uz DHMZ, jer prvi izračun pragova zna potrajati.
+// ShowDio vraća vrijeme za mjesto kao dio stranice. Kiša po slivovima i
+// dani prognoze računaju se uz DHMZ, svaki sa svojim rokom, da spor DHMZ
+// ne odnese dane iz Open-Meteo koji o njemu ne ovise.
 func (h *VrijemePrognozaHandler) ShowDio(w http.ResponseWriter, r *http.Request) {
 	ctx, otkazi := context.WithTimeout(r.Context(), 12*time.Second)
 	defer otkazi()
 	vh := h.vh()
 	m := vh.mjestoVremena(r, h.svaPodrucja(ctx))
-	kisa := make(chan *kisaSlivovaPodaci, 1)
+	sada := h.sat()
+	kisa := h.kisaUsporedno(ctx)
+	dani := make(chan daniVremena, 1)
 	go func() {
-		if h.kisa == nil {
-			kisa <- nil
-			return
-		}
+		dctx, gotovo := context.WithTimeout(r.Context(), 8*time.Second)
+		defer gotovo()
+		dani <- vh.daniPrognoze(dctx, m.Lat, m.Lon, sada)
+	}()
+	p := vh.vrijemeMjesta(ctx, m, sada)
+	svc, sp := vh.izvoriKise()
+	dio := slaziDio(m, p, <-kisa, sada)
+	dio.Kisomjer, dio.KisomjerPrazno = kisomjerDijela(p, svc != nil && sp != nil, sada)
+	d := <-dani
+	dio.Dani, dio.DaniIzvor, dio.DaniPrazno = d.Dani, d.Izvor, d.Prazno
+	posaljiDio(w, h.tmpl.Lookup("vrijemeDio"), dio)
+}
+
+// sat je sada; testovi ga mogu postaviti
+func (h *VrijemePrognozaHandler) sat() time.Time {
+	if h.sada != nil {
+		return h.sada()
+	}
+	return time.Now()
+}
+
+// kisaUsporedno računa kišu po slivovima uz ostalo, jer prvi izračun
+// pragova zna potrajati; bez izvora stiže nil
+func (h *VrijemePrognozaHandler) kisaUsporedno(ctx context.Context) <-chan *kisaSlivovaPodaci {
+	kisa := make(chan *kisaSlivovaPodaci, 1)
+	if h.kisa == nil {
+		kisa <- nil
+		return kisa
+	}
+	go func() {
 		k := h.kisa(ctx)
 		kisa <- &k
 	}()
-	p := vh.vrijemeMjesta(ctx, m)
-	sada := time.Now()
-	if h.sada != nil {
-		sada = h.sada()
-	}
-	svc, sp := vh.izvoriKise()
-	dio := slaziDio(m, p, <-kisa, sada)
-	dio.Kisomjer, dio.KisomjerPrazno = kisomjerDijela(p.Izmjereno, svc != nil && sp != nil, sada)
-	dio.Dani, dio.DaniIzvor = vh.daniPrognoze(ctx, m.Lat, m.Lon, sada)
-	posaljiDio(w, h.tmpl.Lookup("vrijemeDio"), dio)
+	return kisa
 }
 
 // vrijemeMjesta skuplja ono što ploča vremena ima, bez biltena: upozorenja,
 // trenutno vrijeme, prognozu regije i kišomjer. Bez DHMZ-a ništa od DHMZ-a.
-func (h *VrijemeHandler) vrijemeMjesta(ctx context.Context, m MjestoVremena) PlocaVremena {
+func (h *VrijemeHandler) vrijemeMjesta(ctx context.Context, m MjestoVremena, sada time.Time) PlocaVremena {
 	p := PlocaVremena{Mjesto: m.Naziv, Lat: m.Lat, Lon: m.Lon, Lokacija: m.Lokacija, Zupanija: m.Zupanija}
 	if h.dhmz != nil {
 		h.upozorenja(ctx, &p)
@@ -251,7 +273,7 @@ func (h *VrijemeHandler) vrijemeMjesta(ctx context.Context, m MjestoVremena) Plo
 	} else {
 		p.BezUpozorenja = true
 	}
-	h.kisa(&p)
+	h.kisa(&p, sada)
 	return p
 }
 
@@ -277,23 +299,25 @@ type VrijemeDio struct {
 	PrognozaPrazno *PraznaKartica
 	Dani           []DanVremena
 	DaniIzvor      string // odakle su dani; prazno kad dana nema
+	DaniPrazno     *PraznaKartica
 }
 
 // UpozorenjeVremena je upozorenje DHMZ-a: crta i natpis, bez plohe u boji
 type UpozorenjeVremena struct {
 	Razina int    // 2 žuto, 3 narančasto, 4 crveno (razred crte)
-	Naslov string // „DHMZ · Žuto upozorenje za kišu”
+	Naslov string // „DHMZ · Žuto upozorenje za kišu” ili „DHMZ · žuto upozorenje: kiša”
 	Opis   string // „Danas od 14 do 20 h · …”
 }
 
-// SadaVremena je trenutno vrijeme na najbližoj postaji DHMZ-a
+// SadaVremena je trenutno vrijeme na najbližoj postaji DHMZ-a; Sat je
+// termin opažanja („08:00”), za kratki redak na mobitelu
 type SadaVremena struct {
-	Postaja, Km, Temp, Opis, Detalji, Ikona string
+	Postaja, Km, Temp, Opis, Detalji, Ikona, Sat string
 }
 
 // KisomjerVremena je najbliži kišomjer koji se javlja
 type KisomjerVremena struct {
-	Naslov   string // „Kiša · kišomjer Osijek, 2 km”
+	Mjesto   string // „Osijek, 2 km”; ispred ide „Kiša · kišomjer” (na mobitelu „Kišomjer”)
 	Redovi   []RedakKise
 	Javljeno string // „javljeno u 08:10 · pljusak”
 }
@@ -301,10 +325,11 @@ type KisomjerVremena struct {
 // RedakKise je jedan redak kišomjera: natpis, vrijednost i napomena
 type RedakKise struct{ Natpis, Vrijednost, Napomena string }
 
-// RedakSliva je međusliv u kiši po slivovima
+// RedakSliva je međusliv u kiši po slivovima; Ukratko je palo i
+// očekivano u jednom („18 · 32 mm”), za mobitel
 type RedakSliva struct {
-	Naziv, Palo24, Dolazi48, Rijetko, Raste string
-	Klasa                                   string // kisa-zuto…; prazno kad je uobičajeno
+	Naziv, Palo24, Dolazi48, Ukratko, Rijetko, Raste string
+	Klasa                                            string // kisa-zuto…; prazno kad je uobičajeno
 }
 
 // DanVremena je dan prognoze po satnim vrijednostima Open-Meteo
@@ -314,7 +339,7 @@ type DanVremena struct {
 
 // slaziDio slaže upozorenja, Sada, kišu po slivovima i prognozu regije
 func slaziDio(m MjestoVremena, p PlocaVremena, kisa *kisaSlivovaPodaci, sada time.Time) VrijemeDio {
-	d := VrijemeDio{Regija: m.Regija, Ostalih: len(p.Ostala)}
+	d := VrijemeDio{Regija: m.Regija, Ostalih: brojUpozorenja(p.Ostala)}
 	d.Upozorenja, d.UpozorenjaPrazno = upozorenjaDijela(p, m, sada)
 	if !p.UpozorenjaProcitano.IsZero() {
 		d.Procitano = "pročitano u " + satIliDan(p.UpozorenjaProcitano, sada)
@@ -330,6 +355,21 @@ func slaziDio(m MjestoVremena, p PlocaVremena, kisa *kisaSlivovaPodaci, sada tim
 		d.PrognozaDatum += ", " + dat
 	}
 	return d
+}
+
+// brojUpozorenja broji upozorenja bez ponavljanja: DHMZ isto upozorenje
+// šalje za svako područje posebno
+func brojUpozorenja(u []dhmz.Upozorenje) int {
+	type kljuc struct {
+		dogadjaj string
+		razina   int
+		od, do   int64
+	}
+	vidjeno := map[kljuc]bool{}
+	for _, x := range u {
+		vidjeno[kljuc{x.Dogadjaj, x.Razina, x.Od.Unix(), x.Do.Unix()}] = true
+	}
+	return len(vidjeno)
 }
 
 // upozorenjaDijela: upozorenja za županiju mjesta; bez njih potvrda da ih
@@ -348,7 +388,7 @@ func upozorenjaDijela(p PlocaVremena, m MjestoVremena, sada time.Time) ([]Upozor
 		if u.Opis != "" {
 			opis = append(opis, u.Opis)
 		}
-		out = append(out, UpozorenjeVremena{Razina: u.Razina, Naslov: "DHMZ · " + velikoSlovo(nazivUpozorenja(u)), Opis: strings.Join(opis, " · ")})
+		out = append(out, UpozorenjeVremena{Razina: u.Razina, Naslov: "DHMZ · " + nazivUpozorenja(u), Opis: strings.Join(opis, " · ")})
 	}
 	if len(out) > 0 {
 		return out, nil
@@ -375,13 +415,10 @@ func razdobljeUpozorenja(od, do, sada time.Time) string {
 	return velikoSlovo(d1 + " od " + sat(od) + " h do " + d2 + " " + sat(do) + " h")
 }
 
-// imeDana: „danas”, „sutra” ili „6. 11.”, po našem vremenu
+// imeDana: „danas”, „sutra” ili „6. 11.”, po našem vremenu (dan pomaka
+// sata ima 23 ili 25 sati, pa se dani zaokružuju)
 func imeDana(t, sada time.Time) string {
-	dan := func(x time.Time) time.Time {
-		l := x.In(models.Zagreb)
-		return time.Date(l.Year(), l.Month(), l.Day(), 0, 0, 0, 0, models.Zagreb)
-	}
-	switch dan(t).Sub(dan(sada)) / (24 * time.Hour) {
+	switch int(math.Round(ponocDana(t).Sub(ponocDana(sada)).Hours() / 24)) {
 	case 0:
 		return "danas"
 	case 1:
@@ -424,7 +461,7 @@ func datumDHMZ(s string) string {
 func sadaDijela(p PlocaVremena, sada time.Time) (*SadaVremena, *PraznaKartica) {
 	pos := p.Postaja
 	if pos == nil {
-		return nil, &PraznaKartica{Vrsta: PraznoNedostupno, Tekst: "Trenutno vrijeme DHMZ-a trenutačno nije dostupno."}
+		return nil, &PraznaKartica{Vrsta: PraznoNedostupno, Tekst: "Podaci postaje DHMZ-a trenutačno nisu dostupni."}
 	}
 	s := &SadaVremena{Postaja: strings.TrimPrefix(pos.Ime, "RC "), Km: brojHRf(p.PostajaKm, 0), Temp: brojHRd(pos.Temp, 1) + " °C"}
 	// DHMZ za postaju bez opažanja piše „-”: tada nema ni opisa ni ikone
@@ -440,7 +477,8 @@ func sadaDijela(p PlocaVremena, sada time.Time) (*SadaVremena, *PraznaKartica) {
 		det = append(det, "tlak "+brojHRf(*pos.Tlak, 0)+" hPa")
 	}
 	if !p.Termin.IsZero() {
-		det = append(det, "u "+satIliDan(p.Termin, sada))
+		s.Sat = satIliDan(p.Termin, sada)
+		det = append(det, "u "+s.Sat)
 	}
 	s.Detalji = strings.Join(det, " · ")
 	return s, nil
@@ -476,15 +514,21 @@ func vjetarRijecima(smjer string, brzina *float64) string {
 	return rijec + " " + brojHRf(*brzina*3.6, 0) + " km/h"
 }
 
-// kisomjerDijela: zadnji sat, danas i jučer na najbližem kišomjeru
-func kisomjerDijela(iz *IzmjerenaKisa, imaIzvora bool, sada time.Time) (*KisomjerVremena, *PraznaKartica) {
-	if iz == nil {
-		if !imaIzvora {
-			return nil, &PraznaKartica{Vrsta: PraznoNedostupno, Tekst: "Podaci kišomjera trenutačno nisu dostupni."}
-		}
-		return nil, &PraznaKartica{Vrsta: PraznoCeka, Tekst: "Do 40 km od mjesta nema kišomjera koji se javio u zadnja tri sata."}
+// kisomjerDijela: zadnji sat, danas i jučer na najbližem kišomjeru. Bez
+// njega se razlikuje mjesto bez kišomjera do 40 km od kišomjera koji se ne
+// javljaju.
+func kisomjerDijela(p PlocaVremena, imaIzvora bool, sada time.Time) (*KisomjerVremena, *PraznaKartica) {
+	iz := p.Izmjereno
+	switch {
+	case iz != nil:
+	case !imaIzvora:
+		return nil, &PraznaKartica{Vrsta: PraznoNedostupno, Tekst: "Podaci kišomjera trenutačno nisu dostupni."}
+	case p.KisomjerBlizu:
+		return nil, &PraznaKartica{Vrsta: PraznoNedostupno, Tekst: "Kišomjeri do 40 km od mjesta trenutačno se ne javljaju."}
+	default:
+		return nil, &PraznaKartica{Vrsta: PraznoCeka, Tekst: "Do 40 km od mjesta nemamo kišomjer."}
 	}
-	k := &KisomjerVremena{Naslov: "Kiša · kišomjer " + iz.Naziv + ", " + brojHRf(iz.Km, 0) + " km"}
+	k := &KisomjerVremena{Mjesto: iz.Naziv + ", " + brojHRf(iz.Km, 0) + " km"}
 	k.Redovi = append(k.Redovi, RedakKise{Natpis: "zadnji sat", Vrijednost: mmKise(iz.ZadnjiSat)})
 	if iz.OdPonoci {
 		k.Redovi = append(k.Redovi, RedakKise{Natpis: "danas od ponoći", Vrijednost: mmKise(iz.Danas)},
@@ -501,10 +545,13 @@ func kisomjerDijela(iz *IzmjerenaKisa, imaIzvora bool, sada time.Time) (*Kisomje
 	return k, nil
 }
 
-// izvorKisomjera je izvor kakav korisnik zna
+// naziviIzvora su izvori kišomjera kako ih korisnik zna
+var naziviIzvora = map[string]string{"dhmz": "DHMZ", "pljusak": "pljusak", "danubehis": "DanubeHIS"}
+
+// izvorKisomjera je izvor kakav korisnik zna; nepoznat ostaje kakav jest
 func izvorKisomjera(izvor string) string {
-	if izvor == "dhmz" {
-		return "DHMZ"
+	if n, ima := naziviIzvora[izvor]; ima {
+		return n
 	}
 	return izvor
 }
@@ -537,7 +584,7 @@ func slivoviDijela(rg RegijaVremena, kisa *kisaSlivovaPodaci) ([]RedakSliva, *Pr
 	}
 	var out []RedakSliva
 	for _, s := range kisa.Slivovi {
-		if jeU(s.Sliv, rg.Slivovi) {
+		if slices.Contains(rg.Slivovi, s.Sliv) {
 			out = append(out, redakSliva(s))
 		}
 	}
@@ -550,25 +597,16 @@ func slivoviDijela(rg RegijaVremena, kisa *kisaSlivovaPodaci) ([]RedakSliva, *Pr
 	return nil, nedostupno
 }
 
-// jeU javlja je li s među popisom
-func jeU(s string, popis []string) bool {
-	for _, x := range popis {
-		if x == s {
-			return true
-		}
-	}
-	return false
-}
-
 // redakSliva: palo 24 h, očekivano 48 h, koliko je rijetko i gdje raste voda
 func redakSliva(s SlivUKisi) RedakSliva {
-	r := RedakSliva{Naziv: s.Naziv, Palo24: "—", Dolazi48: "—", Rijetko: "—", Raste: "—", Klasa: s.Klasa}
+	r := RedakSliva{Naziv: s.Naziv, Palo24: "—", Dolazi48: "—", Ukratko: "—", Rijetko: "—", Raste: "—", Klasa: s.Klasa}
 	if r.Naziv == "" {
 		r.Naziv = s.Sliv
 	}
 	if s.Ima {
 		r.Palo24, r.Dolazi48 = mmSliva(s.Palo24), mmSliva(s.Dolazi48)
-		r.Rijetko = rijetkostKise(s.Razina, s.Ucestalost)
+		r.Ukratko = strings.TrimSuffix(r.Palo24, " mm") + " · " + r.Dolazi48
+		r.Rijetko = rijetkostKise(s.Razina, s.Ucestalost, s.Zasto)
 	}
 	if raste := porastiSliva(s.Letve); raste != "" {
 		r.Raste = raste
@@ -584,13 +622,18 @@ func mmSliva(v float64) string {
 	return brojHRf(v, 0) + " mm"
 }
 
+// prozoriKise kratko kažu za koje je razdoblje kiša prešla prag kad to
+// nije zadnja 24 h, jer stupci pokazuju samo palo 24 h i očekivano 48 h
+var prozoriKise = map[string]string{"palo u zadnja 72 sata": "palo u 72 h", "palo i očekuje se u 72 sata": "palo i očekivano u 72 h"}
+
 // rijetkostKise: „uobičajeno” ispod svih pragova, inače koliko često
-// toliko padne („jednom godišnje”)
-func rijetkostKise(razina int, ucestalost string) string {
+// toliko padne i, kad nije riječ o zadnja 24 h, u kojem razdoblju
+// („jednom godišnje · palo u 72 h”)
+func rijetkostKise(razina int, ucestalost, zasto string) string {
 	if razina == 0 || ucestalost == "" {
 		return "uobičajeno"
 	}
-	return strings.TrimPrefix(ucestalost, "toliko padne u prosjeku ")
+	return spoji(" · ", strings.TrimPrefix(ucestalost, "toliko padne u prosjeku "), prozoriKise[zasto])
 }
 
 // porastiSliva: „Osijek +45 cm u pon.” za letve s porastom od 5 cm i više

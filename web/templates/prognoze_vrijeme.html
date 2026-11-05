@@ -47,7 +47,7 @@
 </div>
 
 <section class="pv-dio" id="pv-dio" data-url="{{.DioURL}}" aria-live="polite">
-  <p class="kartica-ceka">Učitavam vrijeme za {{.Mjesto.NaslovMjesta}}…</p>
+  <p class="kartica-ceka">Učitavam vrijeme…</p>
 </section>
 <noscript><p class="kartica-prazna nedostupno">Vrijeme se učitava naknadno, a za to preglednik mora dopustiti skripte.</p></noscript>
 <script>
@@ -88,29 +88,32 @@
 
 {{/* vrijemeDio je ono što stiže naknadno (/prognoze/vrijeme/dio). Na
      računalu dva stupca (Sada | kišomjer), ispod preko širine kiša po
-     slivovima i prognoza; na tabletu i mobitelu jedan stupac. Upozorenje
+     slivovima i prognoza; na tabletu i mobitelu jedan stupac. Na mobitelu
+     je redak sliva naziv s „palo · očekivano mm” i ispod porast, bez
+     stupca rijetkosti (pv-samo-siroko / pv-samo-usko). Upozorenje
      DHMZ-a je crta i natpis, nikad ploha u boji (Odluke (31. 10. 2026.)). */}}
 {{define "vrijemeDio"}}
 <div class="pv-upozorenja">
   {{range .Upozorenja}}
   <div class="pv-upozorenje dhmz-{{.Razina}}">
     {{icon "triangle-alert"}}
-    <div class="pv-upozorenje-tekst"><span class="pv-upozorenje-naslov">{{.Naslov}}</span>{{if .Opis}}<span class="pv-sitno">{{.Opis}}</span>{{end}}</div>
+    <div class="pv-upozorenje-tekst"><span class="pv-upozorenje-naslov">{{.Naslov}}</span>{{if .Opis}}<span class="pv-upozorenje-opis">{{.Opis}}</span>{{end}}</div>
     {{if $.Procitano}}<span class="pv-izvor">{{$.Procitano}}</span>{{end}}
   </div>
   {{end}}
   {{template "praznoVremena" .UpozorenjaPrazno}}
-  {{if .Ostalih}}<p class="pv-sitno pv-ostala">DHMZ ima još {{.Ostalih}} {{if eq .Ostalih 1}}upozorenje{{else}}upozorenja{{end}} za druge županije.</p>{{end}}
+  {{if .Ostalih}}<p class="pv-sitno pv-ostala">DHMZ ima još {{.Ostalih}} {{if eq .Ostalih 1}}upozorenje{{else}}upozorenja{{end}} za druga područja.</p>{{end}}
 </div>
 
 <div class="pv-stupci">
   <section class="pv-kartica pv-sada">
     {{with .Sada}}
-    <h3 class="pv-naslov">Sada · postaja {{.Postaja}}, {{.Km}} km</h3>
+    {{/* na mobitelu bez naslova: postaja i sat idu u drugi redak opisa */}}
+    <h3 class="pv-naslov pv-samo-siroko">Sada · postaja {{.Postaja}}, {{.Km}} km</h3>
     <div class="pv-sada-tijelo">
       {{if .Ikona}}<span class="pv-sada-ikona">{{icon .Ikona}}</span>{{end}}
       <span class="pv-sada-temp">{{.Temp}}</span>
-      <div class="pv-sada-opis">{{if .Opis}}<span>{{.Opis}}</span>{{end}}{{if .Detalji}}<span class="pv-sitno">{{.Detalji}}</span>{{end}}</div>
+      <div class="pv-sada-opis">{{if .Opis}}<span>{{.Opis}}</span>{{end}}{{if .Detalji}}<span class="pv-sitno pv-samo-siroko">{{.Detalji}}</span>{{end}}<span class="pv-sitno pv-samo-usko">{{.Postaja}}{{if .Sat}} · {{.Sat}}{{end}}</span></div>
     </div>
     {{else}}
     <h3 class="pv-naslov">Sada</h3>
@@ -120,7 +123,7 @@
 
   <section class="pv-kartica pv-kisomjer">
     {{with .Kisomjer}}
-    <h3 class="pv-naslov">{{.Naslov}}</h3>
+    <h3 class="pv-naslov"><span class="pv-samo-siroko">Kiša · kišomjer</span><span class="pv-samo-usko">Kišomjer</span> {{.Mjesto}}</h3>
     <dl class="pv-kisa-redovi">
       {{range .Redovi}}<div class="pv-kisa-redak"><dt>{{.Natpis}}{{if .Napomena}} <span class="pv-sitno">({{.Napomena}})</span>{{end}}</dt><dd>{{.Vrijednost}}</dd></div>
       {{end}}
@@ -134,16 +137,16 @@
 </div>
 
 <section class="pv-kartica pv-slivovi">
-  <div class="pv-glava"><h3 class="pv-naslov">Kiša po slivovima</h3><span class="pv-sitno">palo u zadnja 24 h i očekivano u idućih 48 h</span></div>
+  <div class="pv-glava"><h3 class="pv-naslov">Kiša po slivovima</h3><span class="pv-sitno"><span class="pv-samo-siroko">palo u zadnja 24 h i očekivano u idućih 48 h</span><span class="pv-samo-usko">palo 24 h · očekivano 48 h</span></span></div>
   {{if .Slivovi}}
   <table class="pv-tablica">
     <thead><tr><th>Međusliv</th><th>Palo 24 h</th><th>Očekivano 48 h</th><th>Koliko je rijetko</th><th>Gdje raste voda</th></tr></thead>
     <tbody>
     {{range .Slivovi}}<tr{{if .Klasa}} class="{{.Klasa}}"{{end}}>
-      <td class="pv-sliv-naziv">{{.Naziv}}</td>
-      <td data-natpis="palo 24 h">{{.Palo24}}</td>
-      <td data-natpis="očekivano 48 h">{{.Dolazi48}}</td>
-      <td>{{.Rijetko}}</td>
+      <td class="pv-sliv-naziv"><span>{{.Naziv}}</span><span class="pv-samo-usko pv-sliv-mm">{{.Ukratko}}</span></td>
+      <td class="pv-samo-siroko">{{.Palo24}}</td>
+      <td class="pv-samo-siroko">{{.Dolazi48}}</td>
+      <td class="pv-samo-siroko">{{.Rijetko}}</td>
       <td class="pv-raste{{if eq .Raste "—"}} pv-bez-porasta{{end}}">{{.Raste}}</td>
     </tr>
     {{end}}
@@ -165,7 +168,7 @@
   </ul>
   <p class="pv-sitno">{{.DaniIzvor}}</p>
   {{else}}
-  <p class="pv-sitno">Prognoza po danima zasad postoji samo za mjesta u slivu Drave i Dunava.</p>
+  {{template "praznoVremena" .DaniPrazno}}
   {{end}}
 </section>
 {{end}}

@@ -23,6 +23,23 @@ const (
 	daniPrognoze     = 5  // danas i četiri dana
 	najdaljaTockaDan = 40 // km
 	satiZaDan        = 20 // dan s manje satnih vrijednosti se ne pokazuje
+	// cmSnijegaPoMm vraća snijeg u centimetre: oborine.db ga drži kao mm
+	// vode (Open-Meteo cm / 0,7, kako Open-Meteo računa)
+	cmSnijegaPoMm = 0.7
+)
+
+// daniVremena su dani prognoze, odakle su i, kad ih nema, zašto
+type daniVremena struct {
+	Dani   []DanVremena
+	Izvor  string
+	Prazno *PraznaKartica
+}
+
+var (
+	// daniNedostupni: izvor nije odgovorio ili točka nema satnih vrijednosti
+	daniNedostupni = &PraznaKartica{Vrsta: PraznoNedostupno, Tekst: "Prognoza po danima trenutačno nije dostupna."}
+	// daniUIzradi: do 40 km nema izvedene točke
+	daniUIzradi = &PraznaKartica{Vrsta: PraznoUIzradi, Tekst: "U izradi: prognoza po danima zasad postoji samo za mjesta u slivovima Drave, Mure i Dunava."}
 )
 
 // zbrojDana su satne vrijednosti jednog dana
@@ -33,15 +50,16 @@ type zbrojDana struct {
 }
 
 // daniPrognoze vraća dane s najbliže aktivne izvedene točke do 40 km i
-// odakle su; bez točke ili bez podataka ništa
-func (h *VrijemeHandler) daniPrognoze(ctx context.Context, lat, lon float64, sada time.Time) ([]DanVremena, string) {
+// odakle su. Bez točke do 40 km dani su „U izradi”, a kad izvor ne
+// odgovori ili točka nema podataka, crta upozorenja.
+func (h *VrijemeHandler) daniPrognoze(ctx context.Context, lat, lon float64, sada time.Time) daniVremena {
 	svc, sp := h.izvoriKise()
 	if svc == nil || sp == nil {
-		return nil, ""
+		return daniVremena{Prazno: daniNedostupni}
 	}
 	tocke, err := svc.ListKisomjeri(ctx)
 	if err != nil {
-		return nil, ""
+		return daniVremena{Prazno: daniNedostupni}
 	}
 	poUdaljenosti(tocke, lat, lon)
 	for _, t := range tocke {
@@ -50,15 +68,15 @@ func (h *VrijemeHandler) daniPrognoze(ctx context.Context, lat, lon float64, sad
 		}
 		km := dhmz.Udaljenost(lat, lon, t.Latitude, t.Longitude)
 		if km > najdaljaTockaDan {
-			return nil, ""
+			break
 		}
 		dani := daniTocke(sp, t.Code, sada)
 		if len(dani) == 0 {
-			return nil, ""
+			return daniVremena{Prazno: daniNedostupni}
 		}
-		return dani, "Po danima: Open-Meteo za točku " + t.Naziv + ", " + brojHRf(km, 0) + " km. Ikona pokazuje samo kišu."
+		return daniVremena{Dani: dani, Izvor: "Po danima: Open-Meteo za točku " + t.Naziv + ", " + brojHRf(km, 0) + " km. Ikona pokazuje samo kišu."}
 	}
-	return nil, ""
+	return daniVremena{Prazno: daniUIzradi}
 }
 
 // daniTocke zbraja satne vrijednosti točke po danu, od današnje ponoći
@@ -122,7 +140,8 @@ func (z *zbrojDana) dodaj(obo, snij, temp sql.NullFloat64) {
 	z.temp++
 }
 
-// dan piše dan riječima: „Danas”, „Pet 6. 11.”, „1 / 11 °C”, „kiša 7 mm”
+// dan piše dan riječima: „Danas”, „Pet 6. 11.”, „1 / 11 °C”, „kiša 7 mm”,
+// a snijeg u centimetrima („snijeg 3 cm”)
 func (z zbrojDana) dan(d time.Time, i int) DanVremena {
 	out := DanVremena{Naslov: velikoSlovo(daniUTjednu[d.Weekday()]) + " " + strconv.Itoa(d.Day()) + ". " + strconv.Itoa(int(d.Month())) + ".",
 		Kisa: "kiša " + mmSliva(z.kisa)}
@@ -135,8 +154,8 @@ func (z zbrojDana) dan(d time.Time, i int) DanVremena {
 	if z.kisa >= 1 {
 		out.Ikona = "cloud-rain"
 	}
-	if z.snijeg >= 0.5 {
-		out.Kisa += " · snijeg " + brojHRf(z.snijeg, 0) + " cm"
+	if cm := z.snijeg * cmSnijegaPoMm; cm >= 0.5 {
+		out.Kisa += " · snijeg " + brojHRf(cm, 0) + " cm"
 	}
 	return out
 }

@@ -59,7 +59,10 @@ type PlocaVremena struct {
 	BiltenDatum   string
 
 	Izmjereno *IzmjerenaKisa
-	Prognozno *PrognoznaKisa
+	// KisomjerBlizu: do 40 km postoji aktivan stvarni kišomjer, pa prazan
+	// Izmjereno znači da se ne javlja, a ne da ga nema
+	KisomjerBlizu bool
+	Prognozno     *PrognoznaKisa
 
 	Greske        []string
 	BezUpozorenja bool // upozorenja se nisu dala dohvatiti: ne smije pisati da ih nema
@@ -127,7 +130,7 @@ func (h *VrijemeHandler) Ploca(r *http.Request) PlocaVremena {
 	h.sada(ctx, &p)
 	h.prognozaRegije(ctx, &p)
 	h.bilten(ctx, &p)
-	h.kisa(&p)
+	h.kisa(&p, time.Now())
 	return p
 }
 
@@ -198,8 +201,8 @@ func (h *VrijemeHandler) bilten(ctx context.Context, p *PlocaVremena) {
 }
 
 // kisa traži najbliži stvarni kišomjer koji se javlja i najbližu izvedenu
-// točku s prognozom
-func (h *VrijemeHandler) kisa(p *PlocaVremena) {
+// točku s prognozom, u trenutku sada
+func (h *VrijemeHandler) kisa(p *PlocaVremena, sada time.Time) {
 	svc, sp := h.izvoriKise()
 	if svc == nil || sp == nil {
 		return
@@ -209,7 +212,6 @@ func (h *VrijemeHandler) kisa(p *PlocaVremena) {
 		return
 	}
 	poUdaljenosti(tocke, p.Lat, p.Lon)
-	sada := time.Now()
 	najblizeIzmjereno(p, sp, tocke, sada)
 	najblizaPrognoza(p, sp, tocke, sada)
 }
@@ -244,6 +246,7 @@ func najblizeIzmjereno(p *PlocaVremena, sp *kisomjeri.Spremiste, tocke []models.
 		if km > 40 {
 			break
 		}
+		p.KisomjerBlizu = true
 		m, err := sp.Od(t.Code, sada.Add(-56*time.Hour))
 		if err != nil || len(m) == 0 {
 			continue
@@ -274,35 +277,64 @@ func upisiMjerenja(iz *IzmjerenaKisa, m []kisomjeri.Mjerenje, sada time.Time) {
 
 // zbrojiDane upisuje današnji i jučerašnji kišomjerski dan. Dnevni zbroj
 // (pljusak) ide od ponoći: jučer je zapis koji završava ponoćas. Satni
-// kišomjer (DHMZ) zbraja sate od zadnjih 7 h do sada, a jučer od 7 do 7 h;
-// sat koji nije stigao broji se kao da nedostaje, ne kao suh.
+// kišomjer (DHMZ) ide od 7 h (zbrojiSate).
 func zbrojiDane(iz *IzmjerenaKisa, m []kisomjeri.Mjerenje, sada time.Time) {
-	jutro := zadnjeJutro(sada)
 	ponoc := ponocDana(sada)
+	for _, x := range m {
+		if x.Sati != 24 {
+			continue
+		}
+		iz.OdPonoci = true
+		if x.Kraj.Equal(ponoc) {
+			v := x.Oborina
+			iz.Jucer = &v
+		}
+	}
+	if !iz.OdPonoci {
+		zbrojiSate(iz, m, sada)
+	}
+}
+
+// zbrojiSate zbraja sate satnog kišomjera od zadnjih 7 h do sada, a jučer
+// od 7 do 7 h. Sat koji nije stigao broji se kao da nedostaje, ne kao suh,
+// osim zadnjeg (ocekivanoDanas).
+func zbrojiSate(iz *IzmjerenaKisa, m []kisomjeri.Mjerenje, sada time.Time) {
+	jutro := zadnjeJutro(sada)
 	var danas, jucer float64
-	nDanas, nJucer := 0, 0
+	nDanas, nJucer, zadnji := 0, 0, jutro
 	for _, x := range m {
 		switch {
-		case x.Sati == 24:
-			iz.OdPonoci = true
-			if x.Kraj.Equal(ponoc) {
-				v := x.Oborina
-				iz.Jucer = &v
-			}
 		case x.Sati != 1 || x.Kraj.After(sada):
 		case x.Kraj.After(jutro):
 			danas += x.Oborina
 			nDanas++
+			zadnji = maxVrijeme(zadnji, x.Kraj)
 		case x.Kraj.After(jutro.Add(-24 * time.Hour)):
 			jucer += x.Oborina
 			nJucer++
 		}
 	}
-	if iz.OdPonoci {
-		return
-	}
-	iz.DanasOd7, iz.BezSatiDanas = zbrojSati(danas, nDanas, int(sada.Sub(jutro)/time.Hour))
+	iz.DanasOd7, iz.BezSatiDanas = zbrojSati(danas, nDanas, ocekivanoDanas(jutro, sada, zadnji))
 	iz.Jucer, iz.BezSatiJucer = zbrojSati(jucer, nJucer, 24)
+}
+
+// ocekivanoDanas je koliko je satnih vrijednosti od 7 h već trebalo
+// stići. Tekući sat DHMZ objavi tek oko :40, pa zadnji sat koji još nije
+// stigao ne broji se kao rupa; dulja šutnja broji se.
+func ocekivanoDanas(jutro, sada, zadnji time.Time) int {
+	n := int(sada.Sub(jutro) / time.Hour)
+	if n > 0 && zadnji.Before(jutro.Add(time.Duration(n)*time.Hour)) {
+		n--
+	}
+	return n
+}
+
+// maxVrijeme je kasnije od dva vremena
+func maxVrijeme(a, b time.Time) time.Time {
+	if b.After(a) {
+		return b
+	}
+	return a
 }
 
 // zbrojSati vraća zbroj zaokružen na desetinku i koliko od ocekivano sati

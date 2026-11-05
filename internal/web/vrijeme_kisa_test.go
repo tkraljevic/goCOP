@@ -87,7 +87,7 @@ func (o *kisaOkolina) satna(code string, sat int64, oborina *float64) {
 func (o *kisaOkolina) ploca() *PlocaVremena {
 	o.t.Helper()
 	p := &PlocaVremena{Mjesto: "Osijek", Lat: osijekLat, Lon: osijekLon}
-	o.h.kisa(p)
+	o.h.kisa(p, time.Now())
 	return p
 }
 
@@ -120,7 +120,7 @@ func TestKisaBezIzvora(t *testing.T) {
 	provjeri := func(ime string, h *VrijemeHandler) {
 		t.Helper()
 		p := &PlocaVremena{Lat: osijekLat, Lon: osijekLon, Izmjereno: prije}
-		h.kisa(p)
+		h.kisa(p, time.Now())
 		if p.Izmjereno != prije || p.Prognozno != nil {
 			t.Errorf("%s: ploča promijenjena: %+v %+v", ime, p.Izmjereno, p.Prognozno)
 		}
