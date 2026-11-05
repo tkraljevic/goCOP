@@ -3,6 +3,7 @@ package web
 import (
 	"net/url"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -472,5 +473,50 @@ func TestUsceDijelaBezLetvi(t *testing.T) {
 	}
 	if usceDijela(VodotokPrognoze{Letve: []string{"a", "x"}}, map[string]string{"x": "Dunav"}) != "Dunav" {
 		t.Error("ušće zadnje letve")
+	}
+}
+
+// Sektor kojem letva pripada (dionica ili upisano područje) i sektor koji je
+// samo prati (Odluke 5. 11. 2026.): Mursko Središće pripada sektoru A preko
+// BP 33, a sektor B ga prati, pa u sektoru B uz njega piše „sektor A”.
+func TestMaticniITudjiSektor(t *testing.T) {
+	mursko, dalj, strana := uuid.New(), uuid.New(), uuid.New()
+	postaje := map[string]models.Station{
+		"mursko":  {ID: mursko, Name: "Mursko Središće", PrateSektori: []string{"B"}, PratePodrucja: []int{33}},
+		"dalj":    {ID: dalj, Name: "Dalj"},
+		"letenye": {ID: strana, Name: "Letenye (Mađarska)", PrateSektori: []string{"A", "B"}},
+	}
+	dionice := map[string][]string{dalj.String(): {"B"}}
+	podrucja := []models.Area{{ID: 33, SectorID: "A"}, {ID: 34, SectorID: "B"}}
+	m := maticniSektori(postaje, dionice, podrucja)
+	if !slices.Equal(m["mursko"], []string{"A"}) || !slices.Equal(m["dalj"], []string{"B"}) {
+		t.Errorf("matični sektori %v", m)
+	}
+	if _, ima := m["letenye"]; ima {
+		t.Errorf("letva samo s upisanim sektorima nema svoj sektor: %v", m["letenye"])
+	}
+	for _, c := range []struct {
+		maticni []string
+		odabran string
+		zeli    string
+	}{
+		{[]string{"A"}, "B", "sektor A"},
+		{[]string{"A"}, "A", ""},
+		{nil, "B", ""},
+		{[]string{"A", "C"}, "B", "sektor A, C"},
+		{[]string{"A", "B"}, "B", ""},
+	} {
+		if got := tudjiSektor(c.maticni, c.odabran); got != c.zeli {
+			t.Errorf("tudjiSektor(%v, %s) = %q, a treba %q", c.maticni, c.odabran, got, c.zeli)
+		}
+	}
+	// Na stranici: natpis stoji uz letvu u kartici odabranog sektora.
+	data := PrognozePageData{
+		Tablice: []TablicaPrognoza{{Letve: []LetvaPrognoze{{Kod: "mursko", Naziv: "Mursko Središće"}, {Kod: "dalj", Naziv: "Dalj"}}}},
+		Izbor:   &IzborPrognoze{kodovi: []string{"mursko", "dalj"}, tudji: map[string]string{"mursko": tudjiSektor(m["mursko"], "B")}},
+	}
+	suziStranicu(&data)
+	if l := data.Tablice[0].Letve; l[0].TudjiSektor != "sektor A" || l[1].TudjiSektor != "" {
+		t.Errorf("natpisi na stranici: %q, %q", l[0].TudjiSektor, l[1].TudjiSektor)
 	}
 }

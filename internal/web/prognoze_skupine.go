@@ -176,6 +176,38 @@ func vlastitiSektori(postaje map[string]models.Station, dionice map[string][]str
 	return out
 }
 
+// maticniSektori su sektori kojima letva pripada, a ne koji je samo prate:
+// sektori njezinih dionica i sektori branjenih područja upisanih u obrazac
+// letve. Sektor upisan bez područja letvu samo prati (Mursko Središće
+// pripada sektoru A preko BP 33, a sektor B ga prati; Odluke 5. 11. 2026.).
+func maticniSektori(postaje map[string]models.Station, dionice map[string][]string, podrucja []models.Area) map[string][]string {
+	sektorPodrucja := map[int]string{}
+	for _, a := range podrucja {
+		sektorPodrucja[a.ID] = a.SectorID
+	}
+	out := map[string][]string{}
+	for kod, st := range postaje {
+		s := append([]string{}, dionice[st.ID.String()]...)
+		for _, a := range st.PratePodrucja {
+			s = append(s, sektorPodrucja[a])
+		}
+		if s = uredeni(s); len(s) > 0 {
+			out[kod] = s
+		}
+	}
+	return out
+}
+
+// tudjiSektor je natpis „sektor A” za letvu koja u odabranom sektoru stoji
+// samo zato što je sektor prati; prazno kad joj je to vlastiti sektor ili
+// kad joj vlastiti sektor nije upisan.
+func tudjiSektor(maticni []string, odabran string) string {
+	if len(maticni) == 0 || slices.Contains(maticni, odabran) {
+		return ""
+	}
+	return "sektor " + strings.Join(maticni, ", ")
+}
+
 // izvedeniSektori daje sektor i letvama koje ga u registru nemaju, preko
 // lanca: letva računata iz letve sektora ide u taj sektor, a tuđa letva i
 // kad je ulaz letve sektora. Naša letva koja je samo ulaz (Botovo za Novo
