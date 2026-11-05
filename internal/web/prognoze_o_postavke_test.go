@@ -54,7 +54,7 @@ func TestOPrognoziRedoslijedKartica(t *testing.T) {
 	redom(t, html, `href="/prognoze" class="prog-str-natrag"`, "<h1>O prognozi</h1>",
 		`class="btn prog-obrub"`, "Izvoz u Excel", "Pričuvni izračun",
 		`<h2>Lanac postaja</h2>`, `<h2>Provjera na poplavnim valovima</h2>`, `<h2>Postaje</h2>`,
-		`<h2>Kako čitati prognozu</h2>`, `<span class="prog-sklop-naslov">Detalji</span>`,
+		`<h2>Kako čitati prognozu</h2>`, `<h2 class="prog-sklop-naslov">Detalji</h2>`,
 		`<details class="prog-detalji">`, `<h2>Suradnja i podaci</h2>`)
 	if !strings.Contains(html, `<details class="letva-ploca prog-ploca prog-sklop" id="detalji">`) {
 		t.Error("Detalji moraju biti sklopljeni")
@@ -167,5 +167,34 @@ func TestPostavkeModelPoBranjenimPodrucjima(t *testing.T) {
 		if strings.Contains(html, nema) {
 			t.Errorf("područje bez letve iz izdanja: %q", nema)
 		}
+	}
+}
+
+// Izbor „Tablica, grafovi i izvoz”: označen je samo gumb spremljenog načina,
+// a tko ne smije mijenjati dobiva zaključan izbor.
+func TestPostavkeOznacenPrikaz(t *testing.T) {
+	gumb := func(v string) string { return `name="prognoza_prikaz" value="` + v + `"` }
+	for _, nacin := range []string{"", models.PrognozaSatni, models.PrognozaDnevni} {
+		html := iscrtaj(t, "prognoze_postavke.html", PrognozePageData{
+			CurrentUser: &models.User{FullName: "Petra Probić"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+			ActiveNav: "prognoze", SmijeMijenjati: true, Opcije: models.Opcije{PrognozaPrikaz: nacin},
+		})
+		if n := strings.Count(html, " checked>"); n != 1 {
+			t.Errorf("način %q: označenih gumba %d", nacin, n)
+		}
+		if !strings.Contains(html, gumb(nacin)+" checked>") {
+			t.Errorf("način %q nije označen", nacin)
+		}
+		if strings.Contains(html, `<fieldset class="prog-segment" disabled>`) {
+			t.Errorf("način %q: izbor zaključan, a smije mijenjati", nacin)
+		}
+	}
+	html := iscrtaj(t, "prognoze_postavke.html", PrognozePageData{
+		CurrentUser: &models.User{FullName: "Petra Probić"}, Permissions: &models.UserPermissions{},
+		ActiveNav: "prognoze", Opcije: models.Opcije{PrognozaPrikaz: models.PrognozaDnevni},
+	})
+	if !strings.Contains(html, `<fieldset class="prog-segment" disabled>`) || !strings.Contains(html, gumb(models.PrognozaDnevni)+" checked>") ||
+		strings.Contains(html, `<button type="submit" class="btn btn-primary">Spremi</button>`) {
+		t.Error("bez prava izbor mora biti zaključan, s označenim spremljenim načinom i bez gumba Spremi")
 	}
 }

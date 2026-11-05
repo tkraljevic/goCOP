@@ -59,7 +59,7 @@
         <thead><tr><th>Rijeka · model</th><th>Valova</th><th>Doseg</th><th>Pogreška vrha</th><th>Pristranost</th><th>Postojanost</th></tr></thead>
         <tbody>
         {{range .Skupine}}{{$s := .}}{{range $i, $d := .Dosezi}}
-        <tr>
+        <tr{{if $i}} class="prog-retci-nastavak"{{end}}>
           {{if eq $i 0}}<td rowspan="{{len $s.Dosezi}}"><strong>{{$s.Rijeka}}</strong><div class="reg-card-sub">{{$s.Model}}</div></td>
           <td rowspan="{{len $s.Dosezi}}">{{$s.Valova}}</td>{{end}}
           <td class="nowrap">{{$d.Doseg}} h</td>
@@ -128,9 +128,9 @@
 
   {{with .Detaljni}}
   <details class="letva-ploca prog-ploca prog-sklop" id="detalji">
-    <summary><span class="prog-sklop-naslov">Detalji</span>
-      <span class="prog-sklop-opis">Za one koji provjeravaju račun: podaci, formule, provjere i povijest izmjena</span></summary>
-    <p>Svaki odjeljak otvara se klikom na naslov.</p>
+    <summary><h2 class="prog-sklop-naslov">Detalji</h2>
+      <span class="prog-sklop-opis">Za one koji provjeravaju račun: podaci, formule, provjere i povijest izmjena.</span></summary>
+    <p>Odjeljak se otvara klikom na naslov.</p>
     {{range .}}
     <details class="prog-detalji">
       <summary>{{.Naslov}}</summary>

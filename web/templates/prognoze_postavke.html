@@ -97,9 +97,9 @@
     kad je sat izdan više puta, izvozi se zadnje.{{with .Ranije.Ogranicenje}} {{.}} Što uz odabrano izdanje nije
     zapisano, izvoz nema i to kaže.{{end}}</p>
   <form method="GET" action="/prognoze/postavke#ranije" class="prog-ranije-obrazac">
-    <span class="prog-ranije-polje"><label for="ranije_dan">Dan</label>
+    <span class="prog-ranije-polje prog-ranije-dan"><label for="ranije_dan">Dan</label>
       <input type="date" name="dan" id="ranije_dan" class="form-control" value="{{.Ranije.Dan}}" min="{{.Ranije.OdDan}}" max="{{.Ranije.DoDan}}" required></span>
-    <span class="prog-ranije-polje"><label for="ranije_sat">Sat</label>
+    <span class="prog-ranije-polje prog-ranije-sat"><label for="ranije_sat">Sat</label>
       <select name="sat" id="ranije_sat" class="form-control">{{$sat := .Ranije.Sat}}{{range .Ranije.Sati}}
         <option value="{{.}}"{{if eq . $sat}} selected{{end}}>{{printf "%02d" .}}:00</option>{{end}}
       </select></span>

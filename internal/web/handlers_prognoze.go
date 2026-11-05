@@ -481,7 +481,7 @@ func (h *PrognozeHandler) SpremiPostavke(w http.ResponseWriter, r *http.Request)
 	}
 	err := h.izmijeniOpcije(r.Context(), perms, func(o *models.Opcije) {
 		o.PrognozaPrikaz = valjan(r.FormValue("prognoza_prikaz"))
-		o.PrognozaBezSusjeda = r.FormValue("prognoza_susjedi") != "1" // neoznačen kvadratić ne šalje ništa
+		o.PrognozaBezSusjeda = r.FormValue("prognoza_susjedi") != "1" // „samo satni lanac” šalje prazno
 	})
 	if err != nil {
 		redirectWith(w, r, "/prognoze/postavke#prikaz", "error", err.Error())
