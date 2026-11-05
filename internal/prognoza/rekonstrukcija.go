@@ -29,12 +29,18 @@ package prognoza
 //	Novo Virje      Vízvár ±10, Botovo ±16           Botovo ±18          (±54/±57)
 //	Vrbovka         Moslavina ±8, Barcs ±11          Barcs ±15           (±30/±52)
 //	Moslavina       Drávaszabolcs ±6, Vrbovka ±8     Vrbovka ±13, Barcs ±20 (±29/±55)
+//	Belišće         Drávaszabolcs ±6, Osijek ±6,     Drávaszabolcs ±9,   (±21/±45)
+//	                Donji Miholjac ±7                Donji Miholjac ±11
 //
 // Terezino Polje bi Szentborbásu bilo jednako dobro na živim podacima, ali je
 // u arhivi nepouzdano; kad zastane Barcs, popuni ga ono s druge obale prije
 // rekonstrukcije, a Batinu Bezdan, Goričan Letenye i Drávaszabolcs Donji
 // Miholjac. Botovo vode elektrane, pa mu susjedi ne pomažu (±36 do ±42);
-// Dalj, Sotin, Belišće i Osijek dobili bi tek malo prema zadržanom mjerenju.
+// Dalj, Sotin i Osijek dobili bi tek malo prema zadržanom mjerenju.
+//
+// Belišće je dodano 5. 11. 2026., kad od 4. 11. u 23 h nije javljalo: bez
+// njega dnevni model ne računa ni Belišće ni Osijek, pa su 5. i 6. dan
+// ostali prazni. Izmjereno na arhivi od 2015. isto kao gore.
 //
 // Kao i zamjena s druge obale, rekonstruirani sat ulazi samo u račun
 // prognoze; mjerenjem se ne pokazuje i u evidenciju ne ide. Uz izdanje stoji
@@ -112,6 +118,10 @@ var Rekonstrukcije = map[string][]Susjed{
 		{Letva: "dravaszabolcs", Zastoj: -6, Prosla: 6},
 		{Letva: "vrbovka", Zastoj: 7, Prosla: 8, Traje: 13},
 		{Letva: "barcs", Zastoj: 12, Prosla: 15, Traje: 20},
+	}, "belisce": {
+		{Letva: "dravaszabolcs", Zastoj: 5, Prosla: 6, Traje: 9},
+		{Letva: "osijek", Zastoj: -9, Prosla: 6},
+		{Letva: "donji-miholjac", Zastoj: 6, Prosla: 7, Traje: 11},
 	},
 }
 
@@ -138,6 +148,7 @@ var RasponProvjere = map[string]Raspon{
 	"novo-virje":      {-7, 421},
 	"vrbovka":         {29, 608},
 	"moslavina":       {-106, 468},
+	"belisce":         {13, 525},
 }
 
 const (

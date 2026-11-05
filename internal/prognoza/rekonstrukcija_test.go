@@ -405,3 +405,27 @@ func TestTablicaRekonstrukcija(t *testing.T) {
 		}
 	}
 }
+
+// Belišće bez mjerenja (od 4. 11. 2026. u 23 h): rupu koja traje popunjava
+// Drávaszabolcs 5 h uzvodno, pa dnevni model Belišća i Osijeka i dalje
+// računa. Belišće raste 30 cm u šest dana prije rupe, da se ne čita kao
+// letva koja stoji.
+func TestBelisceIzSusjeda(t *testing.T) {
+	letva := nizSati(0, 200, func(t int64) int64 { return 100 + t*30/200 })
+	nizovi := map[string]map[int64]sirovoOcitanje{
+		"dravaszabolcs":  nizSati(0, 230, func(t int64) int64 { return 300 + t/2 }),
+		"donji-miholjac": nizSati(0, 230, func(t int64) int64 { return 250 + t/2 }),
+		"osijek":         nizSati(0, 200, func(t int64) int64 { return 50 + t/4 }),
+	}
+	rupe := Rekonstruiraj(letva, Rekonstrukcije["belisce"], nizovi)
+	if len(rupe) != 1 || rupe[0].Sljedece != 0 {
+		t.Fatalf("rupa koja traje nije popunjena: %+v", rupe)
+	}
+	if got := imenaSusjeda(rupe[0]); !slices.Equal(got, []string{"dravaszabolcs"}) || rupe[0].Tocnost != 9 {
+		t.Errorf("popunio %v uz ±%d, a treba Drávaszabolcs uz ±9", got, rupe[0].Tocnost)
+	}
+	// Drávaszabolcs je izmjeren do 230. sata; 5 h kasnije to stiže u Belišće.
+	if v := letva[210].cm.Int64; v != 130+(205-195)/2 {
+		t.Errorf("Belišće u 210. satu %d cm", v)
+	}
+}
