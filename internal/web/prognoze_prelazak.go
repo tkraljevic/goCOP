@@ -22,43 +22,66 @@ var nazivFaze = map[string]string{
 	"prep": "pripremno", "regular": "redovna obrana", "emerg": "izvanredna obrana", "crit": "izvanredno stanje",
 }
 
-// terminRazine je jedan termin kartice: naslov i faza obrane prognoze u njemu.
-type terminRazine struct{ naslov, razina string }
+// terminRazine je jedan termin kartice: naslov, koliko je sati poslije
+// izdanja i faza obrane prognoze u njemu.
+type terminRazine struct {
+	naslov, razina string
+	sat            int
+}
 
-// terminiRazina su termini kartice redom kako stoje: +6 h, +12 h, pa dani.
-// Blizi dosezi nemaju fazu u ćeliji, pa im se računa istim pragovima letve.
-func terminiRazina(lp LetvaPrognoze, st models.Station) []terminRazine {
+// kasnije je sat termina koji se ne zna: iza svih ostalih.
+const kasnije = 1 << 30
+
+// terminiRazina su termini kartice: +6 h, +12 h, pa dani, a doDana su sati
+// od izdanja do dana. Blizi dosezi nemaju fazu u ćeliji, pa im se računa
+// istim pragovima letve.
+func terminiRazina(lp LetvaPrognoze, st models.Station, doDana []int) []terminRazine {
 	out := make([]terminRazine, 0, len(lp.Vrijednosti)+len(lp.Dani))
 	for _, v := range lp.Vrijednosti {
 		if v.CmV != nil {
-			out = append(out, terminRazine{fmt.Sprintf("+%d h", v.DosegH), razinaObrane(st, *v.CmV)})
+			out = append(out, terminRazine{fmt.Sprintf("+%d h", v.DosegH), razinaObrane(st, *v.CmV), v.DosegH})
 		}
 	}
-	for _, d := range lp.Dani {
-		out = append(out, terminRazine{d.Naslov, d.Razina})
+	for k, d := range lp.Dani {
+		sat := kasnije
+		if k < len(doDana) {
+			sat = doDana[k]
+		}
+		out = append(out, terminRazine{d.Naslov, d.Razina, sat})
 	}
 	return out
 }
 
-// oznakaPrelaska je prvi termin čija je faza viša od faze sadašnjeg
-// vodostaja, i ta faza. Bez sadašnjeg vodostaja nema s čime usporediti, a
-// razini akumulacije (kota nad morem) pragovi letve ne pripadaju.
-func oznakaPrelaska(lp LetvaPrognoze, st models.Station) *Prelazak {
+// oznakaPrelaska je najraniji termin čija je faza viša od faze sadašnjeg
+// vodostaja, i ta faza. Termini se uspoređuju po satu, ne po redu na
+// kartici: prvi dan (7 h) može doći prije +6 h ili između +6 h i +12 h.
+// Bez sadašnjeg vodostaja nema s čime usporediti, a razini akumulacije
+// (kota nad morem) pragovi letve ne pripadaju.
+func oznakaPrelaska(lp LetvaPrognoze, st models.Station, doDana []int) *Prelazak {
 	if lp.SadaCmV == nil || lp.SadaJed != "" {
 		return nil
 	}
 	sada := redFaze[razinaObrane(st, *lp.SadaCmV)]
-	for _, t := range terminiRazina(lp, st) {
-		if redFaze[t.razina] > sada {
-			return &Prelazak{Razina: t.razina, Tekst: "↑ " + nazivFaze[t.razina] + " od " + t.naslov}
+	var prvi *terminRazine
+	for _, t := range terminiRazina(lp, st, doDana) {
+		if redFaze[t.razina] > sada && (prvi == nil || t.sat < prvi.sat) {
+			prvi = &t
 		}
 	}
-	return nil
+	if prvi == nil {
+		return nil
+	}
+	return &Prelazak{Razina: prvi.razina, Tekst: "↑ " + nazivFaze[prvi.razina] + " od " + prvi.naslov}
 }
 
-// oznaciPrelaske stavlja oznaku prelaska na kartice svih letvi.
-func oznaciPrelaske(letve []LetvaPrognoze, postaje map[string]models.Station) {
+// oznaciPrelaske stavlja oznaku prelaska na kartice svih letvi; ciljevi su
+// sati dana od epohe, izdanoH sat izdanja.
+func oznaciPrelaske(letve []LetvaPrognoze, postaje map[string]models.Station, ciljevi []int64, izdanoH int64) {
+	doDana := make([]int, len(ciljevi))
+	for k, c := range ciljevi {
+		doDana[k] = int(c - izdanoH)
+	}
 	for i := range letve {
-		letve[i].Prelazak = oznakaPrelaska(letve[i], postaje[letve[i].Kod])
+		letve[i].Prelazak = oznakaPrelaska(letve[i], postaje[letve[i].Kod], doDana)
 	}
 }

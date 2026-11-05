@@ -29,6 +29,9 @@ func karticaPrelaska(sada *float64, blizi [2]*float64, dani ...string) LetvaProg
 
 func uCm(v float64) *float64 { return &v }
 
+// izdanoU8 su sati od izdanja u 8 h do prvih šest jutara u 7 h.
+var izdanoU8 = []int{23, 47, 71, 95, 119, 143}
+
 func TestOznakaPrelaska(t *testing.T) {
 	bezPragova := models.Station{Code: "gornji-brod"}
 	for _, s := range []struct {
@@ -57,7 +60,7 @@ func TestOznakaPrelaska(t *testing.T) {
 		{"letva bez pragova", karticaPrelaska(uCm(500), [2]*float64{uCm(600), uCm(700)}, "", ""), bezPragova, nil},
 		{"bez sadašnjeg vodostaja", karticaPrelaska(nil, [2]*float64{uCm(300), uCm(320)}, "regular"), letvaPrelaska, nil},
 	} {
-		got := oznakaPrelaska(s.lp, s.st)
+		got := oznakaPrelaska(s.lp, s.st, izdanoU8)
 		if (got == nil) != (s.want == nil) || got != nil && *got != *s.want {
 			t.Errorf("%s: %+v, želim %+v", s.ime, got, s.want)
 		}
@@ -65,18 +68,42 @@ func TestOznakaPrelaska(t *testing.T) {
 	// Razina akumulacije je kota nad morem: pragovi letve joj ne pripadaju.
 	akum := karticaPrelaska(uCm(200), [2]*float64{uCm(300), uCm(400)}, "crit")
 	akum.SadaJed = "m n. m."
-	if got := oznakaPrelaska(akum, letvaPrelaska); got != nil {
+	if got := oznakaPrelaska(akum, letvaPrelaska, izdanoU8); got != nil {
 		t.Errorf("akumulacija: %+v", got)
 	}
 }
 
+// Prvo jutro nije uvijek iza +12 h: izdano u 20 h ono je +11 h, a izdano u
+// 4 h +3 h, prije +6 h. Termini se zato uspoređuju po satu, a ne po redu na
+// kartici; u istom satu ostaje bliski doseg, a dan bez sata ide iza svih.
+func TestOznakaPrelaskaPoSatu(t *testing.T) {
+	for _, s := range []struct {
+		ime    string
+		blizi  [2]*float64
+		doDana []int
+		want   string
+	}{
+		{"prvo jutro prije +12 h", [2]*float64{uCm(245), uCm(255)}, []int{11, 35, 59}, "↑ pripremno od ned 1.11."},
+		{"prvo jutro prije +6 h", [2]*float64{uCm(255), uCm(260)}, []int{3, 27, 51}, "↑ pripremno od ned 1.11."},
+		{"isti sat kao +12 h", [2]*float64{uCm(245), uCm(255)}, []int{12, 36}, "↑ pripremno od +12 h"},
+		{"dan bez sata", [2]*float64{uCm(245), uCm(255)}, []int{}, "↑ pripremno od +12 h"},
+		{"jutro poslije +12 h", [2]*float64{uCm(245), uCm(255)}, izdanoU8, "↑ pripremno od +12 h"},
+	} {
+		got := oznakaPrelaska(karticaPrelaska(uCm(240), s.blizi, "prep"), letvaPrelaska, s.doDana)
+		if got == nil || got.Tekst != s.want || got.Razina != "prep" {
+			t.Errorf("%s: %+v, želim %q", s.ime, got, s.want)
+		}
+	}
+}
+
 // Oznaka se stavlja na svaku karticu po pragovima njezine letve, a stranica
-// je piše ispod sadašnjeg vodostaja, obrubljenu u boji faze.
+// je piše ispod sadašnjeg vodostaja, ispunjenu bojom faze.
 func TestPrelazakNaKartici(t *testing.T) {
 	letve := []LetvaPrognoze{karticaPrelaska(uCm(240), [2]*float64{uCm(245), uCm(249)}, "", "prep"),
 		{Kod: "nepoznata", SadaCmV: uCm(500)}}
 	letve[0].Naziv, letve[0].SadaCm, letve[0].ImaTermina = "Gornji Brod", "240", true
-	oznaciPrelaske(letve, map[string]models.Station{"gornji-brod": letvaPrelaska})
+	izdanoH := int64(500000)
+	oznaciPrelaske(letve, map[string]models.Station{"gornji-brod": letvaPrelaska}, []int64{izdanoH + 23, izdanoH + 47}, izdanoH)
 	if letve[0].Prelazak == nil || letve[0].Prelazak.Tekst != "↑ pripremno od pon 2.11." || letve[1].Prelazak != nil {
 		t.Fatalf("prelasci %+v, %+v", letve[0].Prelazak, letve[1].Prelazak)
 	}

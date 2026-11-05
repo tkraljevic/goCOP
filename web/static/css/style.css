@@ -1637,10 +1637,10 @@ a:hover { color: var(--accent); }
 /* Pragovi na kartici prognoze: isti znakovi kao na stranici letve, sitniji,
    ispod naziva, da uz vrijednosti odmah stoji koliko je do obrane. */
 .prog-pragovi { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-.prog-pragovi .threshold-pill { font-size: 0.75rem; font-weight: 400; line-height: 16px; padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
-.prog-pragovi .threshold-pill.prep { border-color: var(--faza-p-crta); }
-.prog-pragovi .threshold-pill.regular { border-color: var(--faza-r-crta); }
-.prog-pragovi .threshold-pill.emerg { border-color: var(--faza-i-crta); }
+.prog-pragovi .threshold-pill { font-size: 0.75rem; font-weight: 500; line-height: 16px; padding: 3px 8px; border-radius: 6px; white-space: nowrap; }
+.prog-pragovi .threshold-pill.prep { border-color: var(--faza-p-crta); color: var(--md-sys-color-on-surface, var(--text)); }
+.prog-pragovi .threshold-pill.regular { border-color: var(--faza-r-crta); color: var(--md-sys-color-on-surface, var(--text)); }
+.prog-pragovi .threshold-pill.emerg { border-color: var(--faza-i-crta); color: var(--md-sys-color-on-surface, var(--text)); }
 .prog-pragovi .threshold-pill.record, .prog-pragovi .threshold-pill.min {
   background: none; color: var(--text-muted); border: 1px solid var(--md-sys-color-outline-variant, var(--border));
 }
@@ -4961,16 +4961,17 @@ table.akt-poveznice { margin-top: 0.75rem; }
    boji faze, „moguće” isprekidanim obrubom faze, tuđa prognoza tirkizno.
    Raspon stoji uz brojku, ali sitnije: on je ograda, a ne podatak. Doseg na
    kojem prognoza ne pobjeđuje postojanost blijedi. */
-.prog-zaglavlje { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 4px 16px; margin: 0 0 16px; }
+.prog-zaglavlje { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; margin: 0 0 16px; }
 .prog-izdanje { min-width: 0; }
 .prog-izdanje p { margin: 0; }
 .prog-izdano { font-size: 0.875rem; line-height: 20px; color: var(--md-sys-color-on-surface, var(--text)); }
 .prog-udio, .prog-nacin { font-size: 0.8125rem; line-height: 18px; color: var(--text-muted); }
 .prog-oborina-bez { color: var(--faza-r-fg); font-weight: 600; }
-.prog-radnje { display: flex; flex-wrap: wrap; gap: 0 4px; margin-right: -12px; }
+/* razmak od 24 px među natpisima daje samo unutarnji razmak gumba (12 + 12) */
+.prog-radnje { display: flex; flex-wrap: wrap; gap: 0; margin-right: -12px; }
 .prog-radnje .btn-link { color: var(--md-sys-color-primary, var(--primary)); }
 @media (max-width: 839px) {
-  .prog-zaglavlje { flex-direction: column; }
+  .prog-zaglavlje { flex-direction: column; align-items: flex-start; }
   .prog-radnje { margin: 0 0 0 -12px; }
 }
 .prog-traka {
@@ -4979,57 +4980,60 @@ table.akt-poveznice { margin-top: 0.75rem; }
   background: var(--upozorenje-tehnicko-ploha); color: var(--md-sys-color-on-surface, var(--text));
   font-size: 0.875rem; line-height: 20px;
 }
-.prog-traka > .icon { flex: none; width: 20px; height: 20px; margin-top: 0; color: var(--upozorenje-tehnicko-rub); }
+.prog-traka > .icon { flex: none; width: 24px; height: 24px; margin: -2px 0; color: var(--md-sys-color-on-surface-variant, var(--text-muted)); }
 .prog-traka .prog-jos { white-space: nowrap; margin-left: 4px; }
-.prog-kartica .prog-traka { margin: 12px 0 0; padding: 8px 12px; font-size: 0.8125rem; line-height: 18px; }
+.prog-kartica .prog-traka { margin: 12px 0 0; padding: 8px 12px; gap: 10px; border-radius: 8px; font-size: 0.8125rem; line-height: 18px; }
+.prog-kartica .prog-traka > .icon { margin: -3px 0; }
 .prog-kartica .prog-nepovezana { border-left-color: var(--md-sys-color-outline-variant, var(--border)); color: var(--text-muted); }
 .prog-kartica .prog-nepovezana > .icon { color: var(--text-muted); }
-.prog-voda { margin: 24px 0 8px; font-size: 1rem; font-weight: 500; }
+.prog-voda { margin: 16px 0; font-size: 1rem; font-weight: 500; }
 .prog-o dl { margin: 0; max-width: 60rem; font-size: 0.88rem; line-height: 1.5; }
 .prog-o dt { font-weight: 600; margin-top: 0.7rem; }
 .prog-o dd { margin: 0.15rem 0 0; color: var(--text-muted); }
 .prog-kartice { display: flex; flex-direction: column; gap: 8px; }
 .prog-kartica {
-  padding: 16px 20px 20px; border: 1px solid var(--md-sys-color-outline-variant, var(--border));
+  padding: 20px; border: 1px solid var(--md-sys-color-outline-variant, var(--border));
   border-radius: 12px; background: var(--md-sys-color-surface-container-low, var(--surface));
 }
 .prog-kartica.prog-sporedna { opacity: 0.92; }
 .prog-glava { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .prog-ime { min-width: 0; }
-.prog-naziv { margin: 0; font-size: 1.125rem; font-weight: 400; line-height: 24px; }
+.prog-naziv { margin: 0; font-size: 1.125rem; font-weight: 500; line-height: 24px; }
 .prog-naziv a { color: var(--md-sys-color-primary, var(--primary)); text-decoration: none; }
 .prog-naziv a:hover { text-decoration: underline; }
 .prog-opis { margin-top: 2px; font-size: 0.8125rem; line-height: 18px; color: var(--text-muted); }
 .prog-sad { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .prog-sad-cm { font-size: 1.75rem; font-weight: 400; line-height: 34px; }
 .prog-sad-cm .prog-jed { font-size: inherit; }
-.prog-sad > .prog-druga { font-size: 0.9375rem; color: var(--text-muted); }
+.prog-sad > .prog-druga { font-size: 1rem; color: var(--text-muted); }
+/* Oznaka prelaska je ispunjena bojom faze, s obrubom u crti faze, kao dan u
+   toj fazi; tekst je obične boje (u izvanrednom stanju svijetao na crvenom). */
 .prog-prelazak {
-  margin-top: 4px; padding: 1px 8px; border: 1px solid currentColor; border-radius: 6px;
-  font-size: 0.75rem; line-height: 16px; background: none;
+  margin-top: 2px; padding: 3px 8px; border: 1px solid transparent; border-radius: 6px;
+  font-size: 0.75rem; font-weight: 500; line-height: 16px; color: var(--md-sys-color-on-surface, var(--text));
 }
-.prog-prelazak.prelazak-prep { color: var(--faza-p-crta); }
-.prog-prelazak.prelazak-regular { color: var(--faza-r-crta); }
-.prog-prelazak.prelazak-emerg { color: var(--faza-i-crta); }
-.prog-prelazak.prelazak-crit { color: var(--faza-s-crta); }
+.prog-prelazak.prelazak-prep { background: var(--faza-p-bg); border-color: var(--faza-p-crta); }
+.prog-prelazak.prelazak-regular { background: var(--faza-r-bg); border-color: var(--faza-r-crta); }
+.prog-prelazak.prelazak-emerg { background: var(--faza-i-bg); border-color: var(--faza-i-crta); }
+.prog-prelazak.prelazak-crit { background: var(--faza-s-bg); border-color: var(--faza-s-crta); color: var(--faza-s-fg); }
 .prog-termini {
   display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
   gap: 8px; margin-top: 16px;
 }
 .prog-termin {
-  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 6px;
-  border: 1px solid var(--md-sys-color-outline-variant, var(--border)); border-radius: 10px;
-  background: var(--md-sys-color-surface-container-lowest, var(--surface));
+  display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 12px 6px;
+  border: 1px solid transparent; border-radius: 10px;
+  background: var(--md-sys-color-surface, var(--surface));
   text-align: center; font-variant-numeric: tabular-nums; line-height: 1.25;
 }
 .prog-termin-naslov { font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; }
-.prog-vr { font-size: 1.375rem; font-weight: 400; line-height: 28px; white-space: nowrap; }
+.prog-vr { font-size: 1.375rem; font-weight: 500; line-height: 28px; white-space: nowrap; }
 .prog-nema { color: var(--text-muted); }
-.prog-oznaka { font-size: 0.6em; color: var(--text-muted); margin-left: 1px; }
+.prog-oznaka { font-size: 11px; font-weight: 500; color: var(--text-muted); margin-left: 1px; }
 .prog-oznaka.prog-oznaka-satna { color: var(--faza-r-fg); font-weight: 600; }
 .prog-termin .prog-raspon, .prog-termin .prog-druga { font-size: 0.8125rem; color: var(--text-muted); white-space: nowrap; }
 .prog-slabija { opacity: 0.45; }
-.prog-termin .prog-tuda { font-size: 0.8125rem; white-space: nowrap; }
+.prog-termin .prog-tuda { font-size: 0.8125rem; font-weight: 500; white-space: nowrap; }
 .prog-tuda, .prog-tuda-hu, .prog-tuda-rs, .prog-tuda-at { color: var(--tuđa-prognoza); }
 .prog-termin.dan-prep { background: var(--faza-p-bg); border-color: var(--faza-p-crta); }
 .prog-termin.dan-regular { background: var(--faza-r-bg); border-color: var(--faza-r-crta); }
@@ -5037,7 +5041,7 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .prog-termin.dan-crit { background: var(--faza-s-bg); border-color: var(--faza-s-crta); color: var(--faza-s-fg); }
 .prog-termin.dan-crit .prog-termin-naslov, .prog-termin.dan-crit .prog-raspon, .prog-termin.dan-crit .prog-druga,
 .prog-termin.dan-crit .prog-oznaka, .prog-termin.dan-crit .prog-tuda { color: inherit; }
-.prog-termin[class*="dan-moguce-"] { border-style: dashed; border-width: 2px; padding: 9px 5px; }
+.prog-termin[class*="dan-moguce-"] { border-style: dashed; border-width: 2px; padding: 11px 5px; }
 .prog-termin.dan-moguce-prep { border-color: var(--faza-p-crta); }
 .prog-termin.dan-moguce-regular { border-color: var(--faza-r-crta); }
 .prog-termin.dan-moguce-emerg { border-color: var(--faza-i-crta); }
@@ -5045,22 +5049,26 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .prog-povuci { display: none; margin: 8px 0 0; font-size: 0.75rem; color: var(--text-muted); }
 /* Mobitel: termini u jednom redu, oko četiri vidljiva, ostali povlačenjem */
 @media (max-width: 599px) {
-  .prog-kartica { padding: 12px 12px 14px; }
+  .prog-kartica { padding: 14px; }
+  .prog-kartica .prog-traka { margin-top: 10px; padding: 6px 10px; gap: 8px; font-size: 0.75rem; line-height: 15px; }
+  .prog-kartica .prog-traka > .icon { display: none; }
   /* pragovi preko cijele širine kartice, ispod imena i sadašnjeg vodostaja */
   .prog-glava { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto 1fr auto; column-gap: 12px; }
   .prog-ime { display: contents; }
   .prog-naziv { grid-column: 1; grid-row: 1; }
   .prog-opis { grid-column: 1; grid-row: 2; }
-  .prog-pragovi { grid-column: 1 / -1; grid-row: 3; }
+  .prog-pragovi { grid-column: 1 / -1; grid-row: 3; gap: 4px; }
+  .prog-pragovi .threshold-pill { padding: 2px 6px; }
   .prog-sad { grid-column: 2; grid-row: 1 / 3; }
-  .prog-sad-cm { font-size: 1.5rem; line-height: 30px; }
+  .prog-sad-cm { font-size: 1.375rem; line-height: 27px; }
   .prog-termini {
-    grid-auto-columns: calc((100% - 3 * 6px) / 4); gap: 6px; overflow-x: auto;
+    grid-auto-columns: calc((100% - 3 * 6px) / 4); gap: 6px; margin-top: 10px; overflow-x: auto;
     scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none;
   }
   .prog-termini::-webkit-scrollbar { display: none; }
-  .prog-termin { scroll-snap-align: start; padding: 8px 4px; }
-  .prog-termin[class*="dan-moguce-"] { padding: 7px 3px; }
+  .prog-termin { scroll-snap-align: start; gap: 2px; padding: 10px 4px; }
+  .prog-termin[class*="dan-moguce-"] { padding: 9px 3px; }
+  .prog-oznaka { font-size: 10px; }
   .prog-vr { font-size: 1.25rem; line-height: 26px; }
   .prog-termin .prog-raspon, .prog-termin .prog-druga, .prog-termin .prog-tuda { font-size: 0.75rem; }
   .prog-povuci { display: block; }

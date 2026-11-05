@@ -605,7 +605,7 @@ func (h *PrognozeHandler) podaci(r *http.Request, nacin string) PrognozePageData
 		izdanoH: data.IzdanoSat, nacin: nacin, susjedi: susjedi, srednjak: srednjaci, krivulje: h.krivuljeSusjeda(r.Context())})
 	celijeIzNiza(data.Letve, data.prikaz, ciljevi, data.IzdanoSat, postaje)
 	satniStupci(data.Letve, data.prikaz)
-	oznaciPrelaske(data.Letve, postaje)
+	oznaciPrelaske(data.Letve, postaje, ciljevi, data.IzdanoSat)
 	upozorenjaStranice(&data, c, izdano, sadZahtjeva(r), postaje)
 	data.Tablice = poVodama(data.Letve, postaje)
 	data.Izdaje = h.centar(data.CurrentUser)

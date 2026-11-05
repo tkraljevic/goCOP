@@ -362,9 +362,11 @@ func TestPrimateljPokazujeUpozorenjeIzdavaca(t *testing.T) {
 	if glavno := html[vrh:letva]; !strings.Contains(glavno, "Srednji Brod (primjer.hu): nema mjerenja od 8. 10. u 10 h") || strings.Contains(glavno, "i još") {
 		t.Errorf("traka ne piše jedino upozorenje cijelim tekstom: %s", glavno)
 	}
-	if !strings.Contains(html, `<details class="prog-sva-upozorenja" id="upozorenja-izdanja">`) ||
-		!strings.Contains(html, "<summary>Sva upozorenja i napomene uz izdanje (2)</summary>") {
-		t.Error("popis upozorenja i napomena nije sklopljen ispod letvi")
+	// bez skripte popis stoji otvoren, a skripta ga sklopi
+	if !strings.Contains(html, `<details class="prog-sva-upozorenja" id="upozorenja-izdanja" open>`) ||
+		!strings.Contains(html, "<summary>Sva upozorenja i napomene uz izdanje (2)</summary>") ||
+		!strings.Contains(html, "Upozorenja uz ovo izdanje (1)") || !strings.Contains(html, "popis.open = false") {
+		t.Error("popis upozorenja i napomena nije ispod letvi, otvoren bez skripte")
 	}
 }
 
@@ -420,7 +422,8 @@ func TestStranicaPrognozaUpozorenja(t *testing.T) {
 	osnova := PrognozePageData{CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		ActiveNav: "prognoze", Izdano: "8.10.2026. u 21:00", Udio: 70}
 	html := iscrtaj(t, "prognoze.html", osnova)
-	for _, nema := range []string{"Upozorenja uz ovo izdanje", "Napomene uz ovo izdanje", "prog-zastarjelo"} {
+	for _, nema := range []string{"Upozorenja uz ovo izdanje", "Napomene uz ovo izdanje", "prog-zastarjelo",
+		"prog-sva-upozorenja", "prog-glavno-upozorenje"} {
 		if strings.Contains(html, nema) {
 			t.Errorf("stranica bez upozorenja ima %q", nema)
 		}
@@ -429,13 +432,23 @@ func TestStranicaPrognozaUpozorenja(t *testing.T) {
 	d.Zastarjelo = "Zadnja prognoza izdana je za 8. 10. u 21 h — prije 5 h."
 	d.Napomene = []UpozorenjeStranice{{Sto: "Četvrti Most: nema prognoze."}}
 	html = iscrtaj(t, "prognoze.html", d)
-	for _, want := range []string{"prog-zastarjelo", "prije 5 h", "Napomene uz ovo izdanje (1)", "Četvrti Most: nema prognoze."} {
+	for _, want := range []string{"prog-zastarjelo", "prije 5 h", "Napomene uz ovo izdanje (1)", "Četvrti Most: nema prognoze.",
+		"prog-sva-upozorenja", "<summary>Napomene uz izdanje (1)</summary>"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("stranica nema %q", want)
 		}
 	}
-	if strings.Contains(html, "Upozorenja uz ovo izdanje") {
-		t.Error("samo napomene, a stoji naslov upozorenja")
+	for _, nema := range []string{"Upozorenja uz ovo izdanje", "prog-glavno-upozorenje", "Sva upozorenja"} {
+		if strings.Contains(html, nema) {
+			t.Errorf("samo napomene, a stoji %q", nema)
+		}
+	}
+	// samo upozorenja: sažetak ne spominje napomene
+	d = osnova
+	d.Upozorenja = []UpozorenjeStranice{{Sto: "Gornji Most ne javlja od 5 h."}}
+	html = iscrtaj(t, "prognoze.html", d)
+	if !strings.Contains(html, "<summary>Sva upozorenja uz izdanje (1)</summary>") || strings.Contains(html, "Napomene uz") {
+		t.Error("samo upozorenja, a sažetak ne odgovara")
 	}
 }
 

@@ -158,11 +158,12 @@
 
 {{/* Sva upozorenja i napomene uz izdanje: ispod letvi, sklopljeno, da dugi
      popis ne gura prognozu ispod ruba zaslona; glavno stoji u traci gore.
-     Poveznica „i još N” i adresa s #upozorenja-izdanja ga otvaraju. */}}
+     Poveznica „i još N” i adresa s #upozorenja-izdanja ga otvaraju. Bez
+     skripte popis ostaje otvoren, da se do upozorenja uvijek dođe. */}}
 {{if or .Upozorenja .Napomene}}
-<details class="prog-sva-upozorenja" id="upozorenja-izdanja">
-  <summary>Sva upozorenja i napomene uz izdanje ({{.SvaUpozorenja}})</summary>
-  {{if .Upozorenja}}<h3 class="prog-upozorenja-naslov">{{icon "triangle-alert"}} Upozorenja uz ovo izdanje</h3>
+<details class="prog-sva-upozorenja" id="upozorenja-izdanja" open>
+  <summary>{{if and .Upozorenja .Napomene}}Sva upozorenja i napomene uz izdanje{{else if .Upozorenja}}Sva upozorenja uz izdanje{{else}}Napomene uz izdanje{{end}} ({{.SvaUpozorenja}})</summary>
+  {{if .Upozorenja}}<h3 class="prog-upozorenja-naslov">{{icon "triangle-alert"}} Upozorenja uz ovo izdanje ({{len .Upozorenja}})</h3>
   <ul class="prog-upozorenja-popis">{{range .Upozorenja}}
     <li>{{.Sto}}{{if .Upitno}}<br><span class="prog-upitno">{{.Upitno}}</span>{{end}}</li>{{end}}
   </ul>{{end}}
@@ -172,11 +173,12 @@
   </ul>{{end}}
 </details>
 <script>
-// Popis upozorenja je sklopljen; „i još N” i adresa s #upozorenja-izdanja ga
-// otvaraju i pomaknu do njega.
+// Popis upozorenja se sklopi čim se stranica učita; „i još N” i adresa s
+// #upozorenja-izdanja ga otvaraju i pomaknu do njega.
 (function () {
   var popis = document.getElementById('upozorenja-izdanja');
   if (!popis) { return; }
+  popis.open = false;
   function otvori() {
     if (location.hash !== '#upozorenja-izdanja') { return; }
     popis.open = true;
@@ -390,7 +392,7 @@
       var naslov = panel.querySelector('.uzd-legenda') ? (panel.getAttribute('data-ime') || '') : '';
       var izdano = '';
       var redak = document.querySelector('.prog-izdano');
-      if (redak) { izdano = redak.textContent.replace(/\s+/g, ' ').trim().split(' · ')[0]; }
+      if (redak) { izdano = redak.textContent.replace(/\s+/g, ' ').trim().replace(' · izdao ', ', izdao '); }
       var legenda = Array.prototype.map.call(panel.querySelectorAll('.uzd-legenda-stavka'), function (l) { return l.textContent.trim(); }).join(' · ');
       var pad = panel.querySelector('.graf-natpis') ? panel.querySelector('.graf-natpis').textContent.split('.')[0] : '';
       var w = window.open('', '_blank');
@@ -497,7 +499,7 @@
     <dt>Boje</dt>
     <dd>Termin u boji faze obrane doseže prag, a s isprekidanim obrubom ga doseže tek gornjom granicom
       raspona. Termin pisan <span class="prog-slabija">svjetlije</span> nije bolji od zadnjeg mjerenja, pa ondje
-      vjerujte mjerenju. Veliki dravski val od trećeg dana prognoza podcjenjuje; ondje pratite obrub.
+      vjerujte mjerenju. Veliki dravski val od trećeg dana prognoza podcjenjuje; ondje pratite isprekidani obrub.
       Oznaka ispod sadašnjeg vodostaja, na primjer „↑ pripremno od uto 3.11.”, kaže od kojeg termina
       prognoza doseže višu fazu obrane nego što je sada.</dd>
 
