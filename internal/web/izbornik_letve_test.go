@@ -151,19 +151,27 @@ func TestUrediMijenjaOnoStoJeNaStranici(t *testing.T) {
 		}
 	}
 
-	// očitanja: uređuju se sama očitanja, na istoj stranici
+	// očitanja: uređuju se sama očitanja, ispravkom na kartici Uvoz i izvoz
 	ocitanja := iscrtaj(t, "reading_history.html", ReadingHistoryData{
 		CurrentUser: korisnik, Permissions: prava, Station: &st, GaugeName: "Batina",
 		CanEdit: true, CanRecord: true, LetvaStranica: "ocitanja"})
 	izbornik := dioIzbornika(t, "ocitanja", ocitanja)
-	if !strings.Contains(izbornik, `href="#ispravci"`) {
+	if !strings.Contains(izbornik, `href="/readings/station/`+id.String()+`/uvoz-izvoz#ispravci"`) {
 		t.Error("očitanja: Uredi ne vodi na ispravak očitanja")
 	}
 	if strings.Contains(izbornik, "/stations/"+id.String()+"/edit") {
 		t.Error("očitanja: Uredi i dalje vodi na obrazac kartice")
 	}
-	if !strings.Contains(ocitanja, `id="ispravci"`) {
-		t.Error("očitanja: nema odjeljka na koji Uredi vodi")
+	uvoz := iscrtaj(t, "reading_history.html", ReadingHistoryData{
+		CurrentUser: korisnik, Permissions: prava, Station: &st, GaugeName: "Batina",
+		CanEdit: true, CanRecord: true, LetvaStranica: "uvoz", GaugeURL: "/readings/station/" + id.String()})
+	for _, want := range []string{`id="ispravci"`, "Unesi više očitanja odjednom", "Excel izvješće", "Sve u CSV", `aria-current="page">Uvoz i izvoz`} {
+		if !strings.Contains(uvoz, want) {
+			t.Errorf("Uvoz i izvoz: nema %q", want)
+		}
+	}
+	if strings.Contains(ocitanja, "Unesi više očitanja odjednom") || strings.Contains(uvoz, "Svježa očitanja") {
+		t.Error("Očitanja i Uvoz i izvoz nisu razdvojeni")
 	}
 }
 

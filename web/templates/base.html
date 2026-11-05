@@ -259,8 +259,8 @@
   {{/* Svaki Uredi mijenja ono što je na svojoj stranici: kartica opis letve,
        historijat zabilježenu povijest, očitanja same vrijednosti. Zato tri
        cilja pod istim imenom — isto ime jer je i radnja ista. */}}
-  {{if eq .LetvaStranica "ocitanja"}}
-  <a href="#ispravci" class="btn btn-link" title="Ispravak upisanih očitanja">Uredi</a>
+  {{if or (eq .LetvaStranica "ocitanja") (eq .LetvaStranica "uvoz")}}
+  <a href="/readings/station/{{.Station.ID}}/uvoz-izvoz#ispravci" class="btn btn-link" title="Ispravak upisanih očitanja">Uredi</a>
   {{else if eq .LetvaStranica "historijat"}}
   <a href="/stations/{{.Station.ID}}/historijat/uredi" class="btn btn-link"
      title="Povratni vodostaji, promjene kote nule i ograde uz nizove">Uredi</a>
@@ -277,6 +277,7 @@
     {{if eq .LetvaStranica "ocitanja"}}<span class="letva-kartica" aria-current="page">Očitanja</span>{{else}}<a class="letva-kartica" href="/readings/station/{{.Station.ID}}">Očitanja</a>{{end}}
     {{if eq .LetvaStranica "historijat"}}<span class="letva-kartica" aria-current="page">Historijat</span>{{else}}<a class="letva-kartica" href="/stations/{{.Station.ID}}/historijat"
        title="Arhiva, povratni vodostaji, promjene kote nule, valovi obrane i proglašene obrane">Historijat</a>{{end}}
+    {{if eq .LetvaStranica "uvoz"}}<span class="letva-kartica" aria-current="page">Uvoz i izvoz</span>{{else}}<a class="letva-kartica" href="/readings/station/{{.Station.ID}}/uvoz-izvoz">Uvoz i izvoz</a>{{end}}
   </nav>
 </div>
 {{end}}

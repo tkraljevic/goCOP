@@ -25,6 +25,7 @@
   {{end}}
 </div>
 
+{{if ne .LetvaStranica "uvoz"}}
 {{with .KvarMjerila}}
 <div class="alert alert-warning" data-kvar-mjerila>
   {{if .NaDnu}}<strong>{{icon "triangle-alert"}} Voda je vjerojatno ispod dosega mjernog uređaja.</strong> {{.Tekst}}
@@ -225,62 +226,74 @@
   </div>
 </section>
 
+{{end}}{{/* kraj kartice Očitanja */}}
+
 {{/* Skupni unos vrijedi samo za letvu: ispis s letva.voda.hr i putanja uvoza
      idu po letvi. Vodna građevina nema takav izvor, a bez ove zaštite bi
      stranica na njoj pucala. */}}
-{{if and .CanRecord .Station}}
-<section class="detail-section">
-  <h2>{{icon "upload"}} Unesi više očitanja odjednom</h2>
-  <p class="page-desc">
-    Zalijepi ispis s letva.voda.hr ili odaberi datoteku — tekst, CSV ili Excel (.xlsx).
-    Program prvo pokaže što bi se upisalo; već upisana očitanja se preskaču.
-  </p>
-  <form method="POST" action="/readings/station/{{.Station.ID}}/zalijepi" enctype="multipart/form-data"
-        class="table-card" style="padding:1rem 1.25rem;">
-    <div class="form-group mb-3">
-      <label class="form-label" for="tekst">Zalijepi ovdje</label>
-      <textarea id="tekst" name="tekst" class="form-control" rows="6" spellcheck="false"
-                style="font-family:ui-monospace,monospace; font-size:0.85rem;"
-                placeholder="07.09.2026. 00 h    -118&#10;07.09.2026. 01 h    -118&#10;07.09.2026. 02 h    -119"></textarea>
+{{if and .Station (eq .LetvaStranica "uvoz")}}
+{{/* Kartica Uvoz i izvoz (goCOP-m3, 12 · Očitanja): izvoz za svakoga, a
+     ispravci u tablici i skupni unos za onoga tko smije upisivati */}}
+<div class="letva-mreza">
+  <section class="letva-ploca">
+    <h2>Izvoz</h2>
+    <form method="GET" action="" class="letva-polje">
+      <label for="pogledSel">Razdoblje</label>
+      <select id="pogledSel" name="pogled" class="filter-select" onchange="this.form.submit()">
+        <option value="30" {{if eq .Pogled "30"}}selected{{end}}>zadnjih 30 dana</option>
+        <option value="90" {{if eq .Pogled "90"}}selected{{end}}>zadnjih 90 dana</option>
+        <option value="365" {{if eq .Pogled "365"}}selected{{end}}>zadnjih godinu dana</option>
+        {{range .Years}}<option value="{{.}}" {{if eq $.Year .}}selected{{end}}>{{.}}.</option>{{end}}
+        <option value="sve" {{if eq .Pogled "sve"}}selected{{end}}>sve</option>
+      </select>
+    </form>
+    <div class="letva-gumbi">
+      <a href="/readings/station/{{.Station.ID}}/izvjesce.xlsx?pogled={{.Pogled}}" class="btn btn-primary"
+         title="Očitanja iz odabranog razdoblja kao oblikovana Excelova datoteka">Excel izvješće</a>
+      {{if .CanRecord}}
+      <a class="btn btn-link" href="{{.GaugeURL}}/ocitanja.csv?pogled={{.Pogled}}" title="Očitanja: {{.PogledOpis}}">CSV</a>
+      <a class="btn btn-link" href="{{.GaugeURL}}/ocitanja.csv?pogled=sve">Sve u CSV</a>
+      {{end}}
     </div>
-    <div class="d-flex gap-3 items-center flex-wrap">
-      <input type="file" name="datoteka" accept=".csv,.txt,.xlsx,text/plain,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="form-control max-w-18">
-      <button type="submit" class="btn btn-secondary">{{icon "eye"}} Pogledaj što bi se upisalo</button>
-    </div>
-  </form>
-</section>
+  </section>
 
-<section class="detail-section">
-  <h2 id="ispravci">{{icon "pencil"}} Uredi očitanja — provjera i ispravak u tablici</h2>
-  <p class="page-desc" style="margin-top:-0.5rem;">Izvezi očitanja, pogledaj ih u tablici i vrati
-    datoteku s ispravcima. Korisno kad je više očitanja upisano krivo — na primjer kad su
-    zamijenjeni sati ili je promašen predznak.</p>
-  <div class="table-card" style="padding:0.875rem 1.25rem;">
-    <div class="d-flex flex-wrap gap-4 items-center">
-      <a class="btn btn-secondary btn-sm" href="{{.GaugeURL}}/ocitanja.csv?pogled={{.Pogled}}">
-        {{icon "download"}} Izvezi {{.PogledOpis}} u CSV
-      </a>
-      <a class="btn btn-secondary btn-sm" href="{{.GaugeURL}}/ocitanja.csv?pogled=sve">
-        {{icon "download"}} Izvezi sve
-      </a>
-      <form method="POST" action="{{.GaugeURL}}/ocitanja/uvoz" enctype="multipart/form-data"
-            class="d-flex gap-2 items-center flex-wrap m-0">
-        <input type="file" name="datoteka" accept=".csv,text/csv" required class="form-control max-w-18">
-        <button type="submit" class="btn btn-secondary btn-sm">{{icon "upload"}} Vrati s ispravcima</button>
-      </form>
-    </div>
-    <p class="form-help mt-3">Stupac <strong>id</strong> govori koji je
+  {{if .CanRecord}}
+  <section class="letva-ploca" id="ispravci">
+    <h2>Vrati s ispravcima</h2>
+    <p class="letva-uputa">Izvezite CSV, ispravite ga u Excelu i učitajte natrag. Prije upisa vidite što se mijenja.</p>
+    <form method="POST" action="{{.GaugeURL}}/ocitanja/uvoz" enctype="multipart/form-data" class="letva-polje">
+      <label for="ispravci-datoteka">CSV datoteka</label>
+      <input id="ispravci-datoteka" type="file" name="datoteka" accept=".csv,text/csv" required class="form-control">
+      <button type="submit" class="btn btn-primary">Učitaj i pogledaj</button>
+    </form>
+    <p class="form-help">Stupac <strong>id</strong> govori koji je
       redak koji — ne diraj ga i ne dodaj retke. Mijenja se vrijeme, vodostaj, nizvodni, tko je
       očitao i napomena;
       {{if .BriseNaLetvi}}za brisanje upiši <strong>da</strong> u stupac <strong>obrisi</strong>.
       {{else}}ispraviti možeš samo svoja očitanja, a tuđa ispravlja i briše onaj tko odgovara za letvu.
-      {{end}}Prije upisa program pokaže što bi se promijenilo.</p>
-  </div>
-</section>
+      {{end}}</p>
+  </section>
+
+  <section class="letva-ploca letva-ploca-siroka">
+    <h2>Unesi više očitanja odjednom</h2>
+    <p class="letva-uputa">Zalijepite ispis s letva.voda.hr ili stupce iz Excela (datum, vrijeme i vodostaj u cm), ili odaberite
+      datoteku — tekst, CSV ili Excel (.xlsx). Program prvo pokaže što bi se upisalo; već upisana očitanja se preskaču.</p>
+    <form method="POST" action="/readings/station/{{.Station.ID}}/zalijepi" enctype="multipart/form-data" class="letva-polje">
+      <label for="tekst">Zalijepite ovdje</label>
+      <textarea id="tekst" name="tekst" class="form-control letva-zalijepi" rows="6" spellcheck="false"
+                placeholder="07.09.2026. 00 h    -118&#10;07.09.2026. 01 h    -118&#10;07.09.2026. 02 h    -119"></textarea>
+      <div class="letva-gumbi">
+        <input type="file" name="datoteka" accept=".csv,.txt,.xlsx,text/plain,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="form-control max-w-18" aria-label="Datoteka s očitanjima">
+        <button type="submit" class="btn btn-primary">Pogledaj što bi se upisalo</button>
+      </div>
+    </form>
+  </section>
+  {{end}}
+</div>
 {{end}}
 
 
-{{if .Station}}
+{{if and .Station (ne .LetvaStranica "uvoz")}}
 <div class="kartica-podnozje">
   <a href="/readings/station/{{.Station.ID}}/izvjesce.xlsx?pogled={{.Pogled}}" class="btn btn-secondary"
      title="Očitanja iz odabranog razdoblja kao oblikovana Excelova datoteka">{{icon "download"}} Excel</a>

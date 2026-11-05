@@ -79,6 +79,7 @@ func novaOkolinaPrava(t *testing.T) *okolinaPrava {
 	h.SetOcitanjaCSV(tmpl("ocitanja_ispravci.html"))
 	o := &okolinaPrava{mux: http.NewServeMux(), h: h, ocitanja: readingRepo, baza: baza, stanice: stationRepo}
 	o.mux.HandleFunc("GET /readings/station/{id}", h.ShowHistory)
+	o.mux.HandleFunc("GET /readings/station/{id}/uvoz-izvoz", h.ShowUvozIzvoz)
 	o.mux.HandleFunc("GET /readings/edit/{id}", h.ShowForm)
 	o.mux.HandleFunc("POST /readings/station/{id}/ocitanja/uvoz", h.HandleOcitanjaUvoz)
 
@@ -218,9 +219,9 @@ func TestUputaIspravkaUTabliciPoPravu(t *testing.T) {
 	o := novaOkolinaPrava(t)
 	stranica := func(u *models.User, perms *models.UserPermissions) string {
 		t.Helper()
-		w := o.zovi(u, perms, httptest.NewRequest(http.MethodGet, "/readings/station/"+o.st.ID.String(), nil))
+		w := o.zovi(u, perms, httptest.NewRequest(http.MethodGet, "/readings/station/"+o.st.ID.String()+"/uvoz-izvoz", nil))
 		if w.Code != http.StatusOK {
-			t.Fatalf("stranica letve: %d", w.Code)
+			t.Fatalf("kartica Uvoz i izvoz: %d", w.Code)
 		}
 		return w.Body.String()
 	}
@@ -242,5 +243,18 @@ func TestOlovkaNaObjektuKaoDosad(t *testing.T) {
 	}
 	if m := h.ispravljiva(nil, nil, false, ocitanja); m[ocitanja[0].ID] || len(m) != 2 {
 		t.Error("tko ne upisuje na objekt, ne ispravlja")
+	}
+}
+
+// Kartica Uvoz i izvoz: nepoznata letva je 404, a pokvaren predložak 500,
+// ne prazna stranica
+func TestUvozIzvozRubniSlucajevi(t *testing.T) {
+	o := novaOkolinaPrava(t)
+	if w := o.zovi(o.pero, o.peroOvl, httptest.NewRequest(http.MethodGet, "/readings/station/"+uuid.NewString()+"/uvoz-izvoz", nil)); w.Code != http.StatusNotFound {
+		t.Errorf("nepoznata letva: %d", w.Code)
+	}
+	o.h.tmplHistory = template.Must(template.New("prazan").Parse(""))
+	if w := o.zovi(o.pero, o.peroOvl, httptest.NewRequest(http.MethodGet, "/readings/station/"+o.st.ID.String()+"/uvoz-izvoz", nil)); w.Code != http.StatusInternalServerError {
+		t.Errorf("pokvaren predložak: %d", w.Code)
 	}
 }

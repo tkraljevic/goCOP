@@ -667,6 +667,20 @@ func (h *ReadingsHandler) ShowHistory(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ShowUvozIzvoz je kartica letve Uvoz i izvoz: izvoz u Excel i CSV, vraćanje
+// ispravaka iz tablice i skupni unos, odvojeno od pregleda očitanja
+func (h *ReadingsHandler) ShowUvozIzvoz(w http.ResponseWriter, r *http.Request) {
+	data, station, ok := h.podaciOcitanja(w, r)
+	if !ok {
+		return
+	}
+	data.BriseNaLetvi = h.briseNaLetvi(data.Permissions, station)
+	data.LetvaStranica = "uvoz"
+	if err := h.tmplHistory.ExecuteTemplate(w, "reading_history.html", data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
 // podaciOcitanja prikuplja sve što stranica očitanja prikazuje. Odvojeno od
 // iscrtavanja, jer isto treba i izvješću — inače bi dokument i stranica mogli
 // pokazivati različito razdoblje.
