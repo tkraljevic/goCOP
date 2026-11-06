@@ -238,6 +238,26 @@ install -d -o "$KORISNIK" -g "$KORISNIK" -m 0750 "$PODACI"
 
 # ---------- program ----------
 
+# Kopija baze prije zamjene programa. Mapom podataka vlada korisnik usluge,
+# pa se sve u njoj radi pod njegovim imenom. I provjera ima li baze je tu:
+# greška runusera mora prekinuti nadogradnju, a ne proći kao „baze nema”.
+# Radna mapa je mapa podataka jer korisnik usluge ne mora smjeti čitati onu
+# iz koje je skripta pokrenuta.
+spremi_kopiju_baze() {
+	(cd "$PODACI" && runuser -u "$KORISNIK" -- bash -c '
+		set -euo pipefail
+		podaci=$1 oznaka=$2 zadrzi=$3
+		[ -f "$podaci/gocop.db" ] || exit 0
+		echo "→ spremam kopiju baze u $podaci/kopije/gocop-$oznaka.db"
+		install -d -m 0700 "$podaci/kopije"
+		cp -p "$podaci/gocop.db" "$podaci/kopije/gocop-$oznaka.db"
+		[ ! -f "$podaci/gocop.db-wal" ] || cp -p "$podaci/gocop.db-wal" "$podaci/kopije/gocop-$oznaka.db-wal"
+		# zadržava zadnje tri kopije
+		ls -1t "$podaci"/kopije/gocop-*.db 2>/dev/null | tail -n +$((zadrzi + 1)) |
+			while read -r stara; do rm -f "$stara" "$stara-wal"; done
+	' bash "$PODACI" "$1" "$KOPIJA_ZADRZI")
+}
+
 PONOVO_POKRENI=0
 if [ -f "$PROGRAM" ] && cmp -s "$IZVOR" "$PROGRAM"; then
 	poruka "program je već postavljen ($("$PROGRAM" -version))"
@@ -246,17 +266,9 @@ else
 		poruka "zaustavljam uslugu gocop"
 		systemctl stop gocop.service
 	fi
-	if [ -f "$PODACI/gocop.db" ]; then
-		STARA=$([ -x "$PROGRAM" ] && "$PROGRAM" -version 2>/dev/null | awk '{print $2}' || true)
-		OZNAKA=$(date +%Y%m%d-%H%M%S)-${STARA:-nepoznato}
-		poruka "spremam kopiju baze u $PODACI/kopije/gocop-$OZNAKA.db"
-		install -d -o "$KORISNIK" -g "$KORISNIK" -m 0700 "$PODACI/kopije"
-		cp -p "$PODACI/gocop.db" "$PODACI/kopije/gocop-$OZNAKA.db"
-		[ ! -f "$PODACI/gocop.db-wal" ] || cp -p "$PODACI/gocop.db-wal" "$PODACI/kopije/gocop-$OZNAKA.db-wal"
-		# zadržava zadnje tri kopije
-		ls -1t "$PODACI"/kopije/gocop-*.db 2>/dev/null | tail -n +$((KOPIJA_ZADRZI + 1)) |
-			while read -r stara; do rm -f "$stara" "$stara-wal"; done
-	fi
+	STARA=$([ -x "$PROGRAM" ] && "$PROGRAM" -version 2>/dev/null | awk '{print $2}' || true)
+	spremi_kopiju_baze "$(date +%Y%m%d-%H%M%S)-${STARA:-nepoznato}" ||
+		greska "kopija baze nije spremljena, pa program nije zamijenjen, a usluga gocop ne radi. Provjerite pripadaju li baza i mapa kopije korisniku $KORISNIK pa ponovno pokrenite instalaciju."
 	poruka "postavljam $PROGRAM"
 	install -o root -g root -m 0755 "$IZVOR" "$PROGRAM"
 	PONOVO_POKRENI=1
