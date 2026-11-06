@@ -8,7 +8,7 @@
 
 <div class="detail-head">
   <div>
-    <h1 class="page-title">{{icon "building"}} {{$sk.Naziv}}{{if $sk.Centralno}} <span class="reg-chip">središnje skladište</span>{{end}}{{if not $sk.Aktivno}} <span class="badge badge-inactive">ugašeno</span>{{end}}</h1>
+    <h1 class="page-title" data-naziv-stranice>{{icon "building"}} {{$sk.Naziv}}{{if $sk.Centralno}} <span class="reg-chip">središnje skladište</span>{{end}}{{if not $sk.Aktivno}} <span class="badge badge-inactive">ugašeno</span>{{end}}</h1>
     <p class="page-desc">{{if $sk.AreaName}}BP {{$sk.AreaID}} · {{$sk.AreaName}} · {{end}}{{term "sektor"}} {{$sk.Sektor}}{{if $sk.Adresa}} · {{$sk.Adresa}}{{end}}
       {{if $sk.StructureName}} · objekt: <a href="/structures/{{$sk.StructureID}}">{{$sk.StructureName}}</a>{{end}}
       {{if $sk.ContractorName}} · u krugu: {{$sk.ContractorName}}{{end}}</p>

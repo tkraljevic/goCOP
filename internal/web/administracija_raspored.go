@@ -101,6 +101,7 @@ var karticeAdministracije = []karticaAdministracije{
 	{"razmjena", skupinaMreza, "", svakome},
 	{"pretplate", skupinaMreza, DosegRacunalo, svakome},
 	{"baza", skupinaMreza, DosegOboje, svakome},
+	{"prijave", skupinaMreza, DosegMreza, samoAdministrator},
 
 	{"telemetrija", skupinaVodostaji, DosegRacunalo, samoAdministrator},
 	{"izvori", skupinaVodostaji, DosegRacunalo, samoAdministrator},

@@ -1,0 +1,66 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — {{.Prijava.Naslov}}{{end}}
+
+{{define "content"}}
+{{with .Prijava}}
+<a class="pg-natrag" href="/administracija/prijave-gresaka">{{icon "arrow-left"}} Prijave grešaka i prijedlozi</a>
+<h1 class="pg-naslov-stranice" data-naziv-stranice="Prijava greške">{{.Naslov}}</h1>
+{{if $.RedniBroj}}<p class="pg-podnaslov">Prijava br. {{$.RedniBroj}}</p>{{end}}
+
+<div class="pg-raspored">
+  <div class="pg-stupac">
+    <section class="pg-kartica">
+      <h2>Opis prijave</h2>
+      <p class="pg-mali">{{.Ime}}{{with .Uloga}} · {{.}}{{end}} · {{.Kad}} · {{.VrstaNaziv}}</p>
+      <p class="pg-opis">{{.Opis}}</p>
+    </section>
+
+    <section class="pg-kartica">
+      <h2>Odgovor</h2>
+      {{range .Odgovori}}
+      <div class="pg-odgovor">
+        <span class="pg-mali">{{.Odgovorio}} · {{.Kad}}</span>
+        <p>{{.Tekst}}</p>
+      </div>
+      {{end}}
+      <form method="post" action="/administracija/prijave-gresaka/{{.ID}}">
+        <fieldset class="prog-segment pg-segment">
+          <legend>Stanje</legend>
+          <div class="prog-segment-gumbi">
+            {{range $.Stanja}}<label><input type="radio" name="stanje" value="{{.Vrijednost}}"{{if .Odabrano}} checked{{end}}><span>{{.Naziv}}</span></label>{{end}}
+          </div>
+        </fieldset>
+        <div class="pg-polje">
+          <label for="pg-odgovor">{{if .Odgovori}}Novi odgovor korisniku{{else}}Odgovor korisniku{{end}}</label>
+          <textarea id="pg-odgovor" name="odgovor" rows="3" maxlength="4000"></textarea>
+        </div>
+        <div class="pg-spremi">
+          <button type="submit" class="btn btn-primary">Spremi</button>
+          <span class="pg-mali">{{.Ime}} vidi odgovor u Mojim prijavama.</span>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <aside class="pg-kartica pg-podaci">
+    <h2>Što je program sam dodao</h2>
+    <dl>
+      <dt>Stranica</dt>
+      <dd>{{.ImeStranice}}{{with .Poveznica}}<br><a href="{{.}}">Otvori tu stranicu</a>{{end}}</dd>
+      <dt>Korisnik</dt><dd>{{.Ime}}</dd>
+      {{with .Uloga}}<dt>Uloga</dt><dd>{{.}}</dd>{{end}}
+      {{with .Izdanje}}<dt>Izdanje programa</dt><dd>{{.}}</dd>{{end}}
+      {{with .Racunalo}}<dt>Računalo</dt><dd>{{.}}</dd>{{end}}
+      {{with .Preglednik}}<dt>Preglednik</dt><dd>{{.}}</dd>{{end}}
+      {{with .Zaslon}}<dt>Veličina zaslona</dt><dd>{{.}}</dd>{{end}}
+    </dl>
+    {{if .Greske}}
+    <hr>
+    <p class="pg-mali">Zadnje greške stranice</p>
+    <ul class="pg-greske">{{range .Greske}}<li>{{.}}</li>{{end}}</ul>
+    {{end}}
+  </aside>
+</div>
+{{end}}
+{{end}}

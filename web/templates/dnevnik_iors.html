@@ -10,7 +10,7 @@
 
 <div class="detail-head">
   <div>
-    <h1 class="page-title">{{icon "user"}} Izvješće o radnim satima</h1>
+    <h1 class="page-title" data-naziv-stranice>{{icon "user"}} Izvješće o radnim satima</h1>
     <p class="page-desc">ostvarenim pri provedbi obrane od poplava — <strong>{{.IORS.UserName}}</strong>,
       razdoblje <strong>{{datumHR .From}} – {{datumHR .To}}</strong>.
       {{.Journal.DisplayTitle}}{{if .Journal.CentarNaziv}}, {{.Journal.CentarNaziv}}{{end}}.</p>

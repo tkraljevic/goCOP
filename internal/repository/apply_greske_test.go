@@ -53,7 +53,7 @@ func TestPrimjenaOdbijaNecitljivSadrzaj(t *testing.T) {
 		EntityWorkItems, EntityJournals, EntityDezurstva, EntityDnevnaIzvjesca, EntitySektorskaIzvjesca,
 		EntityBlagdani, EntityKoeficijenti, EntityObracunPostavke,
 		EntityMtsVrste, EntityMtsSkladista, EntityMtsPromet, EntityMtsPopisi, EntityMtsPotrebe,
-		EntityAkti, EntityZadaci, EntityZigovi, EntityPrijave, EntityPrijaveIzvornici,
+		EntityAkti, EntityZadaci, EntityZigovi, EntityPrijave, EntityPrijaveIzvornici, EntityPrijaveGresaka, EntityPrijaveGresakaOdgovori,
 		EntityPotpisniKljucevi, EntityPotpisniIzdavatelji, EntityJournalIzvornici, EntityPotpisi, EntityPostavke,
 		EntitySlanja, EntityIzvornici, EntitySluzbe, EntitySprance, EntityPrimatelji, EntityRjesenjaOznaka,
 		EntityRoleModules, EntityUserModules, EntityReadings, EntityStructures, EntityUsers, EntityDuties,

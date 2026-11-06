@@ -7,7 +7,7 @@
 
 <div class="detail-head">
   <div>
-    <h1 class="page-title">{{icon "file-text"}} Dnevno izvješće rukovoditelja dionice</h1>
+    <h1 class="page-title" data-naziv-stranice>{{icon "file-text"}} Dnevno izvješće rukovoditelja dionice</h1>
     <p class="page-desc">Za dan <strong>{{danTjedna .Izvjesce.Dan}} {{.Izvjesce.Dan.Format "2.1.2006."}}</strong> · dionica <strong>{{.Dionica.Code}}</strong>
       {{if .Izvjesce.Sadrzaj.Vodotok}} · vodotok <strong>{{.Izvjesce.Sadrzaj.Vodotok}}</strong>{{end}}
       · stadij <span class="threshold-pill {{.Izvjesce.Stadij.PillClass}}">{{.Izvjesce.StadijKratica}} — {{.Izvjesce.Stadij.Label}}</span>

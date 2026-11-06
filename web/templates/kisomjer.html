@@ -5,7 +5,7 @@
 {{define "content"}}
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{icon "cloud-rain"}} {{.Tocka.Naziv}}</h1>
+    <h1 class="page-title" data-naziv-stranice>{{icon "cloud-rain"}} {{.Tocka.Naziv}}</h1>
     <div class="kis-oznake" style="margin:0.25rem 0 0.35rem;">
       {{if .Procjena}}<span class="badge kis-vrsta-izvedena">{{icon "cloud-rain"}} izvedena točka — procjena modela</span>{{else}}<span class="badge kis-vrsta-pravi">{{icon "gauge"}} pravi kišomjer — mjeri</span>{{end}}
       {{if .UPrognozi}}<span class="badge kis-u-prognozi">{{icon "check"}} u prognozi{{if .PrognozaLetve}}: {{.PrognozaLetve}}{{end}}</span>{{else}}<span class="badge badge-inactive">ne ulazi u prognozu — {{.RazlogVan}}</span>{{end}}

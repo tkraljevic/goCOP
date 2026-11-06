@@ -90,7 +90,7 @@ func TestAdministracijaSkupineRedom(t *testing.T) {
 	}
 	kartice := map[string][]string{
 		"skupina-ustroj":    {"/organizacija", "/users", "/administracija/sudionici", "/moduli", "/administracija/nazivi"},
-		"skupina-mreza":     {"/settings", "/sinkronizacija", "/pretplate", "/administracija/baza"},
+		"skupina-mreza":     {"/settings", "/sinkronizacija", "/pretplate", "/administracija/baza", "/administracija/prijave-gresaka"},
 		"skupina-vodostaji": {"/administracija/telemetrija", "/administracija/izvori", "/administracija/uvoz-niza", "/prognoze/postavke"},
 		"skupina-akti":      {"/administracija/posta", "/administracija/zig", "/administracija/potpisi", "/administracija/obracun"},
 		"skupina-izgled":    {"/administracija/tema", "/administracija/karte"},

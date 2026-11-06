@@ -114,6 +114,8 @@ kartu i dalje treba prenijeti njezinim paketom `.cop`.
 ### Što koje računalo dobiva
 
 Ustroj, registri i djelatnici zajednički su i dolaze na svako računalo.
+Isto vrijedi za prijave grešaka i prijedloge poslane iz programa: tekst, ime
+i uloga osobe te stranica s koje je prijava poslana.
 Ostalo računalo prati po pravilima na stranici „Što ovo računalo prati”:
 očitanja, dnevnike, prijave s terena, vodočuvarski dnevnik i arhivu
 vodostaja, po sektoru ili branjenom području i po godinama. Uz zapise bira

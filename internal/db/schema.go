@@ -293,6 +293,40 @@ func InitSchema(database *sql.DB) error {
 			updated_at DATETIME NOT NULL
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_sluzbe_county ON sluzbe(county_id);`,
+		// Prijave grešaka i prijedlozi s ikone kukca; stanje je nova verzija
+		// istog zapisa. Korisnik nije strani ključ: prijava ostaje i kad račun
+		// ode, a na drugo računalo smije stići prije računa.
+		`CREATE TABLE IF NOT EXISTS prijave_gresaka (
+			id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL,
+			ime TEXT NOT NULL DEFAULT '',
+			uloga TEXT NOT NULL DEFAULT '',
+			vrsta TEXT NOT NULL,
+			opis TEXT NOT NULL,
+			stranica TEXT NOT NULL DEFAULT '',
+			naziv_stranice TEXT NOT NULL DEFAULT '',
+			izdanje TEXT NOT NULL DEFAULT '',
+			cvor TEXT NOT NULL DEFAULT '',
+			sustav TEXT NOT NULL DEFAULT '',
+			preglednik TEXT NOT NULL DEFAULT '',
+			zaslon TEXT NOT NULL DEFAULT '',
+			greske TEXT NOT NULL DEFAULT '[]',
+			stanje TEXT NOT NULL,
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_prijave_gresaka_korisnik ON prijave_gresaka(user_id, id);`,
+		`CREATE INDEX IF NOT EXISTS idx_prijave_gresaka_stanje ON prijave_gresaka(stanje, id);`,
+		// Svaki odgovor je zaseban zapis. Prijava nije strani ključ: odgovor na
+		// drugo računalo smije stići prije prijave.
+		`CREATE TABLE IF NOT EXISTS prijave_gresaka_odgovori (
+			id TEXT PRIMARY KEY,
+			prijava_id TEXT NOT NULL,
+			tekst TEXT NOT NULL,
+			odgovorio TEXT NOT NULL DEFAULT '',
+			created_at DATETIME NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_prijave_gresaka_odgovori ON prijave_gresaka_odgovori(prijava_id, id);`,
 		// Izvornik akta: sken akta s vlastoručnim potpisom i žigom; čuva se
 		// bajt za bajt i više se ne generira
 		`CREATE TABLE IF NOT EXISTS akti_izvornici (

@@ -975,6 +975,38 @@ func slucajeviRazmjene() []slucajRazmjene {
 			},
 		},
 		{
+			entitet: EntityPrijaveGresaka, tablica: "prijave_gresaka", kljuc: "id",
+			napravi: func(t *testing.T, a *cvor) {
+				var x models.PrijavaGreske
+				puni(&x)
+				nuzno(t, NewPrijavaGreskeRepository(a.db, a.rec).Save(ctxRaz, &x))
+			},
+			uredi: func(t *testing.T, b *cvor, _ string, p []byte) {
+				x := teret[models.PrijavaGreske](t, p)
+				x.Opis += " (izmjena)"
+				nuzno(t, NewPrijavaGreskeRepository(b.db, b.rec).Save(ctxRaz, x))
+			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewPrijavaGreskeRepository(n.db, n.rec).Get(ctxRaz, id)
+			},
+		},
+		{
+			entitet: EntityPrijaveGresakaOdgovori, tablica: "prijave_gresaka_odgovori", kljuc: "id",
+			napravi: func(t *testing.T, a *cvor) {
+				var x models.OdgovorNaPrijavu
+				puni(&x)
+				tx, err := a.db.Begin()
+				nuzno(t, err)
+				defer tx.Rollback()
+				nuzno(t, NewPrijavaGreskeRepository(a.db, a.rec).upisiOdgovor(ctxRaz, tx, &x))
+				nuzno(t, tx.Commit())
+			},
+			bezUredjivanja: "odgovor se ne mijenja: novi tekst je novi zapis",
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewPrijavaGreskeRepository(n.db, n.rec).citajOdgovore(ctxRaz, `SELECT `+odgovorPrijaveColumns+` FROM prijave_gresaka_odgovori WHERE id = ?`, id)
+			},
+		},
+		{
 			entitet: EntitySprance, tablica: "akti_sprance", kljuc: "sektor",
 			napravi: func(t *testing.T, a *cvor) {
 				var sp models.Spranca

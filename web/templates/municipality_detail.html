@@ -10,7 +10,7 @@
 
 <div class="detail-head">
   <div>
-    <h1 class="page-title">{{if eq .Municipality.Type "GRAD"}}{{icon "building"}} Grad{{else}}{{icon "house"}} Općina{{end}} {{.Municipality.Name}}</h1>
+    <h1 class="page-title" data-naziv-stranice>{{if eq .Municipality.Type "GRAD"}}{{icon "building"}} Grad{{else}}{{icon "house"}} Općina{{end}} {{.Municipality.Name}}</h1>
     <p class="page-desc">
       {{if .County.Name}}{{.County.Name}}{{end}}
       {{if .Municipality.PostalCode}} · {{.Municipality.PostalCode}}{{end}}

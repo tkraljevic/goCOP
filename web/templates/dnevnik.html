@@ -7,7 +7,7 @@
 
 <div class="detail-head">
   <div>
-    <h1 class="page-title">{{icon "notebook"}} {{.Journal.DisplayTitle}}</h1>
+    <h1 class="page-title" data-naziv-stranice="Dnevnik">{{icon "notebook"}} {{.Journal.DisplayTitle}}</h1>
     <p class="page-desc">{{.Journal.KindLabel}} · {{.Journal.Year}}. · BP {{.Area.ID}}: {{.Area.Name}}{{if .Journal.SectionCode}} · dionica {{.Journal.SectionCode}}{{end}}</p>
   </div>
   <div class="detail-actions">

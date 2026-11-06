@@ -7,7 +7,7 @@
 
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{icon "pencil"}} {{if eq .Nacin "proslijedi"}}Proslijedi pismo{{else if .Nacin}}Odgovor{{else}}Novo pismo{{end}}</h1>
+    <h1 class="page-title" data-naziv-stranice="{{if eq .Nacin "proslijedi"}}Proslijedi pismo{{else if .Nacin}}Odgovor na pismo{{else}}Novo pismo{{end}}">{{icon "pencil"}} {{if eq .Nacin "proslijedi"}}Proslijedi pismo{{else if .Nacin}}Odgovor{{else}}Novo pismo{{end}}</h1>
     <p class="page-desc">Šalje se s vaše adrese <strong>{{.CurrentUser.Email}}</strong> preko Exchangea i ostaje u mapi Poslano.</p>
   </div>
 </div>

@@ -7,7 +7,7 @@
 
 <div class="detail-head">
   <div>
-    <h1 class="page-title">{{icon "user"}} {{.User.FullName}}{{if .User.Title}} <small style="font-size:0.6em; color:var(--text-muted);">{{.User.Title}}</small>{{end}}</h1>
+    <h1 class="page-title" data-naziv-stranice="Djelatnik">{{icon "user"}} {{.User.FullName}}{{if .User.Title}} <small style="font-size:0.6em; color:var(--text-muted);">{{.User.Title}}</small>{{end}}</h1>
     <p class="page-desc">
       @{{.User.Username}} · {{orgLabel .User.OrgType}}{{if .User.OrgName}} · {{.User.OrgName}}{{end}}
       {{$state := .User.AccountState}}

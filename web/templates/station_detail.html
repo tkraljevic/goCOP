@@ -10,7 +10,7 @@
 
 <div class="detail-head">
   <div>
-    <h1 class="page-title">{{.Station.Name}}</h1>
+    <h1 class="page-title" data-naziv-stranice>{{.Station.Name}}</h1>
     <p class="page-desc">
       {{if .Station.HasWatercourse}}{{if .Station.WatercourseCode}}<a href="/watercourses/{{.Station.WatercourseCode}}">{{.Station.Watercourse}}</a>{{else}}{{.Station.Watercourse}}{{end}}{{with .Station.PodrijetloVodotoka}} <span title="kako je utvrđeno na kojoj vodi letva stoji">({{.}})</span>{{end}}{{else}}vodotok nije određen{{end}}
       {{if .Station.Stationing}} · {{.Station.Stationing}}{{end}}
