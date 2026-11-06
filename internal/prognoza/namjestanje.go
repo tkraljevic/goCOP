@@ -225,17 +225,104 @@ var (
 // Prvi ulaz je glavni tok: po njemu se dijele pojasi i po njemu se pravac
 // lomi. Ostali ulaze pravocrtno, svaki sa svojim kašnjenjem.
 func NamjestiLetvu(arhiva *sql.DB, ciljna, vel string, izvori []Izvor) ([]Pojas, error) {
-	if len(izvori) == 0 {
-		return nil, fmt.Errorf("%s: nijedan ulaz", ciljna)
+	return namjestiPoRazinama(arhiva, ciljna, vel, izvori, &UcenjeRacuna{},
+		func(poredani []float64) ([]float64, error) { return Cvorovi(poredani), nil })
+}
+
+// UcenjeRacuna kaže na kojoj je vodi i u kojem vremenu račun učio. Račun učen
+// samo na niskoj vodi ne zna ništa o valu, pa to mora stajati uz rezultat.
+type UcenjeRacuna struct {
+	Od, Do         float64 // najniža i najviša voda cilja
+	OdSata, DoSata int64   // prvi i zadnji sat, od epohe
+	Sati           int
+}
+
+// dodaj uzima u obzir sate razine koji su ušli u račun: one u kojima su izmjereni
+// svi ulazi, s kašnjenjima i prozorima te razine.
+func (u *UcenjeRacuna) dodaj(cilj map[int64]float64, ulazi []ulazNiz, lagovi, sirine []int, sati []int64) {
+	x := make([]float64, len(ulazi))
+	for _, t := range sati {
+		y, ok := uzorak(cilj, ulazi, lagovi, sirine, t, x)
+		if !ok {
+			continue
+		}
+		if u.Sati == 0 {
+			u.Od, u.Do, u.OdSata, u.DoSata = y, y, t, t
+		}
+		u.Od, u.Do = min(u.Od, y), max(u.Do, y)
+		u.OdSata, u.DoSata = min(u.OdSata, t), max(u.DoSata, t)
+		u.Sati++
 	}
-	cilj, err := NizIzArhive(arhiva, ciljna, vel)
+}
+
+// namjestiPoRazinama je NamjestiLetvu s razinama koje zadaje pozivatelj: razine
+// od poredanih vrijednosti glavnog ulaza daju čvorove, a greška prekida račun. U
+// ucenje upisuje vodu i vrijeme na kojima je račun učio.
+func namjestiPoRazinama(arhiva *sql.DB, ciljna, vel string, izvori []Izvor, ucenje *UcenjeRacuna,
+	razine func(poredani []float64) ([]float64, error)) ([]Pojas, error) {
+	cilj, ulazi, err := nizoviRacuna(arhiva, ciljna, vel, izvori)
 	if err != nil {
 		return nil, err
 	}
+	sati := poredaniSati(cilj)
+
+	// Pojasi se mjere u glavnom ulazu, pomaknutom za jedno kašnjenje koje
+	// vrijedi za sve. Po pojasu se kašnjenje poslije traži iznova, ali granice
+	// moraju stajati prije toga — inače bi svaki pojas pomicao vlastiti rub.
+	pocetni := make([]int, len(ulazi))
+	sirine := make([]int, len(ulazi))
+	svi := make([]int, len(ulazi))
+	for i := range sirine {
+		sirine[i], svi[i] = 1, i
+	}
+	pocetni[0] = najboljiSam(cilj, ulazi[0], samoPuni(ulazi[0], sati))
+	cvorovi, err := cvoroviUlaza(ciljna, ulazi[0], sati, pocetni[0], razine)
+	if err != nil {
+		return nil, err
+	}
+
+	// Kašnjenja sporednih ulaza traže se jednom, na svim satima. Ona su
+	// svojstvo pritoka, a ne vodnosti glavnog toka: traže li se po pojasu,
+	// Letenye ispadne 47 sati u jednom pojasu i 0 u sljedećem, jer je njegov
+	// vodostaj kroz dva dana toliko autokoreliran da je cilj po tom kašnjenju
+	// gotovo ravan — pa se bira šum. Po pojasu ostaje samo glavni tok.
+	globalni, globalneSirine := najboljiLagovi(cilj, ulazi, sati, pocetni, sirine, svi)
+	if globalni == nil {
+		return nil, fmt.Errorf("%s: kašnjenja se nisu dala izmjeriti", ciljna)
+	}
+	pojasi := satiPoPojasima(cilj, ulazi, sati, cvorovi, pocetni[0], globalni, globalneSirine)
+	if len(pojasi) == 0 {
+		return nil, fmt.Errorf("%s: nijedan pojas nije dao račun", ciljna)
+	}
+	k := rijesiPravac(cilj, ulazi, cvorovi, pojasi, globalneSirine)
+	var out []Pojas
+	for _, pj := range pojasi {
+		pojas := pojasIzPravca(cilj, ulazi, cvorovi, k, pj, globalneSirine)
+		pojas.Letva, pojas.Velicina = ciljna, vel
+		ucenje.dodaj(cilj, ulazi, pj.lagovi, globalneSirine, pj.sati)
+		out = append(out, pojas)
+	}
+	return out, nil
+}
+
+// nizoviRacuna čita niz cilja i svih ulaza i odbija račun kojem fali sati.
+func nizoviRacuna(arhiva *sql.DB, ciljna, vel string, izvori []Izvor) (map[int64]float64, []ulazNiz, error) {
+	if len(izvori) == 0 {
+		return nil, nil, fmt.Errorf("%s: nijedan ulaz", ciljna)
+	}
+	cilj, err := NizIzArhive(arhiva, ciljna, vel)
+	if err != nil {
+		return nil, nil, err
+	}
 	cilj = doGranice(cilj)
 	if len(cilj) < NajmanjeSati {
-		return nil, fmt.Errorf("%s: samo %d satnih vrijednosti u %s", ciljna, len(cilj), vel)
+		return nil, nil, fmt.Errorf("%s: samo %d satnih vrijednosti u %s", ciljna, len(cilj), vel)
 	}
+	ulazi, err := nizoviUlaza(arhiva, ciljna, izvori)
+	return cilj, ulazi, err
+}
+
+func nizoviUlaza(arhiva *sql.DB, ciljna string, izvori []Izvor) ([]ulazNiz, error) {
 	ulazi := make([]ulazNiz, len(izvori))
 	for i, iz := range izvori {
 		najdulje := NajveciPomak
@@ -247,101 +334,97 @@ func NamjestiLetvu(arhiva *sql.DB, ciljna, vel string, izvori []Izvor) ([]Pojas,
 			return nil, err
 		}
 		n = doGranice(n)
-		if len(n) < 5000 {
+		if len(n) < NajmanjeSati {
 			return nil, fmt.Errorf("%s: %s ima samo %d satnih vrijednosti u %s",
 				ciljna, iz.Letva, len(n), iz.Velicina)
 		}
 		ulazi[i] = noviUlazNiz(iz.Letva, iz.Velicina, n, najdulje)
 	}
+	return ulazi, nil
+}
 
+func poredaniSati(niz map[int64]float64) []int64 {
 	var sati []int64
-	for t := range cilj {
+	for t := range niz {
 		sati = append(sati, t)
 	}
 	sort.Slice(sati, func(i, j int) bool { return sati[i] < sati[j] })
+	return sati
+}
 
-	// Pojasi se mjere u glavnom ulazu, pomaknutom za jedno kašnjenje koje
-	// vrijedi za sve. Po pojasu se kašnjenje poslije traži iznova, ali granice
-	// moraju stajati prije toga — inače bi svaki pojas pomicao vlastiti rub.
-	pocetni := make([]int, len(ulazi))
-	sirine := make([]int, len(ulazi))
-	for i := range sirine {
-		sirine[i] = 1
-	}
-	pocetni[0] = najboljiSam(cilj, ulazi[0], samoPuni(ulazi[0], sati))
+// cvoroviUlaza daje čvorove razina iz vrijednosti glavnog ulaza u satima cilja.
+func cvoroviUlaza(ciljna string, glavni ulazNiz, sati []int64, pocetni int,
+	razine func(poredani []float64) ([]float64, error)) ([]float64, error) {
 	var poredak []float64
 	for _, t := range sati {
-		if v, ima := ulazi[0].prosjek(t-int64(pocetni[0]), 1); ima {
+		if v, ima := glavni.prosjek(t-int64(pocetni), 1); ima {
 			poredak = append(poredak, v)
 		}
 	}
 	if len(poredak) < NajmanjeSati {
-		return nil, fmt.Errorf("%s ← %s: samo %d zajedničkih sati", ciljna, izvori[0].Letva, len(poredak))
+		return nil, fmt.Errorf("%s ← %s: samo %d zajedničkih sati", ciljna, glavni.ime, len(poredak))
 	}
 	sort.Float64s(poredak)
-	cvorovi := Cvorovi(poredak)
+	cvorovi, err := razine(poredak)
+	if err != nil {
+		return nil, fmt.Errorf("%s ← %s: %w", ciljna, glavni.ime, err)
+	}
 	if len(cvorovi) < 2 {
-		return nil, fmt.Errorf("%s ← %s: glavni ulaz je ravan", ciljna, izvori[0].Letva)
+		return nil, fmt.Errorf("%s ← %s: glavni ulaz je ravan", ciljna, glavni.ime)
 	}
+	return cvorovi, nil
+}
 
-	// Kašnjenja sporednih ulaza traže se jednom, na svim satima. Ona su
-	// svojstvo pritoka, a ne vodnosti glavnog toka: traže li se po pojasu,
-	// Letenye ispadne 47 sati u jednom pojasu i 0 u sljedećem, jer je njegov
-	// vodostaj kroz dva dana toliko autokoreliran da je cilj po tom kašnjenju
-	// gotovo ravan — pa se bira šum. Po pojasu ostaje samo glavni tok.
-	svi := make([]int, len(ulazi))
-	for i := range svi {
-		svi[i] = i
-	}
-	globalni, globalneSirine := najboljiLagovi(cilj, ulazi, sati, pocetni, sirine, svi)
-	if globalni == nil {
-		return nil, fmt.Errorf("%s: kašnjenja se nisu dala izmjeriti", ciljna)
-	}
+// pojasSati je jedan pojas sa svojim satima i kašnjenjima, prije pravca.
+type pojasSati struct {
+	od, do float64
+	lagovi []int
+	sati   []int64
+}
 
-	// Po pojasu: kašnjenje glavnog toka.
-	type pojasSati struct {
-		od, do float64
-		lagovi []int
-		sati   []int64
-	}
+// satiPoPojasima dijeli sate po pojasima i traži kašnjenje glavnog toka. Širina
+// prozora je svojstvo dionice, ne vodnosti, pa ostaje kakvu je dao opći prolaz.
+// Pojas bez dosta sati otpada.
+func satiPoPojasima(cilj map[int64]float64, ulazi []ulazNiz, sati []int64, cvorovi []float64,
+	pocetni int, globalni, globalneSirine []int) []pojasSati {
 	var pojasi []pojasSati
 	for i := 0; i+1 < len(cvorovi); i++ {
-		od, do := cvorovi[i], cvorovi[i+1]
-		zadnji := i+2 == len(cvorovi)
-		var uPojasu []int64
-		for _, t := range sati {
-			v, ima := ulazi[0].prosjek(t-int64(pocetni[0]), 1)
-			if ima && v >= od && (v < do || (zadnji && v <= do)) {
-				uPojasu = append(uPojasu, t)
-			}
-		}
+		uPojasu := satiPojasa(ulazi[0], sati, pocetni, cvorovi[i], cvorovi[i+1], i+2 == len(cvorovi))
 		if len(uPojasu) < NajmanjeSatiPojasa {
 			continue
 		}
-		// Po pojasu se traži samo kašnjenje glavnog toka. Širina prozora je
-		// svojstvo dionice, ne vodnosti, pa ostaje kakvu je dao opći prolaz.
 		lagovi, _ := najboljiLagovi(cilj, ulazi, uPojasu, globalni, globalneSirine, []int{0})
 		if lagovi == nil {
 			continue
 		}
-		pojasi = append(pojasi, pojasSati{od: od, do: do, lagovi: lagovi, sati: uPojasu})
+		pojasi = append(pojasi, pojasSati{od: cvorovi[i], do: cvorovi[i+1], lagovi: lagovi, sati: uPojasu})
 	}
-	if len(pojasi) == 0 {
-		return nil, fmt.Errorf("%s: nijedan pojas nije dao račun", ciljna)
-	}
+	return pojasi
+}
 
-	// Pa jedan izlomljen pravac kroz sve pojase odjednom. Svaki pojas nosi
-	// svoje sate i svoje kašnjenje, ali čvorove dijele — pa se pravci na
-	// granicama sastaju. Sporedni ulazi imaju jedan nagib za sve pojase: to je
-	// njihova vlastita krivulja protoka, koja o vodnosti glavnog toka ne ovisi.
-	m := len(cvorovi)
-	p := m + len(ulazi) - 1
+func satiPojasa(glavni ulazNiz, sati []int64, pocetni int, od, do float64, zadnji bool) []int64 {
+	var uPojasu []int64
+	for _, t := range sati {
+		v, ima := glavni.prosjek(t-int64(pocetni), 1)
+		if ima && v >= od && (v < do || (zadnji && v <= do)) {
+			uPojasu = append(uPojasu, t)
+		}
+	}
+	return uPojasu
+}
+
+// rijesiPravac provlači jedan izlomljen pravac kroz sve pojase odjednom. Svaki
+// pojas nosi svoje sate i svoje kašnjenje, ali čvorove dijele — pa se pravci na
+// granicama sastaju. Sporedni ulazi imaju jedan nagib za sve pojase: to je njihova
+// vlastita krivulja protoka, koja o vodnosti glavnog toka ne ovisi.
+func rijesiPravac(cilj map[int64]float64, ulazi []ulazNiz, cvorovi []float64, pojasi []pojasSati, sirine []int) []float64 {
+	p := len(cvorovi) + len(ulazi) - 1
 	A, b := prazneJednadzbe(p)
 	red := make([]float64, p)
 	x := make([]float64, len(ulazi))
 	for _, pj := range pojasi {
 		for _, t := range pj.sati {
-			y, ok := uzorak(cilj, ulazi, pj.lagovi, globalneSirine, t, x)
+			y, ok := uzorak(cilj, ulazi, pj.lagovi, sirine, t, x)
 			if !ok {
 				continue
 			}
@@ -349,30 +432,27 @@ func NamjestiLetvu(arhiva *sql.DB, ciljna, vel string, izvori []Izvor) ([]Pojas,
 			dodaj(A, b, red, y)
 		}
 	}
-	k := rijesiSRezervom(A, b)
+	return rijesiSRezervom(A, b)
+}
 
-	var out []Pojas
-	for _, pj := range pojasi {
-		i := sort.SearchFloat64s(cvorovi, pj.od)
-		nagib := (k[i+1] - k[i]) / (cvorovi[i+1] - cvorovi[i])
-		pojas := Pojas{
-			Letva: ciljna, Velicina: vel, Od: pj.od, Do: pj.do,
-			Odsjecak: k[i] - nagib*cvorovi[i],
+// pojasIzPravca čita brojeve jednog pojasa iz riješenog pravca.
+func pojasIzPravca(cilj map[int64]float64, ulazi []ulazNiz, cvorovi, k []float64, pj pojasSati, sirine []int) Pojas {
+	m := len(cvorovi)
+	i := sort.SearchFloat64s(cvorovi, pj.od)
+	nagib := (k[i+1] - k[i]) / (cvorovi[i+1] - cvorovi[i])
+	pojas := Pojas{Od: pj.od, Do: pj.do, Odsjecak: k[i] - nagib*cvorovi[i]}
+	for j, u := range ulazi {
+		n := nagib
+		if j > 0 {
+			n = k[m+j-1]
 		}
-		for j, u := range ulazi {
-			n := nagib
-			if j > 0 {
-				n = k[m+j-1]
-			}
-			pojas.Ulazi = append(pojas.Ulazi, Ulaz{
-				Letva: u.ime, Velicina: u.velicina, PomakH: pj.lagovi[j],
-				Sirina: globalneSirine[j], Nagib: n,
-			})
-		}
-		pojas.R, pojas.Rasap, pojas.Sati = kakoDrzi(cilj, ulazi, pj.lagovi, globalneSirine, pj.sati, pojas)
-		out = append(out, pojas)
+		pojas.Ulazi = append(pojas.Ulazi, Ulaz{
+			Letva: u.ime, Velicina: u.velicina, PomakH: pj.lagovi[j],
+			Sirina: sirine[j], Nagib: n,
+		})
 	}
-	return out, nil
+	pojas.R, pojas.Rasap, pojas.Sati = kakoDrzi(cilj, ulazi, pj.lagovi, sirine, pj.sati, pojas)
+	return pojas
 }
 
 // kakoDrzi mjeri koliko namješteni pojas pogađa: korelacija računatog s

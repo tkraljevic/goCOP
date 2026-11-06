@@ -437,15 +437,22 @@ func RastaviLetvu(zapis string) (string, string, error) {
 // namještanja spuštaju: dovoljno je stotinjak očitanja, a pojasu dvadesetak.
 var RijetkeLetve = map[string]bool{"ustava-draz-nizvodno": true, "dunav-zmajevac": true, "zlatna-greda": true}
 
+// postaviGraniceSati mijenja granice namještanja i vraća funkciju koja ih
+// vraća. Granice su zajedničke postavke paketa, pa se mijenjaju samo dok se drži
+// namjestanjeTraje.
+func postaviGraniceSati(sati, pojasa int) func() {
+	staro, staroPojas := NajmanjeSati, NajmanjeSatiPojasa
+	NajmanjeSati, NajmanjeSatiPojasa = sati, pojasa
+	return func() { NajmanjeSati, NajmanjeSatiPojasa = staro, staroPojas }
+}
+
 // namjestiRacun namjesti jedan račun lanca i njegove rezerve. Račun koji se
 // ne da namjestiti (premalo podataka, nepoznata veličina) samo se napiše i
 // ne daje pojase. Greška čitanja arhive (ErrArhiva) vraća se, jer bez nje
 // bi veza tiho ispala iz modela.
 func namjestiRacun(arhiva *sql.DB, r Racun, w io.Writer) ([]Pojas, error) {
 	if kod, _, _ := strings.Cut(r.Letva, ":"); RijetkeLetve[strings.TrimSpace(kod)] {
-		staro, staroPojas := NajmanjeSati, NajmanjeSatiPojasa
-		NajmanjeSati, NajmanjeSatiPojasa = 100, 20
-		defer func() { NajmanjeSati, NajmanjeSatiPojasa = staro, staroPojas }()
+		defer postaviGraniceSati(100, 20)()
 	}
 	letva, vel, err := RastaviLetvu(r.Letva)
 	if err != nil {
