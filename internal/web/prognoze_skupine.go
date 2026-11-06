@@ -251,7 +251,7 @@ func sektoriVeza(l LetvaPrognoze, tuda bool, letve []LetvaPrognoze, prenosi func
 		s = append(s, prenosi(u)...)
 	}
 	for _, m := range letve {
-		if tuda && slices.Contains(m.Ulazi, l.Kod) {
+		if tuda && slices.Contains(m.ulaziLanca(), l.Kod) {
 			s = append(s, prenosi(m.Kod)...)
 		}
 	}

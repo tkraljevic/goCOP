@@ -377,6 +377,9 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 	ishod.Skokovi = skokoviIzdanja(ctx)
 	ishod.Kvarovi = kvaroviIzdanja(ctx)
 	ishod.Upozorenja = Upozori(ishod, pojasi, nizovi, vrhovi)
+	// Letve iz zapisa modela računaju se tek sad, pa glavni račun ne mogu ni
+	// srušiti ni usporiti.
+	o.dodatniKrug(ctx, ishod, glavniRacun{racunalo: r, inacice: inacice, pojasi: pojasi, nizovi: nizovi, od: od, najdalje: najdalje})
 	return ishod, nil
 }
 
