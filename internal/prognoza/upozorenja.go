@@ -179,10 +179,15 @@ func (s skupUpitnog) popis() []Upitno {
 	for _, u := range s {
 		out = append(out, *u)
 	}
-	slices.SortFunc(out, func(a, b Upitno) int {
+	poredajUpitno(out)
+	return out
+}
+
+// poredajUpitno slaže upitne letve po dosegu satne, pa po letvi.
+func poredajUpitno(u []Upitno) {
+	slices.SortFunc(u, func(a, b Upitno) int {
 		return cmp.Or(cmp.Compare(redSatne(a), redSatne(b)), cmp.Compare(a.Letva, b.Letva))
 	})
-	return out
 }
 
 // redSatne je ključ poretka po dosegu satne; bez satne ide iza svih.

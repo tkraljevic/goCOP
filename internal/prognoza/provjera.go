@@ -52,7 +52,7 @@ func ProvjeriUnatrag(arhiva, baza *sql.DB, o OpcijeProvjere) (zapisano int, err 
 	if o.Korak <= 0 {
 		return 0, fmt.Errorf("korak mora biti barem 1 sat")
 	}
-	inacice, err := SveInacice(baza)
+	inacice, err := sveNamjesteno(baza)
 	if err != nil {
 		return 0, err
 	}

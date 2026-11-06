@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -257,10 +258,6 @@ var Tokovi = []struct {
 		// Belišće iz Donjeg Miholjca, protok u protok (r 0,92–0,97); Drávaszabolcs
 		// daje protok samo preko svog vodostaja, pa je rezerva.
 		{"belisce", []string{"donji-miholjac"}},
-		// Pritočni lanci Karašice i Vučice: vlastite prognoze za Valpovštinu,
-		// ne ulazi Dravi. Ulaze tek s telemetrijom vrhova (Kapelna, Beničanci).
-		{"miholjacki-porec", []string{"kapelna"}},
-		{"marjancaci", []string{"benicanci-prkos"}},
 		// Karašica Osijeku nije ulaz, iako se u Dravu ulijeva između Belišća i
 		// Osijeka (kod Petrijevaca; letva Belišće 5152 je 24,5 km uzvodno od
 		// ušća, s dnevnim očitanjem u 7:30). Poreč i Kapelna traženi su i do
@@ -274,16 +271,7 @@ var Tokovi = []struct {
 		// Osijekom (2003.–2021.) i pretragom do 96 sati ulaze u vodostaju s
 		// nagibom 0,02 uz prozor od 49 sati, a u protoku s kašnjenjem 96 h —
 		// rasap Osijeka ne pomakne se ni za desetinku. Nije analogija nego
-		// mjerenje. Karašica ima svoj lanac, Kapelna → Poreč (vodostaj r 0,89,
-		// kašnjenje 6–17 h; protok r 0,88, 8 h), ali ulazi tek kad Kapelna i
-		// Poreč budu imali živa očitanja u bazi — vrh lanca bez očitanja ruši
-		// cijelu prognozu, ne samo svoj krak. Isto čeka Vučica: Beničanci →
-		// Marjančaci na poplavnom pojasu drži r 0,82 uz kašnjenje 6 h i nagib
-		// 0,96 (2008.–2021.; na tri godine radara bilo je 0,47, jer poplava
-		// nije bilo), a u hindcastu 2015.–2021. ide 17/29/28/13/7 % bolje od
-		// postojanosti. Orahovica joj nije vrh: prema Beničancima na 2003.–2021.
-		// drži r 0,60 uz kašnjenje 0 h, prozor 31–37 h i nagib 6–14 —
-		// natopljenost, jer Vučica vodu dobiva od Krndije ispod Orahovice.
+		// mjerenje. Karašica i Vučica računaju se odvojeno (OdvojeniRacuni).
 		// Probni lanci namještaju se u zasebnu bazu (-baza), da živoj prognozi
 		// ne podmetnu vrh bez očitanja.
 	}},
@@ -365,18 +353,50 @@ var Tokovi = []struct {
 		// treba i Dunav — razinu mu jednako drži uspor odozdo koliko dotok
 		// odozgo.
 		{"osijek", []string{"belisce", "aljmas"}},
-		// Jelengrad kod Petrijevaca, pet kilometara od ušća Karašice i Vučice,
-		// nije ulaz nego izlaz Drave: na visokoj vodi prati Osijek s nagibom
-		// 0,90 bez kašnjenja (uspor), a Poreč uzvodno ne prati uopće (r 0,06
-		// do 0,19). Iz Osijeka i Belišća drži r 0,92 na najvišem pojasu, pa
-		// Petrijevci dobivaju prognozu iz Drave koju već imamo.
-		// Jelengrad na donjoj Vučici: uspor Drave (Osijek, Belišće) plus
-		// vlastita voda Vučice iz Marjančaca (2 h, nagib 0,5). Sam Marjančaci
-		// ne vrijedi (r 0,2–0,5), Miholjački Poreč na Karašici ništa (r
-		// 0,05–0,19), ali uz uspor Marjančaci diže r s 0,04 na 0,88–0,97 i
-		// spušta rasap na 7,5–16 cm (26. 9. 2026.).
-		{"jelengrad", []string{"osijek", "belisce", "marjancaci"}},
 	}},
+}
+
+// OdvojeniRacuni su Karašica i Vučica: vlastite prognoze za Valpovštinu, a
+// ne ulazi Dravi. Pripremi model ih namješta kao i ostale račune, a brojevi im
+// stoje u istim tablicama, pa putuju s modelom. Izdanje ih računa tek poslije
+// glavnog računa (dodatniKrug), jer vrh bez očitanja ne smije zaustaviti cijelu
+// prognozu ni povući sat izdanja svima (Odluke (6. 11. 2026.)). Čitaju glavni
+// lanac, a glavni lanac njih nikad. Redak modela vrijedi umjesto ovih računa.
+var OdvojeniRacuni = []Racun{
+	// Karašica: Kapelna → Poreč (vodostaj r 0,89, kašnjenje 6–17 h; protok
+	// r 0,88, 8 h).
+	{"miholjacki-porec", []string{"kapelna"}},
+	// Vučica: Beničanci → Marjančaci na poplavnom pojasu drži r 0,82 uz
+	// kašnjenje 6 h i nagib 0,96 (2008.–2021.; na tri godine radara bilo je
+	// 0,47, jer poplava nije bilo), a u hindcastu 2015.–2021. ide 17/29/28/13/7 %
+	// bolje od postojanosti. Orahovica joj nije vrh: prema Beničancima na
+	// 2003.–2021. drži r 0,60 uz kašnjenje 0 h, prozor 31–37 h i nagib 6–14 —
+	// natopljenost, jer Vučica vodu dobiva od Krndije ispod Orahovice.
+	{"marjancaci", []string{"benicanci-prkos"}},
+	// Jelengrad kod Petrijevaca, pet kilometara od ušća Karašice i Vučice,
+	// nije ulaz nego izlaz Drave: na visokoj vodi prati Osijek s nagibom
+	// 0,90 bez kašnjenja (uspor), a Poreč uzvodno ne prati uopće (r 0,06
+	// do 0,19). Iz Osijeka i Belišća drži r 0,92 na najvišem pojasu, pa
+	// Petrijevci dobivaju prognozu iz Drave koju već imamo.
+	// Jelengrad na donjoj Vučici: uspor Drave (Osijek, Belišće) plus
+	// vlastita voda Vučice iz Marjančaca (2 h, nagib 0,5). Sam Marjančaci
+	// ne vrijedi (r 0,2–0,5), Miholjački Poreč na Karašici ništa (r
+	// 0,05–0,19), ali uz uspor Marjančaci diže r s 0,04 na 0,88–0,97 i
+	// spušta rasap na 7,5–16 cm (26. 9. 2026.). Bez Marjančaca nema računa, pa
+	// je i Jelengrad odvojen. Nitko ga ne čita.
+	{"jelengrad", []string{"osijek", "belisce", "marjancaci"}},
+}
+
+// racuniNamjestanja su svi računi koje Pripremi model namješta: glavni lanac
+// i odvojeni računi.
+func racuniNamjestanja() []struct {
+	Ime    string
+	Racuni []Racun
+} {
+	return append(slices.Clone(Tokovi), struct {
+		Ime    string
+		Racuni []Racun
+	}{"Karašica i Vučica", OdvojeniRacuni})
 }
 
 // RazaberiRacun čita "letva = ulaz + ulaz".
@@ -571,13 +591,14 @@ func NamjestiLanac(arhiva, baza *sql.DB, o OpcijeNamjestanja) (int, error) {
 	if w == nil {
 		w = io.Discard
 	}
+	tokovi := racuniNamjestanja()
 	ukupno := 0
-	for _, tok := range Tokovi {
+	for _, tok := range tokovi {
 		ukupno += len(tok.Racuni)
 	}
 	var sve []Pojas
 	gotovo := 0
-	for _, tok := range Tokovi {
+	for _, tok := range tokovi {
 		fmt.Fprintf(w, "\n— %s —\n", tok.Ime)
 		for _, r := range tok.Racuni {
 			if o.Korak != nil {
