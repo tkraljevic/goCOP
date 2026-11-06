@@ -212,3 +212,35 @@ func TestPorukaKad(t *testing.T) {
 		t.Errorf("%q", p.PorukaKad())
 	}
 }
+
+// Rok slike vrijedi samo za riješenu prijavu, od trenutka kad je riješena
+func TestSlikaUklonjenaU(t *testing.T) {
+	rijesena := time.Date(2026, 11, 6, 12, 0, 0, 0, time.UTC)
+	sad := rijesena.Add(RokSlikePrijave)
+	for _, s := range []struct {
+		ime     string
+		p       PrijavaGreske
+		kad     time.Time
+		obrisna bool
+	}{
+		{"prije roka", PrijavaGreske{SlikaOtisak: "a", Stanje: StanjePrijaveRijeseno, UpdatedAt: rijesena}, sad.Add(-time.Second), false},
+		{"na roku", PrijavaGreske{SlikaOtisak: "a", Stanje: StanjePrijaveRijeseno, UpdatedAt: rijesena}, sad, true},
+		{"nova", PrijavaGreske{SlikaOtisak: "a", Stanje: StanjePrijaveNova, UpdatedAt: rijesena}, sad.AddDate(1, 0, 0), false},
+		{"u radu", PrijavaGreske{SlikaOtisak: "a", Stanje: StanjePrijaveURadu, UpdatedAt: rijesena}, sad.AddDate(1, 0, 0), false},
+		{"nepoznato stanje", PrijavaGreske{SlikaOtisak: "a", Stanje: "odbijeno", UpdatedAt: rijesena}, sad.AddDate(1, 0, 0), false},
+		{"vraćena nakon roka", PrijavaGreske{SlikaOtisak: "a", Stanje: StanjePrijaveURadu, UpdatedAt: sad, SlikaIstekla: true}, sad, true},
+		{"bez slike", PrijavaGreske{Stanje: StanjePrijaveRijeseno, UpdatedAt: rijesena}, sad, false},
+	} {
+		if got := s.p.SlikaUklonjenaU(s.kad); got != s.obrisna {
+			t.Errorf("%s: %v", s.ime, got)
+		}
+	}
+	nedavno := PrijavaGreske{SlikaOtisak: "a", Stanje: StanjePrijaveRijeseno, UpdatedAt: time.Now()}
+	stara := PrijavaGreske{SlikaOtisak: "a", Stanje: StanjePrijaveRijeseno, UpdatedAt: time.Now().Add(-RokSlikePrijave - time.Minute)}
+	if nedavno.SlikaUklonjena() || !stara.SlikaUklonjena() {
+		t.Error("za stranice")
+	}
+	if NajvecaSlikaPrijave != 2<<20 {
+		t.Errorf("najveća slika: %d", NajvecaSlikaPrijave)
+	}
+}

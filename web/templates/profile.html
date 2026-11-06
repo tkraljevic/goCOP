@@ -318,7 +318,8 @@
           <p class="pg-mali">{{.VrstaNaziv}} · {{.Kad}}</p>
           <p class="pg-opis">{{.Opis}}</p>
           {{if .SlikaOtisak}}
-          {{if .SlikaTu}}<a class="pg-slika-veza" href="/prijava-greske/{{.ID}}/slika" target="_blank" rel="noopener">Slika zaslona</a>
+          {{if .SlikaUklonjena}}<p class="pg-mali pg-slika-ceka">Slika zaslona je uklonjena jer je prošlo 30 dana otkako je prijava riješena.</p>
+          {{else if .SlikaTu}}<a class="pg-slika-veza" href="/prijava-greske/{{.ID}}/slika" target="_blank" rel="noopener">Slika zaslona</a>
           {{else}}<p class="pg-mali pg-slika-ceka">Slika zaslona još nije stigla na ovo računalo. Stići će kad se ovo računalo razmijeni s računalom koje je ima.</p>{{end}}
           {{end}}
           {{range .Odgovori}}

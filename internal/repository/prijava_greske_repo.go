@@ -24,14 +24,14 @@ const (
 	EntityPrijaveGresakaOdgovori = "prijave_gresaka_odgovori"
 )
 
-const prijavaGreskeColumns = `id, user_id, ime, uloga, vrsta, opis, stranica, naziv_stranice, izdanje, cvor, sustav, preglednik, zaslon, greske, stanje, created_at, updated_at, slika_otisak, slika_bajtova, slika_vrsta`
+const prijavaGreskeColumns = `id, user_id, ime, uloga, vrsta, opis, stranica, naziv_stranice, izdanje, cvor, sustav, preglednik, zaslon, greske, stanje, created_at, updated_at, slika_otisak, slika_bajtova, slika_vrsta, slika_istekla`
 
-const prijavaGreskeUpsert = `INSERT INTO prijave_gresaka (` + prijavaGreskeColumns + `) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+const prijavaGreskeUpsert = `INSERT INTO prijave_gresaka (` + prijavaGreskeColumns + `) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(id) DO UPDATE SET user_id = excluded.user_id, ime = excluded.ime, uloga = excluded.uloga, vrsta = excluded.vrsta, opis = excluded.opis,
 	stranica = excluded.stranica, naziv_stranice = excluded.naziv_stranice, izdanje = excluded.izdanje, cvor = excluded.cvor, sustav = excluded.sustav,
 	preglednik = excluded.preglednik, zaslon = excluded.zaslon, greske = excluded.greske, stanje = excluded.stanje,
 	created_at = excluded.created_at, updated_at = excluded.updated_at,
-	slika_otisak = excluded.slika_otisak, slika_bajtova = excluded.slika_bajtova, slika_vrsta = excluded.slika_vrsta`
+	slika_otisak = excluded.slika_otisak, slika_bajtova = excluded.slika_bajtova, slika_vrsta = excluded.slika_vrsta, slika_istekla = excluded.slika_istekla`
 
 // ulogaSlikePrijave je uloga slike zaslona u vezi sadržaja i zapisa
 const ulogaSlikePrijave = "slika"
@@ -52,14 +52,14 @@ func odgovorPrijaveArgs(o *models.OdgovorNaPrijavu) ([]any, error) {
 func prijavaGreskeArgs(p *models.PrijavaGreske) ([]any, error) {
 	greske, _ := json.Marshal(p.Greske) // popis teksta uvijek se da zapisati
 	return []any{p.ID, p.UserID, p.Ime, p.Uloga, p.Vrsta, p.Opis, p.Stranica, p.NazivStranice, p.Izdanje, p.Cvor, p.Sustav, p.Preglednik, p.Zaslon,
-		string(greske), p.Stanje, p.CreatedAt.UTC(), p.UpdatedAt.UTC(), p.SlikaOtisak, p.SlikaBajtova, p.SlikaVrsta}, nil
+		string(greske), p.Stanje, p.CreatedAt.UTC(), p.UpdatedAt.UTC(), p.SlikaOtisak, p.SlikaBajtova, p.SlikaVrsta, p.SlikaIstekla}, nil
 }
 
 func scanPrijavaGreske(row rowScanner) (*models.PrijavaGreske, error) {
 	var p models.PrijavaGreske
 	var greske string
 	if err := row.Scan(&p.ID, &p.UserID, &p.Ime, &p.Uloga, &p.Vrsta, &p.Opis, &p.Stranica, &p.NazivStranice, &p.Izdanje, &p.Cvor, &p.Sustav, &p.Preglednik, &p.Zaslon,
-		&greske, &p.Stanje, &p.CreatedAt, &p.UpdatedAt, &p.SlikaOtisak, &p.SlikaBajtova, &p.SlikaVrsta); err != nil {
+		&greske, &p.Stanje, &p.CreatedAt, &p.UpdatedAt, &p.SlikaOtisak, &p.SlikaBajtova, &p.SlikaVrsta, &p.SlikaIstekla); err != nil {
 		return nil, err
 	}
 	_ = json.Unmarshal([]byte(greske), &p.Greske) // pokvaren popis grešaka ne smije sakriti samu prijavu
@@ -112,9 +112,40 @@ func (r *PrijavaGreskeRepository) SaveSaSlikom(ctx context.Context, p *models.Pr
 // maknutiSlikuBezPrijave miče sliku prijave koja nije upisana. Ista slika uz drugu
 // prijavu ostaje, jer je ta prijava drži svojom vezom.
 func maknutiSlikuBezPrijave(ctx context.Context, p *models.PrijavaGreske) {
-	ctx = context.WithoutCancel(ctx)
-	_ = spremiste.OdveziUlogu(ctx, EntityPrijaveGresaka, p.ID, ulogaSlikePrijave) // pozivatelj već javlja grešku upisa
-	_ = spremiste.Ukloni(ctx, p.SlikaOtisak)                                      // drži li je još koja prijava, ostaje
+	_, _ = ukloniSlikuPrijave(context.WithoutCancel(ctx), p) // pozivatelj već javlja grešku upisa
+}
+
+// ukloniSlikuPrijave miče vezu prijave sa slikom, a bajtove i želju samo kad sliku
+// više ne drži nijedan zapis. U knjigu se ništa ne piše.
+func ukloniSlikuPrijave(ctx context.Context, p *models.PrijavaGreske) (bool, error) {
+	if spremiste == nil {
+		return false, nil
+	}
+	return spremiste.OdveziIUkloni(ctx, p.SlikaOtisak, p.SlikaVrsta, sadrzaj.Veza{Entitet: EntityPrijaveGresaka, EntitetID: p.ID, Uloga: ulogaSlikePrijave})
+}
+
+// UkloniIstekleSlike briše slike prijava kojima je rok prošao (SlikaUklonjenaU).
+// Računalo koje je bilo ugašeno pozove je kad se upali. Vraća koliko je prijava
+// ostalo bez slike na ovom računalu.
+func (r *PrijavaGreskeRepository) UkloniIstekleSlike(ctx context.Context, sad time.Time) (int, error) {
+	prijave, err := r.citaj(ctx, `SELECT `+prijavaGreskeColumns+` FROM prijave_gresaka WHERE slika_otisak <> '' AND (stanje = ? OR slika_istekla = 1)`, models.StanjePrijaveRijeseno)
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for i := range prijave {
+		if !prijave[i].SlikaUklonjenaU(sad) {
+			continue
+		}
+		bila, err := ukloniSlikuPrijave(ctx, &prijave[i])
+		if err != nil {
+			return n, fmt.Errorf("uklanjanje slike prijave: %w", err)
+		}
+		if bila {
+			n++
+		}
+	}
+	return n, nil
 }
 
 // CitajSliku daje bajtove slike zaslona; prazno kad ih ovo računalo još nema
@@ -183,6 +214,7 @@ func (r *PrijavaGreskeRepository) upisiStanjeIOdgovor(ctx context.Context, p *mo
 	}
 	defer tx.Rollback()
 	if p.Stanje != stanje {
+		p.SlikaIstekla = p.SlikaUklonjena() // vraćena nakon roka: slike više nema
 		p.Stanje = stanje
 		if err := r.upisiPrijavu(ctx, tx, p); err != nil {
 			return err

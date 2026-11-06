@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"strings"
+	"time"
 
 	"gocop/internal/db"
 	"gocop/internal/ledger"
@@ -34,21 +35,33 @@ var primjeneRegistara = map[string]primjena{
 }
 
 // primijeniPrijavuGreske stavlja primljenu prijavu na površinu, a sliku zaslona
-// koju opisuje upisuje na popis za dohvat. Opis koji program ne bi sam napisao
-// ostaje samo u knjizi; prijava bez njega i dalje stiže.
+// koju opisuje upisuje na popis za dohvat, ili je briše kad joj je rok prošao.
+// Opis koji program ne bi sam napisao ostaje samo u knjizi; prijava bez njega i
+// dalje stiže.
 func primijeniPrijavuGreske(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	var p models.PrijavaGreske
 	if err := json.Unmarshal(v.Payload, &p); err != nil {
 		return err
 	}
 	p.OcistiOpisSlike()
-	if err := primiSadrzajZapisa(ctx, p.SlikaOtisak, p.SlikaVrsta, p.SlikaBajtova, nil,
-		sadrzaj.Veza{Entitet: EntityPrijaveGresaka, EntitetID: p.ID, Uloga: ulogaSlikePrijave, Kanal: v.Channel}); err != nil {
+	if err := primiSlikuPrijave(ctx, &p, v.Channel); err != nil {
 		return err
 	}
 	args, _ := prijavaGreskeArgs(&p) // popis teksta uvijek se da zapisati
 	_, err := tx.ExecContext(ctx, prijavaGreskeUpsert, args...)
 	return err
+}
+
+// primiSlikuPrijave traži sliku primljene prijave. Sliku kojoj je rok prošao ne
+// traži i briše je, pa je ne dohvaća ni računalo koje stigne kasnije, a ni obnova
+// pri pokretanju ne vraća obrisano na popis za dohvat.
+func primiSlikuPrijave(ctx context.Context, p *models.PrijavaGreske, kanal string) error {
+	if p.SlikaUklonjenaU(time.Now()) {
+		_, err := ukloniSlikuPrijave(ctx, p)
+		return err
+	}
+	return primiSadrzajZapisa(ctx, p.SlikaOtisak, p.SlikaVrsta, p.SlikaBajtova, nil,
+		sadrzaj.Veza{Entitet: EntityPrijaveGresaka, EntitetID: p.ID, Uloga: ulogaSlikePrijave, Kanal: kanal})
 }
 
 // primijeniZupaniju stavlja primljenu županiju na površinu

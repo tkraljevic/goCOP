@@ -79,7 +79,7 @@ func porukaPrijave(err error) (int, string) {
 	case errors.Is(err, service.ErrPrevisePrijava):
 		return http.StatusTooManyRequests, "Poslao si puno prijava u zadnjih sat vremena. Pokušaj ponovno kasnije."
 	case errors.Is(err, service.ErrSlikaPrevelika):
-		return http.StatusRequestEntityTooLarge, "Slika je prevelika. Najviše je 8 MB. Odaberi manju ili je ukloni pa pošalji."
+		return http.StatusRequestEntityTooLarge, "Slika je prevelika. Najviše je 2 MB. Odaberi manju ili je ukloni pa pošalji."
 	case errors.Is(err, service.ErrSlikaNeispravna):
 		return http.StatusBadRequest, "Ova datoteka se ne može primiti kao slika. Slika mora biti PNG, JPEG ili WebP. Odaberi drugu datoteku ili je ukloni pa pošalji."
 	case errors.Is(err, service.ErrPreviseSlika):

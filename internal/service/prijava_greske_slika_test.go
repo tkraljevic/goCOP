@@ -307,6 +307,114 @@ func TestSlikaPrijaveProvjeravaBajtove(t *testing.T) {
 	}
 }
 
+// pngDuljine je ispravan PNG točno zadane duljine: razliku nosi dodatni blok teksta
+func pngDuljine(t *testing.T, n int) []byte {
+	t.Helper()
+	b := slikaPNG(t, 2, 2)
+	dodatak := n - len(b) - 12
+	if dodatak < 0 {
+		t.Fatalf("premalo: %d", n)
+	}
+	blok := binary.BigEndian.AppendUint32(nil, uint32(dodatak))
+	blok = append(blok, "tEXt"...)
+	blok = append(blok, make([]byte, dodatak)...)
+	blok = binary.BigEndian.AppendUint32(blok, crc32.ChecksumIEEE(blok[4:]))
+	return append(append(append([]byte(nil), b[:33]...), blok...), b[33:]...)
+}
+
+// Najveća dopuštena slika prolazi, a bajt više ne; i poznati JPEG s dodatkom iza
+// slike ostaje odbijen
+func TestGranicaSlikeOdDvaMB(t *testing.T) {
+	if vrsta, err := vrstaSlikePrijave(pngDuljine(t, 2<<20)); err != nil || vrsta != models.SlikaPrijavePNG {
+		t.Errorf("točno 2 MB: %q %v", vrsta, err)
+	}
+	if _, err := vrstaSlikePrijave(pngDuljine(t, 2<<20+1)); !errors.Is(err, ErrSlikaPrevelika) {
+		t.Errorf("bajt preko: %v", err)
+	}
+	if _, err := vrstaSlikePrijave(append(slikaJPEG(t), "dodatak iza slike"...)); !errors.Is(err, ErrSlikaNeispravna) {
+		t.Errorf("JPEG s dodatkom: %v", err)
+	}
+}
+
+// Slika kojoj je rok prošao ne daje se ni dok bajtovi postoje jer ih drži druga
+// prijava s istom slikom, a ta prijava svoju sliku i dalje ima
+func TestSlikaNakonRokaSeNeDaje(t *testing.T) {
+	sp := saSpremistem(t)
+	s, u := servisPrijavaGreske(t)
+	admin := &models.User{ID: u.ID, FullName: "Ivo Ivić"}
+	ctx := context.Background()
+	slika := slikaPNG(t, 10, 10)
+	prva, err := s.Posalji(ctx, u, UlazPrijaveGreske{Opis: "Graf se ne crta.", Slika: slika})
+	if err != nil {
+		t.Fatal(err)
+	}
+	druga, err := s.Posalji(ctx, u, UlazPrijaveGreske{Opis: "I karta je prazna.", Slika: slika})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rijesena, err := s.Odgovori(ctx, admin, prva.ID, models.StanjePrijaveRijeseno, "Popravljeno.")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := s.SlikaPrijave(ctx, rijesena); len(b) == 0 || !s.ImaSliku(ctx, rijesena) {
+		t.Fatal("slika mora ostati dok rok traje")
+	}
+
+	s.sat = func() time.Time { return time.Now().Add(models.RokSlikePrijave + time.Minute) }
+	if b, _ := s.SlikaPrijave(ctx, rijesena); b != nil || s.ImaSliku(ctx, rijesena) {
+		t.Error("slika je dana nakon roka")
+	}
+	s.ocistiSlike(ctx)
+	if b, _ := s.SlikaPrijave(ctx, druga); !bytes.Equal(b, slika) || !sp.Ima(ctx, druga.SlikaOtisak) {
+		t.Error("druga prijava je ostala bez slike")
+	}
+	veza := sadrzaj.Veza{Entitet: repository.EntityPrijaveGresaka, EntitetID: prva.ID, Uloga: "slika"}
+	if sp.ImaVezu(ctx, prva.SlikaOtisak, veza) {
+		t.Error("prijava kojoj je rok prošao još drži sliku")
+	}
+}
+
+// Računalo koje se upali odmah briše ono čemu je rok prošao dok je bilo ugašeno, a
+// dok radi, gleda i dalje. Zaustavljanje pričeka da posao stane.
+func TestCiscenjeSlikaPriPokretanju(t *testing.T) {
+	sp := saSpremistem(t)
+	s, u := servisPrijavaGreske(t)
+	admin := &models.User{ID: u.ID, FullName: "Ivo Ivić"}
+	ctx := context.Background()
+	rijesi := func(opis string, w int) string {
+		t.Helper()
+		p, err := s.Posalji(ctx, u, UlazPrijaveGreske{Opis: opis, Slika: slikaPNG(t, w, 2)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.Odgovori(ctx, admin, p.ID, models.StanjePrijaveRijeseno, ""); err != nil {
+			t.Fatal(err)
+		}
+		return p.SlikaOtisak
+	}
+	prva := rijesi("Graf se ne crta.", 2)
+	razmak := razmakCiscenjaSlika
+	razmakCiscenjaSlika = 5 * time.Millisecond
+	defer func() { razmakCiscenjaSlika = razmak }()
+	s.sat = func() time.Time { return time.Now().Add(models.RokSlikePrijave + time.Minute) }
+
+	stani := s.PokreniCiscenjeSlika(ctx)
+	defer stani()
+	cekaj(t, func() bool { return !sp.Ima(ctx, prva) })
+	druga := rijesi("I karta je prazna.", 3)
+	cekaj(t, func() bool { return !sp.Ima(ctx, druga) })
+}
+
+// Kvar baze pri brisanju samo ostaje u dnevniku, a posao se ne ruši
+func TestCiscenjeSlikaKvarBaze(t *testing.T) {
+	saSpremistem(t)
+	s, _, baza := servisPrijavaGreskeSBazom(t)
+	if err := baza.Close(); err != nil {
+		t.Fatal(err)
+	}
+	s.ocistiSlike(context.Background())
+}
+
 // Kvar baze pri brojanju slika ide pozivatelju kao greška
 func TestBrojSlikaKvarBaze(t *testing.T) {
 	s, u, baza := servisPrijavaGreskeSBazom(t)

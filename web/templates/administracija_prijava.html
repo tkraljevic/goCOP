@@ -15,7 +15,9 @@
       <p class="pg-mali">{{.Ime}}{{with .Uloga}} · {{.}}{{end}} · {{.Kad}} · {{.VrstaNaziv}}</p>
       <p class="pg-opis">{{.Opis}}</p>
       {{if .SlikaOtisak}}
-      {{if $.SlikaTu}}
+      {{if .SlikaUklonjena}}
+      <p class="pg-mali pg-slika-ceka">Slika zaslona je uklonjena jer je prošlo 30 dana otkako je prijava riješena.</p>
+      {{else if $.SlikaTu}}
       <a class="pg-slika-velika" href="/prijava-greske/{{.ID}}/slika" target="_blank" rel="noopener"><img src="/prijava-greske/{{.ID}}/slika" alt="Slika zaslona uz prijavu" loading="lazy"></a>
       <a class="pg-slika-veza" href="/prijava-greske/{{.ID}}/slika" target="_blank" rel="noopener">Otvori sliku zaslona</a>
       {{else}}

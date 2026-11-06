@@ -316,7 +316,8 @@ func InitSchema(database *sql.DB) error {
 			updated_at DATETIME NOT NULL,
 			slika_otisak TEXT NOT NULL DEFAULT '',
 			slika_bajtova INTEGER NOT NULL DEFAULT 0,
-			slika_vrsta TEXT NOT NULL DEFAULT ''
+			slika_vrsta TEXT NOT NULL DEFAULT '',
+			slika_istekla INTEGER NOT NULL DEFAULT 0
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_prijave_gresaka_korisnik ON prijave_gresaka(user_id, id);`,
 		`CREATE INDEX IF NOT EXISTS idx_prijave_gresaka_stanje ON prijave_gresaka(stanje, id);`,
@@ -1610,6 +1611,7 @@ func migrateSchema(database *sql.DB) error {
 		{"prijave_gresaka", "slika_otisak", "TEXT NOT NULL DEFAULT ''"},
 		{"prijave_gresaka", "slika_bajtova", "INTEGER NOT NULL DEFAULT 0"},
 		{"prijave_gresaka", "slika_vrsta", "TEXT NOT NULL DEFAULT ''"},
+		{"prijave_gresaka", "slika_istekla", "INTEGER NOT NULL DEFAULT 0"},
 		{"stations", "watercourse_source", "TEXT NOT NULL DEFAULT ''"},
 		{"stations", "zero_datum_source", "TEXT NOT NULL DEFAULT ''"},
 		{"stations", "zero_datum_baltic", "REAL"},

@@ -7,6 +7,9 @@ import (
 	"image"
 	_ "image/jpeg" // slika zaslona s mobitela
 	_ "image/png"  // slika zaslona s računala
+	"log"
+	"sync"
+	"time"
 
 	"gocop/internal/models"
 )
@@ -15,9 +18,13 @@ import (
 // nekoliko KB koja se u pregledniku razvije u gigabajte ne prolazi.
 const najviseTocakaSlike = 50_000_000
 
+// razmakCiscenjaSlika je koliko često računalo gleda je li nekoj slici prošao rok
+// (var samo zato da je test smanji)
+var razmakCiscenjaSlika = 6 * time.Hour
+
 // vrstaSlikePrijave čita iz samih bajtova je li datoteka slika koju prijava smije
 // nositi, a ime i vrsta koje javi preglednik ne vrijede. Provjerava zaglavlje,
-// mjere i građu datoteke, bez čitanja svih točaka, pa i slika od 8 MB ne zauzima
+// mjere i građu datoteke, bez čitanja svih točaka, pa provjera ne zauzima
 // memoriju. Sadržaj unutar bloka slike time se ne može provjeriti, pa se slika
 // pri prikazu ne smije izvršavati ni otkrivati po sadržaju (posluziTudjuDatoteku).
 func vrstaSlikePrijave(b []byte) (string, error) {
@@ -153,10 +160,14 @@ func mjereBlokaWebP(blok string, podaci []byte) (w, h int, ok bool) {
 
 func dvadesetCetiri(b []byte) int { return int(b[0]) | int(b[1])<<8 | int(b[2])<<16 }
 
-// SlikaPrijave daje sliku zaslona i njezinu vrstu; prazno kad je prijava nema
-// ili slika još nije stigla na ovo računalo. Bajtovi se provjeravaju i pri
-// čitanju: opis stiže s drugog računala i mogao bi pokazivati na drugi dokument.
+// SlikaPrijave daje sliku zaslona i njezinu vrstu; prazno kad je prijava nema,
+// slika još nije stigla na ovo računalo ili joj je rok prošao, i kad iste bajtove
+// drži druga prijava. Bajtovi se provjeravaju i pri čitanju: opis stiže s drugog
+// računala i mogao bi pokazivati na drugi dokument.
 func (s *PrijavaGreskeService) SlikaPrijave(ctx context.Context, p *models.PrijavaGreske) ([]byte, string) {
+	if p.SlikaUklonjenaU(s.sat()) {
+		return nil, ""
+	}
 	b := s.repo.CitajSliku(ctx, p.SlikaOtisak)
 	if len(b) == 0 {
 		return nil, ""
@@ -168,7 +179,42 @@ func (s *PrijavaGreskeService) SlikaPrijave(ctx context.Context, p *models.Prija
 	return b, vrsta
 }
 
-// ImaSliku javlja je li slika prijave već na ovom računalu
+// ImaSliku javlja je li slika prijave već na ovom računalu; slika kojoj je rok
+// prošao se ne računa
 func (s *PrijavaGreskeService) ImaSliku(ctx context.Context, p *models.PrijavaGreske) bool {
-	return s.repo.ImaSliku(ctx, p.SlikaOtisak)
+	return !p.SlikaUklonjenaU(s.sat()) && s.repo.ImaSliku(ctx, p.SlikaOtisak)
+}
+
+// PokreniCiscenjeSlika u pozadini briše slike kojima je rok prošao. Prvi put briše
+// odmah, jer je računalo možda bilo ugašeno kad je rok prošao. Vraća zaustavljanje,
+// koje posao otkaže i pričeka, da se baza ne zatvori usred brisanja.
+func (s *PrijavaGreskeService) PokreniCiscenjeSlika(ctx context.Context) func() {
+	ctx, otkazi := context.WithCancel(ctx)
+	var teku sync.WaitGroup
+	teku.Go(func() {
+		for {
+			s.ocistiSlike(ctx)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(razmakCiscenjaSlika):
+			}
+		}
+	})
+	return func() {
+		otkazi()
+		teku.Wait()
+	}
+}
+
+// ocistiSlike jednom briše slike kojima je rok prošao; kvar ostaje u dnevniku, a
+// slika čeka sljedeći krug
+func (s *PrijavaGreskeService) ocistiSlike(ctx context.Context) {
+	n, err := s.repo.UkloniIstekleSlike(ctx, s.sat())
+	switch {
+	case err != nil:
+		log.Printf("brisanje slika uz riješene prijave: %v", err)
+	case n > 0:
+		log.Printf("slika zaslona uklonjena je uz %d prijava riješenih prije više od 30 dana", n)
+	}
 }

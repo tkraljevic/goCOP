@@ -36,7 +36,11 @@ const (
 
 // NajvecaSlikaPrijave je najveća slika zaslona uz prijavu. Slika putuje na sva
 // računala u mreži, pa je granica manja nego za fotografije s terena.
-const NajvecaSlikaPrijave = 8 << 20
+const NajvecaSlikaPrijave = 2 << 20
+
+// RokSlikePrijave je koliko slika ostaje nakon što je prijava riješena. Prijava
+// i tekst ostaju i poslije.
+const RokSlikePrijave = 30 * 24 * time.Hour
 
 // Vrste slike zaslona koje prijava smije nositi
 const (
@@ -73,6 +77,9 @@ type PrijavaGreske struct {
 	SlikaOtisak  string `json:"slika_otisak,omitempty"`
 	SlikaBajtova int    `json:"slika_bajtova,omitempty"`
 	SlikaVrsta   string `json:"slika_vrsta,omitempty"`
+	// SlikaIstekla: prijava je vraćena iz „riješeno” kad je rok slike već prošao.
+	// Slike tada više nema, pa je nijedno računalo ne smije tražiti.
+	SlikaIstekla bool `json:"slika_istekla,omitempty"`
 
 	// Odgovori se ne spremaju uz prijavu; puni ih čitanje, redom kojim su nastali
 	Odgovori []OdgovorNaPrijavu `json:"-"`
@@ -163,6 +170,21 @@ func (p *PrijavaGreske) PorukaKad() string {
 	}
 	return p.PorukaPoslana.In(Zagreb).Format("2. 1. 2006. u 15:04")
 }
+
+// SlikaUklonjenaU javlja je li slika u tom trenutku za brisanje. Svako računalo
+// to računa samo, iz stanja i vremena koja je prijava donijela razmjenom. Prijava
+// se mijenja samo uz promjenu stanja (odgovor je zaseban zapis), pa je UpdatedAt
+// riješene prijave trenutak kad je riješena, a vraćena prijava izlazi iz roka.
+// Zato brisanje ne treba novu verziju i ne putuje među računalima.
+func (p *PrijavaGreske) SlikaUklonjenaU(sad time.Time) bool {
+	if p.SlikaOtisak == "" {
+		return false
+	}
+	return p.SlikaIstekla || (p.Stanje == StanjePrijaveRijeseno && !sad.Before(p.UpdatedAt.Add(RokSlikePrijave)))
+}
+
+// SlikaUklonjena je SlikaUklonjenaU za ovaj trenutak, za stranice
+func (p *PrijavaGreske) SlikaUklonjena() bool { return p.SlikaUklonjenaU(time.Now()) }
 
 // JeVrstaSlikePrijave javlja je li to vrsta slike zaslona koju prijava smije nositi
 func JeVrstaSlikePrijave(vrsta string) bool {

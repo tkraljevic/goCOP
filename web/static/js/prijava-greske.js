@@ -12,7 +12,7 @@
   var NAJVISE_ODABRANOG = 40;
   // slika na sporoj vezi s terena putuje dulje; granica je ista kao na poslužitelju
   var ROK_SLANJA_SLIKE_MS = 180000;
-  var NAJVECA_SLIKA = 8 * 1024 * 1024;
+  var NAJVECA_SLIKA = 2 * 1024 * 1024;
   var VRSTE_SLIKE = ['image/png', 'image/jpeg', 'image/webp'];
   var greske = [];
   var izvorniFetch = window.fetch ? window.fetch.bind(window) : null;
@@ -143,7 +143,7 @@
 
     function razlogOdbijanjaSlike(datoteka) {
       if (datoteka.type && VRSTE_SLIKE.indexOf(datoteka.type) < 0) return 'Slika mora biti PNG, JPEG ili WebP. Odaberi drugu datoteku.';
-      if (datoteka.size > NAJVECA_SLIKA) return 'Slika je prevelika. Najviše je 8 MB. Odaberi manju.';
+      if (datoteka.size > NAJVECA_SLIKA) return 'Slika je prevelika. Najviše je 2 MB. Odaberi manju.';
       if (!datoteka.size) return 'Datoteka je prazna. Odaberi drugu.';
       return '';
     }
@@ -217,7 +217,7 @@
     function procitaj(r) {
       var vrsta = r.headers.get('Content-Type') || '';
       if (vrsta.indexOf('application/json') >= 0) return r.json();
-      if (r.status === 413) return { success: false, error: 'Slika je prevelika. Najviše je 8 MB. Odaberi manju ili je ukloni pa pošalji.' };
+      if (r.status === 413) return { success: false, error: 'Slika je prevelika. Najviše je 2 MB. Odaberi manju ili je ukloni pa pošalji.' };
       if (r.status === 403) return r.text().then(function (t) { return { success: false, error: t.slice(0, 300) }; });
       if (r.redirected || r.status === 401) return { success: false, error: 'Prijava nije poslana. Možda si odjavljen ili moraš promijeniti lozinku: otvori program u novoj kartici pa pošalji ponovno. Tekst je ostao ovdje.' };
       return { success: false, error: 'Prijava nije poslana. Tekst je ostao ovdje, pa pokušaj ponovno za koji trenutak.' };

@@ -3,7 +3,9 @@ package web
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/json"
+	"hash/crc32"
 	"image"
 	"image/png"
 	"math/rand/v2"
@@ -173,7 +175,7 @@ func TestPrijavaGreskeLosaSlika(t *testing.T) {
 	}{
 		{"SVG sa skriptom pod imenom slike", []byte(`<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>`), http.StatusBadRequest, "mora biti PNG, JPEG ili WebP", "image/png"},
 		{"HTML", []byte("<html></html>"), http.StatusBadRequest, "mora biti PNG, JPEG ili WebP", "image/png"},
-		{"preko granice slike", make([]byte, models.NajvecaSlikaPrijave+1), http.StatusRequestEntityTooLarge, "prevelika", "image/png"},
+		{"preko granice slike", make([]byte, models.NajvecaSlikaPrijave+1), http.StatusRequestEntityTooLarge, "Najviše je 2 MB", "image/png"},
 		{"preko granice tijela", make([]byte, models.NajvecaSlikaPrijave+2<<20), http.StatusRequestEntityTooLarge, "", "image/png"},
 	} {
 		w := o.obrazacSaSlikom(o.mara, "Karta je prazna.", "zaslon.png", s.tvrdnja, s.slika)
@@ -239,6 +241,73 @@ func TestPrijavaGreskeSlikaNaStranicama(t *testing.T) {
 	moje := o.zahtjev(http.MethodGet, "/profile", o.mara, nil, nil).Body.String()
 	if strings.Contains(moje, `href="/prijava-greske/`+p.ID+`/slika"`) || !strings.Contains(moje, "još nije stigla na ovo računalo") {
 		t.Error("Moje prijave: slika koja još nije stigla")
+	}
+}
+
+// Kad je rok prošao, stranice kažu da je slika uklonjena, a prijava i tekst ostaju.
+// Slika se ne da otvoriti ni dok bajtovi još nisu obrisani.
+func TestUklonjenaSlikaNaStranicama(t *testing.T) {
+	sp := sadrzajZaPrijave(t)
+	o := novaOkolinaPrijaveGreske(t)
+	if w := o.obrazacSaSlikom(o.mara, "Karta je prazna.", "zaslon.png", "image/png", pngZaPrijavu(t)); w.Code != http.StatusOK {
+		t.Fatalf("%d", w.Code)
+	}
+	p := o.zadnjaPrijava(o.maraID)
+	put := putPopisaPrijava + "/" + p.ID
+	slika := "/prijava-greske/" + p.ID + "/slika"
+	const recenica = "Slika zaslona je uklonjena jer je prošlo 30 dana otkako je prijava riješena."
+	if strings.Contains(o.zahtjev(http.MethodGet, put, o.ivo, nil, nil).Body.String(), recenica) {
+		t.Error("slika nije uklonjena")
+	}
+	if _, err := o.baza.Exec(`UPDATE prijave_gresaka SET stanje = ?, updated_at = ? WHERE id = ?`,
+		models.StanjePrijaveRijeseno, time.Now().Add(-models.RokSlikePrijave-time.Hour).UTC(), p.ID); err != nil {
+		t.Fatal(err)
+	}
+	provjeri := func(kada string) {
+		t.Helper()
+		tijelo := o.zahtjev(http.MethodGet, put, o.ivo, nil, nil).Body.String()
+		if !strings.Contains(tijelo, recenica) || strings.Contains(tijelo, slika) || strings.Contains(tijelo, "još nije stigla") || !strings.Contains(tijelo, "Karta je prazna.") {
+			t.Errorf("%s: otvorena prijava", kada)
+		}
+		moje := o.zahtjev(http.MethodGet, "/profile", o.mara, nil, nil).Body.String()
+		if !strings.Contains(moje, recenica) || strings.Contains(moje, slika) || !strings.Contains(moje, "Karta je prazna.") {
+			t.Errorf("%s: Moje prijave", kada)
+		}
+		for ime, sesija := range map[string]string{"osoba": o.mara, "administrator": o.ivo} {
+			if w := o.zahtjev(http.MethodGet, slika, sesija, nil, nil); w.Code != http.StatusNotFound {
+				t.Errorf("%s: %s dobije sliku: %d", kada, ime, w.Code)
+			}
+		}
+	}
+	provjeri("bajtovi još postoje")
+	if !sp.Ima(context.Background(), p.SlikaOtisak) {
+		t.Fatal("bajtovi su već nestali")
+	}
+	if _, err := o.repo.UkloniIstekleSlike(context.Background(), time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if sp.Ima(context.Background(), p.SlikaOtisak) {
+		t.Error("bajtovi su ostali")
+	}
+	provjeri("bajtovi obrisani")
+}
+
+// Slika od točno 2 MB stigne kroz cijeli obrazac
+func TestPrijavaGreskeSlikaNaGranici(t *testing.T) {
+	sadrzajZaPrijave(t)
+	o := novaOkolinaPrijaveGreske(t)
+	mala := pngZaPrijavu(t)
+	dodatak := models.NajvecaSlikaPrijave - len(mala) - 12
+	blok := binary.BigEndian.AppendUint32(nil, uint32(dodatak))
+	blok = append(blok, "tEXt"...)
+	blok = append(blok, make([]byte, dodatak)...)
+	blok = binary.BigEndian.AppendUint32(blok, crc32.ChecksumIEEE(blok[4:]))
+	slika := append(append(append([]byte(nil), mala[:33]...), blok...), mala[33:]...)
+	if w := o.obrazacSaSlikom(o.mara, "Karta je prazna.", "zaslon.png", "image/png", slika); w.Code != http.StatusOK {
+		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+	if p := o.zadnjaPrijava(o.maraID); p.SlikaBajtova != models.NajvecaSlikaPrijave {
+		t.Errorf("%d", p.SlikaBajtova)
 	}
 }
 
