@@ -204,14 +204,10 @@
           {{range .WorkItems}}<option value="{{.ID}}">{{if .Number}}{{.Number}} · {{end}}{{.ShortDescription}} ({{.Unit}})</option>{{end}}
         </select>
       </div>
-      <div class="form-group">
-        <label class="form-label" for="hours">Trajanje (h), po želji</label>
-        <input type="text" inputmode="decimal" id="hours" name="hours" class="form-control">
-      </div>
     </div>
     <div class="form-group">
       <label class="form-label" for="text">Opis / tekst upisa</label>
-      <textarea id="text" name="text" class="form-control" rows="2" placeholder="Strojna košnja trave na ravnim i kosim površinama."></textarea>
+      <textarea id="text" name="text" class="form-control" rows="6" placeholder="Strojna košnja trave na ravnim i kosim površinama."></textarea>
     </div>
     <div id="nalog-rok" hidden class="form-group">
       <label class="form-label" for="due_date">Rok naloga</label>
