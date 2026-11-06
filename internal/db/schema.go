@@ -313,7 +313,11 @@ func InitSchema(database *sql.DB) error {
 			greske TEXT NOT NULL DEFAULT '[]',
 			stanje TEXT NOT NULL,
 			created_at DATETIME NOT NULL,
-			updated_at DATETIME NOT NULL
+			updated_at DATETIME NOT NULL,
+			slika_otisak TEXT NOT NULL DEFAULT '',
+			slika_bajtova INTEGER NOT NULL DEFAULT 0,
+			slika_vrsta TEXT NOT NULL DEFAULT '',
+			slika_istekla INTEGER NOT NULL DEFAULT 0
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_prijave_gresaka_korisnik ON prijave_gresaka(user_id, id);`,
 		`CREATE INDEX IF NOT EXISTS idx_prijave_gresaka_stanje ON prijave_gresaka(stanje, id);`,
@@ -327,6 +331,13 @@ func InitSchema(database *sql.DB) error {
 			created_at DATETIME NOT NULL
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_prijave_gresaka_odgovori ON prijave_gresaka_odgovori(prijava_id, id);`,
+		// E-pošta administratorima o prijavi koja je nastala na ovom računalu.
+		// Tablica je samo ovdje i ne putuje: po njoj se broje poruke u satu.
+		`CREATE TABLE IF NOT EXISTS prijave_gresaka_posta (
+			prijava_id TEXT PRIMARY KEY,
+			poslano_at DATETIME NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_prijave_gresaka_posta_vrijeme ON prijave_gresaka_posta(poslano_at);`,
 		// Izvornik akta: sken akta s vlastoručnim potpisom i žigom; čuva se
 		// bajt za bajt i više se ne generira
 		`CREATE TABLE IF NOT EXISTS akti_izvornici (
@@ -1597,6 +1608,10 @@ func migrateSchema(database *sql.DB) error {
 	added := []struct {
 		table, column, definition string
 	}{
+		{"prijave_gresaka", "slika_otisak", "TEXT NOT NULL DEFAULT ''"},
+		{"prijave_gresaka", "slika_bajtova", "INTEGER NOT NULL DEFAULT 0"},
+		{"prijave_gresaka", "slika_vrsta", "TEXT NOT NULL DEFAULT ''"},
+		{"prijave_gresaka", "slika_istekla", "INTEGER NOT NULL DEFAULT 0"},
 		{"stations", "watercourse_source", "TEXT NOT NULL DEFAULT ''"},
 		{"stations", "zero_datum_source", "TEXT NOT NULL DEFAULT ''"},
 		{"stations", "zero_datum_baltic", "REAL"},

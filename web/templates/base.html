@@ -272,6 +272,17 @@
       <label for="pg-opis">Što se dogodilo?</label>
       <textarea id="pg-opis" name="opis" rows="4" maxlength="4000" required></textarea>
     </div>
+    <div class="pg-slika">
+      <label class="pg-slika-dodaj">
+        <input class="pg-slika-ulaz" type="file" name="slika" accept="image/png,image/jpeg,image/webp">
+        {{icon "upload"}}<span>Dodaj sliku zaslona (po želji)</span>
+      </label>
+      <div class="pg-slika-dodana" hidden>
+        <img class="pg-slika-mala" alt="">
+        <span class="pg-slika-ime"></span>
+        <button type="button" class="pg-slika-ukloni" title="Ukloni sliku" aria-label="Ukloni sliku">{{icon "x"}}</button>
+      </div>
+    </div>
     <div class="pg-stranica">
       <span class="pg-mali">Stranica</span>
       <span class="pg-stranica-naziv"></span>
