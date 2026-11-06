@@ -8,7 +8,7 @@
 
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{icon "file-text"}} {{$p.VrstaLabel}} s terena {{$p.Oznaka}}</h1>
+    <h1 class="page-title" data-naziv-stranice>{{icon "file-text"}} {{$p.VrstaLabel}} s terena {{$p.Oznaka}}</h1>
     <p class="page-desc"><strong>{{$p.Naslov}}</strong><br>{{$p.Ime}} · {{$p.Datum.Format "02.01.2006."}} · BP {{$p.AreaID}}{{with .Podrucje}}, {{.Name}}{{end}} · <strong>{{$p.StanjeLabel}}</strong>{{if $p.Objavljena}} {{formatDate (localTime (derefTime $p.ObjavljenoAt))}}{{end}}{{if $p.Rijesena}} · riješio {{$p.Rijesio}}{{end}}</p>
   </div>
   <div class="page-actions">

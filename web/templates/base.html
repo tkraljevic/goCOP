@@ -9,9 +9,11 @@
   <!-- Tema prije prvog crtanja, da stranica ne bljesne (tamna po izboru ili po sustavu) -->
   <script src="{{statika "js/tema.js"}}"></script>
   <script src="{{statika "js/uzbroj.js"}}"></script>
+  {{if .CurrentUser}}<script src="{{statika "js/prijava-greske.js"}}"></script>{{end}}
   <link rel="stylesheet" href="{{statika "vendor/leaflet/leaflet.css"}}">
   <link rel="stylesheet" href="{{statika "css/tokens.css"}}">
   <link rel="stylesheet" href="{{statika "css/style.css"}}">
+  {{if .CurrentUser}}<link rel="stylesheet" href="{{statika "css/prijava-greske.css"}}">{{end}}
   {{with temaCSS}}<link rel="stylesheet" href="{{.}}">{{end}}
   {{block "head" .}}{{end}}
   {{if .CurrentUser}}<script id="postavke-karte" type="application/json">{{postavkeKarte}}</script>{{end}}
@@ -94,6 +96,7 @@
         {{if .CurrentUser}}
         <a href="/profile" class="nav-link {{if eq .ActiveNav "profile"}}active{{end}}">{{icon "user"}}<span>Profil</span></a>
         <a href="/posta" class="nav-link {{if eq .ActiveNav "posta"}}active{{end}}" title="Ulazna pošta iz Exchangea">{{icon "mailbox"}}<span>Sandučić</span></a>
+        <button type="button" class="nav-link pg-tema-izbornik" onclick="toggleTheme()">{{icon "sun-moon"}}<span>Svijetla ili tamna tema</span></button>
         <form action="/logout" method="POST"><button type="submit" class="nav-link">{{icon "log-out"}}<span>Odjava</span></button></form>
         {{end}}
       </div>
@@ -108,6 +111,8 @@
       {{if .CurrentUser}}
       <a href="/administracija" class="vrh-gumb" id="vrh-razmjena" data-stanje="nema" title="Razmjena s drugim računalima" aria-label="Razmjena s drugim računalima">{{icon "refresh-cw"}}<span class="vrh-tocka"></span></a>
       <a href="/dogadjanja" class="vrh-gumb" title="Događanja" aria-label="Događanja">{{icon "bell"}}</a>
+      {{/* S privremenom lozinkom radi samo promjena lozinke, pa ni prijava ne bi prošla */}}
+      {{if not .CurrentUser.MustChangePassword}}<button type="button" class="vrh-gumb" id="vrh-prijava-greske" title="Prijavi grešku ili prijedlog" aria-label="Prijavi grešku ili prijedlog" aria-haspopup="dialog">{{icon "bug"}}</button>{{end}}
       {{end}}
       <a href="/pomoc{{if .ActiveNav}}#{{.ActiveNav}}{{end}}" class="vrh-gumb pomoc-znak" title="Pomoć za ovu stranicu" aria-label="Pomoć za ovu stranicu">{{icon "circle-question-mark"}}</a>
       <button type="button" class="vrh-gumb theme-toggle" onclick="toggleTheme()" title="Svijetla ili tamna tema" aria-label="Svijetla ili tamna tema">
@@ -176,6 +181,8 @@
     {{else if .Sees "teren"}}<a href="/teren" class="donja-stavka {{if eq .ActiveNav "teren"}}active{{end}}">{{icon "map-pin"}}<span>Teren</span></a>{{end}}
     <button type="button" class="donja-stavka" onclick="otvoriIzbornik()" aria-label="Više" aria-controls="izbornik" aria-expanded="false">{{icon "layout-grid"}}<span>Više</span></button>
   </nav>
+
+  {{if .CurrentUser}}{{template "prijavaGreskeOkno" .}}{{end}}
 
   <div id="toast-container" class="toast-container"></div>
   <script>
@@ -247,6 +254,53 @@
   {{block "scripts" .}}{{end}}
 </body>
 </html>
+
+{{/* Okno za prijavu greške ili prijedloga; otvara ga kukac u gornjoj traci
+     (js/prijava-greske.js). Stranicu, izdanje i preglednik doda program. */}}
+{{define "prijavaGreskeOkno"}}
+<dialog class="pg-okno" id="prijava-greske" aria-labelledby="pg-naslov">
+  <form method="dialog" class="pg-dio-obrazac" novalidate>
+    <h2 id="pg-naslov">Prijavi grešku ili prijedlog</h2>
+    <fieldset class="prog-segment pg-segment">
+      <legend>Vrsta prijave</legend>
+      <div class="prog-segment-gumbi">
+        <label><input type="radio" name="vrsta" value="greska"><span>Greška</span></label>
+        <label><input type="radio" name="vrsta" value="prijedlog"><span>Prijedlog</span></label>
+      </div>
+    </fieldset>
+    <div class="pg-polje">
+      <label for="pg-opis">Što se dogodilo?</label>
+      <textarea id="pg-opis" name="opis" rows="4" maxlength="4000" required></textarea>
+    </div>
+    <div class="pg-stranica">
+      <span class="pg-mali">Stranica</span>
+      <span class="pg-stranica-naziv"></span>
+      <p class="pg-mali">Uz prijavu šaljemo i izdanje programa, računalo, preglednik i zadnje greške ove stranice.</p>
+    </div>
+    <p class="pg-mali pg-salje">Šalje: {{.CurrentUser.FullName}}</p>
+    <div class="alert alert-danger pg-poruka" role="alert" hidden></div>
+    <div class="pg-dno">
+      <span class="pg-mali">Šalje: {{.CurrentUser.FullName}}</span>
+      <button type="button" class="btn btn-link pg-odustani">Odustani</button>
+      <button type="submit" class="btn btn-primary pg-posalji">Pošalji</button>
+    </div>
+  </form>
+  <div class="pg-dio-potvrda" hidden>
+    <span class="pg-znak-potvrde">{{icon "check"}}</span>
+    <h2>Prijava je poslana</h2>
+    <p>Hvala. Stanje prijave i odgovor administratora vidjet ćeš u Mojim prijavama.</p>
+    <div class="pg-stranica">
+      <span class="pg-mali">Stranica</span>
+      <span class="pg-potvrda-stranica"></span>
+      <span class="pg-mali pg-potvrda-vrijeme"></span>
+    </div>
+    <div class="pg-dno">
+      <a class="btn btn-link" href="/profile#moje-prijave">Moje prijave</a>
+      <button type="button" class="btn btn-primary pg-zatvori">Zatvori</button>
+    </div>
+  </div>
+</dialog>
+{{end}}
 
 {{/* Listanje popisa — zajedničko svim registrima. Prima Pager. */}}
 {{define "letvaIzbornik"}}

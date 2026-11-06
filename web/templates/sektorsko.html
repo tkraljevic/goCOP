@@ -8,7 +8,7 @@
 
 <div class="detail-head">
   <div>
-    <h1 class="page-title">{{icon "file-text"}} Dnevno izvješće rukovoditelja sektora</h1>
+    <h1 class="page-title" data-naziv-stranice>{{icon "file-text"}} Dnevno izvješće rukovoditelja sektora</h1>
     <p class="page-desc">{{.Centar}} · za dan <strong>{{danTjedna $iz.Dan}} {{$iz.Dan.Format "2.1.2006."}}</strong>
       · najviši stadij <span class="threshold-pill {{$iz.NajvisiStadij.PillClass}}">{{stadijKratica $iz.NajvisiStadij}} — {{$iz.NajvisiStadij.Label}}</span>
       · {{$p.Izvjesca}} {{uzBroj $p.Izvjesca "izvješće dionice" "izvješća dionica" "izvješća dionica"}}{{if $p.Nacrta}}, {{$p.Nacrta}} {{uzBroj $p.Nacrta "nepredano" "nepredana" "nepredano"}}{{end}}

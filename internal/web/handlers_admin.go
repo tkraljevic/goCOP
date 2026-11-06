@@ -25,6 +25,8 @@ type AdminHandler struct {
 	// izvana nema tko slati; nil dok se ne spoji
 	drugiKorak func() *service.DrugiKorak
 	izvori     izvoriStanja // opcije, telemetrija i e-pošta za raspored i Prve korake
+	// prijaveNove daje broj novih prijava grešaka, za karticu; nil dok se ne spoji
+	prijaveNove func(ctx context.Context) int
 }
 
 // SetDrugiKorak spaja ulaznu stranicu s drugim korakom prijave izvana
@@ -51,6 +53,7 @@ type AdminPageData struct {
 	PINBezPosiljatelja bool
 
 	SyncOnline, SyncTotal, SyncAlerts int // sažetak razmjene za karticu Stanje razmjene
+	PrijaveNove                       int // nove prijave grešaka, za karticu
 
 	Djelatnika int // računi bez zastavice globalnog administratora
 
@@ -98,6 +101,9 @@ func (h *AdminHandler) ShowAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 	g.razmjena = err
 	h.dodajRaspored(ctx, &data, g)
+	if h.prijaveNove != nil && data.Vidi["prijave"] {
+		data.PrijaveNove = h.prijaveNove(ctx)
+	}
 
 	if err := h.tmplAdmin.ExecuteTemplate(w, "administracija.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

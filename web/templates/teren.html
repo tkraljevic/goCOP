@@ -5,7 +5,7 @@
 {{define "content"}}
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{icon "map-pin"}} Teren</h1>
+    <h1 class="page-title" data-naziv-stranice>{{icon "map-pin"}} Teren</h1>
     <p class="page-desc">
       {{if .CurrentUser}}{{.CurrentUser.FullName}}{{end}}{{if .Duty}} · {{.Duty.Role.Label}}{{end}}
       {{if .Overview.Area}} · BP {{.Overview.Area.ID}}{{end}} · {{.Today}}

@@ -11,7 +11,7 @@
 
 <div class="detail-head">
   <div>
-    <h1 class="page-title">{{.Station.Name}}</h1>
+    <h1 class="page-title" data-naziv-stranice>{{.Station.Name}}</h1>
     <p class="page-desc">{{if .Station.HasWatercourse}}{{.Station.Watercourse}}{{else}}vodotok nije određen{{end}}{{if .Station.Stationing}} · {{.Station.Stationing}}{{end}}</p>
   </div>
   {{template "letvaIzbornik" .}}

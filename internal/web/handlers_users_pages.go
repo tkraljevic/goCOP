@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"html/template"
+	"log"
 	"net/http"
 	"time"
 
@@ -86,6 +87,9 @@ type UserPageData struct {
 	Kljuc          PodaciKljuca        // osobni potpisni ključ, ako ga ima
 	PostaRacun     string              // korisničko ime računa e-pošte, prazno kad lozinka nije upisana
 	PostaKad       time.Time
+	// MojePrijave su prijave grešaka i prijedlozi ove osobe, s odgovorima
+	MojePrijave       []models.PrijavaGreske
+	MojePrijaveGreska bool
 
 	// Privremena lozinka nakon poništavanja: pokazuje se jednom, na stranici
 	// koja slijedi odmah iza radnje. Ne ide u adresu ni u poruku o uspjehu,
@@ -412,6 +416,18 @@ func (h *UsersHandler) ShowProfile(w http.ResponseWriter, r *http.Request) {
 	h.prikaziProfil(w, r, nil)
 }
 
+// dodajMojePrijave puni Moje prijave; profil radi i kad se ne mogu pročitati
+func (h *UsersHandler) dodajMojePrijave(ctx context.Context, data *UserPageData) {
+	if h.mojePrijave == nil {
+		return
+	}
+	prijave, err := h.mojePrijave(ctx, data.User.ID.String())
+	if err != nil {
+		log.Printf("moje prijave: %v", err)
+	}
+	data.MojePrijave, data.MojePrijaveGreska = prijave, err != nil
+}
+
 // prikaziProfil slaže profil; kodovi su upravo napravljeni rezervni kodovi,
 // koji se pokazuju samo na ovoj stranici
 func (h *UsersHandler) prikaziProfil(w http.ResponseWriter, r *http.Request, kodovi []string) {
@@ -439,6 +455,7 @@ func (h *UsersHandler) prikaziProfil(w http.ResponseWriter, r *http.Request, kod
 		data.Kljuc = h.potpisniKljuc(r.Context(), data.User.ID.String())
 	}
 	data.PrijavaIzvana = h.profilPrijaveIzvana(r, data.User, kodovi)
+	h.dodajMojePrijave(r.Context(), &data)
 
 	if kodovi != nil {
 		w.Header().Set("Cache-Control", "no-store")

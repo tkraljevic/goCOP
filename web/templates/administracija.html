@@ -116,6 +116,17 @@
   <section class="dash-skupina" id="skupina-mreza">
     <h2 class="dash-skupina-naslov">Ovo računalo i mreža</h2>
     <div class="dashboard-cards-grid">
+    {{if .Vidi.prijave}}<div class="dash-card" id="kartica-prijave">
+      <div class="dash-card-header">
+        <div class="dash-card-icon-box teal">{{icon "bug"}}</div>
+        <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.prijave}}{{if .PrijaveNove}} <span class="dash-status-pill info">{{.PrijaveNove}} {{uzBroj .PrijaveNove "NOVA" "NOVE" "NOVIH"}}</span>{{end}}</div>
+      </div>
+      <div class="dash-card-body">
+        <h2 class="dash-card-title">Prijave grešaka i prijedlozi</h2>
+        <p class="dash-card-desc">Što su korisnici prijavili kukcem u gornjoj traci. Ovdje upisuješ stanje i odgovor, a osoba ih vidi na svom profilu.</p>
+      </div>
+      <div class="dash-card-footer"><a href="/administracija/prijave-gresaka" class="btn btn-secondary dash-btn"><span>Otvori prijave</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+    </div>{{end}}
     {{if .Vidi.racunalo}}<div class="dash-card">
       <div class="dash-card-header">
         <div class="dash-card-icon-box teal">{{icon "radio-tower"}}</div>

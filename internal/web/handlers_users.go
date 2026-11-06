@@ -42,6 +42,8 @@ type UsersHandler struct {
 	// stareLozinke daje uključene račune koje još otvara stara zajednička
 	// početna lozinka (stare_lozinke.go); nil dok se ne spoji
 	stareLozinke func() ([]models.User, error)
+	// mojePrijave daje prijave grešaka osobe, za Profil; nil dok se ne spoji
+	mojePrijave func(ctx context.Context, userID string) ([]models.PrijavaGreske, error)
 	// lozinkaRacuna provjerava lozinku prijavljene osobe za radnje izvana
 	// nad pravom globalnog administratora i prijavom izvana (racuni_izvana.go)
 	lozinkaRacuna func(uuid.UUID, string) error

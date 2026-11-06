@@ -7,7 +7,7 @@
 
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{icon "mail"}} E-pošta za slanje akata</h1>
+    <h1 class="page-title" data-naziv-stranice>{{icon "mail"}} E-pošta za slanje akata</h1>
     <p class="page-desc">Ovjerena rješenja i obavijesti šalju se s vaše adrese <strong>{{with .CurrentUser.Email}}{{.}}{{else}}(nije upisana u profilu){{end}}</strong>{{if .Podesena}} preko poslužitelja <span class="mono">{{.Posluzitelj}}</span>{{end}}.</p>
   </div>
 </div>

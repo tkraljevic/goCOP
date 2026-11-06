@@ -803,6 +803,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	prijavaService := service.NewPrijavaService(repository.NewPrijavaRepository(database, recorder), userService, vodocuvarService, node.ID)
 	prijavaService.SetOpcije(aktService.Opcije)
 	server.SetPrijave(prijavaService)
+	server.SetPrijaveGresaka(service.NewPrijavaGreskeService(repository.NewPrijavaGreskeRepository(database, recorder), imeCvora(node)))
 	// primljeni sadržaj kojem je po pretplati istekao rok držanja otpušta se
 	// s računala; zapisi ostaju i sadržaj se može opet dohvatiti
 	go func() {

@@ -15,12 +15,14 @@ import (
 // službe), vodotoci, objekti, dionice s vezama na letve te vode i radovi u
 // programu održavanja
 var primjeneRegistara = map[string]primjena{
-	EntityCounties:       {upis: primijeniZupaniju, brisanje: obrisiPoBroju(`DELETE FROM counties WHERE id = ?`)},
-	EntityMunicipalities: {upis: primijeniOpcinu, brisanje: obrisiPoBroju(`DELETE FROM municipalities WHERE id = ?`)},
-	EntitySettlements:    {upis: primijeniNaselje, brisanje: obrisiPoBroju(`DELETE FROM settlements WHERE id = ?`)},
-	EntitySluzbe:         {upis: primijeniSluzbu, brisanje: obrisi(`DELETE FROM sluzbe WHERE id = ?`)},
-	EntityWatercourses:   {upis: primijeniVodotok, brisanje: obrisi(`DELETE FROM watercourses WHERE code = ?`)},
-	EntityStructures:     {upis: primijeniObjekt, brisanje: obrisi(`DELETE FROM structures WHERE id = ?`)},
+	EntityCounties:               {upis: primijeniZupaniju, brisanje: obrisiPoBroju(`DELETE FROM counties WHERE id = ?`)},
+	EntityMunicipalities:         {upis: primijeniOpcinu, brisanje: obrisiPoBroju(`DELETE FROM municipalities WHERE id = ?`)},
+	EntitySettlements:            {upis: primijeniNaselje, brisanje: obrisiPoBroju(`DELETE FROM settlements WHERE id = ?`)},
+	EntitySluzbe:                 {upis: primijeniSluzbu, brisanje: obrisi(`DELETE FROM sluzbe WHERE id = ?`)},
+	EntityPrijaveGresaka:         {upis: upisPoArgumentima(prijavaGreskeUpsert, prijavaGreskeArgs), brisanje: obrisi(`DELETE FROM prijave_gresaka WHERE id = ?`)},
+	EntityPrijaveGresakaOdgovori: {upis: upisPoArgumentima(odgovorPrijaveUpsert, odgovorPrijaveArgs), brisanje: obrisi(`DELETE FROM prijave_gresaka_odgovori WHERE id = ?`)},
+	EntityWatercourses:           {upis: primijeniVodotok, brisanje: obrisi(`DELETE FROM watercourses WHERE code = ?`)},
+	EntityStructures:             {upis: primijeniObjekt, brisanje: obrisi(`DELETE FROM structures WHERE id = ?`)},
 	// s dionicom odlaze i njezina kazala, kao i pri arhiviranju na izvoru
 	EntitySections: {upis: primijeniDionicu, brisanje: poIdentitetu(makniDionicuSPovrsine)},
 	// veza dionice i letve dolazi s dionicom; zasebno stiže samo njezin

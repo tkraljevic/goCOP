@@ -1,0 +1,37 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Prijave grešaka i prijedlozi{{end}}
+
+{{define "content"}}
+<a class="pg-natrag" href="/administracija">{{icon "arrow-left"}} Administracija</a>
+<h1 class="pg-naslov-stranice" data-naziv-stranice>Prijave grešaka i prijedlozi</h1>
+<p class="pg-podnaslov">Što su korisnici prijavili, s bilo koje stranice programa.</p>
+
+<div class="ocitanja-cipovi pg-cipovi">
+  {{range .Cipovi}}<a class="ocitanja-cip" href="{{.Href}}"{{if .Odabran}} aria-pressed="true"{{end}}>{{if .Odabran}}{{icon "check"}} {{end}}{{.Naziv}} {{.Broj}}</a>{{end}}
+</div>
+
+{{if .Prijave}}
+<div data-listanje="popis">
+<div class="table-card"><div class="table-responsive tablica-kartice">
+  <table class="data-table pg-tablica">
+    <thead><tr><th>Stranica</th><th>Tko</th><th>Kad</th><th>Vrsta</th><th>Stanje</th></tr></thead>
+    <tbody>
+    {{range .Prijave}}
+    <tr>
+      <td><a href="/administracija/prijave-gresaka/{{.ID}}">{{.ImeStranice}}</a></td>
+      <td data-stupac="Tko">{{.Ime}}{{with .Uloga}} · {{.}}{{end}}</td>
+      <td data-stupac="Kad" class="nowrap">{{.Kad}}</td>
+      <td data-stupac="Vrsta">{{.VrstaNaziv}}</td>
+      <td data-stupac="Stanje"><span class="pg-stanje {{.StanjeRazred}}">{{.StanjeNaziv}}</span></td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+</div></div>
+{{template "pager" .Pager}}
+</div>
+{{else}}
+<div class="reg-empty">Još nema prijava s ovim stanjem.</div>
+{{end}}
+{{end}}

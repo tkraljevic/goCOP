@@ -109,7 +109,7 @@ var SurfaceEntities = []string{EntitySectors, EntityAreas, EntityOrgTerms, Entit
 	EntityCounties, EntityMunicipalities, EntitySettlements, EntityStructures, "maintained_waters", "work_items", "journals",
 	EntityDnevnaIzvjesca, EntitySektorskaIzvjesca,
 	EntityBlagdani, EntityKoeficijenti, EntityObracunPostavke,
-	EntityMtsVrste, EntityMtsSkladista, EntityMtsPromet, EntityMtsPopisi, EntityMtsPotrebe, EntityAkti, EntityRjesenjaOznaka, EntityPrimatelji, EntitySprance, EntitySluzbe, EntityIzvornici, EntitySlanja, EntityPostavke, EntityPotpisi, EntityZigovi, EntityVodocuvarski, EntityZadaci, EntityPotpisniKljucevi, EntityPotpisniIzdavatelji, EntityVodocuvarskiIzvornici, EntityJournalIzvornici, EntityPrijave, EntityPrijaveIzvornici,
+	EntityMtsVrste, EntityMtsSkladista, EntityMtsPromet, EntityMtsPopisi, EntityMtsPotrebe, EntityAkti, EntityRjesenjaOznaka, EntityPrimatelji, EntitySprance, EntitySluzbe, EntityIzvornici, EntitySlanja, EntityPostavke, EntityPotpisi, EntityZigovi, EntityVodocuvarski, EntityZadaci, EntityPotpisniKljucevi, EntityPotpisniIzdavatelji, EntityVodocuvarskiIzvornici, EntityJournalIzvornici, EntityPrijave, EntityPrijaveIzvornici, EntityPrijaveGresaka, EntityPrijaveGresakaOdgovori,
 	// odbačene vrijednosti: čvor na 0.0.34 ih prima u knjigu, ali ne na
 	// površinu; nakon ažuriranja ih obnova površine pri pokretanju stavi
 	EntityOdbacena,
@@ -137,7 +137,7 @@ func PoznatiEntiteti() []string {
 		EntityPostavke, EntityPotpisi, EntityZigovi,
 		EntityVodocuvarski, EntityZadaci, EntityVodocuvarskiIzvornici,
 		EntityPotpisniKljucevi, EntityPotpisniIzdavatelji,
-		EntityPrijave, EntityPrijaveIzvornici, EntityPotvrdePrava,
+		EntityPrijave, EntityPrijaveIzvornici, EntityPrijaveGresaka, EntityPrijaveGresakaOdgovori, EntityPotvrdePrava,
 		// zapisuje ih sloj razmjene (peers), a površinu osvježava applyOne
 		"peers", "memberships", "ovlasti", "opozivi",
 	}

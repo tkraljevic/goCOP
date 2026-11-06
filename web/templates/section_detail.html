@@ -11,7 +11,7 @@
 
 <div class="detail-head">
   <div>
-    <h1 class="page-title"><span class="section-code-badge" style="font-size:1.05rem; vertical-align:middle;">{{.Section.Code}}</span></h1>
+    <h1 class="page-title" data-naziv-stranice="Dionica {{.Section.Code}}"><span class="section-code-badge" style="font-size:1.05rem; vertical-align:middle;">{{.Section.Code}}</span></h1>
     <p class="page-desc">
       {{if .Section.SectorName}}{{.Section.SectorName}}{{else}}{{term "sektor"}} {{.Section.SectorID}}{{end}}
       {{if .Section.AreaName}} · BP {{.Section.AreaID}}: {{.Section.AreaName}}{{end}}

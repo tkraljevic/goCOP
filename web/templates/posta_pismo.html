@@ -13,7 +13,7 @@
 {{with .Pismo}}
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{if .Predmet}}{{.Predmet}}{{else}}(bez predmeta){{end}}</h1>
+    <h1 class="page-title" data-naziv-stranice="Pismo">{{if .Predmet}}{{.Predmet}}{{else}}(bez predmeta){{end}}</h1>
     <p class="page-desc"><strong>Od:</strong> {{.Od}}{{if and .OdAdresa (ne .OdAdresa .Od)}} &lt;{{.OdAdresa}}&gt;{{end}} · {{formatDate (localTime .Kad)}}<br>
     {{with .Za}}<strong>Za:</strong> {{range $i, $x := .}}{{if $i}}, {{end}}{{$x}}{{end}}{{end}}
     {{with .Kopija}}<br><strong>Kopija:</strong> {{range $i, $x := .}}{{if $i}}, {{end}}{{$x}}{{end}}{{end}}</p>

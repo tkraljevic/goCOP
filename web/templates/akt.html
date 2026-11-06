@@ -8,7 +8,7 @@
 
 <div class="detail-head">
   <div>
-    <h1 class="page-title">{{icon "file-text"}} {{$a.Vrsta}} o {{$a.RadnjaLabel}} {{$a.Predmet}}</h1>
+    <h1 class="page-title" data-naziv-stranice="Akt">{{icon "file-text"}} {{$a.Vrsta}} o {{$a.RadnjaLabel}} {{$a.Predmet}}</h1>
     <p class="page-desc">{{$a.StationName}} · BP {{$a.AreaID}}{{with .Podrucje}} {{.Name}}{{end}} · {{term "sektor"}} {{$a.Sektor}} ·
       {{if $a.Ovjeren}}<span class="badge badge-area-admin">{{icon "check"}} ovjeren {{$a.Oznaka}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{end}}{{if $a.Storniran}} <span class="badge badge-danger">poništen</span>{{end}}{{if not .Sukob.Rijesen}}{{if .Sukob.Drugi}} <a href="#oznaka" class="badge badge-danger">ista oznaka kao drugi akt</a>{{end}}{{if .Sukob.Ovjere}} <a href="#oznaka" class="badge badge-danger">ovjeren i na drugom čvoru</a>{{end}}{{end}}</p>
   </div>
