@@ -34,6 +34,7 @@ const (
 	VrstaUzvodno        = "uzvodno"        // uzvodni ispravak bez letve ili digao prognozu (upozorenjaUzvodnog)
 	VrstaSkok           = "skok"           // lažni skok letve nije ušao u prognozu (upozorenjaSkokova)
 	VrstaKvarMjerila    = "kvar-mjerila"   // zaglavljen ili odskočen uređaj (upozorenjaKvarova)
+	VrstaOdvojeni       = "odvojeni"       // letva s modelom iz zapisa (upozorenjaOdvojenih)
 )
 
 // Težine: upozorenje stoji otvoreno, napomena je sklopljena.
@@ -88,11 +89,25 @@ func Upozori(ishod *Ishod, pojasi map[string][]Pojas, nizovi map[Izvor]Niz, vrho
 	u = append(u, upozorenjaUzvodnog(ishod.Uzvodno)...)
 	u = append(u, upozorenjaSkokova(ishod.Skokovi, ishod.Sada)...)
 	u = append(u, upozorenjaKvarova(ishod.Kvarovi, ishod.Sada)...)
+	poredajUpozorenja(u)
+	return u
+}
+
+// poredajUpozorenja: upozorenja prije napomena, pa po vrsti i letvi. Letve iz
+// zapisa modela idu iza svih glavnih iste težine: traka na vrhu stranice i Sažetak
+// izvoza uzimaju prvo upozorenje, a rječica ne smije istisnuti glavni lanac.
+func poredajUpozorenja(u []Upozorenje) {
 	slices.SortStableFunc(u, func(a, b Upozorenje) int {
-		return cmp.Or(cmp.Compare(b.Tezina, a.Tezina), cmp.Compare(a.Vrsta, b.Vrsta),
+		return cmp.Or(cmp.Compare(b.Tezina, a.Tezina), cmp.Compare(redVrste(a), redVrste(b)), cmp.Compare(a.Vrsta, b.Vrsta),
 			cmp.Compare(a.Letva, b.Letva), cmp.Compare(a.Opis, b.Opis))
 	})
-	return u
+}
+
+func redVrste(u Upozorenje) int {
+	if u.Vrsta == VrstaOdvojeni {
+		return 1
+	}
+	return 0
 }
 
 // karikeBezMjerenja su karike lanca (ulazi koji imaju svoj račun) kojima

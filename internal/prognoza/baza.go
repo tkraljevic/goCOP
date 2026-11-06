@@ -244,6 +244,13 @@ CREATE TABLE IF NOT EXISTS dnevne_ranije (
 	model        TEXT NOT NULL,
 	PRIMARY KEY (letva, izdano, verzija, dan)
 ) WITHOUT ROWID;
+-- Model po letvi, kako ga je stručnjak složio i primijenio (ZapisLetve). Letva
+-- bez retka radi kao dosad. Pripremi model ovu tablicu ne dira.
+CREATE TABLE IF NOT EXISTS model_letve (
+	letva   TEXT PRIMARY KEY,
+	proba   TEXT NOT NULL DEFAULT '',  -- otisak definicije i brojeva koje je Probaj mjerio
+	sadrzaj TEXT NOT NULL              -- JSON
+) WITHOUT ROWID;
 `
 
 // Otvori otvara bazu prognoza i slaže shemu ako je nema.

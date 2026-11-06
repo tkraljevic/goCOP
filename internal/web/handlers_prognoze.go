@@ -139,6 +139,21 @@ type LetvaPrognoze struct {
 	Prelazak    *Prelazak // od kojeg termina prognoza doseže višu fazu obrane nego sada
 	// Najniži i najviši zabilježeni vodostaj kao brojevi, za sažetak izvoza
 	KrajMin, KrajMax *Krajnost
+	// ZadnjeMjerenje stoji umjesto „sada” letvi iz zapisa modela koja u satu
+	// izdanja nije izmjerena: računat broj ne smije izgledati kao mjerenje.
+	ZadnjeMjerenje string
+	// Odvojena: letva pripada računu iz zapisa modela. Svoje Ulazi pokazuje samo
+	// na kartici, a poredak glavnih letvi po njima se ne mijenja (ulaziLanca).
+	Odvojena bool
+}
+
+// ulaziLanca su ulazi po kojima se slažu letve: letva iz zapisa modela nikad ne
+// pomiče glavne, iako ih čita.
+func (l LetvaPrognoze) ulaziLanca() []string {
+	if l.Odvojena {
+		return nil
+	}
+	return l.Ulazi
 }
 
 // opisPrenesenog piše za karticu odakle je srpskoj letvi prenesena prognoza:
@@ -437,6 +452,51 @@ func (h *PrognozeHandler) nacini(ctx context.Context) models.Opcije {
 	return h.opcije(ctx)
 }
 
+// zadnjaMjerenjaOdvojenih upisuje zadnje mjerenje s vremenom letvama iz zapisa
+// modela koje u satu izdanja nisu izmjerene. Evidencija ne zna što je račun
+// izbacio kao lažni skok ili kvar, pa uz takvu letvu to i piše.
+func (h *PrognozeHandler) zadnjaMjerenjaOdvojenih(ctx context.Context, opisane []LetvaPrognoze, letve []PregledLetve, postaje map[string]models.Station, izdano time.Time, u []prognoza.Upozorenje) {
+	if h.readings == nil {
+		return
+	}
+	for i := range opisane {
+		st, ima := postaje[letve[i].Letva]
+		if !ima || !letve[i].Odvojena || len(letve[i].Sada) > 0 {
+			continue
+		}
+		opisane[i].ZadnjeMjerenje = h.zadnjeMjerenje(ctx, st, izdano)
+		if opisane[i].ZadnjeMjerenje != "" && imaIzbacenih(u, st.Code) {
+			opisane[i].ZadnjeMjerenje += ". Prognoza ga možda ne uzima, vidi napomene."
+		}
+	}
+}
+
+// imaIzbacenih javlja je li račun letvi izbacio neko očitanje.
+func imaIzbacenih(u []prognoza.Upozorenje, letva string) bool {
+	return slices.ContainsFunc(u, func(x prognoza.Upozorenje) bool {
+		return x.Letva == letva && (x.Vrsta == prognoza.VrstaSkok || x.Vrsta == prognoza.VrstaKvarMjerila)
+	})
+}
+
+// zadnjeMjerenje opisuje zadnje očitanje letve do izdanja, npr. „Zadnje
+// mjerenje: 120 cm, 6. 11. u 9 h”; prazno kad ga u zadnja dva tjedna nema.
+func (h *PrognozeHandler) zadnjeMjerenje(ctx context.Context, st models.Station, izdano time.Time) string {
+	rs, err := h.readings.List(ctx, repository.ReadingFilter{StationID: st.ID.String(), From: izdano.Add(-prognoza.Unatrag), To: izdano})
+	if err != nil {
+		return ""
+	}
+	var zadnje *models.Reading
+	for i := range rs {
+		if rs[i].LevelCm != nil && (zadnje == nil || rs[i].MeasuredAt.After(zadnje.MeasuredAt)) {
+			zadnje = &rs[i]
+		}
+	}
+	if zadnje == nil {
+		return ""
+	}
+	return fmt.Sprintf("Zadnje mjerenje: %d cm, %s", *zadnje.LevelCm, satUpozorenja(zadnje.MeasuredAt))
+}
+
 // odDanaZa je od kojeg dana (1 = prvi) vrijednost daje dnevni model, po
 // načinu prikaza i vodostaju letve sada; 0 znači nikad dok satni lanac seže.
 func odDanaZa(letva, nacin string, l PregledLetve) int {
@@ -540,6 +600,8 @@ func (h *PrognozeHandler) podaci(r *http.Request, nacin string) PrognozePageData
 	data.IzdaoCvor = c.Izdavac()
 	postaje := h.postaje(r.Context())
 	data.Letve = h.opisiLetve(postaje, letve)
+	upozorenja, _ := c.Upozorenja(izdano)
+	h.zadnjaMjerenjaOdvojenih(r.Context(), data.Letve, letve, postaje, izdano, upozorenja)
 	izbor := c.Izbor(izdano)
 	if iz, ima := izbor["oborina"]; ima {
 		data.Oborina, data.BezKise = iz.Opis, iz.Inacica == 2
@@ -634,7 +696,7 @@ func (h *PrognozeHandler) podaci(r *http.Request, nacin string) PrognozePageData
 	naProfilu := letveProfila(postaje, letve)
 	jutro := h.jutarnje(r.Context(), postaje, naProfilu, sadZahtjeva(r))
 	data.Profili = uzduzniProfili(postaje, letve, data.prikaz, izdano,
-		h.mjerenoUnatrag(r.Context(), postaje, letve, izdano), h.usca(r.Context(), postaje, letve),
+		h.mjerenoUnatrag(r.Context(), postaje, letve, izdano), h.usca(r.Context(), postaje, samoGlavne(letve)),
 		h.uobicajeno(r.Context(), postaje, naProfilu), h.mjesecno(r.Context(), postaje, naProfilu, jutro.Dan), jutro, samo)
 	for _, p := range data.Profili {
 		p.Odabrano = data.Termin.Doseg
@@ -738,7 +800,7 @@ func (h *PrognozeHandler) opisiLetve(popis map[string]models.Station, letve []Pr
 			DnevniOpis: opisDnevnogCilja(l.Letva, popis),
 			SadaCm:     uVelicini(l.Sada, "vodostaj"), SadaQ: uVelicini(l.Sada, "protok"),
 			SadaJed: jedinicaSada(l.Letva),
-			Ulazi:   l.Ulazi,
+			Ulazi:   l.Ulazi, Odvojena: l.Odvojena,
 			SadaCmV: ptr(sadaCm, imaSadaCm), SadaQV: ptr(sadaQ, imaSadaQ),
 		}
 		if l.Nepovezana {
@@ -847,6 +909,9 @@ type PregledLetve struct {
 	SatnoQ    map[int64]PregledVrijednost // protok po ciljnom satu
 	UlazLanca bool                        // letva ulazi u neki pojas satnog lanca
 	Ulazi     []string                    // letve iz kojih se ova računa
+	// Odvojena: letva se računa iz zapisa modela ili joj je samo on ulaz, a ne
+	// pripada glavnom lancu.
+	Odvojena bool
 	// Nepovezana kaže da u satu izdanja letva nije slijedila glavni ulaz
 	// (nepovezan pojas), pa prognoze nema; PragPovezanosti je vrijednost
 	// glavnog ulaza od koje veza drži.
@@ -876,6 +941,14 @@ func (c *CitacPrognoza) Pregled() (time.Time, []PregledLetve, error) {
 	if err != nil {
 		return time.Time{}, nil, err
 	}
+	// Letve iz zapisa modela vide samo svoj račun: u poredak i u „ulaz lanca”
+	// ne ulaze, pa kartice glavnih letvi ostaju iste.
+	odvojeni := prognoza.OdvojeniZaPrikaz(c.db)
+	for iz, m := range odvojeni.Promasaji {
+		if _, ima := promasaji[iz]; !ima {
+			promasaji[iz] = m
+		}
+	}
 
 	ulazLanca := map[string]bool{}
 	for _, ps := range pojasi {
@@ -898,31 +971,12 @@ func (c *CitacPrognoza) Pregled() (time.Time, []PregledLetve, error) {
 		p := PregledLetve{Letva: letva, UlazLanca: ulazLanca[letva], Sada: map[string]float64{},
 			Po: map[string]map[int]PregledVrijednost{}, Satno: map[int64]PregledVrijednost{},
 			SatnoQ: map[int64]PregledVrijednost{}}
-		if len(pojasi[letva]) > 0 {
-			p.Racuna = pojasi[letva][0].Velicina
-			for _, u := range pojasi[letva][0].Ulazi {
-				p.Ulazi = append(p.Ulazi, u.Letva)
-			}
-			// Letva s nepovezanim pojasima koja ima samo sat izdanja, a ništa
-			// unaprijed: nije bila povezana sa živom vodom.
-			unaprijed := 0
-			for _, i := range niz {
-				if i.Ciljni > izdano {
-					unaprijed++
-				}
-			}
-			for _, pj := range pojasi[letva] {
-				if pj.Nepovezan && unaprijed == 0 {
-					p.Nepovezana = true
-				}
-				if !pj.Nepovezan && (p.PragPovezanosti == 0 || pj.Od < p.PragPovezanosti) {
-					p.PragPovezanosti = pj.Od
-				}
-			}
-			if !p.Nepovezana {
-				p.PragPovezanosti = 0
-			}
+		racun := pojasi[letva]
+		if len(racun) == 0 {
+			racun = odvojeni.Pojasi[letva]
+			p.Odvojena = len(racun) > 0 || odvojeni.Vrhovi[letva]
 		}
+		p.upisiRacun(racun, niz, izdano)
 		for _, i := range niz {
 			d := int(i.Ciljni - izdano)
 			if d > p.Doseg {
@@ -974,6 +1028,36 @@ func (c *CitacPrognoza) Pregled() (time.Time, []PregledLetve, error) {
 	return time.Unix(izdano*3600, 0).UTC(), out, nil
 }
 
+// upisiRacun upisuje veličinu i ulaze računa letve i je li u satu izdanja bila
+// povezana sa živom vodom.
+func (p *PregledLetve) upisiRacun(racun []prognoza.Pojas, niz []prognoza.Izdana, izdano int64) {
+	if len(racun) == 0 {
+		return
+	}
+	p.Racuna = racun[0].Velicina
+	for _, u := range racun[0].Ulazi {
+		p.Ulazi = append(p.Ulazi, u.Letva)
+	}
+	// Letva s nepovezanim pojasima koja ima samo sat izdanja, a ništa
+	// unaprijed: nije bila povezana sa živom vodom.
+	imaUnaprijed := slices.ContainsFunc(niz, func(i prognoza.Izdana) bool { return i.Ciljni > izdano })
+	p.upisiPovezanost(racun, imaUnaprijed)
+}
+
+func (p *PregledLetve) upisiPovezanost(racun []prognoza.Pojas, imaUnaprijed bool) {
+	for _, pj := range racun {
+		if pj.Nepovezan && !imaUnaprijed {
+			p.Nepovezana = true
+		}
+		if !pj.Nepovezan && (p.PragPovezanosti == 0 || pj.Od < p.PragPovezanosti) {
+			p.PragPovezanosti = pj.Od
+		}
+	}
+	if !p.Nepovezana {
+		p.PragPovezanosti = 0
+	}
+}
+
 func uDosezima(d int) bool {
 	for _, x := range DoseziPregleda {
 		if x == d {
@@ -999,7 +1083,7 @@ func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve,
 	termini := terminiProfila(dani, ciljevi, izdano.Unix()/3600)
 	poVodi := map[string][]LetvaProfila{}
 	var redom []string
-	for _, l := range letve {
+	for _, l := range bezOdvojenihUzGlavne(postaje, letve) {
 		st, ima := postaje[l.Letva]
 		if !ima {
 			continue
@@ -1096,6 +1180,27 @@ func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve,
 		}
 	}
 	return out
+}
+
+// bezOdvojenihUzGlavne miče s profila letve iz zapisa modela na vodi koja ima
+// glavne letve. Mjerilo i crta vala čitaju svaku letvu na profilu, pa bi nova letva
+// promijenila crtež rijeke koji dežurni čita. Voda samo s novim letvama ima svoj.
+func bezOdvojenihUzGlavne(postaje map[string]models.Station, letve []PregledLetve) []PregledLetve {
+	imaGlavnih := map[string]bool{}
+	for _, l := range letve {
+		if vp, _, ok := profilVode(postaje[l.Letva]); ok && !l.Odvojena {
+			imaGlavnih[vp] = true
+		}
+	}
+	return slices.DeleteFunc(slices.Clone(letve), func(l PregledLetve) bool {
+		vp, _, ok := profilVode(postaje[l.Letva])
+		return ok && l.Odvojena && imaGlavnih[vp]
+	})
+}
+
+// samoGlavne su letve bez onih iz zapisa modela.
+func samoGlavne(letve []PregledLetve) []PregledLetve {
+	return slices.DeleteFunc(slices.Clone(letve), func(l PregledLetve) bool { return l.Odvojena })
 }
 
 // samoIzbora ostavlja na profilu letve izbora i kraj pritoke na ušću; bez
@@ -1645,7 +1750,7 @@ func poVodama(letve []LetvaPrognoze, postaje map[string]models.Station) []Tablic
 	// pritoka iza njega — HE Dubrava, pa Mura, pa Botovo.
 	redUlaza := func(kod string) int {
 		for _, r := range letve {
-			for i, u := range r.Ulazi {
+			for i, u := range r.ulaziLanca() {
 				if u == kod {
 					return i
 				}
@@ -1658,17 +1763,7 @@ func poVodama(letve []LetvaPrognoze, postaje map[string]models.Station) []Tablic
 		redovi := lanac[g]
 		sort.SliceStable(vrhovi[g], func(i, j int) bool { return redUlaza(vrhovi[g][i].Kod) < redUlaza(vrhovi[g][j].Kod) })
 		for _, v := range vrhovi[g] {
-			mjesto := len(redovi)
-		trazi:
-			for i, r := range redovi {
-				for _, u := range r.Ulazi {
-					if u == v.Kod {
-						mjesto = i
-						break trazi
-					}
-				}
-			}
-			redovi = umetni(redovi, mjesto, v)
+			redovi = umetni(redovi, mjestoVrha(redovi, v), v)
 		}
 		for _, x := range izvan[g] {
 			km, imaKm := rkm(x)
@@ -1676,7 +1771,7 @@ func poVodama(letve []LetvaPrognoze, postaje map[string]models.Station) []Tablic
 			if imaKm {
 				mjesto = len(redovi)
 				for i, r := range redovi {
-					if r.Voda != x.Voda {
+					if r.Voda != x.Voda || r.Odvojena {
 						continue
 					}
 					if k, ok := rkm(r); ok && k < km {
@@ -1708,6 +1803,16 @@ func poVodama(letve []LetvaPrognoze, postaje map[string]models.Station) []Tablic
 	return out
 }
 
+// mjestoVrha je prva letva kojoj je vrh ulaz. Glavni vrh gleda samo glavne letve,
+// a vrh novog računa samo letve iz zapisa modela.
+func mjestoVrha(redovi []LetvaPrognoze, v LetvaPrognoze) int {
+	i := slices.IndexFunc(redovi, func(r LetvaPrognoze) bool { return r.Odvojena == v.Odvojena && slices.Contains(r.Ulazi, v.Kod) })
+	if i < 0 {
+		return len(redovi)
+	}
+	return i
+}
+
 // poToku slaže letve od uzvodne prema nizvodnoj. Glavna rijeka ide po
 // kilometru; letve pritoke (Mura) po svom kilometru, neposredno ispred prve
 // letve glavne rijeke koju pritoka kroz lanac hrani (Goričan → Botovo), jer
@@ -1719,7 +1824,7 @@ func poToku(redovi []LetvaPrognoze, glavna string, rkm func(LetvaPrognoze) (floa
 	hrani := map[string][]string{} // ulaz → letve koje iz njega računaju
 	for _, r := range redovi {
 		po[r.Kod] = r
-		for _, u := range r.Ulazi {
+		for _, u := range r.ulaziLanca() {
 			hrani[u] = append(hrani[u], r.Kod)
 		}
 	}

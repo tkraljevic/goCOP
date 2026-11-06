@@ -177,6 +177,7 @@
       <div class="prog-sad">
         {{if .SadaCm}}<div class="prog-sad-cm">{{.SadaCm}} <span class="prog-jed">{{if .SadaJed}}{{.SadaJed}}{{else}}cm{{end}}</span></div>{{end}}
         {{if .SadaQ}}<div class="prog-druga">{{.SadaQ}} m³/s</div>{{end}}
+        {{if .ZadnjeMjerenje}}<div class="prog-druga">{{.ZadnjeMjerenje}}</div>{{end}}
         {{with .Prelazak}}<span class="prog-prelazak prelazak-{{.Razina}}"
           title="Prvi termin u kojem prognoza doseže višu fazu obrane nego sada">{{.Tekst}}</span>{{end}}
       </div>
