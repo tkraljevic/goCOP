@@ -7,6 +7,10 @@ package prognoza
 // (Spremi), pa bi račun u njima nestao, a jedan zaboravljen filtar vratio bi vrh
 // bez očitanja u ZadnjiZajednicki.
 //
+// Karašica i Vučica računaju se istim putem, a nemaju redak: račun im je u kodu
+// (OdvojeniRacuni), a brojevi u istim tablicama kao i dosad. Redak vrijedi umjesto
+// koda.
+//
 // Isti se zapis provjerava pri spremanju i pri svakom čitanju: pokvaren redak
 // isključuje samo svoju letvu i ono što iz nje računa, a glavni račun ide dalje.
 
@@ -53,6 +57,10 @@ type ZapisLetve struct {
 	Promjene []PromjenaLetve `json:"promjene"`
 	// Prethodni je jedna prethodna inačica zapisa, kako je stajala.
 	Prethodni json.RawMessage `json:"prethodni"`
+	// Ugradjen je račun iz koda (OdvojeniRacuni), bez retka u tablici. Računao je
+	// i prije ovih provjera, pa mu sektor u registru nije uvjet, a u satu izdanja
+	// radi kao u glavnom lancu (izdaneLetve, sidraOdvojenih).
+	Ugradjen bool `json:"-"`
 }
 
 // RacunLetve je definicija računa: ono što stručnjak složi.
@@ -135,6 +143,51 @@ func ZapisiLetvi(db *sql.DB) (map[string]ZapisLetve, map[string]error, error) {
 		}
 	}
 	return zapisi, pokvareni, r.Err()
+}
+
+// zapisiZaRacun su zapisi koje odvojeni račun računa: redci tablice i računi iz
+// koda. Redak vrijedi umjesto koda, i kad je pokvaren.
+func zapisiZaRacun(db *sql.DB, promasaji map[Izvor]map[int]Promasaj) (map[string]ZapisLetve, map[string]error, error) {
+	zapisi, pokvareni, err := ZapisiLetvi(db)
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, r := range OdvojeniRacuni {
+		_, imaRedak := zapisi[r.Letva]
+		_, pokvaren := pokvareni[r.Letva]
+		if imaRedak || pokvaren {
+			continue
+		}
+		z, namjesten, err := ugradjeniZapis(db, r, promasaji)
+		if err != nil {
+			return nil, nil, err
+		}
+		if namjesten {
+			zapisi[r.Letva] = z
+		}
+	}
+	return zapisi, pokvareni, nil
+}
+
+// ugradjeniZapis složi zapis računa iz koda od brojeva u bazi. Račun koji se nije
+// dao namjestiti ne računa se, kao ni dosad. Promašaj preko dosega izdanja, koji
+// provjera unatrag smije zapisati, ne koristi se, pa zbog njega letva ne ispada.
+func ugradjeniZapis(db *sql.DB, r Racun, promasaji map[Izvor]map[int]Promasaj) (ZapisLetve, bool, error) {
+	in, err := InaciceLetve(db, r.Letva)
+	if err != nil || len(in) == 0 {
+		return ZapisLetve{}, false, err
+	}
+	vel := in[0][0].Velicina
+	return ZapisLetve{Oblik: OblikModelaLetve, Letva: r.Letva, Metoda: MetodaLanac, Velicina: vel, Ugradjen: true,
+		Racun:   RacunLetve{Ulazi: r.Ulazi, Rezerve: Rezerve[r.Letva], Doseg: najveciDosegZapisa},
+		Brojevi: BrojeviLetve{Inacice: in, Promasaji: doDosegaZapisa(promasaji[Izvor{Letva: r.Letva, Velicina: vel}])}}, true, nil
+}
+
+// doDosegaZapisa su promašaji do dosega izdanja.
+func doDosegaZapisa(p map[int]Promasaj) map[int]Promasaj {
+	out := maps.Clone(p)
+	maps.DeleteFunc(out, func(doseg int, _ Promasaj) bool { return doseg > najveciDosegZapisa })
+	return out
 }
 
 // procitajZapis pretvara sadržaj retka u zapis.
@@ -560,6 +613,9 @@ func jeElektranaIliBrana(letva string) bool {
 // provjeriRegistar traži sektor letve i satni protok u arhivi za svaku letvu
 // koju račun vodi u protoku.
 func (z ZapisLetve) provjeriRegistar(o OkvirModela) error {
+	if z.Ugradjen {
+		return nil
+	}
 	if o.ImaSektor != nil && !o.ImaSektor(z.Letva) {
 		return errors.New("letva nema sektor; upiši ga u obrascu letve")
 	}

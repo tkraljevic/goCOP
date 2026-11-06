@@ -1,10 +1,17 @@
 package prognoza
 
-// Odvojeni račun: letve koje je stručnjak napravio u zapisu modela (model_letve).
-// Računaju se poslije glavnog računa, u vlastitom Racunalu, a izvod se samo doda
-// izdanju. Smiju čitati glavni lanac, a glavni lanac njih nikad: ne ulaze u
-// SveInacice, TrebaniIzvori ni ZadnjiZajednicki, pa rječica koja stoji ne može
-// povući sat izdanja ni srušiti izdanje.
+// Odvojeni račun: Karašica i Vučica (OdvojeniRacuni) i letve koje je stručnjak
+// napravio u zapisu modela (model_letve). Računaju se poslije glavnog računa, u
+// vlastitom Racunalu, a izvod se samo doda izdanju. Smiju čitati glavni lanac, a
+// glavni lanac njih nikad: ne ulaze u SveInacice, TrebaniIzvori ni
+// ZadnjiZajednicki, pa rječica koja stoji ne može povući sat izdanja ni srušiti
+// izdanje.
+//
+// Računi iz koda u satu izdanja rade kao dok su bili u glavnom lancu: računata
+// letva ima računat redak, a vrh zadnje mjerenje do ZaostatakVrha. Te letve u
+// satnom izdanju gotovo nikad još nemaju mjerenje tog sata, a starija inačica na
+// drugom računalu bez tog retka ima praznu karticu. Strože pravilo, da se u tom
+// satu pokazuje samo mjerenje, vrijedi za letve iz retka modela.
 
 import (
 	"context"
@@ -48,13 +55,14 @@ type izvodOdvojenih struct {
 	izbor      map[string]Izbor
 	bez        map[string]error
 	upozorenja []Upozorenje
-	greska     error // račun nije završio: ne uzima se ništa
+	greska     error              // račun nije završio: ne uzima se ništa
+	citatelji  map[string][]Pojas // računi iz koda koji su u ovom izdanju računali
 }
 
 // dodatniKrug računa letve iz zapisa modela i dodaje izvod izdanju. Pad, panika
 // ili prekoračen rok ostaju ovdje: glavni račun je već gotov i ne mijenja se.
 func (o *Osvjezivac) dodatniKrug(ctx context.Context, ishod *Ishod, g glavniRacun) {
-	zapisi, pokvareni, err := ZapisiLetvi(o.Baza)
+	zapisi, pokvareni, err := zapisiZaRacun(o.Baza, ishod.Promasaji)
 	if err != nil {
 		ishod.primiOdvojene(izvodOdvojenih{greska: err}, nil)
 		return
@@ -124,6 +132,7 @@ func (o *Osvjezivac) odvojeniRacun(ctx context.Context, u ulazOdvojenih) (izvod 
 	izvod.izdane = o.izdaneOdabranih(ctx, racunaloOdvojenih(odabrano, nizovi, u), dobri, odabrano, izbor, nizovi, bez, u)
 	izvod.izdane = append(izvod.izdane, o.sidraOdvojenih(ctx, dobri, odabrano, izbor, nizovi, u)...)
 	izvod.upozorenja = upozorenjaOdvojenih(ctx, izvod, dobri, odabrano, nizovi, isk, u)
+	izvod.citatelji = racunatiIzKoda(dobri, odabrano, bez)
 	maps.Copy(bez, isk)
 	return izvod
 }
@@ -191,7 +200,9 @@ func (o *Osvjezivac) nizoviOdvojenih(ctx context.Context, dobri map[string]Zapis
 
 // odaberiOdvojene bira inačicu svake letve. Za razliku od OdaberiInacice, račun
 // kojem ulazi nisu svježi, a ni letva nije, ne ostaje u računu: ispada on i sve
-// nizvodno, a sat izdanja se ne mijenja.
+// nizvodno, a sat izdanja se ne mijenja. Svježina se mjeri prema satu izdanja, a
+// ne prema najsvježijem očitanju, pa kad sat izdanja kasni, vrh koji mu je unutar
+// ZaostatakVrha računa, iako je iza najsvježijih više od toga.
 func odaberiOdvojene(dobri map[string]ZapisLetve, bazni map[string][]Pojas, nizovi map[Izvor]Niz, sada int64) (map[string][]Pojas, map[string]Izbor, map[string]error) {
 	glavne := make(map[string][]Pojas, len(dobri))
 	for l, z := range dobri {
@@ -302,7 +313,9 @@ func (o *Osvjezivac) izdaneLetve(ctx context.Context, r *Racunalo, z ZapisLetve,
 	if err != nil {
 		return nil, err
 	}
-	izdane = bezRacunatogSata(izdane, mjereno, u.sada)
+	if !z.Ugradjen {
+		izdane = bezRacunatogSata(izdane, mjereno, u.sada)
+	}
 	if len(izdane) == 0 {
 		return nil, fmt.Errorf("nema ulaza za nijedan sat unaprijed")
 	}
@@ -361,22 +374,47 @@ func razumnaIzdana(x Izdana) bool {
 }
 
 // sidraOdvojenih daje redak u satu izdanja vrhovima novih računa i letvama koje
-// drže zadnje mjerenje, samo ako su u tom satu izmjerene. Letve glavnog računa
-// dobivaju svoje retke od njega.
+// drže zadnje mjerenje, samo ako su u tom satu izmjerene. Vrhovi računa iz koda
+// dobivaju zadnje mjerenje kao vrhovi glavnog lanca. Letve glavnog računa dobivaju
+// svoje retke od njega.
 func (o *Osvjezivac) sidraOdvojenih(ctx context.Context, dobri map[string]ZapisLetve, odabrano map[string][]Pojas,
 	izbor map[string]Izbor, nizovi map[Izvor]Niz, u ulazOdvojenih) []Izdana {
 	izvori := izvoriSidara(dobri, odabrano, izbor, zauzeteLetve(u.inacice))
+	izKoda := izvoriIzKoda(dobri, odabrano, izbor)
 	var mjereni, izvedeni []Izdana
 	for _, iz := range izvori {
 		v, ima := tocnoIzmjereno(nizovi[iz], u.sada)
+		if izKoda[iz] {
+			v, ima = sidroVrha(nizovi[iz], u.sada)
+		}
 		if !ima {
 			continue
 		}
 		x := Izdana{Letva: iz.Letva, Velicina: iz.Velicina, Izdano: u.sada, Ciljni: u.sada, Vrijednost: v, Dolje: v, Gore: v, Model: o.Model}
 		mjereni = append(mjereni, x)
-		izvedeni = append(izvedeni, o.uDrugojVelicini(ctx, []Izdana{x})...)
+		izvedeni = append(izvedeni, o.sidroDrugeVelicine(ctx, x, u.od, izKoda[iz])...)
 	}
 	return append(mjereni, izvedeni...)
+}
+
+// sidroDrugeVelicine je isti sat u veličini u kojoj se letva ne računa. Mjereno se
+// ne provlači kroz krivulju, kao ni kod vrhova glavnog lanca (sidraDrugih), a račun
+// iz koda uzima i premošćenu rupu, kao ondje.
+func (o *Osvjezivac) sidroDrugeVelicine(ctx context.Context, x Izdana, od time.Time, izKoda bool) []Izdana {
+	druga := Izvor{Letva: x.Letva, Velicina: "protok"}
+	if x.Velicina == "protok" {
+		druga.Velicina = "vodostaj"
+	}
+	if n, err := o.ucitajIzmjereni(ctx, druga, od); err == nil {
+		v, ima := tocnoIzmjereno(n, x.Ciljni)
+		if izKoda {
+			v, ima = n.U(x.Ciljni)
+		}
+		if ima {
+			return []Izdana{{Letva: druga.Letva, Velicina: druga.Velicina, Izdano: x.Izdano, Ciljni: x.Ciljni, Vrijednost: v, Dolje: v, Gore: v}}
+		}
+	}
+	return o.uDrugojVelicini(ctx, []Izdana{x})
 }
 
 // izvoriSidara su vrhovi odabranih računa koji ne pripadaju glavnom računu i
@@ -397,6 +435,24 @@ func izvoriSidara(dobri map[string]ZapisLetve, odabrano map[string][]Pojas, izbo
 	return slices.SortedFunc(maps.Keys(skup), func(a, b Izvor) int {
 		return strings.Compare(a.Letva+" "+a.Velicina, b.Letva+" "+b.Velicina)
 	})
+}
+
+// izvoriIzKoda su letve računa iz koda s ulazima i letve iz koda koje drže zadnje
+// mjerenje.
+func izvoriIzKoda(dobri map[string]ZapisLetve, odabrano map[string][]Pojas, izbor map[string]Izbor) map[Izvor]bool {
+	racuni := map[string][]Pojas{}
+	for l, ps := range odabrano {
+		if dobri[l].Ugradjen {
+			racuni[l] = ps
+		}
+	}
+	out, _ := TrebaniIzvori(racuni)
+	for l, iz := range izbor {
+		if iz.Inacica < 0 && dobri[l].Ugradjen {
+			out[Izvor{Letva: l, Velicina: dobri[l].Velicina}] = true
+		}
+	}
+	return out
 }
 
 // upozorenjaOdvojenih su napomene o novim letvama. Glavni račun je svoja
@@ -487,10 +543,11 @@ func upozorenjaBezMjerenja(dobri map[string]ZapisLetve, odabrano map[string][]Po
 func (i *Ishod) primiOdvojene(izvod izvodOdvojenih, glavne map[string]bool) {
 	if izvod.greska != nil {
 		i.Upozorenja = append(i.Upozorenja, Upozorenje{Vrsta: VrstaOdvojeni, Tezina: TezinaUpozorenje,
-			Opis: "letve s novim modelom nisu računate u ovom izdanju: " + izvod.greska.Error()})
+			Opis: "Karašica, Vučica i letve s novim modelom nisu računate u ovom izdanju: " + izvod.greska.Error()})
 		poredajUpozorenja(i.Upozorenja)
 		return
 	}
+	dopuniUpitno(i.Upozorenja, izvod.citatelji, i.Sada)
 	odbaceni := i.primiRetke(izvod.izdane, glavne)
 	maps.Copy(i.Izbor, izvod.izbor)
 	for l, err := range izvod.bez {
@@ -500,6 +557,59 @@ func (i *Ishod) primiOdvojene(izvod izvodOdvojenih, glavne map[string]bool) {
 	}
 	i.Upozorenja = append(append(i.Upozorenja, izvod.upozorenja...), odbaceni...)
 	poredajUpozorenja(i.Upozorenja)
+}
+
+// racunatiIzKoda su računi iz koda koji su u ovom izdanju dali prognozu.
+func racunatiIzKoda(dobri map[string]ZapisLetve, odabrano map[string][]Pojas, bez map[string]error) map[string][]Pojas {
+	out := map[string][]Pojas{}
+	for l, ps := range odabrano {
+		if _, pala := bez[l]; dobri[l].Ugradjen && !pala {
+			out[l] = ps
+		}
+	}
+	return out
+}
+
+// dopuniUpitno vraća račune iz koda na popise upitnih letvi. Jelengrad čita Osijek
+// i Belišće, pa mu je prognoza upitna kad je i njihova, a glavni račun o njemu više
+// ne zna. Letve iz zapisa modela ovdje ne ulaze: glavna upozorenja ostaju kakva su.
+func dopuniUpitno(upozorenja []Upozorenje, citatelji map[string][]Pojas, sada int64) {
+	for i := range upozorenja {
+		prvi := prviUpitniSati(upozorenja[i], sada)
+		if len(prvi) == 0 {
+			continue
+		}
+		a := Nizvodno(citatelji, prvi, sada)
+		for _, l := range slices.Sorted(maps.Keys(citatelji)) {
+			_, vec := prvi[l]
+			if t, ima := a[l]; ima && !vec {
+				upozorenja[i].Upitno = append(upozorenja[i].Upitno, Upitno{Letva: l, OdSata: int(t - sada)})
+				poredajUpitno(upozorenja[i].Upitno)
+			}
+		}
+	}
+}
+
+// prviUpitniSati su sati od kojih su letve upozorenja satno upitne; prazno kad
+// upozorenje ne ide niz lanac. Doseg 0 znači da je nevolja počela prije izdanja,
+// pa se letva nizvodno računa kao upitna od prvog sata.
+func prviUpitniSati(u Upozorenje, sada int64) map[string]int64 {
+	if !slices.Contains([]string{VrstaUlaz, VrstaRezerva, VrstaDrzi, VrstaVrh, VrstaRekonstrukcija}, u.Vrsta) {
+		return nil
+	}
+	prvi := map[string]int64{}
+	if u.Vrsta == VrstaDrzi || u.Vrsta == VrstaVrh {
+		prvi[u.Letva] = sada + 1
+	}
+	for _, q := range u.Upitno {
+		switch {
+		case q.OdSata == 0:
+			prvi[q.Letva] = 0
+		case q.OdSata > 0:
+			prvi[q.Letva] = sada + int64(q.OdSata)
+		}
+	}
+	return prvi
 }
 
 // primiRetke dodaje retke novih letvi. Ovo je zadnja ograda za svaki put kojim

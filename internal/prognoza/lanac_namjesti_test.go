@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 // tokoviProbe zamjenjuje lanac za jedan test zadanim računima, svima na
@@ -17,6 +19,7 @@ func tokoviProbe(t *testing.T, racuni ...Racun) {
 		Ime    string
 		Racuni []Racun
 	}{{"Proba", racuni}})
+	postavi(t, &OdvojeniRacuni, nil)
 }
 
 // granicaOcjeneElektrane je sat od kojega namještanje lanca ocjenjuje model
@@ -282,5 +285,43 @@ func TestNamjestiRacunRijetkeLetve(t *testing.T) {
 	}
 	if !strings.Contains(w.String(), "za nepoznati-ulaz se ne zna u čemu se vodi") {
 		t.Errorf("ispis: %q", w.String())
+	}
+}
+
+// Pripremi model namješta i odvojene račune, s istim brojevima u istim tablicama, a
+// provjera unatrag im mjeri promašaje. Glavni račun ih ne vidi.
+func TestNamjestiLanacNamjestaOdvojene(t *testing.T) {
+	postaviLanacProbe(t)
+	tokoviProbe(t, Racun{Letva: "nepoznata", Ulazi: []string{"ulaz:protok"}})
+	postavi(t, &OdvojeniRacuni, []Racun{{Letva: "cilj", Ulazi: []string{"ulaz"}}})
+	postavi(t, &Velicine, map[string]string{"cilj": "protok", "ulaz": "protok"})
+	arhiva := arhivaLanca(t)
+	baza := otvoriProbnu(t, "p.db")
+	var koraci []string
+	n, err := NamjestiLanac(arhiva, baza, OpcijeNamjestanja{Korak: func(sto string, gotovo, ukupno int) {
+		koraci = append(koraci, fmt.Sprintf("%s %d/%d", sto, gotovo, ukupno))
+	}})
+	if err != nil || n == 0 {
+		t.Fatalf("namješteno %d: %v", n, err)
+	}
+	if !slices.Contains(koraci, "namještam cilj 1/2") {
+		t.Errorf("koraci: %v", koraci)
+	}
+	if in, err := InaciceLetve(baza, "cilj"); err != nil || len(in) != 1 {
+		t.Fatalf("brojevi odvojene letve: %v, %v", in, err)
+	}
+	if glavne, err := SveInacice(baza); err != nil || len(glavne) != 0 {
+		t.Errorf("glavni račun vidi: %v, %v", glavne, err)
+	}
+	if _, err := ProvjeriUnatrag(arhiva, baza, OpcijeProvjere{Od: time.Unix(1000*3600, 0), Do: time.Unix(1400*3600, 0),
+		Korak: 1, Najdalje: 12, Zapisi: true}); err != nil {
+		t.Fatal(err)
+	}
+	p, err := Promasaji(baza)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p[Izvor{Letva: "cilj", Velicina: "protok"}]) == 0 {
+		t.Errorf("odvojena letva bez promašaja: %v", p)
 	}
 }

@@ -464,8 +464,23 @@ func InaciceLetve(db *sql.DB, letva string) ([][]Pojas, error) {
 	return out, nil
 }
 
-// SveInacice čita inačice svih letvi koje imaju račun.
+// SveInacice čita inačice računa glavnog lanca. Odvojeni računi stoje u istim
+// tablicama, a ovdje ih nema: ono što izdanje odavde pročita smije mu odrediti
+// sat, a odvojena letva ne smije.
 func SveInacice(db *sql.DB) (map[string][][]Pojas, error) {
+	out, err := sveNamjesteno(db)
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range OdvojeniRacuni {
+		delete(out, r.Letva)
+	}
+	return out, nil
+}
+
+// sveNamjesteno čita inačice svih namještenih računa, i odvojenih. Treba ga
+// provjera unatrag, koja promašaje mjeri i za odvojene letve.
+func sveNamjesteno(db *sql.DB) (map[string][][]Pojas, error) {
 	glavne, err := SviPojasi(db)
 	if err != nil {
 		return nil, err

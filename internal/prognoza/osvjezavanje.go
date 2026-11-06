@@ -1072,14 +1072,7 @@ func KrivuljeIzArhive(ctx context.Context, arhiva *sql.DB, letva string) ([]mode
 func (o *Osvjezivac) sidraVrhova(ctx context.Context, nizovi map[Izvor]Niz, vrhovi map[Izvor]bool, sada int64) []Izdana {
 	var out []Izdana
 	for iz := range vrhovi {
-		// Vrh smije kasniti do ZaostatakVrha; tada stoji njegovo zadnje
-		// mjerenje, inače bi s pregleda nestao baš vrh koji vodi lanac.
-		v, ima := nizovi[iz].U(sada)
-		if !ima {
-			if z, imaZ := nizovi[iz].ZadnjiSatDo(sada); imaZ && sada-z <= ZaostatakVrha {
-				v, ima = nizovi[iz].U(z)
-			}
-		}
+		v, ima := sidroVrha(nizovi[iz], sada)
 		if !ima {
 			continue
 		}
@@ -1089,6 +1082,19 @@ func (o *Osvjezivac) sidraVrhova(ctx context.Context, nizovi map[Izvor]Niz, vrho
 		out = append(out, o.uDrugojVelicini(ctx, []Izdana{i})...)
 	}
 	return out
+}
+
+// sidroVrha je vrijednost vrha u satu izdanja. Vrh smije kasniti do ZaostatakVrha;
+// tada stoji njegovo zadnje mjerenje, inače bi s pregleda nestao baš vrh koji vodi
+// lanac.
+func sidroVrha(n Niz, sada int64) (float64, bool) {
+	v, ima := n.U(sada)
+	if !ima {
+		if z, imaZ := n.ZadnjiSatDo(sada); imaZ && sada-z <= ZaostatakVrha {
+			v, ima = n.U(z)
+		}
+	}
+	return v, ima
 }
 
 // sidraDrugih zapisuje mjerenje vrha lanca u onoj veličini u kojoj se ne
