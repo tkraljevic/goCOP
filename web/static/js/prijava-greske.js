@@ -2,7 +2,7 @@
 // učitava prva, da zapamti i greške drugih skripti na stranici. Ništa ovdje ne
 // smije smetati radu: svaka greška prijave ostaje u obrascu, a stranica se
 // ne mijenja. Šalje se samo što je osoba upisala i podaci o stranici, nikad
-// sadržaj stranice, lozinke ni kolačići.
+// sadržaj stranice, lozinke ni kolačići. Sliku zaslona osoba bira sama.
 (function () {
   'use strict';
 
@@ -10,6 +10,10 @@
   var ROK_SLANJA_MS = 20000;
   var NAJVISE_NASLOVA = 120;
   var NAJVISE_ODABRANOG = 40;
+  // slika na sporoj vezi s terena putuje dulje; granica je ista kao na poslužitelju
+  var ROK_SLANJA_SLIKE_MS = 180000;
+  var NAJVECA_SLIKA = 8 * 1024 * 1024;
+  var VRSTE_SLIKE = ['image/png', 'image/jpeg', 'image/webp'];
   var greske = [];
   var izvorniFetch = window.fetch ? window.fetch.bind(window) : null;
 
@@ -113,12 +117,61 @@
     var posalji = okno.querySelector('.pg-posalji');
     var dioObrasca = okno.querySelector('.pg-dio-obrazac');
     var dioPotvrde = okno.querySelector('.pg-dio-potvrda');
+    var ulazSlike = okno.querySelector('.pg-slika-ulaz');
+    var dodajSliku = okno.querySelector('.pg-slika-dodaj');
+    var dodanaSlika = okno.querySelector('.pg-slika-dodana');
+    var malaSlika = okno.querySelector('.pg-slika-mala');
+    var imeSlike = okno.querySelector('.pg-slika-ime');
     var naziv = '';
+    var adresaSlike = '';
 
     function javi(tekst) {
       poruka.textContent = tekst;
       poruka.hidden = !tekst;
     }
+
+    // sličica živi samo u pregledniku, a poslužitelj sliku dobije tek slanjem
+    function makniSliku() {
+      if (adresaSlike) URL.revokeObjectURL(adresaSlike);
+      adresaSlike = '';
+      ulazSlike.value = '';
+      malaSlika.removeAttribute('src');
+      imeSlike.textContent = '';
+      dodanaSlika.hidden = true;
+      dodajSliku.hidden = false;
+    }
+
+    function razlogOdbijanjaSlike(datoteka) {
+      if (datoteka.type && VRSTE_SLIKE.indexOf(datoteka.type) < 0) return 'Slika mora biti PNG, JPEG ili WebP. Odaberi drugu datoteku.';
+      if (datoteka.size > NAJVECA_SLIKA) return 'Slika je prevelika. Najviše je 8 MB. Odaberi manju.';
+      if (!datoteka.size) return 'Datoteka je prazna. Odaberi drugu.';
+      return '';
+    }
+
+    ulazSlike.addEventListener('change', function () {
+      var datoteka = ulazSlike.files[0];
+      if (!datoteka) { makniSliku(); return; }
+      var razlog = razlogOdbijanjaSlike(datoteka);
+      if (razlog) {
+        makniSliku();
+        javi(razlog);
+        return;
+      }
+      javi('');
+      if (adresaSlike) URL.revokeObjectURL(adresaSlike);
+      adresaSlike = URL.createObjectURL(datoteka);
+      malaSlika.src = adresaSlike;
+      imeSlike.textContent = datoteka.name;
+      dodajSliku.hidden = true;
+      dodanaSlika.hidden = false;
+      okno.querySelector('.pg-slika-ukloni').focus();
+    });
+
+    okno.querySelector('.pg-slika-ukloni').addEventListener('click', function () {
+      makniSliku();
+      javi('');
+      ulazSlike.focus();
+    });
 
     function prikazi(potvrda) {
       dioObrasca.hidden = potvrda;
@@ -151,6 +204,7 @@
 
     function uspjeh(d) {
       obrazac.reset();
+      makniSliku();
       okno.querySelector('.pg-potvrda-stranica').textContent = d.stranica || naziv;
       okno.querySelector('.pg-potvrda-vrijeme').textContent = (d.vrsta || '') + ' · ' + (d.kad || '');
       prikazi(true);
@@ -163,6 +217,7 @@
     function procitaj(r) {
       var vrsta = r.headers.get('Content-Type') || '';
       if (vrsta.indexOf('application/json') >= 0) return r.json();
+      if (r.status === 413) return { success: false, error: 'Slika je prevelika. Najviše je 8 MB. Odaberi manju ili je ukloni pa pošalji.' };
       if (r.status === 403) return r.text().then(function (t) { return { success: false, error: t.slice(0, 300) }; });
       if (r.redirected || r.status === 401) return { success: false, error: 'Prijava nije poslana. Možda si odjavljen ili moraš promijeniti lozinku: otvori program u novoj kartici pa pošalji ponovno. Tekst je ostao ovdje.' };
       return { success: false, error: 'Prijava nije poslana. Tekst je ostao ovdje, pa pokušaj ponovno za koji trenutak.' };
@@ -176,6 +231,8 @@
         return;
       }
       var podaci = new FormData(obrazac);
+      var saSlikom = ulazSlike.files.length > 0;
+      if (!saSlikom) podaci.delete('slika');
       podaci.set('stranica', location.pathname + location.search);
       podaci.set('naziv_stranice', naziv);
       podaci.set('zaslon', window.innerWidth + ' × ' + window.innerHeight);
@@ -183,7 +240,7 @@
       javi('');
       posalji.disabled = true;
       var prekid = window.AbortController ? new AbortController() : null;
-      var rok = prekid ? setTimeout(function () { prekid.abort(); }, ROK_SLANJA_MS) : 0;
+      var rok = prekid ? setTimeout(function () { prekid.abort(); }, saSlikom ? ROK_SLANJA_SLIKE_MS : ROK_SLANJA_MS) : 0;
       izvorniFetch('/prijava-greske', {
         method: 'POST', body: podaci, credentials: 'same-origin',
         headers: { Accept: 'application/json' }, signal: prekid ? prekid.signal : undefined

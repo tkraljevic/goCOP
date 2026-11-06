@@ -12,6 +12,7 @@ import (
 
 	"gocop/internal/ledger"
 	"gocop/internal/models"
+	"gocop/internal/sadrzaj"
 )
 
 // Prijave grešaka i prijedlozi s ikone kukca idu zajedničkim kanalom:
@@ -23,13 +24,17 @@ const (
 	EntityPrijaveGresakaOdgovori = "prijave_gresaka_odgovori"
 )
 
-const prijavaGreskeColumns = `id, user_id, ime, uloga, vrsta, opis, stranica, naziv_stranice, izdanje, cvor, sustav, preglednik, zaslon, greske, stanje, created_at, updated_at`
+const prijavaGreskeColumns = `id, user_id, ime, uloga, vrsta, opis, stranica, naziv_stranice, izdanje, cvor, sustav, preglednik, zaslon, greske, stanje, created_at, updated_at, slika_otisak, slika_bajtova, slika_vrsta`
 
-const prijavaGreskeUpsert = `INSERT INTO prijave_gresaka (` + prijavaGreskeColumns + `) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+const prijavaGreskeUpsert = `INSERT INTO prijave_gresaka (` + prijavaGreskeColumns + `) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(id) DO UPDATE SET user_id = excluded.user_id, ime = excluded.ime, uloga = excluded.uloga, vrsta = excluded.vrsta, opis = excluded.opis,
 	stranica = excluded.stranica, naziv_stranice = excluded.naziv_stranice, izdanje = excluded.izdanje, cvor = excluded.cvor, sustav = excluded.sustav,
 	preglednik = excluded.preglednik, zaslon = excluded.zaslon, greske = excluded.greske, stanje = excluded.stanje,
-	created_at = excluded.created_at, updated_at = excluded.updated_at`
+	created_at = excluded.created_at, updated_at = excluded.updated_at,
+	slika_otisak = excluded.slika_otisak, slika_bajtova = excluded.slika_bajtova, slika_vrsta = excluded.slika_vrsta`
+
+// ulogaSlikePrijave je uloga slike zaslona u vezi sadržaja i zapisa
+const ulogaSlikePrijave = "slika"
 
 const odgovorPrijaveColumns = `id, prijava_id, tekst, odgovorio, created_at`
 
@@ -47,14 +52,14 @@ func odgovorPrijaveArgs(o *models.OdgovorNaPrijavu) ([]any, error) {
 func prijavaGreskeArgs(p *models.PrijavaGreske) ([]any, error) {
 	greske, _ := json.Marshal(p.Greske) // popis teksta uvijek se da zapisati
 	return []any{p.ID, p.UserID, p.Ime, p.Uloga, p.Vrsta, p.Opis, p.Stranica, p.NazivStranice, p.Izdanje, p.Cvor, p.Sustav, p.Preglednik, p.Zaslon,
-		string(greske), p.Stanje, p.CreatedAt.UTC(), p.UpdatedAt.UTC()}, nil
+		string(greske), p.Stanje, p.CreatedAt.UTC(), p.UpdatedAt.UTC(), p.SlikaOtisak, p.SlikaBajtova, p.SlikaVrsta}, nil
 }
 
 func scanPrijavaGreske(row rowScanner) (*models.PrijavaGreske, error) {
 	var p models.PrijavaGreske
 	var greske string
 	if err := row.Scan(&p.ID, &p.UserID, &p.Ime, &p.Uloga, &p.Vrsta, &p.Opis, &p.Stranica, &p.NazivStranice, &p.Izdanje, &p.Cvor, &p.Sustav, &p.Preglednik, &p.Zaslon,
-		&greske, &p.Stanje, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		&greske, &p.Stanje, &p.CreatedAt, &p.UpdatedAt, &p.SlikaOtisak, &p.SlikaBajtova, &p.SlikaVrsta); err != nil {
 		return nil, err
 	}
 	_ = json.Unmarshal([]byte(greske), &p.Greske) // pokvaren popis grešaka ne smije sakriti samu prijavu
@@ -85,12 +90,53 @@ func (r *PrijavaGreskeRepository) Save(ctx context.Context, p *models.PrijavaGre
 	return tx.Commit()
 }
 
-func (r *PrijavaGreskeRepository) upisiPrijavu(ctx context.Context, tx *sql.Tx, p *models.PrijavaGreske) error {
-	now := time.Now().UTC()
-	if p.ID == "" {
-		p.ID, p.CreatedAt = uuid.Must(uuid.NewV7()).String(), now
+// SaveSaSlikom upisuje novu prijavu sa slikom zaslona, čiji opis prijava već
+// nosi. Bajtovi idu prvo u spremište (po otisku, ponovljivo), pa prijava: ako
+// upis prijave ne prođe, slika se odmah miče, jer je inače nitko ne bi maknuo.
+func (r *PrijavaGreskeRepository) SaveSaSlikom(ctx context.Context, p *models.PrijavaGreske, slika []byte) error {
+	oznaci(p)
+	otisak, err := spremiSadrzaj(ctx, p.SlikaVrsta, slika, sadrzaj.Veza{Entitet: EntityPrijaveGresaka, EntitetID: p.ID, Uloga: ulogaSlikePrijave})
+	if err != nil {
+		return fmt.Errorf("upis slike prijave: %w", err)
 	}
-	p.UpdatedAt = now
+	if otisak != p.SlikaOtisak {
+		return fmt.Errorf("otisak slike prijave se ne slaže")
+	}
+	if err := r.Save(ctx, p); err != nil {
+		maknutiSlikuBezPrijave(ctx, p)
+		return err
+	}
+	return nil
+}
+
+// maknutiSlikuBezPrijave miče sliku prijave koja nije upisana. Ista slika uz drugu
+// prijavu ostaje, jer je ta prijava drži svojom vezom.
+func maknutiSlikuBezPrijave(ctx context.Context, p *models.PrijavaGreske) {
+	ctx = context.WithoutCancel(ctx)
+	_ = spremiste.OdveziUlogu(ctx, EntityPrijaveGresaka, p.ID, ulogaSlikePrijave) // pozivatelj već javlja grešku upisa
+	_ = spremiste.Ukloni(ctx, p.SlikaOtisak)                                      // drži li je još koja prijava, ostaje
+}
+
+// CitajSliku daje bajtove slike zaslona; prazno kad ih ovo računalo još nema
+func (r *PrijavaGreskeRepository) CitajSliku(ctx context.Context, otisak string) []byte {
+	return ucitajSadrzaj(ctx, otisak)
+}
+
+// ImaSliku javlja je li slika zaslona već na ovom računalu
+func (r *PrijavaGreskeRepository) ImaSliku(ctx context.Context, otisak string) bool {
+	return spremiste != nil && otisak != "" && spremiste.Ima(ctx, otisak)
+}
+
+// oznaci novoj prijavi daje oznaku i vrijeme nastanka
+func oznaci(p *models.PrijavaGreske) {
+	if p.ID == "" {
+		p.ID, p.CreatedAt = uuid.Must(uuid.NewV7()).String(), time.Now().UTC()
+	}
+}
+
+func (r *PrijavaGreskeRepository) upisiPrijavu(ctx context.Context, tx *sql.Tx, p *models.PrijavaGreske) error {
+	oznaci(p)
+	p.UpdatedAt = time.Now().UTC()
 	args, err := prijavaGreskeArgs(p)
 	if err != nil {
 		return err
@@ -173,7 +219,37 @@ func (r *PrijavaGreskeRepository) Get(ctx context.Context, id string) (*models.P
 		return nil, err
 	}
 	p.Odgovori = odgovori
+	if p.PorukaPoslana, err = r.porukaPoslana(ctx, id); err != nil {
+		return nil, err
+	}
 	return p, nil
+}
+
+// porukaPoslana je kad je ovo računalo javilo prijavu e-poštom; nil kad nije
+func (r *PrijavaGreskeRepository) porukaPoslana(ctx context.Context, id string) (*time.Time, error) {
+	var kad time.Time
+	err := r.db.QueryRowContext(ctx, `SELECT poslano_at FROM prijave_gresaka_posta WHERE prijava_id = ?`, id).Scan(&kad)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &kad, nil
+}
+
+// ZabiljeziPoruku pamti da je ovo računalo javilo prijavu e-poštom. Zapis ostaje
+// ovdje i ne ide u knjigu: druga računala poruku nisu slala.
+func (r *PrijavaGreskeRepository) ZabiljeziPoruku(ctx context.Context, id string, kad time.Time) error {
+	_, err := r.db.ExecContext(ctx, `INSERT INTO prijave_gresaka_posta (prijava_id, poslano_at) VALUES (?, ?) ON CONFLICT(prijava_id) DO NOTHING`, id, kad.UTC())
+	return err
+}
+
+// BrojPorukaOd broji poruke o prijavama koje je ovo računalo poslalo od zadanog trenutka
+func (r *PrijavaGreskeRepository) BrojPorukaOd(ctx context.Context, od time.Time) (int, error) {
+	var n int
+	err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM prijave_gresaka_posta WHERE poslano_at >= ?`, od.UTC()).Scan(&n)
+	return n, err
 }
 
 func (r *PrijavaGreskeRepository) citajOdgovore(ctx context.Context, upit string, args ...any) ([]models.OdgovorNaPrijavu, error) {
@@ -195,8 +271,9 @@ func (r *PrijavaGreskeRepository) citajOdgovore(ctx context.Context, upit string
 
 // IstaNedavna traži istu prijavu iste osobe poslanu nakon zadanog trenutka:
 // kad se veza prekine, osoba ne zna je li prijava stigla pa je šalje ponovno.
-func (r *PrijavaGreskeRepository) IstaNedavna(ctx context.Context, userID, vrsta, opis, stranica string, od time.Time) (*models.PrijavaGreske, error) {
-	prijave, err := r.citaj(ctx, `SELECT `+prijavaGreskeColumns+` FROM prijave_gresaka WHERE user_id = ? AND vrsta = ? AND opis = ? AND stranica = ? ORDER BY id DESC LIMIT 1`, userID, vrsta, opis, stranica)
+// Ista prijava s drugom slikom je nova prijava, inače bi se slika tiho izgubila.
+func (r *PrijavaGreskeRepository) IstaNedavna(ctx context.Context, userID, vrsta, opis, stranica, slikaOtisak string, od time.Time) (*models.PrijavaGreske, error) {
+	prijave, err := r.citaj(ctx, `SELECT `+prijavaGreskeColumns+` FROM prijave_gresaka WHERE user_id = ? AND vrsta = ? AND opis = ? AND stranica = ? AND slika_otisak = ? ORDER BY id DESC LIMIT 1`, userID, vrsta, opis, stranica, slikaOtisak)
 	if err != nil || len(prijave) == 0 || prijave[0].CreatedAt.Before(od) {
 		return nil, err
 	}
@@ -282,7 +359,16 @@ func (r *PrijavaGreskeRepository) RedniBroj(ctx context.Context, id string) (int
 
 // ZadnjaVremena daje vremena zadnjih n prijava osobe, za ogradu broja prijava
 func (r *PrijavaGreskeRepository) ZadnjaVremena(ctx context.Context, userID string, n int) ([]time.Time, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT created_at FROM prijave_gresaka WHERE user_id = ? ORDER BY id DESC LIMIT ?`, userID, n)
+	return r.vremena(ctx, `SELECT created_at FROM prijave_gresaka WHERE user_id = ? ORDER BY id DESC LIMIT ?`, userID, n)
+}
+
+// ZadnjaVremenaSlika daje vremena zadnjih n prijava osobe sa slikom zaslona
+func (r *PrijavaGreskeRepository) ZadnjaVremenaSlika(ctx context.Context, userID string, n int) ([]time.Time, error) {
+	return r.vremena(ctx, `SELECT created_at FROM prijave_gresaka WHERE user_id = ? AND slika_otisak <> '' ORDER BY id DESC LIMIT ?`, userID, n)
+}
+
+func (r *PrijavaGreskeRepository) vremena(ctx context.Context, upit string, args ...any) ([]time.Time, error) {
+	rows, err := r.db.QueryContext(ctx, upit, args...)
 	if err != nil {
 		return nil, err
 	}

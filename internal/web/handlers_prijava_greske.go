@@ -3,7 +3,9 @@ package web
 import (
 	"context"
 	"errors"
+	"fmt"
 	"html/template"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -13,8 +15,8 @@ import (
 	"gocop/internal/service"
 )
 
-// najvecaPrijavaUMemoriji: obrazac prijave je samo tekst, a tijelo je i inače
-// ograđeno u sloju rokova
+// najvecaPrijavaUMemoriji: tekst obrasca stane u memoriju, slika ide u privremenu
+// datoteku dok se ne pročita, a tijelo je ograđeno u sloju rokova
 const najvecaPrijavaUMemoriji = 256 << 10
 
 // putPopisaPrijava je popis prijava u Administraciji
@@ -31,19 +33,6 @@ type PrijaveGresakaHandler struct {
 // NewPrijaveGresakaHandler sastavlja rukovatelja
 func NewPrijaveGresakaHandler(svc func() *service.PrijavaGreskeService, popis, prijava *template.Template) *PrijaveGresakaHandler {
 	return &PrijaveGresakaHandler{svc: svc, tmplPopis: popis, tmplPrijava: prijava}
-}
-
-// rutePrijavaGresaka: prijava s kukca za svakog prijavljenog, a popis i
-// odgovor samo za administratora
-func (s *Server) rutePrijavaGresaka(adminH *AdminHandler, usersH *UsersHandler) {
-	svc := func() *service.PrijavaGreskeService { return s.prijaveGresaka }
-	h := NewPrijaveGresakaHandler(svc, s.templates["administracija_prijave.html"], s.templates["administracija_prijava.html"])
-	s.mux.Handle("POST /prijava-greske", s.authMiddleware(http.HandlerFunc(h.HandlePosalji)))
-	s.mux.Handle("GET "+putPopisaPrijava, s.samoAdmin(http.HandlerFunc(h.ShowPopis)))
-	s.mux.Handle("GET "+putPopisaPrijava+"/{id}", s.samoAdmin(http.HandlerFunc(h.ShowPrijava)))
-	s.mux.Handle("POST "+putPopisaPrijava+"/{id}", s.samoAdmin(http.HandlerFunc(h.HandleOdgovor)))
-	adminH.prijaveNove = s.brojNovihPrijava
-	usersH.mojePrijave = s.prijaveOsobe
 }
 
 // brojNovihPrijava je broj na kartici u Administraciji; kad se ne da pročitati,
@@ -89,8 +78,23 @@ func porukaPrijave(err error) (int, string) {
 		return http.StatusBadRequest, "Tekst je predugačak. Najviše je 4000 znakova."
 	case errors.Is(err, service.ErrPrevisePrijava):
 		return http.StatusTooManyRequests, "Poslao si puno prijava u zadnjih sat vremena. Pokušaj ponovno kasnije."
+	case errors.Is(err, service.ErrSlikaPrevelika):
+		return http.StatusRequestEntityTooLarge, "Slika je prevelika. Najviše je 8 MB. Odaberi manju ili je ukloni pa pošalji."
+	case errors.Is(err, service.ErrSlikaNeispravna):
+		return http.StatusBadRequest, "Ova datoteka se ne može primiti kao slika. Slika mora biti PNG, JPEG ili WebP. Odaberi drugu datoteku ili je ukloni pa pošalji."
+	case errors.Is(err, service.ErrPreviseSlika):
+		return http.StatusTooManyRequests, "Poslao si puno slika u zadnjih sat vremena. Ukloni sliku pa pošalji ili pokušaj ponovno kasnije."
 	}
 	return http.StatusInternalServerError, "Prijava nije spremljena. Tekst je ostao ovdje, pa pokušaj ponovno za koji trenutak."
+}
+
+// odbijPrijavu javlja razlog odbijanja obrascu; kvar programa ide i u dnevnik
+func odbijPrijavu(w http.ResponseWriter, err error) {
+	status, poruka := porukaPrijave(err)
+	if status == http.StatusInternalServerError {
+		log.Printf("prijava greške nije spremljena: %v", err)
+	}
+	odgovoriPrijavi(w, status, odgovorPrijave{Error: poruka})
 }
 
 func odgovoriPrijavi(w http.ResponseWriter, status int, o odgovorPrijave) {
@@ -108,12 +112,27 @@ func (h *PrijaveGresakaHandler) HandlePosalji(w http.ResponseWriter, r *http.Req
 		return
 	}
 	if err := r.ParseMultipartForm(najvecaPrijavaUMemoriji); err != nil && !errors.Is(err, http.ErrNotMultipart) {
+		var prevelik *http.MaxBytesError
+		if errors.As(err, &prevelik) {
+			odbijPrijavu(w, service.ErrSlikaPrevelika)
+			return
+		}
 		odgovoriPrijavi(w, http.StatusBadRequest, odgovorPrijave{Error: "Obrazac nije stigao cijeli. Pokušaj ponovno."})
 		return
+	}
+	if r.MultipartForm != nil {
+		// Slika iznad granice u memoriji stoji u privremenoj datoteci. Poslužitelj je
+		// ne briše, jer je obrazac pročitan na kopiji zahtjeva iz sloja prijave.
+		defer r.MultipartForm.RemoveAll() //nolint:errcheck // kvar pri brisanju ne smije srušiti slanje prijave
 	}
 	svc := h.svc()
 	if svc == nil {
 		odgovoriPrijavi(w, http.StatusServiceUnavailable, odgovorPrijave{Error: "Prijave se na ovom računalu još ne primaju. Pokušaj ponovno kasnije."})
+		return
+	}
+	slika, err := slikaIzObrasca(r)
+	if err != nil {
+		odbijPrijavu(w, err)
 		return
 	}
 	preglednik, sustav := prepoznajPreglednik(r.UserAgent())
@@ -122,17 +141,56 @@ func (h *PrijaveGresakaHandler) HandlePosalji(w http.ResponseWriter, r *http.Req
 		Stranica: r.FormValue("stranica"), NazivStranice: r.FormValue("naziv_stranice"),
 		Uloga: ulogaZaPrijavu(u), Izdanje: verzijaPrograma,
 		Sustav: sustav, Preglednik: preglednik, Zaslon: r.FormValue("zaslon"),
-		Greske: r.Form["greske"],
+		Greske: r.Form["greske"], Slika: slika,
 	})
 	if err != nil {
-		status, poruka := porukaPrijave(err)
-		if status == http.StatusInternalServerError {
-			log.Printf("prijava greške nije spremljena: %v", err)
-		}
-		odgovoriPrijavi(w, status, odgovorPrijave{Error: poruka})
+		odbijPrijavu(w, err)
 		return
 	}
 	odgovoriPrijavi(w, http.StatusOK, odgovorPrijave{Success: true, Stranica: p.ImeStranice(), Vrsta: p.VrstaNaziv(), Kad: p.Kad()})
+}
+
+// slikaIzObrasca čita sliku zaslona iz obrasca; bez slike vraća nil. Što je
+// slika, provjerava servis, po bajtovima.
+func slikaIzObrasca(r *http.Request) ([]byte, error) {
+	if r.MultipartForm == nil || len(r.MultipartForm.File["slika"]) == 0 {
+		return nil, nil
+	}
+	zaglavlje := r.MultipartForm.File["slika"][0]
+	if zaglavlje.Size > models.NajvecaSlikaPrijave {
+		return nil, service.ErrSlikaPrevelika
+	}
+	f, err := zaglavlje.Open()
+	if err != nil {
+		return nil, fmt.Errorf("slika prijave: %w", err)
+	}
+	defer f.Close()
+	return io.ReadAll(io.LimitReader(f, models.NajvecaSlikaPrijave+1))
+}
+
+// Slika daje sliku zaslona samo onome tko smije vidjeti prijavu: administratoru
+// i osobi koja ju je poslala. Drugima je kao da slike nema.
+func (h *PrijaveGresakaHandler) Slika(w http.ResponseWriter, r *http.Request) {
+	svc := h.svc()
+	u, _ := r.Context().Value(contextKeyUser).(*models.User)
+	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
+	if svc == nil || u == nil || perms == nil {
+		http.NotFound(w, r)
+		return
+	}
+	p, err := svc.Get(r.Context(), r.PathValue("id"))
+	if err != nil || p == nil || (!perms.IsGlobalAdmin && p.UserID != u.ID.String()) {
+		http.NotFound(w, r)
+		return
+	}
+	slika, vrsta := svc.SlikaPrijave(r.Context(), p)
+	if len(slika) == 0 {
+		http.NotFound(w, r)
+		return
+	}
+	posluziTudjuDatoteku(w, vrsta, "", true)
+	w.Header().Set("Cache-Control", "private, no-store")
+	_, _ = w.Write(slika)
 }
 
 // ulogaZaPrijavu je uloga kakvu osoba ima kad šalje prijavu, kao u gornjoj traci
@@ -213,6 +271,7 @@ type PrijaveGresakaPageData struct {
 	Pager   Pager
 
 	Prijava   *models.PrijavaGreske
+	SlikaTu   bool // slika zaslona je već na ovom računalu
 	RedniBroj int
 	Stanja    []OpcijaStanjaPrijave
 }
@@ -291,6 +350,7 @@ func (h *PrijaveGresakaHandler) ShowPrijava(w http.ResponseWriter, r *http.Reque
 	}
 	data := h.pageData(r)
 	data.Prijava = p
+	data.SlikaTu = svc.ImaSliku(ctx, p)
 	if n, err := svc.RedniBroj(ctx, p.ID); err == nil { // broj je samo natpis
 		data.RedniBroj = n
 	}

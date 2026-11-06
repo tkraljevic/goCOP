@@ -169,3 +169,46 @@ func TestPrijavaGreskeNatpisi(t *testing.T) {
 		t.Error("StanjeZaPrikaz")
 	}
 }
+
+// Opis slike s drugog računala ostaje samo kad bi ga program i sam napisao
+func TestOcistiOpisSlike(t *testing.T) {
+	dobar := strings.Repeat("a1", 32)
+	for _, s := range []struct {
+		ime     string
+		otisak  string
+		vrsta   string
+		bajtova int
+		ostaje  bool
+	}{
+		{"dobar", dobar, SlikaPrijavePNG, 10, true},
+		{"najveći", dobar, SlikaPrijaveWebP, NajvecaSlikaPrijave, true},
+		{"prevelik", dobar, SlikaPrijaveJPEG, NajvecaSlikaPrijave + 1, false},
+		{"bez veličine", dobar, SlikaPrijavePNG, 0, false},
+		{"SVG", dobar, "image/svg+xml", 10, false},
+		{"PDF", dobar, "application/pdf", 10, false},
+		{"kratak otisak", "abc", SlikaPrijavePNG, 10, false},
+		{"velika slova", strings.ToUpper(dobar), SlikaPrijavePNG, 10, false},
+		{"put u otisku", strings.Repeat("../", 21) + "a", SlikaPrijavePNG, 10, false},
+	} {
+		p := PrijavaGreske{SlikaOtisak: s.otisak, SlikaVrsta: s.vrsta, SlikaBajtova: s.bajtova}
+		p.OcistiOpisSlike()
+		if ostalo := p.SlikaOtisak != ""; ostalo != s.ostaje {
+			t.Errorf("%s: ostalo %v", s.ime, ostalo)
+		}
+		if !s.ostaje && (p.SlikaVrsta != "" || p.SlikaBajtova != 0) {
+			t.Errorf("%s: nešto je ostalo: %+v", s.ime, p)
+		}
+	}
+}
+
+func TestPorukaKad(t *testing.T) {
+	p := PrijavaGreske{}
+	if p.PorukaKad() != "" {
+		t.Error("bez poruke")
+	}
+	kad := time.Date(2026, 11, 6, 16, 42, 0, 0, time.UTC)
+	p.PorukaPoslana = &kad
+	if p.PorukaKad() != "6. 11. 2026. u 17:42" {
+		t.Errorf("%q", p.PorukaKad())
+	}
+}
