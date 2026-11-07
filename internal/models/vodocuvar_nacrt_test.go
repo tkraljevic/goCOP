@@ -42,3 +42,37 @@ func TestNacrtBezBroja(t *testing.T) {
 		}
 	}
 }
+
+// Zaslon piše kratko: sati bez suvišne decimale i dan bez godine, po našem
+// vremenu. SatiTekst ostaje kakav je, jer ide na papir.
+func TestKratkiZapisNaZaslonu(t *testing.T) {
+	for _, s := range []struct {
+		od, do, zelimo, papir string
+	}{
+		{"07:00", "15:00", "8", "8,0"},
+		{"07:00", "14:30", "7,5", "7,5"},
+		{"22:00", "06:00", "8", "8,0"},
+		{"", "", "0", "0,0"},
+	} {
+		l := VodocuvarskiList{Od: s.od, Do: s.do}
+		if got := l.SatiKratko(); got != s.zelimo {
+			t.Errorf("SatiKratko %s–%s = %q, očekivano %q", s.od, s.do, got, s.zelimo)
+		}
+		if got := l.SatiTekst(); got != s.papir {
+			t.Errorf("SatiTekst %s–%s = %q, očekivano %q", s.od, s.do, got, s.papir)
+		}
+	}
+	for _, s := range []struct {
+		dan    time.Time
+		zelimo string
+	}{
+		{time.Date(2026, 10, 26, 0, 0, 0, 0, Zagreb), "26. 10."},
+		{time.Date(2026, 8, 5, 0, 0, 0, 0, Zagreb), "5. 8."},
+		// iza ponoći po našem vremenu, a u UTC-u je još prethodni dan
+		{time.Date(2026, 8, 4, 22, 30, 0, 0, time.UTC), "5. 8."},
+	} {
+		if got := (VodocuvarskiList{Datum: s.dan}).DatumKratko(); got != s.zelimo {
+			t.Errorf("DatumKratko %v = %q, očekivano %q", s.dan, got, s.zelimo)
+		}
+	}
+}
