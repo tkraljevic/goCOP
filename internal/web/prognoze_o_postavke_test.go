@@ -51,7 +51,7 @@ func TestOPrognoziRedoslijedKartica(t *testing.T) {
 		Valovi: &ProvjeraValova{Datoteka: "valovi.csv", Valova: 3,
 			Skupine: []SkupinaValova{{Rijeka: "Drava", Model: "satni lanac", Valova: 3, Dosezi: []DosegValova{{Doseg: 24}}}}},
 	})
-	redom(t, html, `href="/prognoze" class="prog-str-natrag"`, "<h1>O prognozi</h1>",
+	redom(t, html, `href="/prognoze" class="povratna-poveznica"`, "<h1>O prognozi</h1>",
 		`class="btn prog-obrub"`, "Izvoz u Excel", "Pričuvni izračun",
 		`<h2>Lanac postaja</h2>`, `<h2>Provjera na poplavnim valovima</h2>`, `<h2>Postaje</h2>`,
 		`<h2>Kako čitati prognozu</h2>`, `<h2 class="prog-sklop-naslov">Detalji</h2>`,
@@ -158,7 +158,7 @@ func TestPostavkeModelPoBranjenimPodrucjima(t *testing.T) {
 		t.Fatal(err)
 	}
 	html = stranica()
-	redom(t, html, `href="/prognoze" class="prog-str-natrag"`, "<h1>Postavke prognoze</h1>", `href="/prognoze/o-prognozi" class="btn prog-obrub"`,
+	redom(t, html, `href="/prognoze" class="povratna-poveznica"`, "<h1>Postavke prognoze</h1>", `href="/prognoze/o-prognozi" class="btn prog-obrub"`,
 		`<h2>Satni ili dnevni model</h2>`, `<input type="radio" name="prognoza_prikaz" value=""`,
 		`<h2>Model po branjenim područjima</h2>`, "Branjena područja s letvama u prognozi.",
 		`<li><span>BP 34 · Područje primjer</span><span class="prog-bp-oznaka">U izradi</span></li>`,

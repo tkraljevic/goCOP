@@ -338,12 +338,12 @@
     {{if not .CanRecord}}title="Letva nije u vašem sektoru: upis uz izvor, npr. telefonom"{{end}}>Upiši očitanje</a>{{end}}
 
   {{/* kartice letve (M3): stranica na kojoj se stoji je oznaka, ne poveznica */}}
-  <nav class="letva-kartice" aria-label="Letva {{.Station.Name}}">
-    {{if eq .LetvaStranica "kartica"}}<span class="letva-kartica" aria-current="page">Kartica</span>{{else}}<a class="letva-kartica" href="/stations/{{.Station.ID}}">Kartica</a>{{end}}
-    {{if eq .LetvaStranica "ocitanja"}}<span class="letva-kartica" aria-current="page">Očitanja</span>{{else}}<a class="letva-kartica" href="/readings/station/{{.Station.ID}}">Očitanja</a>{{end}}
-    {{if eq .LetvaStranica "historijat"}}<span class="letva-kartica" aria-current="page">Historijat</span>{{else}}<a class="letva-kartica" href="/stations/{{.Station.ID}}/historijat"
+  <nav class="kartice-stranice letva-kartice" aria-label="Letva {{.Station.Name}}">
+    {{if eq .LetvaStranica "kartica"}}<span class="kartica-stranice" aria-current="page">Kartica</span>{{else}}<a class="kartica-stranice" href="/stations/{{.Station.ID}}">Kartica</a>{{end}}
+    {{if eq .LetvaStranica "ocitanja"}}<span class="kartica-stranice" aria-current="page">Očitanja</span>{{else}}<a class="kartica-stranice" href="/readings/station/{{.Station.ID}}">Očitanja</a>{{end}}
+    {{if eq .LetvaStranica "historijat"}}<span class="kartica-stranice" aria-current="page">Historijat</span>{{else}}<a class="kartica-stranice" href="/stations/{{.Station.ID}}/historijat"
        title="Arhiva, povratni vodostaji, promjene kote nule, valovi obrane i proglašene obrane">Historijat</a>{{end}}
-    {{if eq .LetvaStranica "uvoz"}}<span class="letva-kartica" aria-current="page">Uvoz i izvoz</span>{{else}}<a class="letva-kartica" href="/readings/station/{{.Station.ID}}/uvoz-izvoz">Uvoz i izvoz</a>{{end}}
+    {{if eq .LetvaStranica "uvoz"}}<span class="kartica-stranice" aria-current="page">Uvoz i izvoz</span>{{else}}<a class="kartica-stranice" href="/readings/station/{{.Station.ID}}/uvoz-izvoz">Uvoz i izvoz</a>{{end}}
   </nav>
 </div>
 {{end}}
