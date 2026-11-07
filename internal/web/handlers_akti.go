@@ -53,6 +53,18 @@ func NewAktiHandler(akti func() *service.AktService, users *service.UserService,
 	return &AktiHandler{akti: akti, users: users, stations: stations, tmplPopis: popis, tmplForm: form, tmplAkt: akt, tmplPrimatelji: primatelji}
 }
 
+// PapirAkta je sve što treba predlošku papira akta (akt_papir.html)
+type PapirAkta struct {
+	Akt      *models.Akt
+	Sektor   *models.Sector
+	Podrucje *models.Area
+}
+
+// Papir vraća podatke za papir akta na stranici jednog akta
+func (d AktiPageData) Papir() PapirAkta {
+	return PapirAkta{Akt: d.Akt, Sektor: d.Sektor, Podrucje: d.Podrucje}
+}
+
 // AktiPageData je stranica popisa, obrasca ili jednog akta
 type AktiPageData struct {
 	CurrentUser *models.User
