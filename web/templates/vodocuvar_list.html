@@ -4,12 +4,18 @@
 
 {{define "content"}}
 {{$l := .List}}
-{{if $l.Rekonstrukcija}}<a href="/vodocuvar?godina={{$l.Datum.Year}}" class="povratna-poveznica">← {{if .Moj}}Moja knjiga{{else}}Vodočuvarski dnevnik{{end}}</a>
+{{/* Obrazac je list koji osoba sama još piše; list za čitanje i pregled rukovoditelja dobit će novi izgled poslije. */}}
+{{$obrazac := and .Moj (not $l.Zakljucen)}}
+{{if $obrazac}}<div class="list-stranica">{{end}}
+{{if or $l.Rekonstrukcija $obrazac}}<a href="/vodocuvar?godina={{$l.Datum.Year}}" class="povratna-poveznica">← {{if .Moj}}Moja knjiga{{else}}Vodočuvarski dnevnik{{end}}</a>
 {{else}}<div class="breadcrumb"><a href="/dnevnici">Dokumenti</a> › <a href="/vodocuvar">Vodočuvarski dnevnik</a> › {{$l.Datum.Format "02.01.2006."}}</div>
 {{end}}
-<div class="page-header">
+<div class="page-header{{if $obrazac}} list-glava{{end}}">
   <div>
-    {{if $l.Rekonstrukcija}}
+    {{if $obrazac}}
+    <h1 class="page-title" data-naziv-stranice="Dnevni list">Dnevni list{{if $l.Broj}} {{$l.Broj}}{{else if $l.NacrtBezBroja}} · nacrt bez broja{{end}} {{template "oznaka-stanja-lista" $l}}</h1>
+    <p class="page-desc prvo-slovo-veliko">{{$l.DanUTjednu}}, {{$l.Datum.Day}}. {{$l.MjesecGenitiv}} {{$l.Datum.Year}}.</p>
+    {{else if $l.Rekonstrukcija}}
     <h1 class="page-title" data-naziv-stranice="Dnevni list">{{icon "notebook-pen"}} Dnevni list {{template "oznaka-stanja-lista" $l}}</h1>
     <p class="page-desc prvo-slovo-veliko">{{$l.DanUTjednu}}, {{$l.Datum.Day}}. {{$l.MjesecGenitiv}} {{$l.Datum.Year}}.{{if not .Moj}} · {{$l.Ime}}{{with .Podrucje}} · BP {{.ID}}{{end}}{{end}}</p>
     {{else}}
@@ -18,67 +24,70 @@
     {{end}}
   </div>
   <div class="page-actions">
+    {{if $obrazac}}
+    {{if $l.ID}}<a href="/vodocuvar/{{$l.ID}}/list.pdf" target="_blank" class="btn btn-link">PDF lista</a>{{end}}
+    {{if ne ($l.Datum.Format "2006-01-02") .Danas}}<a href="/vodocuvar/dan?datum={{.Danas}}" class="btn btn-link">Današnji</a>{{end}}
+    {{else}}
     {{if $l.ID}}<a href="/vodocuvar/{{$l.ID}}/list.pdf" target="_blank" class="btn btn-secondary">{{icon "printer"}} PDF lista</a>{{end}}
     {{if and .Moj (not $l.Rekonstrukcija)}}<a href="/vodocuvar/dan?datum={{.Danas}}" class="btn btn-secondary">{{icon "pencil"}} Današnji</a>{{end}}
+    {{end}}
   </div>
 </div>
 
-{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
-{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 {{with .DrugiPredani}}<div class="alert alert-warning">{{icon "triangle-alert"}} Dvostruki list – vidi i {{range $i, $d := .}}{{if $i}}, {{end}}<a href="/vodocuvar/{{$d.ID}}">list br. {{$d.Broj}}</a>{{end}}. Za isti dan predano je više listova; nijedan se ne briše.</div>{{end}}
 
 {{if and .Moj (not $l.Zakljucen)}}
-<form method="POST" action="/vodocuvar/spremi" class="form-page vodocuvar-obrazac">
+<form method="POST" action="/vodocuvar/spremi" class="vodocuvar-obrazac">
   <input type="hidden" name="datum" value="{{$l.Datum.Format "2006-01-02"}}">
   {{if .Otvoreno}}<input type="hidden" name="otvoreno" value="{{.Otvoreno}}">{{end}}
-  <div class="form-row">
-    <div class="form-group"><label class="form-label" for="od">Početak rada</label><input class="form-control" id="od" name="od" value="{{$l.Od}}" placeholder="07:30" inputmode="numeric" required></div>
-    <div class="form-group"><label class="form-label" for="do">Svršetak rada</label><input class="form-control" id="do" name="do" value="{{$l.Do}}" placeholder="15:30" inputmode="numeric" required></div>
+  <div class="list-dva">
+    <div class="form-group list-polje">{{icon "clock"}}<label class="form-label" for="od">Početak rada</label><input class="form-control" id="od" name="od" value="{{$l.Od}}" placeholder="07:30" inputmode="numeric" required></div>
+    <div class="form-group list-polje">{{icon "clock"}}<label class="form-label" for="do">Svršetak rada</label><input class="form-control" id="do" name="do" value="{{$l.Do}}" placeholder="15:30" inputmode="numeric" required></div>
   </div>
-  <div class="form-group"><label class="form-label" for="prilike">Vremenske prilike</label><input class="form-control" id="prilike" name="prilike" value="{{$l.Prilike}}" placeholder="sunčano, vruće"></div>
-  <div class="form-group">
-    <label class="form-label">Naredbe rukovoditelja</label>
+  <div class="form-group list-polje">{{icon "cloud-rain"}}<label class="form-label" for="prilike">Vremenske prilike</label><input class="form-control" id="prilike" name="prilike" value="{{$l.Prilike}}" placeholder="sunčano, vruće"></div>
+  <section class="list-naredbe" aria-labelledby="list-naredbe-naslov">
+    <h2 class="list-naredbe-naslov" id="list-naredbe-naslov">Naredbe rukovoditelja</h2>
     {{if $l.Zadaci}}
     <ul class="zadaci">
     {{range $l.Zadaci}}
       <li class="zadatak">
-        <div class="zadatak-tekst"><strong>{{.Tekst}}</strong> <span class="form-help">zadao {{.Zadao}}, {{.ZadanoAt.Format "02.01.2006."}}</span></div>
-        <div class="zadatak-stanje">
+        <div class="zadatak-tekst">{{.Tekst}}</div>
+        <div class="form-help">zadao {{.Zadao}}, {{.ZadanoAt.Format "2. 1. 2006."}}</div>
+        <div class="zadatak-stanje" role="radiogroup" aria-label="Je li zadatak obavljen">
           <label><input type="radio" name="zadatak_status_{{.ID}}" value="OBAVLJEN" {{if eq .Status "OBAVLJEN"}}checked{{end}}> obavljeno</label>
           <label><input type="radio" name="zadatak_status_{{.ID}}" value="OTVOREN" {{if eq .Status "OTVOREN"}}checked{{end}}> nije obavljeno, prenosi se (obrazložite)</label>
           <label><input type="radio" name="zadatak_status_{{.ID}}" value="ODBACEN" {{if eq .Status "ODBACEN"}}checked{{end}}> nije obavljeno, ne prenosi se</label>
         </div>
-        <input class="form-control" name="zadatak_obavljeno_{{.ID}}" value="{{.Obavljeno}}" placeholder="što je napravljeno, ili zašto danas nije">
+        <div class="form-group list-polje"><label class="form-label" for="zadatak_obavljeno_{{.ID}}">Što je napravljeno ili zašto nije</label><input class="form-control" id="zadatak_obavljeno_{{.ID}}" name="zadatak_obavljeno_{{.ID}}" value="{{.Obavljeno}}"></div>
       </li>
     {{end}}
     </ul>
     {{end}}
-    {{if $l.UpisiNaredbe}}<ul class="zadaci">{{range $l.UpisiNaredbe}}<li class="zadatak"><div class="zadatak-tekst">{{.Tekst}}</div><div class="form-help">upisao {{.Ime}}{{with .Funkcija}}, {{.}}{{end}}, {{formatDate (localTime .Kad)}}</div></li>{{end}}</ul>{{end}}
-    <textarea class="form-control" name="naredbe" rows="3" placeholder="ostale naredbe, kako su vam rečene">{{$l.Naredbe}}</textarea>
-  </div>
-  <div class="form-group"><label class="form-label" for="opis">Opis radnih aktivnosti *</label><textarea class="form-control" id="opis" name="opis" rows="6" placeholder="– obilazak deponije pijeska u Batini&#10;– obilazak vodotoka i vodograđevina na potezu …">{{$l.Opis}}</textarea></div>
-  <div class="form-group">
-    <label class="form-label" for="zapazanja">Posebna zapažanja</label>
-    <textarea class="form-control" id="zapazanja" name="zapazanja" rows="4">{{$l.Zapazanja}}</textarea>
-    {{if $l.Ocitanja}}<div class="form-help">Vodostaji koje ste danas očitali upisuju se sami: <span class="mono">{{$l.Ocitanja}}</span></div>{{else}}<div class="form-help">Vodostaji koje danas očitate na letvama upisuju se sami pri predaji.</div>{{end}}
-    {{if $l.Prijave}}<ul class="zadaci">{{range $l.Prijave}}<li class="zadatak"><div class="zadatak-tekst">{{icon "file-text"}} <a href="/prijave/{{.ID}}">{{.Tekst}}</a></div><div class="form-help">objavljeno {{formatDate (localTime .Kad)}}; stoji na listu</div></li>{{end}}</ul>{{end}}
-    {{if $l.UpisiBiljeske}}<ul class="zadaci">{{range $l.UpisiBiljeske}}<li class="zadatak"><div class="zadatak-tekst">Bilješka: {{.Tekst}}</div><div class="form-help">upisao {{.Ime}}{{with .Funkcija}}, {{.}}{{end}}, {{formatDate (localTime .Kad)}}; stoji na listu</div></li>{{end}}</ul>{{end}}
+    {{if $l.UpisiNaredbe}}<ul class="zadaci">{{range $l.UpisiNaredbe}}<li class="zadatak"><div class="zadatak-tekst">{{.Tekst}}</div><div class="form-help">upisao {{.Ime}}{{with .Funkcija}}, {{.}}{{end}}, {{(localTime .Kad).Format "2. 1. 2006. 15:04"}}</div></li>{{end}}</ul>{{end}}
+    <div class="form-group list-polje"><label class="form-label" for="naredbe">Ostale naredbe</label><textarea class="form-control" id="naredbe" name="naredbe" rows="2" placeholder="ostale naredbe, kako su vam rečene">{{$l.Naredbe}}</textarea></div>
+  </section>
+  <div class="form-group list-polje"><label class="form-label" for="opis">Opis radnih aktivnosti *</label><textarea class="form-control" id="opis" name="opis" rows="4" placeholder="– obilazak deponije pijeska u Batini&#10;– obilazak vodotoka i vodograđevina na potezu …">{{$l.Opis}}</textarea></div>
+  <div class="list-blok">
+    <div class="form-group list-polje"><label class="form-label" for="zapazanja">Posebna zapažanja</label><textarea class="form-control" id="zapazanja" name="zapazanja" rows="2" placeholder="npr. što ste primijetili">{{$l.Zapazanja}}</textarea></div>
+    {{if $l.Ocitanja}}<div class="form-help">Vodostaji koje ste danas očitali upisuju se sami: {{$l.Ocitanja}}</div>{{else}}<div class="form-help">Vodostaji koje danas očitate na letvama upisuju se sami pri predaji.</div>{{end}}
+    {{if $l.Prijave}}<ul class="list-prijave">{{range $l.Prijave}}<li>{{icon "file-text"}} <a href="/prijave/{{.ID}}">{{.Tekst}}</a></li>{{end}}</ul>{{end}}
+    {{if $l.UpisiBiljeske}}<ul class="zadaci">{{range $l.UpisiBiljeske}}<li class="zadatak"><div class="zadatak-tekst">Bilješka: {{.Tekst}}</div><div class="form-help">upisao {{.Ime}}{{with .Funkcija}}, {{.}}{{end}}, {{(localTime .Kad).Format "2. 1. 2006. 15:04"}}</div></li>{{end}}</ul>{{end}}
   </div>
   {{if .Simulacija}}<div class="alert alert-warning">Simulacija ključa: predajom se list potpisuje <strong>simuliranim ključem</strong> u ime {{$l.Ime}}, bez lozinke; potpis i PDF nose oznaku BEZVRIJEDNO.</div>
   {{else if .ImaKljuc}}
-  <div class="form-group max-w-22">
-    <label class="form-label" for="lozinka">Lozinka za potpis</label>
-    <input type="password" class="form-control" id="lozinka" name="lozinka" autocomplete="current-password" placeholder="samo za „Potpiši i predaj”">
-    <div class="form-help">Predajom se list elektronički potpisuje vašim ključem; lozinka ga otključava i ne sprema se.</div>
+  <div class="list-blok">
+    <div class="form-group list-polje">{{icon "lock"}}<label class="form-label" for="lozinka">Lozinka za potpis</label><input type="password" class="form-control" id="lozinka" name="lozinka" autocomplete="current-password" placeholder="samo za „Potpiši i predaj”"></div>
+    <div class="form-help">Predajom se list elektronički potpisuje vašim ključem. Lozinka ga otključava i ne sprema se.</div>
   </div>
   {{end}}
   {{$buduci := gt ($l.Datum.Format "2006-01-02") .Danas}}
   {{if $buduci}}<div class="form-help">Dan ovog lista još nije počeo: list se sprema kao nacrt bez rednog broja, a potpisuje i predaje tek od 00:00 {{$l.Datum.Format "02.01.2006."}} Broj dobiva prvim spremanjem ili predajom kad taj dan počne.</div>{{end}}
-  <div class="form-actions d-flex gap-2 flex-wrap">
-    <button type="submit" class="btn btn-secondary" name="radnja" value="spremi">{{icon "check"}} Spremi</button>
-    {{if $buduci}}<button type="button" class="btn btn-primary" disabled title="predaja od 00:00 {{$l.Datum.Format "02.01.2006."}}">{{icon "pencil"}} Potpiši i predaj</button>
-    {{else}}<button type="submit" class="btn btn-primary" name="radnja" value="predaj" onclick="return confirm('Potpisati i predati list? Nakon predaje se više ne mijenja.')">{{icon "pencil"}} Potpiši i predaj</button>{{end}}
-    {{if $l.ID}}<button type="submit" formaction="/vodocuvar/{{$l.ID}}/radnja" name="radnja" value="obrisi" class="btn btn-secondary btn-opasno" onclick="return confirm('Obrisati ovaj nepredani list?')">{{icon "trash"}} Obriši</button>{{end}}
+  {{/* Spremi ostaje prvi gumb u kodu: Enter u polju pritišće prvi gumb obrasca, pa mora spremiti, a ne predati. Na zaslonu je Potpiši i predaj prvi, to slaže CSS. */}}
+  <div class="form-actions">
+    <button type="submit" class="btn btn-secondary" name="radnja" value="spremi">Spremi</button>
+    {{if $buduci}}<button type="button" class="btn btn-primary" disabled title="predaja od 00:00 {{$l.Datum.Format "02.01.2006."}}">Potpiši i predaj</button>
+    {{else}}<button type="submit" class="btn btn-primary" name="radnja" value="predaj" onclick="return confirm('Potpisati i predati list? Nakon predaje se više ne mijenja.')">Potpiši i predaj</button>{{end}}
+    {{if $l.ID}}<button type="submit" formaction="/vodocuvar/{{$l.ID}}/radnja" name="radnja" value="obrisi" class="btn btn-secondary btn-opasno" onclick="return confirm('Obrisati ovaj nepredani list?')">Obriši</button>{{end}}
   </div>
 </form>
 {{else}}
@@ -158,4 +167,5 @@
   </ul>
 </section>
 {{end}}
+{{if $obrazac}}</div>{{end}}
 {{end}}
