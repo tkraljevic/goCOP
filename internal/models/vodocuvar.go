@@ -302,6 +302,19 @@ func (z Zadatak) Odgovor() string { return odgovorZaPrikaz(z.Status, z.Obavljeno
 // Otvoren javlja je li zadatak još na listu
 func (z Zadatak) Otvoren() bool { return z.Status == "" || z.Status == ZadatakOtvoren }
 
+// StanjeRijecju piše stanje zadatka istim riječima kao na stranici lista
+func (z Zadatak) StanjeRijecju() string {
+	switch {
+	case z.Otvoren():
+		return "otvoren"
+	case z.Status == ZadatakObavljen:
+		return "obavljen"
+	case z.Status == ZadatakBezOdgovora:
+		return "bez upisanog odgovora"
+	}
+	return "nije obavljen"
+}
+
 // ZadatakNaListu je stanje zadatka kako je stajalo na jednom listu
 type ZadatakNaListu struct {
 	ID        string    `json:"id"`
