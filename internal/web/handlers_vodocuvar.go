@@ -410,6 +410,15 @@ func ponudaOvjere(ctx context.Context, s *service.VodocuvarService, perms *model
 	return nudi, nudi && s.OvjeravaUmjesto(ctx, perms, l)
 }
 
+// vrijemeLista piše trenutak na dnevnom listu. Potpis ili upis s razmjene može
+// stići bez vremena, pa tada stoji crtica, a ne godina 1.
+func vrijemeLista(t time.Time) string {
+	if t.IsZero() {
+		return "-"
+	}
+	return t.In(models.Zagreb).Format("2. 1. 2006. 15:04")
+}
+
 func (h *VodocuvarHandler) prikazi(w http.ResponseWriter, r *http.Request, d VodocuvarPageData, perms *models.UserPermissions, l *models.VodocuvarskiList, moj bool) {
 	s := h.svc()
 	d.List, d.Moj = l, moj
