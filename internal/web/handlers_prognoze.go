@@ -788,7 +788,8 @@ func (h *PrognozeHandler) opisiLetve(popis map[string]models.Station, letve []Pr
 		}
 	}
 	krajnosti, cekaju := h.krajnosti(append(kodovi, izvoriKrajnosti(kodovi)...))
-	dopuniPrenesenim(krajnosti, kodovi, popis)
+	// Prenosi se samo letvi za koju je arhiva pročitana i nema vlastiti niz.
+	dopuniPrenesenim(krajnosti, slices.DeleteFunc(slices.Clone(kodovi), func(kod string) bool { return cekaju[kod] }), popis)
 	for _, l := range letve {
 		ulaz := l.Racuna == "" && !l.UlazLanca && jeDnevniUlaz(l.Letva)
 		pregledna := l.Racuna == "" && !l.UlazLanca && !ulaz && jePregledna(l.Letva)
@@ -823,9 +824,11 @@ func (h *PrognozeHandler) opisiLetve(popis map[string]models.Station, letve []Pr
 			red.URL = "/readings/station/" + st.ID.String()
 			if !jeAkumulacija(st) { // razina akumulacije je kota nad morem, pragovi letve joj ne pripadaju
 				var mn, mx *Krajnost
-				if !strings.HasPrefix(l.Letva, "he-") {
+				// Dok se arhiva računa, evidencija nije cijela povijest letve:
+				// kao MIN i MAX pokazala bi samo ono što je ona zapamtila.
+				if !strings.HasPrefix(l.Letva, "he-") && !cekaju[l.Letva] {
 					k := krajnosti[l.Letva]
-					mn, mx = uzEvidenciju(context.Background(), h.readings, st, k[0], k[1], !cekaju[l.Letva])
+					mn, mx = uzEvidenciju(context.Background(), h.readings, st, k[0], k[1])
 				}
 				red.Pragovi = pragoviKartice(st, mn, mx)
 				// Za sažetak samo kad je arhiva već pročitana: sama evidencija
