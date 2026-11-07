@@ -771,19 +771,19 @@ func (f stationForm) primijeni(st *models.Station) {
 	st.Watercourse = strings.TrimSpace(f.Watercourse)
 	st.WaterArea = strings.TrimSpace(f.WaterArea)
 	st.Stationing = strings.TrimSpace(f.Stationing)
-	st.Latitude = parseOptionalFloat(f.Latitude)
-	st.Longitude = parseOptionalFloat(f.Longitude)
-	st.Prep = parseThresholdInput(f.Prep)
-	st.Regular = parseThresholdInput(f.Regular)
-	st.Emergency = parseThresholdInput(f.Emergency)
-	st.State = parseThresholdInput(f.State)
-	st.Record = parseThresholdInput(f.Record)
+	st.Latitude = zadrziBroj(st.Latitude, f.Latitude, 6)
+	st.Longitude = zadrziBroj(st.Longitude, f.Longitude, 6)
+	st.Prep = zadrziPrag(st.Prep, f.Prep)
+	st.Regular = zadrziPrag(st.Regular, f.Regular)
+	st.Emergency = zadrziPrag(st.Emergency, f.Emergency)
+	st.State = zadrziPrag(st.State, f.State)
+	st.Record = zadrziPrag(st.Record, f.Record)
 	st.Extremes = parseExtremes(f.Extremes)
-	st.ZeroDatum = parseOptionalFloat(f.ZeroDatum)
+	st.ZeroDatum = zadrziBroj(st.ZeroDatum, f.ZeroDatum, 3)
 	st.ZeroDatumSystem = strings.TrimSpace(f.ZeroDatumSystem)
-	st.ZeroDatumNew = parseOptionalFloat(f.ZeroDatumNew)
+	st.ZeroDatumNew = zadrziBroj(st.ZeroDatumNew, f.ZeroDatumNew, 3)
 	st.ZeroDatumNewSystem = strings.TrimSpace(f.ZeroDatumNewSystem)
-	st.ZeroDatumBaltic = parseOptionalFloat(f.ZeroDatumBaltic)
+	st.ZeroDatumBaltic = zadrziBroj(st.ZeroDatumBaltic, f.ZeroDatumBaltic, 3)
 	st.ZeroDatumBalticSystem = strings.TrimSpace(f.ZeroDatumBalticSystem)
 	st.ZeroDatumBalticSource = strings.TrimSpace(f.ZeroDatumBalticSource)
 	st.ZeroDatumSource = strings.TrimSpace(f.ZeroDatumSource)
@@ -1007,6 +1007,42 @@ func parseThresholdInput(value string) models.Threshold {
 	}
 
 	return models.Threshold{Raw: trimmed}
+}
+
+// zadrziPrag čita prag iz obrasca, a da ne izgubi ono što obrazac ne prikazuje.
+// Polje pokazuje samo broj, a uz njega u zapisu može stajati i opis (datum,
+// izvor). Spremanje šalje sva polja, pa bi isti broj inače pregazio opis. Upis
+// koji počinje istim brojem mijenja samo opis, a broj ostaje.
+func zadrziPrag(stari models.Threshold, unos string) models.Threshold {
+	novi := parseThresholdInput(unos)
+	if stari.Cm == nil {
+		return novi
+	}
+	if novi.Cm != nil {
+		if *novi.Cm == *stari.Cm {
+			return stari
+		}
+		return novi
+	}
+	if pocinjeBrojem(novi.Raw, *stari.Cm) {
+		return models.Threshold{Cm: stari.Cm, Raw: novi.Raw}
+	}
+	return novi
+}
+
+// pocinjeBrojem javlja počinje li tekst zadanim brojem iza kojeg slijedi opis
+func pocinjeBrojem(tekst string, broj int) bool {
+	ostatak, ima := strings.CutPrefix(strings.TrimPrefix(tekst, "+"), strconv.Itoa(broj))
+	return ima && (strings.HasPrefix(ostatak, " ") || strings.HasPrefix(ostatak, "("))
+}
+
+// zadrziBroj čita broj iz obrasca. Polje ga pokazuje zaokruženog, pa nedirnuto
+// polje ostavlja broj s punom točnošću.
+func zadrziBroj(stari *float64, unos string, decimala int) *float64 {
+	if stari != nil && strings.TrimSpace(unos) == unosD(stari, decimala) {
+		return stari
+	}
+	return parseOptionalFloat(unos)
 }
 
 func parseOptionalFloat(value string) *float64 {
