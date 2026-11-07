@@ -325,6 +325,22 @@ func (a Akt) Naslov() string {
 	return a.Vrsta() + " o " + a.RadnjaLabel() + " " + a.Predmet()
 }
 
+// KratkiNaslov je naslov na stranici akta: vrsta malim slovima, a kod
+// pripremnog stanja i redovne obrane bez „obrane od poplava”, na primjer
+// „Obavijest o uspostavi pripremnog stanja”, „Rješenje o uspostavi redovne
+// obrane” i „Rješenje o prekidu redovnih mjera”. Izvanredna obrana i
+// izvanredno stanje ostaju puni, kao na papiru.
+func (a Akt) KratkiNaslov() string {
+	predmet := a.Predmet()
+	switch {
+	case a.Stupanj == PhasePrep, a.Stupanj == PhaseRegular && a.Radnja == AktPrekid:
+		predmet = strings.TrimSuffix(predmet, " obrane od poplava")
+	case a.Stupanj == PhaseRegular:
+		predmet = strings.TrimSuffix(predmet, " od poplava")
+	}
+	return a.VrstaNaziv() + " o " + a.RadnjaLabel() + " " + predmet
+}
+
 // Oznaka je kratka oznaka akta: sektor, redni broj i godina; nacrt je bez broja
 func (a Akt) Oznaka() string {
 	if a.Broj == 0 {

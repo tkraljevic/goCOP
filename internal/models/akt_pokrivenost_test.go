@@ -74,6 +74,29 @@ func TestPredmetINaslovAkta(t *testing.T) {
 	}
 }
 
+// Kratki naslov na stranici akta: pripremno stanje i redovna obrana bez
+// „obrane od poplava”, izvanredna obrana i izvanredno stanje puni.
+func TestKratkiNaslovAkta(t *testing.T) {
+	for _, s := range []struct {
+		stupanj DefensePhase
+		radnja  string
+		naslov  string
+	}{
+		{PhasePrep, AktUspostava, "Obavijest o uspostavi pripremnog stanja"},
+		{PhasePrep, AktPrekid, "Obavijest o prekidu pripremnog stanja"},
+		{PhaseRegular, AktUspostava, "Rješenje o uspostavi redovne obrane"},
+		{PhaseRegular, AktPrekid, "Rješenje o prekidu redovnih mjera"},
+		{PhaseEmergency, AktUspostava, "Rješenje o uspostavi izvanredne obrane od poplava"},
+		{PhaseEmergency, AktPrekid, "Rješenje o prekidu izvanrednih mjera obrane od poplava"},
+		{PhaseState, AktUspostava, "Rješenje o uspostavi izvanrednog stanja obrane od poplava na zaštitnim vodnim građevinama"},
+	} {
+		a := Akt{Stupanj: s.stupanj, Radnja: s.radnja}
+		if got := a.KratkiNaslov(); got != s.naslov {
+			t.Errorf("%s %s: %q, očekivano %q", s.stupanj, s.radnja, got, s.naslov)
+		}
+	}
+}
+
 func TestOznakaOvjeraIImePotpisa(t *testing.T) {
 	if got := (Akt{Sektor: "B", Godina: 2026}).Oznaka(); got != "nacrt" {
 		t.Errorf("nacrt bez broja: %q", got)
