@@ -4890,7 +4890,7 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .stavke { margin: 0; padding-left: 1.4rem; } .stavke li { margin: 0.15rem 0; }
 /* Dnevni list za čitanje, predan ili ovjeren: redovi s podacima, zadaci i prilozi u karticama.
    .vodocuvar-dl i .prijava-slike koriste i druge stranice, pa je sve vezano uz .list-kartica. */
-.list-glava-ovjeren .oznaka-stanja::before { content: "✓"; margin-right: 4px; }
+.list-glava-ovjeren .oznaka-stanja:not(.list-oznaka-dvostruki)::before { content: "✓"; margin-right: 4px; }
 .list-napomena { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 16px; padding: 8px 12px; font-size: 0.875rem; line-height: 20px; color: var(--md-sys-color-on-surface); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--r-kartica); background: var(--md-sys-color-surface-container-low); }
 .list-napomena > .icon { width: 20px; height: 20px; color: var(--md-sys-color-on-surface-variant); }
 .list-napomena-prenesen { border-color: transparent; background: var(--md-sys-color-surface-container-high); }
@@ -4931,23 +4931,42 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .list-kartica .prijava-slike img { height: 150px; border: 0; border-radius: var(--r-kontrola); background: var(--md-sys-color-surface-container-high); }
 .list-kartica .prijava-slike figcaption { margin-top: 8px; font-size: 0.8125rem; color: var(--md-sys-color-on-surface); }
 .list-kartica .prijava-slike .reading-meta { font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); }
-.list-radnje, .list-ovjera { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
-.list-upis { align-items: flex-start; margin-bottom: 8px; }
-.list-upis .form-control { flex: 1 1 20rem; min-width: 0; }
+/* Ploča radnji uz list (crtež 7d, 7e, 7g). Na širokom je desno i dijeli redove s karticama
+   lijevo, pa zadnji redak ima 1fr: višak visine ploče ide u njega, a ne u razmake među
+   karticama. Širinu mjeri sama stranica, pa stupci rade i kad je izbornik sklopljen. */
+.list-stranica-ploca { max-width: 1104px; container-type: inline-size; }
+@container (min-width: 940px) {
+  .list-stupci { display: grid; grid-template-columns: minmax(0, 17fr) minmax(0, 10fr); grid-template-rows: auto auto 1fr; column-gap: 24px; align-items: start; }
+  .list-stupci > * { grid-column: 1; }
+  .list-stupci > .list-ploca { grid-column: 2; grid-row: 1 / -1; }
+}
+.list-ploca { --list-podloga: var(--md-sys-color-surface-container-low); display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+.list-ploca > .list-kartica { margin: 0; }
+.list-ploca-tekst { margin: 0 0 12px; font-size: 0.8125rem; line-height: 18px; color: var(--md-sys-color-on-surface-variant); }
+.list-ovjera, .list-upis { display: flex; flex-direction: column; gap: 12px; }
+.list-ovjera .btn, .list-parafa .btn { width: 100%; }
+.list-ovjera .checkbox-label { display: flex; align-items: center; gap: 8px; }
+.list-parafa-odvojena { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--md-sys-color-outline-variant); }
+.list-upis { align-items: flex-start; }
+.list-upis .list-polje { align-self: stretch; }
+.list-kartica .list-upis + .form-help { margin-top: 12px; }
+/* Drugi list je isti redak kao u Mojoj knjizi, pa ne uzima boju poveznice iz kartice. */
+.list-ploca .moji-listovi { padding-bottom: 8px; }
+.list-kartica a.moj-list { color: var(--md-sys-color-on-surface); }
+.list-kartica a.moj-list:hover { text-decoration: none; }
+@media print {
+  .list-ploca { display: none !important; }
+}
 @media (max-width: 599px) {
   .list-kartica .vodocuvar-dl { grid-template-columns: minmax(0, 1fr); }
   .list-kartica .vodocuvar-dl dt { padding-right: 0; padding-bottom: 2px; }
   .list-kartica .vodocuvar-dl dd { padding-top: 0; border-top: 0; }
   .list-kartica .vodocuvar-dl dt:last-of-type { padding-bottom: 2px; }
-  .list-radnje, .list-ovjera { flex-direction: column; align-items: stretch; }
-  .list-radnje .btn { width: 100%; }
-  .list-upis { flex-direction: column; align-items: stretch; }
-  .list-upis .form-control { flex: 0 0 auto; }
+  .list-upis { align-items: stretch; }
   .list-kartica .prijava-slike img { height: 200px; }
 }
 @media (max-width: 599px), (pointer: coarse) {
-  .list-glava .btn-link, .list-radnje .btn, .list-upis .btn, .list-upis .form-control, .list-radnje .form-control { min-height: 48px; }
-  .list-radnje .checkbox-label { min-height: 48px; }
+  .list-glava .btn-link, .list-ploca .btn, .list-ovjera .checkbox-label { min-height: 48px; }
   /* Poveznica u tekstu: padding širi dodir na 48 px, a redak ostaje iste visine. */
   .list-stranica > .alert a, .list-kartica .vodocuvar-dl a, .list-kartica .zadaci-pregled a { padding-block: 14px; }
   /* Riječ „list” je uska, pa i širina dodira mora doći iz paddinga. Lijevo površina staje uz oznaku (razmak je 8 px), a redak ostaje iste visine. */
