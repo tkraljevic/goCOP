@@ -2,150 +2,54 @@
 
 {{define "title"}}goCOP — Dokumenti{{end}}
 
+{{/* Ulaz u Dokumente (goCOP-m3, 15 · Dokumenti, 1). Naslov piše u gornjoj traci, a skriveni
+     naziv čita prijava greške. Trake sektora i kartice „Za riješiti” još nema. Skupina bez
+     ijednog retka koji osoba smije vidjeti ne ispisuje se. */}}
 {{define "content"}}
-<div class="dashboard-container">
-  <div class="section-title-wrap">
-    <div class="breadcrumb"><a href="/">Početna</a> › Dokumenti</div>
-    <h1 class="page-title">{{icon "notebook"}} Dokumenti</h1>
-    <p class="section-desc">
-      Što se u obrani vodi i piše: dežurni zapisnik centra s planom dežurstava, dnevna izvješća rukovoditelja
-      dionica, i dnevnici dviju usluga održavanja. Razlikuju se po tome tko ih vodi, kad i što u njih ulazi.
-    </p>
-  </div>
+<div class="ulaz-dokumenti">
+  <h2 class="sr-only" data-naziv-stranice="Dokumenti">Dokumenti</h2>
+  <p class="ulaz-dokumenti-opis">Što se u obrani vodi i piše.</p>
 
-  <div class="dashboard-cards-grid">
-    {{if .CitaCOP}}
-    <div class="dash-card">
-      <div class="dash-card-header">
-        <div class="dash-card-icon-box primary">{{icon "activity"}}</div>
-        <span class="dash-status-pill {{if .BrojCOP}}info{{else}}default{{end}}">{{.BrojCOP}}</span>
-      </div>
-      <div class="dash-card-body">
-        <h2 class="dash-card-title">Dnevnici COP-a</h2>
-        <p class="dash-card-desc">
-          Dežurstvo centra obrane od poplava. Upisuju ga operateri dok traje obrana: vrijeme, tko javlja i što.
-          Vodi se po centru, pa {{terml "sektor"}} ima jedan dnevnik. Teče danima, bez izvođača i nadzora.
-        </p>
-      </div>
-      <div class="dash-card-footer"><a href="/dnevnici/popis?vrsta=OBRANA" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
-    </div>
+  <section class="ulaz-dokumenti-ploca">
+    <h2>Što se vodi u obrani i na terenu</h2>
+    <div class="ulaz-skupine">
+      <section class="ulaz-skupina">
+        <h3>Obrana</h3>
+        <ul class="kartica-redovi">
+          <li><a class="redak" href="/akti">{{icon "file-text"}}<span class="redak-tekst"><span class="redak-glavno">Rješenja i obavijesti</span><span class="redak-sporedno">Akti o uspostavi i prekidu stupnjeva, za letvu i {{terml "podrucje"}}</span></span>{{icon "chevron-right"}}</a></li>
+          {{if .CitaCOP}}
+          <li><a class="redak" href="/dnevnici/popis?vrsta=OBRANA">{{icon "activity"}}<span class="redak-tekst"><span class="redak-glavno">Dnevnik COP-a</span><span class="redak-sporedno">Dežurni zapisnik centra i obračun sati</span></span><span class="redak-vrijednost">{{brojHR .BrojCOP}}</span>{{icon "chevron-right"}}</a></li>
+          <li><a class="redak" href="/dnevnici/popis?vrsta=DEZURSTVA">{{icon "users"}}<span class="redak-tekst"><span class="redak-glavno">Plan dežurstava</span><span class="redak-sporedno">Tko dežura kad i što radi: u centru, na terenu, u uredu</span></span><span class="redak-vrijednost">{{brojHR .BrojDezurstava}}</span>{{icon "chevron-right"}}</a></li>
+          {{end}}
+          <li><a class="redak" href="/izvjesca">{{icon "clipboard-list"}}<span class="redak-tekst"><span class="redak-glavno">Dnevna izvješća</span><span class="redak-sporedno">Izvješća dionica do 08:00 i izvješće za {{terml "sektor"}}</span></span><span class="redak-vrijednost">{{brojHR .BrojIzvjesca}}</span>{{icon "chevron-right"}}</a></li>
+        </ul>
+      </section>
 
-    <div class="dash-card">
-      <div class="dash-card-header">
-        <div class="dash-card-icon-box primary">{{icon "users"}}</div>
-        <span class="dash-status-pill {{if .BrojDezurstava}}info{{else}}default{{end}}">{{.BrojDezurstava}}</span>
-      </div>
-      <div class="dash-card-body">
-        <h2 class="dash-card-title">Plan dežurstava</h2>
-        <p class="dash-card-desc">
-          Tko dežura kad, i što radi: u centru, na terenu, u uredu. Slaže ga uprava centra uz dnevnik COP-a,
-          a isti zapisi poslije obrane daju obračun sati.
-        </p>
-      </div>
-      <div class="dash-card-footer"><a href="/dnevnici/popis?vrsta=DEZURSTVA" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
-    </div>
-    {{end}}
+      {{if .CurrentUser.VidiVodocuvarskiDnevnik}}
+      <section class="ulaz-skupina">
+        <h3>Teren</h3>
+        <ul class="kartica-redovi">
+          <li><a class="redak" href="/vodocuvar">{{icon "notebook"}}<span class="redak-tekst"><span class="redak-glavno">Vodočuvarski dnevnik</span><span class="redak-sporedno">Dnevni listovi vodočuvara, ovjera i parafe</span></span>{{icon "chevron-right"}}</a></li>
+          <li><a class="redak" href="/prijave">{{icon "map-pin"}}<span class="redak-tekst"><span class="redak-glavno">Prijave s terena</span><span class="redak-sporedno">Obavijesti, prijave, izvješća i zahtjevi s terena</span></span>{{icon "chevron-right"}}</a></li>
+        </ul>
+      </section>
+      {{end}}
 
-    <div class="dash-card">
-      <div class="dash-card-header">
-        <div class="dash-card-icon-box primary">{{icon "file-text"}}</div>
-        <span class="dash-status-pill {{if .BrojIzvjesca}}info{{else}}default{{end}}">{{.BrojIzvjesca}}</span>
-      </div>
-      <div class="dash-card-body">
-        <h2 class="dash-card-title">Dnevna izvješća</h2>
-        <p class="dash-card-desc">
-          Izvješće rukovoditelja dionice za svaki dan obrane, po standardnom obrascu: vodostaji, mjere, ljudi i
-          strojevi, stanje na poplavljenom području. Predaje se do 08:00 u podcentar.
-        </p>
-      </div>
-      <div class="dash-card-footer"><a href="/izvjesca" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
-    </div>
+      <section class="ulaz-skupina">
+        <h3>Usluge</h3>
+        <ul class="kartica-redovi">
+          <li><a class="redak" href="/dnevnici/popis?vrsta=ODRZAVANJE_A02">{{icon "wrench"}}<span class="redak-tekst"><span class="redak-glavno">Dnevnik usluga A.02</span><span class="redak-sporedno">Održavanje I. i II. reda i obrana</span></span><span class="redak-vrijednost">{{brojHR .BrojA02}}</span>{{icon "chevron-right"}}</a></li>
+          <li><a class="redak" href="/dnevnici/popis?vrsta=ODRZAVANJE_A03">{{icon "wrench"}}<span class="redak-tekst"><span class="redak-glavno">Dnevnik usluga A.03</span><span class="redak-sporedno">Održavanje kanala III. i IV. reda</span></span><span class="redak-vrijednost">{{brojHR .BrojA03}}</span>{{icon "chevron-right"}}</a></li>
+        </ul>
+      </section>
 
-    <div class="dash-card">
-      <div class="dash-card-header">
-        <div class="dash-card-icon-box info">{{icon "activity"}}</div>
-        <span class="dash-status-pill info">KNJIGA</span>
-      </div>
-      <div class="dash-card-body">
-        <h2 class="dash-card-title">Događanja</h2>
-        <p class="dash-card-desc">
-          Kronologija iz knjige verzija: dnevnik, dežurstva, izvješća, obrana, sredstva i očitanja iznad praga, po
-          razdoblju, modulu i osobi, s izvozom kao prilog izvješću.
-        </p>
-      </div>
-      <div class="dash-card-footer"><a href="/dogadjanja" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+      <section class="ulaz-skupina">
+        <h3>Kronologija</h3>
+        <ul class="kartica-redovi">
+          <li><a class="redak" href="/dogadjanja">{{icon "history"}}<span class="redak-tekst"><span class="redak-glavno">Događanja</span><span class="redak-sporedno">Sve što se u programu dogodilo, po razdoblju, modulu i osobi</span></span>{{icon "chevron-right"}}</a></li>
+        </ul>
+      </section>
     </div>
-
-    {{if .CurrentUser.VidiVodocuvarskiDnevnik}}
-    <div class="dash-card">
-      <div class="dash-card-header">
-        <div class="dash-card-icon-box">{{icon "notebook-pen"}}</div>
-        <span class="dash-status-pill default">TEREN</span>
-      </div>
-      <div class="dash-card-body">
-        <h2 class="dash-card-title">Vodočuvarski dnevnik</h2>
-        <p class="dash-card-desc">Dnevni list vodočuvara kao u papirnoj knjizi: radno vrijeme, prilike, naredbe i zadaci rukovoditelja, opis rada, zapažanja s vodostajima. Vodočuvar preda, rukovoditelj branjenog područja ovjeri, parafiraju ovlaštenici za praćenje ugovora i uprava, a rukovoditelj dionice list koji se tiče njegove dionice.</p>
-      </div>
-      <div class="dash-card-footer"><a href="/vodocuvar" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
-    </div>
-
-    <div class="dash-card">
-      <div class="dash-card-header">
-        <div class="dash-card-icon-box">{{icon "file-text"}}</div>
-        <span class="dash-status-pill default">TEREN</span>
-      </div>
-      <div class="dash-card-body">
-        <h2 class="dash-card-title">Prijave s terena</h2>
-        <p class="dash-card-desc">Obavijesti, prijave, izvješća i zahtjevi vodočuvara: što je zatečeno, gdje (voda, objekt, točka na karti) i fotografije. Vodočuvar objavi i potpiše; potpisani PDF s ugrađenim slikama ostaje trajno, a upis ide na njegov dnevni list.</p>
-      </div>
-      <div class="dash-card-footer"><a href="/prijave" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
-    </div>
-    {{end}}
-
-    <div class="dash-card">
-      <div class="dash-card-header">
-        <div class="dash-card-icon-box warning">{{icon "file-text"}}</div>
-        <span class="dash-status-pill warning">AKTI</span>
-      </div>
-      <div class="dash-card-body">
-        <h2 class="dash-card-title">Rješenja i obavijesti</h2>
-        <p class="dash-card-desc">
-          Uspostava i prekid stupnjeva obrane po vodomjeru i branjenom području: nacrt, ovjera u programu, PDF za ispis i
-          žig. Ovjerene akte vide svi; popis se pretražuje po vodomjeru, dionici, stupnju i godini.
-        </p>
-      </div>
-      <div class="dash-card-footer"><a href="/akti" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
-    </div>
-
-    <div class="dash-card">
-      <div class="dash-card-header">
-        <div class="dash-card-icon-box teal">{{icon "waves"}}</div>
-        <span class="dash-status-pill {{if .BrojA02}}info{{else}}default{{end}}">{{.BrojA02}}</span>
-      </div>
-      <div class="dash-card-body">
-        <h2 class="dash-card-title">Dnevnici usluga A.02</h2>
-        <p class="dash-card-desc">
-          Održavanje voda I. i II. reda. Vodi ga izvođač svaki dan, nadzire ovlaštenik za praćenje ugovora, a dok ga nema uprava područja ili sektora.
-          Nije građevinski dnevnik, ali je po obliku najbliži njemu. Otvara se zasebno za svaku jedinicu razine 3 ({{terml "podrucje"}}).
-        </p>
-      </div>
-      <div class="dash-card-footer"><a href="/dnevnici/popis?vrsta=ODRZAVANJE_A02" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
-    </div>
-
-    <div class="dash-card">
-      <div class="dash-card-header">
-        <div class="dash-card-icon-box teal">{{icon "construction"}}</div>
-        <span class="dash-status-pill {{if .BrojA03}}info{{else}}default{{end}}">{{.BrojA03}}</span>
-      </div>
-      <div class="dash-card-body">
-        <h2 class="dash-card-title">Dnevnici usluga A.03</h2>
-        <p class="dash-card-desc">
-          Održavanje kanala III. i IV. reda. Isti oblik kao A.02, druga usluga i drugi ugovor.
-          Otvara se zasebno za svaku jedinicu razine 3 ({{terml "podrucje"}}).
-        </p>
-      </div>
-      <div class="dash-card-footer"><a href="/dnevnici/popis?vrsta=ODRZAVANJE_A03" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
-    </div>
-  </div>
+  </section>
 </div>
 {{end}}
