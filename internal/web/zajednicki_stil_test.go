@@ -46,15 +46,19 @@ func TestOznakaStanjaCrvenaSamoZaIzvanredno(t *testing.T) {
 // Ono što služi samo kretanju po stranici ne ide na papir, a stupci se na
 // papiru ne stanu jedan uz drugi.
 func TestIspisSkrivaZajednickeDijelove(t *testing.T) {
-	css := procitajStil(t)
-	i := strings.LastIndex(css, "@media print {")
-	if i < 0 {
-		t.Fatal("nema pravila za ispis")
+	// Pravila za ispis ima više, pa se traži ono u kojem je povratna poveznica.
+	ispis := ""
+	for _, blok := range strings.Split(procitajStil(t), "@media print {")[1:] {
+		if strings.Contains(blok, ".povratna-poveznica") {
+			ispis = blok
+		}
 	}
-	ispis := css[i:]
-	for _, dio := range []string{".povratna-poveznica", ".kartice-stranice", ".cipovi-stranice", ".ploca-stranice .btn", ".stupci-stranice { display: block"} {
+	if ispis == "" {
+		t.Fatal("povratna poveznica nije u pravilu za ispis")
+	}
+	for _, dio := range []string{".kartice-stranice", ".cipovi-stranice", ".ploca-stranice .btn", ".stupci-stranice { display: block"} {
 		if !strings.Contains(ispis, dio) {
-			t.Errorf("u zadnjem pravilu za ispis nema %q", dio)
+			t.Errorf("u pravilu za ispis nema %q", dio)
 		}
 	}
 }
