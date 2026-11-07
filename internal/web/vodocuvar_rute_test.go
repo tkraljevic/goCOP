@@ -273,7 +273,7 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	}
 	id := strings.TrimPrefix(strings.SplitN(l, "?", 2)[0], "/vodocuvar/")
 	list := zovi(markic, http.MethodGet, "/vodocuvar/"+id, nil).Body.String()
-	for _, x := range []string{"Dnevni list 1", "obavljeno", "nije obavljeno, prenosi se", "nije stigao, sutra", "8,0 sati", "čeka ovjeru", "Marko Markić"} {
+	for _, x := range []string{"Dnevni list 1", "obavljeno", "nije obavljeno, prenosi se", "nije stigao, sutra", "8,0 sati", `<span class="oznaka-stanja">čeka ovjeru</span>`, "Marko Markić"} {
 		if !strings.Contains(list, x) {
 			t.Errorf("predani list nema %q", x)
 		}
@@ -319,6 +319,9 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	list = zovi(anic, http.MethodGet, "/vodocuvar/"+id, nil).Body.String()
 	if !strings.Contains(list, "ovjerio Ana Anić") || !strings.Contains(list, "Ivo Ivić") {
 		t.Error("list ne pokazuje ovjeru i parafu")
+	}
+	if !strings.Contains(list, `<span class="oznaka-stanja">ovjeren</span>`) {
+		t.Error("ovjeren list nema oznaku stanja")
 	}
 	if strings.Count(list, "elektronički potpisao") != 2 || !strings.Contains(list, "pokriva cijeli dokument") {
 		t.Error("list ne pokazuje oba elektronička potpisa iz izvornika")
@@ -522,4 +525,48 @@ func probniSkenPotpisa(t *testing.T) []byte {
 		t.Fatal(err)
 	}
 	return b.Bytes()
+}
+
+// Oznaka stanja je isti mali predložak na popisu i na listu. Prenesen list je u boji
+// upozorenja, a stranica lista i uz predložak iz vodocuvar.html ostaje stranica lista.
+func TestOznakaStanjaLista(t *testing.T) {
+	o := novaOkolinaDnevnika(t)
+	dan := func(d int) time.Time { return time.Date(2026, time.October, d, 0, 0, 0, 0, models.Zagreb) }
+	o.vod.SetSat(func() time.Time { return dan(11).Add(10 * time.Hour) })
+	spremi := func(d int, izmijeni func(l *models.VodocuvarskiList)) string {
+		t.Helper()
+		l := &models.VodocuvarskiList{ID: uuid.Must(uuid.NewV7()).String(), UserID: o.vodocuvar.ID.String(), Ime: "Pero Perić", Sektor: "P", AreaID: 1,
+			Datum: dan(d), Opis: "obilazak nasipa", CreatedAt: dan(d)}
+		izmijeni(l)
+		if err := o.repo.Save(context.Background(), l); err != nil {
+			t.Fatal(err)
+		}
+		return l.ID
+	}
+	sad := dan(9).Add(16 * time.Hour)
+	prenesen := spremi(6, func(l *models.VodocuvarskiList) { l.Rekonstrukcija = true })
+	predan := spremi(7, func(l *models.VodocuvarskiList) { l.Broj, l.PredanoAt, l.Od, l.Do = 1, &sad, "07:00", "15:00" })
+	ovjeren := spremi(8, func(l *models.VodocuvarskiList) {
+		l.Broj, l.PredanoAt, l.PotvrdenoAt, l.Potvrdio, l.Od, l.Do = 2, &sad, &sad, "Ana Anić", "07:00", "15:00"
+	})
+
+	const (
+		oznakaPrenesen = `<span class="oznaka-stanja pozor">ovjereno prijenosom</span>`
+		oznakaPredan   = `<span class="oznaka-stanja">čeka ovjeru</span>`
+		oznakaOvjeren  = `<span class="oznaka-stanja">ovjeren</span>`
+	)
+	for ime, osoba := range map[string]*models.User{"vodočuvar": o.vodocuvar, "rukovoditeljica": o.rukovodi} {
+		popis := o.zovi(t, osoba, http.MethodGet, "/vodocuvar?sektor=P&podrucje=1&godina=2026", nil).Body.String()
+		for _, x := range []string{oznakaPrenesen, oznakaPredan, oznakaOvjeren, "iz ranije evidencije, bez potpisa vodočuvara", "ovjerio Ana Anić"} {
+			if !strings.Contains(popis, x) {
+				t.Errorf("popis, %s: nema %q", ime, x)
+			}
+		}
+		for id, x := range map[string]string{prenesen: oznakaPrenesen, predan: oznakaPredan, ovjeren: oznakaOvjeren} {
+			list := o.zovi(t, osoba, http.MethodGet, "/vodocuvar/"+id, nil).Body.String()
+			if !strings.Contains(list, x) || !strings.Contains(list, `data-naziv-stranice="Dnevni list"`) || !strings.Contains(list, "goCOP — Dnevni list") {
+				t.Errorf("list, %s: nema %q ili nije stranica lista", ime, x)
+			}
+		}
+	}
 }

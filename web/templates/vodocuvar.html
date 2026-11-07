@@ -48,7 +48,7 @@
       <li class="posta-kartica"><a class="posta-kartica-tijelo" href="/vodocuvar/{{.ID}}">
         <div class="posta-kartica-red"><span class="posta-od">{{if .Broj}}List {{.Broj}}{{else if .Rekonstrukcija}}Preneseno{{else}}Nacrt bez broja{{end}} · {{.DanUTjednu}}</span><span class="posta-kad">{{.Datum.Format "02.01.2006."}}{{if not .Rekonstrukcija}} · {{.Od}}–{{.Do}} · {{.SatiTekst}} h{{end}}</span></div>
         <div class="posta-predmet">{{if .Opis}}{{.Opis}}{{else if .Zadaci}}{{range $i, $z := .Zadaci}}{{if $i}}; {{end}}{{$z.Tekst}}{{end}}{{else}}(bez opisa){{end}}</div>
-        <div class="posta-pregled">{{if .Rekonstrukcija}}ovjereno prijenosom · iz ranije evidencije, bez potpisa vodočuvara{{else}}{{.Stanje}}{{with .Potvrdio}} · ovjerio {{.}}{{end}}{{if .Parafe}} · parafa: {{range $i, $p := .Parafe}}{{if $i}}, {{end}}{{$p.Ime}}{{end}}{{end}}{{end}}{{template "dvostruki-list" (index $.Dvojnici .ID)}}</div>
+        <div class="posta-pregled">{{template "oznaka-stanja-lista" .}}{{if .Rekonstrukcija}} · iz ranije evidencije, bez potpisa vodočuvara{{else}}{{with .Potvrdio}} · ovjerio {{.}}{{end}}{{if .Parafe}} · parafa: {{range $i, $p := .Parafe}}{{if $i}}, {{end}}{{$p.Ime}}{{end}}{{end}}{{end}}{{template "dvostruki-list" (index $.Dvojnici .ID)}}</div>
       </a></li>
     {{end}}
     </ul>
@@ -79,7 +79,7 @@
   <h2>{{icon "triangle-alert"}} Dvostruki dnevni listovi</h2>
   <p class="form-help">Isti vodočuvar za isti dan ima više dnevnih listova: nastali su na dva čvora bez veze prije jedinstvene oznake lista ili na čvoru sa starijim programom, ili je isti list predan na dva čvora. Ne brišu se, jer su potpisani dokumenti. „Današnji list” i spremanje uzimaju predan list, a od dva jednaka stariji; kad su predana oba, oba ostaju s oznakom „dvostruki list”.</p>
   <ul class="stavke">
-  {{range .Dvostruki}}<li><strong>{{.Ime}}</strong>, {{.Datum.Format "02.01.2006."}}: {{range $i, $l := .Listovi}}{{if $i}}; {{end}}<a href="/vodocuvar/{{$l.ID}}">{{if $l.Broj}}list {{$l.Broj}}{{else if $l.Rekonstrukcija}}preneseno{{else}}nacrt bez broja{{end}}</a> ({{$l.Stanje}}){{end}}</li>{{end}}
+  {{range .Dvostruki}}<li><strong>{{.Ime}}</strong>, {{.Datum.Format "02.01.2006."}}: {{range $i, $l := .Listovi}}{{if $i}}; {{end}}<a href="/vodocuvar/{{$l.ID}}">{{if $l.Broj}}list {{$l.Broj}}{{else if $l.Rekonstrukcija}}preneseno{{else}}nacrt bez broja{{end}}</a> {{template "oznaka-stanja-lista" $l}}{{end}}</li>{{end}}
   </ul>
 </section>
 {{end}}
@@ -109,7 +109,7 @@
         <li class="posta-kartica {{if and .Predan (not .Potvrden)}}neprocitano{{end}}"><a class="posta-kartica-tijelo" href="/vodocuvar/{{.ID}}">
           <div class="posta-kartica-red"><span class="posta-od">{{if .Broj}}List {{.Broj}}{{else if .Rekonstrukcija}}Preneseno{{else}}Nacrt bez broja{{end}} · {{.DanUTjednu}}</span><span class="posta-kad">{{.Datum.Format "02.01.2006."}}{{if not .Rekonstrukcija}} · {{.SatiTekst}} h{{end}}</span></div>
           <div class="posta-predmet">{{if .Opis}}{{.Opis}}{{else if .Zadaci}}{{range $i, $z := .Zadaci}}{{if $i}}; {{end}}{{$z.Tekst}}{{end}}{{else}}(bez opisa){{end}}</div>
-          <div class="posta-pregled">{{if .Rekonstrukcija}}ovjereno prijenosom · iz ranije evidencije, bez potpisa vodočuvara{{else}}{{.Stanje}}{{with .Potvrdio}} · ovjerio {{.}}{{end}}{{end}}{{template "dvostruki-list" (index $.Dvojnici .ID)}}</div>
+          <div class="posta-pregled">{{template "oznaka-stanja-lista" .}}{{if .Rekonstrukcija}} · iz ranije evidencije, bez potpisa vodočuvara{{else}}{{with .Potvrdio}} · ovjerio {{.}}{{end}}{{end}}{{template "dvostruki-list" (index $.Dvojnici .ID)}}</div>
         </a></li>
       {{end}}
       </ul>
@@ -121,5 +121,8 @@
 </section>
 {{end}}
 {{end}}
+
+{{/* Oznaka stanja jednog lista, za svaki ekran dnevnika. Prenesen list je u boji upozorenja, nikad crven (Odluke 7. 11.). Stranica koja je koristi mora imati vodocuvar.html u DijeloviPredloska. */}}
+{{define "oznaka-stanja-lista"}}<span class="oznaka-stanja{{if .Rekonstrukcija}} pozor{{end}}">{{.Stanje}}</span>{{end}}
 
 {{define "dvostruki-list"}}{{with .}} · <strong>dvostruki list – vidi i list br. {{range $i, $b := .}}{{if $i}}, {{end}}{{$b}}{{end}}</strong>{{end}}{{end}}

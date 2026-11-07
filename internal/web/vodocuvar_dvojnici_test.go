@@ -43,6 +43,9 @@ func TestDvostrukiListoviKrozRute(t *testing.T) {
 			t.Errorf("popis rukovoditeljice bez %q", x)
 		}
 	}
+	if !strings.Contains(popis, `">list 42</a> <span class="oznaka-stanja">čeka ovjeru</span>`) {
+		t.Error("redak dvostrukog lista bez oznake stanja")
+	}
 	moj := o.zovi(t, o.vodocuvar, http.MethodGet, "/vodocuvar", nil).Body.String()
 	if strings.Contains(moj, "Dvostruki dnevni listovi") || !strings.Contains(moj, "dvostruki list – vidi i list br. 42") {
 		t.Error("vodočuvar ne dobiva popis dvojnika, ali oznaku na svom listu vidi")
@@ -50,6 +53,32 @@ func TestDvostrukiListoviKrozRute(t *testing.T) {
 	list := o.zovi(t, o.rukovodi, http.MethodGet, "/vodocuvar/"+prvi.ID, nil).Body.String()
 	if !strings.Contains(list, "Dvostruki list – vidi i") || !strings.Contains(list, `href="/vodocuvar/`+drugi.ID+`">list br. 42</a>`) {
 		t.Error("predan list bez oznake dvostrukog lista")
+	}
+}
+
+// Prenesen list među dvostrukima ima oznaku u boji upozorenja, kao i na svojoj kartici.
+func TestPrenesenListMeduDvostrukimaUBojiUpozorenja(t *testing.T) {
+	o := novaOkolinaDnevnika(t)
+	dan := time.Date(2026, time.October, 6, 0, 0, 0, 0, models.Zagreb)
+	spremi := func(izmijeni func(l *models.VodocuvarskiList)) {
+		t.Helper()
+		l := &models.VodocuvarskiList{ID: uuid.Must(uuid.NewV7()).String(), UserID: o.vodocuvar.ID.String(), Ime: "Pero Perić", Sektor: "P", AreaID: 1,
+			Datum: dan, Opis: "obilazak nasipa"}
+		izmijeni(l)
+		if err := o.repo.Save(context.Background(), l); err != nil {
+			t.Fatal(err)
+		}
+	}
+	kad := dan.Add(15 * time.Hour)
+	spremi(func(l *models.VodocuvarskiList) { l.Rekonstrukcija = true })
+	spremi(func(l *models.VodocuvarskiList) { l.Broj, l.PredanoAt, l.Od, l.Do = 41, &kad, "07:00", "15:00" })
+
+	popis := o.zovi(t, o.rukovodi, http.MethodGet, "/vodocuvar", nil).Body.String()
+	for _, x := range []string{"Dvostruki dnevni listovi", `">preneseno</a> <span class="oznaka-stanja pozor">ovjereno prijenosom</span>`,
+		`">list 41</a> <span class="oznaka-stanja">čeka ovjeru</span>`} {
+		if !strings.Contains(popis, x) {
+			t.Errorf("popis dvostrukih listova bez %q", x)
+		}
 	}
 }
 
