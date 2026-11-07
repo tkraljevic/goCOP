@@ -62,6 +62,10 @@ type PrognozeHandler struct {
 	opcije         func(ctx context.Context) models.Opcije // način prikaza (satni, dnevni, kombinacija)
 	izmijeniOpcije func(ctx context.Context, p *models.UserPermissions, izmjena func(*models.Opcije)) error
 
+	napomena       func(ctx context.Context) string // napomena administratora na vrhu stranice
+	spremiNapomenu func(ctx context.Context, p *models.UserPermissions, tekst string) error
+	nedostaju      zapamcenoNedostaju // popis podataka koji ne stižu
+
 	// Priprema modela (namještanje lanca, promašaji, ponovno izdavanje).
 	priprema     PripremaModela
 	pripremaRadi func() bool
@@ -373,6 +377,10 @@ type PrognozePageData struct {
 	Upozorenja, Napomene []UpozorenjeStranice
 	Zastarjelo           string
 
+	// Traka o podacima: napomena administratora i kojih podataka nema
+	NapomenaPodataka string
+	Nedostaju        []RedakNedostaju
+
 	Ranije RanijiIzvoz // izvoz ranijeg izdanja: odjeljak postavki i napomena izvoza
 
 	// Za izvoz: satni nizovi izdanja i registar letvi, iz kojih se crtaju
@@ -385,6 +393,7 @@ type PrognozePageData struct {
 	NacinPrikaza   string // koji model daje dane u tablici i na grafovima, opisno
 	Opcije         models.Opcije
 	SmijeMijenjati bool // može mijenjati način prikaza (uprava)
+	SmijeNapomenu  bool // može upisati napomenu o podacima (globalni administrator)
 
 	MozeGenerirati bool // ima krug preuzimanja, pa gumb „Generiraj” ima što pokrenuti
 	// SmijeGenerirati: ima krug preuzimanja, a osoba je dežurni ili
@@ -410,6 +419,7 @@ func (h *PrognozeHandler) ShowPrognoze(w http.ResponseWriter, r *http.Request) {
 	o := h.nacini(r.Context())
 	data := h.podaci(r, o.PrognozaPrikaz)
 	suziStranicu(&data)
+	h.trakaPodataka(r.Context(), &data)
 	h.iscrtaj(w, data)
 }
 
@@ -422,7 +432,8 @@ func (h *PrognozeHandler) ShowPostavke(w http.ResponseWriter, r *http.Request) {
 	}
 	data := h.zaglavlje(r)
 	data.Ranije = h.ranijiIzvoz(r)
-	if !data.MozeGenerirati && !data.MozePripremiti && data.Ranije.Od == "" {
+	data.SmijeNapomenu = h.napomena != nil && data.Permissions != nil && data.Permissions.IsGlobalAdmin
+	if !data.MozeGenerirati && !data.MozePripremiti && data.Ranije.Od == "" && !data.SmijeNapomenu {
 		http.Redirect(w, r, "/prognoze", http.StatusSeeOther)
 		return
 	}
@@ -431,6 +442,9 @@ func (h *PrognozeHandler) ShowPostavke(w http.ResponseWriter, r *http.Request) {
 	data.Podrucja = h.podrucjaPrognoze(r.Context(), letve)
 	data.Opcije = h.nacini(r.Context())
 	data.SmijeMijenjati = h.izmijeniOpcije != nil && data.Permissions != nil && data.Permissions.IsGlobalAdmin
+	if data.SmijeNapomenu {
+		data.NapomenaPodataka = h.napomena(r.Context())
+	}
 	if err := h.postavkeTmpl.ExecuteTemplate(w, "prognoze_postavke.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
