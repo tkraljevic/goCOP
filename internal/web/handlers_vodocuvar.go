@@ -410,6 +410,15 @@ func ponudaOvjere(ctx context.Context, s *service.VodocuvarService, perms *model
 	return nudi, nudi && s.OvjeravaUmjesto(ctx, perms, l)
 }
 
+// vrijemeLista piše trenutak na dnevnom listu. Potpis ili upis s razmjene može
+// stići bez vremena, pa tada stoji crtica, a ne godina 1.
+func vrijemeLista(t time.Time) string {
+	if t.IsZero() {
+		return "-"
+	}
+	return t.In(models.Zagreb).Format("2. 1. 2006. 15:04")
+}
+
 func (h *VodocuvarHandler) prikazi(w http.ResponseWriter, r *http.Request, d VodocuvarPageData, perms *models.UserPermissions, l *models.VodocuvarskiList, moj bool) {
 	s := h.svc()
 	d.List, d.Moj = l, moj
@@ -915,16 +924,23 @@ type KalendarData struct {
 	SuccessMessage string
 	ErrorMessage   string
 
-	Vodocuvar   *models.User
-	Vodocuvari  []models.User
-	Mjesec      time.Time
-	Prethodni   string
-	Sljedeci    string
-	Tjedni      [][]DanKalendara
-	Danas       string
-	Najdalje    string // zadnji dan do kojeg se smije planirati
-	SmijeZadati bool
-	Otvorenih   int
+	Vodocuvar  *models.User
+	Vodocuvari []models.User
+	Mjesec     time.Time
+	Prethodni  string
+	Sljedeci   string
+	Tjedni     [][]DanKalendara
+	Danas      string
+	Najdalje   string // zadnji dan do kojeg se smije planirati
+	// NajdaljeOpis je isti dan kako stoji na zaslonu: „25. 11. 2026.”
+	NajdaljeOpis string
+	SmijeZadati  bool
+	Otvorenih    int
+	// ImaBezOdgovora: u mjesecu ima prenesenih zadataka bez upisanog odgovora, pa ih legenda objašnjava
+	ImaBezOdgovora bool
+	// SamoSvoj: osoba vodi svoju knjigu i ne bira drugu osobu, pa je kalendar njen i naslov je bez imena
+	SamoSvoj bool
+	Popis    PopisDana
 }
 
 // DanKalendara je jedno polje kalendara
@@ -936,6 +952,10 @@ type DanKalendara struct {
 	Proslost  bool
 	Predaleko bool
 	Zadaci    []models.Zadatak
+	// Zadaj: dan nudi + za novi zadatak. VodocuvarID i Natrag idu u taj obrazac.
+	Zadaj       bool
+	VodocuvarID string
+	Natrag      string
 }
 
 // SetKalendar daje rukovatelju predložak kalendara
@@ -956,7 +976,9 @@ func (h *VodocuvarHandler) ShowKalendar(w http.ResponseWriter, r *http.Request) 
 	n := time.Now().In(models.Zagreb)
 	danas := time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, models.Zagreb)
 	d.Danas = danas.Format("2006-01-02")
-	d.Najdalje = danas.AddDate(0, 0, models.NajdaljePlaniranje).Format("2006-01-02")
+	najdalje := danas.AddDate(0, 0, models.NajdaljePlaniranje)
+	d.Najdalje = najdalje.Format("2006-01-02")
+	d.NajdaljeOpis = najdalje.Format("2. 1. 2006.")
 	d.Mjesec = time.Date(n.Year(), n.Month(), 1, 0, 0, 0, 0, models.Zagreb)
 	if m, err := time.ParseInLocation("2006-01", q.Get("mjesec"), models.Zagreb); err == nil {
 		d.Mjesec = m
@@ -994,26 +1016,16 @@ func (h *VodocuvarHandler) ShowKalendar(w http.ResponseWriter, r *http.Request) 
 				if z.Otvoren() {
 					d.Otvorenih++
 				}
+				d.ImaBezOdgovora = d.ImaBezOdgovora || z.Status == models.ZadatakBezOdgovora
 			}
 		}
+		d.SamoSvoj = d.Vodocuvar.ID == u.ID && len(d.Vodocuvari) == 0 && service.VodiDnevnik(u)
 	}
-	// mreža: ponedjeljak do nedjelje
-	prvi := d.Mjesec
-	pomak := (int(prvi.Weekday()) + 6) % 7
-	dan := prvi.AddDate(0, 0, -pomak)
-	for t := 0; t < 6; t++ {
-		var tjedan []DanKalendara
-		for i := 0; i < 7; i++ {
-			k := dan.Format("2006-01-02")
-			tjedan = append(tjedan, DanKalendara{Datum: dan, Kljuc: k, UMjesecu: dan.Month() == d.Mjesec.Month(), Danas: k == d.Danas,
-				Proslost: dan.Before(danas), Predaleko: k > d.Najdalje, Zadaci: zadaci[k]})
-			dan = dan.AddDate(0, 0, 1)
-		}
-		d.Tjedni = append(d.Tjedni, tjedan)
-		if dan.Month() != d.Mjesec.Month() && dan.After(d.Mjesec.AddDate(0, 1, -1)) {
-			break
-		}
+	d.Tjedni = mrezaKalendara(d.Mjesec, danas, d.Najdalje, zadaci)
+	if d.SmijeZadati {
+		ponudiZadavanje(d.Tjedni, d.Vodocuvar.ID.String(), d.Mjesec)
 	}
+	d.Popis = slozPopisDana(d.Tjedni, d.Mjesec)
 	if err := h.tmplKalendar.ExecuteTemplate(w, "vodocuvar_kalendar.html", d); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

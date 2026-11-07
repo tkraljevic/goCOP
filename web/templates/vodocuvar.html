@@ -15,8 +15,6 @@
   {{if .VodiDnevnik}}<a href="/vodocuvar/dan?datum={{.Danas}}" class="btn btn-primary">{{icon "pencil"}} Današnji list</a> <a href="/vodocuvar/knjiga.pdf?godina={{.Godina}}" target="_blank" class="btn btn-secondary">{{icon "printer"}} Cijela knjiga {{.Godina}}.</a>{{end}}</div>
 </div>
 
-{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
-{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 {{template "nepredaniListovi" .Nepredani}}
 
 <form method="GET" action="/vodocuvar" class="posta-trazi mb-3">
