@@ -16,7 +16,7 @@ import (
 
 // Odluke (8. 10. 2026.), pitanje 7, kroz rute: dva predana lista istog
 // vodočuvara za isti dan (nastala prije jedinstvene oznake lista) ostaju
-// oba, svaki s oznakom „dvostruki list – vidi i list br. …”, a
+// oba, svaki s oznakom „dvostruki list: vidi i list br. …”, a
 // rukovoditeljica koja ih ovjerava dobiva popis dvostrukih listova.
 // Vodočuvar popis ne dobiva, ali oznaku na svojim listovima vidi.
 func TestDvostrukiListoviKrozRute(t *testing.T) {
@@ -38,7 +38,7 @@ func TestDvostrukiListoviKrozRute(t *testing.T) {
 
 	popis := o.zovi(t, o.rukovodi, http.MethodGet, "/vodocuvar", nil).Body.String()
 	for _, x := range []string{"Dvostruki dnevni listovi", `href="/vodocuvar/` + prvi.ID + `">list 41</a>`, `href="/vodocuvar/` + drugi.ID + `">list 42</a>`,
-		"dvostruki list – vidi i list br. 41", "dvostruki list – vidi i list br. 42"} {
+		"dvostruki list: vidi i list br. 41", "dvostruki list: vidi i list br. 42"} {
 		if !strings.Contains(popis, x) {
 			t.Errorf("popis rukovoditeljice bez %q", x)
 		}
@@ -83,7 +83,7 @@ func TestPrenesenListMeduDvostrukimaUBojiUpozorenja(t *testing.T) {
 }
 
 // Pregled „čeka ovjeru” pokazuje samo predane listove bez ovjere. List čiji
-// je dvojnik već ovjeren i ondje nosi oznaku „dvostruki list – vidi i list
+// je dvojnik već ovjeren i ondje nosi oznaku „dvostruki list: vidi i list
 // br. …”, jer se upravo ondje ovjerava; oznaka ne ovisi o tome je li i
 // drugi list u pregledu.
 func TestOznakaDvostrukogListaUPregleduCekaOvjeru(t *testing.T) {
@@ -109,7 +109,7 @@ func TestOznakaDvostrukogListaUPregleduCekaOvjeru(t *testing.T) {
 	if !strings.Contains(ceka, "List 42") || strings.Contains(ceka, "List 41") {
 		t.Fatal("pregled „čeka ovjeru” mora pokazati samo list 42")
 	}
-	if !strings.Contains(ceka, "dvostruki list – vidi i list br. 41") {
+	if !strings.Contains(ceka, "dvostruki list: vidi i list br. 41") {
 		t.Error("list 42 u pregledu „čeka ovjeru” bez oznake dvostrukog lista")
 	}
 }
