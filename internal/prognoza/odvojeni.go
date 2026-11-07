@@ -1,9 +1,9 @@
 package prognoza
 
-// Odvojeni račun: Karašica i Vučica (OdvojeniRacuni) i letve koje je stručnjak
-// napravio u zapisu modela (model_letve). Računaju se poslije glavnog računa, u
-// vlastitom Racunalu, a izvod se samo doda izdanju. Smiju čitati glavni lanac, a
-// glavni lanac njih nikad: ne ulaze u SveInacice, TrebaniIzvori ni
+// Odvojeni račun: Karašica, Vučica i Bednja (OdvojeniRacuni) i letve koje je
+// stručnjak napravio u zapisu modela (model_letve). Računaju se poslije glavnog
+// računa, u vlastitom Racunalu, a izvod se samo doda izdanju. Smiju čitati glavni
+// lanac, a glavni lanac njih nikad: ne ulaze u SveInacice, TrebaniIzvori ni
 // ZadnjiZajednicki, pa rječica koja stoji ne može povući sat izdanja ni srušiti
 // izdanje.
 //
@@ -464,7 +464,7 @@ func upozorenjaOdvojenih(ctx context.Context, izvod izvodOdvojenih, dobri map[st
 		out = append(out, Upozorenje{Vrsta: VrstaOdvojeni, Tezina: TezinaNapomena, Letva: l, Opis: "nema prognoze: " + izvod.bez[l].Error()})
 	}
 	out = append(out, upozorenjaIzboraOdvojenih(izvod, odabrano, u.sada)...)
-	out = append(out, upozorenjaBezMjerenja(dobri, odabrano, nizovi, u.sada)...)
+	out = append(out, upozorenjaBezMjerenja(dobri, odabrano, nizovi, izvod.bez, u.sada)...)
 	out = append(out, upozorenjaKrivuljeOdvojenih(izvod.izdane, u.sada)...)
 	jeNova := func(l string) bool { return !u.glavne[l] }
 	skokovi := slices.DeleteFunc(skokoviIzdanja(ctx), func(s IzbaceniSkok) bool { return !jeNova(s.Letva) })
@@ -494,8 +494,12 @@ func upozorenjaKrivuljeOdvojenih(izdane []Izdana, sada int64) []Upozorenje {
 	var out []Upozorenje
 	for _, k := range upozorenjeKrivulje(izdane, sada) {
 		for _, q := range k.Upitno {
+			opis := "izvan krivulje protoka"
+			if q.OdSata > 0 {
+				opis += fmt.Sprintf(" od +%d h", q.OdSata)
+			}
 			out = append(out, Upozorenje{Vrsta: VrstaOdvojeni, Tezina: TezinaNapomena, Letva: q.Letva,
-				Opis: "izvan krivulje protoka (krivulja je produžena preko ruba)"})
+				Opis: opis + " (krivulja je produžena preko ruba)"})
 		}
 	}
 	return out
@@ -520,8 +524,12 @@ func upozorenjaIzboraOdvojenih(izvod izvodOdvojenih, odabrano map[string][]Pojas
 }
 
 // upozorenjaBezMjerenja kažu da letva dugo nema mjerenja, pa joj se prognoza
-// računa bez oslonca na vlastito očitanje.
-func upozorenjaBezMjerenja(dobri map[string]ZapisLetve, odabrano map[string][]Pojas, nizovi map[Izvor]Niz, sada int64) []Upozorenje {
+// računa bez oslonca na vlastito očitanje. Karika računa iz koda u satu izdanja
+// ima računat broj, pa je upitna ona i letve ispod nje, kao u glavnom lancu. Krajnje
+// letve tamo ne ulaze, pa ni ovdje.
+func upozorenjaBezMjerenja(dobri map[string]ZapisLetve, odabrano map[string][]Pojas, nizovi map[Izvor]Niz, bez map[string]error, sada int64) []Upozorenje {
+	ishod := &Ishod{Sada: sada, BezPrognoze: bez}
+	karike := karikeBezMjerenja(odabrano, nizovi, sada)
 	var out []Upozorenje
 	for _, l := range slices.Sorted(maps.Keys(odabrano)) {
 		z, ima := nizovi[Izvor{Letva: l, Velicina: dobri[l].Velicina}].ZadnjiSatDo(sada)
@@ -533,6 +541,11 @@ func upozorenjaBezMjerenja(dobri map[string]ZapisLetve, odabrano map[string][]Po
 			u.Zadnje = z
 			u.Opis = "nema mjerenja od " + satDnevnika(z) + ", a prognoza se računa iz uzvodnih letvi"
 		}
+		if _, karika := karike[l]; karika && dobri[l].Ugradjen {
+			s := skupUpitnog{}
+			s.satna(satnaNizvodno(ishod, odabrano, l, z+1))
+			u.Upitno = s.popis()
+		}
 		out = append(out, u)
 	}
 	return out
@@ -543,7 +556,7 @@ func upozorenjaBezMjerenja(dobri map[string]ZapisLetve, odabrano map[string][]Po
 func (i *Ishod) primiOdvojene(izvod izvodOdvojenih, glavne map[string]bool) {
 	if izvod.greska != nil {
 		i.Upozorenja = append(i.Upozorenja, Upozorenje{Vrsta: VrstaOdvojeni, Tezina: TezinaUpozorenje,
-			Opis: "Karašica, Vučica i letve s novim modelom nisu računate u ovom izdanju: " + izvod.greska.Error()})
+			Opis: "Karašica, Vučica, Bednja i letve s novim modelom nisu računate u ovom izdanju: " + izvod.greska.Error()})
 		poredajUpozorenja(i.Upozorenja)
 		return
 	}

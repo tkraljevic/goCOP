@@ -169,41 +169,6 @@ var Tokovi = []struct {
 		// Donjom Dubravom drži svega R² 0,24–0,45 po pojasu, a Dubravi ispadne
 		// nagib 2,07 — protok koji se na dvadeset kilometara udvostruči. To
 		// nije bio val nego Mura koja se u njemu skrivala.
-		// Bednja se ulijeva u staro korito Drave, koje se s odvodnim kanalom
-		// HE Dubrava spaja kod Donje Dubrave. Lanac joj ide Železnica (rkm
-		// 70,4) → Tuhovec (31,4) → Ludbreg (12,7). Tuhovec Ludbregu drži r
-		// 0,92 uz kašnjenje 5 h, Železnica Tuhovcu slabije (r 0,79, rasap 12,9
-		// m³/s), ali kašnjenje joj raste s vodnošću 0→4 h, pa produljuje lanac:
-		// Ludbreg s njom ide 37/40/26/7/2 % bolje od postojanosti umjesto
-		// 32/21/7/1/lošije.
-		//
-		// Plitvica u Bednju ne utječe. Teče usporedno s njom, sjevernije, i
-		// ulijeva se u staro korito Drave uz Bednju, kod Donje Dubrave. Zato joj
-		// ni na jednoj bednjanskoj letvi nije mjesto među ulazima, iako u
-		// namještanju izgleda kao pritoka: Ludbregu ulazi s kašnjenjem 0 h,
-		// prozorom od sata i nagibom 0,63 (Krkanec) odnosno 0,70 (Vidovićev
-		// Mlin) i diže mu r s 0,924 na 0,965 odnosno 0,952. To nije voda koja
-		// stiže nego ista kiša na dva susjedna sliva, i izvan namještanja od
-		// toga ne ostane ništa: Ludbreg ostaje na 1,7/2,6/5,2/8,9/10,6 m³/s.
-		//
-		// Botovu, kamo Plitvica stvarno pripada, ulazi kao natopljenost:
-		// Vidovićev Mlin s kašnjenjem 32 h i prozorom od 49 sati (gornja
-		// granica pretrage) uz nagib 7,14, Krkanec s 33 h i istim prozorom —
-		// isti potpis koji je Bednja imala na Botovu, a taj izvan namještanja
-		// nije donio ništa. Ni vlastiti lanac joj ne pomaže: od Krkanca do
-		// Vidovićeva Mlina je 16,8 km, a kašnjenje je opet 0 h uz r 0,21–0,33
-		// na srednjim vodama, pa Vidovićev Mlin iz Krkanca ide svega
-		// 15/13/5/3/4 % bolje od postojanosti. Plitvica je duga pedesetak
-		// kilometara sa sitnim podsljevovima: kiša padne na cijeli sliv
-		// odjednom i val nastaje posvuda istodobno umjesto da putuje. Bednja
-		// kašnjenje ima jer je dulja i strmija. Obje letve ostaju upisane i
-		// uvoze se, samo nisu ulaz.
-		//
-		// Lepoglava ostaje vani. Kao sporedni ulaz Ludbregu ne vrijedi ništa
-		// (8,0 → 7,7 m³/s rasapa), a ni Železnici iznad koje leži: ondje joj je
-		// kašnjenje 0 h na svim pojasima uz prozor od 21 sat, dakle model je
-		// čita kao oborinu. Kašnjenje nula znači i da prognoza Železnice iz nje
-		// traži prognozu same Lepoglave, pa lanac ne produljuje ni za sat.
 		// Varaždin leži u starom koritu ispod spoja s odvodnim kanalom HE
 		// Varaždin, pa mu vodostaj vodi istjecanje elektrane (turbine i
 		// preljev) i preljev brane, oboje satno s mletva.voda.hr od 2013.
@@ -215,8 +180,6 @@ var Tokovi = []struct {
 		// u valu, dok elektrana drži istjecanje; ostalo pregled označi
 		// svjetlije. Korisnik ju je tražio radi pregleda, 26. 9. 2026.
 		{"varazdin", []string{"he-varazdin", "brana-he-varazdin"}},
-		{"tuhovec", []string{"zeleznica"}},
-		{"ludbreg", []string{"tuhovec"}},
 		// Bednja Botovu nije ulaz. U namještanju izgleda kao da jest — na
 		// najvišem pojasu skida rasap s 93,5 na 83,9 m³/s — ali model je čita
 		// kao natopljenost sliva, ne kao val: kašnjenje 26 h uz prozor od 49
@@ -271,7 +234,7 @@ var Tokovi = []struct {
 		// Osijekom (2003.–2021.) i pretragom do 96 sati ulaze u vodostaju s
 		// nagibom 0,02 uz prozor od 49 sati, a u protoku s kašnjenjem 96 h —
 		// rasap Osijeka ne pomakne se ni za desetinku. Nije analogija nego
-		// mjerenje. Karašica i Vučica računaju se odvojeno (OdvojeniRacuni).
+		// mjerenje. Karašica, Vučica i Bednja računaju se odvojeno (OdvojeniRacuni).
 		// Probni lanci namještaju se u zasebnu bazu (-baza), da živoj prognozi
 		// ne podmetnu vrh bez očitanja.
 	}},
@@ -356,7 +319,7 @@ var Tokovi = []struct {
 	}},
 }
 
-// OdvojeniRacuni su Karašica i Vučica: vlastite prognoze za Valpovštinu, a
+// OdvojeniRacuni su Karašica, Vučica i Bednja: vlastite prognoze rječica, a
 // ne ulazi Dravi. Pripremi model ih namješta kao i ostale račune, a brojevi im
 // stoje u istim tablicama, pa putuju s modelom. Izdanje ih računa tek poslije
 // glavnog računa (dodatniKrug), jer vrh bez očitanja ne smije zaustaviti cijelu
@@ -385,6 +348,43 @@ var OdvojeniRacuni = []Racun{
 	// spušta rasap na 7,5–16 cm (26. 9. 2026.). Bez Marjančaca nema računa, pa
 	// je i Jelengrad odvojen. Nitko ga ne čita.
 	{"jelengrad", []string{"osijek", "belisce", "marjancaci"}},
+	// Bednja se ulijeva u staro korito Drave, koje se s odvodnim kanalom
+	// HE Dubrava spaja kod Donje Dubrave. Lanac joj ide Železnica (rkm
+	// 70,4) → Tuhovec (31,4) → Ludbreg (12,7). Tuhovec Ludbregu drži r
+	// 0,92 uz kašnjenje 5 h, Železnica Tuhovcu slabije (r 0,79, rasap 12,9
+	// m³/s), ali kašnjenje joj raste s vodnošću 0→4 h, pa produljuje lanac:
+	// Ludbreg s njom ide 37/40/26/7/2 % bolje od postojanosti umjesto
+	// 32/21/7/1/lošije.
+	//
+	// Plitvica u Bednju ne utječe. Teče usporedno s njom, sjevernije, i
+	// ulijeva se u staro korito Drave uz Bednju, kod Donje Dubrave. Zato joj
+	// ni na jednoj bednjanskoj letvi nije mjesto među ulazima, iako u
+	// namještanju izgleda kao pritoka: Ludbregu ulazi s kašnjenjem 0 h,
+	// prozorom od sata i nagibom 0,63 (Krkanec) odnosno 0,70 (Vidovićev
+	// Mlin) i diže mu r s 0,924 na 0,965 odnosno 0,952. To nije voda koja
+	// stiže nego ista kiša na dva susjedna sliva, i izvan namještanja od
+	// toga ne ostane ništa: Ludbreg ostaje na 1,7/2,6/5,2/8,9/10,6 m³/s.
+	//
+	// Botovu, kamo Plitvica stvarno pripada, ulazi kao natopljenost:
+	// Vidovićev Mlin s kašnjenjem 32 h i prozorom od 49 sati (gornja
+	// granica pretrage) uz nagib 7,14, Krkanec s 33 h i istim prozorom —
+	// isti potpis koji je Bednja imala na Botovu, a taj izvan namještanja
+	// nije donio ništa. Ni vlastiti lanac joj ne pomaže: od Krkanca do
+	// Vidovićeva Mlina je 16,8 km, a kašnjenje je opet 0 h uz r 0,21–0,33
+	// na srednjim vodama, pa Vidovićev Mlin iz Krkanca ide svega
+	// 15/13/5/3/4 % bolje od postojanosti. Plitvica je duga pedesetak
+	// kilometara sa sitnim podsljevovima: kiša padne na cijeli sliv
+	// odjednom i val nastaje posvuda istodobno umjesto da putuje. Bednja
+	// kašnjenje ima jer je dulja i strmija. Obje letve ostaju upisane i
+	// uvoze se, samo nisu ulaz.
+	//
+	// Lepoglava ostaje vani. Kao sporedni ulaz Ludbregu ne vrijedi ništa
+	// (8,0 → 7,7 m³/s rasapa), a ni Železnici iznad koje leži: ondje joj je
+	// kašnjenje 0 h na svim pojasima uz prozor od 21 sat, dakle model je
+	// čita kao oborinu. Kašnjenje nula znači i da prognoza Železnice iz nje
+	// traži prognozu same Lepoglave, pa lanac ne produljuje ni za sat.
+	{"tuhovec", []string{"zeleznica"}},
+	{"ludbreg", []string{"tuhovec"}},
 }
 
 // racuniNamjestanja su svi računi koje Pripremi model namješta: glavni lanac
@@ -396,7 +396,7 @@ func racuniNamjestanja() []struct {
 	return append(slices.Clone(Tokovi), struct {
 		Ime    string
 		Racuni []Racun
-	}{"Karašica i Vučica", OdvojeniRacuni})
+	}{"Karašica, Vučica i Bednja", OdvojeniRacuni})
 }
 
 // RazaberiRacun čita "letva = ulaz + ulaz".

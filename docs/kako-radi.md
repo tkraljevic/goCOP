@@ -115,7 +115,13 @@ kartu i dalje treba prenijeti njezinim paketom `.cop`.
 
 Ustroj, registri i djelatnici zajednički su i dolaze na svako računalo.
 Isto vrijedi za prijave grešaka i prijedloge poslane iz programa: tekst, ime
-i uloga osobe te stranica s koje je prijava poslana.
+i uloga osobe, stranica s koje je prijava poslana i slika zaslona, ako je osoba
+doda. Sliku u programu vide samo administrator i osoba koja ju je poslala.
+Svako računalo samo briše sliku 30 dana nakon što je prijava riješena, a prijava
+i tekst ostaju. Ako se prijava prije toga vrati iz stanja „riješeno”, slika
+ostaje.
+Računalo na kojem je prijava nastala javlja je e-poštom globalnim
+administratorima kad na njemu radi slanje e-pošte, najviše deset poruka u satu.
 Ostalo računalo prati po pravilima na stranici „Što ovo računalo prati”:
 očitanja, dnevnike, prijave s terena, vodočuvarski dnevnik i arhivu
 vodostaja, po sektoru ili branjenom području i po godinama. Uz zapise bira

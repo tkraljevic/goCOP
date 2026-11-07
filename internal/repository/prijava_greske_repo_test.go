@@ -1,12 +1,17 @@
 package repository
 
 import (
+	"encoding/json"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"gocop/internal/ledger"
 	"gocop/internal/models"
+	"gocop/internal/sadrzaj"
 )
 
 func novaPrijavaGreske(userID string) *models.PrijavaGreske {
@@ -263,15 +268,15 @@ func TestPrijavaGreskePopisiIBrojevi(t *testing.T) {
 	}
 
 	// ista prijava iste osobe nalazi se samo unutar roka
-	ista, err := r.IstaNedavna(ctxRaz, "a", prva.Vrsta, prva.Opis, prva.Stranica, time.Now().Add(-time.Minute))
+	ista, err := r.IstaNedavna(ctxRaz, "a", prva.Vrsta, prva.Opis, prva.Stranica, "", time.Now().Add(-time.Minute))
 	nuzno(t, err)
 	if ista == nil || ista.ID != druga.ID {
 		t.Errorf("ista nedavna: %+v", ista)
 	}
-	if ista, err := r.IstaNedavna(ctxRaz, "a", prva.Vrsta, "drugi tekst", prva.Stranica, time.Now().Add(-time.Minute)); err != nil || ista != nil {
+	if ista, err := r.IstaNedavna(ctxRaz, "a", prva.Vrsta, "drugi tekst", prva.Stranica, "", time.Now().Add(-time.Minute)); err != nil || ista != nil {
 		t.Errorf("drugi tekst: %+v %v", ista, err)
 	}
-	if ista, err := r.IstaNedavna(ctxRaz, "a", prva.Vrsta, prva.Opis, prva.Stranica, time.Now().Add(time.Minute)); err != nil || ista != nil {
+	if ista, err := r.IstaNedavna(ctxRaz, "a", prva.Vrsta, prva.Opis, prva.Stranica, "", time.Now().Add(time.Minute)); err != nil || ista != nil {
 		t.Errorf("izvan roka: %+v %v", ista, err)
 	}
 }
@@ -352,7 +357,7 @@ func TestPrijavaGreskeKvarBaze(t *testing.T) {
 		if _, err := r.ZadnjaVremena(ctx, "a", 5); err == nil {
 			t.Error("ZadnjaVremena")
 		}
-		if _, err := r.IstaNedavna(ctx, "a", "v", "o", "s", time.Now()); err == nil {
+		if _, err := r.IstaNedavna(ctx, "a", "v", "o", "s", "", time.Now()); err == nil {
 			t.Error("IstaNedavna")
 		}
 		if _, err := r.citajOdgovore(ctx, `SELECT 1`); err == nil {
@@ -373,5 +378,278 @@ func TestPrijavaGreskePopisPoStanju(t *testing.T) {
 	}
 	if u, err := r.Popis(ctxRaz, models.StanjePrijaveNova); err != nil || len(u) != 0 {
 		t.Errorf("nove: %d %v", len(u), err)
+	}
+}
+
+// spremisteZaTest otvara spremište sadržaja; globalno je, pa ga dva čvora u testu
+// naizmjence postavljaju, a na kraju se vraća prijašnje
+func spremisteZaTest(t *testing.T, ime string) *sadrzaj.Spremiste {
+	t.Helper()
+	prije := Spremiste()
+	t.Cleanup(func() { SetSpremiste(prije) })
+	sp, err := sadrzaj.Otvori(filepath.Join(t.TempDir(), ime+".db"))
+	nuzno(t, err)
+	t.Cleanup(func() { nuzno(t, sp.Zatvori()) })
+	return sp
+}
+
+// Slika nastane uz prijavu na jednom računalu. Drugo prvo dobije prijavu i upiše
+// sliku na popis za dohvat, a kad bajtovi stignu, slika je tu. Promjena stanja
+// na drugom računalu ne gubi opis slike.
+func TestPrijavaGreskeSlikaPutujePoOtisku(t *testing.T) {
+	spT, spU := spremisteZaTest(t, "teren"), spremisteZaTest(t, "ured")
+	teren, ured := noviCvor(t, "teren"), noviCvor(t, "ured")
+	rt, ru := NewPrijavaGreskeRepository(teren.db, teren.rec), NewPrijavaGreskeRepository(ured.db, ured.rec)
+
+	slika := []byte("bajtovi slike zaslona")
+	otisak := sadrzaj.Otisak(slika)
+	p := novaPrijavaGreske("osoba-1")
+	p.SlikaOtisak, p.SlikaBajtova, p.SlikaVrsta = otisak, len(slika), models.SlikaPrijavePNG
+	SetSpremiste(spT)
+	nuzno(t, rt.SaveSaSlikom(ctxRaz, p, slika))
+	if string(rt.CitajSliku(ctxRaz, otisak)) != string(slika) || !rt.ImaSliku(ctxRaz, otisak) {
+		t.Fatal("slika nije spremljena uz prijavu")
+	}
+	verzije, err := teren.rec.Since(ctxRaz, "", 0)
+	nuzno(t, err)
+	for _, v := range verzije {
+		if strings.Contains(string(v.Payload), "bajtovi slike") {
+			t.Fatalf("bajtovi su u knjizi: %s", v.Entity)
+		}
+	}
+
+	SetSpremiste(spU)
+	posalji(t, teren, ured)
+	stigla, err := ru.Get(ctxRaz, p.ID)
+	nuzno(t, err)
+	if stigla.SlikaOtisak != otisak || stigla.SlikaVrsta != models.SlikaPrijavePNG || stigla.SlikaBajtova != len(slika) {
+		t.Fatalf("opis slike: %+v", stigla)
+	}
+	if ru.ImaSliku(ctxRaz, otisak) || !spU.Zeljen(ctxRaz, otisak) {
+		t.Fatal("slika mora čekati na popisu za dohvat")
+	}
+	veza := sadrzaj.Veza{Entitet: EntityPrijaveGresaka, EntitetID: p.ID, Uloga: ulogaSlikePrijave}
+	if !spU.ImaVezu(ctxRaz, otisak, veza) {
+		t.Error("prijava ne drži sliku živom")
+	}
+	nuzno(t, spU.UpisiProvjereno(ctxRaz, otisak, models.SlikaPrijavePNG, slika, "cvor:teren"))
+	if !ru.ImaSliku(ctxRaz, otisak) || spU.Zeljen(ctxRaz, otisak) {
+		t.Fatal("slika je stigla, a želja je ostala")
+	}
+
+	// administrator na uredu mijenja stanje; slika ostaje u novoj verziji
+	_, err = ru.Odgovori(ctxRaz, p.ID, models.StanjePrijaveURadu, "", "Ivo Ivić")
+	nuzno(t, err)
+	SetSpremiste(spT)
+	posalji(t, ured, teren)
+	vidi, err := rt.Get(ctxRaz, p.ID)
+	nuzno(t, err)
+	if vidi.Stanje != models.StanjePrijaveURadu || vidi.SlikaOtisak != otisak {
+		t.Errorf("nakon promjene stanja: %+v", vidi)
+	}
+}
+
+// Prijava bez slike ne stvara ni želju ni vezu
+func TestPrijavaGreskeBezSlikeNistaNeTrazi(t *testing.T) {
+	sp := spremisteZaTest(t, "ured")
+	SetSpremiste(sp)
+	teren, ured := noviCvor(t, "teren"), noviCvor(t, "ured")
+	nuzno(t, NewPrijavaGreskeRepository(teren.db, teren.rec).Save(ctxRaz, novaPrijavaGreske("a")))
+	posalji(t, teren, ured)
+	if z, err := sp.Zeljeni(ctxRaz, 10); err != nil || len(z) != 0 {
+		t.Errorf("želje: %+v %v", z, err)
+	}
+}
+
+// Drugo računalo ne može naložiti dohvat nečega što nije slika zaslona: prijava
+// stigne, ali bez slike
+func TestPrijavaGreskeKrivOpisSlike(t *testing.T) {
+	sp := spremisteZaTest(t, "ured")
+	SetSpremiste(sp)
+	ured := noviCvor(t, "ured")
+	ru := NewPrijavaGreskeRepository(ured.db, ured.rec)
+	dobar := strings.Repeat("a1", 32)
+	for i, opis := range []struct {
+		otisak, vrsta string
+		bajtova       int
+	}{
+		{dobar, "image/svg+xml", 10},
+		{dobar, "application/pdf", 10},
+		{"../../tajna", models.SlikaPrijavePNG, 10},
+		{dobar, models.SlikaPrijavePNG, models.NajvecaSlikaPrijave + 1},
+		{dobar, models.SlikaPrijavePNG, -1},
+	} {
+		p := novaPrijavaGreske("a")
+		p.ID = uuid.Must(uuid.NewV7()).String()
+		p.CreatedAt, p.UpdatedAt = time.Now().UTC(), time.Now().UTC()
+		p.SlikaOtisak, p.SlikaVrsta, p.SlikaBajtova = opis.otisak, opis.vrsta, opis.bajtova
+		teret, err := json.Marshal(p)
+		nuzno(t, err)
+		primi(t, ured, []ledger.Version{{VersionID: uuid.Must(uuid.NewV7()).String(), NodeID: "teren", Entity: EntityPrijaveGresaka, EntityID: p.ID, Payload: teret, CreatedAt: time.Now().UTC()}})
+		stigla, err := ru.Get(ctxRaz, p.ID)
+		nuzno(t, err)
+		if stigla == nil || stigla.SlikaOtisak != "" || stigla.SlikaVrsta != "" {
+			t.Errorf("%d: %+v", i, stigla)
+		}
+	}
+	if z, err := sp.Zeljeni(ctxRaz, 10); err != nil || len(z) != 0 {
+		t.Errorf("želje: %+v %v", z, err)
+	}
+}
+
+// Zapis o poslanoj poruci ostaje na računalu koje je slalo: ne stvara verziju i
+// ne putuje, pa drugo računalo ne pokazuje poruku koju nije slalo
+func TestPrijavaGreskePorukaOstajeNaRacunalu(t *testing.T) {
+	teren, ured := noviCvor(t, "teren"), noviCvor(t, "ured")
+	rt, ru := NewPrijavaGreskeRepository(teren.db, teren.rec), NewPrijavaGreskeRepository(ured.db, ured.rec)
+	p := novaPrijavaGreske("a")
+	nuzno(t, rt.Save(ctxRaz, p))
+	prije, err := teren.rec.Since(ctxRaz, "", 0)
+	nuzno(t, err)
+
+	kad := time.Now()
+	nuzno(t, rt.ZabiljeziPoruku(ctxRaz, p.ID, kad))
+	nuzno(t, rt.ZabiljeziPoruku(ctxRaz, p.ID, kad.Add(time.Hour))) // ostaje prvi zapis
+	nakon, err := teren.rec.Since(ctxRaz, "", 0)
+	nuzno(t, err)
+	if len(nakon) != len(prije) {
+		t.Errorf("zapis poruke je stvorio verziju: %d → %d", len(prije), len(nakon))
+	}
+	vidi, err := rt.Get(ctxRaz, p.ID)
+	nuzno(t, err)
+	if vidi.PorukaPoslana == nil || !vidi.PorukaPoslana.Equal(kad.UTC().Truncate(0)) && vidi.PorukaPoslana.Sub(kad).Abs() > time.Second {
+		t.Errorf("poslano: %v", vidi.PorukaPoslana)
+	}
+	if n, err := rt.BrojPorukaOd(ctxRaz, kad.Add(-time.Minute)); err != nil || n != 1 {
+		t.Errorf("u satu: %d %v", n, err)
+	}
+	if n, err := rt.BrojPorukaOd(ctxRaz, kad.Add(time.Minute)); err != nil || n != 0 {
+		t.Errorf("nakon: %d %v", n, err)
+	}
+
+	posalji(t, teren, ured)
+	stigla, err := ru.Get(ctxRaz, p.ID)
+	nuzno(t, err)
+	if stigla.PorukaPoslana != nil {
+		t.Errorf("poruka je otputovala: %v", stigla.PorukaPoslana)
+	}
+}
+
+// Bez spremišta ni bez bajtova nema tihog spremanja slike
+func TestPrijavaGreskeSlikaBezSpremista(t *testing.T) {
+	prije := Spremiste()
+	t.Cleanup(func() { SetSpremiste(prije) })
+	SetSpremiste(nil)
+	c := noviCvor(t, "teren")
+	r := NewPrijavaGreskeRepository(c.db, c.rec)
+	p := novaPrijavaGreske("a")
+	p.SlikaOtisak, p.SlikaBajtova, p.SlikaVrsta = sadrzaj.Otisak([]byte("x")), 1, models.SlikaPrijavePNG
+	if err := r.SaveSaSlikom(ctxRaz, p, []byte("x")); err == nil {
+		t.Error("bez spremišta mora biti greška")
+	}
+	if r.ImaSliku(ctxRaz, p.SlikaOtisak) || len(r.CitajSliku(ctxRaz, p.SlikaOtisak)) != 0 {
+		t.Error("bez spremišta slike nema")
+	}
+	sp := spremisteZaTest(t, "s")
+	SetSpremiste(sp)
+	q := novaPrijavaGreske("a")
+	q.SlikaOtisak, q.SlikaBajtova, q.SlikaVrsta = strings.Repeat("a1", 32), 1, models.SlikaPrijavePNG
+	if err := r.SaveSaSlikom(ctxRaz, q, []byte("x")); err == nil {
+		t.Error("otisak se ne slaže")
+	}
+}
+
+// Primjena s neispravnim zapisom, spremištem koje ne radi ili bazom koja ne prima
+// javlja grešku, pa zapis čeka sljedeći pokušaj
+func TestPrimjenaPrijaveGreskeKvarovi(t *testing.T) {
+	c := noviCvor(t, "ured")
+	tx, err := c.db.Begin()
+	nuzno(t, err)
+	if err := primijeniPrijavuGreske(ctxRaz, tx, ledger.Version{Payload: []byte("{")}); err == nil {
+		t.Error("neispravan zapis")
+	}
+	nuzno(t, tx.Rollback())
+
+	p := novaPrijavaGreske("a")
+	p.ID = uuid.Must(uuid.NewV7()).String()
+	p.SlikaOtisak, p.SlikaBajtova, p.SlikaVrsta = strings.Repeat("a1", 32), 10, models.SlikaPrijavePNG
+	teret, err := json.Marshal(p)
+	nuzno(t, err)
+	// transakcija je već gotova, pa upis ne prolazi
+	if err := primijeniPrijavuGreske(ctxRaz, tx, ledger.Version{Payload: teret}); err == nil {
+		t.Error("upis u gotovu transakciju")
+	}
+
+	sp, err := sadrzaj.Otvori(filepath.Join(t.TempDir(), "s.db"))
+	nuzno(t, err)
+	prije := Spremiste()
+	t.Cleanup(func() { SetSpremiste(prije) })
+	SetSpremiste(sp)
+	nuzno(t, sp.Zatvori())
+	tx, err = c.db.Begin()
+	nuzno(t, err)
+	defer func() { nuzno(t, tx.Rollback()) }()
+	if err := primijeniPrijavuGreske(ctxRaz, tx, ledger.Version{Payload: teret}); err == nil {
+		t.Error("spremište ne radi")
+	}
+}
+
+// Broje se samo prijave sa slikom, najnovije prve
+func TestZadnjaVremenaSlika(t *testing.T) {
+	sp := spremisteZaTest(t, "s")
+	SetSpremiste(sp)
+	c := noviCvor(t, "teren")
+	r := NewPrijavaGreskeRepository(c.db, c.rec)
+	nuzno(t, r.Save(ctxRaz, novaPrijavaGreske("a")))
+	slika := []byte("slika")
+	for _, korisnik := range []string{"a", "a", "b"} {
+		p := novaPrijavaGreske(korisnik)
+		p.SlikaOtisak, p.SlikaBajtova, p.SlikaVrsta = sadrzaj.Otisak(slika), len(slika), models.SlikaPrijavePNG
+		nuzno(t, r.SaveSaSlikom(ctxRaz, p, slika))
+	}
+	vremena, err := r.ZadnjaVremenaSlika(ctxRaz, "a", 10)
+	nuzno(t, err)
+	if len(vremena) != 2 || vremena[0].Before(vremena[1]) {
+		t.Errorf("%v", vremena)
+	}
+	if vremena, err := r.ZadnjaVremenaSlika(ctxRaz, "a", 1); err != nil || len(vremena) != 1 {
+		t.Errorf("%v %v", vremena, err)
+	}
+}
+
+// Prijava koja se ne upiše ne ostavlja sliku u spremištu, a ista slika uz drugu
+// prijavu ostaje
+func TestSlikaNeOstajeKadPrijavaNijeUpisana(t *testing.T) {
+	sp := spremisteZaTest(t, "teren")
+	SetSpremiste(sp)
+	c := noviCvor(t, "teren")
+	r := NewPrijavaGreskeRepository(c.db, c.rec)
+	slika := []byte("bajtovi slike zaslona")
+	otisak := sadrzaj.Otisak(slika)
+	nova := func() *models.PrijavaGreske {
+		p := novaPrijavaGreske("osoba-1")
+		p.SlikaOtisak, p.SlikaBajtova, p.SlikaVrsta = otisak, len(slika), models.SlikaPrijavePNG
+		return p
+	}
+	kvar := func() {
+		_, err := c.db.Exec(`CREATE TRIGGER kvar BEFORE INSERT ON prijave_gresaka BEGIN SELECT RAISE(ABORT, 'kvar'); END`)
+		nuzno(t, err)
+	}
+	kvar()
+	if err := r.SaveSaSlikom(ctxRaz, nova(), slika); err == nil {
+		t.Fatal("upis je morao pasti")
+	}
+	if r.ImaSliku(ctxRaz, otisak) {
+		t.Error("slika je ostala bez prijave")
+	}
+	_, err := c.db.Exec(`DROP TRIGGER kvar`)
+	nuzno(t, err)
+	nuzno(t, r.SaveSaSlikom(ctxRaz, nova(), slika))
+	kvar()
+	if err := r.SaveSaSlikom(ctxRaz, nova(), slika); err == nil {
+		t.Fatal("upis je morao pasti")
+	}
+	if !r.ImaSliku(ctxRaz, otisak) {
+		t.Error("nestala je slika koju drži prva prijava")
 	}
 }

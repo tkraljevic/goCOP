@@ -34,6 +34,21 @@ const (
 	najviseVrijednostiUpita = 64
 )
 
+// NajvecaSlikaPrijave je najveća slika zaslona uz prijavu. Slika putuje na sva
+// računala u mreži, pa je granica manja nego za fotografije s terena.
+const NajvecaSlikaPrijave = 2 << 20
+
+// RokSlikePrijave je koliko slika ostaje nakon što je prijava riješena. Prijava
+// i tekst ostaju i poslije.
+const RokSlikePrijave = 30 * 24 * time.Hour
+
+// Vrste slike zaslona koje prijava smije nositi
+const (
+	SlikaPrijavePNG  = "image/png"
+	SlikaPrijaveJPEG = "image/jpeg"
+	SlikaPrijaveWebP = "image/webp"
+)
+
 // PrijavaGreske je greška ili prijedlog koji je korisnik poslao s neke
 // stranice. Tekst napiše korisnik, a stranicu, izdanje, računalo i preglednik
 // zabilježi program. Stanje upisuje administrator kao novu verziju istog zapisa,
@@ -58,8 +73,20 @@ type PrijavaGreske struct {
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 
+	// Slika zaslona po želji. Bajtovi su u spremištu sadržaja i putuju po otisku.
+	SlikaOtisak  string `json:"slika_otisak,omitempty"`
+	SlikaBajtova int    `json:"slika_bajtova,omitempty"`
+	SlikaVrsta   string `json:"slika_vrsta,omitempty"`
+	// SlikaIstekla: prijava je vraćena iz „riješeno” kad je rok slike već prošao.
+	// Slike tada više nema, pa je nijedno računalo ne smije tražiti.
+	SlikaIstekla bool `json:"slika_istekla,omitempty"`
+
 	// Odgovori se ne spremaju uz prijavu; puni ih čitanje, redom kojim su nastali
 	Odgovori []OdgovorNaPrijavu `json:"-"`
+	// PorukaPoslana je kad je ovo računalo javilo prijavu e-poštom; ne putuje
+	PorukaPoslana *time.Time `json:"-"`
+	// SlikaTu javlja je li slika već na ovom računalu; puni je MojePrijave, ne putuje
+	SlikaTu bool `json:"-"`
 }
 
 // OdgovorNaPrijavu je jedan odgovor administratora. Ne mijenja se: novi odgovor
@@ -133,6 +160,53 @@ func (p *PrijavaGreske) Racunalo() string {
 		return p.Sustav
 	}
 	return p.Sustav + " · " + p.Cvor
+}
+
+// PorukaKad je vrijeme e-pošte administratorima riječima; prazno kad je ovo
+// računalo nije slalo
+func (p *PrijavaGreske) PorukaKad() string {
+	if p.PorukaPoslana == nil {
+		return ""
+	}
+	return p.PorukaPoslana.In(Zagreb).Format("2. 1. 2006. u 15:04")
+}
+
+// SlikaUklonjenaU javlja je li slika u tom trenutku za brisanje. Svako računalo
+// to računa samo, iz stanja i vremena koja je prijava donijela razmjenom. Prijava
+// se mijenja samo uz promjenu stanja (odgovor je zaseban zapis), pa je UpdatedAt
+// riješene prijave trenutak kad je riješena, a vraćena prijava izlazi iz roka.
+// Zato brisanje ne treba novu verziju i ne putuje među računalima.
+func (p *PrijavaGreske) SlikaUklonjenaU(sad time.Time) bool {
+	if p.SlikaOtisak == "" {
+		return false
+	}
+	return p.SlikaIstekla || (p.Stanje == StanjePrijaveRijeseno && !sad.Before(p.UpdatedAt.Add(RokSlikePrijave)))
+}
+
+// SlikaUklonjena je SlikaUklonjenaU za ovaj trenutak, za stranice
+func (p *PrijavaGreske) SlikaUklonjena() bool { return p.SlikaUklonjenaU(time.Now()) }
+
+// JeVrstaSlikePrijave javlja je li to vrsta slike zaslona koju prijava smije nositi
+func JeVrstaSlikePrijave(vrsta string) bool {
+	return vrsta == SlikaPrijavePNG || vrsta == SlikaPrijaveJPEG || vrsta == SlikaPrijaveWebP
+}
+
+// OcistiOpisSlike briše opis slike koji program ne bi sam napisao: drugo računalo
+// ne smije naložiti dohvat nečega što nije slika zaslona prihvatljive veličine.
+func (p *PrijavaGreske) OcistiOpisSlike() {
+	if !jeOtisakSlike(p.SlikaOtisak) || !JeVrstaSlikePrijave(p.SlikaVrsta) || p.SlikaBajtova <= 0 || p.SlikaBajtova > NajvecaSlikaPrijave {
+		p.SlikaOtisak, p.SlikaVrsta, p.SlikaBajtova = "", "", 0
+	}
+}
+
+// jeOtisakSlike: SHA-256 u heksadecimalnom zapisu malim slovima
+func jeOtisakSlike(o string) bool {
+	if len(o) != 64 {
+		return false
+	}
+	return !strings.ContainsFunc(o, func(r rune) bool {
+		return (r < '0' || r > '9') && (r < 'a' || r > 'f')
+	})
 }
 
 // JeStanjePrijave javlja je li vrijednost jedno od stanja prijave

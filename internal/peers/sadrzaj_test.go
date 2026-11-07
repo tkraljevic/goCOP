@@ -188,3 +188,175 @@ func TestNezeljeniSadrzajNeZadrzavaZeljeni(t *testing.T) {
 		t.Errorf("na popisu za dohvat %d, očekivano 250 neželjenih", len(z))
 	}
 }
+
+// Slika zaslona uz prijavu greške ide stvarnom razmjenom: drugo računalo dobije
+// prijavu i sliku po otisku, i kad prati samo jedan sektor, jer je prijava u
+// zajedničkom kanalu. Bajtovi su izvan knjige.
+func TestSlikaPrijaveGreskePutujeRazmjenom(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	a := startNodeBezRegistra(t, ctx, "cop-osijek")
+	b := startNodeBezRegistra(t, ctx, "laptop-baranja")
+	founder(t, ctx, a, "Hrvatske vode")
+	pair(t, ctx, a, b)
+	spA, spB := spremisteCvora(t, "a"), spremisteCvora(t, "b")
+	a.svc.SetSpremiste(spA)
+	b.svc.SetSpremiste(spB)
+	a.svc.SetWantsAll(true)
+	b.svc.SetWantsAll(false)
+	if _, err := b.svc.AddSubscription(ctx, peers.Subscription{Kind: "prijave", AreaID: 16, Razina: peers.RazinaKazalo}); err != nil {
+		t.Fatal(err)
+	}
+
+	slika := []byte("\x89PNG bajtovi slike zaslona")
+	repository.SetSpremiste(spA)
+	defer repository.SetSpremiste(nil)
+	p := &models.PrijavaGreske{UserID: "osoba-1", Vrsta: models.VrstaPrijaveGreska, Opis: "Graf se ne crta.", Stanje: models.StanjePrijaveNova,
+		SlikaOtisak: sadrzaj.Otisak(slika), SlikaBajtova: len(slika), SlikaVrsta: models.SlikaPrijavePNG}
+	if err := repository.NewPrijavaGreskeRepository(a.db, a.rec).SaveSaSlikom(ctx, p, slika); err != nil {
+		t.Fatal(err)
+	}
+
+	// primjena verzija na B-u koristi spremište B-a
+	repository.SetSpremiste(spB)
+	if _, _, err := b.svc.SyncWith(ctx, a.id); err != nil {
+		t.Fatalf("razmjena: %v", err)
+	}
+	stigla, err := repository.NewPrijavaGreskeRepository(b.db, b.rec).Get(ctx, p.ID)
+	if err != nil || stigla == nil || stigla.SlikaOtisak != p.SlikaOtisak {
+		t.Fatalf("prijava na B-u: %+v %v", stigla, err)
+	}
+	if !spB.Ima(ctx, p.SlikaOtisak) {
+		if _, _, err := b.svc.SyncWith(ctx, a.id); err != nil {
+			t.Fatalf("druga razmjena: %v", err)
+		}
+	}
+	got, vrsta, err := spB.Citaj(ctx, p.SlikaOtisak)
+	if err != nil || string(got) != string(slika) || vrsta != models.SlikaPrijavePNG {
+		t.Fatalf("slika na B-u: %q %q %v", got, vrsta, err)
+	}
+	if z, err := spB.Zeljeni(ctx, 10); err != nil || len(z) != 0 {
+		t.Errorf("želja nije nestala: %+v %v", z, err)
+	}
+}
+
+// Slika riješene prijave briše se stvarnom razmjenom kroz razgovor dva čvora:
+// kad je rok prošao, računalo koje je ima briše je, a ono koje ju je obrisalo ne
+// traži je ni kad je druga strana još ima. Nitko ne piše nove verzije.
+func TestIsteklaSlikaPrijaveNeKruziRazmjenom(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	a := startNodeBezRegistra(t, ctx, "cop-osijek")
+	b := startNodeBezRegistra(t, ctx, "laptop-baranja")
+	founder(t, ctx, a, "Hrvatske vode")
+	pair(t, ctx, a, b)
+	spA, spB := spremisteCvora(t, "a"), spremisteCvora(t, "b")
+	a.svc.SetSpremiste(spA)
+	b.svc.SetSpremiste(spB)
+	a.svc.SetWantsAll(true)
+	b.svc.SetWantsAll(true)
+	defer repository.SetSpremiste(nil)
+	razmjena := func(tko string) {
+		t.Helper()
+		repository.SetSpremiste(spB) // primjena verzija na B-u koristi spremište B-a
+		if _, _, err := b.svc.SyncWith(ctx, a.id); err != nil {
+			t.Fatalf("razmjena %s: %v", tko, err)
+		}
+	}
+
+	slika := []byte("\x89PNG bajtovi slike zaslona")
+	otisak := sadrzaj.Otisak(slika)
+	ra, rb := repository.NewPrijavaGreskeRepository(a.db, a.rec), repository.NewPrijavaGreskeRepository(b.db, b.rec)
+	repository.SetSpremiste(spA)
+	p := &models.PrijavaGreske{UserID: "osoba-1", Vrsta: models.VrstaPrijaveGreska, Opis: "Graf se ne crta.", Stanje: models.StanjePrijaveNova,
+		SlikaOtisak: otisak, SlikaBajtova: len(slika), SlikaVrsta: models.SlikaPrijavePNG}
+	if err := ra.SaveSaSlikom(ctx, p, slika); err != nil {
+		t.Fatal(err)
+	}
+	razmjena("prva")
+	if !spB.Ima(ctx, otisak) {
+		razmjena("za sliku")
+	}
+	if !spB.Ima(ctx, otisak) {
+		t.Fatal("slika nije stigla na B")
+	}
+
+	// prijava je riješena prije 31 dan, a A još nije čistio
+	q := *p
+	q.Stanje, q.UpdatedAt = models.StanjePrijaveRijeseno, time.Now().Add(-31*24*time.Hour).UTC()
+	tx, err := a.db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE prijave_gresaka SET stanje = ?, updated_at = ? WHERE id = ?`, q.Stanje, q.UpdatedAt, q.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.rec.Record(ctx, tx, repository.EntityPrijaveGresaka, q.ID, &q); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+
+	// B obriše već kad primi riješeno stanje, a sliku ne traži ni dok je A ima
+	razmjena("s riješenom prijavom")
+	if spB.Ima(ctx, otisak) || spB.Zeljen(ctx, otisak) {
+		t.Errorf("B nakon roka: ima %v, traži %v", spB.Ima(ctx, otisak), spB.Zeljen(ctx, otisak))
+	}
+	razmjena("ponovna")
+	if !spA.Ima(ctx, otisak) {
+		t.Fatal("A još nije čistio")
+	}
+	if spB.Ima(ctx, otisak) || spB.Zeljen(ctx, otisak) {
+		t.Error("B je sliku opet dohvatio od A")
+	}
+
+	repository.SetSpremiste(spA)
+	if n, err := ra.UkloniIstekleSlike(ctx, time.Now()); err != nil || n != 1 || spA.Ima(ctx, otisak) {
+		t.Errorf("A: uklonjeno %d, %v", n, err)
+	}
+	prije := brojVerzija(t, ctx, a)
+	razmjena("nakon brisanja na oba")
+	razmjena("još jedna")
+	if brojVerzija(t, ctx, a) != prije || brojVerzija(t, ctx, b) != prije {
+		t.Errorf("brisanje je stvorilo verzije: A %d, B %d, bilo %d", brojVerzija(t, ctx, a), brojVerzija(t, ctx, b), prije)
+	}
+	for _, sp := range []*sadrzaj.Spremiste{spA, spB} {
+		if sp.Ima(ctx, otisak) || sp.Zeljen(ctx, otisak) {
+			t.Error("slika se vratila")
+		}
+	}
+	for _, r := range []*repository.PrijavaGreskeRepository{ra, rb} {
+		x, err := r.Get(ctx, p.ID)
+		if err != nil || x == nil || x.Opis != p.Opis || !x.SlikaUklonjena() {
+			t.Errorf("prijava nakon brisanja: %+v %v", x, err)
+		}
+	}
+}
+
+// brojVerzija broji sve verzije u knjizi čvora
+func brojVerzija(t *testing.T, ctx context.Context, n *node) int {
+	t.Helper()
+	var broj int
+	if err := n.db.QueryRowContext(ctx, `SELECT count(*) FROM record_versions`).Scan(&broj); err != nil {
+		t.Fatal(err)
+	}
+	return broj
+}
+
+// spremisteCvora otvara spremište sadržaja za jedan čvor u testu
+func spremisteCvora(t *testing.T, ime string) *sadrzaj.Spremiste {
+	t.Helper()
+	sp, err := sadrzaj.Otvori(filepath.Join(t.TempDir(), ime+".db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := sp.Zatvori(); err != nil {
+			t.Error(err)
+		}
+	})
+	return sp
+}

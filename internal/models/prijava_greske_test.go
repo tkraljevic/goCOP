@@ -169,3 +169,78 @@ func TestPrijavaGreskeNatpisi(t *testing.T) {
 		t.Error("StanjeZaPrikaz")
 	}
 }
+
+// Opis slike s drugog računala ostaje samo kad bi ga program i sam napisao
+func TestOcistiOpisSlike(t *testing.T) {
+	dobar := strings.Repeat("a1", 32)
+	for _, s := range []struct {
+		ime     string
+		otisak  string
+		vrsta   string
+		bajtova int
+		ostaje  bool
+	}{
+		{"dobar", dobar, SlikaPrijavePNG, 10, true},
+		{"najveći", dobar, SlikaPrijaveWebP, NajvecaSlikaPrijave, true},
+		{"prevelik", dobar, SlikaPrijaveJPEG, NajvecaSlikaPrijave + 1, false},
+		{"bez veličine", dobar, SlikaPrijavePNG, 0, false},
+		{"SVG", dobar, "image/svg+xml", 10, false},
+		{"PDF", dobar, "application/pdf", 10, false},
+		{"kratak otisak", "abc", SlikaPrijavePNG, 10, false},
+		{"velika slova", strings.ToUpper(dobar), SlikaPrijavePNG, 10, false},
+		{"put u otisku", strings.Repeat("../", 21) + "a", SlikaPrijavePNG, 10, false},
+	} {
+		p := PrijavaGreske{SlikaOtisak: s.otisak, SlikaVrsta: s.vrsta, SlikaBajtova: s.bajtova}
+		p.OcistiOpisSlike()
+		if ostalo := p.SlikaOtisak != ""; ostalo != s.ostaje {
+			t.Errorf("%s: ostalo %v", s.ime, ostalo)
+		}
+		if !s.ostaje && (p.SlikaVrsta != "" || p.SlikaBajtova != 0) {
+			t.Errorf("%s: nešto je ostalo: %+v", s.ime, p)
+		}
+	}
+}
+
+func TestPorukaKad(t *testing.T) {
+	p := PrijavaGreske{}
+	if p.PorukaKad() != "" {
+		t.Error("bez poruke")
+	}
+	kad := time.Date(2026, 11, 6, 16, 42, 0, 0, time.UTC)
+	p.PorukaPoslana = &kad
+	if p.PorukaKad() != "6. 11. 2026. u 17:42" {
+		t.Errorf("%q", p.PorukaKad())
+	}
+}
+
+// Rok slike vrijedi samo za riješenu prijavu, od trenutka kad je riješena
+func TestSlikaUklonjenaU(t *testing.T) {
+	rijesena := time.Date(2026, 11, 6, 12, 0, 0, 0, time.UTC)
+	sad := rijesena.Add(RokSlikePrijave)
+	for _, s := range []struct {
+		ime     string
+		p       PrijavaGreske
+		kad     time.Time
+		obrisna bool
+	}{
+		{"prije roka", PrijavaGreske{SlikaOtisak: "a", Stanje: StanjePrijaveRijeseno, UpdatedAt: rijesena}, sad.Add(-time.Second), false},
+		{"na roku", PrijavaGreske{SlikaOtisak: "a", Stanje: StanjePrijaveRijeseno, UpdatedAt: rijesena}, sad, true},
+		{"nova", PrijavaGreske{SlikaOtisak: "a", Stanje: StanjePrijaveNova, UpdatedAt: rijesena}, sad.AddDate(1, 0, 0), false},
+		{"u radu", PrijavaGreske{SlikaOtisak: "a", Stanje: StanjePrijaveURadu, UpdatedAt: rijesena}, sad.AddDate(1, 0, 0), false},
+		{"nepoznato stanje", PrijavaGreske{SlikaOtisak: "a", Stanje: "odbijeno", UpdatedAt: rijesena}, sad.AddDate(1, 0, 0), false},
+		{"vraćena nakon roka", PrijavaGreske{SlikaOtisak: "a", Stanje: StanjePrijaveURadu, UpdatedAt: sad, SlikaIstekla: true}, sad, true},
+		{"bez slike", PrijavaGreske{Stanje: StanjePrijaveRijeseno, UpdatedAt: rijesena}, sad, false},
+	} {
+		if got := s.p.SlikaUklonjenaU(s.kad); got != s.obrisna {
+			t.Errorf("%s: %v", s.ime, got)
+		}
+	}
+	nedavno := PrijavaGreske{SlikaOtisak: "a", Stanje: StanjePrijaveRijeseno, UpdatedAt: time.Now()}
+	stara := PrijavaGreske{SlikaOtisak: "a", Stanje: StanjePrijaveRijeseno, UpdatedAt: time.Now().Add(-RokSlikePrijave - time.Minute)}
+	if nedavno.SlikaUklonjena() || !stara.SlikaUklonjena() {
+		t.Error("za stranice")
+	}
+	if NajvecaSlikaPrijave != 2<<20 {
+		t.Errorf("najveća slika: %d", NajvecaSlikaPrijave)
+	}
+}
