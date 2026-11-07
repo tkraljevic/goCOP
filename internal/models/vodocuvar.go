@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -157,6 +158,17 @@ func (l VodocuvarskiList) Sati() float64 {
 // SatiTekst je "8,0" kako se piše na listu
 func (l VodocuvarskiList) SatiTekst() string {
 	return strings.ReplaceAll(fmt.Sprintf("%.1f", l.Sati()), ".", ",")
+}
+
+// SatiKratko su sati za zaslon, bez suvišne decimale: "8" ili "7,5". Papir i
+// dalje piše SatiTekst.
+func (l VodocuvarskiList) SatiKratko() string {
+	return strings.ReplaceAll(strconv.FormatFloat(l.Sati(), 'f', -1, 64), ".", ",")
+}
+
+// DatumKratko je dan lista za zaslon, bez godine: "26. 10."
+func (l VodocuvarskiList) DatumKratko() string {
+	return l.Datum.In(Zagreb).Format("2. 1.")
 }
 
 // DanUTjednu je hrvatski naziv dana, kao na papiru

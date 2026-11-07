@@ -47,7 +47,7 @@ func TestDvostrukiListoviKrozRute(t *testing.T) {
 		t.Error("redak dvostrukog lista bez oznake stanja")
 	}
 	moj := o.zovi(t, o.vodocuvar, http.MethodGet, "/vodocuvar", nil).Body.String()
-	if strings.Contains(moj, "Dvostruki dnevni listovi") || !strings.Contains(moj, "dvostruki list – vidi i list br. 42") {
+	if strings.Contains(moj, "Dvostruki dnevni listovi") || !strings.Contains(moj, "dvostruki list: vidi i list br. 42") {
 		t.Error("vodočuvar ne dobiva popis dvojnika, ali oznaku na svom listu vidi")
 	}
 	list := o.zovi(t, o.rukovodi, http.MethodGet, "/vodocuvar/"+prvi.ID, nil).Body.String()

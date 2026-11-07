@@ -28,7 +28,7 @@ type UpozorenjeNepredanih struct {
 type DanNepredanog struct {
 	Prije string // ispred datuma: ništa, zarez ili „i”
 	ID    string
-	Dan   string // „8. 10.”
+	Dan   string // „8. 10.”, a kad je dan samo jedan „četvrtak, 8. 10.”
 }
 
 // upozorenjeNepredanih slaže upozorenje iz nepredanih listova, redom dana;
@@ -40,7 +40,11 @@ func upozorenjeNepredanih(listovi []models.VodocuvarskiList) *UpozorenjeNepredan
 	nabrojani := listovi[:min(len(listovi), najviseNepredanihDana)]
 	u := &UpozorenjeNepredanih{Ukupno: len(listovi), Jos: len(listovi) - len(nabrojani)}
 	for i, l := range nabrojani {
-		u.Dani = append(u.Dani, DanNepredanog{Prije: razdjelnikDana(i, len(nabrojani), u.Jos), ID: l.ID, Dan: l.Datum.In(models.Zagreb).Format("2. 1.")})
+		u.Dani = append(u.Dani, DanNepredanog{Prije: razdjelnikDana(i, len(nabrojani), u.Jos), ID: l.ID, Dan: l.DatumKratko()})
+	}
+	// dan u tjednu samo uz jedan datum: u nabrajanju bi se zarezi pomiješali
+	if len(listovi) == 1 {
+		u.Dani[0].Dan = listovi[0].DanUTjednu() + ", " + u.Dani[0].Dan
 	}
 	return u
 }
