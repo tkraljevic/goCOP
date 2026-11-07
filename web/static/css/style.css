@@ -4888,6 +4888,71 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .vodocuvar-dl dd { margin: 0; }
 @media (max-width: 560px) { .vodocuvar-dl { grid-template-columns: 1fr; } }
 .stavke { margin: 0; padding-left: 1.4rem; } .stavke li { margin: 0.15rem 0; }
+/* Dnevni list za čitanje, predan ili ovjeren: redovi s podacima, zadaci i prilozi u karticama.
+   .vodocuvar-dl i .prijava-slike koriste i druge stranice, pa je sve vezano uz .list-kartica. */
+.list-glava-ovjeren .oznaka-stanja::before { content: "✓"; margin-right: 4px; }
+.list-napomena { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 16px; padding: 8px 12px; font-size: 0.875rem; line-height: 20px; color: var(--md-sys-color-on-surface); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--r-kartica); background: var(--md-sys-color-surface-container-low); }
+.list-napomena > .icon { width: 20px; height: 20px; color: var(--md-sys-color-on-surface-variant); }
+.list-napomena-prenesen { border-color: transparent; background: var(--md-sys-color-surface-container-high); }
+.list-objasnjenje { margin: 0 0 12px; font-size: 0.8125rem; line-height: 18px; color: var(--md-sys-color-on-surface-variant); }
+.list-stranica > .list-objasnjenje { margin-bottom: 16px; }
+.list-stranica > .alert { margin: 0 0 16px; }
+.list-kartica { overflow-wrap: anywhere; margin: 0 0 16px; padding: 16px; font-size: 0.875rem; line-height: 20px; color: var(--md-sys-color-on-surface); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--r-kartica); background: var(--md-sys-color-surface-container-low); }
+.vodocuvar-obrazac + .list-kartica { margin-top: 20px; }
+.list-kartica > h2 { display: block; margin: 0 0 8px; font-size: 1rem; font-weight: 500; line-height: 24px; color: var(--md-sys-color-on-surface); }
+.list-kartica a { color: var(--md-sys-color-primary); text-decoration: none; }
+.list-kartica a:hover { text-decoration: underline; }
+.list-kartica .form-help { margin-top: 0; font-size: 0.75rem; line-height: 16px; color: var(--md-sys-color-on-surface-variant); }
+.list-kartica .vodocuvar-dl { grid-template-columns: 170px minmax(0, 1fr); gap: 0; }
+.list-kartica .vodocuvar-dl dt, .list-kartica .vodocuvar-dl dd { padding-block: 9px; border-top: 1px solid var(--md-sys-color-outline-variant); }
+.list-kartica .vodocuvar-dl dt:first-of-type, .list-kartica .vodocuvar-dl dd:first-of-type { padding-top: 0; border-top: 0; }
+.list-kartica .vodocuvar-dl dt:last-of-type, .list-kartica .vodocuvar-dl dd:last-of-type { padding-bottom: 0; }
+.list-kartica .vodocuvar-dl dt { padding-right: 12px; font-size: 0.8125rem; font-weight: 400; color: var(--md-sys-color-on-surface-variant); }
+.list-kartica .stavke { padding-left: 1.25rem; }
+.list-kartica .stavke li { margin: 0 0 2px; }
+.list-kartica .stavke li:last-child { margin-bottom: 0; }
+.list-kartica .stavke .icon { width: 20px; height: 20px; vertical-align: -5px; }
+.list-tko { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; margin-block: 2px; }
+.list-potpisi { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.list-potpisi li { display: flex; align-items: flex-start; gap: 8px; }
+.list-potpisi .icon { width: 20px; height: 20px; color: var(--md-sys-color-on-surface-variant); }
+/* Crvene nema: stanje zadatka nije izvanredno stanje. Što traži pažnju ide u boji upozorenja. */
+.list-kartica .zadatak-oznaka { min-height: 22px; padding: 2px 8px; font-size: 0.75rem; border-radius: 6px; }
+.list-kartica .zadatak-oznaka.OBAVLJEN { color: var(--md-sys-color-on-surface); background: transparent; border: 1px solid var(--md-sys-color-outline); }
+.list-kartica .zadatak-oznaka.OBAVLJEN::before { content: "✓"; margin-right: 4px; }
+.list-kartica .zadatak-oznaka.OTVOREN { color: var(--md-sys-color-on-surface); background: var(--upozorenje-tehnicko-ploha); border: 1px solid var(--upozorenje-tehnicko-rub); }
+.list-kartica .zadatak-oznaka.ODBACEN { color: var(--warning-fg); background: var(--warning-bg); }
+.list-kartica .zadaci-pregled { list-style: none; margin: 0; padding: 0; }
+.list-kartica .zadaci-pregled li { padding-block: 8px; border-top: 1px solid var(--md-sys-color-outline-variant); }
+.list-kartica .zadaci-pregled li:first-child { padding-top: 0; border-top: 0; }
+.list-kartica .zadaci-pregled li:last-child { padding-bottom: 0; }
+.list-kartica .zadatak-tekst { font-size: 0.875rem; font-weight: 500; }
+.list-kartica .prijava-slike { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.list-kartica .prijava-slike img { height: 150px; border: 0; border-radius: var(--r-kontrola); background: var(--md-sys-color-surface-container-high); }
+.list-kartica .prijava-slike figcaption { margin-top: 8px; font-size: 0.8125rem; color: var(--md-sys-color-on-surface); }
+.list-kartica .prijava-slike .reading-meta { font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); }
+.list-radnje, .list-ovjera { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
+.list-upis { align-items: flex-start; margin-bottom: 8px; }
+.list-upis .form-control { flex: 1 1 20rem; min-width: 0; }
+@media (max-width: 599px) {
+  .list-kartica .vodocuvar-dl { grid-template-columns: minmax(0, 1fr); }
+  .list-kartica .vodocuvar-dl dt { padding-right: 0; padding-bottom: 2px; }
+  .list-kartica .vodocuvar-dl dd { padding-top: 0; border-top: 0; }
+  .list-kartica .vodocuvar-dl dt:last-of-type { padding-bottom: 2px; }
+  .list-radnje, .list-ovjera { flex-direction: column; align-items: stretch; }
+  .list-radnje .btn { width: 100%; }
+  .list-upis { flex-direction: column; align-items: stretch; }
+  .list-upis .form-control { flex: 0 0 auto; }
+  .list-kartica .prijava-slike img { height: 200px; }
+}
+@media (max-width: 599px), (pointer: coarse) {
+  .list-glava .btn-link, .list-radnje .btn, .list-upis .btn, .list-upis .form-control, .list-radnje .form-control { min-height: 48px; }
+  .list-radnje .checkbox-label { min-height: 48px; }
+  /* Poveznica u tekstu: padding širi dodir na 48 px, a redak ostaje iste visine. */
+  .list-stranica > .alert a, .list-kartica .vodocuvar-dl a, .list-kartica .zadaci-pregled a { padding-block: 14px; }
+  /* Riječ „list” je uska, pa i širina dodira mora doći iz paddinga. Lijevo površina staje uz oznaku (razmak je 8 px), a redak ostaje iste visine. */
+  .list-tko a { margin-block: -14px; padding-inline: 15px; margin-inline: -8px -15px; }
+}
 .knjiga { border: 1px solid var(--border, #d9dee5); border-radius: 10px; padding: 0.5rem 0.75rem; margin: 0 0 0.5rem; }
 .knjiga summary { cursor: pointer; }
 .kal-nav { display: flex; gap: 0.5rem; align-items: center; }

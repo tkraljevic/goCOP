@@ -309,8 +309,8 @@ func TestNacrtBezBrojaUPDFu(t *testing.T) {
 
 // Obrazac dnevnog lista po crtežu: povratak u Moju knjigu, „Današnji” samo na
 // listu drugog dana, ista imena polja i Spremi kao prvi gumb u kodu, jer Enter u
-// polju pritišće prvi gumb pa ne smije predati list. Tuđi list za čitanje ostaje
-// u starom izgledu dok ne dođe na red.
+// polju pritišće prvi gumb pa ne smije predati list. Tuđi nepredani list se samo
+// čita, bez obrasca.
 func TestObrazacListaPoCrtezu(t *testing.T) {
 	o := novaOkolinaDnevnika(t)
 	ctx := t.Context()
@@ -375,10 +375,10 @@ func TestObrazacListaPoCrtezu(t *testing.T) {
 		}
 	}
 
-	// rukovoditeljica isti list čita u starom izgledu, bez obrasca
+	// rukovoditeljica isti list samo čita, bez obrasca
 	tudji := o.zovi(t, o.rukovodi, http.MethodGet, "/vodocuvar/"+l.ID, nil).Body.String()
-	if !strings.Contains(tudji, `class="breadcrumb"`) || strings.Contains(tudji, "list-glava") || strings.Contains(tudji, `action="/vodocuvar/spremi"`) {
-		t.Error("tuđi list za čitanje mora ostati kakav je bio")
+	if !strings.Contains(tudji, `class="povratna-poveznica">← Vodočuvarski dnevnik`) || strings.Contains(tudji, `class="breadcrumb"`) || strings.Contains(tudji, `action="/vodocuvar/spremi"`) {
+		t.Error("tuđi list za čitanje vodi natrag u knjige i nema obrazac")
 	}
 
 	// lozinka samo uz ključ, a uz simulaciju umjesto nje upozorenje
