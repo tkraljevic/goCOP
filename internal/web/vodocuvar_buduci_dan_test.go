@@ -306,3 +306,95 @@ func TestNacrtBezBrojaUPDFu(t *testing.T) {
 		t.Errorf("oznaka nacrta bez broja u knjizi %d puta, očekivano jednom", strings.Count(knjiga, "nacrt bez broja"))
 	}
 }
+
+// Obrazac dnevnog lista po crtežu: povratak u Moju knjigu, „Današnji” samo na
+// listu drugog dana, ista imena polja i Spremi kao prvi gumb u kodu, jer Enter u
+// polju pritišće prvi gumb pa ne smije predati list. Tuđi list za čitanje ostaje
+// u starom izgledu dok ne dođe na red.
+func TestObrazacListaPoCrtezu(t *testing.T) {
+	o := novaOkolinaDnevnika(t)
+	ctx := t.Context()
+	cijeli, err := o.users.GetUserByID(o.rukovodi.ID)
+	if err != nil || cijeli == nil {
+		t.Fatalf("rukovoditeljica: %v", err)
+	}
+	z, err := o.vod.ZadajZadatak(ctx, models.NewUserPermissions(*cijeli), cijeli, o.vodocuvar.ID.String(), "Obiđi nasip kod Primjerice", time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if l := mustUnescape(o.zovi(t, o.rukovodi, http.MethodPost, "/vodocuvar/upis", url.Values{"vodocuvar": {o.vodocuvar.ID.String()}, "datum": {danZaTest(0)}, "tekst": {"Javi ako se nasip procijedi"}}).Header().Get("Location")); !strings.Contains(l, "success") {
+		t.Fatalf("upis rukovoditeljice: %s", l)
+	}
+
+	danas := o.zovi(t, o.vodocuvar, http.MethodGet, "/vodocuvar/dan?datum="+danZaTest(0), nil).Body.String()
+	for _, x := range []string{
+		`class="povratna-poveznica">← Moja knjiga`, `>u pisanju</span>`, `data-naziv-stranice="Dnevni list"`,
+		`action="/vodocuvar/spremi"`, `name="datum"`, `name="od"`, `name="do"`, `name="prilike"`, `name="naredbe"`, `id="opis" name="opis"`, `name="zapazanja"`,
+		`name="zadatak_status_` + z.ID + `"`, `name="zadatak_obavljeno_` + z.ID + `"`, `for="zadatak_obavljeno_` + z.ID + `"`,
+		"Što je napravljeno ili zašto nije", "Ostale naredbe", "npr. što ste primijetili", "upisao Ana Anić",
+	} {
+		if !strings.Contains(danas, x) {
+			t.Errorf("obrazac za danas nema %q", x)
+		}
+	}
+	for _, x := range []string{`class="breadcrumb"`, ">Današnji</a>", `name="lozinka"`} {
+		if strings.Contains(danas, x) {
+			t.Errorf("obrazac za danas ne smije imati %q", x)
+		}
+	}
+	spremi, predaj := strings.Index(danas, `value="spremi"`), strings.Index(danas, `value="predaj"`)
+	if spremi < 0 || predaj < spremi {
+		t.Errorf("Spremi mora biti prvi gumb u kodu: spremi %d, predaj %d", spremi, predaj)
+	}
+
+	// list drugog dana vodi na današnji; budući dan i dalje ne predaje
+	sutra := o.zovi(t, o.vodocuvar, http.MethodGet, "/vodocuvar/dan?datum="+danZaTest(1), nil).Body.String()
+	if !strings.Contains(sutra, `>Današnji</a>`) || !strings.Contains(sutra, "disabled") || strings.Contains(sutra, `value="predaj"`) {
+		t.Error("list za sutra mora imati „Današnji” i onemogućenu predaju")
+	}
+
+	// spremanje s obrasca i dalje upisuje odgovor na zadatak
+	forma := url.Values{"datum": {danZaTest(0)}, "od": {"07:00"}, "do": {"15:00"}, "opis": {"obilazak nasipa"}, "radnja": {"spremi"},
+		"zadatak_status_" + z.ID: {"OBAVLJEN"}, "zadatak_obavljeno_" + z.ID: {"obiđeno, bez oštećenja"}}
+	w := o.zovi(t, o.vodocuvar, http.MethodPost, "/vodocuvar/spremi", forma)
+	if l := mustUnescape(w.Header().Get("Location")); !strings.Contains(l, "success") {
+		t.Fatalf("spremanje: %s", l)
+	}
+	dan, err := time.ParseInLocation("2006-01-02", danZaTest(0), models.Zagreb)
+	if err != nil {
+		t.Fatal(err)
+	}
+	l, err := o.repo.ZaDan(ctx, o.vodocuvar.ID.String(), dan)
+	if err != nil || l == nil {
+		t.Fatalf("spremljen list: %v", err)
+	}
+	moj := o.zovi(t, o.vodocuvar, http.MethodGet, "/vodocuvar/"+l.ID, nil).Body.String()
+	for _, x := range []string{"obiđeno, bez oštećenja", "/vodocuvar/" + l.ID + "/list.pdf", `value="obrisi"`, `class="btn btn-link">PDF lista`} {
+		if !strings.Contains(moj, x) {
+			t.Errorf("spremljen list nema %q", x)
+		}
+	}
+
+	// rukovoditeljica isti list čita u starom izgledu, bez obrasca
+	tudji := o.zovi(t, o.rukovodi, http.MethodGet, "/vodocuvar/"+l.ID, nil).Body.String()
+	if !strings.Contains(tudji, `class="breadcrumb"`) || strings.Contains(tudji, "list-glava") || strings.Contains(tudji, `action="/vodocuvar/spremi"`) {
+		t.Error("tuđi list za čitanje mora ostati kakav je bio")
+	}
+
+	// lozinka samo uz ključ, a uz simulaciju umjesto nje upozorenje
+	iscrtaj := func(d VodocuvarPageData) string {
+		t.Helper()
+		var b strings.Builder
+		d.List, d.Moj, d.Danas = l, true, danZaTest(0)
+		if err := o.tmpl("vodocuvar_list.html").ExecuteTemplate(&b, "vodocuvar_list.html", d); err != nil {
+			t.Fatal(err)
+		}
+		return b.String()
+	}
+	if s := iscrtaj(VodocuvarPageData{ImaKljuc: true}); !strings.Contains(s, `name="lozinka"`) || !strings.Contains(s, "Lozinka ga otključava i ne sprema se.") {
+		t.Error("s ključem obrazac traži lozinku")
+	}
+	if s := iscrtaj(VodocuvarPageData{ImaKljuc: true, Simulacija: true}); strings.Contains(s, `name="lozinka"`) || !strings.Contains(s, "simuliranim ključem") || !strings.Contains(s, "BEZVRIJEDNO") {
+		t.Error("uz simulaciju ključa nema lozinke, a ima upozorenje")
+	}
+}

@@ -4816,11 +4816,65 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .zid-tekst { font-size: 0.88rem; color: var(--text-secondary); margin-top: 0.15rem; white-space: pre-line; }
 .zid-redak { position: relative; }
 .zid-obrisi { margin-left: auto; align-self: flex-start; }
-.vodocuvar-obrazac { max-width: 52rem; }
-.zadaci { list-style: none; margin: 0 0 0.5rem; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
-.zadatak { border: 1px solid var(--border, #d9dee5); border-radius: 8px; padding: 0.5rem 0.75rem; background: var(--surface-2, #f7f9fb); display: flex; flex-direction: column; gap: 0.35rem; }
-.zadatak-stanje { display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.88rem; }
-.zadatak-stanje label { display: inline-flex; gap: 0.3rem; align-items: center; cursor: pointer; }
+/* Dnevni list, obrazac: prvo mobitel. Polje je okvir s natpisom u njemu; od 600 px
+   natpis sjeda na rub okvira, pa mu pozadina mora biti boja onoga na čemu polje stoji
+   (--list-podloga). Razmake drže natpis i polje za upis, a ne okvir, a ikona ne prima
+   dodir: tako dodir bilo gdje u okviru otvara tipkovnicu. Boje samo iz tokena, da radi
+   i u tamnoj temi. */
+.list-stranica { max-width: 820px; margin-inline: auto; }
+.list-glava { gap: 4px 16px; margin-bottom: 16px; }
+.list-glava .page-title { flex-wrap: wrap; font-size: 1.75rem; font-weight: 400; letter-spacing: 0; }
+.list-glava .page-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.list-glava .btn-link { color: var(--md-sys-color-primary); }
+.vodocuvar-obrazac { --list-podloga: var(--md-sys-color-surface); display: flex; flex-direction: column; gap: 16px; }
+.vodocuvar-obrazac .form-help { margin-top: 0; font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); }
+.list-dva { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.list-blok { display: flex; flex-direction: column; gap: 4px; }
+.list-polje { position: relative; gap: 0; min-height: 52px; border: 1px solid var(--md-sys-color-outline); border-radius: 4px; }
+.list-polje:focus-within { border-color: var(--md-sys-color-primary); box-shadow: 0 0 0 1px var(--md-sys-color-primary); }
+.list-polje > .icon { position: absolute; top: calc(50% - 12px); left: 12px; width: 24px; height: 24px; margin: 0; color: var(--md-sys-color-on-surface-variant); pointer-events: none; }
+.list-polje > .form-label { margin: 0; padding: 6px 16px 0; cursor: text; font-size: 0.75rem; font-weight: 400; line-height: 16px; letter-spacing: 0; text-transform: none; color: var(--md-sys-color-on-surface-variant); }
+.list-polje > .form-control { flex: 1 1 auto; min-height: 0; padding: 0 16px 6px; border: 0; border-radius: 0; background: transparent; box-shadow: none; font-family: inherit; font-size: 1rem; line-height: 24px; color: var(--md-sys-color-on-surface); }
+.list-polje:has(> .icon) > .form-label, .list-polje:has(> .icon) > .form-control { padding-left: 48px; }
+.list-polje > .form-control:focus { box-shadow: none; }
+.list-polje > textarea.form-control { display: block; resize: vertical; field-sizing: content; }
+.list-naredbe { --list-podloga: var(--md-sys-color-surface-container); display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--r-kartica); background: var(--md-sys-color-surface-container); }
+.list-naredbe-naslov { margin: 0; font-size: 1rem; font-weight: 500; line-height: 24px; color: var(--md-sys-color-on-surface); }
+.zadaci { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.zadatak { --list-podloga: var(--md-sys-color-surface); padding: 8px 12px 12px; border-radius: var(--r-kontrola); background: var(--md-sys-color-surface-container-low); display: flex; flex-direction: column; gap: 2px; }
+.list-naredbe .zadatak { background: var(--md-sys-color-surface); }
+.zadatak-tekst { font-size: 0.9375rem; line-height: 20px; color: var(--md-sys-color-on-surface); }
+.zadatak-stanje { display: flex; flex-direction: column; margin-bottom: 4px; font-size: 0.875rem; color: var(--md-sys-color-on-surface); }
+.zadatak-stanje label { display: flex; align-items: center; gap: 12px; min-height: 46px; cursor: pointer; }
+.zadatak-stanje input[type="radio"] { flex: none; width: 20px; height: 20px; margin: 0; accent-color: var(--md-sys-color-primary); }
+.list-prijave { list-style: none; margin: 0; padding: 0; font-size: 0.875rem; }
+.list-prijave li { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.list-prijave .icon { flex: none; margin: 0; }
+.list-prijave a { color: var(--md-sys-color-primary); text-decoration: none; }
+.list-prijave a:hover { text-decoration: underline; }
+.vodocuvar-obrazac .form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.vodocuvar-obrazac .form-actions .btn-primary { order: -1; }
+.vodocuvar-obrazac .form-actions .btn-opasno { margin-left: auto; }
+.vodocuvar-obrazac .form-actions .btn-opasno:not(:disabled) { border-color: var(--danger); }
+@media (min-width: 600px) {
+  .vodocuvar-obrazac { gap: 20px; }
+  .list-polje { min-height: 56px; }
+  .list-polje > .form-label, .list-polje:has(> .icon) > .form-label { position: absolute; top: 0; left: 12px; padding: 0 4px; transform: translateY(-50%); background: var(--list-podloga); }
+  .list-polje > .form-control { padding: 15px 12px; }
+  /* Prvi redak stoji gdje i u jednorednom polju, a višeredno polje ne raste. */
+  .list-polje > textarea.form-control { padding-bottom: 9px; }
+  .zadatak .list-polje { margin-top: 4px; }
+}
+@media (max-width: 599px) {
+  .list-glava { flex-direction: column; align-items: flex-start; }
+  .list-glava .page-title { flex-direction: column; align-items: flex-start; gap: 4px; font-size: 1.5rem; }
+  .list-glava .btn-link { padding-inline: 0; margin-right: 16px; }
+  .vodocuvar-obrazac .form-actions { flex-direction: column; align-items: stretch; }
+  .vodocuvar-obrazac .form-actions .btn-opasno { margin-left: 0; }
+}
+@media (max-width: 599px), (pointer: coarse) {
+  .vodocuvar-obrazac .form-actions .btn { min-height: 48px; }
+}
 .zadaci-pregled { margin: 0 0 0.4rem; padding-left: 1.1rem; }
 .zadatak-oznaka { display: inline-flex; align-items: center; min-height: 24px; font-size: 13px; line-height: 16px; padding: 4px 10px; border-radius: var(--shape-small); font-weight: 500; }
 .zadatak-oznaka.OBAVLJEN { background: var(--mirno-bg); color: var(--mirno-fg); }
