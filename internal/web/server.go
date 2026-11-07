@@ -1013,6 +1013,7 @@ func (s *Server) setupRoutes() {
 		}
 		return s.akti.IzmijeniOpcije(ctx, p, izmjena)
 	})
+	prognozeH.SetNapomena(s.napomenaPodataka, s.spremiNapomenuPodataka)
 	prognozeH.SetReadings(s.readingService)
 	prognozeH.kisa = func() KisaSlivovaFunc { return s.kisaSlivova }
 	prognozeH.SetWatercourses(s.watercourseService)
@@ -1043,6 +1044,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /prognoze/o-prognozi", s.authMiddleware(http.HandlerFunc(prognozeH.ShowMetoda)))
 	s.mux.Handle("GET /prognoze/postavke", s.authMiddleware(http.HandlerFunc(prognozeH.ShowPostavke)))
 	s.mux.Handle("POST /prognoze/postavke", s.authMiddleware(http.HandlerFunc(prognozeH.SpremiPostavke)))
+	s.mux.Handle("POST /prognoze/napomena-podataka", s.samoAdmin(http.HandlerFunc(prognozeH.SpremiNapomenu)))
 	s.mux.Handle("GET /prognoze/pricuvno.xlsx", s.authMiddleware(http.HandlerFunc(prognozeH.IzvoziPricuvno)))
 	// krug traje i po nekoliko minuta i pita sve izvore, pa ga rukom
 	// pokreću samo dežurni i administrator (Odluke (30. 10. 2026.), 7)
@@ -1636,6 +1638,24 @@ func (s *Server) opcije(ctx context.Context) models.Opcije {
 		return models.Opcije{}
 	}
 	return s.akti.Opcije(ctx)
+}
+
+// napomenaPodataka vraća napomenu sa stranice Prognoze; dok servis akata nije
+// spojen, napomene nema
+func (s *Server) napomenaPodataka(ctx context.Context) string {
+	if s.akti == nil {
+		return ""
+	}
+	return s.akti.NapomenaPodataka(ctx)
+}
+
+// spremiNapomenuPodataka sprema napomenu; dok servis akata nije spojen, ništa
+// se ne sprema
+func (s *Server) spremiNapomenuPodataka(ctx context.Context, p *models.UserPermissions, tekst string) error {
+	if s.akti == nil {
+		return fmt.Errorf("Napomena nije spremljena: na ovom računalu to sada nije moguće.")
+	}
+	return s.akti.SpremiNapomenuPodataka(ctx, p, tekst)
 }
 
 // izmijeniOpcije mijenja dio općih prekidača; dok servis akata nije spojen,
