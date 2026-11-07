@@ -7,6 +7,7 @@ package web
 import (
 	"context"
 	"fmt"
+	"log"
 	"math"
 	"sort"
 	"strconv"
@@ -413,6 +414,7 @@ func (h *PrognozeHandler) godisnjeVelicine(ctx context.Context, velicina string,
 		}
 		v, err := a.GodisnjeVrijednosti(ctx, kod, velicina)
 		if err != nil {
+			log.Printf("Arhiva: godišnje vrijednosti letve %s nisu pročitane: %v", kod, err)
 			continue // arhiva zauzeta: pokušat će se pri idućem izvozu
 		}
 		h.godisnji.zapamti(kljuc, v)
@@ -568,18 +570,16 @@ func prenesiKrajnosti(min, max *Krajnost, izvor, letva models.Station) (*Krajnos
 }
 
 // uzEvidenciju dopunjuje krajnosti iz arhive evidencijom očitanja: očitanje
-// koje arhivu nadmaši ima prednost (novi rekord vidi se odmah, a ne tek kad
-// stigne u arhivu), a letva bez arhive (srpske, mađarske, manje letve BP16)
-// dobiva krajnosti iz evidencije, uz datum od kojeg evidencija ide. bezNiza
-// kaže da je arhiva pročitana i letva u njoj nema niz: dok se arhiva još
-// računa, kartica ne smije tvrditi da je evidencija sve što letva ima. Isto
-// pravilo vrijedi na kartici prognoze i na stranici očitanja.
-func uzEvidenciju(ctx context.Context, rs *service.ReadingService, st models.Station, min, max *Krajnost, bezNiza bool) (*Krajnost, *Krajnost) {
+// koje arhivu nadmaši ima prednost, a letva bez arhive (srpske, mađarske, manje
+// letve BP16) dobiva krajnosti iz evidencije, uz datum od kojeg evidencija ide.
+// Na kartici prognoze ne zove se dok letva čeka arhivu. Isto pravilo vrijedi i
+// na stranici očitanja.
+func uzEvidenciju(ctx context.Context, rs *service.ReadingService, st models.Station, min, max *Krajnost) (*Krajnost, *Krajnost) {
 	if rs == nil {
 		return min, max
 	}
 	od := ""
-	if bezNiza && min == nil && max == nil {
+	if min == nil && max == nil {
 		od = pocetakEvidencije(ctx, rs, st)
 	}
 	for _, k := range rs.Krajnosti(ctx, st.ID.String()) {
