@@ -78,11 +78,38 @@ func TestGlavniLanacNeCitaOdvojene(t *testing.T) {
 			}
 		}
 	}
-	if !vrhovi["kapelna"] || !vrhovi["benicanci-prkos"] || len(vrhovi) != 2 {
+	if !vrhovi["kapelna"] || !vrhovi["benicanci-prkos"] || !vrhovi["zeleznica"] || len(vrhovi) != 3 {
 		t.Errorf("vrhovi odvojenih računa: %v", vrhovi)
+	}
+	for _, r := range OdvojeniRacuni {
+		provjeriDaGaNeCitaju(t, r.Letva)
+	}
+	for v := range vrhovi {
+		provjeriDaGaNeCitaju(t, v)
 	}
 	if !odvojen("jelengrad") || odvojen("osijek") {
 		t.Error("Jelengrad se računa odvojeno, a Osijek u glavnom lancu")
+	}
+}
+
+// provjeriDaGaNeCitaju traži letvu u svemu što glavni račun u kodu čita mimo lanca:
+// dnevni model s rezervama i vrhovima, pregledne letve, susjede i drugu obalu.
+func provjeriDaGaNeCitaju(t *testing.T, letva string) {
+	t.Helper()
+	for _, c := range DnevniCiljevi {
+		for _, in := range c.Inacice() {
+			if in.Letva == letva || slices.Contains(in.Ulazi, letva) {
+				t.Errorf("%s: dnevni model %s", letva, c.Letva)
+			}
+		}
+	}
+	if VrhoviIzDnevnog[letva] || slices.Contains(PregledneLetve, letva) {
+		t.Errorf("%s: vrh iz dnevnog ili pregledna letva", letva)
+	}
+	for l, susjedi := range SusjediKvara() {
+		if l == letva || slices.Contains(susjedi, letva) {
+			t.Errorf("%s: susjed letve %s", letva, l)
+		}
 	}
 }
 
@@ -146,6 +173,80 @@ func TestVrhOdvojenogNeZaustavljaIzdanje(t *testing.T) {
 				t.Errorf("ušće bez prognoze: %v", i.BezPrognoze)
 			}
 		})
+	}
+}
+
+// Ispad 6. 11. 2026.: vrh daje vodostaj bez protoka, a letva ispod njega je stala.
+// U glavnom lancu to je povuklo sat izdanja svima. Sad glavni račun ide dalje, letva
+// koja je stala ostaje bez prognoze, a ona ispod nje drži zadnje mjerenje.
+func TestVrhBezProtokaILetvaStala(t *testing.T) {
+	postavi(t, &PoluvijekIspravka, 0)
+	zadnji := time.Now().UTC().Truncate(time.Hour)
+	oc := probneOcitanja(t, 200, zadnji)
+	o := probniOsvjezivac(t, oc)
+	o.Iznova = true
+	prije, err := o.Osvjezi(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	glavniPrije := otisakGlavnog(prije)
+
+	stoji := zadnji.Add(-6 * time.Hour)
+	upisi := func(id, kod string, vodostajDo, protokDo time.Time) {
+		t.Helper()
+		if _, err := oc.Exec(`INSERT INTO stations VALUES (?,?)`, id, kod); err != nil {
+			t.Fatal(err)
+		}
+		for i := range 48 {
+			kad := zadnji.Add(-time.Duration(i) * time.Hour)
+			if kad.After(vodostajDo) {
+				continue
+			}
+			var q any
+			if !kad.After(protokDo) {
+				q = 10 + i
+			}
+			if _, err := oc.Exec(`INSERT INTO readings (station_id, measured_at, level_cm, flow_m3s) VALUES (?,?,?,?)`, id, kad, 50+i, q); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	upisi("3", "potok-vrh", zadnji, stoji)
+	upisi("4", "potok-dole", stoji, stoji)
+	upisi("5", potokUsce, zadnji, zadnji)
+	protok := func(letva, ulaz string) Pojas {
+		return Pojas{Letva: letva, Velicina: "protok", Od: -1000, Do: 1000, Rasap: 3,
+			Ulazi: []Ulaz{{Letva: ulaz, Velicina: "protok", PomakH: 2, Sirina: 1, Nagib: 1}}}
+	}
+	if err := Spremi(o.Baza, []Pojas{pojasPotoka("donja", "gornja", 3), protok("potok-dole", "potok-vrh"), protok(potokUsce, "potok-dole")}, "proba"); err != nil {
+		t.Fatal(err)
+	}
+
+	postavi(t, &OdvojeniRacuni, []Racun{})
+	uLancu, err := o.Osvjezi(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if uLancu.Sada != zadnji.Unix()/3600-3 || uLancu.Ceka["potok-vrh"] == 0 {
+		t.Errorf("u glavnom lancu: sat %d, čeka %v", zadnji.Unix()/3600-uLancu.Sada, uLancu.Ceka)
+	}
+
+	postavi(t, &OdvojeniRacuni, []Racun{{"potok-dole", []string{"potok-vrh"}}, {potokUsce, []string{"potok-dole"}}})
+	i, err := o.Osvjezi(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if i.Sada != zadnji.Unix()/3600 || len(i.Ceka) != 0 {
+		t.Errorf("sat izdanja %d sati iza, čeka %v", zadnji.Unix()/3600-i.Sada, i.Ceka)
+	}
+	if g := otisakGlavnog(i); g != glavniPrije {
+		t.Errorf("glavni račun se promijenio:\n%s\n%s", glavniPrije, g)
+	}
+	if _, bez := i.BezPrognoze["potok-dole"]; !bez {
+		t.Errorf("potok-dole ima prognozu: %v", retciLetvi(i, "potok-dole"))
+	}
+	if i.Izbor[potokUsce].Inacica != -1 || !slices.ContainsFunc(i.Izdane, func(x Izdana) bool { return x.Letva == potokUsce && x.Ciljni == i.Sada }) {
+		t.Errorf("ušće ne drži zadnje mjerenje: %+v, %v", i.Izbor[potokUsce], retciLetvi(i, potokUsce))
 	}
 }
 
@@ -478,11 +579,64 @@ func TestSidroVrhaMjereniProtok(t *testing.T) {
 	})
 }
 
-// Kad račun padne, poruka kaže i za Karašicu i Vučicu.
+// Karika računa iz koda bez mjerenja u satu izdanja ima računat broj, pa je upitna
+// ona i letva ispod nje. Krajnja letva ne ulazi, kao ni u glavnom lancu, a ni letva
+// iz retka modela, jer u tom satu nema broj.
+func TestBezMjerenjaUpitnoSamoIzKoda(t *testing.T) {
+	const sada = 1000
+	pojas := func(letva, ulaz string) []Pojas {
+		return []Pojas{{Letva: letva, Velicina: "protok", Ulazi: []Ulaz{{Letva: ulaz, Velicina: "protok", PomakH: 2}}}}
+	}
+	odabrano := map[string][]Pojas{"potok-dole": pojas("potok-dole", "potok-vrh"), "potok-usce": pojas("potok-usce", "potok-dole")}
+	nizovi := map[Izvor]Niz{
+		{Letva: "potok-dole", Velicina: "protok"}: {Sati: []int64{sada - 8}, Iznosi: []float64{1}},
+		{Letva: "potok-usce", Velicina: "protok"}: {Sati: []int64{sada}, Iznosi: []float64{1}},
+	}
+	dobri := map[string]ZapisLetve{"potok-dole": {Letva: "potok-dole", Velicina: "protok", Ugradjen: true}, "potok-usce": {Letva: "potok-usce", Velicina: "protok", Ugradjen: true}}
+	u := upozorenjaBezMjerenja(dobri, odabrano, nizovi, map[string]error{}, sada)
+	if len(u) != 1 || u[0].Letva != "potok-dole" {
+		t.Fatalf("%+v", u)
+	}
+	if want := []Upitno{{Letva: "potok-dole", OdSata: 0}, {Letva: "potok-usce", OdSata: 1}}; !slices.Equal(u[0].Upitno, want) {
+		t.Errorf("upitno %+v, želim %+v", u[0].Upitno, want)
+	}
+
+	u = upozorenjaBezMjerenja(dobri, odabrano, nizovi, map[string]error{"potok-usce": fmt.Errorf("pao")}, sada)
+	if want := []Upitno{{Letva: "potok-dole", OdSata: 0}}; !slices.Equal(u[0].Upitno, want) {
+		t.Errorf("bez prognoze ne može biti upitan: %+v", u[0].Upitno)
+	}
+
+	nizovi[Izvor{Letva: "potok-usce", Velicina: "protok"}] = Niz{Sati: []int64{sada - 8}, Iznosi: []float64{1}}
+	u = upozorenjaBezMjerenja(dobri, odabrano, nizovi, map[string]error{}, sada)
+	if len(u) != 2 || u[1].Letva != "potok-usce" || u[1].Upitno != nil {
+		t.Errorf("krajnja letva: %+v", u)
+	}
+	nizovi[Izvor{Letva: "potok-usce", Velicina: "protok"}] = Niz{Sati: []int64{sada}, Iznosi: []float64{1}}
+
+	dobri["potok-dole"] = ZapisLetve{Letva: "potok-dole", Velicina: "protok"}
+	if u = upozorenjaBezMjerenja(dobri, odabrano, nizovi, map[string]error{}, sada); len(u) != 1 || u[0].Upitno != nil {
+		t.Errorf("redak modela: %+v", u)
+	}
+}
+
+// Napomena o krivulji kaže od kojeg sata vrijedi, kao napomena glavnog računa.
+func TestKrivuljaOdvojenihOdSata(t *testing.T) {
+	u := upozorenjaKrivuljeOdvojenih([]Izdana{
+		{Letva: "potok-dole", Velicina: "protok", Ciljni: 1035, Izvan: true},
+		{Letva: "potok-dole", Velicina: "protok", Ciljni: 1040, Izvan: true},
+		{Letva: "potok-vrh", Velicina: "protok", Ciljni: 1000, Izvan: true},
+	}, 1000)
+	if len(u) != 2 || u[0].Opis != "izvan krivulje protoka od +35 h (krivulja je produžena preko ruba)" ||
+		u[1].Opis != "izvan krivulje protoka (krivulja je produžena preko ruba)" {
+		t.Errorf("%+v", u)
+	}
+}
+
+// Kad račun padne, poruka kaže i za Karašicu, Vučicu i Bednju.
 func TestPorukaKadOdvojeniNisuRacunati(t *testing.T) {
 	i := &Ishod{BezPrognoze: map[string]error{}, Izbor: map[string]Izbor{}}
 	i.primiOdvojene(izvodOdvojenih{greska: fmt.Errorf("računanje traje dulje od 20 s")}, nil)
-	if len(i.Upozorenja) != 1 || !strings.HasPrefix(i.Upozorenja[0].Opis, "Karašica, Vučica i letve s novim modelom nisu računate") {
+	if len(i.Upozorenja) != 1 || !strings.HasPrefix(i.Upozorenja[0].Opis, "Karašica, Vučica, Bednja i letve s novim modelom nisu računate") {
 		t.Errorf("%+v", i.Upozorenja)
 	}
 }

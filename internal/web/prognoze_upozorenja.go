@@ -419,12 +419,19 @@ func (p pisacUpozorenja) krivulja(upitno []prognoza.Upitno) string {
 	return strings.Join(dijelovi, "; ")
 }
 
+// oznacavaLetve javlja ide li upozorenje na karticu i natpis grafa letve: otvorena
+// upozorenja i napomene odvojenog računa. Rječica ne zauzima traku na vrhu stranice,
+// ali njezin račun koji je upitan to na svojoj kartici mora pisati.
+func oznacavaLetve(u prognoza.Upozorenje) bool {
+	return u.Tezina >= prognoza.TezinaUpozorenje || u.Vrsta == prognoza.VrstaOdvojeni
+}
+
 // oznaciLetve stavlja na karticu svake letve kojoj je prognoza upitna
-// kratak redak s razlogom; samo za otvorena upozorenja.
+// kratak redak s razlogom.
 func (p pisacUpozorenja) oznaciLetve(u []prognoza.Upozorenje) {
 	po := map[string][]string{}
 	for _, x := range u {
-		if x.Tezina < prognoza.TezinaUpozorenje {
+		if !oznacavaLetve(x) {
 			continue
 		}
 		for _, q := range x.Upitno {
@@ -468,11 +475,27 @@ func (p pisacUpozorenja) uzrok(u prognoza.Upozorenje) string {
 		return p.ime(u.Letva) + " rekonstruirana izvan provjerenog raspona"
 	case prognoza.VrstaDnevni:
 		return "dnevni model nije računao"
+	case prognoza.VrstaOdvojeni:
+		return p.uzrokOdvojenih(u)
 	}
 	// Vrsta koju ova inačica ne zna: s izdavača novije inačice, ili vrsta
 	// koje više nema (npr. „bez-tude”, Komárom bez mađarske prognoze). Razlog
 	// se ne nagađa: stoji ime letve, a opis izdavača je u okviru upozorenja.
 	return cmp.Or(p.ime(u.Letva), "vidi upozorenja uz izdanje")
+}
+
+// uzrokOdvojenih je isti kratki razlog kao u glavnom lancu. Odvojeni račun ima samo
+// jednu vrstu upozorenja, a razlog stoji na početku opisa izdavača.
+func (p pisacUpozorenja) uzrokOdvojenih(u prognoza.Upozorenje) string {
+	switch {
+	case strings.HasPrefix(u.Opis, "rezerva:"):
+		return p.ime(u.Letva) + " iz rezerve"
+	case strings.HasPrefix(u.Opis, "bez svježeg ulaza"):
+		return p.ime(u.Letva) + " bez svježeg ulaza"
+	case strings.HasPrefix(u.Opis, "nema mjerenja"):
+		return p.ime(u.Letva) + " bez mjerenja"
+	}
+	return p.ime(u.Letva)
 }
 
 // nabroji spaja riječi zarezima, a zadnju s „i”.
@@ -559,10 +582,10 @@ func upitnoLetve(u []prognoza.Upozorenje, letva string) string {
 	return velikoSlovo(strings.Join(append(s, neprazno(dnevna)...), "; "))
 }
 
-// upitnaLetva nalazi letvu među upitnima otvorenog upozorenja.
+// upitnaLetva nalazi letvu među upitnima upozorenja koje označava letve.
 func upitnaLetva(u prognoza.Upozorenje, letva string) (prognoza.Upitno, bool) {
 	i := slices.IndexFunc(u.Upitno, func(q prognoza.Upitno) bool { return q.Letva == letva })
-	if i < 0 || u.Tezina < prognoza.TezinaUpozorenje {
+	if i < 0 || !oznacavaLetve(u) {
 		return prognoza.Upitno{}, false
 	}
 	return u.Upitno[i], true

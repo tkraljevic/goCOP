@@ -1681,6 +1681,20 @@ func (s *Server) rutePovezivosti() {
 	s.mux.Handle("POST /settings/provjeri-vezu", s.samoAdmin(http.HandlerFunc(s.handleProvjeriVezu)))
 }
 
+// rutePrijavaGresaka: prijava s kukca za svakog prijavljenog, a popis i
+// odgovor samo za administratora
+func (s *Server) rutePrijavaGresaka(adminH *AdminHandler, usersH *UsersHandler) {
+	svc := func() *service.PrijavaGreskeService { return s.prijaveGresaka }
+	h := NewPrijaveGresakaHandler(svc, s.templates["administracija_prijave.html"], s.templates["administracija_prijava.html"])
+	s.mux.Handle("POST /prijava-greske", s.authMiddleware(http.HandlerFunc(h.HandlePosalji)))
+	s.mux.Handle("GET /prijava-greske/{id}/slika", s.authMiddleware(http.HandlerFunc(h.Slika)))
+	s.mux.Handle("GET "+putPopisaPrijava, s.samoAdmin(http.HandlerFunc(h.ShowPopis)))
+	s.mux.Handle("GET "+putPopisaPrijava+"/{id}", s.samoAdmin(http.HandlerFunc(h.ShowPrijava)))
+	s.mux.Handle("POST "+putPopisaPrijava+"/{id}", s.samoAdmin(http.HandlerFunc(h.HandleOdgovor)))
+	adminH.prijaveNove = s.brojNovihPrijava
+	usersH.mojePrijave = s.prijaveOsobe
+}
+
 func (s *Server) samoAdmin(next http.Handler) http.Handler {
 	return s.authMiddleware(trebaAdmina(next))
 }

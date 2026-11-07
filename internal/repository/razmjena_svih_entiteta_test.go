@@ -979,6 +979,8 @@ func slucajeviRazmjene() []slucajRazmjene {
 			napravi: func(t *testing.T, a *cvor) {
 				var x models.PrijavaGreske
 				puni(&x)
+				x.SlikaOtisak, x.SlikaBajtova, x.SlikaVrsta = strings.Repeat("a1", 32), 2048, models.SlikaPrijavePNG
+				x.PorukaPoslana = nil // ostaje na računalu koje je slalo
 				nuzno(t, NewPrijavaGreskeRepository(a.db, a.rec).Save(ctxRaz, &x))
 			},
 			uredi: func(t *testing.T, b *cvor, _ string, p []byte) {

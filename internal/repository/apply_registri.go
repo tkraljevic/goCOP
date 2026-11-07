@@ -5,10 +5,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"strings"
+	"time"
 
 	"gocop/internal/db"
 	"gocop/internal/ledger"
 	"gocop/internal/models"
+	"gocop/internal/sadrzaj"
 )
 
 // primjeneRegistara su teritorij (županije, općine, naselja i njihove
@@ -19,7 +21,7 @@ var primjeneRegistara = map[string]primjena{
 	EntityMunicipalities:         {upis: primijeniOpcinu, brisanje: obrisiPoBroju(`DELETE FROM municipalities WHERE id = ?`)},
 	EntitySettlements:            {upis: primijeniNaselje, brisanje: obrisiPoBroju(`DELETE FROM settlements WHERE id = ?`)},
 	EntitySluzbe:                 {upis: primijeniSluzbu, brisanje: obrisi(`DELETE FROM sluzbe WHERE id = ?`)},
-	EntityPrijaveGresaka:         {upis: upisPoArgumentima(prijavaGreskeUpsert, prijavaGreskeArgs), brisanje: obrisi(`DELETE FROM prijave_gresaka WHERE id = ?`)},
+	EntityPrijaveGresaka:         {upis: primijeniPrijavuGreske, brisanje: obrisi(`DELETE FROM prijave_gresaka WHERE id = ?`)},
 	EntityPrijaveGresakaOdgovori: {upis: upisPoArgumentima(odgovorPrijaveUpsert, odgovorPrijaveArgs), brisanje: obrisi(`DELETE FROM prijave_gresaka_odgovori WHERE id = ?`)},
 	EntityWatercourses:           {upis: primijeniVodotok, brisanje: obrisi(`DELETE FROM watercourses WHERE code = ?`)},
 	EntityStructures:             {upis: primijeniObjekt, brisanje: obrisi(`DELETE FROM structures WHERE id = ?`)},
@@ -30,6 +32,36 @@ var primjeneRegistara = map[string]primjena{
 	EntitySectionStations:  {brisanje: makniVezuDioniceILetve},
 	EntityMaintainedWaters: {upis: primijeniOdrzavanuVodu, brisanje: obrisi(`DELETE FROM maintained_waters WHERE id = ?`)},
 	EntityWorkItems:        {upis: primijeniStavkuRadova, brisanje: obrisi(`DELETE FROM work_items WHERE id = ?`)},
+}
+
+// primijeniPrijavuGreske stavlja primljenu prijavu na površinu, a sliku zaslona
+// koju opisuje upisuje na popis za dohvat, ili je briše kad joj je rok prošao.
+// Opis koji program ne bi sam napisao ostaje samo u knjizi; prijava bez njega i
+// dalje stiže.
+func primijeniPrijavuGreske(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
+	var p models.PrijavaGreske
+	if err := json.Unmarshal(v.Payload, &p); err != nil {
+		return err
+	}
+	p.OcistiOpisSlike()
+	if err := primiSlikuPrijave(ctx, &p, v.Channel); err != nil {
+		return err
+	}
+	args, _ := prijavaGreskeArgs(&p) // popis teksta uvijek se da zapisati
+	_, err := tx.ExecContext(ctx, prijavaGreskeUpsert, args...)
+	return err
+}
+
+// primiSlikuPrijave traži sliku primljene prijave. Sliku kojoj je rok prošao ne
+// traži i briše je, pa je ne dohvaća ni računalo koje stigne kasnije, a ni obnova
+// pri pokretanju ne vraća obrisano na popis za dohvat.
+func primiSlikuPrijave(ctx context.Context, p *models.PrijavaGreske, kanal string) error {
+	if p.SlikaUklonjenaU(time.Now()) {
+		_, err := ukloniSlikuPrijave(ctx, p)
+		return err
+	}
+	return primiSadrzajZapisa(ctx, p.SlikaOtisak, p.SlikaVrsta, p.SlikaBajtova, nil,
+		sadrzaj.Veza{Entitet: EntityPrijaveGresaka, EntitetID: p.ID, Uloga: ulogaSlikePrijave, Kanal: kanal})
 }
 
 // primijeniZupaniju stavlja primljenu županiju na površinu

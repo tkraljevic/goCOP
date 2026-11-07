@@ -7,9 +7,9 @@ package prognoza
 // (Spremi), pa bi račun u njima nestao, a jedan zaboravljen filtar vratio bi vrh
 // bez očitanja u ZadnjiZajednicki.
 //
-// Karašica i Vučica računaju se istim putem, a nemaju redak: račun im je u kodu
-// (OdvojeniRacuni), a brojevi u istim tablicama kao i dosad. Redak vrijedi umjesto
-// koda.
+// Karašica, Vučica i Bednja računaju se istim putem, a nemaju redak: račun im je
+// u kodu (OdvojeniRacuni), a brojevi u istim tablicama kao i dosad. Redak vrijedi
+// umjesto koda.
 //
 // Isti se zapis provjerava pri spremanju i pri svakom čitanju: pokvaren redak
 // isključuje samo svoju letvu i ono što iz nje računa, a glavni račun ide dalje.

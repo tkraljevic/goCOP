@@ -589,11 +589,15 @@ func (d *DrugiKorak) krivUnos(userID uuid.UUID, sad time.Time) {
 	}
 }
 
-// Brojila slanja: PIN i obavijesti administratorima broje se odvojeno, pa
-// obavijest ne troši PIN-ove i ne zatvara prijavu izvana
+// Brojila slanja: PIN, obavijesti administratorima i poruke o prijavama grešaka
+// broje se odvojeno, pa obavijest ne troši PIN-ove i ne zatvara prijavu izvana,
+// a niz prijava grešaka ne zadrži obavijest o roku članstva. Poruku o prijavi
+// može pokrenuti svaki prijavljeni korisnik, pa njezin kvar ne zaustavlja slanje
+// PIN-a (kvarVeze), nego samo poštuje stanku koja već traje.
 const (
 	brojiloPIN        = "pinmail"
 	brojiloObavijesti = "obavijest"
+	brojiloPrijava    = "prijava-greske"
 )
 
 // smijeSlati provjeri i zabilježi slanje u brojilu: po osobi i ukupno s čvora
@@ -934,14 +938,11 @@ func (d *DrugiKorak) posalji(ctx context.Context, brojilo, kljucOsobe string, m 
 	}
 	if errors.Is(err, context.Canceled) {
 		// prekid nije kvar poslužitelja: slanje drugima ne stoji
-		log.Printf("prijava izvana: slanje PIN-a je prekinuto (%v)", err)
+		log.Printf("%s je prekinuto (%v)", nazivSlanja(brojilo), err)
 		return fmt.Errorf("%w: %v", ErrSlanjeZastalo, err)
 	}
 	if err != nil {
-		d.mu.Lock()
-		d.stankaDo = d.sad().Add(stankaVeze)
-		d.mu.Unlock()
-		log.Printf("prijava izvana: slanje PIN-a nije uspjelo (%v); slanje stoji %s", err, stankaVeze)
+		d.kvarVeze(brojilo, err)
 		return fmt.Errorf("%w: %v", ErrSlanjeZastalo, err)
 	}
 	if len(greske) > 0 && greske[0] != nil {
@@ -949,6 +950,29 @@ func (d *DrugiKorak) posalji(ctx context.Context, brojilo, kljucOsobe string, m 
 		return fmt.Errorf("%w: %v", ErrPINNijePoslan, greske[0])
 	}
 	return nil
+}
+
+// kvarVeze zaustavlja slanje na pet minuta; poruka o prijavi greške ga ne zaustavlja
+func (d *DrugiKorak) kvarVeze(brojilo string, err error) {
+	if brojilo == brojiloPrijava {
+		log.Printf("%s nije uspjelo (%v)", nazivSlanja(brojilo), err)
+		return
+	}
+	d.mu.Lock()
+	d.stankaDo = d.sad().Add(stankaVeze)
+	d.mu.Unlock()
+	log.Printf("%s nije uspjelo (%v); slanje stoji %s", nazivSlanja(brojilo), err, stankaVeze)
+}
+
+// nazivSlanja kaže u dnevniku što se slalo
+func nazivSlanja(brojilo string) string {
+	switch brojilo {
+	case brojiloObavijesti:
+		return "obavijest administratorima: slanje"
+	case brojiloPrijava:
+		return "prijava greške: slanje poruke"
+	}
+	return "prijava izvana: slanje PIN-a"
 }
 
 // razloziPIN su razlozi zbog kojih PIN nije poslan, s oznakom koja se
@@ -1128,6 +1152,16 @@ func (d *DrugiKorak) PosaljiObavijest(ctx context.Context, p PrimateljObavijesti
 		return err
 	}
 	return d.posalji(ctx, brojiloObavijesti, p.ID, posta.Poruka{Za: mail.Address{Name: p.Ime, Address: p.Adresa}, Predmet: predmet, Tekst: tekst, Kad: d.sad()}, false)
+}
+
+// PosaljiPorukuOPrijavi javlja administratoru novu prijavu greške, računom za
+// slanje PIN-a i uz ista ograničenja, ali u svom brojilu i bez zaustavljanja
+// slanja kad veza pukne
+func (d *DrugiKorak) PosaljiPorukuOPrijavi(ctx context.Context, p PrimateljObavijesti, predmet, tekst string) error {
+	if err := d.spreman(); err != nil {
+		return err
+	}
+	return d.posalji(ctx, brojiloPrijava, p.ID, posta.Poruka{Za: mail.Address{Name: p.Ime, Address: p.Adresa}, Predmet: predmet, Tekst: tekst, Kad: d.sad()}, false)
 }
 
 // ---- prijava na čekanju ----

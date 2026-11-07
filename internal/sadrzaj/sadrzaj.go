@@ -312,6 +312,30 @@ func (s *Spremiste) OdveziUlogu(ctx context.Context, entitet, entitetID, uloga s
 	return err
 }
 
+// OdveziIUkloni miče vezu jednog zapisa sa sadržajem. Kad sadržaj time ostane bez
+// ijedne veze, s računala nestaju i bajtovi i želja, pa ga više nitko ne traži.
+// Ostaje sadržaj koji drži neki drugi zapis i sadržaj druge vrste, jer primljeni
+// paketi nemaju veze. Javlja je li ta veza postojala.
+func (s *Spremiste) OdveziIUkloni(ctx context.Context, otisak, vrsta string, v Veza) (bool, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback()
+	res, err := tx.ExecContext(ctx, `DELETE FROM sadrzaj_veze WHERE otisak = ? AND entitet = ? AND entitet_id = ? AND uloga = ?`, otisak, v.Entitet, v.EntitetID, v.Uloga)
+	if err != nil {
+		return false, err
+	}
+	bezVeze := ` WHERE otisak = ? AND vrsta = ? AND NOT EXISTS (SELECT 1 FROM sadrzaj_veze v WHERE v.otisak = ?)`
+	for _, tablica := range []string{"sadrzaj", "sadrzaj_zeljen"} {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM `+tablica+bezVeze, otisak, vrsta, otisak); err != nil {
+			return false, err
+		}
+	}
+	bilo, _ := res.RowsAffected() // SQLite ga uvijek zna
+	return bilo > 0, tx.Commit()
+}
+
 // BrisanjeKanala kaže koliko sadržaja jednog kanala brisanje odnese s
 // ovog računala i koliko ostavi
 type BrisanjeKanala struct {

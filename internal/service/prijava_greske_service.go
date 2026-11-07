@@ -8,6 +8,7 @@ import (
 
 	"gocop/internal/models"
 	"gocop/internal/repository"
+	"gocop/internal/sadrzaj"
 )
 
 // Koliko prijava osoba smije poslati u satu. Prijave idu na sva računala u
@@ -18,6 +19,8 @@ const (
 	najviseMojihPrijava = 50
 	// isto slanje iste osobe u ovom roku je ponovljeno slanje, ne nova prijava
 	rokPonovljenog = 10 * time.Minute
+	// slika je teža od teksta i ide na sva računala, pa ih je u satu manje
+	najviseSlikaUSatu = 10
 )
 
 // Greške koje osoba može sama ispraviti; poruke za nju slaže web
@@ -29,6 +32,9 @@ var (
 	ErrOdgovorPredug       = errors.New("predugačak odgovor na prijavu")
 	ErrPrijavaNePostoji    = errors.New("prijave nema")
 	ErrPrijavaBezKorisnika = errors.New("prijava bez korisnika")
+	ErrSlikaPrevelika      = errors.New("slika zaslona je prevelika")
+	ErrSlikaNeispravna     = errors.New("datoteka nije slika PNG, JPEG ili WebP")
+	ErrPreviseSlika        = errors.New("previše slika u satu")
 )
 
 // UlazPrijaveGreske je ono što stiže iz obrasca i preglednika
@@ -37,6 +43,7 @@ type UlazPrijaveGreske struct {
 	Uloga, Izdanje                       string
 	Sustav, Preglednik, Zaslon           string
 	Greske                               []string
+	Slika                                []byte // po želji; provjerava je Posalji
 }
 
 // PrijavaGreskeService prima prijave grešaka i prijedloge, a administratoru
@@ -49,6 +56,9 @@ type PrijavaGreskeService struct {
 	// primanje drži provjeru broja i upis zajedno, inače istodobna slanja vide
 	// isti stari broj i prođu preko granice
 	primanje sync.Mutex
+
+	// red su prijave koje čekaju e-poštu; nil dok slanje nije pokrenuto
+	red chan *models.PrijavaGreske
 }
 
 // NewPrijavaGreskeService sastavlja servis; cvor je ime ovog računala
@@ -80,9 +90,12 @@ func (s *PrijavaGreskeService) Posalji(ctx context.Context, u *models.User, ulaz
 		Zaslon: models.OcistiZaslon(ulaz.Zaslon), Greske: models.OcistiGreske(ulaz.Greske),
 		Stanje: models.StanjePrijaveNova,
 	}
+	if err := opisiSliku(p, ulaz.Slika); err != nil {
+		return nil, err
+	}
 	s.primanje.Lock()
 	defer s.primanje.Unlock()
-	vec, err := s.repo.IstaNedavna(ctx, p.UserID, p.Vrsta, p.Opis, p.Stranica, s.sat().Add(-rokPonovljenog))
+	vec, err := s.repo.IstaNedavna(ctx, p.UserID, p.Vrsta, p.Opis, p.Stranica, p.SlikaOtisak, s.sat().Add(-rokPonovljenog))
 	if err != nil {
 		return nil, err
 	}
@@ -92,10 +105,36 @@ func (s *PrijavaGreskeService) Posalji(ctx context.Context, u *models.User, ulaz
 	if err := s.provjeriBroj(ctx, p.UserID); err != nil {
 		return nil, err
 	}
-	if err := s.repo.Save(ctx, p); err != nil {
+	if err := s.spremi(ctx, p, ulaz.Slika); err != nil {
 		return nil, err
 	}
+	s.staviURed(p)
 	return p, nil
+}
+
+// opisiSliku provjerava sliku po bajtovima i upisuje njezin opis u prijavu; bez
+// slike ne radi ništa
+func opisiSliku(p *models.PrijavaGreske, slika []byte) error {
+	if len(slika) == 0 {
+		return nil
+	}
+	vrsta, err := vrstaSlikePrijave(slika)
+	if err != nil {
+		return err
+	}
+	p.SlikaOtisak, p.SlikaBajtova, p.SlikaVrsta = sadrzaj.Otisak(slika), len(slika), vrsta
+	return nil
+}
+
+// spremi upisuje novu prijavu, sa slikom kad je ima
+func (s *PrijavaGreskeService) spremi(ctx context.Context, p *models.PrijavaGreske, slika []byte) error {
+	if len(slika) == 0 {
+		return s.repo.Save(ctx, p)
+	}
+	if err := s.provjeriBrojSlika(ctx, p.UserID); err != nil {
+		return err
+	}
+	return s.repo.SaveSaSlikom(ctx, p, slika)
 }
 
 // provjeriBroj odbija prijavu kad je osoba u zadnjih sat vremena već poslala
@@ -107,6 +146,19 @@ func (s *PrijavaGreskeService) provjeriBroj(ctx context.Context, userID string) 
 	}
 	if len(vremena) == najvisePrijavaUSatu && s.sat().Sub(vremena[najvisePrijavaUSatu-1]) < prozorPrijava {
 		return ErrPrevisePrijava
+	}
+	return nil
+}
+
+// provjeriBrojSlika odbija sliku kad je osoba u zadnjih sat vremena već poslala
+// najviše slika što smije; prijava bez slike i dalje prolazi
+func (s *PrijavaGreskeService) provjeriBrojSlika(ctx context.Context, userID string) error {
+	vremena, err := s.repo.ZadnjaVremenaSlika(ctx, userID, najviseSlikaUSatu)
+	if err != nil {
+		return err
+	}
+	if len(vremena) == najviseSlikaUSatu && s.sat().Sub(vremena[najviseSlikaUSatu-1]) < prozorPrijava {
+		return ErrPreviseSlika
 	}
 	return nil
 }
@@ -145,7 +197,11 @@ func (s *PrijavaGreskeService) Get(ctx context.Context, id string) (*models.Prij
 
 // MojePrijave daje prijave jedne osobe, za Profil
 func (s *PrijavaGreskeService) MojePrijave(ctx context.Context, userID string) ([]models.PrijavaGreske, error) {
-	return s.repo.PoKorisniku(ctx, userID, najviseMojihPrijava)
+	prijave, err := s.repo.PoKorisniku(ctx, userID, najviseMojihPrijava)
+	for i := range prijave {
+		prijave[i].SlikaTu = s.ImaSliku(ctx, &prijave[i])
+	}
+	return prijave, err
 }
 
 // BrojPoStanju broji prijave po stanju

@@ -803,7 +803,12 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	prijavaService := service.NewPrijavaService(repository.NewPrijavaRepository(database, recorder), userService, vodocuvarService, node.ID)
 	prijavaService.SetOpcije(aktService.Opcije)
 	server.SetPrijave(prijavaService)
-	server.SetPrijaveGresaka(service.NewPrijavaGreskeService(repository.NewPrijavaGreskeRepository(database, recorder), imeCvora(node)))
+	prijaveGresaka := service.NewPrijavaGreskeService(repository.NewPrijavaGreskeRepository(database, recorder), imeCvora(node))
+	server.SetPrijaveGresaka(prijaveGresaka)
+	// e-pošta o novoj prijavi ide u pozadini; zaustavlja se prije zatvaranja baze
+	defer prijaveGresaka.PokreniPoruke(ctx, drugiKorak, func() string { return cfg.JavnaAdresa })()
+	// slika zaslona briše se 30 dana nakon što je prijava riješena
+	defer prijaveGresaka.PokreniCiscenjeSlika(ctx)()
 	// primljeni sadržaj kojem je po pretplati istekao rok držanja otpušta se
 	// s računala; zapisi ostaju i sadržaj se može opet dohvatiti
 	go func() {
