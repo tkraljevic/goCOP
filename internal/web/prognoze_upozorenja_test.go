@@ -57,7 +57,7 @@ func TestTekstUpozorenjaKarike(t *testing.T) {
 		"pa dnevni model nije računao za Donji Grad i Treće Selo."; got != want {
 		t.Errorf("što:\n %q\nželim\n %q", got, want)
 	}
-	if got, want := otvorena[0].Upitno, "Upitno: dnevna prognoza Donji Grad i Treće Selo, prenesena dnevna Preko — u tablici "+
+	if got, want := otvorena[0].Upitno, "Dnevne prognoze nema za Donji Grad i Treće Selo, a prenesene dnevne za Preko. U tablici "+
 		"sub 10.10., ned 11.10. i pon 12.10. stoji satna (oznaka s), uto 13.10. i sri 14.10. bez vrijednosti."; got != want {
 		t.Errorf("upitno:\n %q\nželim\n %q", got, want)
 	}
@@ -71,8 +71,8 @@ func TestTekstUpozorenjaKarike(t *testing.T) {
 		"Donji Grad i Treće Selo; vrijednost u satu izdanja izračunata je iz uzvodnih letvi."; got != want {
 		t.Errorf("što:\n %q\nželim\n %q", got, want)
 	}
-	if !strings.HasPrefix(otvorena[0].Upitno, "Upitno: satna prognoza Srednji Brod od izdanja; Donji Grad najranije od +1 h; "+
-		"Četvrti Most najranije od +7 h; dnevna prognoza Donji Grad i Treće Selo") {
+	if !strings.HasPrefix(otvorena[0].Upitno, "Prognoza može biti manje točna na 3 letve u lancu, kad to do njih stigne: prvo Srednji Brod, od sata izdanja, "+
+		"a zadnje Četvrti Most, najranije za 7 h. Dnevne prognoze nema za Donji Grad i Treće Selo") {
 		t.Errorf("upitno: %q", otvorena[0].Upitno)
 	}
 }
@@ -94,17 +94,17 @@ func TestDaniBezDnevnePoLetvama(t *testing.T) {
 		want             string
 	}{
 		{"satna samo uz jednu letvu", sa, prazni, prazni,
-			" — u tablici sub 10.10., ned 11.10. i pon 12.10. stoji satna (oznaka s) za letvu Donji Grad, " +
-				"uto 13.10. i sri 14.10. bez vrijednosti"},
+			" U tablici sub 10.10., ned 11.10. i pon 12.10. stoji satna (oznaka s) za letvu Donji Grad, " +
+				"uto 13.10. i sri 14.10. bez vrijednosti."},
 		{"satna uz dvije od tri", sa, sa, prazni,
-			" — u tablici sub 10.10., ned 11.10. i pon 12.10. stoji satna (oznaka s) za letve Donji Grad i Treće Selo, " +
-				"uto 13.10. i sri 14.10. bez vrijednosti"},
+			" U tablici sub 10.10., ned 11.10. i pon 12.10. stoji satna (oznaka s) za letve Donji Grad i Treće Selo, " +
+				"uto 13.10. i sri 14.10. bez vrijednosti."},
 		{"različiti dani", sa, odTreceg, prazni,
-			" — u tablici sub 10.10., ned 11.10. i pon 12.10. stoji satna (oznaka s) za letvu Donji Grad, " +
-				"ned 11.10. i pon 12.10. stoji satna (oznaka s) za letvu Treće Selo, uto 13.10. i sri 14.10. bez vrijednosti"},
-		{"pri visokoj vodi bez oznake s", prazni, prazni, prazni, " — u tablici uto 13.10. i sri 14.10. bez vrijednosti"},
+			" U tablici sub 10.10., ned 11.10. i pon 12.10. stoji satna (oznaka s) za letvu Donji Grad, " +
+				"ned 11.10. i pon 12.10. stoji satna (oznaka s) za letvu Treće Selo, uto 13.10. i sri 14.10. bez vrijednosti."},
+		{"pri visokoj vodi bez oznake s", prazni, prazni, prazni, " U tablici uto 13.10. i sri 14.10. bez vrijednosti."},
 		{"svima isto", sa, sa, sa,
-			" — u tablici sub 10.10., ned 11.10. i pon 12.10. stoji satna (oznaka s), uto 13.10. i sri 14.10. bez vrijednosti"},
+			" U tablici sub 10.10., ned 11.10. i pon 12.10. stoji satna (oznaka s), uto 13.10. i sri 14.10. bez vrijednosti."},
 	} {
 		t.Run(tc.ime, func(t *testing.T) {
 			p := pisacUpozorenja{postaje: izmisljenePostaje(), dani: daniUpozorenja, letve: []LetvaPrognoze{
@@ -116,14 +116,116 @@ func TestDaniBezDnevnePoLetvama(t *testing.T) {
 	}
 }
 
-// Satna upitna po dosezima: ista grupa zajedno, dosezi redom, bez dosega
-// (samo dnevna) izostaje.
+// Satna po dosezima: broj letvi, prva i zadnja; svaka letva svoj broj ima na
+// kartici, pa se ostale ne nabrajaju. Bez dosega (samo dnevna) izostaje.
 func TestTekstSatnihDosega(t *testing.T) {
 	p := pisacUpozorenja{postaje: izmisljenePostaje()}
-	got := p.satnaUpitna([]prognoza.Upitno{{Letva: "cetvrta", OdSata: 13}, {Letva: "srednja", OdSata: 0},
-		{Letva: "donja", OdSata: 1}, {Letva: "preko", OdSata: 1}, {Letva: "treca", OdSata: -1, Dnevno: true}, {Letva: "nepoznata", OdSata: 13}})
-	if want := "Srednji Brod od izdanja; Donji Grad i Preko najranije od +1 h; Četvrti Most i nepoznata najranije od +13 h"; got != want {
-		t.Errorf("%q\nželim\n%q", got, want)
+	const uvod = "Prognoza može biti manje točna na "
+	for _, tc := range []struct {
+		ime    string
+		upitno []prognoza.Upitno
+		want   string
+	}{
+		{"prva i zadnja", []prognoza.Upitno{{Letva: "cetvrta", OdSata: 13}, {Letva: "srednja", OdSata: 1},
+			{Letva: "donja", OdSata: 4}, {Letva: "preko", OdSata: 4}, {Letva: "treca", OdSata: -1, Dnevno: true}, {Letva: "nepoznata", OdSata: 13}},
+			uvod + "5 letvi u lancu, kad to do njih stigne: prvo Srednji Brod, najranije za 1 h, a zadnje Četvrti Most i nepoznata, najranije za 13 h."},
+		{"od sata izdanja", []prognoza.Upitno{{Letva: "srednja", OdSata: 0}, {Letva: "donja", OdSata: 7}},
+			uvod + "2 letve u lancu, kad to do njih stigne: prvo Srednji Brod, od sata izdanja, a zadnje Donji Grad, najranije za 7 h."},
+		{"sve u istom satu", []prognoza.Upitno{{Letva: "srednja", OdSata: 4}, {Letva: "donja", OdSata: 4}, {Letva: "preko", OdSata: 4}},
+			uvod + "3 letve u lancu, kad to do njih stigne: Srednji Brod, Donji Grad i Preko najranije za 4 h."},
+		{"jedna letva", []prognoza.Upitno{{Letva: "donja", OdSata: 4}}, uvod + "letvi Donji Grad, najranije za 4 h."},
+		{"jedna letva u satu izdanja", []prognoza.Upitno{{Letva: "donja", OdSata: 0}}, uvod + "letvi Donji Grad, od sata izdanja."},
+		{"samo dnevna", []prognoza.Upitno{{Letva: "treca", OdSata: -1, Dnevno: true}}, ""},
+	} {
+		if got := p.satnaUpitna(tc.upitno); got != tc.want {
+			t.Errorf("%s:\n %q\nželim\n %q", tc.ime, got, tc.want)
+		}
+	}
+	// 21 letva, kao Botovo pri rezervi: jednina uz 21, množina uz 11 i 25
+	for n, want := range map[int]string{21: "na 21 letvi u lancu", 11: "na 11 letvi u lancu", 22: "na 22 letve u lancu", 25: "na 25 letvi u lancu"} {
+		mnogo := make([]prognoza.Upitno, n)
+		for i := range mnogo {
+			mnogo[i] = prognoza.Upitno{Letva: "donja", OdSata: i}
+		}
+		if got := p.satnaUpitna(mnogo); !strings.Contains(got, want) {
+			t.Errorf("%d: %q, želim %q", n, got, want)
+		}
+	}
+}
+
+// Rezerva i zadržano mjerenje imenuju ulaz koji je ispao. Kad ih je ispalo više,
+// zna se samo da bar jedan nema svježih mjerenja. Dva puta s istim letvama u
+// drugoj veličini ne imenuju nikoga, a opis drugog oblika ostaje izdavaču.
+func TestPutRacuna(t *testing.T) {
+	p := pisacUpozorenja{postaje: izmisljenePostaje()}
+	for opis, want := range map[string]string{
+		"rezerva: treca + gornja umjesto srednja + gornja":       "Srednji Brod nema svježih mjerenja, pa se računa iz letvi Treće Selo i Gornji Brod",
+		"rezerva: treca umjesto srednja":                         "Srednji Brod nema svježih mjerenja, pa se računa iz letve Treće Selo",
+		"rezerva: treca umjesto srednja + gornja":                "Srednji Brod ili Gornji Brod nema svježih mjerenja, pa se računa iz letve Treće Selo",
+		"rezerva: treca + gornja umjesto gornja + treca":         "računa se iz letvi Treće Selo i Gornji Brod, a to je rezerva",
+		"bez svježeg ulaza (srednja): drži se zadnje mjerenje":   "Srednji Brod nema svježih mjerenja." + " Ova letva zato nema satnu prognozu, a letve nizvodno računaju se iz njezina zadnjeg mjerenja",
+		"bez svježeg ulaza (srednja + gornja): drži se mjerenje": "Srednji Brod ili Gornji Brod nema svježih mjerenja." + " Ova letva zato nema satnu prognozu, a letve nizvodno računaju se iz njezina zadnjeg mjerenja",
+	} {
+		if got, ima := p.putRacuna(opis); !ima || got != want {
+			t.Errorf("%s:\n %q\nželim\n %q", opis, got, want)
+		}
+	}
+	for _, opis := range []string{"rezerva: treca", "bez svježeg ulaza (srednja", "dnevni model: treca umjesto srednja",
+		"bez svježeg ulaza (): drži se zadnje mjerenje", "rezerva:  umjesto srednja", "rezerva: treca umjesto "} {
+		if got, ima := p.putRacuna(opis); ima {
+			t.Errorf("%s: %q, a treba ostati opis izdavača", opis, got)
+		}
+	}
+	// starija izdanja nosila su u zagradi i tuđu prognozu
+	if got := p.sto(prognoza.Upozorenje{Vrsta: prognoza.VrstaVrh, Letva: "gornja", Opis: "nema budućnosti vrha (dnevni model, tuđa prognoza); drži se zadnje mjerenje"}); !strings.HasPrefix(got, "Gornji Brod: prva je letva u lancu, a dnevni model za nju nije dao prognozu.") {
+		t.Errorf("%q", got)
+	}
+	// rupa koja je završila: letva danas mjeri, pa kartica ne smije reći da nema mjerenja
+	if got := p.uzrok(prognoza.Upozorenje{Vrsta: prognoza.VrstaUlaz, Letva: "srednja", Sljedece: 5}); got != ", jer letvi Srednji Brod fali dio mjerenja" {
+		t.Errorf("%q", got)
+	}
+	// prazan opis zamjene iz razmjene ne ruši stranicu
+	if got := opisRezerve("zamjena: ", izmisljenePostaje()); got != "." {
+		t.Errorf("%q", got)
+	}
+	// opis koji ne znamo piše se kako ga je izdavač napisao
+	if got := p.sto(prognoza.Upozorenje{Vrsta: prognoza.VrstaRezerva, Letva: "gornja", Opis: "rezerva: treca"}); got != "Gornji Brod: računa se iz rezerve: Treće Selo." {
+		t.Errorf("%q", got)
+	}
+	if got := p.sto(prognoza.Upozorenje{Vrsta: prognoza.VrstaVrh, Letva: "gornja", Opis: "novi razlog iz srednja"}); got != "Gornji Brod: prva je letva u lancu: novi razlog iz Srednji Brod." {
+		t.Errorf("%q", got)
+	}
+}
+
+// Dnevna koja je izdana ne smije pisati da je nema: iz rezerve je, bez kiše ili
+// iz rekonstruiranih sati, a bez njih dnevne doista nema.
+func TestRecenicaDnevne(t *testing.T) {
+	izmisljeniCiljevi(t)
+	p := pisacUpozorenja{postaje: izmisljenePostaje(), letve: letveBezDnevne(), dani: daniUpozorenja}
+	cilj := prognoza.Upitno{Letva: "donja", OdSata: -1, Dnevno: true}
+	preneseno := prognoza.Upitno{Letva: "preko", OdSata: -1, Dnevno: true}
+	for _, tc := range []struct {
+		vrsta  string
+		upitno []prognoza.Upitno
+		want   string
+	}{
+		{prognoza.VrstaDnevnaRezerva, []prognoza.Upitno{cilj}, "Dnevna prognoza može biti manje točna za Donji Grad."},
+		{prognoza.VrstaKisa, []prognoza.Upitno{cilj, preneseno}, "Dnevna prognoza može biti manje točna za Donji Grad, a prenesena dnevna za Preko."},
+		{prognoza.VrstaRekonstrukcija, []prognoza.Upitno{preneseno}, "Prenesena dnevna prognoza može biti manje točna za Preko."},
+		{prognoza.VrstaDnevni, []prognoza.Upitno{preneseno}, "Prenesene dnevne prognoze nema za Preko."},
+	} {
+		got := p.upitno(prognoza.Upozorenje{Vrsta: tc.vrsta, Upitno: tc.upitno})
+		if !strings.HasPrefix(got, tc.want) {
+			t.Errorf("%s:\n %q\nželim početak\n %q", tc.vrsta, got, tc.want)
+		}
+	}
+	if got := p.upitno(prognoza.Upozorenje{Vrsta: prognoza.VrstaDnevni}); got != "" {
+		t.Errorf("bez upitnih letvi: %q", got)
+	}
+	// rekonstrukcija je dnevnu izdala, i na grafu kao na kartici
+	u := []prognoza.Upozorenje{{Vrsta: prognoza.VrstaRekonstrukcija, Tezina: prognoza.TezinaUpozorenje, Letva: "srednja", Upitno: []prognoza.Upitno{cilj}}}
+	if got := upitnoLetve(u, "donja"); got != "Dnevna prognoza može biti manje točna" {
+		t.Errorf("graf: %q", got)
 	}
 }
 
@@ -137,15 +239,15 @@ func TestTekstSvihVrsta(t *testing.T) {
 		sto, kartica string
 	}{
 		{prognoza.Upozorenje{Vrsta: prognoza.VrstaDnevni, Opis: "nema arhive za srednja", Upitno: []prognoza.Upitno{{Letva: "donja", OdSata: -1, Dnevno: true}}},
-			"Dnevni model nije računao za Donji Grad: nema arhive za Srednji Brod.", "Dnevna nije izdana (dnevni model nije računao)."},
+			"Dnevni model nije računao za Donji Grad: nema arhive za Srednji Brod.", "Dnevna prognoza nije izdana, jer dnevni model nije računao."},
 		{prognoza.Upozorenje{Vrsta: prognoza.VrstaRezerva, Letva: "gornja", Opis: "rezerva: treca umjesto srednja", Upitno: jedan},
-			"Gornji Brod: računa se iz rezerve: Treće Selo umjesto Srednji Brod.", "Satna upitna najranije od +3 h (Gornji Brod iz rezerve)."},
+			"Gornji Brod: Srednji Brod nema svježih mjerenja, pa se računa iz letve Treće Selo.", "Prognoza može biti manje točna najranije za 3 h, jer se Gornji Brod računa iz rezerve."},
 		{prognoza.Upozorenje{Vrsta: prognoza.VrstaDrzi, Letva: "gornja", Opis: "bez svježeg ulaza (srednja): drži se zadnje mjerenje", Upitno: jedan},
-			"Gornji Brod: bez svježeg ulaza (Srednji Brod): drži se zadnje mjerenje.", "Satna upitna najranije od +3 h (Gornji Brod bez svježeg ulaza)."},
+			"Gornji Brod: Srednji Brod nema svježih mjerenja. Ova letva zato nema satnu prognozu, a letve nizvodno računaju se iz njezina zadnjeg mjerenja.", "Prognoza može biti manje točna najranije za 3 h, jer se računa iz zadnjeg mjerenja letve Gornji Brod."},
 		{prognoza.Upozorenje{Vrsta: prognoza.VrstaVrh, Letva: "gornja", Opis: "nema budućnosti vrha (dnevni model); drži se zadnje mjerenje", Upitno: jedan},
-			"Gornji Brod: vrh lanca, nema budućnosti vrha (dnevni model); drži se zadnje mjerenje.", "Satna upitna najranije od +3 h (Gornji Brod bez budućnosti vrha)."},
+			"Gornji Brod: prva je letva u lancu, a dnevni model za nju nije dao prognozu. Ova letva zato nema satnu prognozu, a letve nizvodno računaju se iz njezina zadnjeg mjerenja.", "Prognoza može biti manje točna najranije za 3 h, jer se računa iz zadnjeg mjerenja letve Gornji Brod."},
 		{prognoza.Upozorenje{Vrsta: prognoza.VrstaKisa, Opis: "dnevni model računa bez kiše: oborine nisu uključene", Upitno: []prognoza.Upitno{{Letva: "donja", OdSata: -1, Dnevno: true}}},
-			"Dnevni model računa bez kiše: oborine nisu uključene.", "Dnevna upitna (dnevni model bez kiše)."},
+			"Dnevni model računa bez kiše: oborine nisu uključene.", "Dnevna prognoza može biti manje točna, jer dnevni model računa bez kiše."},
 		{prognoza.Upozorenje{Vrsta: prognoza.VrstaDnevnaRezerva, Tezina: prognoza.TezinaNapomena, Letva: "donja", Opis: "dnevni model: treca umjesto srednja"},
 			"Donji Grad: dnevna prognoza iz rezerve: Treće Selo umjesto Srednji Brod.", ""},
 		{prognoza.Upozorenje{Vrsta: prognoza.VrstaZamjena, Tezina: prognoza.TezinaNapomena, Letva: "gornja", Opis: "zamjena: mjerenje kasni 2 h"},
@@ -157,7 +259,7 @@ func TestTekstSvihVrsta(t *testing.T) {
 			Opis:   "rekonstrukcija: nema mjerenja od 11.10. u 04:00; 10 h procijenjeno iz kretanja letve gornja 2 h uzvodno; razina izvan raspona na kojem je provjereno (od -107 do 569 cm), pa točnost nije provjerena",
 			Upitno: []prognoza.Upitno{{Letva: "donja", OdSata: 3, Dnevno: true}}},
 			"Srednji Brod: rekonstruirano iz susjeda: nema mjerenja od 11.10. u 04:00; 10 h procijenjeno iz kretanja letve Gornji Brod 2 h uzvodno; razina izvan raspona na kojem je provjereno (od -107 do 569 cm), pa točnost nije provjerena.",
-			"Satna upitna najranije od +3 h, dnevna upitna (Srednji Brod rekonstruirana izvan provjerenog raspona)."},
+			"Satna i dnevna prognoza mogu biti manje točne, satna najranije za 3 h, jer su mjerenja letve Srednji Brod procijenjena iz susjeda, izvan provjerenog raspona."},
 		{prognoza.Upozorenje{Vrsta: prognoza.VrstaBezPrognoze, Tezina: prognoza.TezinaNapomena, Letva: "cetvrta", Opis: "nema ulaza za nijedan sat unaprijed"},
 			"Četvrti Most: nema prognoze (nema ulaza za nijedan sat unaprijed).", ""},
 		{prognoza.Upozorenje{Vrsta: prognoza.VrstaCeka, Tezina: prognoza.TezinaNapomena, Letva: "gornja", Zadnje: satUTC(8, 3)},
@@ -188,9 +290,9 @@ func TestTekstSvihVrsta(t *testing.T) {
 		{prognoza.Upozorenje{Vrsta: "bez-tude", Tezina: prognoza.TezinaUpozorenje, Letva: "srednja", Upitno: jedan,
 			Opis: "mađarska prognoza (hydroinfo.hu) nije stigla, pa ga računa naš lanac, koji pri valu griješi više od nje"},
 			"Srednji Brod: mađarska prognoza (hydroinfo.hu) nije stigla, pa ga računa naš lanac, koji pri valu griješi više od nje.",
-			"Satna upitna najranije od +3 h (Srednji Brod)."},
+			"Prognoza može biti manje točna najranije za 3 h zbog letve Srednji Brod."},
 		{prognoza.Upozorenje{Vrsta: "buduca", Tezina: prognoza.TezinaUpozorenje, Opis: "nešto novo na srednja", Upitno: jedan},
-			"Nešto novo na Srednji Brod.", "Satna upitna najranije od +3 h (vidi upozorenja uz izdanje)."},
+			"Nešto novo na Srednji Brod.", "Prognoza može biti manje točna najranije za 3 h (vidi upozorenja uz izdanje)."},
 	} {
 		if got := p.sto(tc.u); got != tc.sto {
 			t.Errorf("%s:\n %q\nželim\n %q", tc.u.Vrsta, got, tc.sto)
@@ -202,14 +304,14 @@ func TestTekstSvihVrsta(t *testing.T) {
 			t.Errorf("%s kartica:\n %q\nželim\n %q", tc.u.Vrsta, got, tc.kartica)
 		}
 	}
-	// krivulja nema rečenicu „Upitno”, kiša nema dane tablice
+	// krivulja nema rečenicu o točnosti, kiša nema dane tablice
 	if s := p.upitno(prognoza.Upozorenje{Vrsta: prognoza.VrstaKrivulja, Upitno: []prognoza.Upitno{{Letva: "donja", OdSata: 1}}}); s != "" {
 		t.Errorf("krivulja: %q", s)
 	}
-	if s := p.upitno(prognoza.Upozorenje{Vrsta: prognoza.VrstaKisa, Upitno: []prognoza.Upitno{{Letva: "donja", OdSata: -1, Dnevno: true}}}); s != "Upitno: dnevna prognoza Donji Grad." {
+	if s := p.upitno(prognoza.Upozorenje{Vrsta: prognoza.VrstaKisa, Upitno: []prognoza.Upitno{{Letva: "donja", OdSata: -1, Dnevno: true}}}); s != "Dnevna prognoza može biti manje točna za Donji Grad." {
 		t.Errorf("kiša: %q", s)
 	}
-	if s := p.upitno(prognoza.Upozorenje{Vrsta: prognoza.VrstaRekonstrukcija, Upitno: []prognoza.Upitno{{Letva: "donja", OdSata: -1, Dnevno: true}}}); s != "Upitno: dnevna prognoza Donji Grad." {
+	if s := p.upitno(prognoza.Upozorenje{Vrsta: prognoza.VrstaRekonstrukcija, Upitno: []prognoza.Upitno{{Letva: "donja", OdSata: -1, Dnevno: true}}}); s != "Dnevna prognoza može biti manje točna za Donji Grad." {
 		t.Errorf("rekonstrukcija: %q", s)
 	}
 	if s := p.upitno(prognoza.Upozorenje{Vrsta: prognoza.VrstaCeka}); s != "" {
@@ -221,7 +323,7 @@ func TestTekstSvihVrsta(t *testing.T) {
 		t.Errorf("uzvodno: otvorena %+v, napomene %+v", otvorena, napomene)
 	}
 	// dnevna bez kartica u tablici: bez rečenice o danima
-	if s := (pisacUpozorenja{postaje: izmisljenePostaje()}).dnevnaUpitna(prognoza.Upozorenje{Upitno: []prognoza.Upitno{{Letva: "treca", Dnevno: true}}}); s != "dnevna prognoza Treće Selo" {
+	if s := (pisacUpozorenja{postaje: izmisljenePostaje()}).dnevnaUpitna(prognoza.Upozorenje{Upitno: []prognoza.Upitno{{Letva: "treca", Dnevno: true}}}); s != "Dnevne prognoze nema za Treće Selo." {
 		t.Errorf("bez kartica: %q", s)
 	}
 }
@@ -236,7 +338,7 @@ func TestUpozorenjeNaKartici(t *testing.T) {
 			Upitno: []prognoza.Upitno{{Letva: "donja", OdSata: 1, Dnevno: true}}},
 		{Vrsta: prognoza.VrstaBezPrognoze, Tezina: prognoza.TezinaNapomena, Letva: "cetvrta", Upitno: []prognoza.Upitno{{Letva: "cetvrta", OdSata: 0}}},
 	})
-	if got, want := letve[0].Upozorenje, "Satna upitna najranije od +1 h, dnevna nije izdana (Srednji Brod bez mjerenja)."; got != want {
+	if got, want := letve[0].Upozorenje, "Satna prognoza može biti manje točna najranije za 1 h, a dnevna nije izdana, jer Srednji Brod nema mjerenja."; got != want {
 		t.Errorf("Donji Grad: %q, želim %q", got, want)
 	}
 	if letve[1].Upozorenje != "" || letve[2].Upozorenje != "" {
@@ -348,8 +450,8 @@ func TestPrimateljPokazujeUpozorenjeIzdavaca(t *testing.T) {
 	}
 	html := stdhtml.UnescapeString(iscrtaj(t, "prognoze.html", data))
 	for _, want := range []string{"Upozorenja uz ovo izdanje", "Srednji Brod (primjer.hu): nema mjerenja od 8. 10. u 10 h",
-		"Donji Grad najranije od +1 h", "Napomene uz ovo izdanje (1)", "Četvrti Most: nema prognoze",
-		"prog-upozorenje", "Satna upitna najranije od +1 h, dnevna nije izdana (Srednji Brod bez mjerenja)."} {
+		"a zadnje Donji Grad, najranije za 1 h", "Napomene uz ovo izdanje (1)", "Četvrti Most: nema prognoze",
+		"prog-upozorenje", "Satna prognoza može biti manje točna najranije za 1 h, a dnevna nije izdana, jer Srednji Brod nema mjerenja."} {
 		if !strings.Contains(html, want) {
 			t.Errorf("stranica nema %q", want)
 		}
@@ -392,8 +494,8 @@ func TestPrimateljPokazujeIzbacenuVrstuUpozorenja(t *testing.T) {
 	html := stdhtml.UnescapeString(iscrtaj(t, "prognoze.html", data))
 	for _, want := range []string{"Upozorenja uz ovo izdanje",
 		"Srednji Brod: mađarska prognoza (hydroinfo.hu) nije stigla, pa ga računa naš lanac, koji pri valu griješi više od nje.",
-		"Upitno: satna prognoza Srednji Brod najranije od +1 h; Donji Grad najranije od +4 h.",
-		"Satna upitna najranije od +4 h (Srednji Brod)."} {
+		"Prognoza može biti manje točna na 2 letve u lancu, kad to do njih stigne: prvo Srednji Brod, najranije za 1 h, a zadnje Donji Grad, najranije za 4 h.",
+		"Prognoza može biti manje točna najranije za 4 h zbog letve Srednji Brod."} {
 		if !strings.Contains(html, want) {
 			t.Errorf("stranica nema %q", want)
 		}
@@ -535,8 +637,8 @@ func TestNatpisGrafaUpitno(t *testing.T) {
 		{Vrsta: prognoza.VrstaKisa, Tezina: prognoza.TezinaUpozorenje, Upitno: []prognoza.Upitno{{Letva: "cetvrta", OdSata: -1, Dnevno: true}}},
 		{Vrsta: prognoza.VrstaKrivulja, Tezina: prognoza.TezinaNapomena, Upitno: []prognoza.Upitno{{Letva: "cetvrta", Velicina: "protok", OdSata: 0}}},
 	}
-	for letva, want := range map[string]string{"donja": "Satna upitna najranije od +4 h; dnevna nije izdana",
-		"treca": "Dnevna nije izdana", "cetvrta": "Dnevna upitna", "peta": ""} {
+	for letva, want := range map[string]string{"donja": "Satna prognoza može biti manje točna najranije za 4 h, a dnevna nije izdana",
+		"treca": "Dnevna prognoza nije izdana", "cetvrta": "Dnevna prognoza može biti manje točna", "peta": ""} {
 		if got := upitnoLetve(u, letva); got != want {
 			t.Errorf("%s: %q, želim %q", letva, got, want)
 		}
@@ -547,11 +649,11 @@ func TestNatpisGrafaUpitno(t *testing.T) {
 	}
 	defer c.Close()
 	p := c.ZaLetvu("donja", "vodostaj")
-	if p == nil || p.Upitno != "Satna upitna najranije od +4 h; dnevna nije izdana" {
+	if p == nil || p.Upitno != "Satna prognoza može biti manje točna najranije za 4 h, a dnevna nije izdana" {
 		t.Fatalf("prognoza niza: %+v", p)
 	}
 	g := crtajNizSPrognozom(nizOcitanja(p.Izdano, 24), "vodostaj", nil, nil, p)
-	if !strings.HasSuffix(g.PrognozaNatpis, "slučajeva. Satna upitna najranije od +4 h; dnevna nije izdana.") {
+	if !strings.HasSuffix(g.PrognozaNatpis, "slučajeva. Satna prognoza može biti manje točna najranije za 4 h, a dnevna nije izdana.") {
 		t.Errorf("natpis: %q", g.PrognozaNatpis)
 	}
 	if g := crtajNizSPrognozom(nizOcitanja(p.Izdano, 24), "vodostaj", nil, nil, nizPrognoze(p.Izdano, 24)); !strings.HasSuffix(g.PrognozaNatpis, "slučajeva.") {
