@@ -315,6 +315,66 @@ func TestZadnjaOcitanjaIBrojPoLetvi(t *testing.T) {
 	}
 }
 
+// Zadnja očitanja idu po vremenu mjerenja, a isti trenutak po vremenu upisa. Letva
+// čita samo svoje retke, a redak objekta ne ulazi u letvu.
+func TestZadnjaOcitanjaRedoslijed(t *testing.T) {
+	o := novaOkolinaOcitanja(t)
+	ctx := context.Background()
+	isti := u2026(time.March, 10, 9, 0)
+	o.upisi(t, letvaPrimjerovo, "", u2026(time.March, 10, 7, 0), cmVodostaja(10), models.ReadingOriginGoCOP)
+	o.upisi(t, letvaPrimjerovo, "", isti, cmVodostaja(20), models.ReadingOriginGoCOP)
+	o.upisi(t, letvaPrimjerovo, "", isti, cmVodostaja(30), models.ReadingOriginGoCOP)
+	o.upisi(t, "", ustavaProbna, u2026(time.March, 11, 6, 0), cmVodostaja(40), models.ReadingOriginGoCOP)
+	if _, err := o.baza.Exec(`UPDATE readings SET created_at = '2026-03-10 09:00:00' WHERE level_cm = 20`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := o.baza.Exec(`UPDATE readings SET created_at = '2026-03-10 09:05:00' WHERE level_cm = 30`); err != nil {
+		t.Fatal(err)
+	}
+	zadnja, err := o.repo.LatestPerGauge(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p := zadnja["station:"+letvaPrimjerovo]; len(p) != 2 || *p[0].LevelCm != 30 || *p[1].LevelCm != 20 {
+		t.Errorf("zadnja očitanja Primjerova: %+v", p)
+	}
+	if u := zadnja["structure:"+ustavaProbna]; len(u) != 1 || *u[0].LevelCm != 40 {
+		t.Errorf("zadnja očitanja ustave: %+v", u)
+	}
+}
+
+// Nečitljiv zapis objekta i tablica bez stupca javljaju grešku, a ne prazan
+// popis. Oznaka koja nije tekst ne smije proći kao letva.
+func TestZadnjaOcitanjaGreske(t *testing.T) {
+	ctx := context.Background()
+	o := novaOkolinaOcitanja(t)
+	o.upisi(t, letvaPrimjerovo, "", u2026(time.March, 10, 7, 0), cmVodostaja(10), models.ReadingOriginGoCOP)
+	o.upisi(t, "", ustavaProbna, u2026(time.March, 11, 6, 0), cmVodostaja(40), models.ReadingOriginGoCOP)
+	if _, err := o.baza.Exec(`UPDATE readings SET measured_at = 'nije vrijeme' WHERE structure_id <> ''`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := o.repo.LatestPerGauge(ctx); err == nil {
+		t.Error("nečitljiv zapis objekta bez greške")
+	}
+
+	o = novaOkolinaOcitanja(t)
+	o.upisi(t, letvaPrimjerovo, "", u2026(time.March, 10, 7, 0), cmVodostaja(10), models.ReadingOriginGoCOP)
+	if _, err := o.baza.Exec(`ALTER TABLE readings DROP COLUMN note`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := o.repo.LatestPerGauge(ctx); err == nil {
+		t.Error("tablica bez stupca bez greške")
+	}
+
+	redovi, err := o.baza.QueryContext(ctx, `SELECT NULL, 1`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := procitajBrojeve(redovi); err == nil {
+		t.Error("oznaka bez vrijednosti bez greške")
+	}
+}
+
 // Uvoz preskače što već ima: skup postojećih identifikatora sadrži samo
 // očitanja danog podrijetla; podrijetlo bez očitanja daje prazan skup
 func TestPostojeciIdentifikatoriPoPodrijetlu(t *testing.T) {

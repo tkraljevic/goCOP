@@ -46,11 +46,16 @@
         return r.text();
       }).then(function (html) {
         okno.innerHTML = html;
-        okno.hidden = false;
-        document.body.classList.add('ima-okno-popisa');
+        // pomiče se samo popis: stranica koju osoba već čita ostaje gdje jest
         var odabrana = okno.querySelector('[aria-current="page"]');
-        if (odabrana) odabrana.scrollIntoView({ block: 'center' });
-      }).catch(function () { /* bez popisa letva radi kao i prije */ });
+        if (odabrana) {
+          okno.scrollTop += odabrana.getBoundingClientRect().top - okno.getBoundingClientRect().top -
+            (okno.clientHeight - odabrana.offsetHeight) / 2;
+        }
+      }).catch(function () {
+        // bez popisa letva radi kao i prije; već učitan popis ostaje
+        if (!okno.firstElementChild) okno.hidden = true;
+      });
     }
 
     // čipovi i pretraga u popisu uz letvu mijenjaju samo popis, letva ostaje

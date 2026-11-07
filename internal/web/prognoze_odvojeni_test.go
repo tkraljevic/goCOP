@@ -155,7 +155,7 @@ func TestTekstUpozorenjaOdvojenih(t *testing.T) {
 	p := pisacUpozorenja{postaje: izmisljenePostaje()}
 	u := prognoza.Upozorenje{Vrsta: prognoza.VrstaOdvojeni, Letva: "gornja", Opis: "bez svježeg ulaza (srednja): drži se zadnje mjerenje",
 		Upitno: []prognoza.Upitno{{Letva: "donja", OdSata: 3}}}
-	if s := p.sto(u); s != "Gornji Brod: bez svježeg ulaza (Srednji Brod): drži se zadnje mjerenje." {
+	if s := p.sto(u); s != "Gornji Brod: Srednji Brod nema svježih mjerenja. Ova letva zato nema satnu prognozu, a letve nizvodno računaju se iz njezina zadnjeg mjerenja." {
 		t.Errorf("%q", s)
 	}
 	if s := p.naKartici(u, u.Upitno[0]); !strings.Contains(s, "Gornji Brod") {
@@ -168,20 +168,20 @@ func TestTekstUpozorenjaOdvojenih(t *testing.T) {
 func TestOdvojeniNaKartici(t *testing.T) {
 	izmisljeniCiljevi(t)
 	sluca := []struct{ opis, uzrok string }{
-		{"nema mjerenja od 6.11. u 05:00, a prognoza se računa iz uzvodnih letvi", "Gornji Brod bez mjerenja"},
-		{"bez svježeg ulaza (srednja): drži se zadnje mjerenje", "Gornji Brod bez svježeg ulaza"},
-		{"rezerva: srednja umjesto treca", "Gornji Brod iz rezerve"},
-		{"nešto što ova inačica ne zna", "Gornji Brod"},
+		{"nema mjerenja od 6.11. u 05:00, a prognoza se računa iz uzvodnih letvi", ", jer Gornji Brod nema mjerenja"},
+		{"bez svježeg ulaza (srednja): drži se zadnje mjerenje", ", jer se računa iz zadnjeg mjerenja letve Gornji Brod"},
+		{"rezerva: srednja umjesto treca", ", jer se Gornji Brod računa iz rezerve"},
+		{"nešto što ova inačica ne zna", " zbog letve Gornji Brod"},
 	}
 	for _, s := range sluca {
 		letve := letveBezDnevne()
 		u := []prognoza.Upozorenje{{Vrsta: prognoza.VrstaOdvojeni, Tezina: prognoza.TezinaNapomena, Letva: "gornja", Opis: s.opis,
 			Upitno: []prognoza.Upitno{{Letva: "donja", OdSata: 1}}}}
 		(pisacUpozorenja{postaje: izmisljenePostaje(), letve: letve}).oznaciLetve(u)
-		if want := "Satna upitna najranije od +1 h (" + s.uzrok + ")."; letve[0].Upozorenje != want {
+		if want := "Prognoza može biti manje točna najranije za 1 h" + s.uzrok + "."; letve[0].Upozorenje != want {
 			t.Errorf("%q, želim %q", letve[0].Upozorenje, want)
 		}
-		if g := upitnoLetve(u, "donja"); g != "Satna upitna najranije od +1 h" {
+		if g := upitnoLetve(u, "donja"); g != "Prognoza može biti manje točna najranije za 1 h" {
 			t.Errorf("graf: %q", g)
 		}
 	}

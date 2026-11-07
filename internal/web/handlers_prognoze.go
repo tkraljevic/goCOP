@@ -62,6 +62,10 @@ type PrognozeHandler struct {
 	opcije         func(ctx context.Context) models.Opcije // način prikaza (satni, dnevni, kombinacija)
 	izmijeniOpcije func(ctx context.Context, p *models.UserPermissions, izmjena func(*models.Opcije)) error
 
+	napomena       func(ctx context.Context) string // napomena administratora na vrhu stranice
+	spremiNapomenu func(ctx context.Context, p *models.UserPermissions, tekst string) error
+	nedostaju      zapamcenoNedostaju // popis podataka koji ne stižu
+
 	// Priprema modela (namještanje lanca, promašaji, ponovno izdavanje).
 	priprema     PripremaModela
 	pripremaRadi func() bool
@@ -373,6 +377,10 @@ type PrognozePageData struct {
 	Upozorenja, Napomene []UpozorenjeStranice
 	Zastarjelo           string
 
+	// Traka o podacima: napomena administratora i kojih podataka nema
+	NapomenaPodataka string
+	Nedostaju        []RedakNedostaju
+
 	Ranije RanijiIzvoz // izvoz ranijeg izdanja: odjeljak postavki i napomena izvoza
 
 	// Za izvoz: satni nizovi izdanja i registar letvi, iz kojih se crtaju
@@ -385,6 +393,7 @@ type PrognozePageData struct {
 	NacinPrikaza   string // koji model daje dane u tablici i na grafovima, opisno
 	Opcije         models.Opcije
 	SmijeMijenjati bool // može mijenjati način prikaza (uprava)
+	SmijeNapomenu  bool // može upisati napomenu o podacima (globalni administrator)
 
 	MozeGenerirati bool // ima krug preuzimanja, pa gumb „Generiraj” ima što pokrenuti
 	// SmijeGenerirati: ima krug preuzimanja, a osoba je dežurni ili
@@ -410,6 +419,7 @@ func (h *PrognozeHandler) ShowPrognoze(w http.ResponseWriter, r *http.Request) {
 	o := h.nacini(r.Context())
 	data := h.podaci(r, o.PrognozaPrikaz)
 	suziStranicu(&data)
+	h.trakaPodataka(r.Context(), &data)
 	h.iscrtaj(w, data)
 }
 
@@ -422,7 +432,8 @@ func (h *PrognozeHandler) ShowPostavke(w http.ResponseWriter, r *http.Request) {
 	}
 	data := h.zaglavlje(r)
 	data.Ranije = h.ranijiIzvoz(r)
-	if !data.MozeGenerirati && !data.MozePripremiti && data.Ranije.Od == "" {
+	data.SmijeNapomenu = h.napomena != nil && data.Permissions != nil && data.Permissions.IsGlobalAdmin
+	if !data.MozeGenerirati && !data.MozePripremiti && data.Ranije.Od == "" && !data.SmijeNapomenu {
 		http.Redirect(w, r, "/prognoze", http.StatusSeeOther)
 		return
 	}
@@ -431,6 +442,9 @@ func (h *PrognozeHandler) ShowPostavke(w http.ResponseWriter, r *http.Request) {
 	data.Podrucja = h.podrucjaPrognoze(r.Context(), letve)
 	data.Opcije = h.nacini(r.Context())
 	data.SmijeMijenjati = h.izmijeniOpcije != nil && data.Permissions != nil && data.Permissions.IsGlobalAdmin
+	if data.SmijeNapomenu {
+		data.NapomenaPodataka = h.napomena(r.Context())
+	}
 	if err := h.postavkeTmpl.ExecuteTemplate(w, "prognoze_postavke.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -788,7 +802,8 @@ func (h *PrognozeHandler) opisiLetve(popis map[string]models.Station, letve []Pr
 		}
 	}
 	krajnosti, cekaju := h.krajnosti(append(kodovi, izvoriKrajnosti(kodovi)...))
-	dopuniPrenesenim(krajnosti, kodovi, popis)
+	// Prenosi se samo letvi za koju je arhiva pročitana i nema vlastiti niz.
+	dopuniPrenesenim(krajnosti, slices.DeleteFunc(slices.Clone(kodovi), func(kod string) bool { return cekaju[kod] }), popis)
 	for _, l := range letve {
 		ulaz := l.Racuna == "" && !l.UlazLanca && jeDnevniUlaz(l.Letva)
 		pregledna := l.Racuna == "" && !l.UlazLanca && !ulaz && jePregledna(l.Letva)
@@ -823,9 +838,11 @@ func (h *PrognozeHandler) opisiLetve(popis map[string]models.Station, letve []Pr
 			red.URL = "/readings/station/" + st.ID.String()
 			if !jeAkumulacija(st) { // razina akumulacije je kota nad morem, pragovi letve joj ne pripadaju
 				var mn, mx *Krajnost
-				if !strings.HasPrefix(l.Letva, "he-") {
+				// Dok se arhiva računa, evidencija nije cijela povijest letve:
+				// kao MIN i MAX pokazala bi samo ono što je ona zapamtila.
+				if !strings.HasPrefix(l.Letva, "he-") && !cekaju[l.Letva] {
 					k := krajnosti[l.Letva]
-					mn, mx = uzEvidenciju(context.Background(), h.readings, st, k[0], k[1], !cekaju[l.Letva])
+					mn, mx = uzEvidenciju(context.Background(), h.readings, st, k[0], k[1])
 				}
 				red.Pragovi = pragoviKartice(st, mn, mx)
 				// Za sažetak samo kad je arhiva već pročitana: sama evidencija
@@ -1373,14 +1390,17 @@ func opisRezerve(opis string, postaje map[string]models.Station) string {
 	case strings.HasPrefix(opis, "dnevni model: "):
 		return "Dnevna prognoza iz rezerve: " + imena(strings.TrimPrefix(opis, "dnevni model: ")) + "."
 	case strings.HasPrefix(opis, "zamjena: "):
-		o := imena(strings.TrimPrefix(opis, "zamjena: "))
-		return strings.ToUpper(o[:1]) + o[1:] + "."
+		return velikoSlovo(imena(strings.TrimPrefix(opis, "zamjena: "))) + "."
 	case strings.HasPrefix(opis, "rekonstrukcija: "):
 		return "Rekonstruirano iz susjeda: " + imena(strings.TrimPrefix(opis, "rekonstrukcija: ")) + "."
-	case strings.HasPrefix(opis, "bez svježeg ulaza"):
-		return imena(opis) + "."
 	}
-	return "Računa se iz rezerve: " + imena(strings.TrimPrefix(opis, "rezerva: ")) + ". Raspon je procjena, nije provjeren unatrag."
+	if t, ima := (pisacUpozorenja{postaje: postaje}).putRacuna(opis); ima {
+		if strings.HasPrefix(opis, uvodRezerve) {
+			t += ". Raspon je procjena, nije provjeren unatrag"
+		}
+		return velikoSlovo(t) + "."
+	}
+	return "Računa se iz rezerve: " + imena(strings.TrimPrefix(opis, uvodRezerve)) + ". Raspon je procjena, nije provjeren unatrag."
 }
 
 // PocetakProfila je letva od koje kreće uzdužni profil vode; letve uzvodno

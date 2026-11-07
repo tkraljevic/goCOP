@@ -180,11 +180,11 @@
       Vide je samo administrator i vi. Slika se briše sa svih računala 30 dana nakon što je prijava riješena, a prijava i
       tekst ostaju. Program sam
       doda stranicu na kojoj ste, izdanje programa, računalo, preglednik i zadnje greške te stranice. Prijava ostaje
-      unutar vaše mreže i ne ide nikamo drugamo. Sadržaj stranice, lozinke i kolačići se ne šalju. Prijava stiže na sva
+      unutar vaše mreže, a izvan nje ide samo poruka administratoru. Sadržaj stranice, lozinke i kolačići se ne šalju. Prijava stiže na sva
       računala u mreži i ne može se povući, pa u nju ne pišite osobne podatke koji nisu nužni. Stanje prijave i odgovor
       administratora vidite na <a href="/profile#moje-prijave">Profilu, pod Moje prijave</a>. Administrator ih čita pod
       <em>Administracija → Prijave grešaka i prijedlozi</em>, a kad je na računalu s kojeg šaljete podešena e-pošta,
-      dobije i poruku s poveznicom, bez slike. Stranica koja javi samo kratku poruku o kvaru nema gornju
+      dobije i poruku s vašim imenom, poveznicom i do 1000 znakova teksta, bez slike. Stranica koja javi samo kratku poruku o kvaru nema gornju
       traku ni kukca: vratite se na prethodnu stranicu i prijavite odande.</p>
     <p><strong>Na telefonu</strong> izbornik otvara gumb {{icon "menu"}} gore lijevo. Grafovi i
       tablice imaju svoj oblik za uski zaslon — isti podaci, drukčije složeni. Tablica koja ne
@@ -1131,6 +1131,11 @@
       raspon pragu obrane. Svjetlije prikazana vrijednost znači da na tom dosegu prognoza u provjeri
       nije bila bolja od jednostavne pretpostavke da će stanje ostati isto. Mađarske i srpske javne
       prognoze prikazuju se zasebno kada su raspoložive i ne predstavljaju mjerenje goCOP-a.</p>
+    <p>Traka na vrhu stranice kaže kojih mjerenja vodostaja i protoka na ovom računalu nema i od kada.
+      Letva je na popisu kad joj je zadnje preuzeto mjerenje starije od 6 sati, a ako izvor javlja
+      rjeđe, kad izostane još jedno javljanje. Ručni upisi se tu ne računaju. Letva koja 14 dana nema
+      nijedno preuzeto mjerenje te veličine više se ne navodi. Iznad popisa može stajati napomena koju
+      globalni administrator upisuje u Postavkama prognoze, npr. da izvor mijenja adrese.</p>
     <p>Satni lanac seže 96 sati, a dnevni model daje dane do šestog. Slovo uz vrijednost kaže iz
       čega je: <em>s</em> satni lanac, <em>d</em> dnevni model, <em>ds</em> oboje zajedno i
       <em>p</em> susjedne postaje. Zadano se prikazuje kombinacija. Na Batini, Aljmašu, Vukovaru i
@@ -1150,13 +1155,14 @@
     <h3 id="prognoze-upozorenja">Upozorenja uz izdanje</h3>
     <p>Kad pri izdavanju nešto ne radi, iznad kartica stoji okvir <strong>Upozorenja uz ovo
       izdanje</strong>. Svako upozorenje kaže što ne radi — npr. letva bez mjerenja, s izvorom i od
-      kada do kada, dnevni model koji nije računao, račun iz rezerve, vrh lanca bez svoje budućnosti
-      ili dnevni model bez kiše — i što je zbog toga upitno: satna prognoza po postajama od kojeg dosega
-      i dnevna prognoza koja nije izdana. Doseg je najraniji mogući („najranije od +7 h”): vrijednosti
-      prije njega ne ovise o onome što ne radi. Kartica takve postaje ima kratak redak s razlogom, a isto
-      stoji u izvozu u Excel, u sažetku i uz graf postaje.</p>
+      kada do kada, dnevni model koji nije računao, račun iz rezerve, prva letva u lancu kojoj dnevni model nije dao prognozu
+      ili dnevni model bez kiše — i na koliko letvi prognoza zato može biti manje točna, ili koja dnevna
+      prognoza nije izdana. To ne stiže na sve letve odjednom, pa svaka ima svoj broj sati, računat od
+      sata izdanja. Na kartici letve piše npr. „najranije za 7 h”: vrijednosti prije toga ne ovise o
+      onome što ne radi, a posljedica može stići i kasnije. Isto stoji u
+      izvozu u Excel, u sažetku i uz graf letve.</p>
     <p>Sitnije stvari — dnevni model iz rezerve, sati preuzeti s letve na drugoj obali, postaja bez
-      ijednog sata prognoze, vrh lanca koji kasni i vrijednosti izvan krivulje protoka — stoje
+      ijednog sata prognoze, prva letva u lancu kojoj mjerenje kasni i vrijednosti izvan krivulje protoka — stoje
       sklopljene pod <em>Napomene</em>. Upozorenja zapisuje čvor koji izdaje prognozu i ona putuju s
       izdanjem, pa svi čvorovi pokazuju isto. Kad je izdanje starije od tri sata, stranica to javlja
       sama, a uz izdanje čvora na starijoj inačici programa piše da upozorenja ne zapisuje.</p>
@@ -1174,7 +1180,7 @@
       unutar ±1 do ±20 cm, ovisno o letvi i susjedu; na Dravi uz elektrane više nego na Dunavu.
       Točnost vrijedi samo za razine na kojima je provjerena (arhiva od 2015.). Kad je letva izvan tog
       raspona, kao na rekordno niskoj vodi u listopadu 2026., rekonstrukcija i dalje računa, ali uz izdanje
-      stoji upozorenje da točnost nije provjerena: dnevna prognoza koja iz nje računa označena je upitnom,
+      stoji upozorenje da točnost nije provjerena: za dnevnu prognozu koja iz nje računa piše da može biti manje točna,
       a za rupu koja traje i satna niz rijeku, kao kad mjerenja nema.</p>
 
     <h3 id="prognoze-ranija">Ranija prognoza</h3>

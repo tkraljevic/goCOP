@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -55,10 +56,10 @@ func TestKrajnostiJucerDokSeRacunaju(t *testing.T) {
 	}
 }
 
-// Dok se arhiva još računa, krajnost iz evidencije ne smije reći da letva
-// nema niz u arhivi; kad je arhiva pročitana i prazna, kaže od kada ide
-// evidencija. Na pločici je uvijek dan očitanja.
-func TestUzEvidencijuSamoBezNizaKazeOdKada(t *testing.T) {
+// Dok se arhiva još računa, kartica prognoze ne pokazuje evidenciju kao MIN i
+// MAX letve: evidencija je samo dio povijesti. Kad je arhiva pročitana i prazna,
+// krajnost iz evidencije kaže od kada evidencija ide, a na pločici je dan očitanja.
+func TestKarticaBezEvidencijeDokArhivaCeka(t *testing.T) {
 	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "krajnosti.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -81,12 +82,74 @@ func TestUzEvidencijuSamoBezNizaKazeOdKada(t *testing.T) {
 	}
 	rs := service.NewReadingService(repository.NewReadingRepository(baza, rec), stationRepo, nil, nil, nil)
 
-	mn, _ := uzEvidenciju(context.Background(), rs, st, nil, nil, false)
-	if mn == nil || mn.Label() != "-211 cm · 21. 10. 2026." || mn.Od != "" {
-		t.Fatalf("dok se arhiva računa: %+v", mn)
+	h := NewPrognozeHandler(nil, nil, nil)
+	h.readings = rs
+	h.arhiva = func() *repository.ArhivaRepository { return &repository.ArhivaRepository{} }
+	h.godisnji.puni = true // punjenje u pozadini već traje, test ga ne pokreće
+	popis := map[string]models.Station{st.Code: st}
+	pregled := []PregledLetve{{Letva: st.Code}}
+
+	if got := h.opisiLetve(popis, pregled); len(got) != 1 || len(got[0].Pragovi) != 0 {
+		t.Fatalf("dok arhiva čeka: %+v", got)
 	}
-	mn, _ = uzEvidenciju(context.Background(), rs, st, nil, nil, true)
-	if mn == nil || mn.Od != "29. 11. 2022." || mn.Label() != "-211 cm · 21. 10. 2026." {
-		t.Fatalf("letva bez niza u arhivi: %+v", mn)
+
+	h.godisnji.zapamti(st.Code, nil) // arhiva pročitana, letva u njoj nema niz
+	got := h.opisiLetve(popis, pregled)
+	if len(got) != 1 || len(got[0].Pragovi) != 2 {
+		t.Fatalf("nakon arhive: %+v", got)
+	}
+	if p := got[0].Pragovi[1]; p.Oznaka != "MIN" || p.Vrijednost != "-211 cm · 21. 10. 2026." || !strings.Contains(p.Naslov, "29. 11. 2022.") {
+		t.Errorf("krajnost iz evidencije: %+v", p)
+	}
+}
+
+// Letva s izvorom krajnosti dok još čeka svoju arhivu ne dobiva krajnosti
+// izvora: možda ima vlastiti niz, a pločica bi tvrdila da ga nema.
+func TestKarticaBezPrenesenihDokArhivaCeka(t *testing.T) {
+	h := NewPrognozeHandler(nil, nil, nil)
+	h.arhiva = func() *repository.ArhivaRepository { return &repository.ArhivaRepository{} }
+	h.godisnji.puni = true // punjenje u pozadini već traje, test ga ne pokreće
+	h.godisnji.zapamti("ilok", []repository.GodinaVodostaja{{Godina: 1965, Min: -150, Max: 812}})
+	popis := map[string]models.Station{
+		"ilok":          {Name: "Ilok", ZeroDatum: kota(73.968)},
+		"backa-palanka": {Name: "Bačka Palanka (Srbija)", ZeroDatum: kota(73.97)},
+	}
+	pregled := []PregledLetve{{Letva: "backa-palanka"}}
+
+	if got := h.opisiLetve(popis, pregled); len(got) != 1 || len(got[0].Pragovi) != 0 {
+		t.Fatalf("dok arhiva čeka: %+v", got)
+	}
+	h.godisnji.zapamti("backa-palanka", nil) // pročitano, vlastitog niza nema
+	if got := h.opisiLetve(popis, pregled); len(got) != 1 || len(got[0].Pragovi) != 2 || !strings.Contains(got[0].Pragovi[0].Vrijednost, "s letve Ilok") {
+		t.Errorf("nakon arhive: %+v", got)
+	}
+}
+
+// Pročitano se pamti po veličini, a letva čije čitanje padne ne pamti se, pa je
+// idući pregled čita ponovno.
+func TestGodisnjeVelicinePamtiSamoProcitano(t *testing.T) {
+	arh := arhivaBrojki(t, nil)
+	h := &PrognozeHandler{arhiva: func() *repository.ArhivaRepository { return arh }}
+	ctx := context.Background()
+
+	if got := h.godisnjeVelicine(ctx, "protok", []string{"osijek"}); len(got) != 1 {
+		t.Fatalf("pročitano: %+v", got)
+	}
+	if _, ima := h.godisnji.izPredmemorije("protok:osijek"); !ima {
+		t.Error("protok se pamti pod protok:letva")
+	}
+	arh.Close()
+	if got := h.godisnjeVelicine(ctx, "protok", []string{"osijek", "botovo"}); len(got) != 1 {
+		t.Errorf("zapamćena letva ostaje, a nepročitana ne: %+v", got)
+	}
+	if _, ima := h.godisnji.izPredmemorije("botovo"); ima {
+		t.Error("nepročitana letva ne smije se zapamtiti")
+	}
+	if got := (&PrognozeHandler{}).godisnjeVelicine(ctx, "vodostaj", []string{"osijek"}); got != nil {
+		t.Errorf("bez arhive: %+v", got)
+	}
+	h.arhiva = func() *repository.ArhivaRepository { return nil }
+	if got := h.godisnjeVelicine(ctx, "vodostaj", []string{"osijek"}); got != nil {
+		t.Errorf("arhiva nije otvorena: %+v", got)
 	}
 }
