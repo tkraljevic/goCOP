@@ -5105,13 +5105,6 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .prijava-pin svg { width: 0.9em; height: 0.9em; vertical-align: -0.1em; }
 .prijave-listanje { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; margin-top: 0.9rem; }
 
-/* Mjeseci u knjizi vodočuvara: knjiga zna imati stotine listova, pa se
-   odjednom gleda jedan mjesec */
-.knjiga-mjesec { border-left: 2px solid var(--border, #d9dee5); padding: 0.25rem 0 0.25rem 0.6rem; margin: 0.35rem 0 0.35rem 0.2rem; }
-.knjiga-mjesec > summary { cursor: pointer; list-style: none; padding: 0.15rem 0; }
-.knjiga-mjesec > summary::-webkit-details-marker { display: none; }
-.knjiga-mjesec > summary::before { content: "▸"; display: inline-block; width: 1rem; color: var(--muted, #6b7280); }
-.knjiga-mjesec[open] > summary::before { content: "▾"; }
 
 /* Krivulje protoka na letvi. Krivulja se čita po razdoblju pa po granicama
    odsječaka, kao što je i DHMZ ispisuje — zato blok po razdoblju, a ne
@@ -8311,4 +8304,119 @@ summary.ocitanja-cip { padding-right: 8px; }
 /* Moja knjiga: pri ispisu ostaje samo popis, kao i prije */
 @media print {
   .moja-knjiga-vrh { display: none !important; }
+}
+
+/* ===== Knjige vodočuvara (goCOP-m3, 15 · Dokumenti, 7c) =====
+   Mjeseci i listovi su isti kao u Mojoj knjizi (.moj-mjesec, .moj-list). Prvo mobitel: izbori
+   i polja imaju natpis u polju, a sve je jedno ispod drugoga. Od 600 px izbori su u redu, a
+   natpis polja stoji na njegovu rubu. Sklopljena knjiga pokazuje ime i broj listova, a otvorena
+   još i gumbe u svom retku; od 1200 px je sve u jednom retku. */
+.knjige-zaglavlje { margin-bottom: 12px; }
+.knjige-zaglavlje .page-desc { margin: 2px 0 0; color: var(--md-sys-color-on-surface-variant); font-size: 0.8125rem; }
+.knjige-zaglavlje .page-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+.knjige-filtri { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.knjige-izbor-bp, .knjige-ceka { grid-column: 1 / -1; }
+.knjige-izbor, .knjige-polje { position: relative; display: block; min-width: 0; }
+.knjige-izbor > span, .knjige-polje > span {
+  position: absolute; top: 8px; left: 17px; z-index: 1; max-width: calc(100% - 34px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--md-sys-color-on-surface-variant); font-size: 0.75rem; pointer-events: none;
+}
+.knjige-izbor select, .knjige-polje select, .knjige-polje input {
+  width: 100%; min-height: 53px; padding: 22px 12px 6px 16px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 8px;
+  background: var(--md-sys-color-surface); color: var(--md-sys-color-on-surface); font-family: inherit; font-size: 0.9375rem;
+}
+.knjige-izbor option, .knjige-polje option { background: var(--md-sys-color-surface); color: var(--md-sys-color-on-surface); }
+.knjige-polje select { padding-left: 12px; }
+.knjige-polje input::placeholder { color: var(--md-sys-color-on-surface-variant); opacity: 1; }
+.knjige-izbor select:disabled { opacity: 0.6; }
+.knjige-ceka { display: flex; align-items: center; gap: 12px; min-height: var(--size-touchtarget); font-size: 0.875rem; color: var(--md-sys-color-on-surface); }
+.knjige-ceka input { flex: none; width: 20px; height: 20px; }
+
+.detail-section.knjige-odjeljak { margin-top: 16px; }
+.detail-section.knjige-odjeljak > h2 { margin: 0 0 8px; color: var(--md-sys-color-on-surface); font-size: 1rem; font-weight: 500; }
+.knjige-zadaj { padding: 16px; border: 1px solid var(--rub-kartica); border-radius: 12px; background: var(--md-sys-color-surface-container-low); }
+.knjige-zadaj-obrazac, .knjiga-upis { display: flex; flex-direction: column; gap: 8px; }
+.knjige-zadaj-obrazac .btn { width: 100%; }
+.knjige-napomena { margin: 8px 0 0; color: var(--md-sys-color-on-surface-variant); font-size: 0.75rem; }
+
+.knjiga { margin: 0 0 8px; padding: 0 12px; border: 1px solid var(--rub-kartica); border-radius: 12px; background: var(--md-sys-color-surface-container-low); }
+.knjiga > summary { position: relative; display: flex; flex-direction: column; gap: 8px; min-height: 56px; justify-content: center; padding: 12px 32px 12px 0; cursor: pointer; list-style: none; }
+.knjiga > summary::-webkit-details-marker { display: none; }
+.knjiga > summary > .icon { position: absolute; top: 16px; right: 0; width: 24px; height: 24px; color: var(--md-sys-color-on-surface-variant); }
+.knjiga[open] > summary > .icon { transform: rotate(-90deg); }
+.knjiga-ime { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.knjiga-ime strong { color: var(--md-sys-color-on-surface); font-size: 0.875rem; font-weight: 600; }
+.knjiga-broj { color: var(--md-sys-color-on-surface-variant); font-size: 0.75rem; }
+.knjiga-oznake, .knjiga-gumbi { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.knjiga:not([open]) .knjiga-gumbi { display: none; }
+.knjiga-zadaci { margin-bottom: 12px; color: var(--md-sys-color-on-surface); font-size: 0.8125rem; }
+.knjiga-upis { margin-bottom: 12px; }
+.knjiga-upis .knjige-polje-dan { order: 1; }
+.knjiga-upis .knjige-polje-tekst { order: 0; }
+.knjiga-upis .btn { order: 2; width: 100%; }
+.knjiga-mjeseci { display: flex; flex-direction: column; gap: 8px; padding-bottom: 12px; }
+/* Moj dnevnik je u odjeljku, a ne u knjizi: ispod njega nema ruba kartice. */
+.knjige-odjeljak > .knjiga-mjeseci { padding-bottom: 0; }
+/* List koji čeka ovjeru vidi se i kad se popis samo prelazi pogledom. */
+.knjiga .moj-list.ceka { box-shadow: inset 4px 0 0 var(--md-sys-color-primary); }
+.knjiga .moj-list.ceka .moj-list-naslov { font-weight: 700; }
+
+/* Na mobitelu je Kalendar zadataka poveznica ispod naslova, kao na crtežu. */
+@media (max-width: 599px) {
+  .knjige-kalendar { padding-left: 0; padding-right: 0; border-color: transparent; background: transparent; color: var(--md-sys-color-primary); }
+}
+
+@media (min-width: 600px) {
+  .knjige-filtri { display: flex; flex-wrap: wrap; align-items: center; }
+  .knjige-izbor {
+    display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 4px 0 12px;
+    border: 1px solid var(--md-sys-color-outline); border-radius: 8px; font-size: 0.8125rem;
+  }
+  .knjige-izbor > span { position: static; max-width: none; color: var(--md-sys-color-on-surface); font-size: inherit; }
+  .knjige-izbor > span::after { content: ":"; }
+  /* Dodir na natpis izbornik ne otvara, pa je meta sam izbor: visok je 44 px i prekriva rub oko sebe. */
+  .knjige-izbor select { width: auto; max-width: 100%; min-height: 44px; margin-block: -1px; padding: 0 4px; border: 0; background: transparent; font-size: inherit; }
+  /* Izabrani BP sam kaže što je, pa natpis ostaje samo za čitač zaslona. */
+  .knjige-izbor-bp { padding-left: 8px; }
+  .knjige-izbor-bp > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .knjige-ceka { min-height: 36px; gap: 8px; font-size: 0.8125rem; }
+  .knjige-ceka input { width: 18px; height: 18px; }
+
+  /* Natpis na rubu polja: pozadina mu mora biti ista kao pozadina kartice. */
+  .knjige-polje > span { top: -8px; left: 12px; max-width: calc(100% - 24px); padding: 0 4px; background: var(--md-sys-color-surface-container-low); }
+  .knjige-polje input { padding: 8px 16px; }
+  .knjige-polje select { padding: 8px 12px; }
+  .knjige-polje select, .knjige-polje input { min-height: 56px; border-color: var(--md-sys-color-outline); background: transparent; font-size: 0.875rem; }
+  .knjige-zadaj-obrazac { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 200px; gap: 16px 8px; align-items: center; padding-top: 8px; }
+  .knjige-zadaj-obrazac .knjige-polje:first-child { grid-column: 1 / 3; }
+  .knjige-zadaj-obrazac .knjige-polje-dan { grid-column: 3 / 4; grid-row: 1; }
+  .knjige-zadaj-obrazac .knjige-polje-tekst { grid-column: 1 / 3; }
+  .knjige-zadaj-obrazac .btn { width: auto; justify-self: end; }
+  .knjiga-upis { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 16px 8px; padding-top: 8px; }
+  .knjiga-upis .knjige-polje-dan { order: 0; flex: 0 0 200px; }
+  .knjiga-upis .knjige-polje-tekst { order: 1; flex: 1 1 240px; min-width: 0; }
+  .knjiga-upis .btn { width: auto; }
+
+  .knjiga { padding: 0 16px; }
+  .knjiga > summary { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 8px 12px; }
+  .knjiga-ime { flex: 1 1 0; min-width: 240px; }
+  .knjiga[open] .knjiga-ime { flex-direction: row; flex-wrap: wrap; align-items: baseline; column-gap: 8px; }
+  .knjiga-gumbi { flex-basis: 100%; }
+}
+
+@media (min-width: 1200px) {
+  /* Na računalu se bira mišem, pa izbori mogu biti niži. */
+  .knjige-izbor { min-height: 36px; }
+  .knjige-izbor select { min-height: 34px; margin-block: 0; }
+  .knjige-zadaj-obrazac { grid-template-columns: minmax(0, 3fr) minmax(0, 5fr) 200px auto; }
+  .knjige-zadaj-obrazac .knjige-polje:first-child { grid-column: 1; grid-row: 1; }
+  .knjige-zadaj-obrazac .knjige-polje-tekst { grid-column: 2; grid-row: 1; }
+  .knjige-zadaj-obrazac .knjige-polje-dan { grid-column: 3; grid-row: 1; }
+  .knjiga-gumbi { flex-basis: auto; }
+}
+
+/* Na papiru ostaju knjige i listovi, bez izbora, obrazaca i gumba. */
+@media print {
+  .knjige-filtri, .knjige-zadaj, .knjiga-upis, .knjiga-gumbi, .knjiga > summary > .icon, .knjiga .moj-list > .icon { display: none !important; }
 }

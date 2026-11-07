@@ -14,7 +14,7 @@ import (
 
 // Moja knjiga po crtežu: osoba koja ima samo svoju knjigu vidi jedan glavni
 // gumb i poveznice, bez opisa stranice, a list je kartica s kratkim datumom i
-// satima. Rukovoditeljica i dalje dobiva Knjige vodočuvara kakve jesu. Osobe su
+// satima. Rukovoditeljica i dalje dobiva Knjige vodočuvara. Osobe su
 // izmišljene: vodočuvar Pero Perić, rukovoditeljica Ana Anić.
 func TestMojaKnjigaPoCrtezu(t *testing.T) {
 	o := novaOkolinaDnevnika(t)
@@ -74,9 +74,9 @@ func TestMojaKnjigaPoCrtezu(t *testing.T) {
 		t.Error("nema gumba Današnji list")
 	}
 
-	// rukovoditeljica ostaje na Knjigama, s crticom i starim datumom
+	// rukovoditeljica ostaje na Knjigama
 	k := o.zovi(t, o.rukovodi, http.MethodGet, "/vodocuvar?sektor=P&podrucje=1&godina=2026", nil).Body.String()
-	for _, x := range []string{`class="breadcrumb"`, "Knjige vodočuvara", "dvostruki list – vidi i list br. 37", "19.10.2026."} {
+	for _, x := range []string{`class="povratna-poveznica"`, "Knjige vodočuvara", "dvostruki list: vidi i list br. 37", "19. 10. · 8 h"} {
 		if !strings.Contains(k, x) {
 			t.Errorf("Knjige bez %q", x)
 		}

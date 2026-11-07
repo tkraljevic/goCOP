@@ -315,6 +315,25 @@ func TestPomocOPrenesenomListuIProslomDanu(t *testing.T) {
 	}
 }
 
+// Tko parafira list piše u Pomoći, a ne na stranici knjiga: po odluci, a ne
+// „ostali rukovoditelji vezani uz područje”.
+func TestPomocKazeTkoParafiraList(t *testing.T) {
+	h := strings.Join(strings.Fields(pomocHTML(t)), " ")
+	if strings.Contains(h, "ostali rukovoditelji vezani uz područje") {
+		t.Error("pomoć još piše „ostali rukovoditelji vezani uz područje”")
+	}
+	for _, da := range []string{
+		"Rukovoditelj branjenog područja, ovlaštenici i uprava parafiraju",
+		"Rukovoditelj dionice parafira i upisuje bilješku samo na list vodočuvara",
+		"Istekom godine knjiga prelazi u arhivu",
+		"„dvostruki list: vidi i list br. …”",
+	} {
+		if !strings.Contains(h, da) {
+			t.Errorf("pomoć ne kaže %q", da)
+		}
+	}
+}
+
 // Pomoć kaže da list prenesen iz ranije evidencije pri razmjeni vrijedi kao
 // predan: nacrt s drugog čvora ga ne zamjenjuje, a preneseni obilasci
 // ostaju (Odluke (8. 10. 2026.), pitanje 7).
