@@ -4,62 +4,56 @@
 
 {{define "content"}}
 {{if .SamoMoj}}{{template "moja-knjiga" .}}{{else}}
-<div class="breadcrumb"><a href="/dnevnici">Dokumenti</a> › Vodočuvarski dnevnik</div>
+{{/* Knjige vodočuvara: osoba koja čita tuđe knjige (goCOP-m3, 15 · Dokumenti, 7c). Tko list
+     parafira i koliko knjiga traje piše u Pomoći. Moj dnevnik i Dvostruki dnevni listovi nisu
+     nacrtani, ali ostaju. */}}
+<a href="/dnevnici" class="povratna-poveznica">← Dokumenti</a>
 
-<div class="page-header">
+<div class="page-header knjige-zaglavlje">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "notebook-pen"}} Vodočuvarski dnevnik</h1>
-    <p class="page-desc">Dnevni list po uzoru na papirnu knjigu: radno vrijeme, vremenske prilike, naredbe rukovoditelja, opis rada i posebna zapažanja s vodostajima. Vodočuvar list potpiše i preda, rukovoditelj branjenog područja ga ovjeri, a parafirati ga mogu ovlaštenici za praćenje ugovora i uprava, te rukovoditelj dionice kad se list tiče njegove dionice. Knjiga traje godinu dana, istekom godine se arhivira; ispisuje se cijela ili list po list.</p>
+    <h1 class="page-title" data-naziv-stranice>Vodočuvarski dnevnik</h1>
+    {{if .Filtar.Sektor}}<p class="page-desc">{{term "sektor"}} {{.Filtar.Sektor}}{{range .Podrucja}}{{if eq .ID $.Filtar.AreaID}} · BP {{.ID}}: {{.Name}}{{end}}{{end}}</p>{{end}}
   </div>
-  <div class="page-actions">{{if or .VodiDnevnik .Vodocuvari}}<a href="/vodocuvar/kalendar" class="btn btn-secondary">{{icon "calendar"}} Kalendar zadataka</a>{{end}}
-  {{if .VodiDnevnik}}<a href="/vodocuvar/dan?datum={{.Danas}}" class="btn btn-primary">{{icon "pencil"}} Današnji list</a> <a href="/vodocuvar/knjiga.pdf?godina={{.Godina}}" target="_blank" class="btn btn-secondary">{{icon "printer"}} Cijela knjiga {{.Godina}}.</a>{{end}}</div>
+  <div class="page-actions">{{if or .VodiDnevnik .Vodocuvari}}<a href="/vodocuvar/kalendar" class="btn btn-secondary knjige-kalendar">Kalendar zadataka</a>{{end}}
+  {{if .VodiDnevnik}}<a href="/vodocuvar/dan?datum={{.Danas}}" class="btn btn-primary">Današnji list</a> <a href="/vodocuvar/knjiga.pdf?godina={{.Godina}}" target="_blank" class="btn btn-secondary">Cijela knjiga {{.Godina}}.</a>{{end}}</div>
 </div>
 
 {{template "nepredaniListovi" .Nepredani}}
 
-<form method="GET" action="/vodocuvar" class="posta-trazi mb-3">
-  <select name="godina" class="form-control" onchange="this.form.submit()">{{range .Godine}}<option value="{{.}}" {{if eq . $.Godina}}selected{{end}}>{{.}}</option>{{end}}</select>
-  {{if .Sektori}}<select name="sektor" class="form-control" onchange="this.form.podrucje.value=''; this.form.submit()"><option value="" {{if not .Filtar.Sektor}}selected{{end}}>svi sektori</option>{{range .Sektori}}<option value="{{.ID}}" {{if eq .ID $.Filtar.Sektor}}selected{{end}}>{{.Name}}</option>{{end}}</select>{{end}}
-  <select name="podrucje" class="form-control" onchange="this.form.submit()" {{if not .Podrucja}}disabled{{end}}><option value="">sva branjena područja</option>{{range .Podrucja}}<option value="{{.ID}}" {{if eq .ID $.Filtar.AreaID}}selected{{end}}>BP {{.ID}}: {{.Name}}</option>{{end}}</select>
-  <label class="checkbox-label"><input type="checkbox" name="ceka" value="1" {{if .Filtar.CekaPotvrdu}}checked{{end}} onchange="this.form.submit()"> samo listovi koji čekaju ovjeru</label>
+<form method="GET" action="/vodocuvar" class="knjige-filtri">
+  <label class="knjige-izbor"><span>Godina</span>
+    <select name="godina" onchange="this.form.submit()">{{range .Godine}}<option value="{{.}}" {{if eq . $.Godina}}selected{{end}}>{{.}}.</option>{{end}}</select></label>
+  {{if .Sektori}}<label class="knjige-izbor"><span>{{term "sektor"}}</span>
+    <select name="sektor" onchange="this.form.podrucje.value=''; this.form.submit()"><option value="" {{if not .Filtar.Sektor}}selected{{end}}>svi sektori</option>{{range .Sektori}}<option value="{{.ID}}" title="{{.Name}}" {{if eq .ID $.Filtar.Sektor}}selected{{end}}>{{.ID}}</option>{{end}}</select></label>{{end}}
+  <label class="knjige-izbor knjige-izbor-bp"><span>{{term "podrucje"}}</span>
+    <select name="podrucje" onchange="this.form.submit()" {{if not .Podrucja}}disabled{{end}}><option value="">sva branjena područja</option>{{range .Podrucja}}<option value="{{.ID}}" {{if eq .ID $.Filtar.AreaID}}selected{{end}}>BP {{.ID}}: {{.Name}}</option>{{end}}</select></label>
+  <label class="checkbox-label knjige-ceka"><input type="checkbox" name="ceka" value="1" {{if .Filtar.CekaPotvrdu}}checked{{end}} onchange="this.form.submit()"> samo listovi koji čekaju ovjeru</label>
 </form>
 
 {{if .Arhivirana}}<div class="alert alert-info">{{icon "lock"}} Knjiga za {{.Godina}}. je zaključena istekom godine: čuva se u arhivi i može se samo čitati i ispisati.</div>{{end}}
 {{if .VodiDnevnik}}
-<section class="detail-section mt-0">
-  <h2>{{icon "user"}} Moj dnevnik {{.Godina}}{{if .Arhivirana}} <span class="badge badge-pending">arhiva</span>{{end}}</h2>
-  {{if .Moji}}
-  {{range .MojiMjeseci}}
-  <details class="knjiga-mjesec" {{if .Otvoren}}open{{end}}>
-    <summary><strong>{{mjesecHR .Mjesec}}</strong> <span class="form-help">{{len .Listovi}} {{uzBroj (len .Listovi) "list" "lista" "listova"}}{{if .Preneseni}} · {{.Preneseni}} {{uzBroj .Preneseni "prenesen" "prenesena" "preneseno"}}{{end}}</span></summary>
-    <ul class="posta-kartice mt-2">
-    {{range .Listovi}}
-      <li class="posta-kartica"><a class="posta-kartica-tijelo" href="/vodocuvar/{{.ID}}">
-        <div class="posta-kartica-red"><span class="posta-od">{{if .Broj}}List {{.Broj}}{{else if .Rekonstrukcija}}Preneseno{{else}}Nacrt bez broja{{end}} · {{.DanUTjednu}}</span><span class="posta-kad">{{.Datum.Format "02.01.2006."}}{{if not .Rekonstrukcija}} · {{.Od}}–{{.Do}} · {{.SatiTekst}} h{{end}}</span></div>
-        <div class="posta-predmet">{{if .Opis}}{{.Opis}}{{else if .Zadaci}}{{range $i, $z := .Zadaci}}{{if $i}}; {{end}}{{$z.Tekst}}{{end}}{{else}}(bez opisa){{end}}</div>
-        <div class="posta-pregled">{{template "oznaka-stanja-lista" .}}{{if .Rekonstrukcija}} · iz ranije evidencije, bez potpisa vodočuvara{{else}}{{with .Potvrdio}} · ovjerio {{.}}{{end}}{{if .Parafe}} · parafa: {{range $i, $p := .Parafe}}{{if $i}}, {{end}}{{$p.Ime}}{{end}}{{end}}{{end}}{{template "dvostruki-list" (index $.Dvojnici .ID)}}</div>
-      </a></li>
-    {{end}}
-    </ul>
-  </details>
-  {{end}}
-  {{else}}<p class="form-help">U {{.Godina}}. još nema listova. Kliknite „Današnji list”.</p>{{end}}
+<section class="detail-section knjige-odjeljak">
+  <h2>Moj dnevnik {{.Godina}}{{if .Arhivirana}} <span class="oznaka-stanja">arhiva</span>{{end}}</h2>
+  <div class="knjiga-mjeseci">{{template "moji-mjeseci" .}}</div>
 </section>
 {{end}}
 
 {{if .Vodocuvari}}
-<section class="detail-section" id="zadaj-zadatak">
-  <h2>{{icon "clipboard-list"}} Zadaj zadatak vodočuvaru</h2>
-  <form method="POST" action="/vodocuvar/zadatak" class="posta-trazi items-start flex-wrap">
-    <select name="vodocuvar" class="form-control" required>
-      <option value="">— vodočuvar —</option>
-      {{range .Vodocuvari}}<option value="{{.ID}}">{{.FullName}}{{with .PrimaryDuty}} · {{.Title}}{{end}}</option>{{end}}
-    </select>
-    <input class="form-control" name="tekst" required placeholder="što treba obići, provjeriti ili napraviti" style="min-width:20rem; flex:1;">
-    <input type="date" class="form-control max-w-11" name="za" value="{{.Danas}}" min="{{.Danas}}" title="za koji dan">
-    <button type="submit" class="btn btn-primary btn-sm">{{icon "plus"}} Zadaj</button>
+<section class="detail-section knjige-odjeljak knjige-zadaj" id="zadaj-zadatak">
+  <h2>Zadaj zadatak vodočuvaru</h2>
+  <form method="POST" action="/vodocuvar/zadatak" class="knjige-zadaj-obrazac">
+    <label class="knjige-polje"><span>Vodočuvar</span>
+      <select name="vodocuvar" required>
+        <option value="">odaberite vodočuvara</option>
+        {{range .Vodocuvari}}<option value="{{.ID}}">{{.FullName}}{{with .PrimaryDuty}} · {{.Title}}{{end}}</option>{{end}}
+      </select></label>
+    <label class="knjige-polje knjige-polje-tekst"><span>Što treba obići, provjeriti ili napraviti</span>
+      <input name="tekst" required placeholder="upišite zadatak"></label>
+    <label class="knjige-polje knjige-polje-dan"><span>Za koji dan</span>
+      <input type="date" name="za" value="{{.Danas}}" min="{{.Danas}}"></label>
+    <button type="submit" class="btn btn-primary">Zadaj</button>
   </form>
-  <div class="form-help">Zadatak se pojavi na dnevnom listu vodočuvara za odabrani dan (do 30 dana unaprijed) pod naredbama, s vašim imenom. Vodočuvar ga otkači kad ga obavi i upiše što je napravio; dok ga ne obavi, prenosi se na svaki novi list. Pregled po danima: <a href="/vodocuvar/kalendar">kalendar zadataka</a>.</div>
+  <p class="knjige-napomena">Zadatak se pojavi na listu vodočuvara za odabrani dan, do 30 dana unaprijed. Dok ga ne obavi, prenosi se na svaki novi list.</p>
 </section>
 {{end}}
 {{end}}
@@ -67,43 +61,56 @@
 {{if .Dvostruki}}
 <section class="detail-section">
   <h2>{{icon "triangle-alert"}} Dvostruki dnevni listovi</h2>
-  <p class="form-help">Isti vodočuvar za isti dan ima više dnevnih listova: nastali su na dva čvora bez veze prije jedinstvene oznake lista ili na čvoru sa starijim programom, ili je isti list predan na dva čvora. Ne brišu se, jer su potpisani dokumenti. „Današnji list” i spremanje uzimaju predan list, a od dva jednaka stariji; kad su predana oba, oba ostaju s oznakom „dvostruki list”.</p>
+  <p class="form-help">Isti vodočuvar za isti dan ima više dnevnih listova: nastali su na dva čvora bez veze prije jedinstvene oznake lista ili na čvoru sa starijim programom, ili je isti list predan na dva čvora. Ne brišu se, jer su potpisani dokumenti. „Današnji list” i spremanje uzimaju predan list, a od dva jednaka stariji; kad su predana oba, svaki u knjizi nosi oznaku „dvostruki list: vidi i list br. …”.</p>
   <ul class="stavke">
-  {{range .Dvostruki}}<li><strong>{{.Ime}}</strong>, {{.Datum.Format "02.01.2006."}}: {{range $i, $l := .Listovi}}{{if $i}}; {{end}}<a href="/vodocuvar/{{$l.ID}}">{{if $l.Broj}}list {{$l.Broj}}{{else if $l.Rekonstrukcija}}preneseno{{else}}nacrt bez broja{{end}}</a> {{template "oznaka-stanja-lista" $l}}{{end}}</li>{{end}}
+  {{range .Dvostruki}}<li><strong>{{.Ime}}</strong>, {{.Datum.Format "2. 1. 2006."}}: {{range $i, $l := .Listovi}}{{if $i}}; {{end}}<a href="/vodocuvar/{{$l.ID}}">{{if $l.Broj}}list {{$l.Broj}}{{else if $l.Rekonstrukcija}}preneseno{{else}}nacrt bez broja{{end}}</a> {{template "oznaka-stanja-lista" $l}}{{end}}</li>{{end}}
   </ul>
 </section>
 {{end}}
 
 {{if not .SamoMoj}}
-<section class="detail-section">
-  <h2>{{icon "users"}} Knjige vodočuvara{{if .Filtar.AreaID}} · BP {{.Filtar.AreaID}}{{else if .Filtar.Sektor}} · {{terml "sektor"}} {{.Filtar.Sektor}}{{end}}</h2>
+<section class="detail-section knjige-odjeljak">
+  <h2>Knjige vodočuvara{{if .Filtar.AreaID}} · BP {{.Filtar.AreaID}}{{else if .Filtar.Sektor}} · {{terml "sektor"}} {{.Filtar.Sektor}}{{end}}</h2>
   {{if .Knjige}}
   {{range .Knjige}}
   <details class="knjiga" {{if or .Cekaju .Zadaci}}open{{end}}>
-    <summary><strong>{{.Ime}}</strong> <span class="form-help">BP {{.AreaID}} · listova: {{len .Listovi}}{{if .Preneseni}} (od toga {{.Preneseni}} {{uzBroj .Preneseni "prenesen" "prenesena" "preneseno"}}){{end}}{{if .Cekaju}} · <span class="badge badge-pending">{{.Cekaju}} {{uzBroj .Cekaju "čeka" "čekaju" "čeka"}} ovjeru</span>{{end}}{{if .Zadaci}} · <span class="badge badge-active">{{len .Zadaci}} {{uzBroj (len .Zadaci) "otvoren zadatak" "otvorena zadatka" "otvorenih zadataka"}}</span>{{end}}</span> <a href="/vodocuvar/kalendar?vodocuvar={{.UserID}}" class="btn btn-sm btn-secondary" style="margin-left:0.5rem;">{{icon "calendar"}} Kalendar</a> <a href="/vodocuvar/knjiga.pdf?vodocuvar={{.UserID}}&amp;godina={{$.Godina}}" target="_blank" class="btn btn-sm btn-secondary">{{icon "printer"}} Cijela knjiga</a></summary>
-    {{if .Zadaci}}<div class="form-help" style="margin:0.4rem 0;">Otvoreni zadaci, pojavit će se na sljedećem listu: <ol class="stavke">{{range .Zadaci}}<li>{{.Tekst}} <span class="form-help">(zadao {{.Zadao}}, {{.ZadanoAt.Format "02.01.2006."}})</span></li>{{end}}</ol></div>{{end}}
+    <summary>
+      <span class="knjiga-ime"><strong>{{.Ime}}</strong> <span class="knjiga-broj">BP {{.AreaID}} · {{len .Listovi}} {{uzBroj (len .Listovi) "list" "lista" "listova"}}{{if .Preneseni}}, od toga {{.Preneseni}} {{uzBroj .Preneseni "prenesen" "prenesena" "prenesenih"}}{{end}}</span></span>
+      {{if or .Cekaju .Zadaci}}<span class="knjiga-oznake">{{if .Cekaju}}<span class="oznaka-stanja pozor">{{.Cekaju}} {{uzBroj .Cekaju "čeka" "čekaju" "čeka"}} ovjeru</span>{{end}}{{if .Zadaci}}<span class="oznaka-stanja">{{len .Zadaci}} {{uzBroj (len .Zadaci) "otvoren zadatak" "otvorena zadatka" "otvorenih zadataka"}}</span>{{end}}</span>{{end}}
+      <span class="knjiga-gumbi"><a href="/vodocuvar/kalendar?vodocuvar={{.UserID}}" class="btn btn-sm btn-secondary">Kalendar</a><a href="/vodocuvar/knjiga.pdf?vodocuvar={{.UserID}}&amp;godina={{$.Godina}}" target="_blank" class="btn btn-sm btn-secondary">Cijela knjiga</a></span>
+      {{icon "chevron-right"}}
+    </summary>
+    {{if .Zadaci}}<div class="knjiga-zadaci">Otvoreni zadaci, pojavit će se na sljedećem listu: <ol class="stavke">{{range .Zadaci}}<li>{{.Tekst}} (zadao {{.Zadao}}, {{.ZadanoAt.Format "2. 1. 2006."}})</li>{{end}}</ol></div>{{end}}
     {{if not .Listovi}}<p class="form-help">Još nema listova: list nastaje kad vodočuvar na Terenu otvori „Današnji list”, ili kad vi upišete bilješku.</p>{{end}}
     {{if .SmijeUpisati}}
-    <form method="POST" action="/vodocuvar/upis" class="posta-trazi" style="margin:0.4rem 0; align-items:center;">
+    <form method="POST" action="/vodocuvar/upis" class="knjiga-upis">
       <input type="hidden" name="vodocuvar" value="{{.UserID}}">
-      <input type="date" class="form-control max-w-11" name="datum" value="{{$.Danas}}" max="{{$.NajdaljeDan}}" title="dan lista; unaprijed najviše 30 dana, a za dan koji je prošao samo na list koji postoji">
-      <input class="form-control" name="tekst" required placeholder="upis u dnevnik: napomena, nalaz obilaska" style="min-width:16rem; flex:1;">
-      <button type="submit" class="btn btn-secondary btn-sm">{{icon "pencil"}} Upiši</button>
+      <label class="knjige-polje knjige-polje-dan"><span>Dan lista</span>
+        <input type="date" name="datum" value="{{$.Danas}}" max="{{$.NajdaljeDan}}" title="dan lista; unaprijed najviše 30 dana, a za dan koji je prošao samo na list koji postoji"></label>
+      <label class="knjige-polje knjige-polje-tekst"><span>Upis u dnevnik</span>
+        <input name="tekst" required placeholder="napomena, nalaz obilaska"></label>
+      <button type="submit" class="btn btn-secondary">Upiši</button>
     </form>
     {{end}}
+    {{if .Mjeseci}}
+    <div class="knjiga-mjeseci">
     {{range .Mjeseci}}
-    <details class="knjiga-mjesec" {{if .Otvoren}}open{{end}}>
-      <summary><strong>{{mjesecHR .Mjesec}}</strong> <span class="form-help">{{len .Listovi}} {{uzBroj (len .Listovi) "list" "lista" "listova"}}{{if .Preneseni}} · {{.Preneseni}} {{uzBroj .Preneseni "prenesen" "prenesena" "preneseno"}}{{end}}{{if .Cekaju}} · <span class="badge badge-pending">{{.Cekaju}} {{uzBroj .Cekaju "čeka" "čekaju" "čeka"}} ovjeru</span>{{end}}</span></summary>
-      <ul class="posta-kartice mt-2">
-      {{range .Listovi}}
-        <li class="posta-kartica {{if and .Predan (not .Potvrden)}}neprocitano{{end}}"><a class="posta-kartica-tijelo" href="/vodocuvar/{{.ID}}">
-          <div class="posta-kartica-red"><span class="posta-od">{{if .Broj}}List {{.Broj}}{{else if .Rekonstrukcija}}Preneseno{{else}}Nacrt bez broja{{end}} · {{.DanUTjednu}}</span><span class="posta-kad">{{.Datum.Format "02.01.2006."}}{{if not .Rekonstrukcija}} · {{.SatiTekst}} h{{end}}</span></div>
-          <div class="posta-predmet">{{if .Opis}}{{.Opis}}{{else if .Zadaci}}{{range $i, $z := .Zadaci}}{{if $i}}; {{end}}{{$z.Tekst}}{{end}}{{else}}(bez opisa){{end}}</div>
-          <div class="posta-pregled">{{template "oznaka-stanja-lista" .}}{{if .Rekonstrukcija}} · iz ranije evidencije, bez potpisa vodočuvara{{else}}{{with .Potvrdio}} · ovjerio {{.}}{{end}}{{end}}{{template "dvostruki-list" (index $.Dvojnici .ID)}}</div>
+    <details class="moj-mjesec" {{if .Otvoren}}open{{end}}>
+      <summary><span class="moj-mjesec-tekst"><strong>{{mjesecHR .Mjesec}}</strong> <span class="moj-mjesec-broj">{{len .Listovi}} {{uzBroj (len .Listovi) "list" "lista" "listova"}}{{if .Preneseni}} · {{.Preneseni}} {{uzBroj .Preneseni "prenesen" "prenesena" "preneseno"}}{{end}}{{if .Cekaju}} · {{.Cekaju}} {{uzBroj .Cekaju "čeka" "čekaju" "čeka"}} ovjeru{{end}}</span></span>{{icon "chevron-right"}}</summary>
+      <ul class="moji-listovi">
+      {{range $l := .Listovi}}
+        <li><a class="moj-list{{if not .Rekonstrukcija}}{{if .Potvrden}} ovjeren{{else if .Predan}} ceka{{end}}{{end}}" href="/vodocuvar/{{.ID}}">
+          <span class="moj-list-tekst">
+            <span class="moj-list-glava"><span class="moj-list-naslov">{{if .Broj}}List {{.Broj}}{{else if .Rekonstrukcija}}Preneseno{{else}}Nacrt bez broja{{end}} · {{.DanUTjednu}}</span> <span class="moj-list-sitno">{{.DatumKratko}}{{if not .Rekonstrukcija}} · {{.SatiKratko}} h{{end}}</span></span>
+            <span class="moj-list-sitno moj-list-opis">{{if .Opis}}{{.Opis}}{{else if .Zadaci}}{{range $i, $z := .Zadaci}}{{if $i}}; {{end}}{{$z.Tekst}}{{end}}{{else}}(bez opisa){{end}}</span>
+            <span class="moj-list-stanje">{{template "oznaka-stanja-lista" .}}<span>{{if .Rekonstrukcija}}iz ranije evidencije, bez potpisa vodočuvara{{else}}{{with .Potvrdio}}ovjerio {{.}}{{end}}{{if .Parafe}}{{if .Potvrdio}} · {{end}}parafa: {{range $i, $p := .Parafe}}{{if $i}}, {{end}}{{$p.Ime}}{{end}}{{end}}{{end}}{{with index $.Dvojnici .ID}}{{if or $l.Rekonstrukcija $l.Potvrdio $l.Parafe}} · {{end}}dvostruki list: vidi i list br. {{range $i, $b := .}}{{if $i}}, {{end}}{{$b}}{{end}}{{end}}</span></span>
+          </span>{{icon "chevron-right"}}
         </a></li>
       {{end}}
       </ul>
     </details>
+    {{end}}
+    </div>
     {{end}}
   </details>
   {{end}}
@@ -139,6 +146,12 @@
   </div>
   {{end}}
   {{if .Arhivirana}}<div class="alert alert-info">{{icon "lock"}} Knjiga za {{.Godina}}. je zaključena istekom godine: čuva se u arhivi i može se samo čitati i ispisati.</div>{{end}}
+  {{template "moji-mjeseci" .}}
+</div>
+{{end}}
+
+{{/* Vlastiti listovi po mjesecima: u Mojoj knjizi i u odjeljku Moj dnevnik uz Knjige. */}}
+{{define "moji-mjeseci"}}
   {{range .MojiMjeseci}}
   <details class="moj-mjesec" {{if .Otvoren}}open{{end}}>
     <summary><span class="moj-mjesec-tekst"><strong>{{mjesecHR .Mjesec}}</strong> <span class="moj-mjesec-broj">{{len .Listovi}} {{uzBroj (len .Listovi) "list" "lista" "listova"}}{{if .Preneseni}} · {{.Preneseni}} {{uzBroj .Preneseni "prenesen" "prenesena" "preneseno"}}{{end}}</span></span>{{icon "chevron-right"}}</summary>
@@ -156,10 +169,8 @@
   </details>
   {{else}}<p class="form-help">U {{.Godina}}. još nema listova. Kliknite „Današnji list”.</p>
   {{end}}
-</div>
 {{end}}
 
 {{/* Oznaka stanja jednog lista, za svaki ekran dnevnika. Prenesen list je u boji upozorenja, nikad crven (Odluke 7. 11.). Stranica koja je koristi mora imati vodocuvar.html u DijeloviPredloska. */}}
 {{define "oznaka-stanja-lista"}}<span class="oznaka-stanja{{if .Rekonstrukcija}} pozor{{end}}">{{.Stanje}}</span>{{end}}
 
-{{define "dvostruki-list"}}{{with .}} · <strong>dvostruki list – vidi i list br. {{range $i, $b := .}}{{if $i}}, {{end}}{{$b}}{{end}}</strong>{{end}}{{end}}
