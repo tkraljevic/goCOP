@@ -30,7 +30,8 @@ func listoviNaDane(dani ...int) []models.VodocuvarskiList {
 }
 
 // Dani se nabrajaju zarezom, a zadnji s „i”; iza petog dana stoji „i još
-// N dana”. Datum već završava točkom, pa iza njega nema druge točke.
+// N dana”. Datum već završava točkom, pa iza njega nema druge točke. Samo
+// jedan dan piše se i s danom u tjednu.
 func TestUpozorenjeNepredanih(t *testing.T) {
 	if u := upozorenjeNepredanih(nil); u != nil {
 		t.Fatalf("bez nepredanih listova: %+v", u)
@@ -51,7 +52,7 @@ func TestUpozorenjeNepredanih(t *testing.T) {
 		dani []int
 		want string
 	}{
-		{[]int{8}, `Niste potpisali i predali dnevni list za <a href="/vodocuvar/l1008">8. 10.</a> Otvorite list, provjerite ga i predajte.`},
+		{[]int{8}, `Niste potpisali i predali dnevni list za <a href="/vodocuvar/l1008">četvrtak, 8. 10.</a> Otvorite list, provjerite ga i predajte.`},
 		{[]int{8, 9}, `Niste potpisali i predali dnevne listove za <a href="/vodocuvar/l1008">8. 10.</a> i <a href="/vodocuvar/l1009">9. 10.</a> Otvorite list, provjerite ga i predajte.`},
 		{[]int{1, 2, 3}, `za <a href="/vodocuvar/l1001">1. 10.</a>, <a href="/vodocuvar/l1002">2. 10.</a> i <a href="/vodocuvar/l1003">3. 10.</a> Otvorite`},
 		{[]int{1, 2, 3, 4, 5}, `<a href="/vodocuvar/l1004">4. 10.</a> i <a href="/vodocuvar/l1005">5. 10.</a> Otvorite`},
