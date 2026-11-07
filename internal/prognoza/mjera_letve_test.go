@@ -318,6 +318,22 @@ func TestMjeraOdbija(t *testing.T) {
 	}
 }
 
+// Baza koja već ima model ne smije poslužiti kao privremena: mjera bi joj obrisala
+// račune, pa i pravoj bazi prognoza, kad bi je netko dao umjesto nove.
+func TestMjeraOdbijaBazuKojaNijeNova(t *testing.T) {
+	arhiva, baza := arhivaMjere(t, "potok-vrh"), otvoriProbnu(t, "p.db")
+	if err := Spremi(baza, []Pojas{pojasPotoka("donja", "gornja", 3)}, "proba"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := MjeriLetvu(arhiva, baza, baza, zapisMjere("potok-vrh"), opcijeMjere()); !porukaIma(err, "nije nova") {
+		t.Errorf("ista baza kao privremena: %v", err)
+	}
+	var n int
+	if err := baza.QueryRow(`SELECT count(*) FROM pojasi WHERE letva = 'donja'`).Scan(&n); err != nil || n != 1 {
+		t.Errorf("račun u bazi: %d, %v", n, err)
+	}
+}
+
 // Greška baze vraća se pozivatelju, a ne daje mjeru bez brojeva.
 func TestMjeraGreskeBaze(t *testing.T) {
 	arhiva := arhivaMjere(t, "he-gornja")
@@ -341,7 +357,10 @@ func TestMjeraGreskeBaze(t *testing.T) {
 			if err := SpremiOperatera(baza, &OperaterModel{Letva: "he-gornja"}); err != nil {
 				t.Fatal(err)
 			}
-			izvrsi(t, privremena, `DROP TABLE operater`)
+			izvrsi(t, privremena, `CREATE TRIGGER pokvari BEFORE INSERT ON operateri BEGIN SELECT RAISE(ABORT, 'proba'); END`)
+		},
+		"račun se ne da upisati": func(t *testing.T, _, privremena *sql.DB, _ *OpcijeProvjere) {
+			izvrsi(t, privremena, `CREATE TRIGGER pokvari BEFORE INSERT ON pojasi BEGIN SELECT RAISE(ABORT, 'proba'); END`)
 		},
 		"provjera odbija korak": func(_ *testing.T, _, _ *sql.DB, o *OpcijeProvjere) { o.Korak = 0 },
 		"promašaji se ne daju čitati": func(t *testing.T, _, privremena *sql.DB, _ *OpcijeProvjere) {

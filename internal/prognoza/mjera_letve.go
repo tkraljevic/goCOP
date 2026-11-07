@@ -39,8 +39,9 @@ const godineMjere = 3
 // stupac na stranici prognoza. Prazan promašaj i onaj bez izmjerene vrijednosti bez
 // modela nisu provjereni, jer nema s čime usporediti.
 //
-// To pravilo gleda rasap, a tablica provjere unatrag srednji promašaj, pa se na nekim
-// računima ne slažu. Prije nego što natpis dođe na stranicu treba odlučiti koje vrijedi.
+// To pravilo nije pošteno: rasap se mjeri oko srednjeg promašaja i gladi, a promašaj bez
+// modela je korijen srednjeg kvadrata, pa „Bolje” dobije i račun koji samo drži zadnje
+// mjerenje. Natpis ne smije na stranicu dok se ne odluči po čemu se uspoređuje.
 func OcijeniPromasaj(p Promasaj) StanjeMjere {
 	switch {
 	case p.Slucaja < najmanjeSlucajeva || p.Postojanost <= 0:
@@ -91,6 +92,9 @@ func MjeriLetvu(arhiva, baza, privremena *sql.DB, z ZapisLetve, o OpcijeProvjere
 	if !o.Od.Before(o.Do) {
 		return MjeraRacuna{}, errors.New("početak razdoblja mora biti prije kraja")
 	}
+	if err := provjeriNovuBazu(privremena); err != nil {
+		return MjeraRacuna{}, err
+	}
 	uzvodno, err := pripremiBazuMjere(baza, privremena, z)
 	if err != nil {
 		return MjeraRacuna{}, err
@@ -105,6 +109,21 @@ func MjeriLetvu(arhiva, baza, privremena *sql.DB, z ZapisLetve, o OpcijeProvjere
 		return MjeraRacuna{}, err
 	}
 	return slozenaMjera(z, svi[Izvor{Letva: z.Letva, Velicina: z.Velicina}], uzvodno, o), nil
+}
+
+// provjeriNovuBazu odbija bazu koja već ima model. Mjera bi joj obrisala račune i
+// promašaje, a njezini stari modeli ispuštanja ušli bi u mjeru.
+func provjeriNovuBazu(privremena *sql.DB) error {
+	for _, tablica := range tabliceModela {
+		var ima bool
+		if err := privremena.QueryRow(`SELECT EXISTS (SELECT 1 FROM ` + tablica + `)`).Scan(&ima); err != nil {
+			return err
+		}
+		if ima {
+			return errors.New("privremena baza nije nova; mjera joj ne smije obrisati model")
+		}
+	}
+	return nil
 }
 
 // pripremiBazuMjere upisuje u privremenu bazu račun iz zapisa, račune uzvodno od njega
