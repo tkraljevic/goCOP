@@ -163,6 +163,35 @@ func TestTekstUpozorenjaOdvojenih(t *testing.T) {
 	}
 }
 
+// Napomena odvojenog računa stoji na kartici i na grafu, s istim razlogom kao u
+// glavnom lancu, a napomena glavnog računa i dalje ne stoji.
+func TestOdvojeniNaKartici(t *testing.T) {
+	izmisljeniCiljevi(t)
+	sluca := []struct{ opis, uzrok string }{
+		{"nema mjerenja od 6.11. u 05:00, a prognoza se računa iz uzvodnih letvi", "Gornji Brod bez mjerenja"},
+		{"bez svježeg ulaza (srednja): drži se zadnje mjerenje", "Gornji Brod bez svježeg ulaza"},
+		{"rezerva: srednja umjesto treca", "Gornji Brod iz rezerve"},
+		{"nešto što ova inačica ne zna", "Gornji Brod"},
+	}
+	for _, s := range sluca {
+		letve := letveBezDnevne()
+		u := []prognoza.Upozorenje{{Vrsta: prognoza.VrstaOdvojeni, Tezina: prognoza.TezinaNapomena, Letva: "gornja", Opis: s.opis,
+			Upitno: []prognoza.Upitno{{Letva: "donja", OdSata: 1}}}}
+		(pisacUpozorenja{postaje: izmisljenePostaje(), letve: letve}).oznaciLetve(u)
+		if want := "Satna upitna najranije od +1 h (" + s.uzrok + ")."; letve[0].Upozorenje != want {
+			t.Errorf("%q, želim %q", letve[0].Upozorenje, want)
+		}
+		if g := upitnoLetve(u, "donja"); g != "Satna upitna najranije od +1 h" {
+			t.Errorf("graf: %q", g)
+		}
+	}
+	u := []prognoza.Upozorenje{{Vrsta: prognoza.VrstaUzvodno, Tezina: prognoza.TezinaNapomena, Letva: "gornja",
+		Upitno: []prognoza.Upitno{{Letva: "donja", OdSata: 1}}}}
+	if g := upitnoLetve(u, "donja"); g != "" {
+		t.Errorf("napomena glavnog računa na grafu: %q", g)
+	}
+}
+
 // Račun je izbacio očitanje kao lažni skok: broj ostaje na kartici, jer je mjeren,
 // ali uz njega piše da ga prognoza možda ne uzima.
 func TestZadnjeMjerenjeUzIzbacenoOcitanje(t *testing.T) {
