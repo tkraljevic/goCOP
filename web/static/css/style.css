@@ -4928,27 +4928,94 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .karta-platno-izbor { height: 320px; cursor: crosshair; }
 
 /* Prijave s terena: traka filtara u jednom retku i kartice umjesto tablice */
-.prijave-filtar { align-items: center; }
-.prijave-filtar label { color: var(--text-muted, #5a6470); text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.04em; }
-.prijave-filtar .form-control { min-width: 6.5rem; }
-.prijave-filtar input.form-control { min-width: 12rem; flex: 1 1 12rem; }
-.prijave-kartice { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr)); gap: 0.75rem; }
-.prijava-kartica { border-left: 4px solid var(--border, #d8dde3); }
-.prijava-kartica.vrsta-PRIJAVA { border-left-color: #c0392b; }
-.prijava-kartica.vrsta-OBAVIJEST { border-left-color: var(--primary, #173e74); }
-.prijava-kartica.vrsta-IZVJESCE { border-left-color: #2e8b57; }
-.prijava-kartica.vrsta-ZAHTJEV { border-left-color: #d98c1a; }
-.prijava-kartica.stanje-NACRT { border-style: dashed; }
-.prijava-kartica.stanje-ARHIVIRANA { opacity: 0.8; }
-.prijava-vrsta { display: inline-flex; align-items: center; min-height: 24px; font-size: 13px; font-weight: 500; line-height: 16px; padding: 4px 10px; border-radius: var(--shape-small); background: var(--bg-subtle, #eef1f5); color: var(--text-muted, #5a6470); }
-.prijava-vrsta.PRIJAVA { background: var(--danger-bg); color: var(--danger-fg); }
-.prijava-vrsta.OBAVIJEST { background: var(--primary-light, #e8eef7); color: var(--primary, #173e74); }
-.prijava-vrsta.IZVJESCE { background: var(--mirno-bg); color: var(--mirno-fg); }
-.prijava-vrsta.ZAHTJEV { background: var(--tint-amber-bg); color: var(--tint-amber-fg); }
-.prijava-naslov { font-size: 0.98rem; text-transform: none; }
-.prijava-pin { color: var(--danger); }
-.prijava-pin svg { width: 0.9em; height: 0.9em; vertical-align: -0.1em; }
-.prijave-listanje { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; margin-top: 0.9rem; }
+/* Popis prijava (goCOP-m3, 15 · Dokumenti, 8): prvo mobitel. Polje izbora je select preko
+   cijelog okvira, a natpis i strelica ne primaju dodir, pa dodir bilo gdje otvara izbornik.
+   Od 600 px izbor je čip u redu s filtrima. Boje samo iz tokena, da radi i u tamnoj temi. */
+@media (max-width: 599px) { .prijave-glava { gap: 12px; } }
+.prijave-glava .page-actions { order: -1; width: 100%; }
+.prijave-glava .page-actions .btn { width: 100%; min-height: var(--size-touchtarget); }
+.prijave-glava .page-desc { display: none; margin-top: 4px; font-size: 0.875rem; color: var(--md-sys-color-on-surface-variant); }
+.prijave-filtar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0 0 16px; }
+.prijave-filtar > * { order: 3; grid-column: 1 / -1; }
+.prijave-filtar > .prijave-sektor { order: 1; grid-column: auto; }
+.prijave-filtar > .prijave-godina { order: 2; grid-column: auto; }
+.prijave-izbor > .form-label { position: absolute; top: 0; left: 0; pointer-events: none; }
+.prijave-izbor > .form-control {
+  appearance: none; -webkit-appearance: none; min-height: 50px; padding: 22px 44px 6px 16px; border-radius: inherit;
+  background: var(--md-sys-color-surface);
+}
+.prijave-strelica { position: absolute; top: calc(50% - 12px); right: 8px; display: flex; color: var(--md-sys-color-on-surface-variant); pointer-events: none; }
+.prijave-strelica .icon { width: 24px; height: 24px; margin: 0; }
+.prijave-gumb-trazi { display: none; }
+.prijave-broj { font-size: 0.8125rem; color: var(--md-sys-color-on-surface-variant); }
+@media (min-width: 600px) {
+  .prijave-glava .page-actions { order: 0; width: auto; }
+  .prijave-glava .page-actions .btn { width: auto; min-height: 40px; }
+  .prijave-glava .page-desc { display: block; }
+  .prijave-filtar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .prijave-filtar > *, .prijave-filtar > .prijave-sektor, .prijave-filtar > .prijave-godina { order: 0; }
+  /* Čip je jedna kontrola: natpis ne prima dodir, a select se ispod njega širi do lijevog ruba
+     čipa, pa dodir bilo gdje otvara izbor. Tekst ostaje iza natpisa jer se razmak i pomak ponište.
+     Širina ide po broju znakova natpisa jer se nazivi sektora i područja mogu promijeniti u
+     postavkama; ch je malo širi od prosječnog slova, a višak se odreže na rubu čipa. */
+  .prijave-filtar .prijave-izbor { flex: none; flex-direction: row; align-items: stretch; max-width: 100%; min-height: 32px; padding-left: 16px; border-radius: 8px; overflow: hidden; }
+  .prijave-filtar .prijave-izbor > .form-label {
+    position: relative; align-self: center; padding: 0 4px 0 0; transform: none; background: none;
+    font-size: 0.875rem; line-height: 20px; white-space: nowrap; color: var(--md-sys-color-on-surface-variant);
+  }
+  .prijave-filtar .prijave-izbor > .form-label::after { content: ":"; }
+  .prijave-filtar .prijave-izbor > .form-control {
+    --natpis-rub: calc(16px + (var(--natpis-znakova, 6) + 1) * 1ch);
+    width: auto; min-width: 0; min-height: 30px; margin-left: calc(-1 * var(--natpis-rub)); padding: 0 36px 0 var(--natpis-rub); field-sizing: content; cursor: pointer;
+    font-size: 0.875rem; line-height: 20px; color: var(--md-sys-color-on-surface-variant);
+  }
+  /* Izabrano područje samo kaže što je („BP 16: Mali sliv Baranja”), natpis ostaje za čitač. */
+  .prijave-filtar .prijave-podrucje:not(:has(option[value="0"]:checked)) { padding-left: 0; }
+  .prijave-filtar .prijave-podrucje:not(:has(option[value="0"]:checked)) > .form-label {
+    position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%);
+  }
+  .prijave-filtar .prijave-podrucje:not(:has(option[value="0"]:checked)) > .form-control { margin-left: 0; padding-left: 16px; }
+  .prijave-filtar .prijave-trazi { flex: 0 1 200px; min-height: 37px; }
+  .prijave-trazi > .icon { display: none; }
+  .prijave-filtar .prijave-trazi > .form-label {
+    position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); transform: none;
+  }
+  .prijave-filtar .prijave-trazi > .form-control { padding: 6px 12px; font-size: 0.875rem; line-height: 20px; }
+  .prijave-gumb-trazi { display: inline-flex; }
+}
+@media (min-width: 600px) and (max-width: 1199px) {
+  .prijave-filtar > .prijave-broj { flex-basis: 100%; }
+}
+@media (min-width: 600px) and (pointer: coarse) {
+  .prijave-filtar .prijave-izbor, .prijave-filtar .prijave-trazi, .prijave-gumb-trazi { min-height: var(--size-touchtarget); }
+}
+/* Najviše tri stupca, a stupac nije uži od 300 px: ovisi o širini sadržaja, jer je izbornik
+   sa strane nekad otvoren, a nekad sklopljen. */
+.prijave-kartice { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, max(300px, calc((100% - 24px) / 3))), 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+.prijava-kartica { border-color: var(--rub-kartica); background: var(--md-sys-color-surface-container-low); }
+.prijava-kartica .reg-card-link { gap: 6px; padding: 12px; }
+.prijava-kartica-glava { display: flex; align-items: center; gap: 8px; }
+.prijava-kartica-glava > .oznaka-stanja { flex: none; }
+.prijava-kartica-oznaka { flex: 1; min-width: 0; text-align: right; font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); }
+.prijava-naslov { font-size: 0.875rem; font-weight: 500; line-height: 20px; text-transform: none; text-wrap: wrap; overflow-wrap: anywhere; color: var(--md-sys-color-on-surface); }
+.prijava-kartica-mjesto { display: flex; align-items: center; gap: 6px; min-height: 16px; font-size: 0.8125rem; overflow-wrap: anywhere; color: var(--md-sys-color-on-surface-variant); }
+.prijava-pin { flex: none; display: flex; color: var(--md-sys-color-on-surface-variant); }
+.prijava-pin .icon { width: 24px; height: 24px; margin: 0; }
+.prijava-kartica-tko { font-size: 0.8125rem; overflow-wrap: anywhere; color: var(--md-sys-color-on-surface-variant); }
+.prijava-kartica-stanje { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); }
+.prijava-urudzba { display: inline-flex; align-items: center; gap: 4px; }
+.prijava-urudzba .icon { width: 14px; height: 14px; margin: 0; }
+.oznaka-stanja.nacrt { background: var(--upozorenje-tehnicko-ploha); box-shadow: inset 0 0 0 1px var(--upozorenje-tehnicko-rub); color: var(--md-sys-color-on-surface); }
+.prijave-listanje { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 16px; }
+.prijave-listanje .btn { min-height: 44px; padding-inline: 4px; color: var(--md-sys-color-primary); }
+.prijave-listanje .prijave-nema-dalje { color: var(--md-sys-color-on-surface-variant); background: none; opacity: 0.7; cursor: default; }
+@media (max-width: 599px), (pointer: coarse) { .prijave-listanje .btn { min-height: var(--size-touchtarget); } }
+.prijave-prazno {
+  padding: 12px 16px; border: 1px solid var(--rub-kartica); border-radius: var(--r-kartica);
+  background: var(--md-sys-color-surface-container-low); font-size: 0.8125rem; color: var(--md-sys-color-on-surface);
+}
+.prijave-prazno strong { font-size: 0.875rem; font-weight: 500; }
+.prijave-prazno p { margin: 0; }
 
 /* Mjeseci u knjizi vodočuvara: knjiga zna imati stotine listova, pa se
    odjednom gleda jedan mjesec */
@@ -8020,6 +8087,7 @@ summary.ocitanja-cip { padding-right: 8px; }
   background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface-variant);
 }
 .oznaka-stanja.pozor { background: var(--warning-bg); color: var(--warning-fg); }
+.oznaka-stanja.obrub { background: transparent; box-shadow: inset 0 0 0 1px var(--md-sys-color-outline); color: var(--md-sys-color-on-surface); }
 .oznaka-stanja.faza-prep { background: var(--faza-p-bg); color: var(--faza-p-fg); }
 .oznaka-stanja.faza-regular { background: var(--faza-r-bg); color: var(--faza-r-fg); }
 .oznaka-stanja.faza-emerg { background: var(--faza-i-bg); color: var(--faza-i-fg); }

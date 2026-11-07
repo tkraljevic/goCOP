@@ -86,6 +86,7 @@ func novaProbaPrijava(t *testing.T) *probaPrijava {
 	vodH.SetOpcije(func(context.Context) models.Opcije { return models.Opcije{} })
 	h := NewPrijaveHandler(func() *service.PrijavaService { return pr.prijave }, pr.users, vodH, tmpl("prijave.html"), tmpl("prijava_form.html"), tmpl("prijava.html"))
 	pr.mux = http.NewServeMux()
+	pr.mux.HandleFunc("GET /prijave", h.ShowPopis)
 	pr.mux.HandleFunc("GET /prijave/{id}", h.ShowPrijava)
 	pr.mux.HandleFunc("GET /prijave/{id}/prijava.pdf", h.IzvoziPDF)
 	return pr
