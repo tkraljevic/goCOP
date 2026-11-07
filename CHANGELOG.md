@@ -21,6 +21,12 @@ slike vide se samo na računalima s ovim izdanjem.
   programa pločice su mogle pokazati samo ono što je u evidenciji očitanja, a
   ne najniži i najviši izmjereni vodostaj. Sad ih do kraja čitanja arhive, oko
   15 sekundi, nema, a stižu kad se stranica ponovno učita.
+- **Podaci koji nedostaju.** Traka na Prognozama sad imenuje letve kojima na tom
+  računalu nedostaju vodostaj ili protok. Letva je na popisu kad mjerenja kasne
+  više od 6 sati, a u zadnjih 14 dana je još stizala. Izvoru koji javlja rjeđe
+  računa se dvostruki njegov prosječni razmak, najviše 7 dana. Globalni
+  administrator na Postavkama prognoze može dodati napomenu, npr. o radovima na
+  izvoru, a nju vide svi na Prognozama.
 - **Prijava greške.** Kukac u gornjoj traci otvara obrazac za grešku ili
   prijedlog, s jednom slikom zaslona po želji (PNG, JPEG ili WebP, najviše
   2 MB). Program sam dodaje ime i ulogu osobe, stranicu, izdanje, računalo,
