@@ -168,15 +168,16 @@ func (l VodocuvarskiList) MjesecGenitiv() string {
 	return []string{"", "siječnja", "veljače", "ožujka", "travnja", "svibnja", "lipnja", "srpnja", "kolovoza", "rujna", "listopada", "studenoga", "prosinca"}[l.Datum.In(Zagreb).Month()]
 }
 
-// Stanje za popis: nacrt, predan, potvrđen
+// Stanje je riječ koju korisnik vidi uz list: u pisanju, čeka ovjeru, ovjeren ili
+// ovjereno prijenosom. Samo se prikazuje: ne sprema se u bazu i nije u PDF-u lista.
 func (l VodocuvarskiList) Stanje() string {
 	switch {
 	case l.Rekonstrukcija:
 		return "ovjereno prijenosom"
 	case l.Potvrden():
-		return "potvrđen"
+		return "ovjeren"
 	case l.Predan():
-		return "čeka potvrdu"
+		return "čeka ovjeru"
 	}
 	return "u pisanju"
 }

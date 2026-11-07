@@ -1680,6 +1680,10 @@ func DijeloviPredloska(stranica string) []string {
 		dijelovi = append(dijelovi, "prognoze_kartice.html")
 	case "settings.html", "pretplate.html", "baza.html", "administracija_karte.html", "administracija_potpisi.html":
 		dijelovi = append(dijelovi, "postavke_cvora.html")
+	case "vodocuvar_list.html":
+		// Oznaka stanja lista stoji u vodocuvar.html. Stranica lista čita se zadnja,
+		// pa naslov i sadržaj ostaju njezini.
+		dijelovi = []string{"base.html", "vodocuvar.html", stranica}
 	}
 	return dijelovi
 }
