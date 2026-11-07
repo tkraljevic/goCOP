@@ -138,3 +138,13 @@ func TestKnjigeStanjaIzvanCrteza(t *testing.T) {
 		t.Error("Moj dnevnik bez vlastitog lista")
 	}
 }
+
+// Zadatak zadan iza ponoći po našem vremenu, a prije ponoći po UTC-u, nosi
+// naš dan, a ne prethodni.
+func TestDatumZadatkaPoNasemVremenu(t *testing.T) {
+	f := templateFuncs()["localTime"].(func(time.Time) time.Time)
+	kad := time.Date(2026, 11, 7, 23, 30, 0, 0, time.UTC) // 8. 11. u 00:30 kod nas
+	if got := f(kad).Format("2. 1. 2006."); got != "8. 11. 2026." {
+		t.Errorf("dan zadatka: %q", got)
+	}
+}
