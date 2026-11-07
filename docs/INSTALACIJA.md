@@ -1,7 +1,7 @@
 # Postavljanje i održavanje goCOP čvora
 
-Administratorske upute za izdanje 0.0.53-alfa. Pregledane 15. 10. 2026.,
-odjeljak o nadogradnji dopunjen 3. 11. 2026.
+Administratorske upute za izdanje 0.0.54-alfa. Pregledane 15. 10. 2026.,
+odjeljak o nadogradnji dopunjen 7. 11. 2026.
 Kratki pregled projekta: [README](../README.md). Korisnički postupci su u Pomoći aplikacije.
 
 Operativni program za obranu od poplava Hrvatskih voda: povezuje organizaciju,
@@ -10,7 +10,7 @@ i bez interneta; kopije na različitim računalima međusobno se usklađuju.
 Repozitorij nosi program i praznu shemu baze, a podatke unosi ili uvozi
 organizacija koja ga koristi.
 
-> **Status: alfa, izdanje 0.0.53-alfa (5. 11. 2026.), za testiranje i daljnji
+> **Status: alfa, izdanje 0.0.54-alfa (7. 11. 2026.), za testiranje i daljnji
 > razvoj.** Nije za operativnu upotrebu. Sve se još mijenja. Što je u kojem
 > izdanju, piše u [popisu izmjena](../CHANGELOG.md).
 >
@@ -1061,6 +1061,30 @@ Nadograđuje se redom: najprije stalni čvor, odmah zatim ostala računala. Dok
 sva ne rade na istom izdanju, ne dodavati, mijenjati ni brisati djelatnike i
 zaduženja. Na kojem izdanju radi koji čvor, pokazuju pločica „Razmjena s
 čvorovima” i stranica Stanje razmjene.
+
+0.0.54-alfa dodaje u glavnu bazu tablice `prijave_gresaka`,
+`prijave_gresaka_odgovori` i `prijave_gresaka_posta`, a u bazu prognoza praznu
+tablicu `model_letve`. Način razmjene se ne mijenja, ali putuju dvije nove vrste
+zapisa i slike zaslona. Računalo s 0.0.53-alfa prijave čuva i predaje dalje, ali
+ih ne pokazuje i na pločici javi da je stiglo zapisa koje još ne razumije; to
+nestane kad se nadogradi. Sliku prijave ne dohvaća, pa slika preko njega ne
+prolazi, a stigne mu nakon nadogradnje. Računala zato ne treba nadograditi isti
+dan, ali računalo koje izdaje prognozu treba nadograditi prvo: dok ono radi na
+0.0.53-alfa, Bednja, Karašica i Vučica mogu zaustaviti prognozu. Model ne treba
+ponovno pripremati.
+
+Povratak na 0.0.53-alfa probano je samo u testovima, ne cijelim programom:
+nove tablice to izdanje ne čita, prijave se tada ne vide, a slike se ne brišu
+dok se računalo opet ne nadogradi.
+
+Slika prijave nakon 30 dana nestane iz programa, ali ostaje u kopijama baze
+sadržaja (`sadrzaj.db`), a na disku dok je SQLite ne prepiše.
+
+Na Linuxu baza i mapa `kopije` moraju pripadati korisniku `gocop`, pa to treba
+provjeriti prije nadogradnje. Ako taj korisnik ne može pročitati bazu ili pisati
+u `kopije`, nadogradnja staje prije zamjene programa, a usluga ostaje zaustavljena
+sa starim programom dok se skripta ne pokrene ponovno ili se računalo ne pokrene
+iznova. Bazu kojoj je vlasnik root, a smije se čitati, skripta tu ne zaustavi.
 
 0.0.53-alfa ne mijenja bazu ni razmjenu. Novo pravilo upisa na tuđu letvu
 uz izvor vrijedi na čvoru koji ga ima; starije izdanje takvo očitanje
