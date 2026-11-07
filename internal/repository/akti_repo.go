@@ -1157,6 +1157,10 @@ const PostavkaKarta = "karta"
 // zapis i tako bi opis maknuo svim čvorovima.
 const PostavkaKartaBezInterneta = "karta_bez_interneta"
 
+// PostavkaNapomenaPodataka je ključ napomene administratora na vrhu stranice
+// Prognoze (obični tekst); prazna vrijednost znači da napomene nema.
+const PostavkaNapomenaPodataka = "napomena_podataka"
+
 // DeleteAktTrajno briše akt bez obzira na stanje, s izvornikom i dnevnikom
 // slanja; svako brisanje ostaje zabilježeno u knjizi verzija
 func (r *AktiRepository) DeleteAktTrajno(ctx context.Context, id string) error {

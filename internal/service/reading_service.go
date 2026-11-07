@@ -57,6 +57,12 @@ func (s *ReadingService) NedavniSkokovi(ctx context.Context, letva string, od ti
 	return s.repo.NedavniSkokovi(ctx, letva, od)
 }
 
+// MjerenjaPreuzimanih sažima vodostaje i protoke letvi s uključenim
+// preuzimanjem u razdoblju
+func (s *ReadingService) MjerenjaPreuzimanih(ctx context.Context, od, do time.Time) ([]repository.MjerenjaLetve, error) {
+	return s.repo.MjerenjaPreuzimanih(ctx, od, do)
+}
+
 // BrojNedavnihSkokova je koliko je vrijednosti svake letve odbačeno kao
 // lažni skok od trenutka od
 func (s *ReadingService) BrojNedavnihSkokova(ctx context.Context, od time.Time) (map[string]int, error) {
