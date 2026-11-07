@@ -1,12 +1,14 @@
 package prognoza
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"math"
 	"strings"
 	"testing"
+	"time"
 )
 
 // Letve u ovim testovima su izmišljene: potok-vrh → potok-dole, uz potok-drugi kao
@@ -328,8 +330,18 @@ func TestPripremaVelicine(t *testing.T) {
 // barem sat. Redoslijed ulaza ne mijenja ništa.
 func TestPripremaDoseg(t *testing.T) {
 	s := &pripremaRacuna{zapisi: map[string]ZapisLetve{
-		"potok-sredina":  {Racun: RacunLetve{Doseg: 20}},
-		"potok-karasica": {Racun: RacunLetve{Doseg: najveciDosegZapisa}, Ugradjen: true}},
+		"potok-sredina": {Racun: RacunLetve{Doseg: 20}},
+		// Račun iz koda izdaje se do kraja izdanja, ali dalje od vrha drži njegovo
+		// zadnje mjerenje, pa mu vrijedi lanac: 3 h do vrha, odnosno 5 + 3 h.
+		"potok-karasica": {Racun: RacunLetve{Doseg: najveciDosegZapisa}, Ugradjen: true,
+			Brojevi: BrojeviLetve{Inacice: [][]Pojas{{pojasPotoka("potok-karasica", "potok-vrh", 3)}}}},
+		"potok-vucica": {Racun: RacunLetve{Doseg: najveciDosegZapisa}, Ugradjen: true,
+			Brojevi: BrojeviLetve{Inacice: [][]Pojas{{pojasPotoka("potok-vucica", "potok-karasica", 5)}}}},
+		"potok-uz-glavni": {Racun: RacunLetve{Doseg: najveciDosegZapisa}, Ugradjen: true,
+			Brojevi: BrojeviLetve{Inacice: [][]Pojas{{pojasPotoka("potok-uz-glavni", "donja", 2)}}}},
+		// Krug u brojevima iz baze ne smije zavrtjeti račun dosega.
+		"potok-krug-a": {Ugradjen: true, Brojevi: BrojeviLetve{Inacice: [][]Pojas{{pojasPotoka("potok-krug-a", "potok-krug-b", 1)}}}},
+		"potok-krug-b": {Ugradjen: true, Brojevi: BrojeviLetve{Inacice: [][]Pojas{{pojasPotoka("potok-krug-b", "potok-krug-a", 1)}}}}},
 		okvir: OkvirModela{Glavne: map[string][][]Pojas{"donja": {{pojasPotoka("donja", "gornja", 3)}}}}}
 	ulaz := func(letva string, pomak int) Ulaz { return Ulaz{Letva: letva, PomakH: pomak} }
 	for _, c := range []struct {
@@ -342,7 +354,9 @@ func TestPripremaDoseg(t *testing.T) {
 		{"ulaz s računom", []Ulaz{ulaz("potok-sredina", 4)}, 24},
 		{"glavni lanac", []Ulaz{ulaz("donja", 4)}, 96},
 		{"ulaz glavnog lanca bez računa", []Ulaz{ulaz("gornja", 4)}, 4},
-		{"račun iz koda", []Ulaz{ulaz("potok-karasica", 4)}, 96},
+		{"račun iz koda", []Ulaz{ulaz("potok-karasica", 4)}, 7},
+		{"dva računa iz koda", []Ulaz{ulaz("potok-vucica", 4)}, 12},
+		{"račun iz koda na glavnom lancu", []Ulaz{ulaz("potok-uz-glavni", 4)}, 96},
 		{"sporedni vrh skraćuje", []Ulaz{ulaz("donja", 4), ulaz("potok-vrh", 2)}, 2},
 		{"obrnut redoslijed", []Ulaz{ulaz("potok-vrh", 2), ulaz("donja", 4)}, 2},
 		{"sporedni s računom", []Ulaz{ulaz("donja", 4), ulaz("potok-sredina", 30)}, 50},
@@ -357,10 +371,19 @@ func TestPripremaDoseg(t *testing.T) {
 			t.Errorf("%s: doseg %d, želim %d", c.opis, d, c.zeli)
 		}
 	}
+	krug := pojasPotoka("x", "potok-krug-a", 2)
+	if d := s.doseg([]Pojas{krug}); d >= najveciDosegZapisa {
+		t.Errorf("krug u brojevima: doseg %d", d)
+	}
+	iskljucena := pojasPotoka("potok-sve-iskljuceno", "potok-vrh", 2)
+	iskljucena.Nepovezan = true
+	if d := s.dosegPojasa([]Pojas{iskljucena}, 1); d != 0 {
+		t.Errorf("račun bez ijedne razine koja računa: doseg %d, želim 0", d)
+	}
 }
 
 // Račun iz koda je i priprema i spremanje vide kao račun: krug kroz njega odbijaju, a
-// ulaz koji se tako računa ima cijeli doseg.
+// ulaz koji se tako računa seže do vrha svog lanca, ne do kraja izdanja.
 func TestPripremaIRacunIzKoda(t *testing.T) {
 	racuniPotoka(t)
 	postavi(t, &NajveciPomak, 8)
@@ -384,8 +407,121 @@ func TestPripremaIRacunIzKoda(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.Zapis.Racun.Doseg != najveciDosegZapisa {
-		t.Errorf("doseg %d, želim %d: ulaz ima račun iz koda", p.Zapis.Racun.Doseg, najveciDosegZapisa)
+	ps := p.Zapis.Brojevi.Inacice[0]
+	if want := ps[len(ps)-1].Ulazi[0].PomakH + 2; p.Zapis.Racun.Doseg != want {
+		t.Errorf("doseg %d, želim %d: kašnjenje do ulaza i 2 h od ulaza do vrha", p.Zapis.Racun.Doseg, want)
+	}
+}
+
+// Krug kroz račun iz koda odbija se i kad taj račun još nema brojeve u bazi: inače bi
+// se upisao, a čim Pripremi model upiše brojeve, ispale bi sve letve u krugu.
+func TestKrugKrozRacunIzKodaBezBrojeva(t *testing.T) {
+	racuniPotoka(t)
+	postavi(t, &NajveciPomak, 8)
+	sRezervom := zapisPotoka("potok-vrh", "potok-drugi", 2)
+	sRezervom.Racun.Rezerve = [][]string{{"potok-dole"}}
+	for ime, z := range map[string]ZapisLetve{
+		"izravno":       zapisPotoka("potok-vrh", "potok-dole", 2),
+		"preko dva":     zapisPotoka("potok-vrh", potokUsce, 2),
+		"kroz rezervu":  sRezervom,
+		"redak za kod":  zapisPotoka("potok-dole", potokUsce, 2),
+		"letva iz sebe": zapisPotoka("potok-dole", "potok-dole", 2),
+	} {
+		t.Run(ime, func(t *testing.T) {
+			baza := otvoriProbnu(t, "p.db")
+			if err := SpremiZapisLetve(baza, z, "", OkvirModela{}); !porukaIma(err, "krug") {
+				t.Errorf("spremanje: %v", err)
+			}
+		})
+	}
+	z := zapisZaPripremu("potok-dole")
+	z.Letva = "potok-vrh"
+	if _, err := PripremiLetvu(arhivaPotoka(t, nil), otvoriProbnu(t, "p.db"), z, OkvirModela{}); !porukaIma(err, "krug") {
+		t.Errorf("priprema: %v", err)
+	}
+	// Bez kruga se upisuje: novi račun iz letve iz koda i redak umjesto koda.
+	baza := otvoriProbnu(t, "p.db")
+	for _, z := range []ZapisLetve{zapisPotoka("potok-nova", "potok-dole", 2), zapisPotoka("potok-dole", "potok-drugi", 2)} {
+		if err := SpremiZapisLetve(baza, z, "", OkvirModela{}); err != nil {
+			t.Errorf("%s: %v", z.Letva, err)
+		}
+	}
+	// Krug koji je već u bazi, a nema veze s novim računom, ne brani upis.
+	upisiZapis(t, baza, zapisPotoka("krug-a", "krug-b", 1))
+	upisiZapis(t, baza, zapisPotoka("krug-b", "krug-a", 1))
+	if err := SpremiZapisLetve(baza, zapisPotoka("potok-treca", "potok-drugi", 2), "", OkvirModela{}); err != nil {
+		t.Errorf("stari krug brani upis: %v", err)
+	}
+	// Pokvaren redak vrijedi umjesto koda i ne računa se, pa kroz njegov račun iz koda
+	// nema kruga.
+	pokvarena := otvoriProbnu(t, "k.db")
+	if _, err := pokvarena.Exec(`INSERT INTO model_letve (letva, proba, sadrzaj) VALUES ('potok-dole', '', 'x')`); err != nil {
+		t.Fatal(err)
+	}
+	if err := SpremiZapisLetve(pokvarena, zapisPotoka("potok-vrh", potokUsce, 2), "", OkvirModela{}); err != nil {
+		t.Errorf("uz pokvaren redak: %v", err)
+	}
+}
+
+// Isti ulaz dvaput namještanje primi i podijeli mu nagib na dva besmislena broja, pa
+// se odbija i pri pripremi i pri spremanju.
+func TestRacunBezPonavljanja(t *testing.T) {
+	arhiva, baza := arhivaPotoka(t, nil), otvoriProbnu(t, "p.db")
+	for ime, r := range map[string]struct {
+		ulazi   []string
+		rezerve [][]string
+		greska  string
+	}{
+		"dvaput isti ulaz":   {ulazi: []string{"potok-vrh", "potok-vrh"}, greska: "dvaput"},
+		"dvaput u rezervi":   {ulazi: []string{"potok-vrh"}, rezerve: [][]string{{"potok-drugi", "potok-drugi"}}, greska: "dvaput"},
+		"rezerva kao glavni": {ulazi: []string{"potok-vrh"}, rezerve: [][]string{{"potok-vrh"}}, greska: "ponavlja"},
+		"druga redom":        {ulazi: []string{"potok-vrh", "potok-drugi"}, rezerve: [][]string{{"potok-drugi", "potok-vrh"}}, greska: "ponavlja"},
+		"dvije iste rezerve": {ulazi: []string{"potok-vrh"}, rezerve: [][]string{{"nema"}, {"nema"}}, greska: "ponavlja"},
+	} {
+		t.Run(ime, func(t *testing.T) {
+			z := zapisZaPripremu(r.ulazi...)
+			z.Racun.Rezerve = r.rezerve
+			if _, err := PripremiLetvu(arhiva, baza, z, OkvirModela{}); !porukaIma(err, r.greska) {
+				t.Errorf("priprema: želim %q, a dobio %v", r.greska, err)
+			}
+			upis := zapisPotoka("potok-dole", r.ulazi[0], 2)
+			upis.Racun.Ulazi, upis.Racun.Rezerve = r.ulazi, r.rezerve
+			if err := SpremiZapisLetve(baza, upis, "", OkvirModela{}); !porukaIma(err, r.greska) {
+				t.Errorf("spremanje: želim %q, a dobio %v", r.greska, err)
+			}
+		})
+	}
+	// Ista letva u rezervi s drugim društvom nije ponavljanje.
+	z := zapisPotoka("potok-dole", "potok-vrh", 2)
+	z.Racun.Rezerve = [][]string{{"potok-vrh", "potok-drugi"}}
+	if err := z.Provjeri(OkvirModela{}); err != nil {
+		t.Errorf("rezerva s drugim društvom: %v", err)
+	}
+}
+
+// Kad je voda u isključenoj razini, a letva u satu izdanja nije izmjerena, poruka to
+// kaže, a ne da nema ulaza.
+func TestIskljucenaRazinaKazeZastoNemaPrognoze(t *testing.T) {
+	zadnji := time.Now().UTC().Truncate(time.Hour)
+	oc := probneOcitanja(t, 200, zadnji)
+	o := probniOsvjezivac(t, oc)
+	o.Iznova = true
+	dodajLetvuPotoka(t, oc, "3", "potok-vrh", zadnji, 48)
+	dodajLetvuPotoka(t, oc, "4", "potok-dole", zadnji.Add(-5*time.Hour), 48)
+	z := zapisPotoka("potok-dole", "potok-vrh", 2)
+	racuna, iskljucena := pojasPotoka("potok-dole", "potok-vrh", 2), pojasPotoka("potok-dole", "potok-vrh", 2)
+	racuna.Do, iskljucena.Od, iskljucena.Nepovezan = 0, 0, true
+	z.Brojevi.Inacice = [][]Pojas{{racuna, iskljucena}}
+	upisiZapis(t, o.Baza, z)
+	i, err := o.Osvjezi(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := i.BezPrognoze["potok-dole"]; !porukaIma(err, "isključen") {
+		t.Errorf("razlog: %v", err)
+	}
+	if err := bezRedaka([]Pojas{racuna}); !porukaIma(err, "nema ulaza") {
+		t.Errorf("letva bez isključene razine: %v", err)
 	}
 }
 
