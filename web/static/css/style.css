@@ -8588,3 +8588,61 @@ summary.ocitanja-cip { padding-right: 8px; }
 @media print {
   .knjige-filtri, .knjige-zadaj, .knjiga-upis, .knjiga-gumbi, .knjiga > summary > .icon, .knjiga .moj-list > .icon { display: none !important; }
 }
+
+/* ===== Prijava s terena, jedna stranica (goCOP-m3, 15 · Dokumenti, 8d do 8i) =====
+   Glava, kartice, polja i potpisi su od dnevnog lista (.list-glava, .list-kartica,
+   .list-polje, .list-potpisi). Ovdje su stupci, mjesto ploča i fotografije.
+   Stupci su na računalu 640 i 440 px. U jednom stupcu .prijava-stupac nestaje, pa
+   ploče biraju mjesto preko order: objava je prva, a urudžba je iza fotografija, osim
+   na mobitelu onome tko je rješava. */
+.prijava-terena { --list-podloga: var(--md-sys-color-surface-container-low); max-width: 1104px; margin-inline: auto; }
+.prijava-stupci { display: flex; flex-direction: column; }
+.prijava-stupac { display: contents; }
+.prijava-objava { order: -1; }
+.prijava-radnja:not(.prijava-objava) { order: 1; }
+.prijava-opis { white-space: pre-wrap; }
+.prijava-otisak { white-space: nowrap; }
+.oznaka-stanja.obrub { background: transparent; box-shadow: inset 0 0 0 1px var(--md-sys-color-outline); color: var(--md-sys-color-on-surface); }
+.oznaka-stanja.nacrt { background: var(--upozorenje-tehnicko-ploha); box-shadow: inset 0 0 0 1px var(--upozorenje-tehnicko-rub); color: var(--md-sys-color-on-surface); }
+.prijava-prenesena { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; }
+.prijava-prenesena > div { flex: 1 1 20rem; }
+.prijava-prenesena .btn-link { color: inherit; text-decoration: underline; }
+.prijava-terena .karta-letve { margin-top: 12px; }
+.prijava-terena .karta-platno { height: 180px; }
+.prijava-terena .list-potpisi { margin-top: 4px; }
+.prijava-terena-obrazac { display: flex; flex-direction: column; gap: 12px; }
+.prijava-terena-obrazac .form-group, .prijava-terena-obrazac .list-dva { margin: 0; }
+.prijava-terena-obrazac .form-help { margin: 0; }
+.prijava-objava .list-radnje .btn { flex: 1 1 100%; justify-content: center; }
+.prijava-brisanje { margin-top: 8px; }
+.prijava-terena .btn-link.btn-opasno:not(:disabled) { border-color: transparent; }
+.prijava-brisanje .btn-opasno, .prijava-ukloni .btn-opasno { margin-inline-start: -12px; }
+.prijava-ukloni { margin-top: 4px; }
+.prijava-terena .prijava-slike { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+.prijava-terena .prijava-slike img { height: 130px; }
+.prijava-terena .prijava-slike figure.nema { display: flex; flex-direction: column; grid-column: 1 / -1; }
+.prijava-terena .prijava-slike figure.nema .nema-slike { order: -1; display: flex; align-items: center; gap: 12px; min-height: 110px; margin: 0 0 8px; padding: 16px; border-radius: var(--r-kontrola); background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface-variant); font-size: 0.8125rem; line-height: 18px; }
+.prijava-terena .nema-slike > .icon { flex: none; margin: 0; }
+@media (min-width: 600px) {
+  /* Natpis polja sjeda na rub okvira, pa treba mjesta iznad polja. */
+  .prijava-terena-obrazac { gap: 16px; padding-top: 4px; }
+}
+@media screen and (min-width: 1200px) {
+  .prijava-stupci { display: grid; grid-template-columns: minmax(0, 640fr) minmax(0, 440fr); gap: 0 24px; align-items: start; }
+  .prijava-stupac { display: flex; flex-direction: column; min-width: 0; }
+}
+@media (max-width: 599px) {
+  .prijava-radnja-prva:not(.prijava-objava) { order: -1; }
+  .prijava-terena-obrazac .list-dva { grid-template-columns: minmax(0, 1fr); }
+  .prijava-terena .prijava-slike { grid-template-columns: minmax(0, 1fr); }
+  /* Fotografija je dokaz, pa se na mobitelu vidi cijela, a ne izrezana. */
+  .prijava-terena .prijava-slike img { height: auto; }
+}
+@media (max-width: 599px), (pointer: coarse) {
+  .prijava-terena .btn-link, .prijava-terena .prijava-ukloni .btn, .prijava-brisanje .btn { min-height: 48px; }
+  .prijava-terena .nema-slike a { padding-block: 14px; }
+}
+/* Na papiru ostaju podaci i fotografije. Urudžba upisana u obrazac stoji i u podacima. */
+@media print {
+  .prijava-terena .prijava-radnja, .prijava-ukloni { display: none; }
+}
