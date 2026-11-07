@@ -1390,14 +1390,17 @@ func opisRezerve(opis string, postaje map[string]models.Station) string {
 	case strings.HasPrefix(opis, "dnevni model: "):
 		return "Dnevna prognoza iz rezerve: " + imena(strings.TrimPrefix(opis, "dnevni model: ")) + "."
 	case strings.HasPrefix(opis, "zamjena: "):
-		o := imena(strings.TrimPrefix(opis, "zamjena: "))
-		return strings.ToUpper(o[:1]) + o[1:] + "."
+		return velikoSlovo(imena(strings.TrimPrefix(opis, "zamjena: "))) + "."
 	case strings.HasPrefix(opis, "rekonstrukcija: "):
 		return "Rekonstruirano iz susjeda: " + imena(strings.TrimPrefix(opis, "rekonstrukcija: ")) + "."
-	case strings.HasPrefix(opis, "bez svježeg ulaza"):
-		return imena(opis) + "."
 	}
-	return "Računa se iz rezerve: " + imena(strings.TrimPrefix(opis, "rezerva: ")) + ". Raspon je procjena, nije provjeren unatrag."
+	if t, ima := (pisacUpozorenja{postaje: postaje}).putRacuna(opis); ima {
+		if strings.HasPrefix(opis, uvodRezerve) {
+			t += ". Raspon je procjena, nije provjeren unatrag"
+		}
+		return velikoSlovo(t) + "."
+	}
+	return "Računa se iz rezerve: " + imena(strings.TrimPrefix(opis, uvodRezerve)) + ". Raspon je procjena, nije provjeren unatrag."
 }
 
 // PocetakProfila je letva od koje kreće uzdužni profil vode; letve uzvodno

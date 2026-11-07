@@ -218,7 +218,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"U maloj vodi ispravak dnevnu prognozu Dunava 4.–6. dan u prosjeku malo podigne, a ondje je ona i bez njega malo previsoka: srednja pogreška raste s oko +2 na +4 cm, 2022. sa +7 na +9 cm. U provjeri po godinama ukupna pogreška bila je i tada manja nego bez ispravka, ali prvi tjedni u maloj vodi mogu izgledati lošije.",
 				"Vrijednost izvan svega viđenoga u arhivi model procjenjuje produženjem zadnjeg pravca; pri rekordnoj vodi budite oprezni.",
 				"Prognoza kiše iz Open-Meteo je jedina. Kad izostane, dnevni model radi bez kiše i to piše uz izdanje.",
-				"Kad gore u lancu nešto ne radi, upozorenje kaže od kojeg je dosega satna prognoza upitna. To je najraniji mogući doseg; nevolja stigne i kasnije."),
+				"Kad gore u lancu nešto ne radi, upozorenje kaže za koliko sati satna prognoza može postati manje točna. To je najranije što se može dogoditi, a stvarno bude i kasnije."),
 		),
 		odjeljakM("Kad prognoza ne radi — pričuvni izračun",
 			tekstM("Gumb „Pričuvni izračun” na vrhu ove stranice daje Excel koji radi bez programa i bez mreže. Na list "+

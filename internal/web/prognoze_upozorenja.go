@@ -196,7 +196,7 @@ func (p pisacUpozorenja) sto(u prognoza.Upozorenje) string {
 	case prognoza.VrstaDnevni:
 		return recenica("Dnevni model nije računao za " + nabroji(p.imenaDnevnih(u.Upitno, true)) + ": " + p.imena(u.Opis))
 	case prognoza.VrstaVrh:
-		return p.uLetvi(u.Letva, "vrh lanca, "+p.imena(u.Opis))
+		return p.uLetvi(u.Letva, p.stoVrha(u.Opis))
 	case prognoza.VrstaBezPrognoze:
 		return p.uLetvi(u.Letva, "nema prognoze ("+p.imena(u.Opis)+")")
 	case prognoza.VrstaCeka:
@@ -209,6 +209,9 @@ func (p pisacUpozorenja) sto(u prognoza.Upozorenje) string {
 	}
 	// rezerva, zadržano mjerenje, dnevna rezerva, druga obala, susjedi, kiša i vrste
 	// koje ova inačica još ne zna: opis izdavača imenima letvi
+	if t, ima := p.putRacuna(u.Opis); ima {
+		return p.uLetvi(u.Letva, t)
+	}
 	o := opisVrste[u.Vrsta]
 	return p.uLetvi(u.Letva, o.uvod+p.imena(strings.TrimPrefix(u.Opis, o.prefiks)))
 }
@@ -253,31 +256,31 @@ func (p pisacUpozorenja) imenaDnevnih(upitno []prognoza.Upitno, cilj bool) []str
 	return out
 }
 
-// upitno piše što je upitno: satna po dosezima, dnevna s danima.
+// upitno piše što je zbog upozorenja manje pouzdano: satna po dosezima, dnevna s danima.
 func (p pisacUpozorenja) upitno(u prognoza.Upozorenje) string {
 	if u.Vrsta == prognoza.VrstaKrivulja {
 		return ""
 	}
 	dijelovi := []string{}
 	if s := p.satnaUpitna(u.Upitno); s != "" {
-		dijelovi = append(dijelovi, "satna prognoza "+s)
+		dijelovi = append(dijelovi, s)
 	}
 	if d := p.dnevnaUpitna(u); d != "" {
 		dijelovi = append(dijelovi, d)
 	}
-	if len(dijelovi) == 0 {
-		return ""
-	}
-	return "Upitno: " + strings.Join(dijelovi, "; ") + "."
+	return strings.Join(dijelovi, " ")
 }
 
-// satnaUpitna grupira letve po dosegu od kojeg im je satna upitna, npr.
-// „Mohács od izdanja; Batina, Bezdan i Apatin najranije od +1 h”. Doseg je
-// najraniji mogući: namješteno kašnjenje vala, bez prozora prosjeka i
-// ispravka po zadnjem mjerenju, koji ga samo odgađaju.
+// satnaUpitna kaže na koliko letvi satna prognoza može biti manje točna, i kad
+// to počinje na prvoj i na zadnjoj. Svaka letva svoj broj ima na kartici. Doseg
+// je najraniji mogući: namješteno kašnjenje vala, bez prozora prosjeka i
+// ispravka po zadnjem mjerenju, koji ga samo odgađaju. Među letvama su i one
+// koje lanac čita zbog uspora ili prijenosa, pa tekst ne kaže da do njih stiže
+// baš ta voda.
 func (p pisacUpozorenja) satnaUpitna(upitno []prognoza.Upitno) string {
 	po := map[int][]string{}
 	var dosezi []int
+	n := 0
 	for _, x := range upitno {
 		if x.OdSata < 0 {
 			continue
@@ -286,47 +289,45 @@ func (p pisacUpozorenja) satnaUpitna(upitno []prognoza.Upitno) string {
 			dosezi = append(dosezi, x.OdSata)
 		}
 		po[x.OdSata] = append(po[x.OdSata], p.ime(x.Letva))
+		n++
 	}
-	slices.Sort(dosezi)
-	grupe := make([]string, 0, len(dosezi))
-	for _, d := range dosezi {
-		grupe = append(grupe, nabroji(po[d])+" "+odDosega(d))
-	}
-	return strings.Join(grupe, "; ")
-}
-
-// odDosega: 0 je vrijednost u satu izdanja, inače najraniji doseg.
-func odDosega(d int) string {
-	if d == 0 {
-		return "od izdanja"
-	}
-	return fmt.Sprintf("najranije od +%d h", d)
-}
-
-// dnevnaUpitna piše dnevnu prognozu koja nije izdana ili je upitna, i što
-// tablica dana zato pokazuje.
-func (p pisacUpozorenja) dnevnaUpitna(u prognoza.Upozorenje) string {
-	var dijelovi []string
-	if c := p.imenaDnevnih(u.Upitno, true); len(c) > 0 {
-		dijelovi = append(dijelovi, "dnevna prognoza "+nabroji(c))
-	}
-	if pr := p.imenaDnevnih(u.Upitno, false); len(pr) > 0 {
-		dijelovi = append(dijelovi, "prenesena dnevna "+nabroji(pr))
-	}
-	if len(dijelovi) == 0 {
+	if n == 0 {
 		return ""
 	}
-	s := strings.Join(dijelovi, ", ")
+	slices.Sort(dosezi)
+	prvi, zadnji := dosezi[0], dosezi[len(dosezi)-1]
+	if n == 1 {
+		return "Prognoza može biti manje točna na letvi " + po[prvi][0] + ", " + najranijeOd(prvi) + "."
+	}
+	uvod := fmt.Sprintf("Prognoza može biti manje točna na %d %s u lancu, kad to do njih stigne: ",
+		n, models.UzBrojHR(n, "letvi", "letve", "letvi"))
+	if prvi == zadnji {
+		return uvod + nabroji(po[prvi]) + " " + najranijeOd(prvi) + "."
+	}
+	return uvod + "prvo " + nabroji(po[prvi]) + ", " + najranijeOd(prvi) +
+		", a zadnje " + nabroji(po[zadnji]) + ", " + najranijeOd(zadnji) + "."
+}
+
+// dnevnaUpitna piše dnevnu prognozu koja nije izdana ili može biti manje
+// točna, i što tablica dana zato pokazuje.
+func (p pisacUpozorenja) dnevnaUpitna(u prognoza.Upozorenje) string {
+	ciljevi, prenesene := p.imenaDnevnih(u.Upitno, true), p.imenaDnevnih(u.Upitno, false)
 	if dnevnaIzdana(u.Vrsta) {
-		return s
+		return recenicaDnevne(ciljevi, prenesene, "Dnevna prognoza može biti manje točna za ",
+			"Prenesena dnevna prognoza može biti manje točna za ", "prenesena dnevna")
+	}
+	s := recenicaDnevne(ciljevi, prenesene, "Dnevne prognoze nema za ", "Prenesene dnevne prognoze nema za ", "prenesene dnevne")
+	if s == "" {
+		return ""
 	}
 	return s + p.daniBezDnevne(u.Upitno)
 }
 
-// dnevnaIzdana: uz ovu vrstu dnevna prognoza jest izdana, samo je upitna —
-// računata bez kiše ili iz rekonstruiranih sati izvan raspona provjere.
+// dnevnaIzdana: uz ovu vrstu dnevna prognoza jest izdana, samo može biti manje
+// točna: računata je bez kiše, iz rezerve ili iz rekonstruiranih sati izvan
+// raspona provjere.
 func dnevnaIzdana(vrsta string) bool {
-	return vrsta == prognoza.VrstaKisa || vrsta == prognoza.VrstaRekonstrukcija
+	return vrsta == prognoza.VrstaKisa || vrsta == prognoza.VrstaRekonstrukcija || vrsta == prognoza.VrstaDnevnaRezerva
 }
 
 // daniBezDnevne kaže koje dane tablica za upitne letve pokazuje iz satne
@@ -345,7 +346,7 @@ func (p pisacUpozorenja) daniBezDnevne(upitno []prognoza.Upitno) string {
 	if len(dijelovi) == 0 {
 		return ""
 	}
-	return " — u tablici " + strings.Join(dijelovi, ", ")
+	return " U tablici " + strings.Join(dijelovi, ", ") + "."
 }
 
 // daniPoLetvama skuplja letve po danima kojima je ćelija označena, npr.
@@ -443,59 +444,53 @@ func (p pisacUpozorenja) oznaciLetve(u []prognoza.Upozorenje) {
 	}
 }
 
-// naKartici je redak kartice: što je upitno i zašto.
+// naKartici je redak kartice: što može biti manje točno i zašto.
 func (p pisacUpozorenja) naKartici(u prognoza.Upozorenje, q prognoza.Upitno) string {
-	var s []string
-	if q.OdSata >= 0 {
-		s = append(s, "satna upitna "+odDosega(q.OdSata))
-	}
-	switch {
-	case q.Dnevno && dnevnaIzdana(u.Vrsta):
-		s = append(s, "dnevna upitna")
-	case q.Dnevno:
-		s = append(s, "dnevna nije izdana")
-	}
-	return velikoSlovo(strings.Join(s, ", ")) + " (" + p.uzrok(u) + ")."
+	return cmp.Or(glavaUpitnog(q.OdSata, dnevnaNaGrafu(u.Vrsta, q)), "Prognoza može biti manje točna") + p.uzrok(u) + "."
 }
 
-// uzrok je kratko zašto, za karticu.
+// uzrok je kratko zašto, za karticu, kao nastavak rečenice.
 func (p pisacUpozorenja) uzrok(u prognoza.Upozorenje) string {
 	switch u.Vrsta {
 	case prognoza.VrstaUlaz:
-		return p.ime(u.Letva) + " bez mjerenja"
+		if u.Sljedece > 0 {
+			return ", jer letvi " + p.ime(u.Letva) + " fali dio mjerenja"
+		}
+		return ", jer " + p.ime(u.Letva) + " nema mjerenja"
 	case prognoza.VrstaRezerva:
-		return p.ime(u.Letva) + " iz rezerve"
-	case prognoza.VrstaDrzi:
-		return p.ime(u.Letva) + " bez svježeg ulaza"
-	case prognoza.VrstaVrh:
-		return p.ime(u.Letva) + " bez budućnosti vrha"
+		return ", jer se " + p.ime(u.Letva) + " računa iz rezerve"
+	case prognoza.VrstaDrzi, prognoza.VrstaVrh:
+		return ", jer se računa iz zadnjeg mjerenja letve " + p.ime(u.Letva)
 	case prognoza.VrstaKisa:
-		return "dnevni model bez kiše"
+		return ", jer dnevni model računa bez kiše"
 	case prognoza.VrstaRekonstrukcija:
-		return p.ime(u.Letva) + " rekonstruirana izvan provjerenog raspona"
+		return ", jer su mjerenja letve " + p.ime(u.Letva) + " procijenjena iz susjeda, izvan provjerenog raspona"
 	case prognoza.VrstaDnevni:
-		return "dnevni model nije računao"
+		return ", jer dnevni model nije računao"
 	case prognoza.VrstaOdvojeni:
 		return p.uzrokOdvojenih(u)
 	}
 	// Vrsta koju ova inačica ne zna: s izdavača novije inačice, ili vrsta
 	// koje više nema (npr. „bez-tude”, Komárom bez mađarske prognoze). Razlog
 	// se ne nagađa: stoji ime letve, a opis izdavača je u okviru upozorenja.
-	return cmp.Or(p.ime(u.Letva), "vidi upozorenja uz izdanje")
+	if u.Letva != "" {
+		return " zbog letve " + p.ime(u.Letva)
+	}
+	return " (vidi upozorenja uz izdanje)"
 }
 
 // uzrokOdvojenih je isti kratki razlog kao u glavnom lancu. Odvojeni račun ima samo
 // jednu vrstu upozorenja, a razlog stoji na početku opisa izdavača.
 func (p pisacUpozorenja) uzrokOdvojenih(u prognoza.Upozorenje) string {
 	switch {
-	case strings.HasPrefix(u.Opis, "rezerva:"):
-		return p.ime(u.Letva) + " iz rezerve"
-	case strings.HasPrefix(u.Opis, "bez svježeg ulaza"):
-		return p.ime(u.Letva) + " bez svježeg ulaza"
+	case strings.HasPrefix(u.Opis, uvodRezerve):
+		return ", jer se " + p.ime(u.Letva) + " računa iz rezerve"
+	case strings.HasPrefix(u.Opis, uvodBezUlaza):
+		return ", jer se računa iz zadnjeg mjerenja letve " + p.ime(u.Letva)
 	case strings.HasPrefix(u.Opis, "nema mjerenja"):
-		return p.ime(u.Letva) + " bez mjerenja"
+		return ", jer " + p.ime(u.Letva) + " nema mjerenja"
 	}
-	return p.ime(u.Letva)
+	return " zbog letve " + p.ime(u.Letva)
 }
 
 // nabroji spaja riječi zarezima, a zadnju s „i”.
@@ -566,7 +561,7 @@ func neprazno(s ...string) []string {
 // upitnoLetve je kratak redak bez imena za natpis grafa letve: od kojeg je
 // dosega satna upitna i je li dnevna izdana; prazno kad je sve u redu.
 func upitnoLetve(u []prognoza.Upozorenje, letva string) string {
-	od, dnevna := -1, ""
+	od, dnevna := -1, dnevnaBezOznake
 	for _, x := range u {
 		q, ima := upitnaLetva(x, letva)
 		if !ima {
@@ -575,11 +570,7 @@ func upitnoLetve(u []prognoza.Upozorenje, letva string) string {
 		od = najranije(od, q.OdSata)
 		dnevna = cmp.Or(dnevna, dnevnaNaGrafu(x.Vrsta, q))
 	}
-	var s []string
-	if od >= 0 {
-		s = append(s, "satna upitna "+odDosega(od))
-	}
-	return velikoSlovo(strings.Join(append(s, neprazno(dnevna)...), "; "))
+	return glavaUpitnog(od, dnevna)
 }
 
 // upitnaLetva nalazi letvu među upitnima upozorenja koje označava letve.
@@ -599,15 +590,15 @@ func najranije(a, b int) int {
 	return a
 }
 
-// dnevnaNaGrafu: dnevna nije izdana, ili je izdana bez kiše.
-func dnevnaNaGrafu(vrsta string, q prognoza.Upitno) string {
+// dnevnaNaGrafu kaže što je s dnevnom prognozom letve zbog ovog upozorenja.
+func dnevnaNaGrafu(vrsta string, q prognoza.Upitno) stanjeDnevne {
 	switch {
 	case !q.Dnevno:
-		return ""
-	case vrsta == prognoza.VrstaKisa:
-		return "dnevna upitna"
+		return dnevnaBezOznake
+	case dnevnaIzdana(vrsta):
+		return dnevnaManjeTocna
 	}
-	return "dnevna nije izdana"
+	return dnevnaNijeIzdana
 }
 
 // natpisUpitnog dodaje natpisu grafa zašto je prognoza upitna.
