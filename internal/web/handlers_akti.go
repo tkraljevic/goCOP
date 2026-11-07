@@ -91,8 +91,11 @@ type AktiPageData struct {
 	ZaPrekid   []models.Akt     // ovjereni akti o uspostavi po vodomjeru, za prekid
 	Tendencije []struct{ Kod, Naziv string }
 	LocalValue string
-	Radnja     string
-	Stupanj    models.DefensePhase
+	// VrijediUpisan: „Vrijedi od” je došao s adresom (povratak s pitanjem ili
+	// promjena letve), pa ga i nova letva nosi dalje
+	VrijediUpisan bool
+	Radnja        string
+	Stupanj       models.DefensePhase
 	// TraziPotvrduVrijedi: nacrt je odbijen jer „Vrijedi od” traži izričitu
 	// potvrdu (Odluke (8. 10. 2026.), pitanje 17); obrazac je nudi
 	TraziPotvrduVrijedi bool
@@ -237,6 +240,19 @@ func (h *AktiHandler) ShowForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q := r.URL.Query()
+	obrazacRadnje(q, &data)
+	obrazacVrijedi(q, &data)
+	data.Unos = unosObrasca(q)
+	h.letvaObrasca(r.Context(), q.Get("station"), &data)
+	data.Stanice = h.letveZaAkt(r.Context(), perms, data.Stupanj, data.Station)
+	if err := h.tmplForm.ExecuteTemplate(w, "akt_form.html", data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// obrazacRadnje upisuje u obrazac radnju i stupanj iz adrese; zadano je
+// uspostava pripremnog stanja
+func obrazacRadnje(q url.Values, data *AktiPageData) {
 	data.Radnja = q.Get("radnja")
 	if data.Radnja == "" {
 		data.Radnja = models.AktUspostava
@@ -245,49 +261,114 @@ func (h *AktiHandler) ShowForm(w http.ResponseWriter, r *http.Request) {
 	if data.Stupanj == "" {
 		data.Stupanj = models.PhasePrep
 	}
-	obrazacVrijedi(q, &data)
-	data.Unos = unosObrasca(q)
-	if id, err := uuid.Parse(q.Get("station")); err == nil {
-		if st, err := h.stations.GetStation(r.Context(), id); err == nil && st != nil {
-			data.Station = st
-			data.Dionice = h.dioniceLetve(r.Context(), st)
-			if s := h.akti(); s != nil {
-				if zadnja, err := s.ZadnjeOcitanje(r.Context(), st.ID.String()); err == nil {
-					data.Zadnje = zadnja
-				}
-				data.Ocitanja, _ = s.OcitanjaZaAkt(r.Context(), st.ID.String(), 200)
-				data.ZaPrekid, _ = s.AktiZaPrekid(r.Context(), st.ID.String(), "")
-				data.Tendencije = models.Tendencije
-			}
+}
+
+// letvaObrasca učitava izabranu letvu i sve što obrazac o njoj pokazuje:
+// dionice, zadnje očitanje, očitanja za izbor i akte za prekid
+func (h *AktiHandler) letvaObrasca(ctx context.Context, id string, data *AktiPageData) {
+	uid, err := uuid.Parse(id)
+	if err != nil {
+		return
+	}
+	st, err := h.stations.GetStation(ctx, uid)
+	if err != nil || st == nil {
+		return
+	}
+	data.Station = st
+	data.Dionice = h.dioniceLetve(ctx, st)
+	s := h.akti()
+	if s == nil {
+		return
+	}
+	if zadnja, err := s.ZadnjeOcitanje(ctx, st.ID.String()); err == nil {
+		data.Zadnje = zadnja
+	}
+	data.Ocitanja, _ = s.OcitanjaZaAkt(ctx, st.ID.String(), 200) // bez njih obrazac kaže da se akt donosi po prognozi, kao i prije
+	data.ZaPrekid, _ = s.AktiZaPrekid(ctx, st.ID.String(), "")   // bez njih prekid ide na zadnji ovjereni akt, kao i prije
+	data.Tendencije = models.Tendencije
+}
+
+// letveZaAkt su letve po kojima bi priprema prihvatila akt (ista provjera).
+// Izabrana letva je u popisu i kad nije među njima, da je izbor pokaže;
+// nacrt po njoj priprema i dalje odbije s objašnjenjem.
+func (h *AktiHandler) letveZaAkt(ctx context.Context, perms *models.UserPermissions, stupanj models.DefensePhase, izabrana *models.Station) []models.Station {
+	sve, _ := h.stations.ListStations(ctx, "", "", "", false) // bez popisa ostaje izabrana letva, a bez nje izbor je prazan, kao i prije
+	var out []models.Station
+	ima := izabrana == nil
+	for _, st := range sve {
+		if len(st.SectionCodes) > 0 && h.akti().SmijeAktZaLetvu(ctx, perms, &st, stupanj) {
+			out = append(out, st)
+			ima = ima || st.ID == izabrana.ID
 		}
 	}
-	if data.Station == nil {
-		// nude se letve po kojima bi priprema prihvatila akt (ista provjera)
-		sve, _ := h.stations.ListStations(r.Context(), "", "", "", false)
-		for _, st := range sve {
-			if len(st.SectionCodes) > 0 && h.akti().SmijeAktZaLetvu(r.Context(), perms, &st, data.Stupanj) {
-				data.Stanice = append(data.Stanice, st)
-			}
+	if !ima {
+		out = append([]models.Station{*izabrana}, out...)
+	}
+	return out
+}
+
+// ZadnjiVodostaj je zadnje očitanje letve s vodostajem, za karticu letve;
+// nil kad ga letva nema
+func (d AktiPageData) ZadnjiVodostaj() *models.Reading {
+	if d.Zadnje != nil && d.Zadnje.LevelCm != nil {
+		return d.Zadnje
+	}
+	if len(d.Ocitanja) > 0 {
+		return &d.Ocitanja[0]
+	}
+	return nil
+}
+
+// PodrucjaLetve su branjena područja dionica letve, svako jednom, redom
+// kojim dionice dolaze
+func (d AktiPageData) PodrucjaLetve() []models.Area {
+	var out []models.Area
+	for _, sec := range d.Dionice {
+		if !slices.ContainsFunc(out, func(a models.Area) bool { return a.ID == sec.AreaID }) {
+			out = append(out, models.Area{ID: sec.AreaID, SectorID: sec.SectorID, Name: sec.AreaName})
 		}
 	}
-	if err := h.tmplForm.ExecuteTemplate(w, "akt_form.html", data); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	return out
+}
+
+// OvjeraStupnja je rečenica „Tko ovjerava” za jedan stupanj obrane
+type OvjeraStupnja struct {
+	Stupanj models.DefensePhase
+	Tekst   string
+}
+
+// TkoOvjerava su rečenice „Tko ovjerava” za svaki stupanj koji obrazac
+// nudi, u sektoru akta (sektor prve dionice letve, kao i u pripremi akta).
+// Obrazac pokazuje onu za izabrani stupanj.
+func (d AktiPageData) TkoOvjerava() []OvjeraStupnja {
+	sektor := ""
+	if len(d.Dionice) > 0 {
+		sektor = d.Dionice[0].SectorID
 	}
+	out := make([]OvjeraStupnja, 0, len(d.Stupnjevi))
+	for _, s := range d.Stupnjevi {
+		out = append(out, OvjeraStupnja{Stupanj: s, Tekst: service.TkoOvjerava(s, sektor)})
+	}
+	return out
 }
 
 // obrazacVrijedi upisuje u obrazac „Vrijedi od”: sada, ili vrijeme upisano
-// prije kad se obrazac vraća s pitanjem za potvrdu
+// prije, kad se obrazac vraća s pitanjem za potvrdu ili kad je osoba
+// promijenila letvu
 func obrazacVrijedi(q url.Values, data *AktiPageData) {
 	data.LocalValue = time.Now().In(models.Zagreb).Format("2006-01-02T15:04")
 	if _, err := time.ParseInLocation("2006-01-02T15:04", q.Get("vrijedi"), models.Zagreb); err == nil {
 		data.LocalValue = q.Get("vrijedi")
+		data.VrijediUpisan = true
 	}
 	data.TraziPotvrduVrijedi = q.Get("potvrdi") == "vrijedi"
 }
 
-// UnosObrasca je ono što je osoba upisala u obrazac novog akta kad se
-// obrazac vraća s pitanjem za potvrdu „Vrijedi od”: obrazac ga zadrži, pa
-// nacrt uz potvrdu nastaje iz istog unosa (Odluke (8. 10. 2026.), pitanje 17)
+// UnosObrasca je ono što je osoba upisala u obrazac novog akta. Prognoza i
+// napomena nose se i kad osoba promijeni letvu. Kad se obrazac vraća s
+// pitanjem za potvrdu „Vrijedi od”, zadrži se sav unos, pa nacrt uz potvrdu
+// nastaje iz istog unosa (Odluke (8. 10. 2026.), pitanje 17); dionice,
+// očitanje i akt za prekid pripadaju letvi, pa se uz drugu letvu slože iznova.
 type UnosObrasca struct {
 	Zadrzan      bool
 	Dionice      []string
@@ -298,13 +379,16 @@ type UnosObrasca struct {
 	Napomena     string
 }
 
-// unosObrasca čita zadržani unos iz povratka na obrazac s pitanjem
+// unosObrasca čita unos iz adrese: prognozu i napomenu uvijek, a ostalo
+// samo iz povratka na obrazac s pitanjem
 func unosObrasca(q url.Values) UnosObrasca {
+	u := UnosObrasca{Prognoza: q.Get("prognoza"), Napomena: q.Get("napomena")}
 	if q.Get("potvrdi") != "vrijedi" {
-		return UnosObrasca{}
+		return u
 	}
-	return UnosObrasca{Zadrzan: true, Dionice: q["dionica"], OcitanjeID: q.Get("ocitanje_id"), Tendencija: q.Get("tendencija"),
-		PrekidaAktID: q.Get("prekida_akt_id"), Prognoza: q.Get("prognoza"), Napomena: q.Get("napomena")}
+	u.Zadrzan, u.Dionice, u.OcitanjeID = true, q["dionica"], q.Get("ocitanje_id")
+	u.Tendencija, u.PrekidaAktID = q.Get("tendencija"), q.Get("prekida_akt_id")
+	return u
 }
 
 // ImaDionicu javlja je li dionica označena; bez zadržanog unosa jesu sve

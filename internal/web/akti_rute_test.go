@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"crypto/ed25519"
+	"database/sql"
 	"html/template"
 	"io/fs"
 	"net/http"
@@ -176,8 +177,10 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 
 	mora(zovi(http.MethodGet, "/akti", nil), "prazan popis", "Nema akata", "Novi akt")
 	mora(zovi(http.MethodGet, "/akti/novi", nil), "izbor vodomjera", "Batina", "B.34.1, B.34.2")
-	mora(zovi(http.MethodGet, "/akti/novi?station="+st.ID.String()+"&stupanj=IZVANREDNA", nil), "obrazac", "Akt po vodomjeru Batina", "652 cm", "640 cm", `name="ocitanje_id"`, `name="tendencija"`, `value="B.34.1" checked`, `value="B.34.2" checked`,
-		"zadnji ovjereni, neprekinuti istog stupnja", "nema ovjerenog akta o uspostavi koji je još na snazi")
+	mora(zovi(http.MethodGet, "/akti/novi?station="+st.ID.String()+"&stupanj=IZVANREDNA", nil), "obrazac", "Novi akt</h1>", `<a href="/readings/station/`+st.ID.String()+`">Batina</a></h2>`, "652 cm", "640 cm", `name="ocitanje_id"`, `name="tendencija"`, `value="B.34.1" checked`, `value="B.34.2" checked`,
+		"zadnji ovjereni, neprekinuti istog stupnja", "nema ovjerenog akta o uspostavi koji je još na snazi",
+		`data-stupanj="IZVANREDNA"><span class="akt-bez-skripte">Izvanredna obrana: </span>Rukovoditelj obrane od poplava Sektora B ili viši. Rukovoditelj branjenog područja izvanrednu obranu ne ovjerava.</p>`)
+	promjenaLetve(t, stationRepo, baza, st, zovi, mora)
 	mora(zovi(http.MethodGet, "/akti/spranca?sektor=B", nil), "špranca", "Pravna osnova", "XXIII", "N.N. br. 84/10", "Vrati zadano")
 
 	// špranca: izdanje Glavnog provedbenog plana iz 2025.
@@ -476,4 +479,53 @@ func TestTkoSmijeOvjeritiAkt(t *testing.T) {
 			t.Errorf("%s: smije=%v, očekivano %v", c.opis, got, c.smije)
 		}
 	}
+}
+
+// promjenaLetve: izbor druge letve na obrascu novog akta ponovno otvara
+// obrazac i nosi radnju, stupanj, „Vrijedi od”, prognozu i napomenu, a
+// dionice, očitanje i akt za prekid slože se po novoj letvi. Izbor dionica i
+// očitanja stare letve iz adrese ne prelazi na novu.
+func promjenaLetve(t *testing.T, stationRepo *repository.StationRepository, baza *sql.DB, batina *models.Station,
+	zovi func(string, string, url.Values) *httptest.ResponseRecorder, mora func(*httptest.ResponseRecorder, string, ...string)) {
+	t.Helper()
+	ctx := context.Background()
+	pripremno := 300
+	druga := &models.Station{ID: uuid.New(), Code: "zlatno-selo", Name: "Zlatno Selo", Watercourse: "Dunav", Prep: models.Threshold{Cm: &pripremno}}
+	if err := stationRepo.CreateStation(ctx, druga); err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`INSERT INTO sections (code, area_id, sector_id, description, created_at, updated_at) VALUES ('B.34.7', 34, 'B', 'l.o. r. Dunav, izmišljena dionica', '2026-01-01', '2026-01-01')`,
+		`INSERT INTO section_stations (id, section_code, station_id, created_at) VALUES ('zs-1', 'B.34.7', '` + druga.ID.String() + `', '2026-01-01')`,
+	} {
+		if _, err := baza.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	q := url.Values{"station": {druga.ID.String()}, "radnja": {"PREKID"}, "stupanj": {"REDOVNA"}, "vrijedi": {"2026-09-16T08:30"},
+		"prognoza": {"najavljen porast do 600 cm"}, "napomena": {"Prva napomena"}, "dionica": {"B.34.1"}, "ocitanje_id": {uuid.NewString()}}
+	w := zovi(http.MethodGet, "/akti/novi?"+q.Encode(), nil)
+	mora(w, "druga letva",
+		`value="`+druga.ID.String()+`" selected>Zlatno Selo`, `<a href="/readings/station/`+druga.ID.String()+`">Zlatno Selo</a></h2>`,
+		"Dunav · BP 34 međudržavne rijeke Drava i Dunav", "nema očitanja s vodostajem", "P &#43;300 cm",
+		`value="PREKID" checked`, `value="REDOVNA" selected>`, `name="vrijedi" class="form-control" value="2026-09-16T08:30"`,
+		`value="najavljen porast do 600 cm"`, `>Prva napomena</textarea>`, `value="B.34.7" checked`,
+		"Letva nema očitanja s vodostajem; akt se donosi po prognozi.", "Po ovoj letvi nema ovjerenog akta o uspostavi",
+		`data-stupanj="REDOVNA"><span class="akt-bez-skripte">Redovna obrana: </span>Rukovoditelj obrane od poplava za branjeno područje akta ili viši.</p>`,
+		// bez skripte stoji sve: akt za prekid, oba pravila i „Tko ovjerava” za svaki stupanj s nazivom
+		`<div class="list-blok" id="prekid-akt">`, `data-radnja="USPOSTAVA">`, `data-radnja="PREKID">`,
+		`<span class="akt-bez-skripte">Pripremno stanje: </span>`, `<span class="akt-bez-skripte">Izvanredno stanje: </span>`,
+		// izbor letve nosi isto dalje i bez skripte
+		`type="hidden" name="radnja" value="PREKID"`, `type="hidden" name="stupanj" value="REDOVNA"`, `type="hidden" name="vrijedi" value="2026-09-16T08:30"`,
+		`type="hidden" name="prognoza" value="najavljen porast do 600 cm"`, `type="hidden" name="napomena" value="Prva napomena"`)
+	o := w.Body.String()
+	for _, ne := range []string{`value="B.34.1"`, `type="checkbox" name="potvrda_vrijedi"`, `title="najviši zabilježeni vodostaj"`, `title="redovna obrana"`, `id="prekid-akt" hidden`, `data-radnja="USPOSTAVA" hidden`, `data-radnja="PREKID" hidden`, `" hidden><span class="akt-bez-skripte">`} {
+		if strings.Contains(o, ne) {
+			t.Errorf("druga letva: ne smije biti %q", ne)
+		}
+	}
+	// natrag na Batinu: njezine dionice i zadnje očitanje, upisano ostaje
+	q.Set("station", batina.ID.String())
+	mora(zovi(http.MethodGet, "/akti/novi?"+q.Encode(), nil), "natrag na prvu letvu",
+		`value="B.34.1" checked`, `value="B.34.2" checked`, "652 cm", `value="PREKID" checked`, `>Prva napomena</textarea>`)
 }
