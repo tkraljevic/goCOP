@@ -94,7 +94,7 @@ func TestPreneseniListStranica(t *testing.T) {
 			`<span class="oznaka-stanja pozor">ovjereno prijenosom</span>`,
 			"Ovjereno prijenosom, bez potpisa vodočuvara. List je prenesen iz ranije evidencije.",
 			`<span class="zadatak-oznaka BEZ_ODGOVORA">bez upisanog odgovora</span>`,
-			`<span class="zadatak-oznaka OBAVLJEN">obavljeno</span>; Ustava pregledana, sve radi.`,
+			`<span class="zadatak-oznaka OBAVLJEN">obavljeno</span></div><div>Ustava pregledana, sve radi.</div>`,
 			"27°C, vjetar 1–3 m/s", "naknadno, iz arhive vremena",
 			"<dt>Izvornik</dt><dd>bez elektroničkog potpisa</dd>", `href="/vodocuvar/`+p.id+`/list.pdf"`,
 		) {
@@ -175,7 +175,7 @@ func TestZadatakBezOdgovoraNaObicnomListu(t *testing.T) {
 	}
 	p.id = obicni.ID
 	s := p.stranica(t, p.rukovoditelj)
-	for _, da := range []string{"Radno vrijeme", "Potpis vodočuvara", "Ovjera rukovoditelja", "Upis u dnevnik", `<span class="zadatak-oznaka BEZ_ODGOVORA">bez upisanog odgovora</span>`, `<span class="zadatak-oznaka OBAVLJEN">obavljen</span>: Ustava pregledana`} {
+	for _, da := range []string{"Radno vrijeme", "Potpis vodočuvara", "Ovjera rukovoditelja", "Upis u dnevnik", `<span class="zadatak-oznaka BEZ_ODGOVORA">bez upisanog odgovora</span>`, `<span class="zadatak-oznaka OBAVLJEN">obavljen</span>`, "<div>Ustava pregledana, sve radi.</div>"} {
 		if !strings.Contains(s, da) {
 			t.Errorf("na stranici nema %q", da)
 		}

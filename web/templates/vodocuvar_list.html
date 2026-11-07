@@ -4,39 +4,24 @@
 
 {{define "content"}}
 {{$l := .List}}
-{{/* Obrazac je list koji osoba sama još piše; list za čitanje i pregled rukovoditelja dobit će novi izgled poslije. */}}
+{{/* Obrazac je list koji osoba sama još piše; ostali čitaju list u istoj glavi, a redovi su ispod. */}}
 {{$obrazac := and .Moj (not $l.Zakljucen)}}
-{{if $obrazac}}<div class="list-stranica">{{end}}
-{{if or $l.Rekonstrukcija $obrazac}}<a href="/vodocuvar?godina={{$l.Datum.Year}}" class="povratna-poveznica">← {{if .Moj}}Moja knjiga{{else}}Vodočuvarski dnevnik{{end}}</a>
-{{else}}<div class="breadcrumb"><a href="/dnevnici">Dokumenti</a> › <a href="/vodocuvar">Vodočuvarski dnevnik</a> › {{$l.Datum.Format "02.01.2006."}}</div>
-{{end}}
-<div class="page-header{{if $obrazac}} list-glava{{end}}">
+<div class="list-stranica">
+<a href="/vodocuvar?godina={{$l.Datum.Year}}" class="povratna-poveznica">← {{if .Moj}}Moja knjiga{{else}}Vodočuvarski dnevnik{{end}}</a>
+<div class="page-header list-glava{{if and $l.Potvrden (not $l.Rekonstrukcija)}} list-glava-ovjeren{{end}}">
   <div>
-    {{if $obrazac}}
     <h1 class="page-title" data-naziv-stranice="Dnevni list">Dnevni list{{if $l.Broj}} {{$l.Broj}}{{else if $l.NacrtBezBroja}} · nacrt bez broja{{end}} {{template "oznaka-stanja-lista" $l}}</h1>
-    <p class="page-desc prvo-slovo-veliko">{{$l.DanUTjednu}}, {{$l.Datum.Day}}. {{$l.MjesecGenitiv}} {{$l.Datum.Year}}.</p>
-    {{else if $l.Rekonstrukcija}}
-    <h1 class="page-title" data-naziv-stranice="Dnevni list">{{icon "notebook-pen"}} Dnevni list {{template "oznaka-stanja-lista" $l}}</h1>
     <p class="page-desc prvo-slovo-veliko">{{$l.DanUTjednu}}, {{$l.Datum.Day}}. {{$l.MjesecGenitiv}} {{$l.Datum.Year}}.{{if not .Moj}} · {{$l.Ime}}{{with .Podrucje}} · BP {{.ID}}{{end}}{{end}}</p>
-    {{else}}
-    <h1 class="page-title" data-naziv-stranice="Dnevni list">{{icon "notebook-pen"}} Dnevni list{{if $l.Broj}} {{$l.Broj}}{{else if $l.NacrtBezBroja}} · nacrt bez broja{{end}} · {{$l.Datum.Day}}. {{$l.MjesecGenitiv}} {{$l.Datum.Year}}., {{$l.DanUTjednu}}</h1>
-    <p class="page-desc">{{$l.Ime}}{{with .Podrucje}} · {{.VgiName}} · BP {{.ID}}{{end}} · {{template "oznaka-stanja-lista" $l}}{{with $l.Potvrdio}} · ovjerio {{.}}{{end}}</p>
-    {{end}}
   </div>
   <div class="page-actions">
-    {{if $obrazac}}
     {{if $l.ID}}<a href="/vodocuvar/{{$l.ID}}/list.pdf" target="_blank" class="btn btn-link">PDF lista</a>{{end}}
-    {{if ne ($l.Datum.Format "2006-01-02") .Danas}}<a href="/vodocuvar/dan?datum={{.Danas}}" class="btn btn-link">Današnji</a>{{end}}
-    {{else}}
-    {{if $l.ID}}<a href="/vodocuvar/{{$l.ID}}/list.pdf" target="_blank" class="btn btn-secondary">{{icon "printer"}} PDF lista</a>{{end}}
-    {{if and .Moj (not $l.Rekonstrukcija)}}<a href="/vodocuvar/dan?datum={{.Danas}}" class="btn btn-secondary">{{icon "pencil"}} Današnji</a>{{end}}
-    {{end}}
+    {{if and .Moj (not $l.Rekonstrukcija) (ne ($l.Datum.Format "2006-01-02") .Danas)}}<a href="/vodocuvar/dan?datum={{.Danas}}" class="btn btn-link">Današnji</a>{{end}}
   </div>
 </div>
 
 {{with .DrugiPredani}}<div class="alert alert-warning">{{icon "triangle-alert"}} Dvostruki list – vidi i {{range $i, $d := .}}{{if $i}}, {{end}}<a href="/vodocuvar/{{$d.ID}}">list br. {{$d.Broj}}</a>{{end}}. Za isti dan predano je više listova; nijedan se ne briše.</div>{{end}}
 
-{{if and .Moj (not $l.Zakljucen)}}
+{{if $obrazac}}
 <form method="POST" action="/vodocuvar/spremi" class="vodocuvar-obrazac">
   <input type="hidden" name="datum" value="{{$l.Datum.Format "2006-01-02"}}">
   {{if .Otvoreno}}<input type="hidden" name="otvoreno" value="{{.Otvoreno}}">{{end}}
@@ -63,7 +48,7 @@
     {{end}}
     </ul>
     {{end}}
-    {{if $l.UpisiNaredbe}}<ul class="zadaci">{{range $l.UpisiNaredbe}}<li class="zadatak"><div class="zadatak-tekst">{{.Tekst}}</div><div class="form-help">upisao {{.Ime}}{{with .Funkcija}}, {{.}}{{end}}, {{(localTime .Kad).Format "2. 1. 2006. 15:04"}}</div></li>{{end}}</ul>{{end}}
+    {{if $l.UpisiNaredbe}}<ul class="zadaci">{{range $l.UpisiNaredbe}}<li class="zadatak"><div class="zadatak-tekst">{{.Tekst}}</div><div class="form-help">upisao {{.Ime}}{{with .Funkcija}}, {{.}}{{end}}, {{vrijemeLista .Kad}}</div></li>{{end}}</ul>{{end}}
     <div class="form-group list-polje"><label class="form-label" for="naredbe">Ostale naredbe</label><textarea class="form-control" id="naredbe" name="naredbe" rows="2" placeholder="ostale naredbe, kako su vam rečene">{{$l.Naredbe}}</textarea></div>
   </section>
   <div class="form-group list-polje"><label class="form-label" for="opis">Opis radnih aktivnosti *</label><textarea class="form-control" id="opis" name="opis" rows="4" placeholder="– obilazak deponije pijeska u Batini&#10;– obilazak vodotoka i vodograđevina na potezu …">{{$l.Opis}}</textarea></div>
@@ -71,7 +56,7 @@
     <div class="form-group list-polje"><label class="form-label" for="zapazanja">Posebna zapažanja</label><textarea class="form-control" id="zapazanja" name="zapazanja" rows="2" placeholder="npr. što ste primijetili">{{$l.Zapazanja}}</textarea></div>
     {{if $l.Ocitanja}}<div class="form-help">Vodostaji koje ste danas očitali upisuju se sami: {{$l.Ocitanja}}</div>{{else}}<div class="form-help">Vodostaji koje danas očitate na letvama upisuju se sami pri predaji.</div>{{end}}
     {{if $l.Prijave}}<ul class="list-prijave">{{range $l.Prijave}}<li>{{icon "file-text"}} <a href="/prijave/{{.ID}}">{{.Tekst}}</a></li>{{end}}</ul>{{end}}
-    {{if $l.UpisiBiljeske}}<ul class="zadaci">{{range $l.UpisiBiljeske}}<li class="zadatak"><div class="zadatak-tekst">Bilješka: {{.Tekst}}</div><div class="form-help">upisao {{.Ime}}{{with .Funkcija}}, {{.}}{{end}}, {{(localTime .Kad).Format "2. 1. 2006. 15:04"}}</div></li>{{end}}</ul>{{end}}
+    {{if $l.UpisiBiljeske}}<ul class="zadaci">{{range $l.UpisiBiljeske}}<li class="zadatak"><div class="zadatak-tekst">Bilješka: {{.Tekst}}</div><div class="form-help">upisao {{.Ime}}{{with .Funkcija}}, {{.}}{{end}}, {{vrijemeLista .Kad}}</div></li>{{end}}</ul>{{end}}
   </div>
   {{if .Simulacija}}<div class="alert alert-warning">Simulacija ključa: predajom se list potpisuje <strong>simuliranim ključem</strong> u ime {{$l.Ime}}, bez lozinke; potpis i PDF nose oznaku BEZVRIJEDNO.</div>
   {{else if .ImaKljuc}}
@@ -91,63 +76,77 @@
   </div>
 </form>
 {{else}}
-<section class="detail-section vodocuvar-list mt-0">
-  {{/* Prenesen list pokazuje samo rubrike u kojima nešto piše: radno vrijeme, potpis i ovjeru nije ni imao. */}}
-  {{$prenesen := $l.Rekonstrukcija}}
-  {{if $prenesen}}<p class="page-desc mt-0 mb-3">Ovjereno prijenosom, bez potpisa vodočuvara. List je prenesen iz ranije evidencije.</p>{{end}}
-  {{with .ObjasnjenjeNaVrhu}}<p class="page-desc mt-0 mb-3">{{.}}</p>{{end}}
+{{/* Prenesen list pokazuje samo rubrike u kojima nešto piše: radno vrijeme, potpis i ovjeru nije ni imao. */}}
+{{$prenesen := $l.Rekonstrukcija}}
+{{if $prenesen}}<p class="list-napomena list-napomena-prenesen">{{icon "history"}}<span>Ovjereno prijenosom, bez potpisa vodočuvara. List je prenesen iz ranije evidencije.</span></p>
+{{else if and .Moj (not $l.Potvrden)}}<p class="list-napomena">{{icon "check"}}<span>List je predan i više se ne mijenja. Rukovoditelj ga još nije ovjerio.</span></p>{{end}}
+{{with .ObjasnjenjeNaVrhu}}<p class="page-desc list-objasnjenje">{{.}}</p>{{end}}
+<section class="detail-section list-kartica">
   <dl class="vodocuvar-dl">
     {{if or (not $prenesen) $l.Od $l.Do}}<dt>Radno vrijeme</dt><dd>od {{$l.Od}} do {{$l.Do}}, ukupno {{$l.SatiTekst}} sati</dd>{{end}}
     {{if or (not $prenesen) $l.Prilike}}<dt>Vremenske prilike</dt><dd>{{if $l.Prilike}}{{$l.PrilikeBezIzvora}}{{if $l.PrilikeNaknadno}}<div class="form-help">naknadno, iz arhive vremena</div>{{end}}{{else}}—{{end}}</dd>{{end}}
     {{if or (not $prenesen) $l.Zadaci $l.UpisiNaredbe $l.NaredbeStavke}}<dt>Naredbe rukovoditelja</dt><dd>
-      {{if or $l.Zadaci $l.UpisiNaredbe $l.NaredbeStavke}}<ol class="stavke">{{range $l.Zadaci}}<li><strong>{{.Tekst}}</strong> <span class="form-help">(zadao {{.Zadao}}, {{.ZadanoAt.Format "02.01."}})</span>: <span class="zadatak-oznaka {{.Status}}">{{.Oznaka}}</span>{{with .Odgovor}}; {{.}}{{end}}</li>{{end}}{{range $l.UpisiNaredbe}}<li>{{.Tekst}} <span class="form-help">(upisao {{.Ime}}{{with .Funkcija}}, {{.}}{{end}}, {{formatDate (localTime .Kad)}})</span></li>{{end}}{{range $l.NaredbeStavke}}<li>{{.}}</li>{{end}}</ol>{{else}}—{{end}}</dd>{{end}}
+      {{if or $l.Zadaci $l.UpisiNaredbe $l.NaredbeStavke}}<ol class="stavke">
+      {{range $l.Zadaci}}<li>{{.Tekst}}<div class="list-tko"><span class="form-help">zadao {{.Zadao}}, {{.ZadanoAt.Format "2. 1."}}</span> <span class="zadatak-oznaka {{.Status}}">{{.Oznaka}}</span></div>{{with .Odgovor}}<div>{{.}}</div>{{end}}</li>{{end}}
+      {{range $l.UpisiNaredbe}}<li>{{.Tekst}}<div class="form-help">upisao {{.Ime}}{{with .Funkcija}}, {{.}}{{end}}, {{vrijemeLista .Kad}}</div></li>{{end}}
+      {{range $l.NaredbeStavke}}<li>{{.}}</li>{{end}}
+      </ol>{{else}}—{{end}}</dd>{{end}}
     {{if or (not $prenesen) $l.OpisStavke}}<dt>Opis radnih aktivnosti</dt><dd>{{with $l.OpisStavke}}<ol class="stavke">{{range .}}<li>{{.}}</li>{{end}}</ol>{{else}}—{{end}}</dd>{{end}}
-    {{if or (not $prenesen) $l.ZapazanjaStavke $l.Ocitanja $l.Prijave $l.UpisiBiljeske}}<dt>Posebna zapažanja</dt><dd>{{if or $l.ZapazanjaStavke $l.Ocitanja $l.Prijave $l.UpisiBiljeske}}<ol class="stavke">{{range $l.ZapazanjaStavke}}<li>{{.}}</li>{{end}}{{range (stavke $l.Ocitanja)}}<li class="mono">{{.}}</li>{{end}}{{range $l.Prijave}}<li>{{icon "file-text"}} <a href="/prijave/{{.ID}}">{{.Tekst}}</a> <span class="form-help">({{formatDate (localTime .Kad)}})</span></li>{{end}}{{range $l.UpisiBiljeske}}<li>Bilješka: {{.Tekst}} <span class="form-help">(upisao {{.Ime}}{{with .Funkcija}}, {{.}}{{end}}, {{formatDate (localTime .Kad)}})</span></li>{{end}}</ol>{{else}}—{{end}}</dd>{{end}}
-    {{if or (not $prenesen) $l.Predan}}<dt>Potpis vodočuvara</dt><dd>{{if $l.Predan}}{{$l.Ime}}, {{formatDate (localTime (derefTime $l.PredanoAt))}}{{else}}—{{end}}</dd>{{end}}
-    {{if or (not $prenesen) $l.Potvrden}}<dt>Ovjera rukovoditelja</dt><dd>{{if $l.Potvrden}}{{$l.Potvrdio}}, {{formatDate (localTime (derefTime $l.PotvrdenoAt))}}{{else}}čeka ovjeru{{end}}</dd>{{end}}
-    {{if $l.Parafe}}<dt>Parafe</dt><dd>{{range $i, $p := $l.Parafe}}{{if $i}}; {{end}}{{$p.Ime}}{{with $p.Funkcija}} ({{.}}){{end}}, {{formatDate (localTime $p.Kad)}}{{end}}</dd>{{end}}
-    {{if .Izvornik.Ima}}<dt>Izvornik</dt><dd><a href="/vodocuvar/{{$l.ID}}/list.pdf" target="_blank">{{icon "file-text"}} PDF lista</a>{{if .Izvornik.Potpisi}}<ul class="stavke" style="margin:0.25rem 0 0; padding-left:1rem;">{{range .Izvornik.Potpisi}}<li>{{if .Simulacija}}{{icon "x"}} <strong>SIMULIRANI potpis, bezvrijedan</strong> ({{.Ime}}, {{formatDate (localTime .Kad)}}; {{if .Valjan}}tehnički ispravan, {{end}}samo za testiranje){{else if .Valjan}}{{icon "lock"}} elektronički potpisao <strong>{{.Ime}}</strong>{{with .Funkcija}}, {{.}}{{end}}, {{formatDate (localTime .Kad)}} <span class="form-help">({{.Razlog}}; izdao {{.Izdao}}; potpis valjan{{if .Cijeli}}, pokriva cijeli dokument{{end}})</span>{{else}}{{icon "x"}} potpis {{.Ime}}: <strong>{{.Greska}}</strong>{{end}}</li>{{end}}</ul>{{else}} <span class="form-help">(bez elektroničkog potpisa; potpisnici nemaju ključ)</span>{{end}}</dd>{{else if $prenesen}}<dt>Izvornik</dt><dd>bez elektroničkog potpisa</dd>{{end}}
+    {{if or (not $prenesen) $l.ZapazanjaStavke $l.Ocitanja $l.Prijave $l.UpisiBiljeske}}<dt>Posebna zapažanja</dt><dd>
+      {{if or $l.ZapazanjaStavke $l.Ocitanja $l.Prijave $l.UpisiBiljeske}}<ol class="stavke">
+      {{range $l.ZapazanjaStavke}}<li>{{.}}</li>{{end}}
+      {{range (stavke $l.Ocitanja)}}<li>{{.}}</li>{{end}}
+      {{range $l.Prijave}}<li>{{icon "file-text"}} <a href="/prijave/{{.ID}}">{{.Tekst}}</a> <span class="form-help">{{vrijemeLista .Kad}}</span></li>{{end}}
+      {{range $l.UpisiBiljeske}}<li>Bilješka: {{.Tekst}}<div class="form-help">upisao {{.Ime}}{{with .Funkcija}}, {{.}}{{end}}, {{vrijemeLista .Kad}}</div></li>{{end}}
+      </ol>{{else}}—{{end}}</dd>{{end}}
+    {{if or (not $prenesen) $l.Predan}}<dt>Potpis vodočuvara</dt><dd>{{if $l.Predan}}{{$l.Ime}}, {{vrijemeLista (derefTime $l.PredanoAt)}}{{else}}—{{end}}</dd>{{end}}
+    {{if or (not $prenesen) $l.Potvrden}}<dt>Ovjera rukovoditelja</dt><dd>{{if $l.Potvrden}}{{$l.Potvrdio}}, {{vrijemeLista (derefTime $l.PotvrdenoAt)}}{{else}}čeka ovjeru{{end}}</dd>{{end}}
+    {{if $l.Parafe}}<dt>Parafe</dt><dd>{{range $i, $p := $l.Parafe}}{{if $i}}; {{end}}{{$p.Ime}}{{with $p.Funkcija}} ({{.}}){{end}}, {{vrijemeLista $p.Kad}}{{end}}</dd>{{end}}
+    {{/* PDF je gore u glavi. Razlog i izdavatelj crtež ne pokazuje, a ostaju kao sitniji tekst. */}}
+    {{if .Izvornik.Ima}}<dt>Izvornik</dt><dd>{{if .Izvornik.Potpisi}}<ul class="list-potpisi">{{range .Izvornik.Potpisi}}
+      {{if .Simulacija}}<li>{{icon "x"}}<div><strong>SIMULIRANI potpis, bezvrijedan</strong> ({{.Ime}}, {{vrijemeLista .Kad}}; {{if .Valjan}}tehnički ispravan, {{end}}samo za testiranje)</div></li>
+      {{else if .Valjan}}<li>{{icon "lock"}}<div>elektronički potpisao {{.Ime}}{{with .Funkcija}}, {{.}}{{end}}, {{vrijemeLista .Kad}} (potpis valjan{{if .Cijeli}}, pokriva cijeli dokument{{end}})<div class="form-help">{{.Razlog}}; izdao {{.Izdao}}</div></div></li>
+      {{else}}<li>{{icon "x"}}<div>potpis {{.Ime}}: <strong>{{.Greska}}</strong></div></li>{{end}}
+    {{end}}</ul>{{else}}bez elektroničkog potpisa; potpisnici nemaju ključ{{end}}</dd>{{else if $prenesen}}<dt>Izvornik</dt><dd>bez elektroničkog potpisa</dd>{{end}}
   </dl>
-  {{if not $prenesen}}<div class="d-flex gap-2 flex-wrap mt-3 items-end">
-    {{if .SmijeOvjeriti}}<form method="POST" action="/vodocuvar/{{$l.ID}}/radnja" class="d-flex gap-2 items-end flex-wrap"><input type="hidden" name="radnja" value="ovjeri">{{if .Simulacija}}<span class="form-help">simulirani ključ, bez lozinke</span>{{else if .ImaKljuc}}<div class="form-group m-0"><label class="form-label" for="lozinka-ovjera">Lozinka za potpis</label><input type="password" class="form-control" id="lozinka-ovjera" name="lozinka" autocomplete="current-password" required></div>{{end}}{{if .OvjeraUmjesto}}<label class="checkbox-label"><input type="checkbox" name="umjesto" value="1" required> Ovjeravam umjesto rukovoditelja branjenog područja</label>{{end}}<button type="submit" class="btn btn-primary">{{icon "check"}} Ovjeri list</button></form>{{end}}
-    {{if and .SmijeParafirati (not .Parafirao)}}<form method="POST" action="/vodocuvar/{{$l.ID}}/radnja"><input type="hidden" name="radnja" value="parafiraj"><button type="submit" class="btn btn-secondary">{{icon "pencil"}} Parafiraj</button></form>{{end}}
-  </div>{{end}}
 </section>
+{{if and (not $prenesen) (or .SmijeOvjeriti (and .SmijeParafirati (not .Parafirao)))}}
+<div class="list-kartica list-radnje">
+  {{if .SmijeOvjeriti}}<form method="POST" action="/vodocuvar/{{$l.ID}}/radnja" class="list-ovjera"><input type="hidden" name="radnja" value="ovjeri">{{if .Simulacija}}<span class="form-help">simulirani ključ, bez lozinke</span>{{else if .ImaKljuc}}<div class="form-group m-0"><label class="form-label" for="lozinka-ovjera">Lozinka za potpis</label><input type="password" class="form-control" id="lozinka-ovjera" name="lozinka" autocomplete="current-password" required></div>{{end}}{{if .OvjeraUmjesto}}<label class="checkbox-label"><input type="checkbox" name="umjesto" value="1" required> Ovjeravam umjesto rukovoditelja branjenog područja</label>{{end}}<button type="submit" class="btn btn-primary">{{icon "check"}} Ovjeri list</button></form>{{end}}
+  {{if and .SmijeParafirati (not .Parafirao)}}<form method="POST" action="/vodocuvar/{{$l.ID}}/radnja"><input type="hidden" name="radnja" value="parafiraj"><button type="submit" class="btn btn-secondary">{{icon "pencil"}} Parafiraj</button></form>{{end}}
+</div>
+{{end}}
 {{end}}
 
 {{if and .SmijeUpisati (not .Moj) (not (eq $l.ID ""))}}
-<section class="detail-section">
-  <h2>{{icon "pencil"}} Upis u dnevnik: {{$l.Ime}}, {{$l.Datum.Format "02.01.2006."}}</h2>
-  <form method="POST" action="/vodocuvar/upis" class="posta-trazi items-start">
+<section class="detail-section list-kartica">
+  <h2>Upis u dnevnik: {{$l.Ime}}, {{$l.Datum.Format "2. 1. 2006."}}</h2>
+  <form method="POST" action="/vodocuvar/upis" class="posta-trazi list-upis">
     <input type="hidden" name="vodocuvar" value="{{$l.UserID}}">
     <input type="hidden" name="datum" value="{{$l.Datum.Format "2006-01-02"}}">
     <input type="hidden" name="list" value="{{$l.ID}}">
     <input type="hidden" name="natrag" value="/vodocuvar/{{$l.ID}}">
-    <input class="form-control" name="tekst" required placeholder="napomena ili nalaz obilaska" style="min-width:20rem; flex:1;">
+    <input class="form-control" name="tekst" required placeholder="napomena ili nalaz obilaska" aria-label="Napomena ili nalaz obilaska">
     <button type="submit" class="btn btn-primary btn-sm">{{icon "pencil"}} Upiši</button>
   </form>
   <div class="form-help">Upis stoji na ovom listu {{if .UpisNaredba}}pod naredbama{{else}}pod posebnim zapažanjima, kao bilješka, a ne pod naredbama{{end}}, s vašim imenom, funkcijom i vremenom, neovisno o zadacima; upisuje se i na predan list.</div>
 </section>
 {{end}}
 
-{{if .Vodocuvari}}{{if not .Moj}}
-<section class="detail-section">
-  <h2>{{icon "clipboard-list"}} Zadaj zadatak: {{$l.Ime}}</h2>
-  <form method="POST" action="/vodocuvar/zadatak" class="posta-trazi">
-    <input type="hidden" name="vodocuvar" value="{{$l.UserID}}">
-    <input type="hidden" name="natrag" value="/vodocuvar/{{$l.ID}}">
-    <input class="form-control" name="tekst" required placeholder="što treba obići, provjeriti ili napraviti" style="min-width:20rem; flex:1;">
-    <input type="date" class="form-control max-w-11" name="za" value="{{.Danas}}" min="{{.Danas}}" title="za koji dan">
-    <button type="submit" class="btn btn-primary btn-sm">{{icon "plus"}} Zadaj</button>
-  </form>
-  <div class="form-help"><a href="/vodocuvar/kalendar?vodocuvar={{$l.UserID}}">Kalendar zadataka</a> ove osobe.</div>
+{{if .ZadaciOsobe}}
+<section class="detail-section list-kartica">
+  <h2>Zadaci{{if not .Moj}}: {{$l.Ime}}{{end}}</h2>
+  {{with .ObjasnjenjeUZadacima}}<p class="page-desc list-objasnjenje">{{.}}</p>{{end}}
+  <ul class="zadaci-pregled">
+  {{range .ZadaciOsobe}}<li><div class="zadatak-tekst">{{.Tekst}}</div><div class="list-tko"><span class="form-help">zadao {{.Zadao}}, {{.ZadanoAt.Format "2. 1. 2006."}}</span> {{if .Otvoren}}<span class="zadatak-oznaka OTVOREN">otvoren</span>{{else}}<span class="zadatak-oznaka {{.Status}}">{{if eq .Status "OBAVLJEN"}}obavljen{{else if eq .Status "BEZ_ODGOVORA"}}bez upisanog odgovora{{else}}nije obavljen{{end}}</span>{{if .ListID}} <a href="/vodocuvar/{{.ListID}}">list</a>{{end}}{{end}}</div>{{if not .Otvoren}}{{with .Odgovor}}<div>{{.}}</div>{{end}}{{end}}</li>{{end}}
+  </ul>
 </section>
-{{end}}{{end}}
+{{end}}
 
 {{if $l.Prilozi}}
-<section class="detail-section">
-  <h2>{{icon "file-text"}} Prilozi ({{len $l.Prilozi}})</h2>
-  <p class="page-desc">Fotografije uz zadatke ovog lista. Ispisuju se uz list, a ispod svake stoji što je fotoaparat zapisao.</p>
+<section class="detail-section list-kartica">
+  <h2>Prilozi ({{len $l.Prilozi}})</h2>
+  <p class="page-desc list-objasnjenje">Fotografije uz zadatke ovog lista. Ispisuju se uz list, a ispod svake stoji što je fotoaparat zapisao.</p>
   <div class="prijava-slike">
     {{range $l.Prilozi}}<figure>
       <a href="/vodocuvar/{{$l.ID}}/prilog/{{.ID}}" target="_blank"><img src="/vodocuvar/{{$l.ID}}/prilog/{{.ID}}" alt="{{.Naziv}}" loading="lazy" onerror="this.parentElement.parentElement.classList.add('nema')"></a>
@@ -157,15 +156,5 @@
   </div>
 </section>
 {{end}}
-
-{{if .ZadaciOsobe}}
-<section class="detail-section">
-  <h2>{{icon "clipboard-list"}} Zadaci{{if not .Moj}}: {{$l.Ime}}{{end}}</h2>
-  {{with .ObjasnjenjeUZadacima}}<p class="page-desc mt-0 mb-2">{{.}}</p>{{end}}
-  <ul class="zadaci-pregled">
-  {{range .ZadaciOsobe}}<li><strong>{{.Tekst}}</strong> <span class="form-help">zadao {{.Zadao}}, {{.ZadanoAt.Format "02.01.2006."}}</span> · {{if .Otvoren}}<span class="zadatak-oznaka OTVOREN">otvoren</span>{{else}}<span class="zadatak-oznaka {{.Status}}">{{if eq .Status "OBAVLJEN"}}obavljen{{else if eq .Status "BEZ_ODGOVORA"}}bez upisanog odgovora{{else}}nije obavljen{{end}}</span>{{with .Odgovor}}: {{.}}{{end}}{{if .ListID}} · <a href="/vodocuvar/{{.ListID}}">list</a>{{end}}{{end}}</li>{{end}}
-  </ul>
-</section>
-{{end}}
-{{if $obrazac}}</div>{{end}}
+</div>
 {{end}}

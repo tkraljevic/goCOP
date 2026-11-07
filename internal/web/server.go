@@ -485,6 +485,7 @@ func templateFuncs() template.FuncMap {
 		"structureState":   models.StructureStateLabel,
 		"gateLabel":        models.GateLabel,
 		"localTime":        func(t time.Time) time.Time { return t.In(models.Zagreb) },
+		"vrijemeLista":     vrijemeLista,
 		// Arhiva od sada drži pravi UTC, pa se pri ispisu pretvara u zagrebačko
 		// vrijeme — isto kao operativna očitanja. Dežurni tako svugdje vidi sat
 		// kakav pokazuje sat na zidu, bez obzira odakle podatak dolazi.

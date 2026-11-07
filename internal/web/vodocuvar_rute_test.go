@@ -317,7 +317,7 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 		t.Fatalf("parafa: %s", l)
 	}
 	list = zovi(anic, http.MethodGet, "/vodocuvar/"+id, nil).Body.String()
-	if !strings.Contains(list, "ovjerio Ana Anić") || !strings.Contains(list, "Ivo Ivić") {
+	if !strings.Contains(list, "<dt>Ovjera rukovoditelja</dt><dd>Ana Anić, ") || !strings.Contains(list, "Ivo Ivić") {
 		t.Error("list ne pokazuje ovjeru i parafu")
 	}
 	if !strings.Contains(list, `<span class="oznaka-stanja">ovjeren</span>`) {

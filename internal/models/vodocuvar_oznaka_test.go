@@ -101,3 +101,17 @@ func TestListImaBezOdgovora(t *testing.T) {
 		t.Error("list ne javlja zadatak bez odgovora")
 	}
 }
+
+// Stanje zadatka u kalendaru piše se istim riječima kao na stranici lista.
+func TestStanjeZadatkaRijecju(t *testing.T) {
+	for status, want := range map[string]string{
+		ZadatakOtvoren:     "otvoren",
+		ZadatakObavljen:    "obavljen",
+		ZadatakBezOdgovora: "bez upisanog odgovora",
+		ZadatakOdbacen:     "nije obavljen",
+	} {
+		if got := (Zadatak{Status: status}).StanjeRijecju(); got != want {
+			t.Errorf("%s: %q, želim %q", status, got, want)
+		}
+	}
+}
