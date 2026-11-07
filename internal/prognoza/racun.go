@@ -436,14 +436,19 @@ func (r *Racunalo) ostatakZa(iz Izvor) ostatak {
 		if !bilo {
 			delete(r.uTijeku, k)
 		}
-		// Letva koja je vezana samo pri višoj vodi (inundacija) ne slijedi
-		// model stalno, pa ni njezina pogreška nije stalna.
-		if o.ima && !SamoPovezane[iz.Letva] {
+		if o.ima && r.slijediStalno(iz) {
 			o.stalni = r.stalniDio(iz, sat)
 		}
 	}
 	r.ostaci[iz] = o
 	return o
+}
+
+// slijediStalno javlja slijedi li letva model pri svakoj vodi. Letva vezana samo pri
+// višoj vodi (inundacija) i letva s isključenom razinom ne slijede ga, pa ni njihova
+// pogreška nije stalna.
+func (r *Racunalo) slijediStalno(iz Izvor) bool {
+	return !SamoPovezane[iz.Letva] && !imaNepovezanih(r.poVelicini[iz])
 }
 
 // stalniDio je medijan pogreške modela (mjereno − model) u prozoru prije
