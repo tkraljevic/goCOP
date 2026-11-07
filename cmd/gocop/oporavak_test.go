@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 
 	"gocop/internal/db"
@@ -42,13 +43,38 @@ func bazaZaOporavak(t *testing.T) string {
 }
 
 // dnevnikTesta hvata dnevnik naredbe dok test traje
-func dnevnikTesta(t *testing.T) *bytes.Buffer {
+func dnevnikTesta(t *testing.T) *dnevnikZaTest {
 	t.Helper()
-	var b bytes.Buffer
+	d := &dnevnikZaTest{}
 	stari := log.Writer()
-	log.SetOutput(&b)
+	log.SetOutput(d)
 	t.Cleanup(func() { log.SetOutput(stari) })
-	return &b
+	return d
+}
+
+// dnevnikZaTest se smije čitati dok gorutina u pozadini još piše, npr. dok
+// odbijeni čvor javlja da mu se zatvorio ulaz.
+type dnevnikZaTest struct {
+	mu sync.Mutex
+	b  bytes.Buffer
+}
+
+func (d *dnevnikZaTest) Write(p []byte) (int, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.b.Write(p)
+}
+
+func (d *dnevnikZaTest) String() string {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.b.String()
+}
+
+func (d *dnevnikZaTest) Reset() {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.b.Reset()
 }
 
 // Naredba ispiše privremenu lozinku jednom, na izlaz, a u dnevnik samo trag
