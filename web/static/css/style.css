@@ -4974,26 +4974,97 @@ table.akt-poveznice { margin-top: 0.75rem; }
 }
 .knjiga { border: 1px solid var(--border, #d9dee5); border-radius: 10px; padding: 0.5rem 0.75rem; margin: 0 0 0.5rem; }
 .knjiga summary { cursor: pointer; }
-.kal-nav { display: flex; gap: 0.5rem; align-items: center; }
-.kalendar { border: 1px solid var(--border, #d9dee5); border-radius: 10px; overflow: hidden; background: var(--surface, #fff); }
-.kal-glava, .kal-tjedan { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
-.kal-glava span { padding: 0.35rem 0.5rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted, #6b7280); border-bottom: 1px solid var(--border, #d9dee5); background: var(--surface-2, #f7f9fb); }
-.kal-dan { min-height: 6.5rem; padding: 0.3rem 0.4rem; border-right: 1px solid var(--border, #d9dee5); border-bottom: 1px solid var(--border, #d9dee5); position: relative; font-size: 0.82rem; }
-.kal-dan:nth-child(7n) { border-right: 0; }
-.kal-dan.izvan { background: var(--bg-subtle); color: var(--muted); }
-.kal-dan.danas { background: var(--tint-sky-bg); }
-.kal-dan.proslost .kal-broj { color: var(--muted, #9ca3af); }
-.kal-broj { font-weight: 600; margin-bottom: 0.2rem; }
-.kal-zadaci { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.15rem; }
-.kal-zadatak { padding: 0.1rem 0.35rem; border-radius: 4px; background: var(--tint-amber-bg); border-left: 3px solid var(--warning); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.kal-zadatak.OBAVLJEN { background: var(--mirno-bg); border-left-color: var(--accent-dark); text-decoration: line-through; }
-.kal-zadatak.ODBACEN { background: var(--danger-bg); border-left-color: var(--danger); }
-.kal-dodaj { position: absolute; right: 0.25rem; top: 0.2rem; }
-.kal-dodaj summary { list-style: none; cursor: pointer; width: 1.4rem; height: 1.4rem; display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); }
+/* Kalendar zadataka (7h, 7j). Mreža i popis dana stoje na stranici zajedno, a na
+   mobitelu se vidi popis. */
+.kal-alat { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin: 0 0 16px; }
+.kal-osoba { position: relative; flex: 0 1 320px; min-width: 0; display: flex; align-items: center; gap: 8px; }
+.kal-osoba label {
+  position: absolute; left: 12px; top: -8px; z-index: 1; padding: 0 4px; font-size: 0.75rem; line-height: 16px;
+  background: var(--bg); color: var(--md-sys-color-on-surface-variant);
+}
+.kal-osoba select { min-height: 56px; }
+.kal-nav { display: flex; align-items: center; gap: 16px; margin-left: auto; }
+.kal-mjesec { font-size: 1rem; }
+.kal-strelica {
+  display: inline-flex; align-items: center; justify-content: center; flex: none; width: 40px; height: 40px;
+  border: 1px solid var(--md-sys-color-outline); border-radius: var(--shape-full); color: var(--md-sys-color-on-surface);
+}
+.kal-strelica:hover { background: var(--surface-hover); }
+.kal-glava, .kal-tjedan { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.kal-glava { margin-bottom: 16px; }
+.kal-glava span { text-align: center; font-size: 0.8125rem; color: var(--md-sys-color-on-surface-variant); }
+.kal-tjedan + .kal-tjedan { margin-top: 16px; }
+.kal-dan {
+  position: relative; min-width: 0; min-height: 100px; padding: 8px; font-size: 0.8125rem;
+  border: 1px solid var(--md-sys-color-outline-variant); border-radius: 8px; background: var(--md-sys-color-surface-container-low);
+}
+.kal-dan.izvan { background: transparent; color: var(--md-sys-color-on-surface-variant); }
+.kal-dan.danas { background: var(--md-sys-color-surface-container-highest); }
+.kal-dan.danas .kal-broj { color: var(--md-sys-color-primary); font-weight: 700; }
+.kal-broj { min-height: 20px; margin-bottom: 8px; line-height: 20px; }
+.kal-zadaci { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.kal-zadatak {
+  padding: 2px 6px; border: 1px solid var(--upozorenje-tehnicko-rub); border-radius: 4px; font-size: 0.75rem; line-height: 15px;
+  background: var(--upozorenje-tehnicko-ploha); color: var(--md-sys-color-on-surface); overflow-wrap: anywhere;
+}
+.kal-zadatak .icon { width: 12px; height: 12px; margin-right: 3px; vertical-align: -2px; }
+.kal-zadatak.OBAVLJEN { background: transparent; border-color: var(--md-sys-color-outline); }
+.kal-zadatak.ODBACEN { background: var(--md-sys-color-surface-container-high); border-color: transparent; color: var(--md-sys-color-on-surface-variant); }
+/* Sivo kao na prenesenom listu: bez upisa se ne zna je li posao obavljen. Iscrtkani rub
+   ga dijeli od „nije obavljen”, koje je u kalendaru isto sivo. */
+.kal-zadatak.BEZ_ODGOVORA { background: var(--md-sys-color-surface-container-high); border: 1px dashed var(--md-sys-color-outline); color: var(--md-sys-color-on-surface-variant); }
+.kal-dodaj summary {
+  position: absolute; right: 4px; top: 4px; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px;
+  list-style: none; cursor: pointer; border-radius: var(--shape-full); color: var(--md-sys-color-on-surface);
+}
 .kal-dodaj summary::-webkit-details-marker { display: none; }
-.kal-dodaj[open] { position: absolute; left: 0.25rem; right: 0.25rem; top: 1.6rem; z-index: 5; background: var(--surface); border: 1px solid var(--border, #d9dee5); border-radius: 8px; padding: 0.4rem; box-shadow: 0 6px 20px rgba(0,0,0,0.12); }
-.kal-dodaj form { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 0.3rem; }
-@media (max-width: 700px) { .kal-dan { min-height: 4.5rem; font-size: 0.72rem; } .kal-glava span { padding: 0.25rem; } }
+.kal-dodaj summary:hover { background: var(--surface-hover); }
+/* Otvoren + postaje križić, jer se obrazac zatvara istim gumbom. */
+.kal-dodaj[open] summary .icon { transform: rotate(45deg); }
+.kal-dodaj form { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.kal-dodaj .btn { width: 100%; }
+@media (pointer: coarse) { .kal-dodaj summary { width: 44px; height: 44px; right: 0; top: 0; } }
+.kal-legenda { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0 0; font-size: 0.8125rem; color: var(--md-sys-color-on-surface-variant); }
+.kal-samo-popis, .kal-popis { display: none; }
+/* Na tabletu je dan preuzak za polje, pa se obrazac otvara preko susjednih dana. */
+@media screen and (min-width: 600px) and (max-width: 1279px) {
+  .kal-glava { margin-bottom: 8px; }
+  .kal-tjedan + .kal-tjedan { margin-top: 8px; }
+  .kal-dan .kal-dodaj[open] form {
+    position: absolute; left: -1px; top: 40px; z-index: 5; width: 240px; margin: 0; padding: 8px;
+    border: 1px solid var(--md-sys-color-outline-variant); border-radius: 8px; background: var(--md-sys-color-surface-container-high); box-shadow: var(--shadow-lg);
+  }
+  .kal-dan:nth-child(n+5) .kal-dodaj[open] form { left: auto; right: -1px; }
+}
+@media screen and (max-width: 599px) {
+  .kalendar, .kal-samo-mreza { display: none; }
+  .kal-samo-popis { display: inline; }
+  .kal-popis { display: flex; flex-direction: column; gap: 12px; }
+  .kal-alat { flex-direction: column; align-items: stretch; gap: 12px; }
+  .kal-osoba { flex: none; }
+  .kal-osoba label { top: 8px; background: transparent; }
+  .kal-osoba select { padding-top: 24px; padding-bottom: 6px; }
+  .kal-nav { justify-content: space-between; margin-left: 0; }
+  .kal-strelica { width: var(--size-touchtarget); height: var(--size-touchtarget); }
+  .kal-red {
+    position: relative; padding: 12px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px;
+    background: var(--md-sys-color-surface-container-low);
+  }
+  .kal-red.danas { background: var(--md-sys-color-surface-container-highest); border-color: transparent; }
+  .kal-red.danas .kal-red-naslov { color: var(--md-sys-color-primary); }
+  .kal-red-naslov { display: flex; align-items: center; min-height: 36px; padding-right: 44px; font-size: 0.875rem; }
+  .kal-red .kal-zadaci { margin-top: 8px; }
+  .kal-red .kal-dodaj summary { width: var(--size-touchtarget); height: var(--size-touchtarget); right: 6px; top: 6px; }
+  .kal-red .kal-dodaj .form-control, .kal-red .kal-dodaj .btn { min-height: var(--size-touchtarget); }
+  .kal-skupina > summary {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 56px; padding: 8px 12px 8px 16px; list-style: none; cursor: pointer;
+    border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px; background: var(--md-sys-color-surface-container-low); font-size: 0.875rem;
+  }
+  .kal-skupina > summary::-webkit-details-marker { display: none; }
+  .kal-skupina > summary small { display: block; font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); }
+  .kal-skupina[open] > summary .icon { transform: rotate(90deg); }
+  .kal-skupina-dani { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+}
 
 /* Način rada obrane na stranicama akata: aktivna (otvoren dnevnik COP-a) ili preventivna */
 .obrana-nacin { display: flex; flex-direction: column; gap: 0.35rem; margin: 0 0 1rem; }
