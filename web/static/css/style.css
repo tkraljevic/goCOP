@@ -7735,10 +7735,22 @@ summary.ocitanja-cip { padding-right: 8px; }
 }
 
 /* Popis uz letvu na širokom zaslonu (ocitanja-okno.js): lijevo 400 px, crta,
-   letva desno; popis ima svoj klizač */
+   letva desno; popis ima svoj klizač. Stupac stoji od prvog iscrtavanja, pa se
+   letva ne pomakne kad popis stigne; dok ga nema, u njemu piše da se učitava. */
 .letva-okno[hidden] { display: none; }
+@keyframes okno-ucitava { 50% { opacity: 0.5; } }
+@media (prefers-reduced-motion: reduce) { .letva-okno:empty::before { animation: none; } }
+@media (scripting: none) {
+  .letva-okno { display: none !important; }
+  .letva-raspored { display: block !important; }
+}
 @media (min-width: 1200px) {
-  body.ima-okno-popisa .main-content { max-width: 1440px; }
+  body:has(.letva-okno:not([hidden])) .main-content { max-width: 1440px; }
+  .letva-okno:empty { min-height: min(480px, calc(100vh - 72px)); }
+  .letva-okno:empty::before {
+    content: "Učitavam popis letava…"; display: block; padding: 12px 8px; color: var(--text-secondary); font-size: 0.875rem;
+    animation: okno-ucitava 1.5s ease-in-out infinite;
+  }
   .letva-raspored:has(.letva-okno:not([hidden])) { display: grid; grid-template-columns: 400px minmax(0, 1fr); align-items: start; }
   .letva-okno {
     position: sticky; top: 0; max-height: calc(100vh - 72px); overflow-y: auto; margin-right: 24px; padding-right: 8px;

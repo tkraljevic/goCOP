@@ -4,7 +4,7 @@
 
 {{define "content"}}
 <div class="letva-raspored">
-<aside class="letva-okno" data-okno-popisa="{{if .Station}}station:{{.Station.ID}}{{else if .Structure}}structure:{{.Structure.ID}}{{end}}" aria-label="Popis letava" hidden></aside>
+<aside class="letva-okno" data-okno-popisa="{{if .Station}}station:{{.Station.ID}}{{else if .Structure}}structure:{{.Structure.ID}}{{end}}" aria-label="Popis letava"></aside>
 <div class="letva-detalj">
 <div class="breadcrumb"><a href="/readings">Očitanja</a> › {{.GaugeName}}</div>
 
