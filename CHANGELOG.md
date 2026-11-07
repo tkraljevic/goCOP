@@ -17,6 +17,10 @@ slike vide se samo na računalima s ovim izdanjem.
   Kad vrh stane, te letve ostaju bez prognoze ili drže zadnje mjerenje, uz
   napomenu. Letve bez prognoze tada nemaju karticu na Prognozama ni mjesto na
   uzdužnom profilu.
+- **MIN i MAX na karticama.** Pri prvom otvaranju Prognoza nakon pokretanja
+  programa pločice su mogle pokazati samo ono što je u evidenciji očitanja, a
+  ne najniži i najviši izmjereni vodostaj. Sad ih do kraja čitanja arhive, oko
+  15 sekundi, nema, a stižu kad se stranica ponovno učita.
 - **Prijava greške.** Kukac u gornjoj traci otvara obrazac za grešku ili
   prijedlog, s jednom slikom zaslona po želji (PNG, JPEG ili WebP, najviše
   2 MB). Program sam dodaje ime i ulogu osobe, stranicu, izdanje, računalo,
