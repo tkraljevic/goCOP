@@ -169,42 +169,96 @@ func getReadingTx(ctx context.Context, q interface {
 }
 
 // LatestPerGauge vraća zadnja dva očitanja svake letve (ključ GaugeKey),
-// prvo najnovije — dovoljno za pregled sa smjerom promjene.
+// najnovije prvo. Svaka letva se čita svojim indeksom, jer bi prolazak kroz sva
+// očitanja popis Očitanja na kućnom serveru držao sekundama.
 func (r *ReadingRepository) LatestPerGauge(ctx context.Context) (map[string][]models.Reading, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT `+readingColumns+` FROM (
-		SELECT `+readingColumns+`,
-			ROW_NUMBER() OVER (PARTITION BY station_id, structure_id ORDER BY measured_at DESC, created_at DESC) AS rn
-		FROM readings) WHERE rn <= 2 ORDER BY measured_at DESC`)
-	if err != nil {
+	out := map[string][]models.Reading{}
+	// +structure_id: bez plusa SQLite uzme indeks objekata, u kojem su sve letve zajedno
+	if err := r.zadnjaOcitanja(ctx, "station_id", `station_id = ? AND +structure_id = ''`, out); err != nil {
 		return nil, err
 	}
+	if err := r.zadnjaOcitanja(ctx, "structure_id", `structure_id = ?`, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// zadnjaOcitanja dodaje zadnja dva očitanja svake letve iz zadanog stupca.
+func (r *ReadingRepository) zadnjaOcitanja(ctx context.Context, stupac, uvjet string, out map[string][]models.Reading) error {
+	letve, err := r.brojPoStupcu(ctx, stupac)
+	if err != nil {
+		return err
+	}
+	for letva := range letve {
+		rows, err := r.db.QueryContext(ctx, `SELECT `+readingColumns+` FROM readings WHERE `+uvjet+`
+			ORDER BY measured_at DESC, created_at DESC LIMIT 2`, letva)
+		if err != nil {
+			return err
+		}
+		zadnja, err := procitajOcitanja(rows)
+		if err != nil {
+			return err
+		}
+		for _, rd := range zadnja {
+			out[rd.GaugeKey()] = append(out[rd.GaugeKey()], rd)
+		}
+	}
+	return nil
+}
+
+// procitajOcitanja čita sve retke i zatvara ih.
+func procitajOcitanja(rows *sql.Rows) ([]models.Reading, error) {
 	defer rows.Close()
-	out := map[string][]models.Reading{}
+	var out []models.Reading
 	for rows.Next() {
 		rd, err := scanReading(rows)
 		if err != nil {
 			return nil, err
 		}
-		out[rd.GaugeKey()] = append(out[rd.GaugeKey()], rd)
+		out = append(out, rd)
 	}
 	return out, rows.Err()
 }
 
-// CountPerGauge broji očitanja po letvi
+// CountPerGauge broji očitanja po letvi. Očitanje pripada ili letvi ili objektu,
+// pa se broji svaki stupac svojim indeksom, bez čitanja samih redaka.
 func (r *ReadingRepository) CountPerGauge(ctx context.Context) (map[string]int, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT station_id, structure_id, COUNT(*) FROM readings GROUP BY station_id, structure_id`)
+	out := map[string]int{}
+	for stupac, ocitanje := range map[string]func(string) models.Reading{
+		"station_id":   func(id string) models.Reading { return models.Reading{StationID: id} },
+		"structure_id": func(id string) models.Reading { return models.Reading{StructureID: id} },
+	} {
+		broj, err := r.brojPoStupcu(ctx, stupac)
+		if err != nil {
+			return nil, err
+		}
+		for id, n := range broj {
+			out[ocitanje(id).GaugeKey()] = n
+		}
+	}
+	return out, nil
+}
+
+// brojPoStupcu broji očitanja po vrijednosti stupca station_id ili structure_id.
+func (r *ReadingRepository) brojPoStupcu(ctx context.Context, stupac string) (map[string]int, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT `+stupac+`, COUNT(*) FROM readings WHERE `+stupac+` <> '' GROUP BY `+stupac)
 	if err != nil {
 		return nil, err
 	}
+	return procitajBrojeve(rows)
+}
+
+// procitajBrojeve čita retke oblika (oznaka, broj) i zatvara ih.
+func procitajBrojeve(rows *sql.Rows) (map[string]int, error) {
 	defer rows.Close()
 	out := map[string]int{}
 	for rows.Next() {
-		var st, obj string
+		var id string
 		var n int
-		if err := rows.Scan(&st, &obj, &n); err != nil {
+		if err := rows.Scan(&id, &n); err != nil {
 			return nil, err
 		}
-		out[(models.Reading{StationID: st, StructureID: obj}).GaugeKey()] = n
+		out[id] = n
 	}
 	return out, rows.Err()
 }
