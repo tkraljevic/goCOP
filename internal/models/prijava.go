@@ -260,6 +260,24 @@ func (p PrijavaSTerena) Mjesto() string {
 	return join(d, ", ")
 }
 
+// MjestoKratko je mjesto za karticu na popisu: objekt, a kad ga nema voda, pa
+// dionica i stacionaža. "nasip Draž · B.16.2 · st. 4+300"
+func (p PrijavaSTerena) MjestoKratko() string {
+	var d []string
+	if p.Objekt != "" {
+		d = append(d, p.Objekt)
+	} else if p.Vodotok != "" {
+		d = append(d, p.Vodotok)
+	}
+	if p.DionicaCode != "" {
+		d = append(d, p.DionicaCode)
+	}
+	if p.Stacionaza != "" {
+		d = append(d, "st. "+p.Stacionaza)
+	}
+	return join(d, " · ")
+}
+
 // ZadanoCuvanjeSlikaDana je koliko se dana izvorne fotografije čuvaju
 // nakon objave kad opcija nije postavljena; PDF ih nosi trajno
 const ZadanoCuvanjeSlikaDana = 180

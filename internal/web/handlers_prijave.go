@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"io"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -94,6 +95,8 @@ type PrijavePageData struct {
 	// listanje: po 24 kartice, s brojem svih koje izbor daje
 	Ukupno, Stranica, Prethodna, Sljedeca int
 	Upit                                  string // tekući izbor bez broja stranice, za poveznice
+	// JosNemaPrijava: osoba vodi dnevnik, ništa nije birala i nema nijednu svoju prijavu
+	JosNemaPrijava bool
 
 	// jedna prijava
 	Prijava       *models.PrijavaSTerena
@@ -189,9 +192,27 @@ func (h *PrijaveHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 	upit := r.URL.Query()
 	upit.Del("stranica")
 	d.Upit = upit.Encode()
+	d.JosNemaPrijava = josNemaPrijava(r.Context(), s, perms, &d, u.ID.String(), q)
 	if err := h.tmplPopis.ExecuteTemplate(w, "prijave.html", d); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// josNemaPrijava javlja smije li popis reći „Još nemate prijava.”: popis je prazan,
+// osoba vodi dnevnik, ništa nije birala i nema nijednu svoju prijavu. Prazan zadani
+// sektor to još ne znači, jer vodočuvar može imati prijave iz sektora u kojem je
+// prije radio.
+func josNemaPrijava(ctx context.Context, s *service.PrijavaService, perms *models.UserPermissions, d *PrijavePageData, userID string, q url.Values) bool {
+	if d.Ukupno > 0 || !d.VodiDnevnik {
+		return false
+	}
+	for _, izbor := range []string{"sektor", "podrucje", "status", "godina", "q"} {
+		if _, ima := q[izbor]; ima {
+			return false
+		}
+	}
+	svoje, err := s.List(ctx, perms, repository.FiltarPrijava{UserID: userID, Limit: 1})
+	return err == nil && len(svoje) == 0
 }
 
 // popuniMjesto daje obrascu i prikazu područje, kartu, vode i objekte

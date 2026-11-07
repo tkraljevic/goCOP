@@ -4,74 +4,92 @@
 
 {{define "content"}}
 {{$p := .Prijava}}
-<div class="breadcrumb"><a href="/dnevnici">Dokumenti</a> › <a href="/prijave">Prijave s terena</a> › {{if $p.ID}}Nacrt{{else}}Nova{{end}}</div>
+<div class="list-stranica">
+<a href="/prijave" class="povratna-poveznica">← {{if .VodiDnevnik}}Moje prijave{{else}}Prijave s terena{{end}}</a>
 
-<div class="page-header">
+<div class="page-header list-glava">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "file-text"}} {{if $p.ID}}Nacrt prijave{{else}}Nova prijava s terena{{end}}</h1>
-    <p class="page-desc">Upišite što ste zatekli, označite mjesto (voda, objekt, točka na karti) i priložite fotografije. Nacrt se sprema; objavljuje se i potpisuje na sljedećoj stranici, pa ide na vaš dnevni list za dan događaja, a ako za taj dan, koji je prošao, nemate lista ili je prenesen iz ranije evidencije, na današnji.</p>
+    <h1 class="page-title" data-naziv-stranice>{{if $p.ID}}Nacrt prijave{{else}}Nova prijava{{end}}</h1>
   </div>
 </div>
 
-{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
-{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
-
-<form method="POST" action="/prijave" enctype="multipart/form-data" class="form-page">
+<form method="POST" action="/prijave" enctype="multipart/form-data" class="vodocuvar-obrazac obrazac-prijave">
   <input type="hidden" name="id" value="{{$p.ID}}">
-  <div class="form-row">
-    <div class="form-group"><label class="form-label" for="vrsta">Vrsta</label>
-      <select class="form-control" id="vrsta" name="vrsta" required>{{range .Vrste}}<option value="{{.}}" {{if eq . $p.Vrsta}}selected{{end}}>{{vrstaPrijave .}}</option>{{end}}</select>
-      <div class="form-help">Obavijest: što ste vidjeli. Prijava: šteta, otpad, provala. Izvješće: rezultat obilaska. Zahtjev: što treba nabaviti ili popraviti.</div></div>
-    <div class="form-group"><label class="form-label" for="datum">Dan događaja</label><input type="date" class="form-control" id="datum" name="datum" value="{{$p.Datum.Format "2006-01-02"}}" max="{{.Danas}}" required></div>
-  </div>
-  <div class="form-group"><label class="form-label" for="naslov">Naslov</label><input class="form-control" id="naslov" name="naslov" value="{{$p.Naslov}}" required maxlength="160" placeholder="npr. Oštećena rampa na dravskom nasipu, st. 25+500"></div>
-  <div class="form-group"><label class="form-label" for="opis">Opis</label><textarea class="form-control" id="opis" name="opis" rows="6" required placeholder="što ste zatekli, kada, koliko je hitno, što predlažete">{{$p.Opis}}</textarea></div>
-
-  <h2 class="form-section-title">Mjesto</h2>
-  <div class="form-row">
-    <div class="form-group"><label class="form-label" for="vodotok">Voda (vodotok ili kanal)</label>
-      <input class="form-control" id="vodotok" name="vodotok" list="vode" value="{{$p.Vodotok}}" placeholder="počnite tipkati naziv">
-      <datalist id="vode">{{range .Vode}}<option value="{{.Name}}">{{.Kind}} {{.Name}}{{with .Category}} · {{.}}{{end}}</option>{{end}}</datalist></div>
-    <div class="form-group"><label class="form-label" for="objekt">Objekt</label>
-      <input class="form-control" id="objekt" name="objekt" list="objekti" value="{{$p.Objekt}}" placeholder="crpna stanica, ustava, nasip…">
-      <datalist id="objekti">{{range .Objekti}}<option value="{{.Name}}">{{.Kind}}</option>{{end}}</datalist></div>
-  </div>
-  <div class="form-row">
-    <div class="form-group"><label class="form-label" for="element">Građevina / konstrukcijski element</label>
-      <input class="form-control" id="element" name="element" list="elementi" value="{{$p.Element}}" placeholder="nasip, ustava, propust…">
-      <datalist id="elementi"><option value="NASIP"><option value="KANAL"><option value="CRPNA STANICA"><option value="USTAVA"><option value="PROPUST"><option value="OBALOUTVRDA"><option value="RAMPA"><option value="ČUVARNICA"></datalist></div>
-    <div class="form-group"><label class="form-label" for="vaznost">Važnost objekta</label>
-      <input class="form-control" id="vaznost" name="vaznost" list="vaznosti" value="{{$p.Vaznost}}" placeholder="npr. Hrvatske vode – JVD">
-      <datalist id="vaznosti"><option value="HRVATSKE VODE – JVD"><option value="JAVNO VODNO DOBRO"><option value="ŽUPANIJSKO"><option value="OPĆINSKO"><option value="PRIVATNO"></datalist></div>
-  </div>
-  <div class="form-row">
-    <div class="form-group"><label class="form-label" for="dionica">Dionica</label><input class="form-control" id="dionica" name="dionica" value="{{$p.DionicaCode}}" placeholder="npr. B.34.1"></div>
-    <div class="form-group"><label class="form-label" for="stacionaza">Stacionaža</label><input class="form-control" id="stacionaza" name="stacionaza" value="{{$p.Stacionaza}}" placeholder="npr. 25+500"></div>
-  </div>
-  <div class="form-group">
-    <label class="form-label">Točka na karti</label>
-    <div class="karta-izbor" data-lat="{{.Lat}}" data-lon="{{.Lon}}" data-oznaceno="{{if $p.ImaKoordinate}}1{{end}}" data-plocice="{{.Karta.Plocice}}" data-zasluge="{{.Karta.Zasluge}}" data-najvise-z="{{.Karta.NajviseZ}}">
-      <div class="karta-platno karta-platno-izbor"></div>
-      <p class="reg-card-sub karta-bez-mreze" hidden>{{icon "triangle-alert"}} Pločice karte nisu dostupne; koordinate možete upisati i ručno.</p>
+  <fieldset class="vrste-prijave">
+    <legend>Vrsta</legend>
+    <div class="vrste-prijave-red">
+      {{range .Vrste}}<label class="vrsta-izbor"><input type="radio" name="vrsta" value="{{.}}" required {{if eq . $p.Vrsta}}checked{{end}}><span>{{vrstaPrijave .}}</span></label>
+      {{end}}<div class="form-help vrsta-opis">
+        <span data-vrsta="OBAVIJEST">Obavijest: što ste vidjeli.</span>
+        <span data-vrsta="PRIJAVA">Prijava: šteta, otpad, provala.</span>
+        <span data-vrsta="IZVJESCE">Izvješće: rezultat obilaska.</span>
+        <span data-vrsta="ZAHTJEV">Zahtjev: što treba nabaviti ili popraviti.</span>
+      </div>
     </div>
-    <div class="form-row" style="margin-top:0.4rem;">
-      <div class="form-group"><label class="form-label" for="lat">Zemljopisna širina</label><input class="form-control" id="lat" name="lat" inputmode="decimal" value="{{if $p.ImaKoordinate}}{{.Lat}}{{end}}" placeholder="45.5"></div>
-      <div class="form-group"><label class="form-label" for="lon">Zemljopisna dužina</label><input class="form-control" id="lon" name="lon" inputmode="decimal" value="{{if $p.ImaKoordinate}}{{.Lon}}{{end}}" placeholder="18.7"></div>
-      <div class="form-group" style="align-self:flex-end;"><button type="button" class="btn btn-secondary btn-sm" id="gps">{{icon "map-pin"}} Moj položaj</button> <button type="button" class="btn btn-secondary btn-sm" id="ocisti-tocku">Ukloni točku</button></div>
+  </fieldset>
+  <div class="polja-prijave">
+    <div class="form-group list-polje">{{icon "calendar"}}<label class="form-label" for="datum">Dan događaja</label><input type="date" class="form-control" id="datum" name="datum" value="{{$p.Datum.Format "2006-01-02"}}" max="{{.Danas}}" required></div>
+  </div>
+  <div class="form-group list-polje"><label class="form-label" for="naslov">Naslov</label><input class="form-control" id="naslov" name="naslov" value="{{$p.Naslov}}" required maxlength="160" placeholder="npr. Oštećena rampa na dravskom nasipu, st. 25+500"></div>
+  <div class="form-group list-polje"><label class="form-label" for="opis">Opis</label><textarea class="form-control" id="opis" name="opis" rows="4" required placeholder="što ste zatekli, kada, koliko je hitno, što predlažete">{{$p.Opis}}</textarea></div>
+
+  <h2 class="odjeljak-prijave">Mjesto</h2>
+  {{/* Na mobitelu je karta prva, a na širem zaslonu stilovi je spuste ispod polja, kao na crtežu. */}}
+  <div class="mjesto-prijave">
+    <div class="tocka-prijave">
+      <div class="karta-izbor" data-lat="{{.Lat}}" data-lon="{{.Lon}}" data-oznaceno="{{if $p.ImaKoordinate}}1{{end}}" data-plocice="{{.Karta.Plocice}}" data-zasluge="{{.Karta.Zasluge}}" data-najvise-z="{{.Karta.NajviseZ}}">
+        <div class="karta-platno karta-platno-izbor"></div>
+        <p class="reg-card-sub karta-bez-mreze" hidden>{{icon "triangle-alert"}} Pločice karte nisu dostupne; koordinate možete upisati i ručno.</p>
+      </div>
+      <div class="form-help"><span class="na-racunalu">Kliknite na kartu da označite mjesto, ili „Moj položaj” na telefonu.</span><span class="na-dodir">Dodirnite kartu da označite mjesto.</span></div>
+      <div class="tocka-gumbi">
+        <button type="button" class="btn btn-secondary" id="gps">Moj položaj</button>
+        <button type="button" class="btn btn-secondary" id="ocisti-tocku">Ukloni točku</button>
+      </div>
+      <div class="list-dva">
+        <div class="form-group list-polje"><label class="form-label" for="lat">Širina</label><input class="form-control" id="lat" name="lat" inputmode="decimal" value="{{if $p.ImaKoordinate}}{{.Lat}}{{end}}" placeholder="45.5"></div>
+        <div class="form-group list-polje"><label class="form-label" for="lon">Dužina</label><input class="form-control" id="lon" name="lon" inputmode="decimal" value="{{if $p.ImaKoordinate}}{{.Lon}}{{end}}" placeholder="18.7"></div>
+      </div>
     </div>
-    <div class="form-help">Kliknite na kartu da označite mjesto, ili „Moj položaj” na telefonu.</div>
+    <div class="polja-prijave">
+      <div class="form-group list-polje"><label class="form-label" for="vodotok">Voda (vodotok ili kanal)</label>
+        <input class="form-control" id="vodotok" name="vodotok" list="vode" value="{{$p.Vodotok}}" placeholder="počnite tipkati naziv">
+        <datalist id="vode">{{range .Vode}}<option value="{{.Name}}">{{.Kind}} {{.Name}}{{with .Category}} · {{.}}{{end}}</option>{{end}}</datalist></div>
+      <div class="form-group list-polje"><label class="form-label" for="objekt">Objekt</label>
+        <input class="form-control" id="objekt" name="objekt" list="objekti" value="{{$p.Objekt}}" placeholder="crpna stanica, ustava, nasip…">
+        <datalist id="objekti">{{range .Objekti}}<option value="{{.Name}}">{{.Kind}}</option>{{end}}</datalist></div>
+    </div>
+    {{/* Sklopljena polja se i dalje šalju. Otvoreno je kad je nešto od toga već upisano, da se ne previdi. */}}
+    <details class="vise-o-mjestu" {{if or $p.Element $p.Vaznost $p.DionicaCode $p.Stacionaza}}open{{end}}>
+      <summary><span class="vise-o-mjestu-tekst"><strong>Više o mjestu</strong> <span>građevina, važnost, dionica, stacionaža</span></span>{{icon "chevron-right"}}</summary>
+      <div class="polja-prijave">
+        <div class="form-group list-polje"><label class="form-label" for="element">Građevina / konstrukcijski element</label>
+          <input class="form-control" id="element" name="element" list="elementi" value="{{$p.Element}}" placeholder="nasip, ustava, propust…">
+          <datalist id="elementi"><option value="NASIP"><option value="KANAL"><option value="CRPNA STANICA"><option value="USTAVA"><option value="PROPUST"><option value="OBALOUTVRDA"><option value="RAMPA"><option value="ČUVARNICA"></datalist></div>
+        <div class="form-group list-polje"><label class="form-label" for="vaznost">Važnost objekta</label>
+          <input class="form-control" id="vaznost" name="vaznost" list="vaznosti" value="{{$p.Vaznost}}" placeholder="npr. Hrvatske vode – JVD">
+          <datalist id="vaznosti"><option value="HRVATSKE VODE – JVD"><option value="JAVNO VODNO DOBRO"><option value="ŽUPANIJSKO"><option value="OPĆINSKO"><option value="PRIVATNO"></datalist></div>
+        <div class="form-group list-polje"><label class="form-label" for="dionica">Dionica</label><input class="form-control" id="dionica" name="dionica" value="{{$p.DionicaCode}}" placeholder="npr. B.34.1"></div>
+        <div class="form-group list-polje"><label class="form-label" for="stacionaza">Stacionaža</label><input class="form-control" id="stacionaza" name="stacionaza" value="{{$p.Stacionaza}}" placeholder="npr. 25+500"></div>
+      </div>
+    </details>
   </div>
 
-  <h2 class="form-section-title">Fotografije</h2>
-  {{if $p.Slike}}<div class="prijava-slike">{{range $p.Slike}}<figure><img src="/prijave/{{$p.ID}}/slika/{{.ID}}" alt="{{.Naziv}}" loading="lazy"><figcaption>{{.Naziv}} · {{.Sirina}}×{{.Visina}}{{with .Podaci}}<br><span class="reading-meta">{{.}}</span>{{end}}</figcaption></figure>{{end}}</div>{{end}}
-  <div class="form-group">
-    <input type="file" class="form-control" name="slike" accept="image/jpeg,image/png" multiple capture="environment">
-    <div class="form-help">Do {{najviseSlika}} fotografija; svaka se odmah smanji (1 000 px, JPEG) i pri objavi ugradi u PDF. Izvorne slike ostaju na ovom računalu ograničeno vrijeme, dokument trajno.</div>
-    <div class="form-help"><strong>Snimajte s uključenim GPS-om (lokacijom) na telefonu.</strong> Ispod svake fotografije u dokumentu ispisuje se što je fotoaparat zapisao: vrijeme snimanja, položaj i uređaj, uz otisak izvorne datoteke. To je dokaz da slika nije izmišljena; bez uključene lokacije položaj ostaje prazan i dokument to kaže.</div>
+  {{if $p.Slike}}<section class="dodane-slike">
+    <h2 class="odjeljak-prijave">Fotografije ({{len $p.Slike}})</h2>
+    <div class="prijava-slike">{{range $p.Slike}}<figure><img src="/prijave/{{$p.ID}}/slika/{{.ID}}" alt="{{.Naziv}}" loading="lazy"><figcaption>{{.Naziv}} · {{.Sirina}}×{{.Visina}}{{with .Podaci}}<br><span class="reading-meta">{{.}}</span>{{end}}</figcaption></figure>{{end}}</div>
+  </section>{{else}}<h2 class="odjeljak-prijave">Fotografije</h2>{{end}}
+  <div class="form-help">Do {{najviseSlika}} fotografija. Svaka se smanji i pri objavi ugradi u PDF.</div>
+  <div class="gps-uputa">{{icon "map-pin"}}<p>Snimajte s uključenim GPS-om (lokacijom) na telefonu. Ispod svake fotografije u dokumentu ispisuje se što je fotoaparat zapisao: vrijeme, položaj i uređaj. To je dokaz da slika nije izmišljena.</p></div>
+  {{/* Riječi na gumbu polja ne mogu se mijenjati stilom, pa gumb nosi natpis. Polje ostaje vidljivo: pokazuje što je izabrano i radi bez skripte. Na telefonu capture izravno otvara kameru, zato „Snimi fotografiju” (Odluke 7. 11.). */}}
+  <div class="slike-ulaz">
+    <label class="btn btn-secondary" for="slike"><span class="na-racunalu">Dodaj fotografije</span><span class="na-dodir">Snimi fotografiju</span></label>
+    <input type="file" id="slike" name="slike" accept="image/jpeg,image/png" multiple capture="environment">
   </div>
-  <div class="form-actions d-flex gap-2 flex-wrap">
-    <button type="submit" class="btn btn-primary">{{icon "check"}} Spremi nacrt</button>
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Spremi nacrt</button>
     <a href="{{if $p.ID}}/prijave/{{$p.ID}}{{else}}/prijave{{end}}" class="btn btn-secondary">Odustani</a>
   </div>
 </form>
+</div>
 {{end}}
