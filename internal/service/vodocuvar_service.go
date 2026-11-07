@@ -527,7 +527,7 @@ func (s *VodocuvarService) SpremiSPorukom(ctx context.Context, u *models.User, d
 		return nil, "", err
 	}
 	if l.Rekonstrukcija {
-		return nil, "", fmt.Errorf("list od %s prenesen je iz ranije evidencije i ne mijenja se", l.Datum.In(models.Zagreb).Format("02.01.2006."))
+		return nil, "", fmt.Errorf("list od %s prenesen je iz ranije evidencije i ne uređuje se", l.Datum.In(models.Zagreb).Format("02.01.2006."))
 	}
 	if l.Predan() {
 		return nil, "", fmt.Errorf("list od %s je predan i više se ne mijenja", l.Datum.In(models.Zagreb).Format("02.01.2006."))

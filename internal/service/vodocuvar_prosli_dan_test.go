@@ -301,7 +301,7 @@ func TestPreneseniListZaProsliDan(t *testing.T) {
 		t.Fatalf("prenesen list za prošli dan: %+v %v", l, err)
 	}
 	_, err := o.vs.Spremi(ctx, u, stari, vdUnos("novi opis"), false)
-	vdGreska(t, err, "prenesen je iz ranije evidencije i ne mijenja se")
+	vdGreska(t, err, "prenesen je iz ranije evidencije i ne uređuje se")
 	if l, err := o.vs.Spremi(ctx, u, vdDan(time.March, 10), vdUnos(""), false); err != nil || l.Broj != 1 {
 		t.Fatalf("današnji list: %+v %v", l, err)
 	}

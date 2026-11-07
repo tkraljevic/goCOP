@@ -54,3 +54,50 @@ func TestIDDvostrukogLista(t *testing.T) {
 		t.Error("drugi potpis ili drugi list moraju imati drugu oznaku")
 	}
 }
+
+// Objašnjenje koje je uvoz upisao zadatku bez odgovora nije odgovor vodočuvara:
+// stranica ga ne ispisuje uz zadatak. Pravi tekst ostaje, i uz zadatak bez
+// odgovora. Tekst objašnjenja stoji doslovce jer je takav u spremljenim zadacima.
+func TestOdgovorBezObjasnjenjaUvoza(t *testing.T) {
+	novo := "Odgovor nije upisan. Upisi o izvršenju vodili su se u ranijoj evidenciji, ali ta aplikacija nije bila službena, pa ih dio vodočuvara nije upisivao. Iz izostanka upisa ne slijedi da posao nije obavljen."
+	staro := "Odgovor ne postoji: zadatak je zadan u ranijoj aplikaciji koja nije bila službena, pa se upisi o izvršenju nisu vodili."
+	for _, x := range []struct{ status, obavljeno, ocekivano string }{
+		{ZadatakBezOdgovora, novo, ""},
+		{ZadatakBezOdgovora, staro, ""},
+		{ZadatakBezOdgovora, "(zaključeno u evidenciji zadataka)", "(zaključeno u evidenciji zadataka)"},
+		{ZadatakObavljen, "Ustava pregledana.", "Ustava pregledana."},
+		{ZadatakObavljen, novo, novo},
+	} {
+		if got := (Zadatak{Status: x.status, Obavljeno: x.obavljeno}).Odgovor(); got != x.ocekivano {
+			t.Errorf("zadatak %s %q: %q", x.status, x.obavljeno, got)
+		}
+		if got := (ZadatakNaListu{Status: x.status, Obavljeno: x.obavljeno}).Odgovor(); got != x.ocekivano {
+			t.Errorf("zadatak na listu %s %q: %q", x.status, x.obavljeno, got)
+		}
+	}
+}
+
+// Vrijeme uzeto naknadno iz arhive: na stranici tekst bez izvora i oznaka da je
+// naknadno. Što je vodočuvar ili stara evidencija upisala ostaje kako piše.
+func TestPrilikeIzArhive(t *testing.T) {
+	arhiva := VodocuvarskiList{Prilike: "27°C, vjetar 1–3 m/s · Open-Meteo, naknadno"}
+	if arhiva.PrilikeBezIzvora() != "27°C, vjetar 1–3 m/s" || !arhiva.PrilikeNaknadno() {
+		t.Errorf("iz arhive: %q %v", arhiva.PrilikeBezIzvora(), arhiva.PrilikeNaknadno())
+	}
+	upisano := VodocuvarskiList{Prilike: "sunčano · bez vjetra"}
+	if upisano.PrilikeBezIzvora() != upisano.Prilike || upisano.PrilikeNaknadno() {
+		t.Errorf("upisano: %q %v", upisano.PrilikeBezIzvora(), upisano.PrilikeNaknadno())
+	}
+}
+
+// List zna ima li na sebi zadatak bez upisanog odgovora
+func TestListImaBezOdgovora(t *testing.T) {
+	obavljen := ZadatakNaListu{Status: ZadatakObavljen}
+	bezOdgovora := ZadatakNaListu{Status: ZadatakBezOdgovora}
+	if (VodocuvarskiList{}).ImaBezOdgovora() || (VodocuvarskiList{Zadaci: []ZadatakNaListu{obavljen}}).ImaBezOdgovora() {
+		t.Error("list bez takvih zadataka javlja da ih ima")
+	}
+	if !(VodocuvarskiList{Zadaci: []ZadatakNaListu{obavljen, bezOdgovora}}).ImaBezOdgovora() {
+		t.Error("list ne javlja zadatak bez odgovora")
+	}
+}

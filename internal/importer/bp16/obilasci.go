@@ -29,10 +29,6 @@ import (
 	"gocop/internal/slike"
 )
 
-// ObjasnjenjeBezOdgovora stoji uz zadatak kojem u ranijoj evidenciji nema
-// odgovora; bez njega bi prazan zadatak izgledao kao neobavljen posao
-const ObjasnjenjeBezOdgovora = "Odgovor nije upisan. Upisi o izvršenju vodili su se u ranijoj evidenciji, ali ta aplikacija nije bila službena, pa ih dio vodočuvara nije upisivao. Iz izostanka upisa ne slijedi da posao nije obavljen."
-
 // obilazakRow je zapis zbirke evidencije_obilaska
 type obilazakRow struct {
 	ID          int             `json:"id_obilasci"`
@@ -273,7 +269,7 @@ func zadanoAt(o obilazakRow, dan time.Time) time.Time {
 func (u *uvozObilazaka) odgovor(z *models.Zadatak, o obilazakRow, dan time.Time) {
 	odgovor := sredi(o.Napomena)
 	if odgovor == "" {
-		z.Status, z.Obavljeno = models.ZadatakBezOdgovora, ObjasnjenjeBezOdgovora
+		z.Status, z.Obavljeno = models.ZadatakBezOdgovora, models.ObjasnjenjeBezOdgovora
 		u.rep.BezOdgovora++
 		return
 	}

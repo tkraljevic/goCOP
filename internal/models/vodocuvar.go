@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 	"time"
 
@@ -189,7 +190,27 @@ func (l VodocuvarskiList) NacrtBezBroja() bool {
 	return l.ID != "" && l.Broj == 0 && !l.Rekonstrukcija
 }
 
-// Zakljucen javlja da se list više ne mijenja: predan je, ili je prenesen iz
+// ImaBezOdgovora javlja stoji li na listu zadatak bez upisanog odgovora
+func (l VodocuvarskiList) ImaBezOdgovora() bool {
+	return slices.ContainsFunc(l.Zadaci, func(z ZadatakNaListu) bool { return z.Status == ZadatakBezOdgovora })
+}
+
+// prilikeIzArhive stoji na kraju vremenskih prilika koje je uvoz naknadno uzeo
+// iz arhive vremena
+const prilikeIzArhive = " · Open-Meteo, naknadno"
+
+// PrilikeBezIzvora su vremenske prilike za stranicu; odakle su, kaže PrilikeNaknadno
+func (l VodocuvarskiList) PrilikeBezIzvora() string {
+	return strings.TrimSuffix(l.Prilike, prilikeIzArhive)
+}
+
+// PrilikeNaknadno javlja da vremenske prilike nitko nije upisao na dan lista,
+// nego su naknadno uzete iz arhive vremena
+func (l VodocuvarskiList) PrilikeNaknadno() bool {
+	return strings.HasSuffix(l.Prilike, prilikeIzArhive)
+}
+
+// Zakljucen javlja da vodočuvar list više ne piše: predan je, ili je prenesen iz
 // ranije evidencije. Prenesen list nitko neće potpisati ni ovjeriti — nije
 // nastao u programu — pa ga sustav zatvara takvog kakav je došao i ne drži
 // ga u poslu koji nekoga čeka.
@@ -253,6 +274,31 @@ const (
 	ZadatakBezOdgovora = "BEZ_ODGOVORA"
 )
 
+// RazlogBezOdgovora kaže zašto zadatak iz ranije evidencije nema odgovora; bez
+// njega bi prazan zadatak izgledao kao neobavljen posao. Na stranici lista stoji
+// jednom, a ne uz svaki zadatak.
+const RazlogBezOdgovora = "Upisi o izvršenju vodili su se u ranijoj evidenciji, ali ta aplikacija nije bila službena, pa ih dio vodočuvara nije upisivao. Iz izostanka upisa ne slijedi da posao nije obavljen."
+
+// ObjasnjenjeBezOdgovora uvoz upisuje u zadatak bez odgovora, a PDF lista ga
+// ispisuje uz zadatak. Tekst se ne mijenja jer se po njemu u spremljenim
+// zadacima razlikuje od pravog odgovora (Odgovor).
+const ObjasnjenjeBezOdgovora = "Odgovor nije upisan. " + RazlogBezOdgovora
+
+// starijeObjasnjenjeBezOdgovora je isto objašnjenje iz prvog uvoza obilazaka
+const starijeObjasnjenjeBezOdgovora = "Odgovor ne postoji: zadatak je zadan u ranijoj aplikaciji koja nije bila službena, pa se upisi o izvršenju nisu vodili."
+
+// odgovorZaPrikaz je ono što je vodočuvar upisao, bez objašnjenja koje je uvoz
+// upisao zadatku bez odgovora
+func odgovorZaPrikaz(status, obavljeno string) string {
+	if status == ZadatakBezOdgovora && (obavljeno == ObjasnjenjeBezOdgovora || obavljeno == starijeObjasnjenjeBezOdgovora) {
+		return ""
+	}
+	return obavljeno
+}
+
+// Odgovor je tekst koji stoji uz zadatak na stranici
+func (z Zadatak) Odgovor() string { return odgovorZaPrikaz(z.Status, z.Obavljeno) }
+
 // Otvoren javlja je li zadatak još na listu
 func (z Zadatak) Otvoren() bool { return z.Status == "" || z.Status == ZadatakOtvoren }
 
@@ -290,6 +336,9 @@ func (z ZadatakNaListu) UzObilazak() string {
 	}
 	return strings.Join(d, ", ")
 }
+
+// Odgovor je tekst koji stoji uz zadatak na stranici lista
+func (z ZadatakNaListu) Odgovor() string { return odgovorZaPrikaz(z.Status, z.Obavljeno) }
 
 // Oznaka kako se zadatak piše na listu: obavljen, nije, prenosi se
 func (z ZadatakNaListu) Oznaka() string {

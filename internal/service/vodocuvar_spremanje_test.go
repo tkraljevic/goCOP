@@ -386,7 +386,7 @@ func TestZakljucenListSeNeMijenja(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = o.vs.Spremi(ctx, u, vdDan(time.March, 11), vdUnos("novi opis"), false)
-	vdGreska(t, err, "prenesen je iz ranije evidencije i ne mijenja se")
+	vdGreska(t, err, "prenesen je iz ranije evidencije i ne uređuje se")
 	if l := o.vdListIzBaze(t, u, vdDan(time.March, 11)); l.Opis != "obilazak iz stare evidencije" || l.Predan() {
 		t.Errorf("prenesen list promijenjen: %+v", l)
 	}

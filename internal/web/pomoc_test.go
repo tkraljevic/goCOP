@@ -301,8 +301,12 @@ func TestPomocOPrenesenomListuIProslomDanu(t *testing.T) {
 	for _, da := range []string{
 		"„za 09.10.2026. nema dnevnog lista, a list za dan koji je prošao više se ne otvara: dnevni list otvara se na svoj dan”",
 		"nema lista ili mu je list tog dana prenesen iz ranije evidencije, na današnji list",
-		"Listovi preneseni iz ranije evidencije ostaju kakvi jesu i nikad ne dobivaju redni broj",
+		"Listovi preneseni iz ranije evidencije nikad ne dobivaju redni broj",
 		"rukovoditeljeva bilješka za taj dan upisuje se na prenesen list",
+		"Upisuje se obrascem uz knjigu vodočuvara, jer na stranici prenesenog lista obrasca nema",
+		"Obrazac uz knjigu ima samo onaj tko tom vodočuvaru smije upisivati danas",
+		"Bilješku na njegov prenesen list tada nema gdje upisati",
+		"nosi sivu oznaku „bez upisanog odgovora”",
 		"lista nema ili je list tog dana prenesen iz ranije evidencije, upisuje se na današnji list",
 	} {
 		if !strings.Contains(h, da) {
