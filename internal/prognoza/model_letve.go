@@ -230,7 +230,30 @@ func provjeriUpis(zapisi map[string]ZapisLetve, pokvareni map[string]error, z Za
 	sa[z.Letva] = z
 	bez := maps.Clone(pokvareni)
 	delete(bez, z.Letva)
-	return noveIskljucene(ProvjeriZapise(sa, bez, o), prije, z.Letva)
+	if err := noveIskljucene(ProvjeriZapise(sa, bez, o), prije, z.Letva); err != nil {
+		return err
+	}
+	if uvodiKrug(zapisi, pokvareni, z) {
+		return errKrug
+	}
+	return nil
+}
+
+// uvodiKrug javlja zatvara li zapis krug kroz račun iz koda koji još nema brojeve u
+// bazi. Takav račun se još ne računa, pa ga ProvjeriZapise ne vidi, a čim Pripremi
+// model upiše brojeve, ispale bi sve letve u krugu.
+func uvodiKrug(zapisi map[string]ZapisLetve, pokvareni map[string]error, z ZapisLetve) bool {
+	svi := maps.Clone(zapisi)
+	for _, r := range OdvojeniRacuni {
+		_, ima := svi[r.Letva]
+		_, pokvaren := pokvareni[r.Letva]
+		if !ima && !pokvaren {
+			svi[r.Letva] = ZapisLetve{Letva: r.Letva, Racun: RacunLetve{Ulazi: r.Ulazi, Rezerve: Rezerve[r.Letva]}}
+		}
+	}
+	prije := kruzniRacuni(svi)
+	svi[z.Letva] = z
+	return slices.ContainsFunc(kruzniRacuni(svi), func(l string) bool { return !slices.Contains(prije, l) })
 }
 
 // noveIskljucene javlja je li spremanje isključilo spremanu letvu ili neku koja
@@ -247,6 +270,8 @@ func noveIskljucene(sad, prije map[string]error, letva string) error {
 	return nil
 }
 
+var errKrug = errors.New("račun se vrti u krug kroz ulaze ili rezerve")
+
 // ProvjeriZapise vraća letve koje se isključuju, s razlogom: pokvarene, one koje
 // ne prolaze Provjeri, one u krugu ili s krivom veličinom veze i sve koje iz
 // isključene računaju.
@@ -260,7 +285,7 @@ func ProvjeriZapise(zapisi map[string]ZapisLetve, pokvareni map[string]error, o 
 	}
 	dobri := ostaliZapisi(zapisi, isk)
 	for _, l := range kruzniRacuni(dobri) {
-		isk[l] = errors.New("račun se vrti u krug kroz ulaze ili rezerve")
+		isk[l] = errKrug
 	}
 	provjeriVeze(ostaliZapisi(zapisi, isk), o.Glavne, isk)
 	iskljuciNizvodne(zapisi, isk, o)
@@ -396,7 +421,7 @@ func iskljuciNizvodne(zapisi map[string]ZapisLetve, isk map[string]error, o Okvi
 // ProvjeriZapise, jer traže sve retke.
 func (z ZapisLetve) Provjeri(o OkvirModela) error {
 	for _, korak := range []func() error{
-		z.provjeriOblik, z.provjeriRacun, z.provjeriBrojeve,
+		z.provjeriOblik, z.provjeriRacun, z.Racun.provjeriPonavljanje, z.provjeriBrojeve,
 		func() error { return z.provjeriMjesto(o) },
 		func() error { return z.provjeriRegistar(o) },
 	} {
@@ -443,6 +468,25 @@ func (z ZapisLetve) provjeriRacun() error {
 		return err
 	}
 	return r.Rucno.provjeri()
+}
+
+// provjeriPonavljanje odbija ulaz naveden dvaput i rezervu koja ponavlja glavne ulaze
+// ili drugu rezervu. Isti ulaz dvaput namještanje primi i podijeli mu nagib na dva
+// besmislena broja, a ista rezerva ništa ne dodaje.
+func (r RacunLetve) provjeriPonavljanje() error {
+	vidjene := map[string]bool{}
+	for _, ulazi := range slices.Concat([][]string{r.Ulazi}, r.Rezerve) {
+		redom := slices.Sorted(slices.Values(ulazi))
+		kljuc := strings.Join(redom, " + ")
+		if len(slices.Compact(redom)) != len(ulazi) {
+			return fmt.Errorf("isti ulaz je naveden dvaput (%s); makni jedan", kljuc)
+		}
+		if vidjene[kljuc] {
+			return fmt.Errorf("rezerva %s ponavlja ono što račun već ima; makni je", kljuc)
+		}
+		vidjene[kljuc] = true
+	}
+	return nil
 }
 
 func (r RazineLetve) provjeri() error {

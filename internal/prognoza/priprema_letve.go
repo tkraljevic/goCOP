@@ -83,7 +83,7 @@ func (z ZapisLetve) provjeriPrijePripreme(o OkvirModela) error {
 	z.Racun.Doseg = 1
 	z.Brojevi = BrojeviLetve{}
 	for _, korak := range []func() error{
-		z.provjeriOblik, z.provjeriRacun, z.provjeriIskljuceneIRezerve,
+		z.provjeriOblik, z.provjeriRacun, z.Racun.provjeriPonavljanje, z.provjeriIskljuceneIRezerve,
 		func() error { return z.provjeriMjesto(o) },
 		func() error { return z.provjeriRegistar(o) },
 	} {
@@ -190,21 +190,34 @@ func (s *pripremaRacuna) dodajRezerve(glavna []Pojas) ([][]Pojas, []string, erro
 // pa bi potok držao zadnje mjerenje danima. Barem jedan sat, jer račun s kašnjenjem
 // nula i dalje daje sljedeći sat.
 func (s *pripremaRacuna) doseg(glavna []Pojas) int {
-	racuna := slices.DeleteFunc(slices.Clone(glavna), func(p Pojas) bool { return p.Nepovezan })
+	return max(s.dosegPojasa(glavna, len(s.zapisi)), 1)
+}
+
+// dosegPojasa je isti zbroj za bilo koji račun. Dubina čuva od kruga u brojevima iz
+// baze; kraj je tada vrh, a krug svejedno odbija provjera upisa.
+func (s *pripremaRacuna) dosegPojasa(pojasi []Pojas, dubina int) int {
+	racuna := slices.DeleteFunc(slices.Clone(pojasi), func(p Pojas) bool { return p.Nepovezan })
+	if len(racuna) == 0 {
+		return 0
+	}
 	doseg := najveciDosegZapisa
 	for _, u := range racuna[len(racuna)-1].Ulazi {
-		doseg = min(doseg, u.PomakH+s.dosegUlaza(u.Letva))
+		doseg = min(doseg, u.PomakH+s.dosegUlaza(u.Letva, dubina))
 	}
-	return max(doseg, 1)
+	return doseg
 }
 
 // dosegUlaza je dokle ulaz ima svoj račun. Ulaz bez računa je vrh, pa je to nula, i
-// kad ga glavni lanac čita kao ulaz.
-func (s *pripremaRacuna) dosegUlaza(letva string) int {
-	if u, ima := s.zapisi[letva]; ima {
+// kad ga glavni lanac čita kao ulaz. Račun iz koda izdaje se do kraja izdanja, ali
+// dalje od svog vrha samo drži njegovo zadnje mjerenje, pa se računa kroz svoj lanac.
+func (s *pripremaRacuna) dosegUlaza(letva string, dubina int) int {
+	u, ima := s.zapisi[letva]
+	switch {
+	case ima && u.Ugradjen && dubina > 0:
+		return s.dosegPojasa(u.Brojevi.Inacice[0], dubina-1)
+	case ima && !u.Ugradjen:
 		return u.Racun.Doseg
-	}
-	if len(s.okvir.Glavne[letva]) > 0 {
+	case len(s.okvir.Glavne[letva]) > 0:
 		return najveciDosegZapisa
 	}
 	return 0
@@ -224,8 +237,10 @@ func (d *razdiobaRazina) razdijeli(poredani []float64) ([]float64, error) {
 }
 
 // oznaciIskljucene označi isključene razine: u njima se prognoza ne izdaje, kao u
-// nepovezanim pojasima letvi iz SamoPovezane. Razina bez računa ne može se označiti,
-// a bez toga bi na njoj računala susjedna, pa to prekida pripremu.
+// nepovezanim pojasima letvi iz SamoPovezane. Razlika je u satu izdanja: letva iz
+// zapisa ima taj redak samo ako je tada izmjerena, a glavni lanac drži zadnje mjerenje
+// do ZaostatakSidra. Razina bez računa ne može se označiti, a bez toga bi na njoj
+// računala susjedna, pa to prekida pripremu.
 func (d *razdiobaRazina) oznaciIskljucene(pojasi []Pojas) error {
 	for _, i := range d.razine.Iskljucene {
 		if i >= len(d.cvorovi)-1 {

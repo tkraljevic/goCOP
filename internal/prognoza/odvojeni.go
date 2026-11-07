@@ -16,6 +16,7 @@ package prognoza
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"maps"
@@ -317,7 +318,7 @@ func (o *Osvjezivac) izdaneLetve(ctx context.Context, r *Racunalo, z ZapisLetve,
 		izdane = bezRacunatogSata(izdane, mjereno, u.sada)
 	}
 	if len(izdane) == 0 {
-		return nil, fmt.Errorf("nema ulaza za nijedan sat unaprijed")
+		return nil, bezRedaka(r.poVelicini[Izvor{Letva: z.Letva, Velicina: z.Velicina}])
 	}
 	if glavna {
 		ispraviPromasajima(izdane, z.Brojevi.Promasaji, u.sada)
@@ -328,6 +329,15 @@ func (o *Osvjezivac) izdaneLetve(ctx context.Context, r *Racunalo, z ZapisLetve,
 	}
 	donjiRubProtoka(izdane)
 	return izdane, nil
+}
+
+// bezRedaka kaže zašto letva nema nijedan redak. Ulazi su tu već svježi, pa letvi s
+// isključenom razinom račun staje upravo na toj razini.
+func bezRedaka(pojasi []Pojas) error {
+	if imaNepovezanih(pojasi) {
+		return errors.New("voda je u razini za koju je račun isključen, a letva u ovom satu nije izmjerena")
+	}
+	return errors.New("nema ulaza za nijedan sat unaprijed")
 }
 
 // bezRacunatogSata izbacuje redak u satu izdanja koji nije mjerenje. Račun bi za
