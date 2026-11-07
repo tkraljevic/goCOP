@@ -42,6 +42,34 @@ func probnaSlika(w, h int, boja color.RGBA) []byte {
 	return b.Bytes()
 }
 
+// provjeriObrazacPrijave čuva ono o čemu ovise spremanje, karta i dokaz na fotografijama:
+// imena polja, polje za kameru i uputu o GPS-u, koja ne smije u sklopljeni dio.
+func provjeriObrazacPrijave(t *testing.T, s string) {
+	t.Helper()
+	for _, zeli := range []string{
+		`action="/prijave" enctype="multipart/form-data"`, `name="id"`, `name="datum"`, `name="naslov"`, `name="opis"`,
+		`name="vodotok" list="vode"`, `name="objekt" list="objekti"`, `name="element" list="elementi"`, `name="vaznost" list="vaznosti"`,
+		`name="dionica"`, `name="stacionaza"`, `id="lat" name="lat"`, `id="lon" name="lon"`, `id="gps"`, `id="ocisti-tocku"`,
+		`name="slike" accept="image/jpeg,image/png" multiple capture="environment"`, "Snimi fotografiju",
+		`class="karta-izbor"`, "karta-platno", "data-plocice", "karta-bez-mreze", "koordinate možete upisati i ručno",
+	} {
+		if !strings.Contains(s, zeli) {
+			t.Errorf("obrazac prijave bez %q", zeli)
+		}
+	}
+	// Okvir stranice ima svoj obrazac za prijavu greške, s istim imenom polja.
+	if _, vrste, _ := strings.Cut(s, `class="vrste-prijave"`); strings.Count(strings.SplitN(vrste, "</fieldset>", 2)[0], `type="radio" name="vrsta"`) != len(models.VrstePrijava) {
+		t.Errorf("obrazac prijave mora imati %d izbora vrste", len(models.VrstePrijava))
+	}
+	if strings.Contains(s, "Snimi ili dodaj") {
+		t.Error("na telefonu polje otvara kameru, natpis ne smije nuditi dodavanje")
+	}
+	gps, sklopljeno := strings.Index(s, "Snimajte s uključenim GPS-om"), strings.Index(s, "</details>")
+	if gps < 0 || sklopljeno < 0 || gps < sklopljeno {
+		t.Error("uputa o GPS-u mora biti vidljiva, izvan sklopljenog dijela")
+	}
+}
+
 // Prijava s terena kroz rute: vodočuvar sastavi nacrt s fotografijama i
 // mjestom, objavi ga i potpiše svojim ključem; prijava dobije broj, potpisani
 // PDF s ugrađenim slikama postaje izvornik, upis ide na njegov dnevni list;
@@ -171,8 +199,20 @@ func TestPrijaveSTerenaKrozRute(t *testing.T) {
 	if w := get(strojar, "/prijave"); w.Code != http.StatusForbidden {
 		t.Errorf("strojar na prijavama: %d", w.Code)
 	}
-	if s := get(ivic, "/prijave/nova").Body.String(); !strings.Contains(s, "Nova prijava s terena") || !strings.Contains(s, "karta-izbor") {
+	nova := get(ivic, "/prijave/nova").Body.String()
+	if !strings.Contains(nova, "data-naziv-stranice>Nova prijava</h1>") || !strings.Contains(nova, "karta-izbor") {
 		t.Fatal("obrazac nove prijave")
+	}
+	provjeriObrazacPrijave(t, nova)
+	// Oznaka izabranog ide preko input:checked + span, pa natpis mora odmah slijediti polje.
+	if !strings.Contains(nova, `value="OBAVIJEST" required checked><span>`+models.VrstaPrijaveLabel(models.VrstePrijava[0])+`</span>`) {
+		t.Error("nova prijava: zadana vrsta mora ostati Obavijest, s natpisom odmah iza polja")
+	}
+	if !strings.Contains(nova, `<details class="vise-o-mjestu" >`) {
+		t.Error("nova prijava: Više o mjestu mora biti sklopljeno dok ništa nije upisano")
+	}
+	if s := get(ivic, "/prijave/nova?error=Nacrt+nije+spremljen").Body.String(); strings.Count(s, "Nacrt nije spremljen") != 1 {
+		t.Error("poruka o grešci mora se ispisati jednom, u okviru stranice")
 	}
 
 	// nacrt s dvije fotografije i mjestom
@@ -225,6 +265,17 @@ func TestPrijaveSTerenaKrozRute(t *testing.T) {
 	}
 	if p, err = prijave.Get(ctx, kao(ivic), id); err != nil || p == nil || len(p.Slike) != 2 {
 		t.Fatalf("nacrt nakon odbijene fotografije: %v %+v", err, p)
+	}
+	uredi := get(ivic, "/prijave/"+id+"/uredi").Body.String()
+	provjeriObrazacPrijave(t, uredi)
+	for _, zeli := range []string{"data-naziv-stranice>Nacrt prijave</h1>", "Fotografije (2)", `value="PRIJAVA" required checked`, `<details class="vise-o-mjestu" open>`, `value="B.34.1"`} {
+		if !strings.Contains(uredi, zeli) {
+			t.Errorf("obrazac nacrta bez %q", zeli)
+		}
+	}
+	// Ukloni ostaje na pregledu nacrta, na obrascu bi se izgubilo neupisano.
+	if strings.Contains(uredi, "obrisi-sliku") {
+		t.Error("obrazac nacrta ne smije imati uklanjanje fotografije")
 	}
 	if s := get(ivic, "/prijave/"+id).Body.String(); !strings.Contains(s, "Oštećena rampa") || !strings.Contains(s, "Objavi i potpiši") || strings.Count(s, "/slika/") < 2 || !strings.Contains(s, "karta-letve") {
 		t.Error("stranica nacrta")
