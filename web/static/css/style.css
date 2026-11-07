@@ -4839,7 +4839,7 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .list-polje > .form-control:focus { box-shadow: none; }
 .list-polje > textarea.form-control { display: block; resize: vertical; field-sizing: content; }
 .list-naredbe { --list-podloga: var(--md-sys-color-surface-container); display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--r-kartica); background: var(--md-sys-color-surface-container); }
-.list-naredbe-naslov { margin: 0; font-size: 1rem; font-weight: 500; line-height: 24px; color: var(--md-sys-color-on-surface); }
+.list-naredbe-naslov, .odjeljak-prijave { margin: 0; font-size: 1rem; font-weight: 500; line-height: 24px; color: var(--md-sys-color-on-surface); }
 .zadaci { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .zadatak { --list-podloga: var(--md-sys-color-surface); padding: 8px 12px 12px; border-radius: var(--r-kontrola); background: var(--md-sys-color-surface-container-low); display: flex; flex-direction: column; gap: 2px; }
 .list-naredbe .zadatak { background: var(--md-sys-color-surface); }
@@ -5081,6 +5081,106 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .prijava-slike figure.nema img { display: none; }
 .prijava-slike figure.nema .nema-slike { display: block; }
 .karta-platno-izbor { height: 320px; cursor: crosshair; }
+
+/* Prijave s terena: obrazac nove prijave i nacrta. Polja i gumbi su kao na dnevnom listu
+   (.vodocuvar-obrazac, .list-polje). Prvo mobitel: karta je prva, a dodatna polja su u
+   „Više o mjestu”. Od 600 px stoji kao na računalu: polja pa karta, sve otvoreno. */
+.polja-prijave { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.mjesto-prijave, .tocka-prijave { display: flex; flex-direction: column; gap: 16px; }
+.tocka-gumbi { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.obrazac-prijave .karta-platno-izbor { height: 200px; }
+.obrazac-prijave .karta-bez-mreze { margin: 8px 0 0; }
+.obrazac-prijave .na-dodir { display: none; }
+/* Izbornik datuma otvara se na ikoni iz crteža, pa u polju nema dviju ikona. */
+.obrazac-prijave input[type="date"]::-webkit-calendar-picker-indicator { position: absolute; top: calc(50% - 12px); left: 12px; width: 24px; height: 24px; margin: 0; padding: 0; opacity: 0; cursor: pointer; }
+
+/* Vrsta: četiri izbora, izgled kao .prog-segment-gumbi (input:checked + span), pa se
+   izabrani vidi u svakom pregledniku. Rečenica uz izbor ne traži skriptu; u pregledniku
+   bez :has() vide se sve četiri rečenice. */
+.vrste-prijave { min-width: 0; margin: 0; padding: 0; border: 0; }
+.vrste-prijave legend { margin: 0 0 4px; padding: 0; font-size: 0.8125rem; line-height: 16px; color: var(--md-sys-color-on-surface-variant); }
+.vrste-prijave-red { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.vrsta-izbor { position: relative; display: inline-flex; margin: 0; cursor: pointer; }
+.vrsta-izbor input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.vrsta-izbor > span {
+  display: inline-flex; align-items: center; min-height: 32px; padding: 0 16px;
+  border: 1px solid var(--md-sys-color-outline); border-radius: 8px;
+  font-size: 0.875rem; font-weight: 500; line-height: 20px; color: var(--md-sys-color-on-surface-variant);
+}
+.vrsta-izbor input:checked + span { border-color: transparent; background: var(--md-sys-color-ploha-odabrano); color: var(--md-sys-color-naplohi-odabrano); }
+.vrsta-izbor input:checked + span::before { content: "✓\00a0"; content: "✓\00a0" / ""; }
+.vrsta-izbor input:focus-visible + span { outline: 2px solid var(--md-sys-color-primary); outline-offset: 2px; }
+.vrsta-opis { flex-basis: 100%; }
+@supports selector(:has(*)) {
+  .vrsta-opis > span { display: none; }
+  .vrste-prijave:has(input[value="OBAVIJEST"]:checked) [data-vrsta="OBAVIJEST"],
+  .vrste-prijave:has(input[value="PRIJAVA"]:checked) [data-vrsta="PRIJAVA"],
+  .vrste-prijave:has(input[value="IZVJESCE"]:checked) [data-vrsta="IZVJESCE"],
+  .vrste-prijave:has(input[value="ZAHTJEV"]:checked) [data-vrsta="ZAHTJEV"] { display: inline; }
+}
+
+/* Više o mjestu: kao mjesec u Mojoj knjizi. */
+.vise-o-mjestu {
+  --list-podloga: var(--md-sys-color-surface-container-low);
+  padding: 0 16px; border: 1px solid var(--rub-kartica); border-radius: 12px;
+  background: var(--md-sys-color-surface-container-low);
+}
+.vise-o-mjestu > summary { display: flex; align-items: center; gap: 8px; min-height: 56px; cursor: pointer; list-style: none; }
+.vise-o-mjestu > summary::-webkit-details-marker { display: none; }
+.vise-o-mjestu > summary > .icon { flex: none; width: 24px; height: 24px; margin: 0; color: var(--md-sys-color-on-surface-variant); }
+.vise-o-mjestu[open] > summary > .icon { transform: rotate(-90deg); }
+.vise-o-mjestu-tekst { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 0.75rem; line-height: 16px; color: var(--md-sys-color-on-surface-variant); }
+.vise-o-mjestu-tekst strong { font-size: 0.875rem; font-weight: 400; line-height: 20px; color: var(--md-sys-color-on-surface); }
+.vise-o-mjestu > .polja-prijave { padding: 4px 0 16px; }
+
+/* Fotografije */
+.dodane-slike { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid var(--rub-kartica); border-radius: 12px; background: var(--md-sys-color-surface-container-low); }
+.obrazac-prijave .prijava-slike { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.obrazac-prijave .prijava-slike img { height: auto; }
+.obrazac-prijave .prijava-slike figcaption { margin-top: 4px; color: var(--md-sys-color-on-surface); }
+.gps-uputa {
+  display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px;
+  border-left: 4px solid var(--upozorenje-tehnicko-rub); border-radius: 8px;
+  background: var(--upozorenje-tehnicko-ploha); color: var(--md-sys-color-on-surface);
+  font-size: 0.8125rem; font-weight: 500; line-height: 18px;
+}
+.gps-uputa > .icon { flex: none; width: 24px; height: 24px; margin: 0; color: var(--md-sys-color-on-surface-variant); }
+.gps-uputa p { margin: 0; }
+.slike-ulaz { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.slike-ulaz .btn { cursor: pointer; }
+.slike-ulaz input[type="file"] { flex: 1 1 12rem; min-width: 0; font-size: 0.8125rem; color: var(--md-sys-color-on-surface-variant); }
+.slike-ulaz input[type="file"]::file-selector-button { display: none; }
+.slike-ulaz input[type="file"]:focus-visible { outline: 2px solid var(--md-sys-color-primary); outline-offset: 2px; }
+
+@media (max-width: 599px), (pointer: coarse) {
+  .obrazac-prijave .na-racunalu { display: none; }
+  .obrazac-prijave .na-dodir { display: inline; }
+  .vrsta-izbor > span { min-height: 48px; }
+  .tocka-gumbi .btn, .slike-ulaz .btn { min-height: 48px; }
+}
+@media (max-width: 599px) {
+  .tocka-gumbi .btn { padding-inline: 8px; }
+  .slike-ulaz .btn { flex: 1 1 100%; }
+}
+@media (min-width: 600px) {
+  .polja-prijave { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 12px; }
+  .mjesto-prijave { gap: 20px; }
+  .tocka-prijave { order: 2; gap: 12px; }
+  .tocka-gumbi { display: flex; flex-wrap: wrap; }
+  .obrazac-prijave .karta-platno-izbor { height: 240px; }
+  .vrste-prijave legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .vrsta-opis { flex-basis: auto; }
+  .obrazac-prijave .prijava-slike { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .obrazac-prijave .prijava-slike img { height: 160px; }
+  /* Sadržaj zatvorenog <details> smije se pokazati samo u novijem pregledniku. Stariji
+     i dalje ima gumb Više o mjestu, pa se do polja uvijek može doći. */
+  @supports selector(::details-content) {
+    .vise-o-mjestu { --list-podloga: var(--md-sys-color-surface); padding: 0; border: 0; background: none; }
+    .vise-o-mjestu > summary { display: none; }
+    .vise-o-mjestu::details-content { content-visibility: visible; }
+    .vise-o-mjestu > .polja-prijave { padding: 0; }
+  }
+}
 
 /* Prijave s terena: traka filtara u jednom retku i kartice umjesto tablice */
 /* Popis prijava (goCOP-m3, 15 · Dokumenti, 8): prvo mobitel. Polje izbora je select preko
