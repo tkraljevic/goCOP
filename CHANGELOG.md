@@ -4,6 +4,48 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.54-alfa — 7. 11. 2026.
+
+Bednja, Karašica i Vučica više ne mogu zaustaviti prognozu, a program ima
+prijavu greške s ikonom kukca. Računala ne treba nadograditi isti dan. Prognoza
+se popravlja tek kad se nadogradi računalo koje je izdaje, a prijave i njihove
+slike vide se samo na računalima s ovim izdanjem.
+
+- **Prognoza.** Kad Železnica, Kapelna ili Beničanci stanu ili kasne, prognoza
+  za Dravu i Dunav ide dalje. Bednja, Karašica i Vučica računaju se zasebno,
+  poslije ostalih letvi, a ostale letve za isti sat izdanja imaju iste brojeve.
+  Kad vrh stane, te letve ostaju bez prognoze ili drže zadnje mjerenje, uz
+  napomenu. Letve bez prognoze tada nemaju karticu na Prognozama ni mjesto na
+  uzdužnom profilu.
+- **MIN i MAX na karticama.** Pri prvom otvaranju Prognoza nakon pokretanja
+  programa pločice su mogle pokazati samo ono što je u evidenciji očitanja, a
+  ne najniži i najviši izmjereni vodostaj. Sad ih do kraja čitanja arhive, oko
+  15 sekundi, nema, a stižu kad se stranica ponovno učita.
+- **Podaci koji nedostaju.** Traka na Prognozama sad imenuje letve kojima na tom
+  računalu nedostaju vodostaj ili protok. Letva je na popisu kad mjerenja kasne
+  više od 6 sati, a u zadnjih 14 dana je još stizala. Izvoru koji javlja rjeđe
+  računa se dvostruki njegov prosječni razmak, najviše 7 dana. Globalni
+  administrator na Postavkama prognoze može dodati napomenu, npr. o radovima na
+  izvoru, a nju vide svi na Prognozama.
+- **Prijava greške.** Kukac u gornjoj traci otvara obrazac za grešku ili
+  prijedlog, s jednom slikom zaslona po želji (PNG, JPEG ili WebP, najviše
+  2 MB). Program sam dodaje ime i ulogu osobe, stranicu, izdanje, računalo,
+  preglednik, sustav, veličinu prozora i zadnje greške stranice. Administrator
+  vidi prijave u Administraciji i odgovara na njih, a osoba stanje prati na
+  Profilu, pod Moje prijave. Prijava i slika idu na sva računala u mreži koja
+  imaju ovo izdanje. Kad je na računalu s kojeg je prijava poslana podešena
+  e-pošta, globalni administratori dobiju poruku s imenom osobe i do 1000 znakova
+  teksta, bez slike. Samo ta poruka izlazi iz mreže. Slika se briše 30 dana nakon
+  što je prijava riješena.
+- **Dnevnik usluga.** Obrazac novog upisa više nema polje za trajanje, a polje za
+  opis je veće. Radovi po satu pišu se u tekst. Stari upisi i dalje pokazuju
+  trajanje.
+- **Telefon.** Na uskom zaslonu izbor svijetle ili tamne teme je u izborniku, jer
+  je u gornju traku došao kukac.
+- **Linux.** Kopiju baze pri nadogradnji radi korisnik usluge. Ako on ne može
+  pročitati bazu ili pisati u mapu `kopije`, nadogradnja staje prije zamjene
+  programa i kaže što provjeriti.
+
 ## 0.0.53-alfa — 5. 11. 2026.
 
 Očitanja i Prognoze u novom izgledu, izbor sektora i vodotoka, kartica

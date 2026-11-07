@@ -20,12 +20,15 @@ func NewJavniSpremiste(db *sql.DB, readings *ReadingRepository) *JavniSpremiste 
 	return &JavniSpremiste{db: db, readings: readings}
 }
 
+// uvjetPreuzimanja izdvaja postaje (alias s) s uključenim preuzimanjem.
+const uvjetPreuzimanja = `(s.javni_uvoz = 1 AND s.javni_url <> '')
+		   OR (s.telemetrija_uvoz = 1 AND s.telemetrija_site <> '')`
+
 // LetveZaPreuzimanje su postaje s uključenim preuzimanjem: one koje imaju
 // javnu stranicu i one prebačene na telemetriju.
 func (s *JavniSpremiste) LetveZaPreuzimanje(ctx context.Context) ([]models.Station, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT `+stationColumns+` FROM stations s
-		WHERE (s.javni_uvoz = 1 AND s.javni_url <> '')
-		   OR (s.telemetrija_uvoz = 1 AND s.telemetrija_site <> '')
+		WHERE `+uvjetPreuzimanja+`
 		ORDER BY s.name`)
 	if err != nil {
 		return nil, err

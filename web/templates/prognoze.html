@@ -78,6 +78,13 @@
 {{with .GlavnoUpozorenje}}<div class="prog-traka prog-glavno-upozorenje" role="alert">{{icon "triangle-alert"}}
   <span>{{.Sto}}{{if .Upitno}} <span class="prog-upitno">{{.Upitno}}</span>{{end}}{{if $.JosUpozorenja}}
     <a href="#upozorenja-izdanja" class="prog-jos">i još {{$.JosUpozorenja}}</a>{{end}}</span></div>{{end}}
+{{if or .NapomenaPodataka .Nedostaju}}<div class="prog-traka prog-nedostaju" role="status">{{icon "info"}}<div>
+  {{if .NapomenaPodataka}}<p>{{.NapomenaPodataka}}</p>{{end}}
+  {{if .Nedostaju}}<p>Na ovom računalu nema ovih mjerenja:</p>
+  {{range .Nedostaju}}<p>{{.Velicina}}: {{.Tekst}}{{if not .Jos}}.{{end}}</p>
+  {{if .Jos}}<details><summary>i još {{.Jos}}</summary><p>{{.Ostatak}}.</p></details>{{end}}
+  {{end}}{{end}}
+</div></div>{{end}}
 
 {{if .Nema}}
 <div class="table-card" style="padding:1.25rem;">

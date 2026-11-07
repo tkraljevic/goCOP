@@ -5,7 +5,7 @@
 {{define "content"}}
 {{/* Raspored po dizajnu (goCOP-m3, 13 · Prognoze · Postavke): kartice M3 redom
      Satni ili dnevni model, Model po branjenim područjima, Generiranje,
-     Ranija prognoza i Priprema modela. */}}
+     Ranija prognoza, Napomena o podacima i Priprema modela. */}}
 <a href="/prognoze" class="prog-str-natrag">← Prognoze</a>
 <div class="prog-str-glava">
   <div>
@@ -111,6 +111,22 @@
     {{else}}<p class="razmjena-upozorenje">{{icon "triangle-alert"}} {{.Ranije.Poruka}}</p>{{end}}
     {{with .Ranije.Drugi}}{{if .URL}}<p>{{.Tekst}} <a href="{{.URL}}">{{.Poveznica}}</a></p>{{end}}{{end}}
   </div>{{end}}
+</section>
+{{end}}
+
+{{if .SmijeNapomenu}}
+<section class="letva-ploca prog-ploca" id="napomena">
+  <h2>Napomena o podacima</h2>
+  <p>Vide je svi prijavljeni na vrhu stranice Prognoze, a razmjenom stiže i na ostala računala. Upišite zašto
+    podaci ne stižu, npr. izvor mijenja adrese, i obrišite je kad to prođe. Najviše 500 znakova.</p>
+  <form method="POST" action="/prognoze/napomena-podataka" class="prog-prikaz-obrazac">
+    <div class="prog-postavke-polje"><label for="napomena_podataka">Napomena</label>
+      <textarea name="napomena" id="napomena_podataka" class="form-control" rows="3" maxlength="500">{{.NapomenaPodataka}}</textarea></div>
+    <div class="prog-postavke-gumbi">
+      <button type="submit" class="btn btn-primary">Spremi</button>
+      {{if .NapomenaPodataka}}<button type="submit" name="obrisi" value="1" class="btn prog-obrub prog-obrub-opasno">Obriši napomenu</button>{{end}}
+    </div>
+  </form>
 </section>
 {{end}}
 
