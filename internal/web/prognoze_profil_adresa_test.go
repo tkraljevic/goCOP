@@ -44,8 +44,11 @@ func rukovateljSProfilom(t *testing.T) *PrognozeHandler {
 		if err := stanice.CreateStation(ctx, st); err != nil {
 			t.Fatal(err)
 		}
-		kad := []time.Time{time.Date(danas.Year(), danas.Month(), danas.Day(), JutroSat, 0, 0, 0, models.Zagreb)}
-		for d := 1; d <= NulaNajmanjeDana+1; d++ {
+		// i jučerašnje jutro: prije 7 h današnje još nije stiglo, pa profil crta jučerašnje
+		kad := []time.Time{time.Date(danas.Year(), danas.Month(), danas.Day(), JutroSat, 0, 0, 0, models.Zagreb),
+			time.Date(danas.Year(), danas.Month(), danas.Day()-1, JutroSat, 0, 0, 0, models.Zagreb)}
+		// dan više: uz jučerašnje jutro nula gleda samo mjerenja prije jučer
+		for d := 1; d <= NulaNajmanjeDana+2; d++ {
 			kad = append(kad, time.Date(danas.Year(), danas.Month(), danas.Day()-d, 12, 0, 0, 0, models.Zagreb))
 		}
 		for _, k := range kad {
