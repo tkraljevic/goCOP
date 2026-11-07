@@ -269,25 +269,5 @@
 </div>
 {{end}}
 
-<div class="akt-papir">
-  {{with .Sektor}}<div class="akt-zaglavlje"><div><strong>{{term "org"}}</strong><br>{{.VgoName}}{{if .Address}}<br>{{.Address}}{{end}}</div><div class="text-right">Centar obrane od poplava Sektora {{.ID}}{{if .CenterCop}}<br>{{.CenterCop}}{{end}}{{if .Email}}<br>{{.Email}}{{end}}</div></div>{{end}}
-  {{if not $a.Ovjeren}}<p class="akt-nacrt">NACRT — nije ovjeren</p>{{end}}
-  <p>{{$a.TekstUvoda}}</p>
-  <h2 class="akt-naslov">{{$a.Vrsta}}</h2>
-  <p class="akt-sredina">o {{$a.RadnjaLabel}}<br><strong>{{$a.Predmet}}</strong></p>
-  <p class="akt-sredina">na branjenom području {{$a.AreaID}}{{with .Podrucje}}: {{.Name}}{{end}}</p>
-  <p class="akt-sredina">{{if eq (len $a.Dionice) 1}}na dionici:{{else}}na dionicama:{{end}}</p>
-  <dl class="akt-dionice">{{range $a.Dionice}}<dt class="mono">{{.Code}}</dt><dd>{{.Opis}}</dd>{{end}}</dl>
-  <p class="akt-sredina">dana:<br><strong>{{formatDate (localTime $a.Vrijedi)}}</strong></p>
-  {{if $a.IzvanSnage}}<p><strong>{{$a.IzvanSnage}}</strong>{{with $a.PrekidaAktID}} <a href="/akti/{{.}}" class="reg-card-sub">otvori akt</a>{{end}}</p>{{end}}
-  <p>{{$a.TekstZavrsni}}</p>
-  {{if $a.Napomena}}<p>{{$a.Napomena}}</p>{{end}}
-  <div class="akt-potpis"><div></div><div class="text-center"><strong>{{$a.Potpisnik}}</strong>{{if $a.Ovjeren}}<br><span class="reg-card-sub">{{$a.ImePotpisa}}</span>{{end}}</div></div>
-  <p class="akt-obavijest">O tome obavijest:</p>
-  <table class="akt-primatelji">{{$br := redniBrojevi $a.Primatelji}}{{range $i, $p := $a.Primatelji}}
-    <tr><td class="rb">{{if not $p.Podstavka}}{{index $br $i}}.{{end}}</td><td{{if $p.Podstavka}} class="pod"{{end}}>{{if $p.Podstavka}}– {{$p.NazivBezCrtice}}{{else}}{{$p.Naziv}}{{end}}</td><td class="mail">{{$p.Email}}</td></tr>{{end}}
-  </table>
-  {{with $a.Retci}}<table class="akt-primatelji akt-poveznice">{{range .}}<tr><td>{{index . 0}}</td><td class="mail">{{index . 1}}</td></tr>{{end}}</table>{{end}}
-  <p class="form-help">{{if $a.Ovjeren}}Ovjereno u goCOP-u: {{$a.Ovjerio}}, {{formatDate (localTime (derefTime $a.OvjerenoAt))}} · akt {{$a.Oznaka}} · kod <span class="mono">{{$a.OvjeraKod}}</span>. Isti kod stoji na PDF-u, pa se ispis može provjeriti.{{else}}Nacrt sastavio {{$a.Izradio}}, {{formatDate (localTime $a.IzradenoAt)}}. Vrijedi tek nakon ovjere: {{$a.Potpisnik | lower}} ili nadređena razina.{{end}}</p>
-</div>
+{{template "akt_papir" .Papir}}
 {{end}}

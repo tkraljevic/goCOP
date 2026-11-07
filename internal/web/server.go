@@ -1674,6 +1674,8 @@ func DijeloviPredloska(stranica string) []string {
 		dijelovi = append(dijelovi, "letva_blokovi.html")
 	case "akti.html", "akt_form.html":
 		dijelovi = append(dijelovi, "obrana_nacin.html")
+	case "akt.html":
+		dijelovi = append(dijelovi, "akt_papir.html")
 	case "dashboard.html":
 		dijelovi = append(dijelovi, "naslovna_kartice.html")
 	case "prognoze.html", "prognoze_vrijeme.html":
