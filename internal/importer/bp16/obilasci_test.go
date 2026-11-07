@@ -193,7 +193,7 @@ func TestUvozObilazaka(t *testing.T) {
 		na.Obavljeno != "Obiđeno, bez oštećenja." || na.Od != "07:00" || na.Do != "09:30" || na.Udaljenost != 12.5 || !na.ImaObuhvat {
 		t.Errorf("prvi zadatak na listu: %+v", na)
 	}
-	if na := anin.Zadaci[1]; na.Status != models.ZadatakBezOdgovora || na.Obavljeno != ObjasnjenjeBezOdgovora || na.Udaljenost != 3 || na.ImaObuhvat {
+	if na := anin.Zadaci[1]; na.Status != models.ZadatakBezOdgovora || na.Obavljeno != models.ObjasnjenjeBezOdgovora || na.Udaljenost != 3 || na.ImaObuhvat {
 		t.Errorf("drugi zadatak na listu: %+v", na)
 	}
 	if len(anin.Prilozi) != 1 {

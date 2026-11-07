@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"net/http"
 	"net/url"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -137,6 +138,10 @@ type VodocuvarPageData struct {
 	// Nepredani su vlastiti listovi koje vodočuvar nije potpisao i predao,
 	// a dan im je prošao; nil kad ih nema
 	Nepredani *UpozorenjeNepredanih
+
+	// rečenica o zadacima bez upisanog odgovora: stoji na jednom od dva mjesta
+	ObjasnjenjeNaVrhu    string
+	ObjasnjenjeUZadacima string
 
 	Vodocuvari    []models.User    // kojima osoba smije zadavati zadatke
 	ZadaciOsobe   []models.Zadatak // zadaci vodočuvara čiji je list otvoren
@@ -425,7 +430,7 @@ func (h *VodocuvarHandler) prikazi(w http.ResponseWriter, r *http.Request, d Vod
 	}
 	d.UpisNaredba = s.SmijeParafirati(perms, l)
 	d.SmijeParafirati = d.UpisNaredba && l.Predan() && !l.Rekonstrukcija
-	d.SmijeUpisati = s.SmijeUpisati(perms, l)
+	d.SmijeUpisati = nudiUpis(s, perms, l)
 	d.Parafirao = perms != nil && l.Parafirao(perms.User.ID.String())
 	d.DrugiPredani = s.DrugiPredani(r.Context(), l)
 	if org := h.org(); org != nil && l.AreaID > 0 {
@@ -435,9 +440,32 @@ func (h *VodocuvarHandler) prikazi(w http.ResponseWriter, r *http.Request, d Vod
 	if s.SmijeVidjeti(perms, l) || moj {
 		d.ZadaciOsobe = s.Zadaci(r.Context(), l.UserID)
 	}
+	d.ObjasnjenjeNaVrhu, d.ObjasnjenjeUZadacima = objasnjenjeBezOdgovora(l, d.ZadaciOsobe)
 	if err := h.tmplList.ExecuteTemplate(w, "vodocuvar_list.html", d); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// nudiUpis javlja nudi li stranica lista obrazac upisa. Na stranici prenesenog
+// lista obrasca nema (Odluke (7. 11. 2026.)); bilješka preko obrasca uz knjigu i
+// dalje ide na taj list (Odluke (8. 10. 2026.), pitanje 6), pa je servis ne odbija.
+// Obrazac uz knjigu ide po današnjem pravu, pa ga nema tko na list smije samo po
+// danu lista (TestPreneseniListBezObrascaPoDanasnjemPravu).
+func nudiUpis(s *service.VodocuvarService, perms *models.UserPermissions, l *models.VodocuvarskiList) bool {
+	return s.SmijeUpisati(perms, l) && !l.Rekonstrukcija
+}
+
+// objasnjenjeBezOdgovora kaže gdje stoji rečenica o zadacima bez upisanog
+// odgovora, da bude jednom na stranici: na vrhu lista za čitanje koji takve
+// zadatke ima, a inače iznad popisa zadataka osobe, jer se ne tiče baš tog lista
+func objasnjenjeBezOdgovora(l *models.VodocuvarskiList, zadaci []models.Zadatak) (naVrhu, uZadacima string) {
+	if l.Zakljucen() && l.ImaBezOdgovora() {
+		return models.RazlogBezOdgovora, ""
+	}
+	if slices.ContainsFunc(zadaci, func(z models.Zadatak) bool { return z.Status == models.ZadatakBezOdgovora }) {
+		return "", models.RazlogBezOdgovora
+	}
+	return "", ""
 }
 
 // HandleSpremi sprema ili predaje list za dan
@@ -550,9 +578,13 @@ func (h *VodocuvarHandler) HandleUpis(w http.ResponseWriter, r *http.Request) {
 	redirectWith(w, r, "/vodocuvar/"+l.ID, "success", "Upis je u dnevniku, "+naListu(l)+", s vašim imenom i vremenom.")
 }
 
-// naListu kaže na koji je list upisano: s brojem, ili na nacrt za dan koji
-// još nije počeo, koji broj dobiva prvim spremanjem kad taj dan počne
+// naListu kaže na koji je list upisano: s brojem, na prenesen list, koji broj
+// nikad ne dobiva, ili na nacrt za dan koji još nije počeo, koji broj dobiva
+// prvim spremanjem kad taj dan počne
 func naListu(l *models.VodocuvarskiList) string {
+	if l.Rekonstrukcija {
+		return "na prenesenom listu od " + l.Datum.Format("02.01.2006.")
+	}
 	if l.Broj == 0 {
 		return "na nacrtu lista bez broja od " + l.Datum.Format("02.01.2006.") + " (broj dobiva prvim spremanjem kad taj dan počne)"
 	}

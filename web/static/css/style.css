@@ -4826,7 +4826,10 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .zadatak-oznaka.OBAVLJEN { background: var(--mirno-bg); color: var(--mirno-fg); }
 .zadatak-oznaka.OTVOREN { background: var(--tint-amber-bg); color: var(--tint-amber-fg); }
 .zadatak-oznaka.ODBACEN { background: var(--danger-bg); color: var(--danger-fg); }
+/* Sivo: bez upisa se ne zna je li posao obavljen, pa oznaka ne tereti vodočuvara. */
+.zadatak-oznaka.BEZ_ODGOVORA { background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface-variant); }
 .vodocuvar-dl { display: grid; grid-template-columns: 11rem 1fr; gap: 0.5rem 1rem; margin: 0; }
+.prvo-slovo-veliko::first-letter { text-transform: uppercase; }
 .vodocuvar-dl dt { font-weight: 600; color: var(--muted, #4b5563); }
 .vodocuvar-dl dd { margin: 0; }
 @media (max-width: 560px) { .vodocuvar-dl { grid-template-columns: 1fr; } }
