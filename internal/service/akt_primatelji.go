@@ -25,21 +25,36 @@ import (
 // upozorenja o izvorima
 type slaganjePrimatelja struct {
 	popis      []models.AktPrimatelj
-	vidjeno    map[string]bool
+	vidjeno    map[string]int // naziv malim slovima → mjesto u popisu
 	upozorenja []string
 }
 
+// dodaj dodaje primatelja jednom po nazivu. Ista služba upisana na dva mjesta
+// s različitim adresama (registar sektora i službe po županijama) na papiru je
+// jedan redak, a akt ide na sve njezine adrese.
 func (p *slaganjePrimatelja) dodaj(skupina, naziv, email string) {
-	naziv = strings.TrimSpace(naziv)
+	naziv, email = strings.TrimSpace(naziv), strings.TrimSpace(email)
 	if naziv == "" {
 		return
 	}
-	kljuc := strings.ToLower(naziv + "|" + email)
-	if p.vidjeno[kljuc] {
+	kljuc := strings.ToLower(naziv)
+	if i, ok := p.vidjeno[kljuc]; ok {
+		p.popis[i].Email = dodajAdresu(p.popis[i].Email, email)
 		return
 	}
-	p.vidjeno[kljuc] = true
-	p.popis = append(p.popis, models.AktPrimatelj{Naziv: naziv, Email: strings.TrimSpace(email), Skupina: skupina})
+	p.vidjeno[kljuc] = len(p.popis)
+	p.popis = append(p.popis, models.AktPrimatelj{Naziv: naziv, Email: email, Skupina: skupina})
+}
+
+// dodajAdresu dopisuje adresu primatelju koji je već na popisu, ako je još nema
+func dodajAdresu(adrese, nova string) string {
+	if nova == "" || slices.ContainsFunc(strings.Split(adrese, ";"), func(a string) bool { return strings.EqualFold(strings.TrimSpace(a), nova) }) {
+		return adrese
+	}
+	if adrese == "" {
+		return nova
+	}
+	return adrese + "; " + nova
 }
 
 func (p *slaganjePrimatelja) upozori(format string, args ...any) {
@@ -77,7 +92,7 @@ func (t *teritorijPrimatelja) dodaj(ter []models.SectionTerritory) {
 // sloziPrimatelje slaže popis primatelja akta i upozorenja o onome što
 // nije pročitano
 func (s *AktService) sloziPrimatelje(ctx context.Context, a *models.Akt) ([]models.AktPrimatelj, []string) {
-	p := &slaganjePrimatelja{vidjeno: map[string]bool{}}
+	p := &slaganjePrimatelja{vidjeno: map[string]int{}}
 	dionice := s.dioniceSPodrucjem(a, p)
 	ter := s.teritorijDionica(ctx, a, p)
 	s.dodajSluzbe(ctx, a.Stupanj, ter, p)
