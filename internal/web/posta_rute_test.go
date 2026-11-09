@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ed25519"
+	"encoding/base64"
 	"html/template"
 	"io/fs"
 	"mime/multipart"
@@ -202,6 +203,9 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 		{Naziv: "Lučka kapetanija Osijek", Email: "kapetanija.osijek@mmpi.hr; nema@primjer.hr"},
 		{Naziv: "Općina bez adrese"},
 	}
+	// popis se mijenja nakon ovjere, pa se akt ponovno potpisuje ključem čvora,
+	// kao da je takav ovjeren: akt čiji potpis ne vrijedi ne šalje se
+	a.Potpis = base64.StdEncoding.EncodeToString(ed25519.Sign(kljuc, a.PorukaPotpisa()))
 	if err := aktiRepo.SaveAkt(ctx, a); err != nil {
 		t.Fatal(err)
 	}
@@ -291,6 +295,7 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 			t.Errorf("%s nije označena kao poslana", x.Adresa)
 		}
 	}
+	nePrimaNista(t, ctx, aktiRepo, akti, id, srv, post, stranica)
 
 	// Sandučić: pisma s privitcima, ugrađenim slikama i mapama
 	if w := zovi(httptest.NewRequest(http.MethodGet, "/posta", nil)); !strings.Contains(w.Body.String(), "Mapa je prazna") {

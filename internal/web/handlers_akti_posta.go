@@ -31,6 +31,21 @@ type SlanjeData struct {
 	SmijeSlati     bool
 	SpremaPoslano  bool // Exchange sam sprema poslanu poruku u Poslano
 	NijePoslanoJos int
+	Zabrana        error // zašto se akt ne šalje (poništen, potpis ne vrijedi); nil kad se smije
+}
+
+// PoslanoPrije su adrese na koje je akt stigao do poslužitelja, svaka jednom,
+// uz prvo uspješno slanje: na poništenom aktu to je trag slanja do poništenja
+func (d *SlanjeData) PoslanoPrije() []models.SlanjeAkta {
+	var out []models.SlanjeAkta
+	vidjeno := map[string]bool{}
+	for _, s := range d.Slanja {
+		if s.Uspjelo && !vidjeno[s.Adresa] {
+			vidjeno[s.Adresa] = true
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 // SetPosta daje rukovatelju predloške stranice računa e-pošte i postavki poslužitelja
@@ -169,6 +184,7 @@ func (h *AktiHandler) slanjeZaStranicu(r *http.Request, s *service.AktService, p
 		return nil
 	}
 	d := &SlanjeData{Podesena: s.PostaPodesena(r.Context()), Posluzitelj: s.PostaPosluzitelj(r.Context()), SmijeSlati: s.SmijeSlati(perms, u, a), SpremaPoslano: s.PostaSpremaPoslano(r.Context())}
+	d.Zabrana = service.ZabranaSlanja(a)
 	d.Adresati, d.BezAdrese, d.Slanja = s.AdresatiAkta(r.Context(), a)
 	for _, x := range d.Adresati {
 		if !x.Poslano() {

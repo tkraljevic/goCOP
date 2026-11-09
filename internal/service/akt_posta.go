@@ -422,6 +422,24 @@ func posaljiJednu(ctx context.Context, pp posta.Postavke, r posta.Racun, m posta
 	return err
 }
 
+// Poništen akt i akt čiji elektronički potpis ne vrijedi ne šalju se, ni
+// probno (Odluke (6. 11. 2026.)). Akt bez potpisa (stari akti) i dalje se šalje.
+var (
+	ErrPonistenSeNeSalje = errors.New("akt je poništen i više se ne šalje; ako treba ispravak, izdaje se novi akt")
+	ErrPotpisNeVrijedi   = errors.New("akt se ne može poslati jer elektronički potpis ne vrijedi; prvo treba provjeriti akt")
+)
+
+// ZabranaSlanja javlja zašto se ovjeren akt ne smije slati, ili nil kad smije
+func ZabranaSlanja(a *models.Akt) error {
+	if a.Storniran() {
+		return ErrPonistenSeNeSalje
+	}
+	if ProvjeriPotpis(a) == PotpisNeVrijedi {
+		return ErrPotpisNeVrijedi
+	}
+	return nil
+}
+
 // Adresat je jedna adresa primatelja "na znanje"
 type Adresat struct {
 	Naziv, Skupina, Adresa string
@@ -486,6 +504,9 @@ func (s *AktService) PosaljiNaZnanje(ctx context.Context, perms *models.UserPerm
 	}
 	if !a.Ovjeren() {
 		return nil, fmt.Errorf("akt se šalje tek kad je ovjeren")
+	}
+	if err := ZabranaSlanja(a); err != nil {
+		return nil, err
 	}
 	if !s.SmijeSlati(perms, u, a) {
 		return nil, fmt.Errorf("%w: akt šalje onaj tko ga smije ovjeriti ili dežurni operater u COP-u sektora %s", ErrUnauthorized, a.Sektor)
