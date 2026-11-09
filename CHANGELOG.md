@@ -4,6 +4,51 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.55-alfa — 9. 11. 2026.
+
+Dokumenti su u novom izgledu, od vodočuvarskog dnevnika i prijava s terena do
+akata. Akt je uvijek za jedno branjeno područje, a poništen akt više se ne
+šalje. Baza i razmjena se ne mijenjaju. Računala na kojima se sastavljaju i
+šalju akti treba nadograditi prva, a ostala kad odgovara.
+
+- **Dokumenti, novi izgled.** Ulaz je složen u skupine Obrana, Teren, Usluge i
+  Kronologija. Vodočuvar na mobitelu ima Moju knjigu s gumbom „Današnji list”,
+  jednostavniji obrazac dnevnog lista, predan list kao karticu za čitanje i
+  kalendar kao popis dana. Preneseni list više nema praznih redaka ni obrasca.
+  Rukovoditelj ovjeru, parafu i upis ima u ploči uz list, a Knjige vodočuvara
+  su kartice. Prijave s terena imaju novi popis, obrazac s kartom na vrhu i
+  stranicu prijave u dva stupca. Stanje lista piše se „čeka ovjeru” i
+  „ovjeren”. Imena polja, adrese i prava su ista kao prije.
+- **Akti, novi izgled.** Popis Rješenja i obavijesti ima čipove sektora i
+  stanja, a redak otvara akt. Novi akt je jedna stranica: uz letvu je kartica sa
+  zadnjim vodostajem i pragovima, a promjena letve ne briše radnju, stupanj,
+  „Vrijedi od”, prognozu ni napomenu. Na stranici akta tekst stoji lijevo, a
+  ovjera, slanje i poništenje desno, s koracima Nacrt, Ovjera i Slanje. Ono što
+  treba vidjeti prvo stoji u traci na vrhu, a preko poništenog akta žig
+  PONIŠTEN.
+- **Akt za jedno branjeno područje.** Obavijest i rješenje više ne mogu
+  obuhvatiti dionice dvaju područja. Kad je letva mjerodavna za dva područja,
+  kao Batina za BP 16 i BP 34, na obrascu se bira područje, a za svako se
+  izdaje zaseban akt. Prekid se veže samo na akt istog područja, a primatelji
+  su samo iz područja akta.
+- **Poništen akt se ne šalje.** Poništen akt i akt čiji elektronički potpis ne
+  vrijedi ne šalju se, ni probno. Na poništenom aktu stoji popis adresa na koje
+  je otišao prije poništenja. Ako akt treba ispraviti, izdaje se novi akt, a
+  inače dežurni primateljima javlja običnom e-poštom.
+- **Primatelji.** Služba upisana i u registru primatelja sektora i u službama
+  po županijama, s različitim adresama, na papiru akta stoji jednom, a akt ide
+  na obje adrese.
+- **Očitanja.** Popis uz letvu stiže brže i stranica letve više ne skače kad se
+  popis učita.
+- **Prognoze.** Upozorenja uz prognozu napisana su običnim riječima, umjesto
+  dugog niza letvi i sati u jednoj rečenici.
+- **Obrazac letve.** Spremanje više ne briše opis uz najviši zabilježeni
+  vodostaj, npr. „(14.6.2013.)”, i ne zaokružuje koordinate ni kote nule.
+- **Vodočuvarski dnevnik.** Zadatak zadan između ponoći i 2 sata više ne nosi
+  jučerašnji datum.
+- **Prognoza, za stručnjake.** Račun nove letve namješta se iz zapisa, i uz
+  kratak niz mjerenja, a za mjeru njegove točnosti stranica još ne postoji.
+
 ## 0.0.54-alfa — 7. 11. 2026.
 
 Bednja, Karašica i Vučica više ne mogu zaustaviti prognozu, a program ima
