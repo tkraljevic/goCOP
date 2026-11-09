@@ -38,33 +38,43 @@ func TestSluzbeZupanijeNaAktu(t *testing.T) {
 		{Vrsta: models.SluzbaPolicijskaPost, Naziv: "PP druge općine", MunicipalityID: 7},
 		{Vrsta: models.SluzbaCivilnaZastita, Naziv: "Civilna zaštita"},
 	}
-	p := &slaganjePrimatelja{vidjeno: map[string]bool{}}
+	p := &slaganjePrimatelja{vidjeno: map[string]int{}}
 	dodajSluzbeZupanije(sluzbe, models.PhasePrep, map[int]bool{8: true}, p)
 	if got, want := naziviPrimatelja(p.popis), "Civilna zaštita; – Centar 112; PU prva; PU druga; PP ugrožene općine"; got != want {
 		t.Errorf("službe pripremnog stanja:\n%s\nželjeno:\n%s", got, want)
 	}
-	p = &slaganjePrimatelja{vidjeno: map[string]bool{}}
+	p = &slaganjePrimatelja{vidjeno: map[string]int{}}
 	dodajSluzbeZupanije(sluzbe, models.PhaseState, map[int]bool{8: true}, p)
 	if got := naziviPrimatelja(p.popis); !strings.Contains(got, "Stožer CZ") || strings.Contains(got, "Vatrogasna") {
 		t.Errorf("službe izvanrednog stanja: %s", got)
 	}
 	// bez civilne zaštite na popisu 112 nije podstavka
-	p = &slaganjePrimatelja{vidjeno: map[string]bool{}}
+	p = &slaganjePrimatelja{vidjeno: map[string]int{}}
 	dodajSluzbeZupanije([]models.Sluzba{{Vrsta: models.SluzbaCentar112, Naziv: "Centar 112"}}, models.PhasePrep, nil, p)
 	if got := naziviPrimatelja(p.popis); got != "Centar 112" {
 		t.Errorf("112 bez civilne zaštite: %s", got)
 	}
 }
 
-// Primatelj bez naziva se ne dodaje, a isti naziv i adresa samo jednom
+// Primatelj bez naziva se ne dodaje, a isti naziv samo jednom. Namjerna
+// izmjena testa (9. 11. 2026.): isti naziv s drugom adresom više nije drugi
+// redak, nego druga adresa istog primatelja, pa ista služba upisana u registru
+// sektora i u službama županije na papiru stoji jednom, a akt ide na obje
+// adrese.
 func TestDodajPrimateljaJednom(t *testing.T) {
-	p := &slaganjePrimatelja{vidjeno: map[string]bool{}}
+	p := &slaganjePrimatelja{vidjeno: map[string]int{}}
 	p.dodaj(models.SkupinaOsobe, "  ", "x@primjer.hr")
-	p.dodaj(models.SkupinaOsobe, "Pero Perić", "pero@primjer.hr")
-	p.dodaj(models.SkupinaOsobe, "PERO PERIĆ ", "pero@primjer.hr")
 	p.dodaj(models.SkupinaOsobe, "Pero Perić", "")
-	if got := naziviPrimatelja(p.popis); got != "Pero Perić; Pero Perić" {
+	p.dodaj(models.SkupinaOsobe, "Pero Perić", "pero@primjer.hr")
+	p.dodaj(models.SkupinaOsobe, "PERO PERIĆ ", "PERO@primjer.hr")
+	p.dodaj(models.SkupinaSluzbe, "PU Primjerska", "pu@policija.test")
+	p.dodaj(models.SkupinaSluzbe, "PU Primjerska", "okc@mup.test")
+	p.dodaj(models.SkupinaSluzbe, "PU Primjerska", "")
+	if got := naziviPrimatelja(p.popis); got != "Pero Perić; PU Primjerska" {
 		t.Errorf("popis: %s", got)
+	}
+	if p.popis[0].Email != "pero@primjer.hr" || p.popis[1].Email != "pu@policija.test; okc@mup.test" {
+		t.Errorf("adrese: %q, %q", p.popis[0].Email, p.popis[1].Email)
 	}
 }
 
