@@ -352,16 +352,11 @@ func TestSimulacijaNeVidiPravuMrezu(t *testing.T) {
 		t.Errorf("pronalaženje simulacije: %+v (%v)", nadjeni, err)
 	}
 
-	zauzet, err := net.ListenPacket("udp4", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	sim.ports.Discovery = zauzet.LocalAddr().(*net.UDPAddr).Port
-	zauzet.Close()
+	sim.uticnicaGlasnika, sim.ports.Discovery = otvoriUticnicuGlasnika(t)
 	ctx, otkazi := context.WithCancel(ctxRub)
 	t.Cleanup(otkazi)
 	go func() {
-		_ = sim.Announce(ctx) // staje kad test završi; port koji se ne otvori test vidi kao šutnju
+		_ = sim.Announce(ctx) // staje kad test završi
 	}()
 	if b, ok := javljaSe(t, sim.ports.Discovery, "gocop-sim", 50); !ok || b.Protocol != "gocop-sim" || b.DeviceID != "laptop-sim" {
 		t.Errorf("simulacija se na probu simulacije javlja s %+v (%v)", b, ok)

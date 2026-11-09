@@ -53,6 +53,13 @@ func Announce(ctx context.Context, protocol string, port int, info func() Beacon
 	if err != nil {
 		return err
 	}
+	return AnnounceOn(ctx, conn, protocol, info)
+}
+
+// AnnounceOn je Announce na utičnici koju je pozivatelj već otvorio, a
+// zatvori je kad stane. Test tako drži port od izbora do kraja, pa ga u
+// međuvremenu ne može uzeti drugi proces (kao ServeExchangeOn).
+func AnnounceOn(ctx context.Context, conn net.PacketConn, protocol string, info func() Beacon) error {
 	return glasnik(ctx, conn, protocol, info, novaOgradaGlasnika(vlastiteMreze))
 }
 

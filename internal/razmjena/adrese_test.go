@@ -86,6 +86,25 @@ func TestGlasnikNaZauzetomPortu(t *testing.T) {
 	}
 }
 
+// Glasnik na slobodnom portu (0: bira ga sustav, pa ga nitko ne može uzeti
+// prije) radi dok traje ctx, a s njegovim krajem stane bez greške.
+func TestGlasnikStaneSKrajemRada(t *testing.T) {
+	ctx, otkazi := context.WithCancel(context.Background())
+	kraj := make(chan error, 1)
+	go func() {
+		kraj <- Announce(ctx, "gocop-proba", 0, func() Beacon { return Beacon{DeviceID: "laptop-baranja"} })
+	}()
+	otkazi()
+	select {
+	case err := <-kraj:
+		if err != nil {
+			t.Errorf("glasnik je stao greškom: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("glasnik nije stao s krajem rada")
+	}
+}
+
 // Zastavica uparivanja koja ne kaže ispravan port ne vrijedi; svježa
 // zastavica vrijedi i bez provjere porta (ceremonija još podiže utičnicu).
 func TestZastavicaUparivanja(t *testing.T) {

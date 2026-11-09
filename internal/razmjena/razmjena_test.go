@@ -308,14 +308,20 @@ func TestServeExchangeReportsATakenPort(t *testing.T) {
 // Discovery over loopback: the announcer answers only its own protocol,
 // and the address reported is where the answer came from.
 func TestDiscoveryAnswersOnlyItsOwnProtocol(t *testing.T) {
-	port := freePort(t)
+	// utičnicu drži test od početka: port koji bi oslobodio da ga glasnik
+	// zauzme mogao bi u tom razmaku uzeti drugi proces
+	conn, err := net.ListenPacket("udp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	port := conn.LocalAddr().(*net.UDPAddr).Port
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go Announce(ctx, "testproto", port, func() Beacon {
-		return Beacon{DeviceID: "dev-1", Name: "laptop", ExchangePort: 4610}
-	})
-	time.Sleep(100 * time.Millisecond)
+	info := func() Beacon { return Beacon{DeviceID: "dev-1", Name: "laptop", ExchangePort: 4610} }
+	go func() {
+		_ = AnnounceOn(ctx, conn, "testproto", info) // staje s krajem testa; šutnju vide provjere ispod
+	}()
 
 	found, err := Discover("testproto", 500*time.Millisecond, port)
 	if err != nil {
