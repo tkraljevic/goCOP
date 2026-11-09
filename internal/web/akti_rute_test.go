@@ -181,6 +181,7 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 		"zadnji ovjereni, neprekinuti istog stupnja", "nema ovjerenog akta o uspostavi koji je još na snazi",
 		`data-stupanj="IZVANREDNA"><span class="akt-bez-skripte">Izvanredna obrana: </span>Rukovoditelj obrane od poplava Sektora B ili viši. Rukovoditelj branjenog područja izvanrednu obranu ne ovjerava.</p>`)
 	promjenaLetve(t, stationRepo, baza, st, zovi, mora)
+	dvaPodrucja(t, stationRepo, baza, st, zovi, mora)
 	mora(zovi(http.MethodGet, "/akti/spranca?sektor=B", nil), "špranca", "Pravna osnova", "XXIII", "N.N. br. 84/10", "Vrati zadano")
 
 	// špranca: izdanje Glavnog provedbenog plana iz 2025.

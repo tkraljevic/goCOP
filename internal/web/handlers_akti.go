@@ -334,6 +334,59 @@ func (d AktiPageData) PodrucjaLetve() []models.Area {
 	return out
 }
 
+// PodrucjeIzbora je branjeno područje letve u izboru na obrascu akta (crtež
+// „Novi akt · letva za dva BP-a”): naziv, oznaka akta o uspostavi koji u
+// njemu po letvi već vrijedi i je li izabrano
+type PodrucjeIzbora struct {
+	models.Area
+	NaSnazi string
+	Izabran bool
+}
+
+// PodrucjaIzbora su područja letve za izbor na obrascu. Izabrano je ono iz
+// unosa, inače prvo bez akta na snazi, inače prvo (Odluke (9. 11. 2026.):
+// akt je uvijek za jedno područje).
+func (d AktiPageData) PodrucjaIzbora() []PodrucjeIzbora {
+	var out []PodrucjeIzbora
+	for _, p := range d.PodrucjaLetve() {
+		x := PodrucjeIzbora{Area: p}
+		if i := slices.IndexFunc(d.ZaPrekid, func(a models.Akt) bool { return a.AreaID == p.ID }); i >= 0 {
+			x.NaSnazi = d.ZaPrekid[i].Oznaka()
+		}
+		out = append(out, x)
+	}
+	izabrano := slices.IndexFunc(out, func(x PodrucjeIzbora) bool { return x.ID == d.Unos.Podrucje })
+	if izabrano < 0 {
+		izabrano = max(0, slices.IndexFunc(out, func(x PodrucjeIzbora) bool { return x.NaSnazi == "" }))
+	}
+	if len(out) > 0 {
+		out[izabrano].Izabran = true
+	}
+	return out
+}
+
+// IzabranoPodrucje je broj izabranog područja na obrascu; 0 bez letve
+func (d AktiPageData) IzabranoPodrucje() int {
+	for _, p := range d.PodrucjaIzbora() {
+		if p.Izabran {
+			return p.ID
+		}
+	}
+	return 0
+}
+
+// PodrucjaNaSnazi je rečenica uz izbor područja: u kojem području po letvi
+// već vrijedi akt o uspostavi, npr. „Za BP 34 već vrijedi B-7/2026.”
+func (d AktiPageData) PodrucjaNaSnazi() string {
+	var dijelovi []string
+	for _, p := range d.PodrucjaIzbora() {
+		if p.NaSnazi != "" {
+			dijelovi = append(dijelovi, "Za "+models.Terms().Get("bp")+" "+strconv.Itoa(p.ID)+" već vrijedi "+p.NaSnazi+".")
+		}
+	}
+	return strings.Join(dijelovi, " ")
+}
+
 // OvjeraStupnja je rečenica „Tko ovjerava” za jedan stupanj obrane
 type OvjeraStupnja struct {
 	Stupanj models.DefensePhase
@@ -374,6 +427,7 @@ func obrazacVrijedi(q url.Values, data *AktiPageData) {
 // očitanje i akt za prekid pripadaju letvi, pa se uz drugu letvu slože iznova.
 type UnosObrasca struct {
 	Zadrzan      bool
+	Podrucje     int
 	Dionice      []string
 	OcitanjeID   string
 	Tendencija   string
@@ -390,6 +444,7 @@ func unosObrasca(q url.Values) UnosObrasca {
 		return u
 	}
 	u.Zadrzan, u.Dionice, u.OcitanjeID = true, q["dionica"], q.Get("ocitanje_id")
+	u.Podrucje, _ = strconv.Atoi(q.Get("podrucje")) // bez broja područje se bira iznova
 	u.Tendencija, u.PrekidaAktID = q.Get("tendencija"), q.Get("prekida_akt_id")
 	return u
 }
@@ -417,7 +472,7 @@ func natragNaObrazac(natrag string, r *http.Request, err error) string {
 		return natrag
 	}
 	q := url.Values{"vrijedi": {r.FormValue("vrijedi")}, "potvrdi": {"vrijedi"}, "dionica": r.Form["dionica"]}
-	for _, k := range []string{"ocitanje_id", "tendencija", "prekida_akt_id", "prognoza", "napomena"} {
+	for _, k := range []string{"podrucje", "ocitanje_id", "tendencija", "prekida_akt_id", "prognoza", "napomena"} {
 		q.Set(k, r.FormValue(k))
 	}
 	return natrag + "&" + q.Encode()
@@ -469,6 +524,7 @@ func (h *AktiHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		OcitanjeID: r.FormValue("ocitanje_id"), Tendencija: r.FormValue("tendencija"), PrekidaAktID: r.FormValue("prekida_akt_id"),
 		PotvrdaVrijedi: r.FormValue("potvrda_vrijedi") == "1",
 	}
+	z.Podrucje, _ = strconv.Atoi(r.FormValue("podrucje")) // bez broja servis traži izbor kad letva ima više područja
 	if t, err := time.ParseInLocation("2006-01-02T15:04", r.FormValue("vrijedi"), models.Zagreb); err == nil {
 		z.Vrijedi = t
 	}
