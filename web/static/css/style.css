@@ -8693,3 +8693,13 @@ summary.ocitanja-cip { padding-right: 8px; }
 @media print {
   .prijava-terena .prijava-radnja, .prijava-ukloni { display: none; }
 }
+
+/* Izbor branjenog područja na obrascu akta (goCOP-m3, 15 · Dokumenti, „Novi
+   akt · letva za dva BP-a”): čipovi iznad dionica, izabrani tonski s
+   kvačicom. Radio gumb ostaje za tipkovnicu i čitač zaslona, ali se ne vidi. */
+.akt-podrucja { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 8px; }
+.akt-podrucje-cip { min-height: 32px; padding: 0 16px; font-size: 0.875rem; cursor: pointer; white-space: normal; }
+.akt-podrucje-cip input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.akt-podrucje-cip:has(input:checked) { border-color: transparent; background: var(--md-sys-color-ploha-odabrano); color: var(--md-sys-color-naplohi-odabrano); }
+.akt-podrucje-cip:has(input:checked)::before { content: "✓"; margin-right: 8px; }
+.akt-podrucje-cip:has(input:focus-visible) { outline: 2px solid var(--md-sys-color-primary); outline-offset: 2px; }
