@@ -251,6 +251,12 @@ type Service struct {
 	// objavi je glasnik pronalaženja (Announce); nil je razmjena.Announce.
 	// Test njime glumi glasnika koji padne.
 	objavi func(ctx context.Context) error
+	// uticnicaGlasnika je UDP utičnica glasnika; nil je port pronalaženja iz
+	// Ports. Test njome daje utičnicu koju je sam otvorio, kao slusalica:
+	// port koji test oslobodi da bi ga glasnik zauzeo može u tom razmaku
+	// uzeti drugi proces (make quality, 9. 11. 2026.). Glasnik je zatvori
+	// kad stane.
+	uticnicaGlasnika net.PacketConn
 	// slusalica prima razmjene (Serve); nil je TCP port razmjene iz Ports.
 	// Test njome daje slušalicu koju je sam otvorio, pa port od izbora do
 	// kraja testa ne može uzeti nitko drugi.

@@ -57,10 +57,14 @@ func razmakGlasnika(prosli, trajao time.Duration) time.Duration {
 	return min(2*prosli, najduljeDoGlasnika)
 }
 
-// glasnik je jedan život glasnika (s.objavi, inače razmjena.Announce)
+// glasnik je jedan život glasnika (s.objavi, inače razmjena.Announce na
+// utičnici testa ili na portu pronalaženja)
 func (s *Service) glasnik(ctx context.Context) error {
-	if s.objavi != nil {
+	switch {
+	case s.objavi != nil:
 		return s.objavi(ctx)
+	case s.uticnicaGlasnika != nil:
+		return razmjena.AnnounceOn(ctx, s.uticnicaGlasnika, s.protokol(), s.beacon)
 	}
 	return razmjena.Announce(ctx, s.protokol(), s.ports.Discovery, s.beacon)
 }

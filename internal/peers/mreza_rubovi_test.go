@@ -11,6 +11,7 @@ import (
 	"crypto/ed25519"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -322,12 +323,7 @@ func TestJavljanjeNaLokalnojMrezi(t *testing.T) {
 	s := rubniCvor(t, "cop-osijek")
 	s.node.Name = "COP Osijek"
 	s.ports = Ports{Exchange: 4710, Pair: 4711}
-	zauzet, err := net.ListenPacket("udp4", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	s.ports.Discovery = zauzet.LocalAddr().(*net.UDPAddr).Port
-	zauzet.Close()
+	s.uticnicaGlasnika, s.ports.Discovery = otvoriUticnicuGlasnika(t)
 	ctx, otkazi := context.WithCancel(ctxRub)
 	stalo := make(chan error, 1)
 	go func() { stalo <- s.Announce(ctx) }()
@@ -384,6 +380,39 @@ func TestJavljanjeNaLokalnojMrezi(t *testing.T) {
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("javljanje nije stalo")
+	}
+}
+
+// otvoriUticnicuGlasnika otvara UDP utičnicu na petlji za glasnika u testu i
+// vraća je s njezinim portom. Utičnica ostaje otvorena dok je glasnik ne
+// zatvori: port koji bi test oslobodio da ga glasnik zauzme mogao bi u tom
+// razmaku uzeti drugi proces, i glasnik onda ne bi odgovorio.
+func otvoriUticnicuGlasnika(t *testing.T) (net.PacketConn, int) {
+	t.Helper()
+	conn, err := net.ListenPacket("udp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = conn.Close() }) // glasnik je obično već zatvorio
+	return conn, conn.LocalAddr().(*net.UDPAddr).Port
+}
+
+// Bez utičnice testa glasnik sluša na portu pronalaženja iz Ports: na portu
+// koji je zauzet stane i javi grešku s tim portom (Announce ga onda ponovno
+// pokrene).
+func TestGlasnikSlusaNaPortuPronalazenja(t *testing.T) {
+	s := rubniCvor(t, "cop-osijek")
+	zauzet, err := net.ListenPacket("udp4", ":0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer zauzet.Close()
+	s.ports.Discovery = zauzet.LocalAddr().(*net.UDPAddr).Port
+	// rok samo da test ne stoji ako bi port ipak bio slobodan
+	ctx, otkazi := context.WithTimeout(ctxRub, 5*time.Second)
+	defer otkazi()
+	if err := s.glasnik(ctx); err == nil || !strings.Contains(err.Error(), fmt.Sprintf(":%d", s.ports.Discovery)) {
+		t.Errorf("glasnik na zauzetom portu %d: %v", s.ports.Discovery, err)
 	}
 }
 
