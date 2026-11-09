@@ -456,13 +456,14 @@ type UnosObrasca struct {
 // unosObrasca čita unos iz adrese: prognozu i napomenu uvijek, a ostalo
 // samo iz povratka na obrazac s pitanjem
 func unosObrasca(q url.Values) UnosObrasca {
-	u := UnosObrasca{Prognoza: q.Get("prognoza"), Napomena: q.Get("napomena")}
+	u := UnosObrasca{Prognoza: q.Get("prognoza"), Napomena: q.Get("napomena"), PrekidaAktID: q.Get("prekida_akt_id")}
+	// područje i akt za prekid nosi i novi akt umjesto poništenog
+	u.Podrucje, _ = strconv.Atoi(q.Get("podrucje")) // bez broja područje se bira iznova
 	if q.Get("potvrdi") != "vrijedi" {
 		return u
 	}
 	u.Zadrzan, u.Dionice, u.OcitanjeID = true, q["dionica"], q.Get("ocitanje_id")
-	u.Podrucje, _ = strconv.Atoi(q.Get("podrucje")) // bez broja područje se bira iznova
-	u.Tendencija, u.PrekidaAktID = q.Get("tendencija"), q.Get("prekida_akt_id")
+	u.Tendencija = q.Get("tendencija")
 	return u
 }
 
@@ -493,6 +494,22 @@ func natragNaObrazac(natrag string, r *http.Request, err error) string {
 		q.Set(k, r.FormValue(k))
 	}
 	return natrag + "&" + q.Encode()
+}
+
+// NoviUmjestoPonistenog je adresa obrasca za akt koji ispravlja poništen akt:
+// ista letva, radnja, stupanj, područje i akt za prekid, a u napomeni piše
+// koji akt zamjenjuje (Odluke (9. 11. 2026.))
+func (d AktiPageData) NoviUmjestoPonistenog() string {
+	a := d.Akt
+	if a == nil || !a.Storniran() {
+		return ""
+	}
+	q := url.Values{"station": {a.StationID}, "radnja": {a.Radnja}, "stupanj": {string(a.Stupanj)},
+		"podrucje": {strconv.Itoa(a.AreaID)}, "napomena": {models.RecenicaZamjene(*a)}}
+	if a.PrekidaAktID != "" {
+		q.Set("prekida_akt_id", a.PrekidaAktID)
+	}
+	return "/akti/novi?" + q.Encode()
 }
 
 // ObranaSektora je način rada sektora za stranice akata: otvoren dnevnik

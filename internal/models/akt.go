@@ -342,6 +342,16 @@ func (a Akt) KratkiNaslov() string {
 }
 
 // Oznaka je kratka oznaka akta: sektor, redni broj i godina; nacrt je bez broja
+// RecenicaZamjene je napomena novog akta koji ispravlja poništen akt: ispravak
+// ide novim aktom, a u njemu piše koji akt zamjenjuje (Odluke (9. 11. 2026.))
+func RecenicaZamjene(p Akt) string {
+	s := "Ovim aktom zamjenjuje se akt " + p.Oznaka()
+	if p.OvjerenoAt != nil {
+		s += " od " + p.OvjerenoAt.In(Zagreb).Format("2. 1. 2006.")
+	}
+	return s + ", koji je poništen i ne vrijedi."
+}
+
 func (a Akt) Oznaka() string {
 	if a.Broj == 0 {
 		return "nacrt"
