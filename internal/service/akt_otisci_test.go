@@ -63,6 +63,26 @@ func TestProvjeraPotpisaAkta(t *testing.T) {
 			t.Errorf("%s: %s, želi %s", x.opis, got, x.zeli)
 		}
 	}
+
+	// Ne šalju se nacrt, poništen akt ni akt čiji potpis ne vrijedi; akt bez
+	// potpisa (stari akti) šalje se (Odluke (6. 11. 2026.))
+	for _, x := range []struct {
+		opis string
+		akt  *models.Akt
+		zeli error
+	}{
+		{"ispravan potpis", potpisan(nil), nil},
+		{"bez potpisa", potpisan(func(a *models.Akt) { a.Potpis = "" }), nil},
+		{"poništen", potpisan(func(a *models.Akt) { a.Storno = &models.StornoAkta{Razlog: "Nije trebao biti izdan."} }), service.ErrPonistenSeNeSalje},
+		{"potpis ne vrijedi", potpisan(func(a *models.Akt) { a.Stupanj = models.PhaseRegular }), service.ErrPotpisNeVrijedi},
+	} {
+		if err := service.ZabranaSlanja(x.akt); !errors.Is(err, x.zeli) {
+			t.Errorf("slanje, %s: %v, želi %v", x.opis, err, x.zeli)
+		}
+	}
+	if err := service.ZabranaSlanja(&models.Akt{Status: models.AktNacrt}); err == nil || !strings.Contains(err.Error(), "tek kad je ovjeren") {
+		t.Errorf("slanje nacrta: %v", err)
+	}
 }
 
 // Sken vlastoručnog potpisa sprema samo prijavljena osoba, šifriran ključem

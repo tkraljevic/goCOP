@@ -429,8 +429,11 @@ var (
 	ErrPotpisNeVrijedi   = errors.New("akt se ne može poslati jer elektronički potpis ne vrijedi; prvo treba provjeriti akt")
 )
 
-// ZabranaSlanja javlja zašto se ovjeren akt ne smije slati, ili nil kad smije
+// ZabranaSlanja javlja zašto se akt ne smije slati, ili nil kad smije
 func ZabranaSlanja(a *models.Akt) error {
+	if !a.Ovjeren() {
+		return errors.New("akt se šalje tek kad je ovjeren")
+	}
 	if a.Storniran() {
 		return ErrPonistenSeNeSalje
 	}
@@ -501,9 +504,6 @@ func (s *AktService) PosaljiNaZnanje(ctx context.Context, perms *models.UserPerm
 	}
 	if a == nil {
 		return nil, fmt.Errorf("akt ne postoji")
-	}
-	if !a.Ovjeren() {
-		return nil, fmt.Errorf("akt se šalje tek kad je ovjeren")
 	}
 	if err := ZabranaSlanja(a); err != nil {
 		return nil, err

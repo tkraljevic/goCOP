@@ -39,9 +39,12 @@ func nePrimaNista(t *testing.T, ctx context.Context, repo *repository.AktiReposi
 		}
 	}
 
-	a, _ := akti.Get(ctx, id)
+	a, err := akti.Get(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
 	izvorni := *a
-	_, drugi, _ := ed25519.GenerateKey(nil)
+	drugi := ed25519.NewKeyFromSeed(make([]byte, ed25519.SeedSize))
 	a.Potpis = base64.StdEncoding.EncodeToString(ed25519.Sign(drugi, a.PorukaPotpisa()))
 	spremi(a)
 	if p := service.ProvjeriPotpis(a); p != service.PotpisNeVrijedi {
