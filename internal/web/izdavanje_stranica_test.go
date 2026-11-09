@@ -1,6 +1,7 @@
 package web
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -314,8 +315,8 @@ func TestObrazacDioniceNudiSljedecu(t *testing.T) {
 }
 
 // Dnevnici se ne miješaju: dežurni zapisnik COP-a i dnevnik usluge održavanja
-// nemaju isti sadržaj ni istog voditelja. Razdjelnica ih dijeli karticama, kao
-// na Administraciji.
+// nemaju isti sadržaj ni istog voditelja. Razdjelnica ih dijeli u skupine
+// Obrana, Teren, Usluge i Kronologija, a naslov piše u gornjoj traci.
 func TestRazdjelnicaDnevnikaDijeliTriVrste(t *testing.T) {
 	html := iscrtaj(t, "dnevnici_izbor.html", JournalPageData{
 		CurrentUser: &models.User{FullName: "P", IsGlobalAdmin: true},
@@ -323,27 +324,55 @@ func TestRazdjelnicaDnevnikaDijeliTriVrste(t *testing.T) {
 		BrojCOP:     13, BrojA02: 2, BrojIzvjesca: 4, CitaCOP: true,
 	})
 	for _, want := range []string{
-		"</svg> Dokumenti</h1>", "Dnevnici COP-a", "Dnevna izvješća", "Dnevnici usluga A.02", "Dnevnici usluga A.03",
-		"/dnevnici/popis?vrsta=OBRANA", "/izvjesca", "/dnevnici/popis?vrsta=ODRZAVANJE_A02", "/dnevnici/popis?vrsta=ODRZAVANJE_A03",
-		"operateri", ">13<", ">4<", "Rješenja i obavijesti", "/akti", "Vodočuvarski dnevnik", "/vodocuvar",
+		`data-naziv-stranice="Dokumenti"`, "Dnevnik COP-a", "Plan dežurstava", "Dnevna izvješća", "Dnevnik usluga A.02", "Dnevnik usluga A.03",
+		"/dnevnici/popis?vrsta=OBRANA", "/dnevnici/popis?vrsta=DEZURSTVA", "/izvjesca", "/dnevnici/popis?vrsta=ODRZAVANJE_A02", "/dnevnici/popis?vrsta=ODRZAVANJE_A03",
+		"zapisnik centra", ">13<", ">4<", "Rješenja i obavijesti", "/akti", "Vodočuvarski dnevnik", "/vodocuvar", "/prijave", "/dogadjanja",
+		">Obrana</h3>", ">Teren</h3>", ">Usluge</h3>", ">Kronologija</h3>",
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("razdjelnica nema %q", want)
 		}
 	}
-	// Svaka kartica ima ikonu, kao i na Administraciji: COP, dežurstva,
-	// izvješća, događanja, vodočuvarski dnevnik, akti, A.02, A.03.
-	if n := strings.Count(html, "dash-card-icon-box"); n != 9 {
-		t.Errorf("ikona na %d kartica, a ima ih devet", n)
+	for _, nesmije := range []string{"Dnevnici usluga", "page-title", "Za riješiti"} {
+		if strings.Contains(html, nesmije) {
+			t.Errorf("razdjelnica ima %q", nesmije)
+		}
 	}
-	// Strojar i skladištar vodočuvarski dnevnik ne vide uopće
+	// Svaki od devet redaka ima ikonu: akti, COP, dežurstva, izvješća,
+	// vodočuvarski dnevnik, prijave, A.02, A.03 i događanja.
+	if n := len(regexp.MustCompile(`<a class="redak"[^>]*>\s*<svg`).FindAllString(html, -1)); n != 9 {
+		t.Errorf("ikona na %d redaka, a ima ih devet", n)
+	}
+	// Broj stoji samo uz COP, dežurstva, izvješća, A.02 i A.03, kao dosad.
+	if n := strings.Count(html, `class="redak-vrijednost"`); n != 5 {
+		t.Errorf("brojeva na razdjelnici: %d, a ima ih pet", n)
+	}
+	// Tko ne čita dnevnike COP-a, ne vidi ni njih ni plan dežurstava, a
+	// skupina Obrana ostaje zbog akata i izvješća.
+	bezCOP := iscrtaj(t, "dnevnici_izbor.html", JournalPageData{
+		CurrentUser: &models.User{FullName: "P", Duties: []models.Duty{{Role: models.RoleServiceLeaderForeman, IsActive: true}}},
+		Permissions: &models.UserPermissions{},
+	})
+	for _, nesmije := range []string{"vrsta=OBRANA", "vrsta=DEZURSTVA"} {
+		if strings.Contains(bezCOP, nesmije) {
+			t.Errorf("osoba bez dnevnika COP-a vidi %q", nesmije)
+		}
+	}
+	if !strings.Contains(bezCOP, ">Obrana</h3>") || !strings.Contains(bezCOP, "/izvjesca") {
+		t.Error("osoba bez dnevnika COP-a nema skupinu Obrana")
+	}
+	// Strojar i skladištar vodočuvarski dnevnik ne vide uopće, pa nestaje
+	// i skupina Teren
 	for _, uloga := range []models.Role{models.RoleMachinist, models.RoleWarehouseKeeper} {
 		html := iscrtaj(t, "dnevnici_izbor.html", JournalPageData{
 			CurrentUser: &models.User{FullName: "P", Duties: []models.Duty{{Role: uloga, IsActive: true}}},
 			Permissions: &models.UserPermissions{},
 		})
 		if strings.Contains(html, "/vodocuvar") || strings.Contains(html, "/prijave") {
-			t.Errorf("%s vidi karticu vodočuvarskog dnevnika ili prijava", uloga)
+			t.Errorf("%s vidi redak vodočuvarskog dnevnika ili prijava", uloga)
+		}
+		if strings.Contains(html, ">Teren</h3>") {
+			t.Errorf("%s vidi praznu skupinu Teren", uloga)
 		}
 	}
 }
