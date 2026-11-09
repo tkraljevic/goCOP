@@ -141,6 +141,10 @@ func TestPrimateljiNacrtaKrozRute(t *testing.T) {
 		strings.Contains(w, "Ponovno složi primatelje") || strings.Contains(w, `name="otisak"`) {
 		t.Error("nacrt onome tko s njim ne radi: upozorenje da, radnje ne")
 	}
+	// u kartici Ovjera vidi tko nacrt ovjerava, ali „Još” s ispisom, ispravkom i brisanjem nema
+	if w := zovi(marko, markoOvl, http.MethodGet, "/akti/"+a.ID, nil).Body.String(); !strings.Contains(w, "Ovjerava: ") || strings.Contains(w, `aria-label="Još"`) {
+		t.Error("nacrt onome tko s njim ne radi: tko ovjerava da, „Još” ne")
+	}
 	// nacrt ne otvara tko ne radi u sektoru akta (Odluke (30. 10. 2026.), 12)
 	if w := zovi(marko, models.NewUserPermissions(*marko), http.MethodGet, "/akti/"+a.ID, nil); w.Code != http.StatusNotFound {
 		t.Errorf("nacrt drugog sektora: %d", w.Code)

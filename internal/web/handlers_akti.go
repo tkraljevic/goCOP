@@ -410,6 +410,15 @@ type OvjeraStupnja struct {
 	Tekst   string
 }
 
+// OvjeravaAkt je rečenica „Tko ovjerava” za stupanj i sektor ovog akta, u
+// kartici Ovjera na stranici nacrta
+func (d AktiPageData) OvjeravaAkt() string {
+	if d.Akt == nil {
+		return ""
+	}
+	return service.TkoOvjerava(d.Akt.Stupanj, d.Akt.Sektor)
+}
+
 // TkoOvjerava su rečenice „Tko ovjerava” za svaki stupanj koji obrazac
 // nudi, u sektoru akta (sektor prve dionice letve, kao i u pripremi akta).
 // Obrazac pokazuje onu za izabrani stupanj.
@@ -728,11 +737,12 @@ func (h *AktiHandler) HandleTekst(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := r.ParseForm(); err != nil {
-		redirectWith(w, r, "/akti/"+a.ID, "error", "Neispravan zahtjev")
+		redirectWith(w, r, "/akti/"+a.ID+"#uredi", "error", "Neispravan zahtjev")
 		return
 	}
+	// greška vraća na panel ispravka teksta, a uspjeh na stranicu akta
 	if _, err := s.UrediTekst(r.Context(), perms, u, a.ID, r.FormValue("uvod"), r.FormValue("izvan_snage"), r.FormValue("zavrsno"), r.FormValue("napomena")); err != nil {
-		redirectWith(w, r, "/akti/"+a.ID, "error", err.Error())
+		redirectWith(w, r, "/akti/"+a.ID+"#uredi", "error", err.Error())
 		return
 	}
 	redirectWith(w, r, "/akti/"+a.ID, "success", "Tekst nacrta je spremljen.")
@@ -902,7 +912,8 @@ func (h *AktiHandler) HandleUcitajSken(w http.ResponseWriter, r *http.Request) {
 	if a == nil {
 		return
 	}
-	natrag := "/akti/" + a.ID
+	// greška vraća na panel ispisa i skena, a ovjera na stranicu akta
+	natrag := "/akti/" + a.ID + "#ispis"
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
 		redirectWith(w, r, natrag, "error", "Odaberite sken potpisanog akta")
 		return
@@ -927,7 +938,7 @@ func (h *AktiHandler) HandleUcitajSken(w http.ResponseWriter, r *http.Request) {
 	if len(upozorenja) > 0 {
 		poruka += " Stanje obrane na dionicama: " + strings.Join(upozorenja, "; ")
 	}
-	redirectWith(w, r, natrag, "success", poruka)
+	redirectWith(w, r, "/akti/"+a.ID, "success", poruka)
 }
 
 // sektorIPodrucje su podaci sektora i branjenog područja za zaglavlje akta

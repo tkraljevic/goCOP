@@ -278,6 +278,11 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 		t.Error("vatrogasci ne idu na akt, a stožer tek od izvanrednog stanja")
 	}
 	mora(zovi(http.MethodGet, putanja, nil), "nacrt", `class="oznaka-stanja nacrt">nacrt</span>`, "NACRT", "RJEŠENJE", "izvanredne obrane od poplava", "652 cm", "s tendencijom daljnjeg porasta", "B.34.1", "Zeleni otok", "Ovjeri", "Obriši nacrt", "ožujak 2025.", "članka XXIV", "Ispravi tekst nacrta")
+	// ploča nacrta (crteži 4, 4k i 4e): kartica Ovjera kaže tko ovjerava, a ispis i sken,
+	// ispravak teksta i brisanje su paneli koji se otvaraju iz „Još”
+	mora(zovi(http.MethodGet, putanja, nil), "ploča nacrta", `<section class="list-kartica akt-ovjera" id="ovjera">`,
+		"Ovjerava: Rukovoditelj obrane od poplava Sektora B ili viši. Rukovoditelj branjenog područja izvanrednu obranu ne ovjerava.",
+		`id="ispis"`, `id="uredi"`, `id="brisanje"`, `<a href="#ovjera" class="akt-jos-ovjera">`, `<a href="#uredi">`, `<a href="#ispis">`, `<a href="#brisanje" class="opasno">`)
 	w = zovi(http.MethodPost, putanja+"/tekst", url.Values{"uvod": {a.Uvod + " i sukladno procjeni visokog stupnja ugroženosti,"}, "zavrsno": {a.Zavrsno}, "napomena": {"Probna napomena."}})
 	if !strings.Contains(w.Header().Get("Location"), "success") {
 		t.Fatalf("ispravak nacrta: %s", w.Header().Get("Location"))
@@ -362,8 +367,8 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	if w := zovi(http.MethodPost, putanja+"/ovjeri", url.Values{}); !strings.Contains(w.Header().Get("Location"), "error") {
 		t.Error("dvostruka ovjera bi trebala biti odbijena")
 	}
-	if w := zovi(http.MethodPost, putanja+"/tekst", url.Values{"uvod": {"x"}, "zavrsno": {"y"}}); !strings.Contains(w.Header().Get("Location"), "error") {
-		t.Error("ovjeren akt ne smije se ispravljati")
+	if l := zovi(http.MethodPost, putanja+"/tekst", url.Values{"uvod": {"x"}, "zavrsno": {"y"}}).Header().Get("Location"); !strings.Contains(l, "error") || !strings.HasSuffix(l, "#uredi") {
+		t.Errorf("ovjeren akt ne smije se ispravljati, a greška vraća na panel ispravka: %s", l)
 	}
 
 	// popis i pretraga
