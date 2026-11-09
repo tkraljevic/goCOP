@@ -70,6 +70,16 @@
     {{else}}<li class="{{if $slanjeGotovo}}gotov{{else if $a.Ovjeren}}sada{{end}}"{{if and $a.Ovjeren (not $slanjeGotovo)}} aria-current="step"{{end}}><span class="akt-korak-znak">{{if $slanjeGotovo}}{{icon "check"}}{{else}}3{{end}}</span> Slanje</li>{{end}}
   </ol>
 
+  {{with $a.Storno}}
+  {{/* Kartica Poništenje (crtež 4b): ispravak ide novim aktom, koji u napomeni kaže koji akt zamjenjuje (Odluke (9. 11. 2026.)). */}}
+  <section class="list-kartica akt-ponistenje">
+    <h2>Poništenje</h2>
+    <dl><dt>Razlog</dt><dd>{{.Razlog}}</dd><dt>Tko</dt><dd>{{.Ponistio}}</dd><dt>Kada</dt><dd>{{formatDate (localTime .PonistenoAt)}}</dd></dl>
+    {{if $.SmijeSastavljati}}<a class="btn btn-secondary" href="{{$.NoviUmjestoPonistenog}}">Novi akt</a>{{end}}
+    <p class="form-help mb-0">Akt ostaje u popisu, označen kao poništen. Ispravak ide novim aktom, a u njegovoj napomeni piše da zamjenjuje ovaj.</p>
+  </section>
+  {{end}}
+
   {{if .SmijeOvjeriti}}
   <section class="list-kartica akt-ovjera">
     <h2>Ovjera</h2>

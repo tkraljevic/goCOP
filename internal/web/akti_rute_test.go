@@ -434,6 +434,7 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	}
 	mora(zovi(http.MethodGet, "/akti/"+id4, nil), "poništen akt", "poništen", "Akt je poništen (storno):", "prekid je ovjeren prerano")
 	mora(zovi(http.MethodGet, "/akti", nil), "popis s poništenim", "poništen")
+	novoUmjesto(t, akti, id4, zovi, mora)
 	if e, _ := episodes.Open(ctx, "B.34.1"); e == nil || e.Phase != models.PhaseEmergency {
 		t.Errorf("nakon poništenja prekida izvanredna obrana opet traje: %+v", e)
 	}

@@ -146,3 +146,15 @@ func TestCvoroviSukobaOznake(t *testing.T) {
 		}
 	}
 }
+
+// Novi akt koji ispravlja poništen akt u napomeni kaže koji akt zamjenjuje,
+// s datumom ovjere po našem vremenu (Odluke (9. 11. 2026.))
+func TestRecenicaZamjene(t *testing.T) {
+	kad := time.Date(2026, 11, 9, 23, 30, 0, 0, time.UTC) // u Zagrebu već 10. 11.
+	if got := RecenicaZamjene(Akt{Sektor: "B", Broj: 7, Godina: 2026, OvjerenoAt: &kad}); got != "Ovim aktom zamjenjuje se akt B-7/2026 od 10. 11. 2026., koji je poništen i ne vrijedi." {
+		t.Errorf("s datumom ovjere: %q", got)
+	}
+	if got := RecenicaZamjene(Akt{Sektor: "B", Broj: 7, Godina: 2026}); got != "Ovim aktom zamjenjuje se akt B-7/2026, koji je poništen i ne vrijedi." {
+		t.Errorf("bez datuma ovjere: %q", got)
+	}
+}

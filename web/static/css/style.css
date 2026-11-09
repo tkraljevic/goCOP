@@ -8589,6 +8589,11 @@ summary.ocitanja-cip { padding-right: 8px; }
    stanje. Širinu mjeri sama stranica, pa stupci rade i kad je izbornik sklopljen: od 940 px
    sadržaja (prozor oko 1280 px uz izbornik) papir je lijevo, a ploča desno; uže je sve u
    jednom stupcu, prvo papir, pa ploča. Papir se smije suziti, ploča ostaje 340 do 400 px. */
+/* Kartica Poništenje (4b): razlog, tko i kada u dva stupca, pa gumb Novi akt. */
+.akt-ponistenje dl { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 6px 12px; margin: 0 0 12px; font-size: 0.875rem; line-height: 20px; }
+.akt-ponistenje dt { color: var(--md-sys-color-on-surface-variant); }
+.akt-ponistenje dd { margin: 0; overflow-wrap: anywhere; }
+.akt-ponistenje .btn { margin-bottom: 8px; }
 .akt-stranica { container-type: inline-size; }
 .akt-glava .page-title { gap: 8px 12px; }
 .akt-glava .page-title > .badge, .akt-glava .page-title > .oznaka-stanja { flex: none; }
