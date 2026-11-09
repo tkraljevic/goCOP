@@ -53,7 +53,7 @@
     {{range $l.Zadaci}}
       <li class="zadatak">
         <div class="zadatak-tekst">{{.Tekst}}</div>
-        <div class="form-help">zadao {{.Zadao}}, {{.ZadanoAt.Format "2. 1. 2006."}}</div>
+        <div class="form-help">zadao {{.Zadao}}, {{(localTime .ZadanoAt).Format "2. 1. 2006."}}</div>
         <div class="zadatak-stanje" role="radiogroup" aria-label="Je li zadatak obavljen">
           <label><input type="radio" name="zadatak_status_{{.ID}}" value="OBAVLJEN" {{if eq .Status "OBAVLJEN"}}checked{{end}}> obavljeno</label>
           <label><input type="radio" name="zadatak_status_{{.ID}}" value="OTVOREN" {{if eq .Status "OTVOREN"}}checked{{end}}> nije obavljeno, prenosi se (obrazložite)</label>
@@ -98,7 +98,7 @@
     {{if or (not $prenesen) $l.Prilike}}<dt>Vremenske prilike</dt><dd>{{if $l.Prilike}}{{$l.PrilikeBezIzvora}}{{if $l.PrilikeNaknadno}}<div class="form-help">naknadno, iz arhive vremena</div>{{end}}{{else}}—{{end}}</dd>{{end}}
     {{if or (not $prenesen) $l.Zadaci $l.UpisiNaredbe $l.NaredbeStavke}}<dt>Naredbe rukovoditelja</dt><dd>
       {{if or $l.Zadaci $l.UpisiNaredbe $l.NaredbeStavke}}<ol class="stavke">
-      {{range $l.Zadaci}}<li>{{.Tekst}}<div class="list-tko"><span class="form-help">zadao {{.Zadao}}, {{.ZadanoAt.Format "2. 1."}}</span> <span class="zadatak-oznaka {{.Status}}">{{.Oznaka}}</span></div>{{with .Odgovor}}<div>{{.}}</div>{{end}}</li>{{end}}
+      {{range $l.Zadaci}}<li>{{.Tekst}}<div class="list-tko"><span class="form-help">zadao {{.Zadao}}, {{(localTime .ZadanoAt).Format "2. 1."}}</span> <span class="zadatak-oznaka {{.Status}}">{{.Oznaka}}</span></div>{{with .Odgovor}}<div>{{.}}</div>{{end}}</li>{{end}}
       {{range $l.UpisiNaredbe}}<li>{{.Tekst}}<div class="form-help">upisao {{.Ime}}{{with .Funkcija}}, {{.}}{{end}}, {{vrijemeLista .Kad}}</div></li>{{end}}
       {{range $l.NaredbeStavke}}<li>{{.}}</li>{{end}}
       </ol>{{else}}—{{end}}</dd>{{end}}
@@ -186,7 +186,7 @@
   <h2>Zadaci{{if not .Moj}}: {{$l.Ime}}{{end}}</h2>
   {{with .ObjasnjenjeUZadacima}}<p class="page-desc list-objasnjenje">{{.}}</p>{{end}}
   <ul class="zadaci-pregled">
-  {{range .ZadaciOsobe}}<li><div class="zadatak-tekst">{{.Tekst}}</div><div class="list-tko"><span class="form-help">zadao {{.Zadao}}, {{.ZadanoAt.Format "2. 1. 2006."}}</span> {{if .Otvoren}}<span class="zadatak-oznaka OTVOREN">otvoren</span>{{else}}<span class="zadatak-oznaka {{.Status}}">{{if eq .Status "OBAVLJEN"}}obavljen{{else if eq .Status "BEZ_ODGOVORA"}}bez upisanog odgovora{{else}}nije obavljen{{end}}</span>{{if .ListID}} <a href="/vodocuvar/{{.ListID}}">list</a>{{end}}{{end}}</div>{{if not .Otvoren}}{{with .Odgovor}}<div>{{.}}</div>{{end}}{{end}}</li>{{end}}
+  {{range .ZadaciOsobe}}<li><div class="zadatak-tekst">{{.Tekst}}</div><div class="list-tko"><span class="form-help">zadao {{.Zadao}}, {{(localTime .ZadanoAt).Format "2. 1. 2006."}}</span> {{if .Otvoren}}<span class="zadatak-oznaka OTVOREN">otvoren</span>{{else}}<span class="zadatak-oznaka {{.Status}}">{{if eq .Status "OBAVLJEN"}}obavljen{{else if eq .Status "BEZ_ODGOVORA"}}bez upisanog odgovora{{else}}nije obavljen{{end}}</span>{{if .ListID}} <a href="/vodocuvar/{{.ListID}}">list</a>{{end}}{{end}}</div>{{if not .Otvoren}}{{with .Odgovor}}<div>{{.}}</div>{{end}}{{end}}</li>{{end}}
   </ul>
 </section>
 {{end}}
