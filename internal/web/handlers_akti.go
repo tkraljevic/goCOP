@@ -81,6 +81,10 @@ type AktiPageData struct {
 	// SmijeSastavljati: osoba sastavlja nacrte akata u nekom sektoru, pa joj
 	// se nudi „Novi akt” (Odluke (8. 10. 2026.), pitanje 18)
 	SmijeSastavljati bool
+	// Preventivna je sektor letve kad je u preventivnoj obrani: umjesto
+	// obrasca stoji poruka, a OtvaraDnevnik daje gumb za dnevnik COP-a
+	Preventivna   string
+	OtvaraDnevnik bool
 	// popis: čipovi sektora i stanja i rečenica trake o sukobu oznaka
 	CipoviSektora []CipPopisa
 	CipoviStanja  []CipPopisa
@@ -247,9 +251,22 @@ func (h *AktiHandler) ShowForm(w http.ResponseWriter, r *http.Request) {
 	obrazacVrijedi(q, &data)
 	data.Unos = unosObrasca(q)
 	h.letvaObrasca(r.Context(), q.Get("station"), &data)
+	preventivnaObrana(r.Context(), h.akti(), perms, &data)
 	data.Stanice = h.letveZaAkt(r.Context(), perms, data.Stupanj, data.Station)
 	if err := h.tmplForm.ExecuteTemplate(w, "akt_form.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// preventivnaObrana: kad je sektor letve u preventivnoj obrani, obrazac akta
+// se ne nudi, nego poruka i gumb „Otvori dnevnik COP-a” onome tko ga smije
+// otvoriti (Odluke (6. 11. 2026.)). Sektor se čita iz dionica letve.
+func preventivnaObrana(ctx context.Context, s *service.AktService, perms *models.UserPermissions, data *AktiPageData) {
+	if data.Station == nil || len(data.Dionice) == 0 {
+		return
+	}
+	if sektor := data.Dionice[0].SectorID; s.UPreventivnoj(ctx, sektor) {
+		data.Preventivna, data.OtvaraDnevnik = sektor, service.OtvaraDnevnikCOP(perms, sektor)
 	}
 }
 

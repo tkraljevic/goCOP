@@ -14,7 +14,12 @@
   </div>
 </div>
 
-{{template "obrana_nacin" .}}
+{{if not .Preventivna}}{{template "obrana_nacin" .}}{{end}}
+
+{{/* Na mobitelu (do 599 px) se akt ne sastavlja, nego samo ovjerava i šalje (Odluke (6. 11. 2026.)): CSS skriva obrazac i pokazuje ovu poruku. */}}
+<section class="list-kartica akt-samo-racunalo">{{icon "monitor"}}
+  <p><strong>Akt se sastavlja na računalu.</strong> Na mobitelu možete ovjeriti i poslati akt koji je već sastavljen.</p>
+</section>
 
 {{/* Na širokom kartica letve i obrazac stoje lijevo, a „Tko ovjerava” desno. Na uskom idu redom iz koda. */}}
 <div class="stupci-stranice list-stupci">
@@ -37,11 +42,21 @@
   </div>{{end}}
   {{/* Pravilo slijeda stupnjeva po izabranoj radnji; provjerava ga ovjera (ProvjeriSlijed), ovdje se samo pokazuje.
        Bez skripte stoje oba pravila; skripta ostavi samo ono za označenu radnju. */}}
+  {{if not $.Preventivna}}
   <p class="akt-pravilo" data-radnja="USPOSTAVA">Stupanj se proglašava kad za njega postoje uvjeti. Viši se smije proglasiti odmah, bez nižih. Niži se ne proglašava dok traje viši.</p>
   <p class="akt-pravilo" data-radnja="PREKID">Dolje se ide obrnutim redom: prekida se samo najviši stupanj. Niži koji je proglašen prije njega ostaje na snazi dok se ne prekine svojim aktom. Ako uvjeti za niži još postoje, a on nije na snazi, proglašava se novim aktom.</p>
+  {{end}}
 </section>
 {{end}}
 
+{{if .Preventivna}}
+{{/* Preventivna obrana (crtež 3b): akt se ne sastavlja, prvo se otvara dnevnik COP-a (Odluke (6. 11. 2026.)). */}}
+<section class="list-kartica akt-preventivna">
+  <h2>{{icon "shield"}} {{term "sektor"}} {{.Preventivna}}: preventivna obrana</h2>
+  <p>Nema otvorenog dnevnika COP-a, pa se stupnjevi ne proglašavaju. Voditelj COP-a ili zamjenik najprije otvara dnevnik. Otvoreni dnevnik znači da je sektor u aktivnoj obrani.</p>
+  <div class="akt-preventivna-gumbi">{{if .OtvaraDnevnik}}<a class="btn btn-primary" href="/dnevnici/novi-cop?centar={{.Preventivna}}">Otvori dnevnik COP-a</a>{{end}}<a class="btn btn-link" href="/akti">Odustani</a></div>
+</section>
+{{else}}
 <section class="list-kartica akt-obrazac-kartica">
   {{/* Izbor letve samo ponovno otvara obrazac (GET). Radnja, stupanj, „Vrijedi od”, prognoza i napomena nose se dalje, a dionice, očitanje i akt za prekid slože se po novoj letvi. */}}
   <form method="GET" action="/akti/novi" class="vodocuvar-obrazac" id="izbor-letve">
@@ -140,8 +155,9 @@
   </form>
 {{end}}
 </section>
+{{end}}
 
-{{if .Station}}
+{{if and .Station (not .Preventivna)}}
 <aside class="ploca-stranice list-ploca" aria-label="Tko ovjerava">
   <section class="list-kartica">
     <h2>Tko ovjerava</h2>
@@ -194,6 +210,8 @@
     osvjezi();
     osvjeziPodrucje();
   }
+  // u preventivnoj obrani nema ni izbora letve ni obrasca
+  if (!izbor) return;
   // Promjena letve ponovno otvara obrazac i nosi upisano: radnju, stupanj,
   // prognozu, napomenu i „Vrijedi od” kad ga je osoba mijenjala.
   const prenesi = (ime, vrijednost) => {

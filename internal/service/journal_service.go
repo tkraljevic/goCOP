@@ -869,6 +869,12 @@ func (s *JournalService) EntriesForJournal(ctx context.Context, journalID string
 // sektora — ne svatko tko u njega piše. Dežurni s područja piše, ali ne
 // otvara: dnevnik je centra, a ne njegov.
 func (s *JournalService) MozeOtvoritiCOP(perms *models.UserPermissions, sektor string) bool {
+	return OtvaraDnevnikCOP(perms, sektor)
+}
+
+// OtvaraDnevnikCOP je pravilo iz MozeOtvoritiCOP, za stranice koje nemaju
+// servis dnevnika (gumb „Otvori dnevnik COP-a” na obrascu akta)
+func OtvaraDnevnikCOP(perms *models.UserPermissions, sektor string) bool {
 	return perms != nil && sektor != "" && perms.CanAdminister(sektor, 0)
 }
 

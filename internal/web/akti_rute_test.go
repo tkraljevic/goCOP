@@ -177,6 +177,23 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 
 	mora(zovi(http.MethodGet, "/akti", nil), "prazan popis", "Nema akata", "Novi akt")
 	mora(zovi(http.MethodGet, "/akti/novi", nil), "izbor vodomjera", "Batina", "B.34.1, B.34.2")
+	// preventivna obrana: bez otvorenog dnevnika COP-a obrazac akta se ne nudi,
+	// nego poruka i gumb za dnevnik (crtež 3b, Odluke (6. 11. 2026.)), a nacrt
+	// se ne sastavlja ni kad stigne izravno
+	if w := zovi(http.MethodGet, "/akti/novi?station="+st.ID.String(), nil); !strings.Contains(w.Body.String(), `<a class="btn btn-primary" href="/dnevnici/novi-cop?centar=B">Otvori dnevnik COP-a</a>`) ||
+		!strings.Contains(w.Body.String(), "Nema otvorenog dnevnika COP-a, pa se stupnjevi ne proglašavaju.") || strings.Contains(w.Body.String(), `id="akt-obrazac"`) || strings.Contains(w.Body.String(), "Tko ovjerava") {
+		t.Error("obrazac u preventivnoj obrani: nema poruke i gumba za dnevnik COP-a, ili je ostao obrazac")
+	}
+	if l := zovi(http.MethodPost, "/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"IZVANREDNA"}, "vrijedi": {"2026-09-15T12:00"}, "potvrda_vrijedi": {"1"}, "dionica": {"B.34.1", "B.34.2"}}).Header().Get("Location"); !strings.Contains(l, "preventivnoj") {
+		t.Fatalf("nacrt bez dnevnika COP-a: %s", l)
+	}
+	mora(zovi(http.MethodGet, "/akti", nil), "popis u preventivnoj", "preventivna obrana", "nema otvorenog dnevnika COP-a", `href="/dnevnici/novi-cop?centar=B"`)
+	// voditelj otvori dnevnik COP-a: aktivna obrana, i obrazac se nudi
+	pocetakObrane := time.Date(2026, 9, 1, 0, 0, 0, 0, models.Zagreb)
+	dnevnikCOP := &models.Journal{Kind: models.JournalKindDefense, CentarSektor: "B", Title: "Dnevnik COP-a Osijek, rujan 2026.", Year: 2026, StartedAt: &pocetakObrane}
+	if err := journalRepo.SaveJournal(ctx, dnevnikCOP); err != nil {
+		t.Fatal(err)
+	}
 	mora(zovi(http.MethodGet, "/akti/novi?station="+st.ID.String()+"&stupanj=IZVANREDNA", nil), "obrazac", "Novi akt</h1>", `<a href="/readings/station/`+st.ID.String()+`">Batina</a></h2>`, "652 cm", "640 cm", `name="ocitanje_id"`, `name="tendencija"`, `value="B.34.1" checked`, `value="B.34.2" checked`,
 		"zadnji ovjereni, neprekinuti istog stupnja", "nema ovjerenog akta o uspostavi koji je još na snazi",
 		`data-stupanj="IZVANREDNA"><span class="akt-bez-skripte">Izvanredna obrana: </span>Rukovoditelj obrane od poplava Sektora B ili viši. Rukovoditelj branjenog područja izvanrednu obranu ne ovjerava.</p>`)
@@ -194,17 +211,7 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	}
 	mora(zovi(http.MethodGet, "/akti/primatelji?sektor=B", nil), "primatelji", "Glavni centar obrane od poplava Zagreb", "Župan osječko-baranjski", "Izvanredno stanje")
 
-	// preventivna obrana: bez otvorenog dnevnika COP-a nacrt se ne sastavlja
-	if l := zovi(http.MethodPost, "/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"IZVANREDNA"}, "vrijedi": {"2026-09-15T12:00"}, "potvrda_vrijedi": {"1"}, "dionica": {"B.34.1", "B.34.2"}}).Header().Get("Location"); !strings.Contains(l, "preventivnoj") {
-		t.Fatalf("nacrt bez dnevnika COP-a: %s", l)
-	}
-	mora(zovi(http.MethodGet, "/akti", nil), "popis u preventivnoj", "preventivna obrana", "nema otvorenog dnevnika COP-a", `href="/dnevnici/novi-cop?centar=B"`)
-	// voditelj otvori dnevnik COP-a: aktivna obrana; uz to vodočuvar područja i otvoren dnevnik održavanja
-	pocetakObrane := time.Date(2026, 9, 1, 0, 0, 0, 0, models.Zagreb)
-	dnevnikCOP := &models.Journal{Kind: models.JournalKindDefense, CentarSektor: "B", Title: "Dnevnik COP-a Osijek, rujan 2026.", Year: 2026, StartedAt: &pocetakObrane}
-	if err := journalRepo.SaveJournal(ctx, dnevnikCOP); err != nil {
-		t.Fatal(err)
-	}
+	// uz dnevnik COP-a: vodočuvar područja i otvoren dnevnik održavanja
 	a02 := &models.Journal{Kind: models.JournalKindMaintenanceA02, AreaID: 34, Title: "A.02 Dunav", Year: 2026, Contractor: "Vodogradnja", StartedAt: &pocetakObrane}
 	if err := journalRepo.SaveJournal(ctx, a02); err != nil {
 		t.Fatal(err)
