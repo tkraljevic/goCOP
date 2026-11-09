@@ -80,7 +80,7 @@
       <span class="knjiga-gumbi"><a href="/vodocuvar/kalendar?vodocuvar={{.UserID}}" class="btn btn-sm btn-secondary">Kalendar</a><a href="/vodocuvar/knjiga.pdf?vodocuvar={{.UserID}}&amp;godina={{$.Godina}}" target="_blank" class="btn btn-sm btn-secondary">Cijela knjiga</a></span>
       {{icon "chevron-right"}}
     </summary>
-    {{if .Zadaci}}<div class="knjiga-zadaci">Otvoreni zadaci, pojavit će se na sljedećem listu: <ol class="stavke">{{range .Zadaci}}<li>{{.Tekst}} (zadao {{.Zadao}}, {{.ZadanoAt.Format "2. 1. 2006."}})</li>{{end}}</ol></div>{{end}}
+    {{if .Zadaci}}<div class="knjiga-zadaci">Otvoreni zadaci, pojavit će se na sljedećem listu: <ol class="stavke">{{range .Zadaci}}<li>{{.Tekst}} (zadao {{.Zadao}}, {{(localTime .ZadanoAt).Format "2. 1. 2006."}})</li>{{end}}</ol></div>{{end}}
     {{if not .Listovi}}<p class="form-help">Još nema listova: list nastaje kad vodočuvar na Terenu otvori „Današnji list”, ili kad vi upišete bilješku.</p>{{end}}
     {{if .SmijeUpisati}}
     <form method="POST" action="/vodocuvar/upis" class="knjiga-upis">
