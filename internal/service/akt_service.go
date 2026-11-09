@@ -13,6 +13,7 @@ import (
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -141,7 +142,10 @@ type ZahtjevAkta struct {
 	Vrijedi   time.Time
 	Prognoza  string // prazno = po izmjerenom vodostaju
 	Napomena  string
-	Dionice   []string // prazno = sve za koje je vodomjer mjerodavan
+	Dionice   []string // prazno = sve za koje je vodomjer mjerodavan u području
+	// Podrucje je branjeno područje akta; 0 = jedino područje dionica.
+	// Akt se nikad ne izdaje za više područja (Odluke (9. 11. 2026.)).
+	Podrucje int
 	// OcitanjeID je očitanje na koje se akt poziva; prazno = zadnje.
 	// Tendencija prazno = izračunata prema očitanju prije odabranoga.
 	OcitanjeID string
@@ -188,7 +192,7 @@ func (s *AktService) Pripremi(ctx context.Context, perms *models.UserPermissions
 		a.Vrijedi = time.Now().Truncate(time.Minute)
 	}
 
-	if err := s.dosegAkta(ctx, a, st, z.Dionice); err != nil {
+	if err := s.dosegAkta(ctx, a, st, z.Dionice, z.Podrucje); err != nil {
 		return nil, err
 	}
 	if !s.smijeSastaviti(perms, a) {
@@ -244,17 +248,68 @@ func (s *AktService) Pripremi(ctx context.Context, perms *models.UserPermissions
 	return a, nil
 }
 
-// dosegAkta upisuje u akt njegove dionice (dioniceAkta), sektor i područje
-func (s *AktService) dosegAkta(ctx context.Context, a *models.Akt, st *models.Station, zadane []string) error {
+// dosegAkta upisuje u akt njegove dionice (dioniceAkta), sektor i područje.
+// Sve dionice akta su iz jednog branjenog područja (jednoPodrucje).
+func (s *AktService) dosegAkta(ctx context.Context, a *models.Akt, st *models.Station, zadane []string, podrucje int) error {
 	dionice, err := s.dioniceAkta(ctx, st, zadane)
 	if err != nil {
+		return err
+	}
+	if dionice, err = jednoPodrucje(dionice, podrucje, len(zadane) > 0, st.Name); err != nil {
 		return err
 	}
 	for _, sec := range dionice {
 		a.Dionice = append(a.Dionice, models.AktDionica{Code: sec.Code, Opis: strings.TrimSpace(sec.Description)})
 	}
-	a.Sektor, a.AreaID = dionice[0].SectorID, podrucjeAkta(dionice)
+	a.Sektor, a.AreaID = dionice[0].SectorID, dionice[0].AreaID
 	return nil
+}
+
+// jednoPodrucje drži akt u jednom branjenom području: ni obavijest ni
+// rješenje nikad se ne izdaju za dionice različitih područja (Odluke
+// (9. 11. 2026.)). Bez zadanih dionica uzimaju se dionice letve u izabranom
+// području; zadane moraju sve biti u njemu. Kad područje nije izabrano, a
+// dionice su iz više područja, akt se ne sastavlja dok se ono ne izabere.
+func jednoPodrucje(dionice []models.Section, podrucje int, zadane bool, letva string) ([]models.Section, error) {
+	if podrucje > 0 {
+		return dioniceUPodrucju(dionice, podrucje, zadane, letva)
+	}
+	if p := podrucjaDionica(dionice); len(p) > 1 {
+		return nil, fmt.Errorf("letva %s mjerodavna je za dionice u %s; akt se izdaje za jedno branjeno područje, pa ga odaberite",
+			letva, strings.Join(p, " i "))
+	}
+	return dionice, nil
+}
+
+// dioniceUPodrucju su dionice izabranog područja; zadana dionica drugog
+// područja je greška unosa
+func dioniceUPodrucju(dionice []models.Section, podrucje int, zadane bool, letva string) ([]models.Section, error) {
+	bp := models.Terms().Get("bp")
+	var u []models.Section
+	for _, sec := range dionice {
+		switch {
+		case sec.AreaID == podrucje:
+			u = append(u, sec)
+		case zadane:
+			return nil, fmt.Errorf("dionica %s nije u %s %d; akt se izdaje za jedno branjeno područje", sec.Code, bp, podrucje)
+		}
+	}
+	if len(u) == 0 {
+		return nil, fmt.Errorf("letva %s nije mjerodavna ni za jednu dionicu u %s %d", letva, bp, podrucje)
+	}
+	return u, nil
+}
+
+// podrucjaDionica su područja dionica, svako jednom, redom kojim dolaze,
+// kao „BP 16”
+func podrucjaDionica(dionice []models.Section) []string {
+	var out []string
+	for _, sec := range dionice {
+		if p := fmt.Sprintf("%s %d", models.Terms().Get("bp"), sec.AreaID); !slices.Contains(out, p) {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // smijeSastaviti javlja smije li osoba sastaviti nacrt akta: smije ga
@@ -327,13 +382,17 @@ func SmijeUreditiNacrt(perms *models.UserPermissions, u *models.User, a *models.
 // letvi (bez užeg izbora dionica): dionice letve su u registru, a osoba
 // smije sastaviti nacrt akta u njegovu sektoru. Obrazac akta nudi samo
 // takve letve, a stranica očitanja letve samo takvima gumb „Proglasi /
-// prekini”.
+// prekini”. Letva mjerodavna za više branjenih područja nudi se, a
+// područje se bira u obrascu (jednoPodrucje).
 func (s *AktService) SmijeAktZaLetvu(ctx context.Context, perms *models.UserPermissions, st *models.Station, stupanj models.DefensePhase) bool {
 	if perms == nil || st == nil {
 		return false
 	}
-	a := &models.Akt{Stupanj: stupanj}
-	return s.dosegAkta(ctx, a, st, nil) == nil && s.smijeSastaviti(perms, a)
+	dionice, err := s.dioniceAkta(ctx, st, nil)
+	if err != nil {
+		return false
+	}
+	return s.smijeSastaviti(perms, &models.Akt{Stupanj: stupanj, Sektor: dionice[0].SectorID})
 }
 
 // dioniceAkta su dionice akta iz registra, po šifri: one za koje je
@@ -748,7 +807,7 @@ func (s *AktService) uspostavaJosZaPrekid(ctx context.Context, a *models.Akt) er
 	if a.Radnja != models.AktPrekid || a.PrekidaAktID == "" {
 		return nil
 	}
-	kandidati, err := s.AktiZaPrekid(ctx, a.StationID, a.Stupanj)
+	kandidati, err := s.aktiZaPrekidUPodrucju(ctx, a)
 	if err != nil {
 		return err
 	}
@@ -988,10 +1047,10 @@ func (s *AktService) SmijePripremiti(perms *models.UserPermissions, u *models.Us
 
 // pisePoAktu javlja piše li osoba po dosegu akta: u njegovu sektoru (dužnost
 // sektora), području (dužnost područja) ili na bar jednoj njegovoj dionici,
-// po dionici, njezinu području ili sektoru. Akt vodomjera obuhvaća i
-// dionice drugog područja (Vukovar: B.15.x i B.34.5), a nosi područje s
-// najviše dionica; uprava manjeg područja piše ga kao i njezin rukovoditelj
-// dionice. Sektor upisan uz dužnost područja ili dionice ne daje akte
+// po dionici, njezinu području ili sektoru. Akt sastavljen prije Odluka
+// (9. 11. 2026.) mogao je obuhvatiti i dionice drugog područja (Vukovar:
+// B.15.x i B.34.5) uz područje s najviše dionica; uprava manjeg područja
+// piše ga kao i njezin rukovoditelj dionice. Sektor upisan uz dužnost područja ili dionice ne daje akte
 // cijelog sektora.
 func (s *AktService) pisePoAktu(perms *models.UserPermissions, a *models.Akt) bool {
 	if perms == nil || a == nil {
@@ -1012,28 +1071,6 @@ func (s *AktService) pisePoAktu(perms *models.UserPermissions, a *models.Akt) bo
 		}
 	}
 	return false
-}
-
-// podrucjeAkta je područje akta: ono s najviše dionica, a kad ih dva imaju
-// jednako, ono čija dionica dolazi prva po redu (dionice su poredane po
-// šifri). Ne smije ovisiti o redoslijedu obilaska mape, jer o području ovisi
-// tko akt potpisuje.
-func podrucjeAkta(dionice []models.Section) int {
-	broj := map[int]int{}
-	var redom []int
-	for _, d := range dionice {
-		if broj[d.AreaID] == 0 {
-			redom = append(redom, d.AreaID)
-		}
-		broj[d.AreaID]++
-	}
-	podrucje := 0
-	for _, id := range redom {
-		if broj[id] > broj[podrucje] || podrucje == 0 {
-			podrucje = id
-		}
-	}
-	return podrucje
 }
 
 // MoguPotpisati su korisnici koji po zaduženjima smiju ovjeriti akt, za
@@ -1180,7 +1217,7 @@ func (s *AktService) OcitanjaZaAkt(ctx context.Context, stationID string, limit 
 // nudi obrazac (AktiZaPrekid), pa ni ručno sastavljen ni zastario obrazac ne
 // veže drugi prekid na već prekinutu uspostavu.
 func (s *AktService) aktKojiSePrekida(ctx context.Context, a *models.Akt, id string) (*models.Akt, error) {
-	kandidati, err := s.AktiZaPrekid(ctx, a.StationID, a.Stupanj)
+	kandidati, err := s.aktiZaPrekidUPodrucju(ctx, a)
 	if err != nil {
 		return nil, err
 	}
@@ -1195,7 +1232,25 @@ func (s *AktService) aktKojiSePrekida(ctx context.Context, a *models.Akt, id str
 			return &kandidati[i], nil
 		}
 	}
-	return nil, fmt.Errorf("odabrani akt nije ovjereni, neponišteni, neprekinuti akt o uspostavi istog stupnja po vodomjeru %s", a.StationName)
+	return nil, fmt.Errorf("odabrani akt nije ovjereni, neponišteni, neprekinuti akt o uspostavi istog stupnja po vodomjeru %s u %s %d",
+		a.StationName, models.Terms().Get("bp"), a.AreaID)
+}
+
+// aktiZaPrekidUPodrucju su akti za prekid (AktiZaPrekid) istog branjenog
+// područja kao prekid: letva mjerodavna za dva područja ima akt za svako, a
+// prekid jednoga ne smije staviti izvan snage akt drugoga
+func (s *AktService) aktiZaPrekidUPodrucju(ctx context.Context, a *models.Akt) ([]models.Akt, error) {
+	svi, err := s.AktiZaPrekid(ctx, a.StationID, a.Stupanj)
+	if err != nil {
+		return nil, err
+	}
+	out := svi[:0]
+	for _, k := range svi {
+		if k.AreaID == a.AreaID {
+			out = append(out, k)
+		}
+	}
+	return out, nil
 }
 
 // najviseZaPrekid: koliko se akata o uspostavi nudi za prekid
