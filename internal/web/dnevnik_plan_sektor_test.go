@@ -39,21 +39,21 @@ func tekstXLSX(t *testing.T, sadrzaj []byte) string {
 	return b.String()
 }
 
-// brojNaKarticiPlana je broj na kartici „Plan dežurstava” razdjelnice
-// /dnevnici: zadnja oznaka broja prije naslova kartice
+// brojNaKarticiPlana je broj u retku „Plan dežurstava” razdjelnice
+// /dnevnici
 func brojNaKarticiPlana(t *testing.T, w *httptest.ResponseRecorder) string {
 	t.Helper()
 	tijelo := w.Body.String()
-	naslov := strings.Index(tijelo, `<h2 class="dash-card-title">Plan dežurstava</h2>`)
+	naslov := strings.Index(tijelo, `<span class="redak-glavno">Plan dežurstava</span>`)
 	if w.Code != http.StatusOK || naslov < 0 {
-		t.Fatalf("razdjelnica bez kartice plana: %d", w.Code)
+		t.Fatalf("razdjelnica bez retka plana: %d", w.Code)
 	}
-	prije := tijelo[:naslov]
-	oznaka := strings.LastIndex(prije, "dash-status-pill")
+	redak, _, _ := strings.Cut(tijelo[naslov:], "</a>")
+	oznaka := strings.Index(redak, "redak-vrijednost")
 	if oznaka < 0 {
-		t.Fatal("kartica plana bez broja")
+		t.Fatal("redak plana bez broja")
 	}
-	_, broj, _ := strings.Cut(prije[oznaka:], ">")
+	_, broj, _ := strings.Cut(redak[oznaka:], ">")
 	broj, _, _ = strings.Cut(broj, "<")
 	return strings.TrimSpace(broj)
 }

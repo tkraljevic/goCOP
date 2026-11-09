@@ -62,10 +62,10 @@ func TestPomocOpisujeKnjiguVodocuvara(t *testing.T) {
 	}
 }
 
-// Kartica Vodočuvarskog dnevnika pod Dokumentacijom ne smije reći da
-// parafiraju svi ostali rukovoditelji: rukovoditelj dionice parafira samo
-// list koji se tiče njegove dionice, a parafira i uprava (Odluke (8. 10.
-// 2026.), pitanje 1).
+// Redak Vodočuvarskog dnevnika pod Dokumentima ne smije reći da parafiraju
+// svi ostali rukovoditelji: rukovoditelj dionice parafira samo list koji se
+// tiče njegove dionice, a parafira i uprava (Odluke (8. 10. 2026.), pitanje 1).
+// Redak je kratak, pa tko parafira piše u Pomoći.
 func TestKarticaKnjigeVodocuvaraKazeTkoParafira(t *testing.T) {
 	b, err := os.ReadFile(filepath.Join("..", "..", "web", "templates", "dnevnici_izbor.html"))
 	if err != nil {
@@ -73,11 +73,19 @@ func TestKarticaKnjigeVodocuvaraKazeTkoParafira(t *testing.T) {
 	}
 	h := strings.Join(strings.Fields(string(b)), " ")
 	if strings.Contains(h, "ostali rukovoditelji i ovlaštenici parafiraju") {
-		t.Error("kartica kaže da parafiraju svi ostali rukovoditelji")
+		t.Error("redak kaže da parafiraju svi ostali rukovoditelji")
 	}
-	want := "parafiraju ovlaštenici za praćenje ugovora i uprava, a rukovoditelj dionice list koji se tiče njegove dionice"
-	if !strings.Contains(h, want) {
-		t.Errorf("kartica ne kaže %q", want)
+	if !strings.Contains(h, "Dnevni listovi vodočuvara, ovjera i parafe") {
+		t.Error("redak ne kaže da se listovi ovjeravaju i parafiraju")
+	}
+	pomoc := strings.Join(strings.Fields(pomocHTML(t)), " ")
+	for _, want := range []string{
+		"Rukovoditelj branjenog područja, ovlaštenici i uprava parafiraju",
+		"Rukovoditelj dionice parafira i upisuje bilješku samo na list vodočuvara",
+	} {
+		if !strings.Contains(pomoc, want) {
+			t.Errorf("pomoć ne kaže %q", want)
+		}
 	}
 }
 

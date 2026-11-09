@@ -81,6 +81,10 @@ type AktiPageData struct {
 	// SmijeSastavljati: osoba sastavlja nacrte akata u nekom sektoru, pa joj
 	// se nudi „Novi akt” (Odluke (8. 10. 2026.), pitanje 18)
 	SmijeSastavljati bool
+	// popis: čipovi sektora i stanja i rečenica trake o sukobu oznaka
+	CipoviSektora []CipPopisa
+	CipoviStanja  []CipPopisa
+	SukobNaPopisu string
 
 	// obrazac
 	Station    *models.Station
@@ -189,10 +193,8 @@ func (h *AktiHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 	f.AreaID, _ = strconv.Atoi(q.Get("podrucje"))
 	f.Godina, _ = strconv.Atoi(q.Get("godina"))
 	f.Stupanj = models.DefensePhase(q.Get("stupanj"))
-	if f.Sektor == "" && perms != nil && !perms.IsGlobalAdmin {
-		if moji := perms.SektoriRada(); len(moji) == 1 {
-			f.Sektor = moji[0]
-		}
+	if f.Sektor == "" && jedanSektorRada(perms) {
+		f.Sektor = perms.SektoriRada()[0]
 	}
 	data.Filtar = f
 	data.Podrucja, _ = h.users.ListAreas(f.Sektor)
@@ -202,6 +204,7 @@ func (h *AktiHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 	}
 	data.Akti = akti
 	h.sukobiOznaka(r.Context(), s, &data)
+	izborPopisa(&data, perms, q)
 	g := time.Now().In(models.Zagreb).Year()
 	for y := g; y >= g-5; y-- {
 		data.Godine = append(data.Godine, y)
