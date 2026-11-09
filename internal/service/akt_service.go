@@ -474,6 +474,23 @@ func (s *AktService) potpisnik(a *models.Akt) string {
 	return fmt.Sprintf("Rukovoditelj obrane od poplava za branjeno područje %d", a.AreaID)
 }
 
+// TkoOvjerava je rečenica za obrazac novog akta: tko ovjerava akt zadanog
+// stupnja u sektoru. Pravilo je ono iz SmijeOvjeriti i potpisnik. Broja
+// branjenog područja nema, jer se područje akta zna tek u Pripremi.
+func TkoOvjerava(stupanj models.DefensePhase, sektor string) string {
+	sektora := "sektora"
+	if sektor != "" {
+		sektora = "Sektora " + sektor
+	}
+	switch stupanj {
+	case models.PhaseEmergency:
+		return "Rukovoditelj obrane od poplava " + sektora + " ili viši. Rukovoditelj branjenog područja izvanrednu obranu ne ovjerava."
+	case models.PhaseState:
+		return "Rukovoditelj obrane od poplava " + sektora + " ili viši. U hitnom slučaju i rukovoditelj obrane od poplava za branjeno područje akta."
+	}
+	return "Rukovoditelj obrane od poplava za branjeno područje akta ili viši."
+}
+
 // SmijeOvjeriti javlja smije li osoba ovjeriti akt. Ovjeravaju samo
 // rukovoditelji obrane i njihovi zamjenici, po Državnom planu:
 //   - pripremno stanje i redovitu obranu rukovoditelj branjenog područja

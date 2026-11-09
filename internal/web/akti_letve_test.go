@@ -53,8 +53,10 @@ func TestObrazacAktaNudiSamoLetveKojeSmije(t *testing.T) {
 	stations := service.NewStationService(stationRepo, service.NewSectionService(sectionRepo, service.NewSSEBroker()), service.NewSSEBroker())
 
 	ctx := context.Background()
+	letve := map[string]uuid.UUID{}
 	for naziv, dionica := range map[string]string{"Primjerovo": "P.1.1", "Drugovo": "R.2.1"} {
 		st := &models.Station{ID: uuid.New(), Code: strings.ToLower(naziv), Name: naziv, Watercourse: "Primjerica"}
+		letve[naziv] = st.ID
 		if err := stationRepo.CreateStation(ctx, st); err != nil {
 			t.Fatal(err)
 		}
@@ -100,6 +102,30 @@ func TestObrazacAktaNudiSamoLetveKojeSmije(t *testing.T) {
 	}
 	if strings.Contains(w.Body.String(), "Drugovo") {
 		t.Error("obrazac nudi letvu drugog sektora, koju bi priprema odbila")
+	}
+
+	// letva otvorena adresom, a izvan popisa (npr. drugog sektora): izbor je
+	// pokazuje kao izabranu, ostale nudi kao i dosad, a nacrt odbije priprema
+	r = httptest.NewRequest(http.MethodGet, "/akti/novi?station="+letve["Drugovo"].String(), nil)
+	w = httptest.NewRecorder()
+	h.ShowForm(w, r.WithContext(c))
+	if o := w.Body.String(); w.Code != http.StatusOK || !strings.Contains(o, `value="`+letve["Drugovo"].String()+`" selected>Drugovo`) ||
+		!strings.Contains(o, `value="`+letve["Primjerovo"].String()+`">Primjerovo`) {
+		t.Errorf("izabrana letva izvan popisa: %d", w.Code)
+	}
+	// bez servisa akata obrazac se ne otvara
+	bez := NewAktiHandler(func() *service.AktService { return nil }, users, stations, nil, tp, nil, nil)
+	w = httptest.NewRecorder()
+	bez.ShowForm(w, r.WithContext(c))
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("bez servisa akata: %d", w.Code)
+	}
+	// predložak koji pukne javlja grešku, a ne pola obrasca
+	pukne := template.Must(template.New("akt_form.html").Parse(`{{.NemaTogPolja}}`))
+	w = httptest.NewRecorder()
+	NewAktiHandler(func() *service.AktService { return akti }, users, stations, nil, pukne, nil, nil).ShowForm(w, r.WithContext(c))
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("predložak koji pukne: %d", w.Code)
 	}
 
 	// rukovoditelj područja nacrt ne sastavlja: obrazac ga vraća na popis

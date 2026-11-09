@@ -3,128 +3,201 @@
 {{define "title"}}goCOP — Novi akt{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/dnevnici">Dokumenti</a> › <a href="/akti">Rješenja i obavijesti</a> › Novi akt</div>
+<div class="list-stranica list-stranica-ploca akt-novi">
+<a href="/akti" class="povratna-poveznica">← Rješenja i obavijesti</a>
 
-<div class="page-header">
+<div class="page-header list-glava">
   <div>
-    <h1 class="page-title" data-naziv-stranice="Novi akt">{{icon "file-text"}} {{if .Station}}Akt po vodomjeru {{.Station.Name}}{{else}}Novi akt{{end}}</h1>
-    <p class="page-desc">Proglašava se po vodomjeru i branjenom području; dionice za koje je vodomjer mjerodavan slijede same.
+    <h1 class="page-title" data-naziv-stranice="Novi akt">Novi akt</h1>
+    <p class="page-desc list-objasnjenje">Proglašava se po letvi i branjenom području; dionice za koje je letva mjerodavna slijede same.
       Pripremno stanje ide obaviješću, ostali stupnjevi rješenjem. Nastaje nacrt koji se pregleda i ovjeri.</p>
   </div>
 </div>
 
-{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 {{template "obrana_nacin" .}}
 
-{{if not .Station}}
-<form method="GET" action="/akti/novi" class="form-page">
-  <div class="form-group">
-    <label class="form-label" for="station">Vodomjer</label>
-    <select id="station" name="station" class="form-control" required>
-      <option value="">— odaberi vodomjer —</option>
-      {{range .Stanice}}<option value="{{.ID}}">{{.Name}}{{if .Watercourse}} · {{.Watercourse}}{{end}} ({{join .SectionCodes ", "}})</option>{{end}}
-    </select>
-    <div class="form-help">Nude se vodomjeri koji su mjerodavni bar za jednu dionicu.</div>
-  </div>
-  <div class="form-actions"><button type="submit" class="btn btn-primary">Dalje</button></div>
-</form>
-{{else}}
-<form method="POST" action="/akti/novi" class="form-page" id="akt-obrazac">
-  <input type="hidden" name="station_id" value="{{.Station.ID}}">
-  <div class="form-row">
-    <div class="form-group">
-      <label class="form-label">Radnja</label>
-      <div style="display:flex; gap:1rem; min-height:40px; align-items:center;">
-        <label><input type="radio" name="radnja" value="USPOSTAVA" {{if ne .Radnja "PREKID"}}checked{{end}}> uspostava</label>
-        <label><input type="radio" name="radnja" value="PREKID" {{if eq .Radnja "PREKID"}}checked{{end}}> prekid</label>
-      </div>
+{{/* Na širokom kartica letve i obrazac stoje lijevo, a „Tko ovjerava” desno. Na uskom idu redom iz koda. */}}
+<div class="stupci-stranice list-stupci">
+{{with .Station}}
+<section class="list-kartica akt-letva" aria-label="Letva">
+  <div class="akt-letva-glava">
+    <div class="akt-letva-ime">
+      <h2><a href="/readings/station/{{.ID}}">{{.Name}}</a></h2>
+      <p class="akt-letva-opis">{{if .Watercourse}}{{.Watercourse}}{{if $.PodrucjaLetve}} · {{end}}{{end}}{{range $i, $p := $.PodrucjaLetve}}{{if $i}} i {{end}}{{term "bp"}} {{$p.ID}} {{$p.Name}}{{end}}</p>
     </div>
-    <div class="form-group">
-      <label class="form-label" for="stupanj">Stupanj obrane</label>
+    {{with $.ZadnjiVodostaj}}<div class="akt-letva-vodostaj"><strong>{{intOf .LevelCm}} cm</strong><span>{{vrijemeLista .MeasuredAt}}{{with .OriginLabel}} · {{.}}{{end}}</span></div>
+    {{else}}<div class="akt-letva-vodostaj"><span>nema očitanja s vodostajem</span></div>{{end}}
+  </div>
+  {{if or .Prep.Cm .Regular.Cm .Emergency.Cm .State.Cm .Record.Cm}}<div class="prog-pragovi akt-letva-pragovi">
+    {{if .Prep.Cm}}<span class="threshold-pill prep" title="pripremno stanje">P {{.Prep.Label}}</span>{{end}}
+    {{if .Regular.Cm}}<span class="threshold-pill regular" title="redovna obrana">R {{.Regular.Label}}</span>{{end}}
+    {{if .Emergency.Cm}}<span class="threshold-pill emerg" title="izvanredna obrana">I {{.Emergency.Label}}</span>{{end}}
+    {{if .State.Cm}}<span class="threshold-pill crit" title="izvanredno stanje">IS {{.State.Label}}</span>{{end}}
+    {{if .Record.Cm}}<span class="threshold-pill record" title="najviši zabilježeni vodostaj">MAX {{.Record.Label}}</span>{{end}}
+  </div>{{end}}
+  {{/* Pravilo slijeda stupnjeva po izabranoj radnji; provjerava ga ovjera (ProvjeriSlijed), ovdje se samo pokazuje.
+       Bez skripte stoje oba pravila; skripta ostavi samo ono za označenu radnju. */}}
+  <p class="akt-pravilo" data-radnja="USPOSTAVA">Stupanj se proglašava kad za njega postoje uvjeti. Viši se smije proglasiti odmah, bez nižih. Niži se ne proglašava dok traje viši.</p>
+  <p class="akt-pravilo" data-radnja="PREKID">Dolje se ide obrnutim redom: prekida se samo najviši stupanj. Niži koji je proglašen prije njega ostaje na snazi dok se ne prekine svojim aktom. Ako uvjeti za niži još postoje, a on nije na snazi, proglašava se novim aktom.</p>
+</section>
+{{end}}
+
+<section class="list-kartica akt-obrazac-kartica">
+  {{/* Izbor letve samo ponovno otvara obrazac (GET). Radnja, stupanj, „Vrijedi od”, prognoza i napomena nose se dalje, a dionice, očitanje i akt za prekid slože se po novoj letvi. */}}
+  <form method="GET" action="/akti/novi" class="vodocuvar-obrazac" id="izbor-letve">
+    <div class="list-blok">
+      <div class="form-group list-polje">{{icon "ruler"}}<label class="form-label" for="station">Letva</label>
+        <select id="station" name="station" class="form-control" required>
+          <option value="">— odaberite letvu —</option>
+          {{range .Stanice}}<option value="{{.ID}}"{{if and $.Station (eq (print .ID) (print $.Station.ID))}} selected{{end}}>{{.Name}}{{if .Watercourse}} · {{.Watercourse}}{{end}} ({{join .SectionCodes ", "}})</option>{{end}}
+        </select>
+      </div>
+      {{if not .Station}}<div class="form-help">Nude se letve koje su mjerodavne bar za jednu dionicu.</div>{{end}}
+    </div>
+    <input type="hidden" name="radnja" value="{{.Radnja}}">
+    <input type="hidden" name="stupanj" value="{{.Stupanj}}">
+    {{if .VrijediUpisan}}<input type="hidden" name="vrijedi" value="{{.LocalValue}}">{{end}}
+    {{with .Unos.Prognoza}}<input type="hidden" name="prognoza" value="{{.}}">{{end}}
+    {{with .Unos.Napomena}}<input type="hidden" name="napomena" value="{{.}}">{{end}}
+    <noscript><div class="form-actions"><button type="submit" class="btn btn-primary">Dalje</button></div></noscript>
+  </form>
+
+{{if .Station}}
+  <form method="POST" action="/akti/novi" class="vodocuvar-obrazac" id="akt-obrazac">
+    <input type="hidden" name="station_id" value="{{.Station.ID}}">
+    <fieldset class="prog-segment akt-radnja">
+      <legend>Radnja</legend>
+      <div class="prog-segment-gumbi">
+        <label><input type="radio" name="radnja" value="USPOSTAVA" {{if ne .Radnja "PREKID"}}checked{{end}}><span>uspostava</span></label>
+        <label><input type="radio" name="radnja" value="PREKID" {{if eq .Radnja "PREKID"}}checked{{end}}><span>prekid</span></label>
+      </div>
+    </fieldset>
+    <div class="form-group list-polje">{{icon "shield"}}<label class="form-label" for="stupanj">Stupanj obrane</label>
       <select id="stupanj" name="stupanj" class="form-control">
         {{range .Stupnjevi}}<option value="{{.}}" {{if eq . $.Stupanj}}selected{{end}}>{{.Label}}</option>{{end}}
       </select>
     </div>
-  </div>
-  <div class="form-group" id="prekid-akt">
-    <label class="form-label" for="prekida_akt_id">Akt o uspostavi koji se stavlja izvan snage</label>
-    <select id="prekida_akt_id" name="prekida_akt_id" class="form-control">
-      <option value="">zadnji ovjereni, neprekinuti istog stupnja</option>
-      {{range .ZaPrekid}}<option value="{{.ID}}"{{if eq .ID $.Unos.PrekidaAktID}} selected{{end}}>{{.Oznaka}} · {{.VrstaNaziv}} o uspostavi {{.Predmet}} · {{formatDate (localTime .Vrijedi)}}</option>{{end}}
-    </select>
-    <div class="form-help">Samo za prekid. {{if not .ZaPrekid}}Po ovom vodomjeru nema ovjerenog akta o uspostavi koji je još na snazi; rečenicu možete upisati u nacrtu.{{end}}</div>
-  </div>
-  <div class="form-group">
-    <label class="form-label">Dionice</label>
-    {{range .Dionice}}
-    <label style="display:flex; gap:0.5rem; align-items:baseline; min-height:32px;"><input type="checkbox" name="dionica" value="{{.Code}}"{{if $.Unos.ImaDionicu .Code}} checked{{end}}> <strong class="mono">{{.Code}}</strong> <span class="reg-card-sub">{{.Description}}</span></label>
-    {{end}}
-    <div class="form-help">Sve dionice za koje je vodomjer mjerodavan; odznači one koje akt ne obuhvaća.</div>
-  </div>
-  <div class="form-row">
-    <div class="form-group">
-      <label class="form-label" for="ocitanje_id">Očitanje na koje se akt poziva</label>
-      <select id="ocitanje_id" name="ocitanje_id" class="form-control">
-        {{range $i, $o := .Ocitanja}}<option value="{{$o.ID}}"{{if $.Unos.Ocitanje (print $o.ID) (eq $i 0)}} selected{{end}}>{{formatDate $o.LocalTime}} · {{intOf $o.LevelCm}} cm{{if $o.OriginLabel}} · {{$o.OriginLabel}}{{end}}</option>{{end}}
-      </select>
-      <div class="form-help">{{if .Ocitanja}}Zadano je zadnje; odaberite ono u kojem je vodostaj dosegao razinu. Tendencija se računa prema očitanju prije njega.{{else}}Vodomjer nema očitanja s vodostajem; akt se donosi po prognozi.{{end}}</div>
+    {{/* Bez skripte blok uvijek stoji, da se akt za prekid može izabrati; skripta ga skriva kad radnja nije prekid. */}}
+    <div class="list-blok" id="prekid-akt">
+      <div class="form-group list-polje">{{icon "file-text"}}<label class="form-label" for="prekida_akt_id">Akt o uspostavi koji se stavlja izvan snage</label>
+        <select id="prekida_akt_id" name="prekida_akt_id" class="form-control">
+          <option value="">zadnji ovjereni, neprekinuti istog stupnja</option>
+          {{range .ZaPrekid}}<option value="{{.ID}}"{{if eq .ID $.Unos.PrekidaAktID}} selected{{end}}>{{.Oznaka}} · {{.VrstaNaziv}} o uspostavi {{.Predmet}} · {{vrijemeLista .Vrijedi}}</option>{{end}}
+        </select>
+      </div>
+      <div class="form-help">Samo za prekid. {{if not .ZaPrekid}}Po ovoj letvi nema ovjerenog akta o uspostavi koji je još na snazi; rečenicu možete upisati u nacrtu.{{end}}</div>
     </div>
-    <div class="form-group">
-      <label class="form-label" for="tendencija">Tendencija</label>
+    <fieldset class="akt-dionice">
+      <legend>Dionice</legend>
+      {{range .Dionice}}<label class="akt-dionica"><input type="checkbox" name="dionica" value="{{.Code}}"{{if $.Unos.ImaDionicu .Code}} checked{{end}}> <strong class="mono">{{.Code}}</strong> <span>{{.Description}}</span></label>
+      {{end}}<div class="form-help">Sve dionice za koje je letva mjerodavna; odznačite one koje akt ne obuhvaća.</div>
+    </fieldset>
+    <div class="list-blok">
+      <div class="form-group list-polje">{{icon "ruler"}}<label class="form-label" for="ocitanje_id">Očitanje na koje se akt poziva</label>
+        <select id="ocitanje_id" name="ocitanje_id" class="form-control">
+          {{range $i, $o := .Ocitanja}}<option value="{{$o.ID}}"{{if $.Unos.Ocitanje (print $o.ID) (eq $i 0)}} selected{{end}}>{{vrijemeLista $o.MeasuredAt}} · {{intOf $o.LevelCm}} cm{{if $o.OriginLabel}} · {{$o.OriginLabel}}{{end}}</option>{{end}}
+        </select>
+      </div>
+      <div class="form-help">{{if .Ocitanja}}Zadano je zadnje; odaberite ono u kojem je vodostaj dosegao razinu. Tendencija se računa prema očitanju prije njega.{{else}}Letva nema očitanja s vodostajem; akt se donosi po prognozi.{{end}}</div>
+    </div>
+    <div class="form-group list-polje">{{icon "trending-up"}}<label class="form-label" for="tendencija">Tendencija</label>
       <select id="tendencija" name="tendencija" class="form-control">
         <option value="">prema očitanjima</option>
         {{range .Tendencije}}<option value="{{.Kod}}"{{if eq .Kod $.Unos.Tendencija}} selected{{end}}>{{.Naziv}}</option>{{end}}
       </select>
     </div>
-  </div>
-  <div class="form-row">
-    <div class="form-group">
-      <label class="form-label" for="vrijedi">Vrijedi od</label>
-      <input type="datetime-local" id="vrijedi" name="vrijedi" class="form-control" value="{{.LocalValue}}" required>
+    <div class="list-blok">
+      <div class="form-group list-polje">{{icon "clock"}}<label class="form-label" for="vrijedi">Vrijedi od</label>
+        <input type="datetime-local" id="vrijedi" name="vrijedi" class="form-control" value="{{.LocalValue}}" required>
+      </div>
       <div class="form-help">Ne prije otvaranja Dnevnika COP-a i ne više od 7 dana unaprijed. Više od 24 sata unatrag ili više od 3 dana unaprijed traži potvrdu, koja se bilježi uz akt.</div>
-      {{if .TraziPotvrduVrijedi}}<label class="checkbox-label mt-2"><input type="checkbox" name="potvrda_vrijedi" value="1"> Da, „Vrijedi od” je točno upisan</label>{{end}}
+      {{if .TraziPotvrduVrijedi}}<label class="checkbox-label akt-potvrda"><input type="checkbox" name="potvrda_vrijedi" value="1"> Da, „Vrijedi od” je točno upisan</label>{{end}}
     </div>
-    <div class="form-group">
-      <label class="form-label" for="prognoza">Po prognozi (umjesto po vodostaju)</label>
-      <input type="text" id="prognoza" name="prognoza" class="form-control" value="{{.Unos.Prognoza}}" placeholder="npr. najavljen porast do 600 cm 20.9.">
+    <div class="list-blok">
+      <div class="form-group list-polje">{{icon "pencil"}}<label class="form-label" for="prognoza">Po prognozi (umjesto po vodostaju)</label>
+        <input type="text" id="prognoza" name="prognoza" class="form-control" value="{{.Unos.Prognoza}}" placeholder="npr. najavljen porast do 600 cm 20. 9.">
+      </div>
       <div class="form-help">Prazno znači po odabranom očitanju s tendencijom.</div>
     </div>
-  </div>
-  <div class="form-group">
-    <label class="form-label" for="napomena">Napomena na aktu</label>
-    <textarea id="napomena" name="napomena" class="form-control" rows="2" placeholder="neobavezno">{{.Unos.Napomena}}</textarea>
-  </div>
-  <p class="form-help">Tekst akta slaže se iz špranče sektora; u nacrtu ga možete ispraviti prije ovjere.</p>
-  <script>
-  (function () {
-    const blok = document.getElementById('prekid-akt');
-    const radnje = document.querySelectorAll('input[name="radnja"]');
-    const osvjezi = () => { blok.hidden = !Array.from(radnje).some((r) => r.checked && r.value === 'PREKID'); };
-    radnje.forEach((r) => r.addEventListener('change', osvjezi));
+    <div class="list-blok">
+      <div class="form-group list-polje">{{icon "pencil"}}<label class="form-label" for="napomena">Napomena na aktu</label>
+        <textarea id="napomena" name="napomena" class="form-control" rows="2" placeholder="nije obvezno">{{.Unos.Napomena}}</textarea>
+      </div>
+      <div class="form-help">Tekst akta slaže se iz špranče sektora; u nacrtu ga možete ispraviti prije ovjere.</div>
+    </div>
+    <div class="form-actions">
+      <a href="/akti" class="btn btn-secondary">Odustani</a>
+      <button type="submit" class="btn btn-primary">Sastavi nacrt</button>
+    </div>
+  </form>
+{{end}}
+</section>
+
+{{if .Station}}
+<aside class="ploca-stranice list-ploca" aria-label="Tko ovjerava">
+  <section class="list-kartica">
+    <h2>Tko ovjerava</h2>
+    {{/* Bez skripte stoje rečenice za sve stupnjeve, svaka s nazivom stupnja; skripta ostavi samo onu za izabrani stupanj, bez naziva. */}}
+    {{range .TkoOvjerava}}<p class="akt-tko" data-stupanj="{{.Stupanj}}"><span class="akt-bez-skripte">{{.Stupanj.Label}}: </span>{{.Tekst}}</p>{{end}}
+  </section>
+</aside>
+{{end}}
+</div>
+</div>
+
+<script>
+(function () {
+  // Sa skriptom se pokazuje samo ono što vrijedi za izabrano; bez nje stoji sve.
+  document.querySelector('.akt-novi').classList.add('akt-skripta');
+  const izbor = document.getElementById('izbor-letve');
+  const obrazac = document.getElementById('akt-obrazac');
+  const stupanj = document.getElementById('stupanj');
+  const radnja = () => { const r = obrazac.querySelector('input[name="radnja"]:checked'); return r ? r.value : ''; };
+  // Uz izabranu radnju i stupanj stoje njihovo pravilo, akt za prekid i „Tko ovjerava”.
+  const osvjezi = () => {
+    document.getElementById('prekid-akt').hidden = radnja() !== 'PREKID';
+    document.querySelectorAll('.akt-novi [data-radnja]').forEach((el) => { el.hidden = el.dataset.radnja !== radnja(); });
+    document.querySelectorAll('.akt-novi [data-stupanj]').forEach((el) => { el.hidden = el.dataset.stupanj !== stupanj.value; });
+  };
+  if (obrazac) {
+    obrazac.querySelectorAll('input[name="radnja"]').forEach((r) => r.addEventListener('change', osvjezi));
+    stupanj.addEventListener('change', osvjezi);
     osvjezi();
-  })();
+  }
+  // Promjena letve ponovno otvara obrazac i nosi upisano: radnju, stupanj,
+  // prognozu, napomenu i „Vrijedi od” kad ga je osoba mijenjala.
+  const prenesi = (ime, vrijednost) => {
+    let p = izbor.querySelector('input[type="hidden"][name="' + ime + '"]');
+    if (!p) { p = document.createElement('input'); p.type = 'hidden'; p.name = ime; izbor.appendChild(p); }
+    p.value = vrijednost;
+    p.disabled = vrijednost === '';
+  };
+  document.getElementById('station').addEventListener('change', () => {
+    if (obrazac) {
+      prenesi('radnja', radnja());
+      prenesi('stupanj', stupanj.value);
+      prenesi('prognoza', document.getElementById('prognoza').value);
+      prenesi('napomena', document.getElementById('napomena').value);
+      const vrijedi = document.getElementById('vrijedi');
+      if (vrijedi.value !== vrijedi.defaultValue || izbor.querySelector('input[name="vrijedi"]')) prenesi('vrijedi', vrijedi.value);
+    }
+    if (izbor.requestSubmit) izbor.requestSubmit(); else izbor.submit();
+  });
   // „Vrijedi od” više od 24 sata unatrag ili 3 dana unaprijed traži potvrdu
   // (dalje od 7 dana unaprijed odbija program, pa se ne pita)
-  (function () {
-    const obrazac = document.getElementById('akt-obrazac');
-    obrazac.addEventListener('submit', (e) => {
-      const v = new Date(document.getElementById('vrijedi').value);
-      const sat = 3600 * 1000, sad = Date.now();
-      const kv = obrazac.querySelector('input[name="potvrda_vrijedi"]');
-      if (isNaN(v) || (v >= sad - 24 * sat && v <= sad + 72 * sat) || v > sad + 168 * sat || (kv && kv.checked)) return;
-      const dvije = (n) => String(n).padStart(2, '0');
-      const tekst = v.getDate() + '. ' + (v.getMonth() + 1) + '. ' + v.getFullYear() + '. u ' + dvije(v.getHours()) + ':' + dvije(v.getMinutes());
-      if (!confirm('„Vrijedi od” je ' + tekst + ' – jeste li sigurni?')) { e.preventDefault(); return; }
-      const potvrda = document.createElement('input');
-      potvrda.type = 'hidden'; potvrda.name = 'potvrda_vrijedi'; potvrda.value = '1';
-      obrazac.appendChild(potvrda);
-    });
-  })();
-  </script>
-  <div class="form-actions">
-    <a href="/akti" class="btn btn-secondary">Odustani</a>
-    <button type="submit" class="btn btn-primary">Sastavi nacrt</button>
-  </div>
-</form>
-{{end}}
+  if (!obrazac) return;
+  obrazac.addEventListener('submit', (e) => {
+    const v = new Date(document.getElementById('vrijedi').value);
+    const sat = 3600 * 1000, sad = Date.now();
+    const kv = obrazac.querySelector('input[name="potvrda_vrijedi"]');
+    if (isNaN(v) || (v >= sad - 24 * sat && v <= sad + 72 * sat) || v > sad + 168 * sat || (kv && kv.checked)) return;
+    const dvije = (n) => String(n).padStart(2, '0');
+    const tekst = v.getDate() + '. ' + (v.getMonth() + 1) + '. ' + v.getFullYear() + '. u ' + dvije(v.getHours()) + ':' + dvije(v.getMinutes());
+    if (!confirm('„Vrijedi od” je ' + tekst + ' – jeste li sigurni?')) { e.preventDefault(); return; }
+    const potvrda = document.createElement('input');
+    potvrda.type = 'hidden'; potvrda.name = 'potvrda_vrijedi'; potvrda.value = '1';
+    obrazac.appendChild(potvrda);
+  });
+})();
+</script>
 {{end}}
