@@ -8583,6 +8583,53 @@ summary.ocitanja-cip { padding-right: 8px; }
   .knjige-filtri, .knjige-zadaj, .knjiga-upis, .knjiga-gumbi, .knjiga > summary > .icon, .knjiga .moj-list > .icon { display: none !important; }
 }
 
+/* ===== Novi akt: obrazac na jednoj stranici (goCOP-m3, 15 · Dokumenti, 3, 3a, 3c, 3d) =====
+   Dijelovi su isti kao na dnevnom listu vodočuvara: glava (.list-glava), polja (.list-polje),
+   kartice (.list-kartica) i stupci s pločom desno (.list-stupci, .list-ploca). Ovdje je samo
+   ono čega tamo nema: kartica letve, dionice i „Tko ovjerava”. Boje samo iz tokena. */
+.akt-novi [hidden] { display: none !important; }
+.akt-novi .obrana-nacin { margin-bottom: 16px; }
+.akt-letva-glava { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px 16px; }
+.akt-letva-ime { min-width: 0; }
+.akt-letva-ime h2 { margin: 0; font-size: 1rem; font-weight: 500; line-height: 24px; }
+.akt-letva-opis { margin: 2px 0 0; font-size: 0.8125rem; line-height: 18px; color: var(--md-sys-color-on-surface-variant); }
+.akt-letva-vodostaj { flex: none; display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
+.akt-letva-vodostaj strong { font-size: 1.75rem; font-weight: 400; line-height: 36px; color: var(--md-sys-color-on-surface); font-variant-numeric: tabular-nums; }
+.akt-letva-vodostaj span { font-size: 0.75rem; line-height: 16px; color: var(--md-sys-color-on-surface-variant); }
+.akt-letva-pragovi { margin-top: 12px; }
+/* Pravilo slijeda stoji ispod crte, odvojeno od podataka letve. */
+.akt-pravilo { margin: 12px 0 0; padding-top: 12px; border-top: 1px solid var(--md-sys-color-outline-variant); font-size: 0.8125rem; line-height: 18px; color: var(--md-sys-color-on-surface-variant); }
+/* Obrazac je bijela ploha, pa natpis polja na rubu nosi istu boju. */
+.akt-obrazac-kartica { display: flex; flex-direction: column; gap: 20px; background: var(--md-sys-color-surface); }
+.akt-dionice { display: flex; flex-direction: column; gap: 0; min-width: 0; margin: 0; padding: 0; border: 0; }
+.akt-dionice legend { margin: 0 0 4px; padding: 0; font-size: 0.8125rem; line-height: 18px; color: var(--md-sys-color-on-surface-variant); }
+.akt-dionica { display: grid; grid-template-columns: 20px 64px minmax(0, 1fr); align-items: start; column-gap: 12px; padding-block: 8px; cursor: pointer;
+  font-size: 0.875rem; line-height: 20px; color: var(--md-sys-color-on-surface); }
+.akt-dionica input { width: 18px; height: 18px; margin: 1px 0 0; accent-color: var(--md-sys-color-primary); }
+.akt-dionica > span { font-size: 0.8125rem; color: var(--md-sys-color-on-surface-variant); }
+.akt-dionice .form-help { margin-top: 4px; }
+.akt-potvrda { display: flex; align-items: center; gap: 8px; min-height: 40px; font-size: 0.875rem; color: var(--md-sys-color-on-surface); }
+.akt-tko { margin: 0; font-size: 0.875rem; line-height: 20px; color: var(--md-sys-color-on-surface-variant); }
+/* Naziv stupnja uz „Tko ovjerava” treba samo bez skripte, kad stoje rečenice za sve stupnjeve. */
+.akt-bez-skripte { font-weight: 500; color: var(--md-sys-color-on-surface); }
+.akt-skripta .akt-bez-skripte { display: none; }
+@media (min-width: 600px) {
+  /* Na računalu gumbi stoje desno, „Sastavi nacrt” zadnji; na mobitelu ostaje redoslijed lista. */
+  .akt-novi .form-actions { justify-content: flex-end; }
+  .akt-novi .form-actions .btn-primary { order: 0; }
+}
+@media (max-width: 599px) {
+  .akt-letva-vodostaj strong { font-size: 1.5rem; line-height: 32px; }
+  .akt-dionica { grid-template-columns: 20px minmax(0, 1fr); }
+  .akt-dionica > span { grid-column: 2; }
+}
+@media (max-width: 599px), (pointer: coarse) {
+  .akt-dionica, .akt-potvrda { min-height: 48px; align-items: center; }
+  .akt-dionica input { margin-top: 0; }
+  /* Naziv letve je poveznica u tekstu: padding širi dodir na 48 px, a redak ostaje iste visine. */
+  .akt-letva-ime h2 a { display: inline-block; padding-block: 12px; margin-block: -12px; }
+}
+
 /* ===== Rješenja i obavijesti, popis (goCOP-m3, 15 · Dokumenti, 2) =====
    Isti redak tablice na računalu je redak, na tabletu stane bez klizača jer BP, dionice
    i „Vrijedi od” sjedaju ispod naslova, a na mobitelu je kartica. Cijeli redak vodi na
