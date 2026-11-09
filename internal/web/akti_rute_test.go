@@ -197,7 +197,7 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	if l := zovi(http.MethodPost, "/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"IZVANREDNA"}, "vrijedi": {"2026-09-15T12:00"}, "potvrda_vrijedi": {"1"}, "dionica": {"B.34.1", "B.34.2"}}).Header().Get("Location"); !strings.Contains(l, "preventivnoj") {
 		t.Fatalf("nacrt bez dnevnika COP-a: %s", l)
 	}
-	mora(zovi(http.MethodGet, "/akti", nil), "popis u preventivnoj", "preventivna obrana", "nema otvorenog dnevnika COP-a")
+	mora(zovi(http.MethodGet, "/akti", nil), "popis u preventivnoj", "preventivna obrana", "nema otvorenog dnevnika COP-a", `href="/dnevnici/novi-cop?centar=B"`)
 	// voditelj otvori dnevnik COP-a: aktivna obrana; uz to vodočuvar područja i otvoren dnevnik održavanja
 	pocetakObrane := time.Date(2026, 9, 1, 0, 0, 0, 0, models.Zagreb)
 	dnevnikCOP := &models.Journal{Kind: models.JournalKindDefense, CentarSektor: "B", Title: "Dnevnik COP-a Osijek, rujan 2026.", Year: 2026, StartedAt: &pocetakObrane}
