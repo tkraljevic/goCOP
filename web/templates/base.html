@@ -112,7 +112,7 @@
       <a href="/administracija" class="vrh-gumb" id="vrh-razmjena" data-stanje="nema" title="Razmjena s drugim računalima" aria-label="Razmjena s drugim računalima">{{icon "refresh-cw"}}<span class="vrh-tocka"></span></a>
       <a href="/dogadjanja" class="vrh-gumb" title="Događanja" aria-label="Događanja">{{icon "bell"}}</a>
       {{/* S privremenom lozinkom radi samo promjena lozinke, pa ni prijava ne bi prošla */}}
-      {{if not .CurrentUser.MustChangePassword}}<button type="button" class="vrh-gumb" id="vrh-prijava-greske" title="Prijavi grešku ili prijedlog" aria-label="Prijavi grešku ili prijedlog" aria-haspopup="dialog">{{icon "bug"}}</button>{{end}}
+      {{if not .CurrentUser.MustChangePassword}}<button type="button" class="vrh-gumb" id="vrh-prijava-greske" title="Prijavi grešku ili predloži poboljšanje" aria-label="Prijavi grešku ili predloži poboljšanje" aria-haspopup="dialog">{{icon "bug"}}</button>{{end}}
       {{end}}
       <a href="/pomoc{{if .ActiveNav}}#{{.ActiveNav}}{{end}}" class="vrh-gumb pomoc-znak" title="Pomoć za ovu stranicu" aria-label="Pomoć za ovu stranicu">{{icon "circle-question-mark"}}</a>
       <button type="button" class="vrh-gumb theme-toggle" onclick="toggleTheme()" title="Svijetla ili tamna tema" aria-label="Svijetla ili tamna tema">
@@ -260,7 +260,7 @@
 {{define "prijavaGreskeOkno"}}
 <dialog class="pg-okno" id="prijava-greske" aria-labelledby="pg-naslov">
   <form method="dialog" class="pg-dio-obrazac" novalidate>
-    <h2 id="pg-naslov">Prijavi grešku ili prijedlog</h2>
+    <h2 id="pg-naslov">Prijavi grešku ili predloži poboljšanje</h2>
     <fieldset class="prog-segment pg-segment">
       <legend>Vrsta prijave</legend>
       <div class="prog-segment-gumbi">
