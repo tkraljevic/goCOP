@@ -319,19 +319,19 @@ func TestPoslovodjaNeOtvaraTudjiDnevnikSvojimImenom(t *testing.T) {
 	}
 }
 
-// brojDnevnikaNaKartici je broj na kartici vrste dnevnika na razdjelnici
-// Dokumentacija
+// brojDnevnikaNaKartici je broj u retku vrste dnevnika na razdjelnici
+// Dokumenti
 func brojDnevnikaNaKartici(t *testing.T, stranica, naslov string) string {
 	t.Helper()
-	m := regexp.MustCompile(`>(\d+)</span>\s*</div>\s*<div class="dash-card-body">\s*<h2 class="dash-card-title">` + regexp.QuoteMeta(naslov) + `<`).FindStringSubmatch(stranica)
+	m := regexp.MustCompile(`<span class="redak-glavno">` + regexp.QuoteMeta(naslov) + `</span>(?:<span class="redak-sporedno">[^<]*</span>)?</span><span class="redak-vrijednost">(\d+)</span>`).FindStringSubmatch(stranica)
 	if m == nil {
-		t.Fatalf("na razdjelnici nema kartice %q s brojem", naslov)
+		t.Fatalf("na razdjelnici nema retka %q s brojem", naslov)
 	}
 	return m[1]
 }
 
-// Kartice dnevnika usluga A.02 i A.03 na razdjelnici Dokumentacija
-// poslovođi broje samo dnevnike koje smije čitati (dnevnike svoje firme na
+// Retci dnevnika usluga A.02 i A.03 na razdjelnici Dokumenti poslovođi
+// broje samo dnevnike koje smije čitati (dnevnike svoje firme na
 // području svoje dužnosti), a ne dnevnike svih firmi na svim područjima;
 // opozvanom poslovođi nijedan. Ostali vide broj svih (Odluke (8. 10.
 // 2026.), pitanje 1). Podaci su izmišljeni.
@@ -365,10 +365,10 @@ func TestPoslovodjaNaRazdjelniciBrojiSamoSvojeDnevnike(t *testing.T) {
 		if w.Code != http.StatusOK {
 			t.Fatalf("%s: %d", x.u.FullName, w.Code)
 		}
-		if got := brojDnevnikaNaKartici(t, w.Body.String(), "Dnevnici usluga A.02"); got != x.a02 {
+		if got := brojDnevnikaNaKartici(t, w.Body.String(), "Dnevnik usluga A.02"); got != x.a02 {
 			t.Errorf("%s: A.02 %s, očekivano %s", x.u.FullName, got, x.a02)
 		}
-		if got := brojDnevnikaNaKartici(t, w.Body.String(), "Dnevnici usluga A.03"); got != x.a03 {
+		if got := brojDnevnikaNaKartici(t, w.Body.String(), "Dnevnik usluga A.03"); got != x.a03 {
 			t.Errorf("%s: A.03 %s, očekivano %s", x.u.FullName, got, x.a03)
 		}
 	}
