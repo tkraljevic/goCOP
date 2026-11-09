@@ -8710,10 +8710,21 @@ summary.ocitanja-cip { padding-right: 8px; }
   .akt-novi .form-actions { justify-content: flex-end; }
   .akt-novi .form-actions .btn-primary { order: 0; }
 }
+/* Preventivna obrana (3b): umjesto obrasca kartica s gumbom za dnevnik COP-a. */
+.akt-preventivna h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1rem; font-weight: 500; line-height: 24px; }
+.akt-preventivna h2 .icon { width: 20px; height: 20px; color: var(--md-sys-color-on-surface-variant); }
+.akt-preventivna p { margin: 8px 0 16px; font-size: 0.875rem; line-height: 20px; color: var(--md-sys-color-on-surface-variant); }
+.akt-preventivna-gumbi { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+/* Na mobitelu se akt ne sastavlja (Odluke (6. 11. 2026.)): poruka umjesto obrasca, tablet ima obrazac. */
+.akt-samo-racunalo { display: none; }
 @media (max-width: 599px) {
   .akt-letva-vodostaj strong { font-size: 1.5rem; line-height: 32px; }
   .akt-dionica { grid-template-columns: 20px minmax(0, 1fr); }
   .akt-dionica > span { grid-column: 2; }
+  .akt-novi .akt-samo-racunalo { display: flex; align-items: flex-start; gap: 12px; }
+  .akt-samo-racunalo > .icon { flex: none; width: 24px; height: 24px; color: var(--md-sys-color-on-surface-variant); }
+  .akt-samo-racunalo p { margin: 0; font-size: 0.875rem; line-height: 20px; }
+  .akt-novi .stupci-stranice, .akt-novi .obrana-nacin, .akt-novi .page-desc { display: none; }
 }
 @media (max-width: 599px), (pointer: coarse) {
   .akt-dionica, .akt-potvrda { min-height: 48px; align-items: center; }

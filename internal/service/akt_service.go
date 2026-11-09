@@ -87,6 +87,13 @@ func (s *AktService) AktivnaObrana(ctx context.Context, sektor string) *models.J
 	return s.aktivna(ctx, sektor)
 }
 
+// UPreventivnoj javlja je li sektor u preventivnoj obrani: nema otvorenog
+// dnevnika COP-a, pa se akt ne sastavlja, nego se prvo otvara dnevnik (Odluke
+// (6. 11. 2026.)). Bez pravila aktivne obrane nije, kao u trebaAktivnu.
+func (s *AktService) UPreventivnoj(ctx context.Context, sektor string) bool {
+	return s != nil && s.aktivna != nil && sektor != "" && s.aktivna(ctx, sektor) == nil
+}
+
 // trebaAktivnu provjerava da je obrana u sektoru akta aktivna
 func (s *AktService) trebaAktivnu(ctx context.Context, a *models.Akt) (*models.Journal, error) {
 	if s.aktivna == nil {
