@@ -270,7 +270,7 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	if strings.Contains(spojeno, "Vatrogasna zajednica") || strings.Contains(spojeno, "Stožer") {
 		t.Error("vatrogasci ne idu na akt, a stožer tek od izvanrednog stanja")
 	}
-	mora(zovi(http.MethodGet, putanja, nil), "nacrt", "NACRT", "RJEŠENJE", "izvanredne obrane od poplava", "652 cm", "s tendencijom daljnjeg porasta", "B.34.1", "Zeleni otok", "Ovjeri", "Obriši nacrt", "ožujak 2025.", "članka XXIV", "Ispravi tekst nacrta")
+	mora(zovi(http.MethodGet, putanja, nil), "nacrt", `class="oznaka-stanja nacrt">nacrt</span>`, "NACRT", "RJEŠENJE", "izvanredne obrane od poplava", "652 cm", "s tendencijom daljnjeg porasta", "B.34.1", "Zeleni otok", "Ovjeri", "Obriši nacrt", "ožujak 2025.", "članka XXIV", "Ispravi tekst nacrta")
 	w = zovi(http.MethodPost, putanja+"/tekst", url.Values{"uvod": {a.Uvod + " i sukladno procjeni visokog stupnja ugroženosti,"}, "zavrsno": {a.Zavrsno}, "napomena": {"Probna napomena."}})
 	if !strings.Contains(w.Header().Get("Location"), "success") {
 		t.Fatalf("ispravak nacrta: %s", w.Header().Get("Location"))
@@ -348,7 +348,7 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 			t.Errorf("obrana na %s nije proglašena ovjerom: %+v", code, e)
 		}
 	}
-	mora(zovi(http.MethodGet, putanja, nil), "ovjeren", "ovjeren B-1/2026", a.OvjeraKod, "Uprava Sektora")
+	mora(zovi(http.MethodGet, putanja, nil), "ovjeren", `class="oznaka-stanja obrub">B-1/2026 · ovjeren</span>`, a.OvjeraKod, "Uprava Sektora")
 	if w := zovi(http.MethodPost, putanja+"/obrisi", url.Values{}); !strings.Contains(w.Header().Get("Location"), "error") {
 		t.Error("ovjeren akt bi trebao odbiti brisanje")
 	}

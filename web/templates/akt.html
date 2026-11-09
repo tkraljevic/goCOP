@@ -4,270 +4,304 @@
 
 {{define "content"}}
 {{$a := .Akt}}
-<div class="breadcrumb"><a href="/dnevnici">Dokumenti</a> › <a href="/akti">Rješenja i obavijesti</a> › {{$a.Oznaka}}</div>
-
-<div class="detail-head">
+{{/* Stranica akta (goCOP-m3, 15 · Dokumenti, 4): zaglavlje, trake na vrhu, papir lijevo i ploča desno.
+     Ispod oko 1280 px širine stranice sve je u jednom stupcu: papir, pa ploča. Radnje i obrasci su isti kao prije. */}}
+<div class="akt-stranica">
+<a href="/akti" class="povratna-poveznica">← Rješenja i obavijesti</a>
+<div class="page-header list-glava akt-glava">
   <div>
-    <h1 class="page-title" data-naziv-stranice="Akt">{{icon "file-text"}} {{$a.Vrsta}} o {{$a.RadnjaLabel}} {{$a.Predmet}}</h1>
-    <p class="page-desc">{{$a.StationName}} · BP {{$a.AreaID}}{{with .Podrucje}} {{.Name}}{{end}} · {{term "sektor"}} {{$a.Sektor}} ·
-      {{if $a.Ovjeren}}<span class="badge badge-area-admin">{{icon "check"}} ovjeren {{$a.Oznaka}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{end}}{{if $a.Storniran}} <span class="badge badge-danger">poništen</span>{{end}}{{if not .Sukob.Rijesen}}{{if .Sukob.Drugi}} <a href="#oznaka" class="badge badge-danger">ista oznaka kao drugi akt</a>{{end}}{{if .Sukob.Ovjere}} <a href="#oznaka" class="badge badge-danger">ovjeren i na drugom čvoru</a>{{end}}{{end}}</p>
+    <h1 class="page-title" data-naziv-stranice="Akt">{{$a.KratkiNaslov}}
+      {{if $a.Storniran}}<span class="oznaka-stanja">{{$a.Oznaka}} · poništen</span> <span class="badge {{$a.Stupanj.BadgeClass}} akt-stupanj-tiho">{{$a.Stupanj.Label}}</span>
+      {{else}}<span class="badge {{$a.Stupanj.BadgeClass}}">{{$a.Stupanj.Label}}</span> <span class="oznaka-stanja {{if $a.Ovjeren}}obrub{{else}}nacrt{{end}}">{{if $a.Ovjeren}}{{$a.Oznaka}} · ovjeren{{else}}nacrt{{end}}</span>{{end}}</h1>
+    <p class="page-desc">{{$a.StationName}} · BP {{$a.AreaID}}{{with .Podrucje}} {{.Name}}{{end}} · {{term "sektor"}} {{$a.Sektor}}</p>
   </div>
   <div class="page-actions">
-    <a href="/akti/{{$a.ID}}/akt.pdf" class="btn btn-secondary" target="_blank">{{icon "printer"}} PDF</a>
-    {{if .SmijeOvjeriti}}
-    <form method="POST" action="/akti/{{$a.ID}}/ovjeri" class="d-inline" id="ovjera-obrazac" onsubmit="return confirm('Ovjeriti akt u goCOP-u? Ovjera se potpisuje ključem čvora, akt dobiva broj i kod ovjere, a PDF sa žigom i potpisom postaje izvornik.{{with .Pregled}}{{if .Razlikuje}} Popis primatelja složen pri ovjeri razlikuje se od nacrta ({{.OpisRazlike}}); razlika je na stranici, pod Primatelji pri ovjeri.{{end}}{{end}}');">{{with .Pregled}}<input type="hidden" name="otisak" value="{{.Otisak}}">{{end}}<button type="submit" class="btn btn-secondary" title="Hitna ovjera u programu, bez kvalificiranog potpisa">{{icon "check"}} Ovjeri u goCOP-u</button></form>
-    {{end}}
-    {{if .SmijeObrisati}}
-    <form method="POST" action="/akti/{{$a.ID}}/obrisi" class="d-inline" onsubmit="return confirm('Obrisati nacrt?');"><button type="submit" class="btn btn-secondary">{{icon "trash"}} Obriši nacrt</button></form>
-    {{end}}
-    {{if .SmijeObrisatiTrajno}}
-    <form method="POST" action="/akti/{{$a.ID}}/obrisi" class="d-inline" onsubmit="return confirm('TRAJNO obrisati ovjereni akt {{$a.Oznaka}} s izvornikom i dnevnikom slanja? Ovo je dopušteno samo u testnom okruženju (Administracija › Opcije).');"><button type="submit" class="btn btn-secondary btn-opasno">{{icon "trash"}} Obriši trajno</button></form>
-    {{end}}
+    <a href="/akti/{{$a.ID}}/akt.pdf" class="btn btn-link" target="_blank">PDF</a>
   </div>
 </div>
 
-{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
-{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+{{/* Trake: ono što treba vidjeti prije teksta i radnji. Tekstovi su isti kao prije. */}}
+{{with $a.Storno}}
+<div class="akt-traka">{{icon "triangle-alert"}}
+  <div><strong>Akt je poništen (storno):</strong> {{.Razlog}} Poništio {{.Ponistio}}, {{formatDate (localTime .PonistenoAt)}}. Poništen akt ne ulazi u stanje obrane; ako treba, ispravlja ga novi akt.</div>
+</div>
+{{end}}
+{{if and $a.Ovjeren (eq .Potpis "NE_VRIJEDI")}}
+<div class="akt-traka">{{icon "triangle-alert"}}
+  <div><strong>Elektronički potpis ne vrijedi.</strong> Sadržaj akta razlikuje se od ovjerenoga ili potpis nije ispravan; akt ne treba koristiti dok se ne provjeri.</div>
+</div>
+{{end}}
 {{with .PitanjeVrijedi}}
-<div class="alert alert-warning" id="vrijedi-potvrda">{{icon "triangle-alert"}} <strong>{{.}}</strong> Nacrt tu potvrdu nema, pa je traži ovjera; potvrda se bilježi uz akt.
-  {{if $.SmijeOvjeriti}}<label class="checkbox-label"><input type="checkbox" name="potvrda_vrijedi" value="1" form="ovjera-obrazac" required> Da, „Vrijedi od” je točno upisan (ovjera u goCOP-u)</label>{{end}}
+<div class="akt-traka" id="vrijedi-potvrda">{{icon "triangle-alert"}}
+  <div><strong>{{.}}</strong> Nacrt tu potvrdu nema, pa je traži ovjera; potvrda se bilježi uz akt.
+  {{if $.SmijeOvjeriti}}<label class="checkbox-label"><input type="checkbox" name="potvrda_vrijedi" value="1" form="ovjera-obrazac" required> Da, „Vrijedi od” je točno upisan (ovjera u goCOP-u)</label>{{end}}</div>
+</div>
+{{end}}
+{{if .Sukob.Ima}}
+<div class="akt-traka{{if .Sukob.Rijesen}} rijeseno{{end}}" id="oznaka">{{if .Sukob.Rijesen}}{{icon "info"}}{{else}}{{icon "triangle-alert"}}{{end}}
+  <div>
+  {{with .Sukob.Drugi}}<strong>Ista oznaka kao akt {{range $i, $d := .}}{{if $i}}; {{end}}<a href="/akti/{{$d.ID}}">{{$d.StationName}}, {{$d.Vrsta}} o {{$d.RadnjaLabel}} {{$d.Predmet}}</a>{{if $.Sukob.IzvanPopisa $d}} u drugoj ovjeri, koja u popisu ne stoji{{end}} (kod {{$d.OvjeraKod}}{{with $d.Cvor}}, čvor {{.}}{{end}}){{end}}.</strong>{{end}}
+  {{with .Sukob.Ovjere}}<strong>Isti nacrt ovjeren je i na drugom čvoru, dok među čvorovima nije bilo veze.</strong> Ovdje stoji ovjera {{$a.Oznaka}} (kod {{$a.OvjeraKod}}{{with $a.Cvor}}, čvor {{.}}{{end}}). Druga ovjera ne stoji u popisu akata, ali i ona vrijedi i mogla je otići primateljima:
+  <ul class="mb-0">{{range .}}<li>{{.Oznaka}}, kod <span class="mono">{{.OvjeraKod}}</span>{{with .Cvor}}, čvor {{.}}{{end}}, ovjerio {{.Ovjerio}}{{with .OvjerenoAt}}, {{formatDate (localTime (derefTime .))}}{{end}}{{if .Storniran}}, poništen{{end}}; {{$p := index $.PotpisiOvjera .OvjeraKod}}{{if eq $p "VRIJEDI"}}elektronički potpis vrijedi{{else if eq $p "NE_VRIJEDI"}}elektronički potpis ne vrijedi{{else}}bez elektroničkog potpisa{{end}}</li>{{end}}</ul>{{end}}
+  {{if $.Sukob.Rijesen}}{{with $.Sukob.Rjesenje}}<p class="mb-0">Sukob je riješen: {{.Napomena}} ({{.Rijesio}}, {{formatDate (localTime .Kad)}}).</p>{{end}}
+  {{else}}<p class="mb-0">{{if .Sukob.Drugi}}{{$cv := $.Sukob.Cvorovi $a}}{{if eq $cv "RAZLICITI"}}Akti su ovjereni na različitim čvorovima, u pravilu dok među njima nije bilo veze. {{else if eq $cv "ISTI"}}Akti su ovjereni na istom čvoru. {{end}}{{end}}Sve ovjere ostaju valjane i rješenje ih ne mijenja. Sukob rješava voditelj COP-a ili zamjenik, na primjer dopisom primateljima s ispravkom oznake, i označava ga riješenim.</p>{{end}}
+  {{if and $.SmijeRijesitiOznaku (not $.Sukob.Rijesen)}}
+  <form method="POST" action="/akti/{{$a.ID}}/oznaka" class="akt-traka-obrazac">
+    <div class="form-group list-polje">{{icon "pencil"}}<label for="napomena-oznake" class="form-label">Kako je sukob riješen</label><input id="napomena-oznake" name="napomena" class="form-control" required placeholder="npr. primateljima poslan dopis s ispravkom oznake"></div>
+    <button type="submit" class="btn btn-secondary">{{icon "check"}} Označi riješenim</button>
+  </form>
+  {{end}}
+  </div>
 </div>
 {{end}}
 
-{{with .Slanje}}
-<section class="akt-slanje" id="slanje">
-  <h2>{{icon "mail"}} Slanje na znanje</h2>
-  {{if not .Podesena}}<div class="alert alert-warning">Slanje e-poštom nije uključeno na ovom računalu (<span class="mono">gocop.toml</span>, odjeljak <span class="mono">[posta]</span>).</div>
-  {{else if not .Posiljatelj}}<div class="alert alert-warning">U vašem profilu nema adrese e-pošte; s nje se akt šalje.</div>
-  {{else if not .Racun}}<div class="alert alert-warning">Za slanje upišite lozinku e-pošte: <a href="/profile/posta">Profil › E-pošta za slanje akata</a>.</div>{{end}}
-  {{if .Adresati}}
-  <form method="POST" action="/akti/{{$a.ID}}/posalji" id="akt-slanje-obrazac">
-    <div class="alert alert-warning mt-0 mb-2">{{icon "triangle-alert"}} Ništa se ne šalje dok sami ne označite primatelje. Za probu koristite „Probno samo meni”: stvarnim primateljima ne odlazi ništa.</div>
-    <p class="form-help akt-slanje-odabir">
-      <a href="#" data-odaberi="sve">označi sve</a> · <a href="#" data-odaberi="nista">ništa</a> · <a href="#" data-odaberi="neposlane">samo one kojima još nije poslano</a>
-      <span class="akt-slanje-brojac"></span>
-    </p>
-    <table class="table akt-slanje-tablica">
-      <thead><tr><th></th><th>Primatelj</th><th>Adresa</th><th>Stanje</th></tr></thead>
-      <tbody>
-      {{range .Adresati}}
-        <tr>
-          <td><input type="checkbox" name="adresa" value="{{.Adresa}}" data-poslano="{{if .Poslano}}1{{else}}0{{end}}" {{if not $.Slanje.SmijeSlati}}disabled{{end}}></td>
-          <td>{{.Naziv}}{{with .Skupina}} <span class="form-help">· {{.}}</span>{{end}}</td>
-          <td class="mono">{{.Adresa}}</td>
-          <td>{{with .Zadnje}}{{if .Uspjelo}}<span class="badge badge-active">poslano</span> {{formatDate (localTime .Kad)}}, {{.Poslao}}{{else}}<span class="badge badge-danger">nije prošlo</span> {{.Greska}}{{end}}{{else}}—{{end}}</td>
-        </tr>
-      {{end}}
-      </tbody>
-    </table>
-    {{with .BezAdrese}}<p class="form-help">Bez adrese e-pošte u registru, ne šalje im se: {{range $i, $p := .}}{{if $i}}; {{end}}{{$p.Naziv}}{{end}}.</p>{{end}}
-    <details class="akt-slanje-poruka">
-      <summary>Poruka koja se šalje</summary>
-      <p><strong>Od:</strong> {{$.CurrentUser.FullName}} &lt;{{.Posiljatelj}}&gt;<br><strong>Predmet:</strong> {{.Poruka.Predmet}}<br><strong>Privitak:</strong> {{.Poruka.ImeDatoteke}} (izvornik)</p>
-      <pre>{{.Poruka.Tekst}}</pre>
-      <p class="form-help">Svaki primatelj dobiva zasebnu poruku, pa ne vidi ostale adrese.</p>
-    </details>
-    {{if .SmijeSlati}}
-    <div class="form-group adresa-polje mt-2 mb-2">
-      <label class="form-label" for="dodatne">Dodatne adrese</label>
-      <input class="form-control" id="dodatne" name="dodatne" placeholder="tko još treba dobiti akt; više adresa odvojite zarezom" autocomplete="off" autocapitalize="off" spellcheck="false">
-      <ul class="adresa-prijedlozi" hidden></ul>
-      <div class="form-help">Adrese koje nisu na popisu „na znanje”. Prijedlozi iz imenika dolaze dok tipkate.</div>
-    </div>
-    {{if .SpremaPoslano}}<p class="form-help">Poruke se šalju preko Exchangea kao iz Outlooka i ostaju u vašoj mapi Poslano.</p>
-    {{else}}<label class="checkbox-label"><input type="checkbox" name="kopija" value="1" checked> Pošalji kopiju i meni (poslužitelj ne sprema poslanu poštu u Outlookovu mapu Poslano)</label>{{end}}
-    <div class="mt-2 d-flex gap-2 flex-wrap items-center">
-      <button type="submit" class="btn btn-primary" id="akt-posalji" {{if or (not .Podesena) (not .Racun) (not .Posiljatelj)}}disabled{{end}}>{{icon "mail"}} Pošalji odabranima</button>
-      <button type="submit" class="btn btn-secondary" name="proba" value="1" formnovalidate {{if or (not .Podesena) (not .Racun) (not .Posiljatelj)}}disabled{{end}}>{{icon "user"}} Probno samo meni</button>
-      {{if eq .NijePoslanoJos 0}}<span class="form-help">Svim adresama je već poslano.</span>{{end}}</div>
-    <script>
-      (function () {
-        var f = document.getElementById('akt-slanje-obrazac');
-        var kv = f.querySelectorAll('input[name="adresa"]');
-        var dodatne = document.getElementById('dodatne');
-        var gumb = document.getElementById('akt-posalji');
-        var brojac = f.querySelector('.akt-slanje-brojac');
-        var moze = !gumb.hasAttribute('data-zakljucan') && !gumb.disabled;
-        function osvjezi() {
-          var n = 0; kv.forEach(function (k) { if (k.checked) n++; });
-          var ima = n > 0 || dodatne.value.trim() !== '';
-          if (moze) gumb.disabled = !ima;
-          brojac.textContent = n ? ' · označeno: ' + n : '';
-        }
-        f.querySelectorAll('[data-odaberi]').forEach(function (a) {
-          a.addEventListener('click', function (e) {
-            e.preventDefault();
-            kv.forEach(function (k) { k.checked = a.dataset.odaberi === 'sve' || (a.dataset.odaberi === 'neposlane' && k.dataset.poslano === '0'); });
-            osvjezi();
+{{$slanjeGotovo := and .Slanje .Slanje.Adresati (eq .Slanje.NijePoslanoJos 0)}}
+<div class="stupci-stranice akt-stupci">
+<div class="akt-list{{if $a.Storniran}} akt-ponisten{{end}}">
+  {{template "akt_papir" .Papir}}
+  {{if $a.Storniran}}<span class="akt-zig" aria-hidden="true">PONIŠTEN</span>{{end}}
+</div>
+
+<aside class="ploca-stranice list-ploca akt-ploca" aria-label="Radnje s aktom">
+  <ol class="akt-koraci list-kartica">
+    <li class="gotov"><span class="akt-korak-znak">{{icon "check"}}</span> Nacrt</li>
+    <li class="{{if $a.Ovjeren}}gotov{{else}}sada{{end}}"{{if not $a.Ovjeren}} aria-current="step"{{end}}><span class="akt-korak-znak">{{if $a.Ovjeren}}{{icon "check"}}{{else}}2{{end}}</span> Ovjera</li>
+    {{if $a.Storniran}}<li class="ponisten" aria-current="step"><span class="akt-korak-znak">{{icon "x"}}</span> Poništen</li>
+    {{else}}<li class="{{if $slanjeGotovo}}gotov{{else if $a.Ovjeren}}sada{{end}}"{{if and $a.Ovjeren (not $slanjeGotovo)}} aria-current="step"{{end}}><span class="akt-korak-znak">{{if $slanjeGotovo}}{{icon "check"}}{{else}}3{{end}}</span> Slanje</li>{{end}}
+  </ol>
+
+  {{if .SmijeOvjeriti}}
+  <section class="list-kartica akt-ovjera">
+    <h2>Ovjera</h2>
+    <form method="POST" action="/akti/{{$a.ID}}/ovjeri" id="ovjera-obrazac" onsubmit="return confirm('Ovjeriti akt u goCOP-u? Ovjera se potpisuje ključem čvora, akt dobiva broj i kod ovjere, a PDF sa žigom i potpisom postaje izvornik.{{with .Pregled}}{{if .Razlikuje}} Popis primatelja složen pri ovjeri razlikuje se od nacrta ({{.OpisRazlike}}); razlika je na stranici, pod Primatelji pri ovjeri.{{end}}{{end}}');">{{with .Pregled}}<input type="hidden" name="otisak" value="{{.Otisak}}">{{end}}<button type="submit" class="btn btn-primary" title="Hitna ovjera u programu, bez kvalificiranog potpisa">{{icon "check"}} Ovjeri u goCOP-u</button></form>
+  </section>
+  {{end}}
+
+  {{with .Slanje}}
+  <section class="list-kartica akt-slanje" id="slanje">
+    <h2>Slanje na znanje</h2>
+    {{if not .Podesena}}<div class="alert alert-warning">Slanje e-poštom nije uključeno na ovom računalu (<span class="mono">gocop.toml</span>, odjeljak <span class="mono">[posta]</span>).</div>
+    {{else if not .Posiljatelj}}<div class="alert alert-warning">U vašem profilu nema adrese e-pošte; s nje se akt šalje.</div>
+    {{else if not .Racun}}<div class="alert alert-warning">Za slanje upišite lozinku e-pošte: <a href="/profile/posta">Profil › E-pošta za slanje akata</a>.</div>{{end}}
+    {{if .Adresati}}
+    <form method="POST" action="/akti/{{$a.ID}}/posalji" id="akt-slanje-obrazac">
+      <div class="alert alert-warning mt-0 mb-2">{{icon "triangle-alert"}} Ništa se ne šalje dok sami ne označite primatelje. Za probu koristite „Probno samo meni”: stvarnim primateljima ne odlazi ništa.</div>
+      <p class="form-help akt-slanje-odabir">
+        <a href="#" data-odaberi="sve">označi sve</a> · <a href="#" data-odaberi="nista">ništa</a> · <a href="#" data-odaberi="neposlane">samo one kojima još nije poslano</a>
+        <span class="akt-slanje-brojac"></span>
+      </p>
+      <table class="table akt-slanje-tablica">
+        <thead><tr><th></th><th>Primatelj</th><th>Adresa</th><th>Stanje</th></tr></thead>
+        <tbody>
+        {{range .Adresati}}
+          <tr>
+            <td><input type="checkbox" name="adresa" value="{{.Adresa}}" data-poslano="{{if .Poslano}}1{{else}}0{{end}}" {{if not $.Slanje.SmijeSlati}}disabled{{end}}></td>
+            <td>{{.Naziv}}{{with .Skupina}} <span class="form-help">· {{.}}</span>{{end}}</td>
+            <td class="mono">{{.Adresa}}</td>
+            <td>{{with .Zadnje}}{{if .Uspjelo}}<span class="badge badge-active">poslano</span> {{formatDate (localTime .Kad)}}, {{.Poslao}}{{else}}<span class="badge badge-danger">nije prošlo</span> {{.Greska}}{{end}}{{else}}—{{end}}</td>
+          </tr>
+        {{end}}
+        </tbody>
+      </table>
+      {{with .BezAdrese}}<p class="form-help">Bez adrese e-pošte u registru, ne šalje im se: {{range $i, $p := .}}{{if $i}}; {{end}}{{$p.Naziv}}{{end}}.</p>{{end}}
+      <details class="akt-slanje-poruka">
+        <summary>Poruka koja se šalje</summary>
+        <p><strong>Od:</strong> {{$.CurrentUser.FullName}} &lt;{{.Posiljatelj}}&gt;<br><strong>Predmet:</strong> {{.Poruka.Predmet}}<br><strong>Privitak:</strong> {{.Poruka.ImeDatoteke}} (izvornik)</p>
+        <pre>{{.Poruka.Tekst}}</pre>
+        <p class="form-help">Svaki primatelj dobiva zasebnu poruku, pa ne vidi ostale adrese.</p>
+      </details>
+      {{if .SmijeSlati}}
+      <div class="form-group adresa-polje mt-2 mb-2">
+        <label class="form-label" for="dodatne">Dodatne adrese</label>
+        <input class="form-control" id="dodatne" name="dodatne" placeholder="tko još treba dobiti akt; više adresa odvojite zarezom" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <ul class="adresa-prijedlozi" hidden></ul>
+        <div class="form-help">Adrese koje nisu na popisu „na znanje”. Prijedlozi iz imenika dolaze dok tipkate.</div>
+      </div>
+      {{if .SpremaPoslano}}<p class="form-help">Poruke se šalju preko Exchangea kao iz Outlooka i ostaju u vašoj mapi Poslano.</p>
+      {{else}}<label class="checkbox-label"><input type="checkbox" name="kopija" value="1" checked> Pošalji kopiju i meni (poslužitelj ne sprema poslanu poštu u Outlookovu mapu Poslano)</label>{{end}}
+      <div class="mt-2 d-flex gap-2 flex-wrap items-center">
+        <button type="submit" class="btn btn-primary" id="akt-posalji" {{if or (not .Podesena) (not .Racun) (not .Posiljatelj)}}disabled{{end}}>{{icon "mail"}} Pošalji odabranima</button>
+        <button type="submit" class="btn btn-secondary" name="proba" value="1" formnovalidate {{if or (not .Podesena) (not .Racun) (not .Posiljatelj)}}disabled{{end}}>{{icon "user"}} Probno samo meni</button>
+        {{if eq .NijePoslanoJos 0}}<span class="form-help">Svim adresama je već poslano.</span>{{end}}</div>
+      <script>
+        (function () {
+          var f = document.getElementById('akt-slanje-obrazac');
+          var kv = f.querySelectorAll('input[name="adresa"]');
+          var dodatne = document.getElementById('dodatne');
+          var gumb = document.getElementById('akt-posalji');
+          var brojac = f.querySelector('.akt-slanje-brojac');
+          var moze = !gumb.hasAttribute('data-zakljucan') && !gumb.disabled;
+          function osvjezi() {
+            var n = 0; kv.forEach(function (k) { if (k.checked) n++; });
+            var ima = n > 0 || dodatne.value.trim() !== '';
+            if (moze) gumb.disabled = !ima;
+            brojac.textContent = n ? ' · označeno: ' + n : '';
+          }
+          f.querySelectorAll('[data-odaberi]').forEach(function (a) {
+            a.addEventListener('click', function (e) {
+              e.preventDefault();
+              kv.forEach(function (k) { k.checked = a.dataset.odaberi === 'sve' || (a.dataset.odaberi === 'neposlane' && k.dataset.poslano === '0'); });
+              osvjezi();
+            });
           });
-        });
-        kv.forEach(function (k) { k.addEventListener('change', osvjezi); });
-        dodatne.addEventListener('input', osvjezi);
-        var pritisnut = '';
-        f.querySelectorAll('button[type="submit"]').forEach(function (b) { b.addEventListener('click', function () { pritisnut = b.name || ''; }); });
-        f.addEventListener('submit', function (e) {
-          var proba = pritisnut === 'proba' || (e.submitter && e.submitter.name === 'proba');
-          pritisnut = '';
-          if (proba) return;
-          var popis = [];
-          kv.forEach(function (k) { if (k.checked) popis.push(k.value); });
-          if (dodatne.value.trim()) popis.push(dodatne.value.trim());
-          if (!popis.length) { e.preventDefault(); alert('Označite primatelje ili upišite adresu.'); return; }
-          if (!confirm('Akt se ŠALJE STVARNIM primateljima:\n\n' + popis.join('\n') + '\n\nPoslati?')) e.preventDefault();
-        });
-        // dopunjavanje dodatnih adresa iz imenika
-        var popisP = f.querySelector('.adresa-prijedlozi'), odgoda;
-        function escape(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-        dodatne.addEventListener('input', function () {
-          var dio = dodatne.value.split(',').pop().trim();
-          clearTimeout(odgoda);
-          if (dio.length < 2) { popisP.hidden = true; return; }
-          odgoda = setTimeout(function () {
-            fetch('/posta/adrese.json?q=' + encodeURIComponent(dio), { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.json() : []; }).then(function (adrese) {
-              if (!adrese.length) { popisP.hidden = true; return; }
-              popisP.innerHTML = adrese.map(function (a) { return '<li><span class="adresa-ime">' + escape(a.ime) + '</span> <span class="adresa-email">' + escape(a.email) + '</span></li>'; }).join('');
-              popisP.hidden = false;
-              popisP.querySelectorAll('li').forEach(function (li, i) {
-                li.addEventListener('mousedown', function (e) {
-                  e.preventDefault();
-                  var d = dodatne.value.split(','); d.pop(); d.push(' ' + adrese[i].email);
-                  dodatne.value = d.map(function (x) { return x.trim(); }).filter(Boolean).join(', ') + ', ';
-                  popisP.hidden = true; osvjezi();
+          kv.forEach(function (k) { k.addEventListener('change', osvjezi); });
+          dodatne.addEventListener('input', osvjezi);
+          var pritisnut = '';
+          f.querySelectorAll('button[type="submit"]').forEach(function (b) { b.addEventListener('click', function () { pritisnut = b.name || ''; }); });
+          f.addEventListener('submit', function (e) {
+            var proba = pritisnut === 'proba' || (e.submitter && e.submitter.name === 'proba');
+            pritisnut = '';
+            if (proba) return;
+            var popis = [];
+            kv.forEach(function (k) { if (k.checked) popis.push(k.value); });
+            if (dodatne.value.trim()) popis.push(dodatne.value.trim());
+            if (!popis.length) { e.preventDefault(); alert('Označite primatelje ili upišite adresu.'); return; }
+            if (!confirm('Akt se ŠALJE STVARNIM primateljima:\n\n' + popis.join('\n') + '\n\nPoslati?')) e.preventDefault();
+          });
+          // dopunjavanje dodatnih adresa iz imenika
+          var popisP = f.querySelector('.adresa-prijedlozi'), odgoda;
+          function escape(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+          dodatne.addEventListener('input', function () {
+            var dio = dodatne.value.split(',').pop().trim();
+            clearTimeout(odgoda);
+            if (dio.length < 2) { popisP.hidden = true; return; }
+            odgoda = setTimeout(function () {
+              fetch('/posta/adrese.json?q=' + encodeURIComponent(dio), { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.json() : []; }).then(function (adrese) {
+                if (!adrese.length) { popisP.hidden = true; return; }
+                popisP.innerHTML = adrese.map(function (a) { return '<li><span class="adresa-ime">' + escape(a.ime) + '</span> <span class="adresa-email">' + escape(a.email) + '</span></li>'; }).join('');
+                popisP.hidden = false;
+                popisP.querySelectorAll('li').forEach(function (li, i) {
+                  li.addEventListener('mousedown', function (e) {
+                    e.preventDefault();
+                    var d = dodatne.value.split(','); d.pop(); d.push(' ' + adrese[i].email);
+                    dodatne.value = d.map(function (x) { return x.trim(); }).filter(Boolean).join(', ') + ', ';
+                    popisP.hidden = true; osvjezi();
+                  });
                 });
               });
-            });
-          }, 200);
-        });
-        dodatne.addEventListener('blur', function () { setTimeout(function () { popisP.hidden = true; }, 150); });
-        osvjezi();
-      })();
-    </script>
+            }, 200);
+          });
+          dodatne.addEventListener('blur', function () { setTimeout(function () { popisP.hidden = true; }, 150); });
+          osvjezi();
+        })();
+      </script>
+      {{end}}
+    </form>
+    {{else}}
+    <p class="form-help">Na popisu "na znanje" nema nijedne adrese e-pošte. Adrese se upisuju u registar primatelja i u službe po županijama.</p>
     {{end}}
-  </form>
-  {{else}}
-  <p class="form-help">Na popisu "na znanje" nema nijedne adrese e-pošte. Adrese se upisuju u registar primatelja i u službe po županijama.</p>
+  </section>
   {{end}}
-</section>
-{{end}}
 
-{{if .SmijePripremiti}}
-<section class="akt-potpis-opcije">
-  <h2>{{icon "printer"}} Ispis, potpis i žig</h2>
-  <p class="form-help mt-0 mb-3">Akt se ovjerava u goCOP-u gumbom Ovjeri (elektronička ovjera ključem čvora). Kad treba i papir sa žigom, ispišite nacrt, rukovoditelj ga potpiše, udarite žig i sken učitajte: sken tada postaje izvornik i akt je time ovjeren.{{if not .SmijeOvjeriti}} Sken učitava onaj tko akt smije ovjeriti.{{end}}</p>
-  <ol>
-    <li><a href="/akti/{{$a.ID}}/za-ispis.pdf" target="_blank" class="btn btn-sm btn-secondary">{{icon "printer"}} PDF za ispis</a></li>
-    {{if .SmijeOvjeriti}}<li><form method="POST" action="/akti/{{$a.ID}}/sken" enctype="multipart/form-data" class="akt-sken">
-      <input type="file" name="sken" accept="application/pdf,.pdf" required class="form-control">
-      <select name="potpisnik_id" class="form-control" required>
-        <option value="">— tko je potpisao —</option>
-        {{range .MoguPotpisati}}<option value="{{.ID}}">{{.FullName}}{{with .PrimaryDuty}} · {{.Title}}{{end}}</option>{{end}}
-      </select>
-      {{with .PitanjeVrijedi}}<label class="checkbox-label"><input type="checkbox" name="potvrda_vrijedi" value="1" required> {{.}} Da, točno je upisan</label>{{end}}
-      {{with .Pregled}}{{if or $a.UpozorenjaPrimatelja .Upozorenja .Razlikuje}}<label class="checkbox-label"><input type="checkbox" name="potvrda_primatelja" value="1" required> Sken nosi popis primatelja s ispisa{{if or $a.UpozorenjaPrimatelja .Upozorenja}}, uz upozorenje koje i dalje stoji{{end}}{{if .Razlikuje}}, a popis složen sada bio bi drukčiji ({{.OpisRazlike}}){{end}}: svejedno ovjeravam</label>{{end}}{{end}}
-      <button type="submit" class="btn btn-sm btn-secondary">{{icon "upload"}} Učitaj sken</button></form>
-      <div class="form-help">Sken u PDF-u. Potpis na skenu program ne može provjeriti, pa ovjeru bilježi na osobu koju odaberete i na onoga tko je sken učitao.</div></li>{{end}}
-  </ol>
-</section>
-{{end}}
-
-{{if and (not $a.Ovjeren) (or .Pregled $a.UpozorenjaPrimatelja)}}
-<section class="akt-potpis-opcije" id="primatelji">
-  <h2>{{icon "users"}} Primatelji pri ovjeri</h2>
-  {{with $a.UpozorenjaPrimatelja}}<div class="alert alert-warning mt-0">{{icon "triangle-alert"}} <strong>Popis primatelja u nacrtu nije potpun:</strong>
-    <ul class="mb-0">{{range .}}<li>{{.}}</li>{{end}}</ul></div>{{end}}
-  {{with .Pregled}}
-  <p class="form-help mt-0">Pri ovjeri u goCOP-u popis se slaže ponovno iz registara i takav ulazi u ovjereni akt. {{if .Razlikuje}}Razlika prema popisu u nacrtu:{{else}}Popis složen sada jednak je popisu u nacrtu.{{end}}</p>
-  {{if .Razlikuje}}<ul class="akt-razlika">{{range .Dodani}}<li>+ {{.Naziv}}{{with .Email}} &lt;{{.}}&gt;{{end}}</li>{{end}}{{range .Uklonjeni}}<li>− {{.Naziv}}{{with .Email}} &lt;{{.}}&gt;{{end}}</li>{{end}}</ul>{{end}}
-  {{with .Upozorenja}}<div class="alert alert-warning">{{icon "triangle-alert"}} <strong>Upozorenje uz popis koji ulazi u ovjeru:</strong>
-    <ul class="mb-0">{{range .}}<li>{{.}}</li>{{end}}</ul></div>
-    {{if $.SmijeOvjeriti}}<label class="checkbox-label"><input type="checkbox" name="potvrda_primatelja" value="1" form="ovjera-obrazac" required> Ovjeravam u goCOP-u unatoč upozorenju o popisu primatelja</label>{{end}}{{end}}
-  {{if $.SmijeUreditiNacrt}}<form method="POST" action="/akti/{{$a.ID}}/slozi-primatelje" class="mt-2"><button type="submit" class="btn btn-sm btn-secondary">{{icon "refresh-cw"}} Ponovno složi primatelje</button>
-    <span class="form-help">Nacrt dobiva popis složen sada; ispis za potpis tada treba ponoviti.</span></form>{{end}}
-  {{end}}
-</section>
-{{end}}
-
-{{if .SmijeUreditiNacrt}}
-<details class="akt-uredi"{{if .ErrorMessage}} open{{end}}>
-  <summary>{{icon "pencil"}} Ispravi tekst nacrta</summary>
-  <form method="POST" action="/akti/{{$a.ID}}/tekst" class="form-page mt-3">
-    <div class="form-group">
-      <label class="form-label" for="uvod">Uvod: pravna osnova i vodostaj</label>
-      <textarea id="uvod" name="uvod" class="form-control" rows="5" required>{{$a.TekstUvoda}}</textarea>
-    </div>
-    {{if eq $a.Radnja "PREKID"}}
-    <div class="form-group">
-      <label class="form-label" for="izvan_snage">Akt koji se stavlja izvan snage</label>
-      <textarea id="izvan_snage" name="izvan_snage" class="form-control" rows="2" placeholder="Stavlja se izvan snage Obavijest o uspostavi … oznake … od … u … sati.">{{$a.IzvanSnage}}</textarea>
-    </div>
+  {{if and (not $a.Ovjeren) (or .Pregled $a.UpozorenjaPrimatelja)}}
+  <section class="list-kartica akt-potpis-opcije" id="primatelji">
+    <h2>Primatelji pri ovjeri</h2>
+    {{with $a.UpozorenjaPrimatelja}}<div class="alert alert-warning mt-0">{{icon "triangle-alert"}} <strong>Popis primatelja u nacrtu nije potpun:</strong>
+      <ul class="mb-0">{{range .}}<li>{{.}}</li>{{end}}</ul></div>{{end}}
+    {{with .Pregled}}
+    <p class="form-help mt-0">Pri ovjeri u goCOP-u popis se slaže ponovno iz registara i takav ulazi u ovjereni akt. {{if .Razlikuje}}Razlika prema popisu u nacrtu:{{else}}Popis složen sada jednak je popisu u nacrtu.{{end}}</p>
+    {{if .Razlikuje}}<ul class="akt-razlika">{{range .Dodani}}<li>+ {{.Naziv}}{{with .Email}} &lt;{{.}}&gt;{{end}}</li>{{end}}{{range .Uklonjeni}}<li>− {{.Naziv}}{{with .Email}} &lt;{{.}}&gt;{{end}}</li>{{end}}</ul>{{end}}
+    {{with .Upozorenja}}<div class="alert alert-warning">{{icon "triangle-alert"}} <strong>Upozorenje uz popis koji ulazi u ovjeru:</strong>
+      <ul class="mb-0">{{range .}}<li>{{.}}</li>{{end}}</ul></div>
+      {{if $.SmijeOvjeriti}}<label class="checkbox-label"><input type="checkbox" name="potvrda_primatelja" value="1" form="ovjera-obrazac" required> Ovjeravam u goCOP-u unatoč upozorenju o popisu primatelja</label>{{end}}{{end}}
+    {{if $.SmijeUreditiNacrt}}<form method="POST" action="/akti/{{$a.ID}}/slozi-primatelje" class="mt-2"><button type="submit" class="btn btn-sm btn-secondary">{{icon "refresh-cw"}} Ponovno složi primatelje</button>
+      <span class="form-help">Nacrt dobiva popis složen sada; ispis za potpis tada treba ponoviti.</span></form>{{end}}
     {{end}}
-    <div class="form-group">
-      <label class="form-label" for="napomena">Napomena na aktu</label>
-      <textarea id="napomena" name="napomena" class="form-control" rows="2">{{$a.Napomena}}</textarea>
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="zavrsno">Završna rečenica</label>
-      <textarea id="zavrsno" name="zavrsno" class="form-control" rows="3" required>{{$a.TekstZavrsni}}</textarea>
-    </div>
-    <div class="form-help">Ispravak vrijedi samo za ovaj nacrt. Za sve buduće akte uredite <a href="/akti/spranca?sektor={{$a.Sektor}}">šprancu sektora</a>.</div>
-    <div class="form-actions"><button type="submit" class="btn btn-primary">Spremi tekst</button></div>
-  </form>
-</details>
-{{end}}
-
-{{if .Sukob.Ima}}
-<div class="akt-potpis-stanje{{if not $.Sukob.Rijesen}} ne-vrijedi{{end}}" id="oznaka">
-  {{with .Sukob.Drugi}}{{icon "triangle-alert"}} <strong>Ista oznaka kao akt {{range $i, $d := .}}{{if $i}}; {{end}}<a href="/akti/{{$d.ID}}">{{$d.StationName}}, {{$d.Vrsta}} o {{$d.RadnjaLabel}} {{$d.Predmet}}</a>{{if $.Sukob.IzvanPopisa $d}} u drugoj ovjeri, koja u popisu ne stoji{{end}} (kod {{$d.OvjeraKod}}{{with $d.Cvor}}, čvor {{.}}{{end}}){{end}}.</strong>{{end}}
-  {{with .Sukob.Ovjere}}{{icon "triangle-alert"}} <strong>Isti nacrt ovjeren je i na drugom čvoru, dok među čvorovima nije bilo veze.</strong> Ovdje stoji ovjera {{$a.Oznaka}} (kod {{$a.OvjeraKod}}{{with $a.Cvor}}, čvor {{.}}{{end}}). Druga ovjera ne stoji u popisu akata, ali i ona vrijedi i mogla je otići primateljima:
-  <ul class="mb-0">{{range .}}<li>{{.Oznaka}}, kod <span class="mono">{{.OvjeraKod}}</span>{{with .Cvor}}, čvor {{.}}{{end}}, ovjerio {{.Ovjerio}}{{with .OvjerenoAt}}, {{formatDate (localTime (derefTime .))}}{{end}}{{if .Storniran}}, poništen{{end}}; {{$p := index $.PotpisiOvjera .OvjeraKod}}{{if eq $p "VRIJEDI"}}elektronički potpis vrijedi{{else if eq $p "NE_VRIJEDI"}}elektronički potpis ne vrijedi{{else}}bez elektroničkog potpisa{{end}}</li>{{end}}</ul>{{end}}
-  {{if $.Sukob.Rijesen}}{{with $.Sukob.Rjesenje}}Sukob je riješen: {{.Napomena}} ({{.Rijesio}}, {{formatDate (localTime .Kad)}}).{{end}}
-  {{else}}{{if .Sukob.Drugi}}{{$cv := $.Sukob.Cvorovi $a}}{{if eq $cv "RAZLICITI"}}Akti su ovjereni na različitim čvorovima, u pravilu dok među njima nije bilo veze. {{else if eq $cv "ISTI"}}Akti su ovjereni na istom čvoru. {{end}}{{end}}Sve ovjere ostaju valjane i rješenje ih ne mijenja. Sukob rješava Voditelj Centra obrane od poplava ili zamjenik (npr. dopisom primateljima s ispravkom oznake) i označava ga riješenim.{{end}}
-  {{if and $.SmijeRijesitiOznaku (not $.Sukob.Rijesen)}}
-  <form method="POST" action="/akti/{{$a.ID}}/oznaka" class="mt-2">
-    <label for="napomena-oznake" class="form-label">Kako je sukob riješen</label>
-    <input id="napomena-oznake" name="napomena" class="form-control" required placeholder="npr. primateljima poslan dopis s ispravkom oznake">
-    <button type="submit" class="btn btn-secondary mt-2">{{icon "check"}} Označi riješenim</button>
-  </form>
+  </section>
   {{end}}
-</div>
-{{end}}
-{{with $a.Storno}}
-<div class="akt-potpis-stanje ne-vrijedi">
-  {{icon "triangle-alert"}} <strong>Akt je poništen (storno):</strong> {{.Razlog}} Poništio {{.Ponistio}}, {{formatDate (localTime .PonistenoAt)}}. Poništen akt ne ulazi u stanje obrane; ako treba, ispravlja ga novi akt.
-</div>
-{{end}}
-{{if .SmijePonistiti}}
-<details class="akt-potpis-stanje">
-  <summary>{{icon "x"}} Poništi akt (storno)</summary>
-  <form method="POST" action="/akti/{{$a.ID}}/storno" class="mt-2" onsubmit="return confirm('Poništiti akt {{$a.Oznaka}}? Akt ostaje u popisu, označen kao poništen, i ne ulazi u stanje obrane. Ovo je za akt koji uopće nije trebao biti izdan; ispravak ide novim aktom.');">
-    <p class="form-help mt-0">Poništava se akt koji uopće nije trebao biti izdan; ispravak ide novim aktom. Poništava se najkasniji akt dionice; poništenje se potpisuje ključem čvora i šalje s aktom ostalim čvorovima.</p>
-    <label for="razlog" class="form-label">Zašto se akt poništava</label>
-    <textarea id="razlog" name="razlog" class="form-control" rows="2" required></textarea>
-    <button type="submit" class="btn btn-secondary btn-opasno mt-2">{{icon "x"}} Poništi akt</button>
-  </form>
-</details>
-{{end}}
-{{with $a.Rucno}}
-<div class="akt-potpis-stanje vrijedi">
-  {{icon "check"}} <strong>Potpisan vlastoručno i ovjeren žigom:</strong> {{.Potpisnik}}. Izvornik je sken ispisa; učitao ga je {{.Ucitao}}, {{formatDate (localTime .UcitanoAt)}}.
-  <a href="/akti/{{$a.ID}}/akt.pdf" target="_blank">Otvori izvornik</a>
-</div>
-{{end}}
 
-{{with $a.Potvrde}}
-<div class="akt-potpis-stanje" id="potvrde">
-  {{icon "info"}} <strong>Potvrđeno uz akt:</strong>
-  <ul class="mb-0">{{range .}}<li>{{.Tekst}} ({{.Tko}}, {{formatDate (localTime .Kad)}})</li>{{end}}</ul>
-</div>
-{{end}}
-{{if $a.Ovjeren}}
-<div class="akt-potpis-stanje {{if eq .Potpis "VRIJEDI"}}vrijedi{{else if eq .Potpis "NE_VRIJEDI"}}ne-vrijedi{{end}}">
-  {{if eq .Potpis "VRIJEDI"}}{{icon "check"}} <strong>Elektronički potpis vrijedi.</strong> Sadržaj akta nije mijenjan od ovjere:
-    potpisao {{$a.ImePotpisa}}, {{formatDate (localTime (derefTime $a.OvjerenoAt))}}, ključem čvora <span class="mono">{{$a.Cvor}}</span> (otisak <span class="mono">{{$a.OtisakKljuca}}</span>).
-  {{else if eq .Potpis "NE_VRIJEDI"}}{{icon "triangle-alert"}} <strong>Elektronički potpis ne vrijedi.</strong> Sadržaj akta razlikuje se od ovjerenoga ili potpis nije ispravan; akt ne treba koristiti dok se ne provjeri.
-  {{else}}{{icon "info"}} Akt je ovjeren prije uvođenja elektroničkog potpisa; vrijedi kod ovjere <span class="mono">{{$a.OvjeraKod}}</span>.{{end}}
-</div>
-{{end}}
+  {{if .SmijeUreditiNacrt}}
+  <details class="list-kartica akt-uredi"{{if .ErrorMessage}} open{{end}}>
+    <summary>{{icon "pencil"}} Ispravi tekst nacrta</summary>
+    <form method="POST" action="/akti/{{$a.ID}}/tekst" class="form-page mt-3">
+      <div class="form-group">
+        <label class="form-label" for="uvod">Uvod: pravna osnova i vodostaj</label>
+        <textarea id="uvod" name="uvod" class="form-control" rows="5" required>{{$a.TekstUvoda}}</textarea>
+      </div>
+      {{if eq $a.Radnja "PREKID"}}
+      <div class="form-group">
+        <label class="form-label" for="izvan_snage">Akt koji se stavlja izvan snage</label>
+        <textarea id="izvan_snage" name="izvan_snage" class="form-control" rows="2" placeholder="Stavlja se izvan snage Obavijest o uspostavi … oznake … od … u … sati.">{{$a.IzvanSnage}}</textarea>
+      </div>
+      {{end}}
+      <div class="form-group">
+        <label class="form-label" for="napomena">Napomena na aktu</label>
+        <textarea id="napomena" name="napomena" class="form-control" rows="2">{{$a.Napomena}}</textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="zavrsno">Završna rečenica</label>
+        <textarea id="zavrsno" name="zavrsno" class="form-control" rows="3" required>{{$a.TekstZavrsni}}</textarea>
+      </div>
+      <div class="form-help">Ispravak vrijedi samo za ovaj nacrt. Za sve buduće akte uredite <a href="/akti/spranca?sektor={{$a.Sektor}}">šprancu sektora</a>.</div>
+      <div class="form-actions"><button type="submit" class="btn btn-primary">Spremi tekst</button></div>
+    </form>
+  </details>
+  {{end}}
 
-{{template "akt_papir" .Papir}}
+  {{if .SmijePripremiti}}
+  <section class="list-kartica akt-potpis-opcije">
+    <h2>Ispis, potpis i žig</h2>
+    <p class="form-help mt-0 mb-3">Akt se ovjerava u goCOP-u gumbom Ovjeri (elektronička ovjera ključem čvora). Kad treba i papir sa žigom, ispišite nacrt, rukovoditelj ga potpiše, udarite žig i sken učitajte: sken tada postaje izvornik i akt je time ovjeren.{{if not .SmijeOvjeriti}} Sken učitava onaj tko akt smije ovjeriti.{{end}}</p>
+    <ol>
+      <li><a href="/akti/{{$a.ID}}/za-ispis.pdf" target="_blank" class="btn btn-sm btn-secondary">{{icon "printer"}} PDF za ispis</a></li>
+      {{if .SmijeOvjeriti}}<li><form method="POST" action="/akti/{{$a.ID}}/sken" enctype="multipart/form-data" class="akt-sken">
+        <input type="file" name="sken" accept="application/pdf,.pdf" required class="form-control">
+        <select name="potpisnik_id" class="form-control" required>
+          <option value="">— tko je potpisao —</option>
+          {{range .MoguPotpisati}}<option value="{{.ID}}">{{.FullName}}{{with .PrimaryDuty}} · {{.Title}}{{end}}</option>{{end}}
+        </select>
+        {{with .PitanjeVrijedi}}<label class="checkbox-label"><input type="checkbox" name="potvrda_vrijedi" value="1" required> {{.}} Da, točno je upisan</label>{{end}}
+        {{with .Pregled}}{{if or $a.UpozorenjaPrimatelja .Upozorenja .Razlikuje}}<label class="checkbox-label"><input type="checkbox" name="potvrda_primatelja" value="1" required> Sken nosi popis primatelja s ispisa{{if or $a.UpozorenjaPrimatelja .Upozorenja}}, uz upozorenje koje i dalje stoji{{end}}{{if .Razlikuje}}, a popis složen sada bio bi drukčiji ({{.OpisRazlike}}){{end}}: svejedno ovjeravam</label>{{end}}{{end}}
+        <button type="submit" class="btn btn-sm btn-secondary">{{icon "upload"}} Učitaj sken</button></form>
+        <div class="form-help">Sken u PDF-u. Potpis na skenu program ne može provjeriti, pa ovjeru bilježi na osobu koju odaberete i na onoga tko je sken učitao.</div></li>{{end}}
+    </ol>
+  </section>
+  {{end}}
+
+  {{with $a.Rucno}}
+  <section class="list-kartica akt-stanje-potpisa">
+    {{icon "check"}}<p><strong>Potpisan vlastoručno i ovjeren žigom:</strong> {{.Potpisnik}}. Izvornik je sken ispisa; učitao ga je {{.Ucitao}}, {{formatDate (localTime .UcitanoAt)}}.
+    <a href="/akti/{{$a.ID}}/akt.pdf" target="_blank">Otvori izvornik</a></p>
+  </section>
+  {{end}}
+
+  {{with $a.Potvrde}}
+  <section class="list-kartica akt-stanje-potpisa" id="potvrde">
+    {{icon "info"}}<div><strong>Potvrđeno uz akt:</strong>
+    <ul class="mb-0">{{range .}}<li>{{.Tekst}} ({{.Tko}}, {{formatDate (localTime .Kad)}})</li>{{end}}</ul></div>
+  </section>
+  {{end}}
+  {{if and $a.Ovjeren (ne .Potpis "NE_VRIJEDI")}}
+  <section class="list-kartica akt-stanje-potpisa">
+    {{if eq .Potpis "VRIJEDI"}}{{icon "check"}}<p><strong>Elektronički potpis vrijedi.</strong> Sadržaj akta nije mijenjan od ovjere:
+      potpisao {{$a.ImePotpisa}}, {{formatDate (localTime (derefTime $a.OvjerenoAt))}}, ključem čvora <span class="mono">{{$a.Cvor}}</span> (otisak <span class="mono">{{$a.OtisakKljuca}}</span>).</p>
+    {{else}}{{icon "info"}}<p>Akt je ovjeren prije uvođenja elektroničkog potpisa; vrijedi kod ovjere <span class="mono">{{$a.OvjeraKod}}</span>.</p>{{end}}
+  </section>
+  {{end}}
+
+  {{if .SmijePonistiti}}
+  <details class="list-kartica akt-ponisti">
+    <summary>{{icon "x"}} Poništi akt (storno)</summary>
+    <form method="POST" action="/akti/{{$a.ID}}/storno" class="mt-2" onsubmit="return confirm('Poništiti akt {{$a.Oznaka}}? Akt ostaje u popisu, označen kao poništen, i ne ulazi u stanje obrane. Ovo je za akt koji uopće nije trebao biti izdan; ispravak ide novim aktom.');">
+      <p class="form-help mt-0">Poništava se akt koji uopće nije trebao biti izdan; ispravak ide novim aktom. Poništava se najkasniji akt dionice; poništenje se potpisuje ključem čvora i šalje s aktom ostalim čvorovima.</p>
+      <label for="razlog" class="form-label">Zašto se akt poništava</label>
+      <textarea id="razlog" name="razlog" class="form-control" rows="2" required></textarea>
+      <button type="submit" class="btn btn-secondary btn-opasno mt-2">{{icon "x"}} Poništi akt</button>
+    </form>
+  </details>
+  {{end}}
+
+  {{if or .SmijeObrisati .SmijeObrisatiTrajno}}
+  <section class="list-kartica akt-brisanje">
+    {{if .SmijeObrisati}}
+    <form method="POST" action="/akti/{{$a.ID}}/obrisi" onsubmit="return confirm('Obrisati nacrt?');"><button type="submit" class="btn btn-secondary">{{icon "trash"}} Obriši nacrt</button></form>
+    {{end}}
+    {{if .SmijeObrisatiTrajno}}
+    <form method="POST" action="/akti/{{$a.ID}}/obrisi" onsubmit="return confirm('TRAJNO obrisati ovjereni akt {{$a.Oznaka}} s izvornikom i dnevnikom slanja? Ovo je dopušteno samo u testnom okruženju (Administracija › Opcije).');"><button type="submit" class="btn btn-secondary btn-opasno">{{icon "trash"}} Obriši trajno</button></form>
+    {{end}}
+  </section>
+  {{end}}
+</aside>
+</div>
+</div>
 {{end}}
