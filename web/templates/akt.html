@@ -78,6 +78,20 @@
   {{end}}
 
   {{with .Slanje}}
+  {{if $a.Storniran}}
+  <section class="list-kartica akt-slanje" id="slanje">
+    <h2>Poslano prije poništenja</h2>
+    {{with .PoslanoPrije}}
+    <table class="table akt-slanje-tablica">
+      <thead><tr><th>Primatelj</th><th>Adresa</th><th>Poslano</th></tr></thead>
+      <tbody>
+      {{range .}}<tr><td>{{if .Naziv}}{{.Naziv}}{{with .Skupina}} <span class="form-help">· {{.}}</span>{{end}}{{else}}dodatno upisano{{end}}</td><td class="mono">{{.Adresa}}</td><td>{{formatDate (localTime .Kad)}}, {{.Poslao}}</td></tr>{{end}}
+      </tbody>
+    </table>
+    {{else}}<p class="form-help mt-0">Akt prije poništenja nije poslan nikome.</p>{{end}}
+    <p class="form-help mb-0">Poništen akt više se ne šalje. Ako treba ispravak, izdaje se novi akt.</p>
+  </section>
+  {{else}}
   <section class="list-kartica akt-slanje" id="slanje">
     <h2>Slanje na znanje</h2>
     {{if not .Podesena}}<div class="alert alert-warning">Slanje e-poštom nije uključeno na ovom računalu (<span class="mono">gocop.toml</span>, odjeljak <span class="mono">[posta]</span>).</div>
@@ -95,7 +109,7 @@
         <tbody>
         {{range .Adresati}}
           <tr>
-            <td><input type="checkbox" name="adresa" value="{{.Adresa}}" data-poslano="{{if .Poslano}}1{{else}}0{{end}}" {{if not $.Slanje.SmijeSlati}}disabled{{end}}></td>
+            <td><input type="checkbox" name="adresa" value="{{.Adresa}}" data-poslano="{{if .Poslano}}1{{else}}0{{end}}" {{if or (not $.Slanje.SmijeSlati) $.Slanje.Zabrana}}disabled{{end}}></td>
             <td>{{.Naziv}}{{with .Skupina}} <span class="form-help">· {{.}}</span>{{end}}</td>
             <td class="mono">{{.Adresa}}</td>
             <td>{{with .Zadnje}}{{if .Uspjelo}}<span class="badge badge-active">poslano</span> {{formatDate (localTime .Kad)}}, {{.Poslao}}{{else}}<span class="badge badge-danger">nije prošlo</span> {{.Greska}}{{end}}{{else}}—{{end}}</td>
@@ -120,9 +134,9 @@
       {{if .SpremaPoslano}}<p class="form-help">Poruke se šalju preko Exchangea kao iz Outlooka i ostaju u vašoj mapi Poslano.</p>
       {{else}}<label class="checkbox-label"><input type="checkbox" name="kopija" value="1" checked> Pošalji kopiju i meni (poslužitelj ne sprema poslanu poštu u Outlookovu mapu Poslano)</label>{{end}}
       <div class="mt-2 d-flex gap-2 flex-wrap items-center">
-        <button type="submit" class="btn btn-primary" id="akt-posalji" {{if or (not .Podesena) (not .Racun) (not .Posiljatelj)}}disabled{{end}}>{{icon "mail"}} Pošalji odabranima</button>
-        <button type="submit" class="btn btn-secondary" name="proba" value="1" formnovalidate {{if or (not .Podesena) (not .Racun) (not .Posiljatelj)}}disabled{{end}}>{{icon "user"}} Probno samo meni</button>
-        {{if eq .NijePoslanoJos 0}}<span class="form-help">Svim adresama je već poslano.</span>{{end}}</div>
+        <button type="submit" class="btn btn-primary" id="akt-posalji" {{if or (not .Podesena) (not .Racun) (not .Posiljatelj) .Zabrana}}disabled{{end}}>{{icon "mail"}} Pošalji odabranima</button>
+        <button type="submit" class="btn btn-secondary" name="proba" value="1" formnovalidate {{if or (not .Podesena) (not .Racun) (not .Posiljatelj) .Zabrana}}disabled{{end}}>{{icon "user"}} Probno samo meni</button>
+        {{if .Zabrana}}<span class="form-help akt-slanje-zabrana">Ne može se poslati jer elektronički potpis ne vrijedi. Prvo treba provjeriti akt.</span>{{else if eq .NijePoslanoJos 0}}<span class="form-help">Svim adresama je već poslano.</span>{{end}}</div>
       <script>
         (function () {
           var f = document.getElementById('akt-slanje-obrazac');
@@ -191,6 +205,7 @@
     <p class="form-help">Na popisu "na znanje" nema nijedne adrese e-pošte. Adrese se upisuju u registar primatelja i u službe po županijama.</p>
     {{end}}
   </section>
+  {{end}}
   {{end}}
 
   {{if and (not $a.Ovjeren) (or .Pregled $a.UpozorenjaPrimatelja)}}
