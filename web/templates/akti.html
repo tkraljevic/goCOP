@@ -3,64 +3,90 @@
 {{define "title"}}goCOP — Rješenja i obavijesti{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/dnevnici">Dokumenti</a> › Rješenja i obavijesti</div>
-
-<div class="page-header">
+{{/* Stupac sektora treba samo kad su na popisu akti svih sektora. */}}
+{{$svi := not .Filtar.Sektor}}
+<a href="/dnevnici" class="povratna-poveznica">← Dokumenti</a>
+<div class="page-header list-glava akti-glava">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "file-text"}} Rješenja i obavijesti</h1>
-    <p class="page-desc">Akti o uspostavi i prekidu stupnjeva obrane, po vodomjeru i branjenom području. Nacrt sastavlja
-      Centar obrane od poplava, ovjeri ga tko ga po stupnju donosi, pa se ispiše kao PDF. Ovjerene akte vide svi.</p>
+    <h1 class="page-title" data-naziv-stranice>Rješenja i obavijesti</h1>
+    <p class="page-desc">Akti o uspostavi i prekidu stupnjeva obrane, po letvi i branjenom području.</p>
   </div>
   <div class="page-actions">
-    <a href="/akti/spranca{{if .Filtar.Sektor}}?sektor={{.Filtar.Sektor}}{{end}}" class="btn btn-secondary">{{icon "file-text"}} Špranca</a>
-    <a href="/akti/primatelji{{if .Filtar.Sektor}}?sektor={{.Filtar.Sektor}}{{end}}" class="btn btn-secondary">{{icon "users"}} Primatelji</a>
-    {{if .SmijeSastavljati}}<a href="/akti/novi" class="btn btn-primary">{{icon "plus"}} Novi akt</a>{{end}}
+    <a href="/akti/spranca{{if .Filtar.Sektor}}?sektor={{.Filtar.Sektor}}{{end}}" class="btn btn-link">Špranca</a>
+    <a href="/akti/primatelji{{if .Filtar.Sektor}}?sektor={{.Filtar.Sektor}}{{end}}" class="btn btn-link">Primatelji</a>
+    {{if .SmijeSastavljati}}<a href="/akti/novi" class="btn btn-primary">Novi akt</a>{{end}}
   </div>
 </div>
 
-{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
-{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+{{/* Na računalu i tabletu čipovi, na mobitelu polje s istim poveznicama. */}}
+<div class="ocitanja-cipovi cipovi-stranice akti-sektori" role="group" aria-label="{{term "sektor"}}">
+  {{range .CipoviSektora}}<a class="ocitanja-cip" href="{{.URL}}" aria-pressed="{{if .Odabran}}true{{else}}false{{end}}">{{.Naziv}}</a>{{end}}
+</div>
+<details class="ocitanja-izbor akti-sektor-polje">
+  <summary><span class="akti-sektor-natpis">{{term "sektor"}}</span><span class="akti-sektor-izbor">{{range .CipoviSektora}}{{if .Odabran}}{{.Naziv}}{{end}}{{end}}</span>{{icon "chevron-down"}}</summary>
+  <div class="ocitanja-izbornik" role="menu">
+    {{range .CipoviSektora}}<a role="menuitemradio" aria-checked="{{if .Odabran}}true{{else}}false{{end}}" href="{{.URL}}">{{.Naziv}}</a>{{end}}
+  </div>
+</details>
+
 {{template "obrana_nacin" .}}
 
-<form method="GET" action="/akti" class="obracun-filtar">
-  <label for="f-q">Traži</label><input type="text" id="f-q" name="q" class="form-control max-w-14" value="{{.Filtar.Trazi}}" placeholder="vodomjer, dionica, osoba">
-  <label for="f-sektor">{{term "sektor"}}</label>
-  <select id="f-sektor" name="sektor" class="form-control"><option value="">svi</option>{{range .Sektori}}{{if ne .ID "DIREKCIJA"}}<option value="{{.ID}}"{{if eq .ID $.Filtar.Sektor}} selected{{end}}>{{.ID}}</option>{{end}}{{end}}</select>
-  <label for="f-bp">BP</label>
-  <select id="f-bp" name="podrucje" class="form-control"><option value="">sva</option>{{range .Podrucja}}<option value="{{.ID}}"{{if eq .ID $.Filtar.AreaID}} selected{{end}}>{{.ID}} {{.Name}}</option>{{end}}</select>
-  <label for="f-stupanj">Stupanj</label>
-  <select id="f-stupanj" name="stupanj" class="form-control"><option value="">svi</option>{{range .Stupnjevi}}<option value="{{.}}"{{if eq . $.Filtar.Stupanj}} selected{{end}}>{{.Label}}</option>{{end}}</select>
-  <select name="radnja" class="form-control"><option value="">uspostava i prekid</option><option value="USPOSTAVA"{{if eq .Filtar.Radnja "USPOSTAVA"}} selected{{end}}>uspostava</option><option value="PREKID"{{if eq .Filtar.Radnja "PREKID"}} selected{{end}}>prekid</option></select>
-  <select name="status" class="form-control"><option value="">ovjereni i nacrti</option><option value="OVJEREN"{{if eq .Filtar.Status "OVJEREN"}} selected{{end}}>ovjereni</option><option value="NACRT"{{if eq .Filtar.Status "NACRT"}} selected{{end}}>nacrti</option></select>
-  <select name="godina" class="form-control"><option value="">sve godine</option>{{range .Godine}}<option value="{{.}}"{{if eq . $.Filtar.Godina}} selected{{end}}>{{.}}.</option>{{end}}</select>
-  <button type="submit" class="btn btn-secondary">{{icon "search"}} Prikaži</button>
+{{with .SukobNaPopisu}}<div class="akti-traka-sukoba" role="status">{{icon "triangle-alert"}}<span>{{.}} To se u pravilu dogodi kad računala nisu bila povezana. Sve ovjere ostaju valjane. Sukob rješava voditelj COP-a ili zamjenik: na stranici akta upiše kako je riješen.</span></div>{{end}}
+
+<form method="GET" action="/akti" class="akti-filtri-obrazac">
+  {{if .Filtar.Sektor}}<input type="hidden" name="sektor" value="{{.Filtar.Sektor}}">{{end}}
+  {{if .Filtar.Status}}<input type="hidden" name="status" value="{{.Filtar.Status}}">{{end}}
+  <div class="akti-filtri-vrh">
+    <div class="ocitanja-cipovi cipovi-stranice" role="group" aria-label="Stanje akta">
+      {{range .CipoviStanja}}<a class="ocitanja-cip" href="{{.URL}}" aria-pressed="{{if .Odabran}}true{{else}}false{{end}}">{{if .Odabran}}{{icon "check"}}{{end}}{{.Naziv}}</a>{{end}}
+    </div>
+    <div class="akti-trazi">
+      <button type="submit" class="akti-trazi-gumb" aria-label="Traži">{{icon "search"}}</button>
+      <input type="text" id="f-q" name="q" value="{{.Filtar.Trazi}}" placeholder="Traži: letva, dionica, osoba" aria-label="Traži: letva, dionica, osoba">
+    </div>
+  </div>
+  <details class="akti-filtri" open>
+    <summary>
+      <span class="akti-filtri-mobitel"><strong>Ostali filtri</strong><small>BP, stupanj, radnja, godina</small></span>
+      <span class="akti-filtri-sklopi">Sklopi filtre</span>
+      <span class="akti-filtri-otvori">Prikaži filtre</span>
+      {{icon "chevron-right"}}
+    </summary>
+    <div class="akti-filtri-polja">
+      <select name="podrucje" class="form-control" aria-label="BP" onchange="this.form.submit()"><option value="">BP: sva</option>{{range .Podrucja}}<option value="{{.ID}}"{{if eq .ID $.Filtar.AreaID}} selected{{end}}>BP: {{.ID}} {{.Name}}</option>{{end}}</select>
+      <select name="stupanj" class="form-control" aria-label="Stupanj" onchange="this.form.submit()"><option value="">Stupanj: svi</option>{{range .Stupnjevi}}<option value="{{.}}"{{if eq . $.Filtar.Stupanj}} selected{{end}}>Stupanj: {{.Label}}</option>{{end}}</select>
+      <select name="radnja" class="form-control" aria-label="Radnja" onchange="this.form.submit()"><option value="">Radnja: uspostava i prekid</option><option value="USPOSTAVA"{{if eq .Filtar.Radnja "USPOSTAVA"}} selected{{end}}>Radnja: uspostava</option><option value="PREKID"{{if eq .Filtar.Radnja "PREKID"}} selected{{end}}>Radnja: prekid</option></select>
+      <select name="godina" class="form-control" aria-label="Godina" onchange="this.form.submit()"><option value="">Godina: sve</option>{{range .Godine}}<option value="{{.}}"{{if eq . $.Filtar.Godina}} selected{{end}}>Godina: {{.}}.</option>{{end}}</select>
+    </div>
+  </details>
+  {{/* Filtri su otvoreni, a na mobitelu se sklope dok nijedan nije izabran. Bez skripte ostaju otvoreni. */}}
+  {{if not (or .Filtar.AreaID .Filtar.Stupanj .Filtar.Radnja .Filtar.Godina)}}<script>if (matchMedia("(max-width: 599px)").matches) document.currentScript.previousElementSibling.open = false;</script>{{end}}
 </form>
 
-{{if .Akti}}
-<div class="table-card"><div class="table-responsive">
-  <table class="data-table">
-    <thead><tr><th>Oznaka</th><th>Akt</th><th>Vodomjer</th><th>BP</th><th>Dionice</th><th>Vrijedi od</th><th>Ovjera</th><th></th></tr></thead>
+<div class="akti-okvir">
+  <table class="data-table kartice-na-mobitelu akti-tablica{{if $svi}} akti-svi{{end}}">
+    <thead><tr><th>Oznaka</th><th>Akt</th><th>Letva</th>{{if $svi}}<th class="ap-s"><abbr title="{{term "sektor"}}">S.</abbr></th>{{end}}<th class="ap-bp">BP</th><th class="ap-dionice">Dionice</th><th class="ap-vrijedi">Vrijedi od</th><th>Stanje</th></tr></thead>
     <tbody>
     {{range .Akti}}
     {{$sukob := index $.Sukobi .ID}}
-    <tr{{if and $sukob.Ima (not $sukob.Rijesen)}} class="akt-sukob"{{else if not .Ovjeren}} class="mts-prazno"{{end}}>
-      <td class="mono">{{.Oznaka}}</td>
-      <td><a href="/akti/{{.ID}}"><strong>{{.Vrsta}}</strong> o {{.RadnjaLabel}} {{.Predmet}}</a>{{if .IzvanSnage}}<div class="reg-card-sub">{{.IzvanSnage}}</div>{{end}}
-        {{range $sukob.Drugi}}<div class="{{if $sukob.Rijesen}}reg-card-sub{{else}}akt-sukob-tekst{{end}}">{{icon "triangle-alert"}} ista oznaka kao akt <a href="/akti/{{.ID}}">{{.StationName}}, {{.Vrsta}} o {{.RadnjaLabel}} {{.Predmet}}</a>{{if $sukob.IzvanPopisa .}} u drugoj ovjeri{{end}}, kod {{.OvjeraKod}}{{with .Cvor}}, čvor {{.}}{{end}}{{if $sukob.Rijesen}} · riješeno{{else}} · čeka odluku{{end}}</div>{{end}}
-        {{range $sukob.Ovjere}}<div class="{{if $sukob.Rijesen}}reg-card-sub{{else}}akt-sukob-tekst{{end}}">{{icon "triangle-alert"}} isti nacrt ovjeren je i kao {{.Oznaka}}, kod {{.OvjeraKod}}{{with .Cvor}}, čvor {{.}}{{end}}{{if .Storniran}}, poništen{{end}}{{if $sukob.Rijesen}} · riješeno{{else}} · čeka odluku{{end}}</div>{{end}}</td>
-      <td>{{.StationName}}{{if .VodostajCm}} <span class="reg-card-sub">{{intOf .VodostajCm}} cm</span>{{end}}</td>
-      <td>{{.AreaID}}</td>
-      <td class="mono">{{join .Sifre ", "}}</td>
-      <td class="mono">{{formatDate (localTime .Vrijedi)}}</td>
-      <td>{{if .Storniran}}<span class="badge badge-danger">poništen</span>{{else if .Ovjeren}}<span class="badge badge-area-admin">{{icon "check"}} {{.Ovjerio}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{end}}</td>
-      <td><a href="/akti/{{.ID}}/akt.pdf" class="btn btn-sm btn-secondary" title="PDF">{{icon "printer"}}</a></td>
+    {{$prekid := eq .Radnja "PREKID"}}
+    <tr{{if and $sukob.Ima (not $sukob.Rijesen)}} class="akt-sukob"{{else if or .Storniran $prekid}} class="ap-tih"{{end}}>
+      <td class="ap-oznaka">{{.Oznaka}}</td>
+      <td class="ap-naslov"><a class="ap-poveznica" href="/akti/{{.ID}}" title="{{.Naslov}}">{{.VrstaNaziv}} o {{.RadnjaLabel}}</a> <span class="oznaka-stanja ap-stupanj faza-{{.Stupanj.PillClass}}">{{.Stupanj.Label}}</span>
+        {{if .IzvanSnage}}<div class="ap-pod">{{.IzvanSnage}}</div>{{else if and $svi .JeRjesenje}}<div class="ap-pod">{{.Predmet}}</div>{{end}}
+        {{range $sukob.Drugi}}<div class="{{if $sukob.Rijesen}}ap-pod{{else}}akt-sukob-tekst{{end}}">{{icon "triangle-alert"}} <span>ista oznaka kao akt <a href="/akti/{{.ID}}">{{.StationName}}, {{.VrstaNaziv}} o {{.RadnjaLabel}}</a>{{if $sukob.IzvanPopisa .}} u drugoj ovjeri{{end}}, kod {{.OvjeraKod}}{{with .Cvor}}, čvor {{.}}{{end}}{{if $sukob.Rijesen}} · riješeno{{else}} · čeka odluku{{end}}</span></div>{{end}}
+        {{range $sukob.Ovjere}}<div class="{{if $sukob.Rijesen}}ap-pod{{else}}akt-sukob-tekst{{end}}">{{icon "triangle-alert"}} <span>isti nacrt ovjeren je i kao {{.Oznaka}}, kod {{.OvjeraKod}}{{with .Cvor}}, čvor {{.}}{{end}}{{if .Storniran}}, poništen{{end}}{{if $sukob.Rijesen}} · riješeno{{else}} · čeka odluku{{end}}</span></div>{{end}}</td>
+      <td class="ap-letva">{{.StationName}}{{if .VodostajCm}} <span class="ap-pod">{{intOf .VodostajCm}} cm</span>{{else if .Prognoza}} <span class="ap-pod">po prognozi</span>{{end}}</td>
+      {{if $svi}}<td class="ap-s" data-stupac="S.">{{.Sektor}}</td>{{end}}
+      <td class="ap-bp" data-stupac="BP">{{.AreaID}}</td>
+      <td class="ap-dionice">{{join .Sifre ", "}}</td>
+      <td class="ap-vrijedi" data-stupac="Vrijedi od">{{if .Vrijedi.IsZero}}—{{else}}{{$kad := localTime .Vrijedi}}<span class="ap-kad"><span>{{$kad.Format "2. 1. 2006."}}</span> <span>{{$kad.Format "15:04"}}</span></span>{{end}}</td>
+      <td class="ap-stanje">{{if .Storniran}}<span class="oznaka-stanja">poništen</span>{{with .Storno.Ponistio}}<span class="ap-pod">poništio {{.}}</span>{{end}}{{else if .Ovjeren}}<span class="oznaka-stanja">ovjeren</span>{{with .Rucno}}<span class="ap-pod">potpisao {{.Potpisnik}}, sken</span>{{else}}{{with .Ovjerio}}<span class="ap-pod">ovjerio {{.}}</span>{{end}}{{end}}{{else}}<span class="oznaka-stanja pozor">čeka ovjeru</span>{{with .Izradio}}<span class="ap-pod">sastavio {{.}}</span>{{end}}{{end}}</td>
     </tr>
+    {{else}}
+    <tr class="ap-prazno"><td colspan="{{if $svi}}8{{else}}7{{end}}">Nema akata za taj izbor. Nacrt akta sastavlja Centar obrane od poplava (voditelj, zamjenik ili dežurni operater), s letve ili gumbom Novi akt.</td></tr>
     {{end}}
     </tbody>
   </table>
-</div></div>
-{{else}}
-<div class="reg-empty">Nema akata za taj izbor. Nacrt akta sastavlja Centar obrane od poplava (voditelj, zamjenik ili dežurni operater), s vodomjera: gumb "Novi akt" ili "Proglasi / prekini" na stranici očitanja letve.</div>
+</div>
 {{end}}
-{{end}}
-

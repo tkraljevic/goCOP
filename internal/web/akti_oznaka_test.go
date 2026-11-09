@@ -153,9 +153,9 @@ func uTraciSukoba(t *testing.T, w *httptest.ResponseRecorder, sto string, rijese
 	}
 }
 
-// Dva akta s istom oznakom (s dva čvora) u popisu akata stoje crveno, s
-// oznakom „ista oznaka kao akt …”, dok voditelj COP-a ili zamjenik sukob ne
-// označi riješenim (Odluke (8. 10. 2026.), pitanje 4)
+// Dva akta s istom oznakom (s dva čvora) u popisu akata stoje označeni, s
+// napomenom „ista oznaka kao akt …”, dok Voditelj Centra obrane od poplava
+// ili zamjenik sukob ne označi riješenim (Odluke (8. 10. 2026.), pitanje 4)
 func TestIstaOznakaUPopisuIRjesenjeKrozRute(t *testing.T) {
 	o := novaOkolinaOznake(t)
 	ctx := context.Background()
@@ -181,9 +181,9 @@ func TestIstaOznakaUPopisuIRjesenjeKrozRute(t *testing.T) {
 	}
 
 	popis := zovi(operater, oOvl, http.MethodGet, "/akti", nil)
-	ima(popis, "popis sa sukobom", `class="akt-sukob"`, "ista oznaka kao akt", "Vukovar, RJEŠENJE o uspostavi", "kod 7C11E0A2B4", "čvor server", "čeka odluku")
+	ima(popis, "popis sa sukobom", `class="akt-sukob"`, "ista oznaka kao akt", "Vukovar, Rješenje o uspostavi", "kod 7C11E0A2B4", "čvor server", "čeka odluku")
 	if n := strings.Count(popis.Body.String(), `class="akt-sukob"`); n != 4 {
-		t.Errorf("akti iste oznake (dva para) moraju biti crveni, a crvenih redaka je %d", n)
+		t.Errorf("akti iste oznake (dva para) moraju biti označeni, a označenih redaka je %d", n)
 	}
 	ima(zovi(operater, oOvl, http.MethodGet, "/akti/"+aljmas.ID, nil), "isti broj na istom čvoru", "Ista oznaka kao akt", "Dalj", "ovjereni na istom čvoru")
 	// rukovoditelj sektora vidi sukob, ali ga ne rješava
@@ -207,7 +207,7 @@ func TestIstaOznakaUPopisuIRjesenjeKrozRute(t *testing.T) {
 	popis = zovi(operater, oOvl, http.MethodGet, "/akti", nil)
 	ima(popis, "popis nakon rješenja", "ista oznaka kao akt", "riješeno")
 	if n := strings.Count(popis.Body.String(), `class="akt-sukob"`); n != 2 {
-		t.Errorf("riješen sukob više nije crven, a nerješen ostaje: %d crvenih redaka", n)
+		t.Errorf("riješen sukob više nije označen, a nerješen ostaje: %d označenih redaka", n)
 	}
 	uTraciSukoba(t, zovi(operater, oOvl, http.MethodGet, "/akti/"+vukovar.ID, nil), "drugi akt nakon rješenja", true, "Sukob je riješen: Primateljima poslan dopis", "Ana Anić")
 	uTraciSukoba(t, zovi(operater, oOvl, http.MethodGet, "/akti/"+batina.ID, nil), "riješeni akt nakon rješenja", true, "Ista oznaka kao akt", "Sukob je riješen: Primateljima poslan dopis")
@@ -221,7 +221,7 @@ func TestIstaOznakaUPopisuIRjesenjeKrozRute(t *testing.T) {
 
 // Isti nacrt ovjeren na dva čvora: ovdje stoji kao B-7/2026, a laptop ga je
 // ovjerio kao B-6/2026, oznakom koju ovdje nosi drugi akt. Oba akta stoje
-// crveno, akt s drugom ovjerom pokazuje je s potpisom, kod druge ovjere ga
+// označeni, akt s drugom ovjerom pokazuje je s potpisom, kod druge ovjere ga
 // nalazi u popisu, a rješenje jednog sukoba ne rješava drugi (Odluke
 // (8. 10. 2026.), pitanje 4)
 func TestDrugaOvjeraIstogNacrtaKrozRute(t *testing.T) {
@@ -251,7 +251,7 @@ func TestDrugaOvjeraIstogNacrtaKrozRute(t *testing.T) {
 	imaNaStranici(t, popis, "popis s drugom ovjerom", "isti nacrt ovjeren je i kao B-6/2026, kod CCA9623B58, čvor laptop",
 		"ista oznaka kao akt", "u drugoj ovjeri, kod CCA9623B58")
 	if n := strings.Count(popis.Body.String(), `class="akt-sukob"`); n != 2 {
-		t.Errorf("akt s drugom ovjerom i akt iste oznake moraju biti crveni, a crvenih redaka je %d", n)
+		t.Errorf("akt s drugom ovjerom i akt iste oznake moraju biti označeni, a označenih redaka je %d", n)
 	}
 	imaNaStranici(t, o.zovi(t, o.operater, o.oOvl, http.MethodGet, "/akti?q=CCA9623B58", nil), "kod druge ovjere", "/akti/"+vukovar.ID)
 	stranica := o.zovi(t, o.voditelj, o.vOvl, http.MethodGet, "/akti/"+vukovar.ID, nil)
@@ -266,7 +266,7 @@ func TestDrugaOvjeraIstogNacrtaKrozRute(t *testing.T) {
 		"Isti nacrt ovjeren je i na drugom čvoru", "Sukob je riješen: Primateljima javljeno da vrijedi B-7/2026.")
 	popis = o.zovi(t, o.operater, o.oOvl, http.MethodGet, "/akti", nil)
 	if n := strings.Count(popis.Body.String(), `class="akt-sukob"`); n != 1 || !strings.Contains(popis.Body.String(), "isti nacrt ovjeren je i kao B-6/2026") {
-		t.Errorf("riješena druga ovjera nije crvena, a ista oznaka B-6/2026 ostaje: %d crvenih redaka", n)
+		t.Errorf("riješena druga ovjera nije označena, a ista oznaka B-6/2026 ostaje: %d označenih redaka", n)
 	}
 	istaOznaka := o.zovi(t, o.operater, o.oOvl, http.MethodGet, "/akti/"+batina.ID, nil)
 	imaNaStranici(t, istaOznaka, "akt iste oznake kao druga ovjera")
