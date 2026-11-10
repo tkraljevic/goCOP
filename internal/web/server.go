@@ -202,6 +202,7 @@ func templateFuncs() template.FuncMap {
 		"uzBroj":        models.UzBrojHR,
 		"vrstaDnevnika": models.JournalKindLabel,
 		"danTjedna":     danTjednaHR,
+		"danKratko":     danKratko,
 		"statika":       statickaAdresa,
 		// svjeze daje oznaku za poveznicu na izvoz: svako učitavanje stranice
 		// daje novu adresu, pa preglednik ne može dati staru spremljenu datoteku
@@ -1472,6 +1473,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /izvjesca/{id}/obrisi", s.authMiddleware(http.HandlerFunc(izvjescaH.HandleObrisi)))
 	s.mux.Handle("GET /izvjesca/{id}/izvjesce.xlsx", s.authMiddleware(http.HandlerFunc(izvjescaH.IzvoziIzvjesce)))
 	izvjescaH.SetSektorsko(s.templates["sektorsko_form.html"], s.templates["sektorsko.html"])
+	izvjescaH.SetSektori(s.sektoriZaPopis)
 	s.mux.Handle("GET /sektorsko-izvjesce/novo", s.authMiddleware(http.HandlerFunc(izvjescaH.ShowSektorskoNovo)))
 	s.mux.Handle("POST /sektorsko-izvjesce", s.authMiddleware(http.HandlerFunc(izvjescaH.HandleSektorskoSpremi)))
 	s.mux.Handle("GET /sektorsko-izvjesce/{id}", s.authMiddleware(http.HandlerFunc(izvjescaH.ShowSektorsko)))
@@ -2437,4 +2439,12 @@ func (s *Server) koteNuleLetve(letva string) (stara, nova float64, ok bool) {
 		nova = *st.ZeroDatumNew
 	}
 	return stara, nova, stara != 0 || nova != 0
+}
+
+// sektoriZaPopis su sektori za čipove na popisima; bez imenika nema ih.
+func (s *Server) sektoriZaPopis() ([]models.Sector, error) {
+	if s.userService == nil {
+		return nil, nil
+	}
+	return s.userService.ListSectors()
 }
