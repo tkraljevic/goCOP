@@ -848,6 +848,20 @@ func (k HQKrivulja) Protok(vodostajCm int) (float64, bool) {
 	return 0, false
 }
 
+// KrivuljaUTrenutku bira krivulju koja vrijedi u zadanom trenutku; nil kad
+// nijedna ne vrijedi. Dan valjanosti je zagrebački dan, kao i na stranicama
+// (prognoza.KrivuljaZa objašnjava zašto).
+func KrivuljaUTrenutku(krivulje []HQKrivulja, kad time.Time) *HQKrivulja {
+	d := kad.In(Zagreb).Format("2006-01-02")
+	for i := range krivulje {
+		k := &krivulje[i]
+		if k.VrijediOd <= d && (k.VrijediDo == "" || d <= k.VrijediDo) {
+			return k
+		}
+	}
+	return nil
+}
+
 // Vodostaj je obrat krivulje: iz protoka natrag u centimetre na letvi.
 //
 // Krivulja je po vodostaju rastuća — više vode, veći protok — pa se obrat nađe

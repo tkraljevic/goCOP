@@ -56,6 +56,16 @@ func pragoviSkoka(arhivaPut string) *skok.Pragovi {
 	return skok.NoviPragovi(arhiva)
 }
 
+// krivuljeLetvi daje uvozu očitanja naše krivulje protoka iz arhive: kad
+// izvor da vodostaj bez protoka, protok se izračuna njima. Kao pragoviSkoka:
+// veza ne otvara datoteku dok je ne zatreba.
+func krivuljeLetvi(arhivaPut string) javnivodostaji.KrivuljeLetve {
+	arhiva, _ := sql.Open("sqlite", db.SamoZaCitanje(arhivaPut)+"&_pragma=busy_timeout(5000)") // upravljač postoji, pa ne pada
+	return func(ctx context.Context, sifra string) ([]models.HQKrivulja, error) {
+		return prognoza.KrivuljeIzArhive(ctx, arhiva, sifra)
+	}
+}
+
 // kvaroviMjerila prepoznaju kvar mjerila iz očitanja čvora i arhive, kroz
 // vlastite veze samo za čitanje. Kao pragoviSkoka: veza ne otvara datoteku
 // dok je ne zatreba, a bez arhive vrijede zadane vrijednosti.
