@@ -27,7 +27,7 @@
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="dan">Za dan *</label>
-      <input type="date" id="dan" name="dan" class="form-control" value="{{$iz.Dan.Format "2006-01-02"}}" max="{{.Danas}}" required{{if $iz.ID}} readonly{{else}} onchange="location.href='/sektorsko-izvjesce/novo?sektor={{.Sektor}}&dan='+encodeURIComponent(this.value)"{{end}}>
+      <input type="date" id="dan" name="dan" class="form-control" value="{{$iz.Dan.Format "2006-01-02"}}" max="{{.Danas}}" required{{if $iz.ID}} readonly{{else}} onchange="odziv.idi('/sektorsko-izvjesce/novo?sektor={{.Sektor}}&dan='+encodeURIComponent(this.value))"{{end}}>
     </div>
     <div class="form-group">
       <label class="form-label">Sektor</label>

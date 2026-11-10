@@ -33,7 +33,7 @@
       <input type="hidden" name="dionica" value="{{.Dionica.Code}}">
       <input type="text" class="form-control" value="{{.Dionica.Code}} — {{.Dionica.EffectiveDescription}}" disabled>
       {{else}}
-      <select id="dionica" name="dionica" class="form-control" required onchange="location.href='/izvjesca/novo?dionica='+encodeURIComponent(this.value)+'&dan='+encodeURIComponent(document.getElementById('dan').value)">
+      <select id="dionica" name="dionica" class="form-control" required onchange="odziv.idi('/izvjesca/novo?dionica='+encodeURIComponent(this.value)+'&dan='+encodeURIComponent(document.getElementById('dan').value))">
         {{range .Dionice}}<option value="{{.Code}}"{{if eq .Code $.Dionica.Code}} selected{{end}}>{{.Code}} — {{.EffectiveDescription}}</option>{{end}}
       </select>
       {{end}}

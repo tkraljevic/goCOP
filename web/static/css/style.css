@@ -7866,6 +7866,8 @@ button.karta-nedostaje-ucrtaj { padding: 0; border: 0; background: none; font-fa
 .odziv-poruka[hidden] { display: none; }
 @media (max-width: 599px) { .odziv-poruka { bottom: calc(var(--donja-visina, 80px) + 12px); } }
 .odziv-ceka { pointer-events: none; opacity: 0.7; }
+/* popis koji se lista bez nove stranice blijedi dok ne stigne sljedeća */
+[data-listanje][aria-busy="true"] { opacity: 0.55; transition: opacity 0.15s; }
 .odziv-salje { opacity: 1; cursor: progress; }
 .odziv-salje::before {
   content: ""; flex: none; display: inline-block; width: 1em; height: 1em; margin-right: 0.5em; vertical-align: -0.15em;

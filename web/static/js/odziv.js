@@ -148,6 +148,64 @@
     pocni('ucitavanje', preuzima(a, href) ? PREUZIMANJE : 0);
   });
 
+  // form.submit() iz skripte (filtar koji se šalje čim se promijeni izbor) ne
+  // javlja događaj submit, pa ga se dočeka ovdje. Samo traka, bez zauzimanja
+  // obrasca: izbor se smije odmah ispraviti.
+  var posalji = HTMLFormElement.prototype.submit;
+  HTMLFormElement.prototype.submit = function () {
+    var cilj = this.getAttribute('target') || '';
+    if (!cilj || cilj === '_self') {
+      var adresa = this.getAttribute('action') || location.href;
+      pocni(vrstaSlanja(this.getAttribute('method') || '', adresa), preuzima(this, adresa) ? PREUZIMANJE : 0);
+    }
+    return posalji.call(this);
+  };
+
+  // gumb koji je upravo pritisnut, za radnje koje skripta šalje sama (fetch)
+  var zadnji = null, zadnjiKad = 0;
+  window.addEventListener('click', function (e) {
+    var g = e.target.closest && e.target.closest('button, input[type="button"], input[type="submit"]');
+    if (g) { zadnji = g; zadnjiKad = Date.now(); }
+  }, true);
+
+  // cekaj pokazuje da radnja čeka odgovor: gumb (kad ga ima) vrti i ne prima
+  // klik, traka je pri vrhu, a nakon 15 s piše da traje dulje. Ne odustaje
+  // sama, jer razmjena zna trajati i minutama. Vraća gotovo(), koje sve
+  // vrati kako je bilo.
+  function cekaj(gumb, natpis) {
+    var izvorno = null, gotov = false;
+    ocisti();
+    if (!traka) traka = element('div', 'odziv-traka');
+    satovi.push(setTimeout(function () { traka.classList.add('aktivna'); }, TRAKA_NAKON));
+    satovi.push(setTimeout(function () { javi(SPORO.obrada); }, SPORO_NAKON));
+    if (gumb) {
+      gumb.classList.add('odziv-ceka', 'odziv-salje');
+      gumb.setAttribute('aria-busy', 'true');
+      gumb.setAttribute('aria-disabled', 'true');
+      if (natpis) { izvorno = gumb.innerHTML; gumb.textContent = natpis; }
+    }
+    return function () {
+      if (gotov) return;
+      gotov = true;
+      ocisti();
+      if (!gumb) return;
+      gumb.classList.remove('odziv-ceka', 'odziv-salje');
+      gumb.removeAttribute('aria-busy');
+      gumb.removeAttribute('aria-disabled');
+      if (izvorno !== null) gumb.innerHTML = izvorno;
+    };
+  }
+
+  // Za skripte: odziv.idi(adresa) i odziv.ponovno() otvaraju stranicu uz
+  // traku; odziv.gumb(natpis) čeka na gumbu pritisnutom u zadnje dvije
+  // sekunde, a odziv.traka() samo s trakom (sloj karte, popis).
+  window.odziv = {
+    idi: function (adresa) { pocni('ucitavanje'); location.href = adresa; },
+    ponovno: function () { pocni('ucitavanje'); location.reload(); },
+    gumb: function (natpis) { return cekaj(zadnji && Date.now() - zadnjiKad < 2000 ? zadnji : null, natpis); },
+    traka: function () { return cekaj(null); }
+  };
+
   // povratak gumbom Natrag vraća stranicu iz predmemorije s gumbima kakvi su
   // ostali, pa ih treba osloboditi
   window.addEventListener('pageshow', function (e) {
