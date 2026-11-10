@@ -3,11 +3,10 @@
 {{define "title"}}goCOP — Dnevna izvješća{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/dnevnici">Dokumenti</a> › Dnevna izvješća</div>
-
-<div class="page-header">
+<a href="/dnevnici" class="povratna-poveznica">← Dokumenti</a>
+<div class="page-header list-glava izv-glava">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "file-text"}} Dnevna izvješća rukovoditelja dionica</h1>
+    <h1 class="page-title" data-naziv-stranice>Dnevna izvješća</h1>
     <p class="page-desc">Za svaki dan dok traje obrana, po dionici; predaju se do 08:00 u podcentar. Iz njih voditelj centra slaže
       izvješće sektora.</p>
   </div>
@@ -17,70 +16,140 @@
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 
-{{if or .Sektori .Sektorska}}
-<div class="sektorsko-ploca">
-  <div class="sektorsko-ploca-glava">
-    <h2>{{icon "file-text"}} Izvješće sektora</h2>
-    {{if .Sektori}}
-    <form method="GET" action="/sektorsko-izvjesce/novo" class="obracun-filtar m-0">
-      {{if gt (len .Sektori) 1}}<select name="sektor" class="form-control">{{range .Sektori}}<option value="{{.}}">Sektor {{.}}</option>{{end}}</select>{{else}}<input type="hidden" name="sektor" value="{{index .Sektori 0}}">{{end}}
-      <input type="date" name="dan" class="form-control" value="{{if .Dan}}{{.Dan}}{{else}}{{.Danas}}{{end}}" max="{{.Danas}}">
-      <button type="submit" class="btn btn-primary">{{icon "plus"}} Sastavi za dan</button>
-    </form>
-    {{end}}
-  </div>
-  {{if .Sektorska}}
-  <div class="table-card"><div class="table-responsive tablica-kartice">
-    <table class="data-table">
-      <thead><tr><th>Dan</th><th>Sektor</th><th>Stadij</th><th>Izvješća dionica</th><th>Zapisa</th><th>Sastavio</th><th>Stanje</th></tr></thead>
-      <tbody>
-      {{range .Sektorska}}
-      <tr>
-        <td data-stupac="Dan"><a href="/sektorsko-izvjesce/{{.ID}}"><strong>{{danTjedna .Dan}} {{.Dan.Format "2.1.2006."}}</strong></a></td>
-        <td data-stupac="Sektor">{{.Sektor}}</td>
-        <td data-stupac="Stadij"><span class="threshold-pill {{.NajvisiStadij.PillClass}}">{{stadijKratica .NajvisiStadij}}</span></td>
-        <td data-stupac="Izvješća" class="mono">{{.Sadrzaj.Pregled.Izvjesca}}{{if .Sadrzaj.Pregled.Nacrta}} <span class="reg-card-sub">+{{.Sadrzaj.Pregled.Nacrta}} {{uzBroj .Sadrzaj.Pregled.Nacrta "nepredano" "nepredana" "nepredano"}}</span>{{end}}</td>
-        <td data-stupac="Zapisa" class="mono">{{len .Sadrzaj.Zapisi}}</td>
-        <td data-stupac="Sastavio">{{.Izradio}} <span class="reg-card-sub">{{.IzradenoAt.Format "2.1. 15:04"}}</span></td>
-        <td data-stupac="Stanje">{{if .Predano}}<span class="badge">{{.OpisPredaje "" "15:04"}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{if .BiloPredano}} <span class="reg-card-sub">čeka ponovnu predaju</span>{{end}}{{end}}{{with .IzmjeneZaIspis}} <span class="reg-card-sub">{{.}}</span>{{end}}</td>
-      </tr>
-      {{end}}
-      </tbody>
-    </table>
-  </div></div>
-  {{else}}<p class="reading-meta">Još nema izvješća sektora. Izaberite dan i sastavite ga iz izvješća dionica i dnevnika.</p>{{end}}
+<nav class="kartice-stranice izv-kartice" aria-label="Dnevna izvješća">
+  {{if eq .Prikaz "dan"}}<span class="kartica-stranice" aria-current="page">Dan</span>{{else}}<a class="kartica-stranice" href="{{.KarticaDan}}">Dan</a>{{end}}
+  {{if eq .Prikaz "svi"}}<span class="kartica-stranice" aria-current="page">Svi</span>{{else}}<a class="kartica-stranice" href="{{.KarticaSvi}}">Svi</a>{{end}}
+</nav>
+
+{{if gt (len .CipoviSektora) 1}}
+<div class="ocitanja-cipovi cipovi-stranice akti-sektori" role="group" aria-label="{{term "sektor"}}">
+  {{range .CipoviSektora}}<a class="ocitanja-cip" href="{{.URL}}" aria-pressed="{{if .Odabran}}true{{else}}false{{end}}">{{.Naziv}}</a>{{end}}
 </div>
+<details class="ocitanja-izbor akti-sektor-polje">
+  <summary><span class="akti-sektor-natpis">{{term "sektor"}}</span><span class="akti-sektor-izbor">{{range .CipoviSektora}}{{if .Odabran}}{{.Naziv}}{{end}}{{end}}</span>{{icon "chevron-down"}}</summary>
+  <div class="ocitanja-izbornik" role="menu">
+    {{range .CipoviSektora}}<a role="menuitemradio" aria-checked="{{if .Odabran}}true{{else}}false{{end}}" href="{{.URL}}">{{.Naziv}}</a>{{end}}
+  </div>
+</details>
 {{end}}
 
-<h2 class="izvjesce-odjeljak">Izvješća dionica</h2>
-<form method="GET" action="/izvjesca" class="obracun-filtar">
-  <label for="f-dan">Dan</label>
-  <input type="date" id="f-dan" name="dan" class="form-control" value="{{.Dan}}">
-  <label for="f-dionica">Dionica</label>
-  <input type="text" id="f-dionica" name="dionica" class="form-control max-w-9" value="{{.Sifra}}" placeholder="npr. B.16.3">
-  <button type="submit" class="btn btn-secondary">{{icon "search"}} Prikaži</button>
-</form>
-
-{{if .Izvjesca}}
-<div class="table-card"><div class="table-responsive tablica-kartice">
-  <table class="data-table">
-    <thead><tr><th>Dan</th><th>Dionica</th><th>Vodotok</th><th>Stadij</th><th>Tendencija</th><th>Izradio</th><th>Stanje</th></tr></thead>
+{{if eq .Prikaz "dan"}}
+{{/* Dan: izabrani dan, izvješće sektora i izvješća dionica toga dana. */}}
+<div class="izv-dan-traka">
+  <form method="GET" action="/izvjesca" class="izv-dan-izbor">
+    <input type="hidden" name="prikaz" value="dan">
+    {{if .Sektor}}<input type="hidden" name="sektor" value="{{.Sektor}}">{{end}}
+    {{if .DanPrije}}<a class="izv-strelica" href="{{.DanPrije}}" title="Dan prije" aria-label="Dan prije">{{icon "chevron-left"}}</a>{{end}}
+    <input type="date" id="f-dan" name="dan" class="form-control" value="{{.Dan}}" max="{{.Danas}}" aria-label="Dan" onchange="this.form.submit()">
+    {{if .DanPoslije}}<a class="izv-strelica" href="{{.DanPoslije}}" title="Dan poslije" aria-label="Dan poslije">{{icon "chevron-right"}}</a>{{end}}
+    <noscript><button type="submit" class="btn btn-secondary">Prikaži</button></noscript>
+  </form>
+  <span class="reading-meta">{{danKratko .DanKarte}} {{.DanKarte.Format "2. 1. 2006."}} · Rok 08:00</span>
+</div>
+{{template "izvKarteSektora" .}}
+<div class="cop-okvir izv-okvir">
+  <h2>Izvješća dionica</h2>
+  {{if .Izvjesca}}
+  <table class="data-table cop-tablica kartice-na-mobitelu izv-tablica">
+    <thead><tr><th>Dionica</th><th>BP</th><th>Vodotok</th><th>Stupanj</th><th>Tendencija</th><th>Izradio</th><th>Stanje</th></tr></thead>
     <tbody>
     {{range .Izvjesca}}
     <tr>
-      <td data-stupac="Dan"><a href="/izvjesca/{{.ID}}"><strong>{{danTjedna .Dan}} {{.Dan.Format "2.1.2006."}}</strong></a></td>
-      <td data-stupac="Dionica" class="mono">{{.SectionCode}}{{if .Podrucje}} <span class="reg-card-sub">{{.Podrucje}}</span>{{end}}</td>
-      <td data-stupac="Vodotok">{{.Sadrzaj.Vodotok}}</td>
-      <td data-stupac="Stadij"><span class="threshold-pill {{.Stadij.PillClass}}">{{.StadijKratica}}</span></td>
-      <td data-stupac="Tendencija">{{tendencija .Sadrzaj.Tendencija}}</td>
-      <td data-stupac="Izradio">{{.Izradio}} <span class="reg-card-sub">{{.IzradenoAt.Format "2.1. 15:04"}}</span></td>
-      <td data-stupac="Stanje">{{if .Predano}}<span class="badge">{{.OpisPredaje "" "15:04"}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{if .BiloPredano}} <span class="reg-card-sub">čeka ponovnu predaju</span>{{end}}{{end}}{{with .IzmjeneZaIspis}} <span class="reg-card-sub">{{.}}</span>{{end}}</td>
+      <td data-stupac="Dionica"><a href="/izvjesca/{{.ID}}">{{.SectionCode}}</a></td>
+      <td data-stupac="BP">{{.Podrucje}}</td>
+      <td data-stupac="Vodotok">{{or .Sadrzaj.Vodotok "—"}}</td>
+      <td data-stupac="Stupanj"><span class="threshold-pill {{.Stadij.PillClass}}">{{.Stadij.Label}}</span></td>
+      <td data-stupac="Tendencija">{{or (tendencija .Sadrzaj.Tendencija) "—"}}</td>
+      <td data-stupac="Izradio">{{.Izradio}} · {{.IzradenoAt.Format "15:04"}}</td>
+      <td data-stupac="Stanje">{{template "izvStanje" .}}</td>
     </tr>
     {{end}}
     </tbody>
   </table>
-</div></div>
+  {{else}}
+  <p class="cop-prazno">Nema izvješća dionica za taj dan.{{if .Dionice}} Novo se piše gumbom „Novo izvješće“.{{end}}</p>
+  {{end}}
+</div>
+
 {{else}}
-<div class="reg-empty">Nema izvješća{{if or .Dan .Sifra}} za taj izbor{{end}}.{{if .Dionice}} Novo se piše gumbom „Novo izvješće“.{{end}}</div>
+{{/* Svi: jedan popis izvješća dionica i sektora, noviji dan prvi. */}}
+{{template "izvKarteSektora" .}}
+<div class="izv-filtri">
+  <div class="ocitanja-cipovi izv-vrste" role="group" aria-label="Vrsta izvješća">
+    {{range .CipoviVrste}}<a class="ocitanja-cip" href="{{.URL}}" aria-pressed="{{if .Odabran}}true{{else}}false{{end}}">{{.Naziv}}</a>{{end}}
+  </div>
+  <form method="GET" action="/izvjesca" class="obracun-filtar izv-trazi">
+    {{if .Sektor}}<input type="hidden" name="sektor" value="{{.Sektor}}">{{end}}
+    {{if .Vrsta}}<input type="hidden" name="vrsta" value="{{.Vrsta}}">{{end}}
+    <label for="f-dan">Dan</label>
+    <input type="date" id="f-dan" name="dan" class="form-control" value="{{.Dan}}">
+    <label for="f-dionica">Dionica</label>
+    <input type="text" id="f-dionica" name="dionica" class="form-control max-w-9" value="{{.Sifra}}" placeholder="npr. B.16.3">
+    <button type="submit" class="btn btn-secondary">Prikaži</button>
+  </form>
+</div>
+
+{{if .Redovi}}
+<div class="cop-okvir izv-okvir">
+  <table class="data-table cop-tablica kartice-na-mobitelu izv-tablica">
+    <thead><tr><th>Dan</th><th>Dionica</th><th>Vodotok</th><th>Stupanj</th><th>Tendencija</th><th>Izradio</th><th>Stanje</th></tr></thead>
+    <tbody>
+    {{range .Redovi}}
+    {{with .Sektorsko}}
+    <tr class="izv-sektor">
+      <td data-stupac="Dan"><a href="/sektorsko-izvjesce/{{.ID}}">{{danKratko .Dan}} {{.Dan.Format "2. 1. 2006."}}</a></td>
+      <td data-stupac="Dionica">{{term "sektor"}} {{.Sektor}}
+        {{/* izvješća dionica i zapisi dnevnika koji su ušli, u podretku */}}
+        <span class="reg-card-sub">{{.Sadrzaj.Pregled.Izvjesca}} {{uzBroj .Sadrzaj.Pregled.Izvjesca "izvješće" "izvješća" "izvješća"}} dionica{{if .Sadrzaj.Pregled.Nacrta}} +{{.Sadrzaj.Pregled.Nacrta}} {{uzBroj .Sadrzaj.Pregled.Nacrta "nepredano" "nepredana" "nepredano"}}{{end}} · {{len .Sadrzaj.Zapisi}} {{uzBroj (len .Sadrzaj.Zapisi) "zapis" "zapisa" "zapisa"}}</span></td>
+      <td data-stupac="Vodotok">—</td>
+      <td data-stupac="Stupanj"><span class="threshold-pill {{.NajvisiStadij.PillClass}}">{{.NajvisiStadij.Label}}</span></td>
+      <td data-stupac="Tendencija">—</td>
+      <td data-stupac="Izradio">{{.Izradio}} · {{.IzradenoAt.Format "15:04"}}</td>
+      <td data-stupac="Stanje">{{template "izvStanje" .}}</td>
+    </tr>
+    {{end}}
+    {{with .Dionice}}
+    <tr>
+      <td data-stupac="Dan"><a href="/izvjesca/{{.ID}}">{{danKratko .Dan}} {{.Dan.Format "2. 1. 2006."}}</a></td>
+      <td data-stupac="Dionica">{{.SectionCode}}{{if .Podrucje}} <span class="reg-card-sub">{{.Podrucje}}</span>{{end}}</td>
+      <td data-stupac="Vodotok">{{or .Sadrzaj.Vodotok "—"}}</td>
+      <td data-stupac="Stupanj"><span class="threshold-pill {{.Stadij.PillClass}}">{{.Stadij.Label}}</span></td>
+      <td data-stupac="Tendencija">{{or (tendencija .Sadrzaj.Tendencija) "—"}}</td>
+      <td data-stupac="Izradio">{{.Izradio}} · {{.IzradenoAt.Format "15:04"}}</td>
+      <td data-stupac="Stanje">{{template "izvStanje" .}}</td>
+    </tr>
+    {{end}}
+    {{end}}
+    </tbody>
+  </table>
+</div>
+{{else}}
+<div class="reg-empty">Nema izvješća{{if or .Dan .Sifra .Sektor .Vrsta}} za taj izbor{{end}}.{{if .Dionice}} Novo se piše gumbom „Novo izvješće“.{{end}}</div>
+{{end}}
+{{end}}
+{{end}}
+
+{{/* Stanje izvješća dionice ili sektora: predano, nacrt, čeka ponovnu
+     predaju, i tko je mijenjao poslije predaje. */}}
+{{define "izvStanje"}}{{if .Predano}}<span class="oznaka-stanja">{{.OpisPredaje "" "15:04"}}</span>{{else}}<span class="oznaka-stanja">{{if .BiloPredano}}čeka ponovnu predaju{{else}}nacrt{{end}}</span>{{end}}{{with .IzmjeneZaIspis}} <span class="reg-card-sub">{{.}}</span>{{end}}{{end}}
+
+{{/* Izvješće sektora za dan: za sektor koji osoba slaže gumb „Sastavi za
+     dan”, a kad izvješće postoji, poveznica na nj sa stanjem. */}}
+{{define "izvKarteSektora"}}{{$d := .}}
+{{range .KarteSektora}}
+<div class="list-kartica izv-karta-sektora">
+  <div class="izv-karta-tekst">
+    <strong>Izvješće sektora {{.Sektor}}</strong>
+    <span class="reading-meta">{{danKratko $d.DanKarte}} {{$d.DanKarte.Format "2. 1. 2006."}} · Slaže se iz predanih izvješća dionica i zapisa dnevnika COP-a.</span>
+  </div>
+  {{with .Izvjesce}}<span class="oznaka-stanja">{{if .Predano}}{{.OpisPredaje "" "15:04"}}{{else}}nacrt{{end}}</span>
+  <a class="btn btn-secondary" href="/sektorsko-izvjesce/{{.ID}}">Otvori</a>
+  {{else}}<span class="oznaka-stanja">nije sastavljeno</span>
+  {{if .Sastavlja}}<form method="GET" action="/sektorsko-izvjesce/novo" class="m-0">
+    <input type="hidden" name="sektor" value="{{.Sektor}}">
+    <input type="hidden" name="dan" value="{{$d.DanKarte.Format "2006-01-02"}}">
+    <button type="submit" class="btn btn-primary">Sastavi za dan</button>
+  </form>{{end}}{{end}}
+</div>
 {{end}}
 {{end}}

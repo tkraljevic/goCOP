@@ -3,84 +3,108 @@
 {{define "title"}}goCOP — Dnevno izvješće {{.Dionica.Code}} {{.Izvjesce.Dan.Format "2.1.2006."}}{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/dnevnici">Dokumenti</a> › <a href="/izvjesca">Dnevna izvješća</a> › {{.Dionica.Code}} · {{.Izvjesce.Dan.Format "2.1.2006."}}</div>
-
-<div class="detail-head">
-  <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "file-text"}} Dnevno izvješće rukovoditelja dionice</h1>
-    <p class="page-desc">Za dan <strong>{{danTjedna .Izvjesce.Dan}} {{.Izvjesce.Dan.Format "2.1.2006."}}</strong> · dionica <strong>{{.Dionica.Code}}</strong>
-      {{if .Izvjesce.Sadrzaj.Vodotok}} · vodotok <strong>{{.Izvjesce.Sadrzaj.Vodotok}}</strong>{{end}}
-      · stadij <span class="threshold-pill {{.Izvjesce.Stadij.PillClass}}">{{.Izvjesce.StadijKratica}} — {{.Izvjesce.Stadij.Label}}</span>
-      {{/* Izmjena predanog izvješća vraća ga u nacrt; nova predaja ima novo
-           vrijeme, a prvo ostaje uz nju zbog roka do 08:00. */}}
-      {{if .Izvjesce.Predano}}· <span class="badge">{{.Izvjesce.OpisPredaje "" "2.1. 15:04"}}</span>{{else}}· <span class="badge badge-pending">nacrt</span>{{if .Izvjesce.BiloPredano}} <span class="reg-card-sub">{{.Izvjesce.OpisPredaje "" "2.1. 15:04"}}</span>{{end}}{{end}}</p>
+<a href="/izvjesca" class="povratna-poveznica">← Dnevna izvješća</a>
+{{$iz := .Izvjesce}}{{$s := $iz.Sadrzaj}}
+<div class="page-header list-glava izv-dok-glava">
+  <div class="izv-dok-naslov">
+    <h1 class="page-title" data-naziv-stranice>Izvješće dionice {{.Dionica.Code}}</h1>
+    <p class="page-desc">Dnevno izvješće rukovoditelja dionice · {{danKratko $iz.Dan}} {{$iz.Dan.Format "2. 1. 2006."}}{{if $s.Vodotok}} · {{$s.Vodotok}}{{end}}</p>
+    {{/* Izmjena predanog izvješća vraća ga u nacrt; nova predaja ima novo
+         vrijeme, a prvo ostaje uz nju zbog roka do 08:00. */}}
+    <div class="izv-dok-oznake">
+      <span class="threshold-pill {{$iz.Stadij.PillClass}}">{{$iz.Stadij.Label}}</span>
+      {{if $iz.Predano}}<span class="oznaka-stanja">{{$iz.OpisPredaje "u podcentar" "2.1. 15:04"}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{if $iz.BiloPredano}} <span class="reading-meta">{{$iz.OpisPredaje "" "2.1. 15:04"}}</span>{{end}}{{end}}
+      <span class="reading-meta">Rok 08:00</span>
+    </div>
   </div>
-  <div class="page-actions">
+  <div class="page-actions izv-dok-radnje">
+    <a href="/izvjesca/{{$iz.ID}}/izvjesce.xlsx" class="btn btn-link" title="Obrazac za ispis, A4">Excel</a>
     {{if .SmijePisati}}
-    {{if .SmijeMijenjati}}<a href="/izvjesca/{{.Izvjesce.ID}}/uredi" class="btn btn-secondary">{{icon "pencil"}} Obrazac</a>{{end}}
-    {{if not .Izvjesce.Predano}}<form method="POST" action="/izvjesca/{{.Izvjesce.ID}}/predaj" class="d-inline"><button type="submit" class="btn btn-primary">{{icon "arrow-right"}} {{if .Izvjesce.BiloPredano}}Ponovo predaj{{else}}Predaj{{end}}</button></form>{{end}}
+    {{if .SmijeMijenjati}}<a href="/izvjesca/{{$iz.ID}}/uredi" class="btn btn-link">Obrazac</a>{{end}}
+    {{if not $iz.Predano}}<form method="POST" action="/izvjesca/{{$iz.ID}}/predaj" class="d-inline"><button type="submit" class="btn btn-primary">{{if $iz.BiloPredano}}Ponovo predaj{{else}}Predaj{{end}}</button></form>{{end}}
     {{end}}
     {{/* Izvješće piše rukovoditelj dionice ili zamjenik; uprava područja ili
          sektora ga ne piše, ali ga briše, a ono koje je bilo predano, i dok
          čeka ponovnu predaju, briše samo ona. */}}
-    {{if .SmijeBrisati}}<form method="POST" action="/izvjesca/{{.Izvjesce.ID}}/obrisi" class="d-inline" onsubmit="return confirm('Obrisati izvješće? U knjizi verzija ostaje arhivirano.');"><button type="submit" class="btn btn-secondary" title="Obriši">{{icon "trash"}}</button></form>{{end}}
-    <a href="/izvjesca/{{.Izvjesce.ID}}/izvjesce.xlsx" class="btn btn-secondary" title="Obrazac za ispis, A4">{{icon "download"}} Excel</a>
+    {{if .SmijeBrisati}}<form method="POST" action="/izvjesca/{{$iz.ID}}/obrisi" class="d-inline" onsubmit="return confirm('Obrisati izvješće? U knjizi verzija ostaje arhivirano.');"><button type="submit" class="btn btn-link">Obriši</button></form>{{end}}
   </div>
 </div>
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 
-{{$s := .Izvjesce.Sadrzaj}}
-<div class="izvjesce-dokument">
-  <section class="detail-section">
-    <h2>{{icon "gauge"}} Vodostaji (protoke)</h2>
+<div class="izvjesce-dokument izv-dok">
+  <section class="list-kartica">
+    <h2>Vodostaji (protoke)</h2>
     {{if $s.Vodostaji}}
-    <div class="table-card"><div class="table-responsive"><table class="data-table">
-      <thead><tr><th>Vodomjer</th><th>sat</th><th class="br">vrijednost</th><th>jedinica</th></tr></thead>
-      <tbody>{{range $s.Vodostaji}}<tr><td>{{.Postaja}}</td><td class="mono">{{.Sat}}</td><td class="mono br">{{.Vrijednost}}</td><td>{{.Jedinica}}</td></tr>{{end}}</tbody>
-    </table></div></div>
+    <table class="data-table cop-tablica kartice-na-mobitelu izv-vodostaji">
+      <thead><tr><th>Vodomjer</th><th>Sat</th><th>Vrijednost</th></tr></thead>
+      <tbody>{{range $s.Vodostaji}}<tr><td data-stupac="Vodomjer">{{.Postaja}}</td><td data-stupac="Sat">{{.Sat}}</td><td data-stupac="Vrijednost">{{.Vrijednost}}{{if .Jedinica}} {{.Jedinica}}{{end}}</td></tr>{{end}}</tbody>
+    </table>
     {{else}}<p class="reading-meta">Vodostaji nisu upisani.</p>{{end}}
-    <p class="page-desc" style="margin-top:0.4rem;">Stanje – tendencija: <strong>{{if $s.Tendencija}}{{tendencija $s.Tendencija}}{{else}}—{{end}}</strong></p>
+    <dl class="izv-redci"><div><dt>Tendencija</dt><dd>{{if $s.Tendencija}}{{tendencija $s.Tendencija}}{{else}}—{{end}}</dd></div></dl>
   </section>
 
-  <section class="detail-section">
-    <h2>{{icon "shield"}} Mjere obrane od poplava</h2>
-    <dl class="reg-facts izvjesce-facts">
-      <div><dt>Pregled i ocjena stanja građevina i korita; oštećenja i kritična mjesta</dt><dd class="zapis-tekst">{{if $s.Pregled}}{{$s.Pregled}}{{else}}—{{end}}</dd></div>
-      <div><dt>Provedene mjere i radnje</dt><dd class="zapis-tekst">{{if $s.Radnje}}{{$s.Radnje}}{{else}}—{{end}}</dd></div>
-      <div><dt>Ugrađeno i angažirano</dt><dd><span class="izvjesce-kolicine"><span><small>vreće</small>{{or $s.Vrece "—"}}</span><span><small>materijal</small>{{or $s.Materijal "—"}}</span><span><small>nasipi</small>{{or $s.Nasipi "—"}}</span><span><small>crpke</small>{{or $s.Crpke "—"}}</span></span></dd></div>
-      <div><dt>Aktiviranje objekata za rasterećenje velikih voda</dt><dd class="zapis-tekst">{{if $s.Objekti}}{{$s.Objekti}}{{else}}—{{end}}</dd></div>
+  <section class="list-kartica">
+    <h2>Mjere obrane od poplava</h2>
+    <dl class="izv-redci">
+      <div><dt title="Pregled i ocjena stanja građevina i korita; oštećenja i kritična mjesta">Pregled i ocjena stanja</dt><dd class="izv-tekst">{{if $s.Pregled}}{{$s.Pregled}}{{else}}—{{end}}</dd></div>
+      <div><dt>Provedene mjere i radnje</dt><dd class="izv-tekst">{{if $s.Radnje}}{{$s.Radnje}}{{else}}—{{end}}</dd></div>
+      <div><dt title="Aktiviranje objekata za rasterećenje velikih voda">Objekti za rasterećenje</dt><dd class="izv-tekst">{{if $s.Objekti}}{{$s.Objekti}}{{else}}—{{end}}</dd></div>
     </dl>
+    <div class="izv-plocice izv-plocice-4" title="Ugrađeno i angažirano">
+      <div><small>vreće</small>{{or $s.Vrece "—"}}</div><div><small>materijal</small>{{or $s.Materijal "—"}}</div>
+      <div><small>nasipi</small>{{or $s.Nasipi "—"}}</div><div><small>crpke</small>{{or $s.Crpke "—"}}</div>
+    </div>
   </section>
 
-  <section class="detail-section">
-    <h2>{{icon "users"}} Sudjelovanje ljudi i materijalnih sredstava</h2>
+  <section class="list-kartica">
+    <h2>Sudjelovanje ljudi i sredstava</h2>
     {{$p := $s.Pravne}}{{$o := $s.Ostali}}
-    <div class="table-card"><div class="table-responsive"><table class="data-table">
-      <thead><tr><th>Pravne osobe</th><th class="br">ljudi</th><th class="br">kamioni</th><th class="br">bageri</th><th class="br">komb. strojevi</th><th class="br">utovarivači</th><th class="br">buldožeri</th><th class="br">traktori</th><th class="br">brodovi</th><th class="br">čamci</th><th>ostalo</th></tr></thead>
-      <tbody><tr><td></td><td class="mono br">{{$p.Ljudi}}</td><td class="mono br">{{$p.Kamioni}}</td><td class="mono br">{{$p.Bageri}}</td><td class="mono br">{{$p.KombStrojevi}}</td><td class="mono br">{{$p.Utovarivaci}}</td><td class="mono br">{{$p.Buldozeri}}</td><td class="mono br">{{$p.Traktori}}</td><td class="mono br">{{$p.Brodovi}}</td><td class="mono br">{{$p.Camci}}</td><td>{{$p.Ostalo}}</td></tr></tbody>
-      <thead><tr><th>Ostali sudionici</th><th class="br">policija</th><th class="br">vatrogasci</th><th class="br">Hrvatska vojska</th><th class="br">HGSS</th><th class="br">Civilna zaštita</th><th class="br">Crveni križ</th><th colspan="4">druge pravne osobe i građani</th></tr></thead>
-      <tbody><tr><td></td><td class="mono br">{{$o.Policija}}</td><td class="mono br">{{$o.Vatrogasci}}</td><td class="mono br">{{$o.Vojska}}</td><td class="mono br">{{$o.HGSS}}</td><td class="mono br">{{$o.CivilnaZastita}}</td><td class="mono br">{{$o.CrveniKriz}}</td><td colspan="4">{{$o.Drugi}}</td></tr></tbody>
-    </table></div></div>
+    <h3 class="izv-podnaslov">Pravne osobe za provedbu obrane</h3>
+    <div class="izv-plocice izv-plocice-5">
+      <div><small>ljudi</small>{{template "izvBroj" $p.Ljudi}}</div><div><small>kamioni</small>{{template "izvBroj" $p.Kamioni}}</div>
+      <div><small>bageri</small>{{template "izvBroj" $p.Bageri}}</div><div><small>komb. strojevi</small>{{template "izvBroj" $p.KombStrojevi}}</div>
+      <div><small>utovarivači</small>{{template "izvBroj" $p.Utovarivaci}}</div><div><small>buldožeri</small>{{template "izvBroj" $p.Buldozeri}}</div>
+      <div><small>traktori</small>{{template "izvBroj" $p.Traktori}}</div><div><small>brodovi</small>{{template "izvBroj" $p.Brodovi}}</div>
+      <div><small>čamci</small>{{template "izvBroj" $p.Camci}}</div><div><small>ostalo</small>{{or $p.Ostalo "—"}}</div>
+    </div>
+    <h3 class="izv-podnaslov">Ostali sudionici</h3>
+    <div class="izv-plocice izv-plocice-6">
+      <div><small>policija</small>{{template "izvBroj" $o.Policija}}</div><div><small>vatrogasci</small>{{template "izvBroj" $o.Vatrogasci}}</div>
+      <div><small>Hrvatska vojska</small>{{template "izvBroj" $o.Vojska}}</div><div><small>HGSS</small>{{template "izvBroj" $o.HGSS}}</div>
+      <div><small>Civilna zaštita</small>{{template "izvBroj" $o.CivilnaZastita}}</div><div><small>Crveni križ</small>{{template "izvBroj" $o.CrveniKriz}}</div>
+      <div class="izv-plocica-siroka"><small>druge pravne osobe i građani</small>{{or $o.Drugi "—"}}</div>
+    </div>
   </section>
 
-  <section class="detail-section">
-    <h2>{{icon "waves"}} Stanje na poplavljenom području</h2>
+  <section class="list-kartica">
+    <h2>Stanje na poplavljenom području</h2>
     {{$pp := $s.Poplavljeno}}{{$e := $s.Evakuacija}}
-    <dl class="reg-facts izvjesce-facts">
-      <div><dt>Poplavljena područja i objekti</dt><dd>{{if or $pp.Naselja $pp.Ljudi $pp.Stambeni $pp.Industrijski $pp.Farme $pp.Infrastruktura $pp.SumskeHa $pp.PoljoprivredneHa $pp.OstaleHa}}
+    <dl class="izv-redci">
+      <div><dt>Poplavljeno</dt><dd>{{if or $pp.Naselja $pp.Ljudi $pp.Stambeni $pp.Industrijski $pp.Farme $pp.Infrastruktura $pp.SumskeHa $pp.PoljoprivredneHa $pp.OstaleHa}}
         {{if $pp.Naselja}}<div>naselja: <strong>{{$pp.Naselja}}</strong></div>{{end}}
-        <span class="izvjesce-kolicine"><span><small>ljudi</small>{{$pp.Ljudi}}</span><span><small>stambeni objekti</small>{{$pp.Stambeni}}</span><span><small>industrijski objekti</small>{{$pp.Industrijski}}</span><span><small>farme</small>{{$pp.Farme}}</span><span><small>šumske (ha)</small>{{brojHRf $pp.SumskeHa 1}}</span><span><small>poljoprivredne (ha)</small>{{brojHRf $pp.PoljoprivredneHa 1}}</span><span><small>ostale (ha)</small>{{brojHRf $pp.OstaleHa 1}}</span></span>
+        <div class="izv-plocice izv-plocice-4">
+          <div><small>ljudi</small>{{template "izvBroj" $pp.Ljudi}}</div><div><small>stambeni objekti</small>{{template "izvBroj" $pp.Stambeni}}</div>
+          <div><small>industrijski objekti</small>{{template "izvBroj" $pp.Industrijski}}</div><div><small>farme</small>{{template "izvBroj" $pp.Farme}}</div>
+          <div><small>šumske (ha)</small>{{brojHRf $pp.SumskeHa 1}}</div><div><small>poljoprivredne (ha)</small>{{brojHRf $pp.PoljoprivredneHa 1}}</div>
+          <div><small>ostale (ha)</small>{{brojHRf $pp.OstaleHa 1}}</div>
+        </div>
         {{if $pp.Infrastruktura}}<div>infrastrukturni objekti: {{$pp.Infrastruktura}}</div>{{end}}
-        {{else}}— nema poplavljenih područja{{end}}</dd></div>
+        {{else}}nema poplavljenih područja{{end}}</dd></div>
       <div><dt>Evakuacija</dt><dd>{{if or $e.Naselja $e.Ljudi $e.Kucanstava $e.Zivotinje}}
         {{if $e.Naselja}}<div>naselja: <strong>{{$e.Naselja}}</strong></div>{{end}}
-        <span class="izvjesce-kolicine"><span><small>evakuirano ljudi</small>{{$e.Ljudi}}</span><span><small>kućanstava</small>{{$e.Kucanstava}}</span><span><small>životinje</small>{{or $e.Zivotinje "—"}}</span></span>
-        {{else}}— nije provedena{{end}}</dd></div>
+        <div class="izv-plocice izv-plocice-4">
+          <div><small>evakuirano ljudi</small>{{template "izvBroj" $e.Ljudi}}</div><div><small>kućanstava</small>{{template "izvBroj" $e.Kucanstava}}</div>
+          <div><small>životinje</small>{{or $e.Zivotinje "—"}}</div>
+        </div>
+        {{else}}nije provedena{{end}}</dd></div>
     </dl>
   </section>
 
-  <p class="reading-meta">Datum i sat izrade: {{.Izvjesce.IzradenoAt.Format "2.1.2006. 15:04"}} · Rukovoditelj/zamjenik dionice: <strong>{{.Izvjesce.Izradio}}</strong>{{.Izvjesce.TragUDokumentu "u podcentar" "2.1.2006. 15:04"}}</p>
+  <p class="reading-meta izv-dok-podnozje">Izrađeno {{$iz.IzradenoAt.Format "2. 1. 2006."}} u {{$iz.IzradenoAt.Format "15:04"}} · rukovoditelj ili zamjenik dionice <strong>{{$iz.Izradio}}</strong>{{$iz.TragUDokumentu "u podcentar" "2.1.2006. 15:04"}}</p>
 </div>
 {{end}}
+
+{{/* Broj na pločici; nula je crtica, kao na papirnom obrascu. */}}
+{{define "izvBroj"}}{{if .}}{{.}}{{else}}—{{end}}{{end}}
