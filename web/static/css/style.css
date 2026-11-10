@@ -4139,55 +4139,6 @@ body.karta-puni-zaslon-otvoren { overflow: hidden; }
 .ekstremi-sklop > summary::marker { color: var(--primary); }
 .ekstremi-sklop[open] > summary { margin-bottom: 0.4rem; }
 
-/* ── Dnevnik COP-a: zapisnik dežurstva ──────────────────────────────────────
-   Nema listova ni naloga. Dežurstvo teče danima, a zapis nosi vrijeme, onoga
-   tko je javio i tekst. Vrijeme stoji u svom stupcu i poravnato je, da se
-   slijed čita odozgo prema dolje. */
-.dan-dezurstva { margin: 1.25rem 0; }
-.dan-naslov {
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--text-strong);
-  padding-bottom: 0.3rem;
-  border-bottom: 2px solid var(--border);
-  margin: 0 0 0.5rem;
-}
-.zapisi { display: flex; flex-direction: column; }
-.zapis {
-  display: grid;
-  grid-template-columns: 3.5rem minmax(0, 11rem) minmax(0, 1fr);
-  gap: 0.5rem 0.9rem;
-  padding: 0.45rem 0.3rem;
-  border-bottom: 1px solid var(--border);
-  font-size: 0.9rem;
-  align-items: baseline;
-}
-.zapis:last-child { border-bottom: 0; }
-@media (max-width: 40rem) {
-  .zapis { grid-template-columns: 3.5rem minmax(0, 1fr); }
-  .zapis-tekst { grid-column: 1 / -1; }
-}
-.zapis-kad { font-weight: 700; color: var(--primary); font-variant-numeric: tabular-nums; }
-.zapis-tko { color: var(--text-secondary); overflow-wrap: anywhere; }
-.zapis-upisao { font-size: 0.75rem; color: var(--text-muted); }
-.zapis-nakon-ovjere { font-size: 0.75rem; color: var(--warning-fg); background: var(--warning-bg); border-radius: 4px; padding: 0 0.3rem; display: inline-block; }
-.zapis-tekst { white-space: pre-wrap; overflow-wrap: anywhere; }
-
-/* Smjena je granica dana, ne običan zapis. */
-.zapis-smjena { background: var(--bg-subtle); }
-.zapis-smjena .zapis-tekst { font-weight: 600; }
-
-.zapis-storniran .zapis-tekst { text-decoration: line-through; color: var(--text-muted); }
-.zapis-storniran .reading-meta { text-decoration: none; }
-.zapis-storno { display: inline-block; margin-left: 0.5rem; vertical-align: baseline; }
-.zapis-storno .btn-sm { padding: 0 var(--space-12); font-size: 0.8125rem; opacity: 0.55; }
-.zapis:hover .zapis-storno .btn-sm { opacity: 1; }
-.zapis-ispravak { display: inline-block; margin-left: 0.5rem; vertical-align: baseline; }
-.zapis-ispravak > summary { list-style: none; cursor: pointer; padding: 0 0.4rem; font-size: 0.72rem; opacity: 0.55; }
-.zapis-ispravak > summary::-webkit-details-marker { display: none; }
-.zapis:hover .zapis-ispravak > summary, .zapis-ispravak[open] > summary { opacity: 1; }
-.zapis-ispravak[open] { display: block; margin: 0.5rem 0 0; }
-.zapis-ispravak-obrazac { margin-top: 0.5rem; padding: 0.75rem; border: 1px solid var(--border, #ddd); border-radius: 4px; }
 /* Ispravak opisa rada u planu dežurstava: sklopljen uz opis, otvoren kad
    se mjesto rada ne zna. */
 .dezurstvo-ispravak { margin-top: 0.3rem; }
@@ -4221,7 +4172,6 @@ body.karta-puni-zaslon-otvoren { overflow: hidden; }
   .obracun-stavke { flex-direction: column; gap: 0.1rem; }
 }
 
-.zapis-podrucje { font-size: 0.72rem; vertical-align: 0.1em; margin-right: 0.2rem; }
 .iors-tablica th.br, .iors-tablica td.br { text-align: right; white-space: nowrap; }
 .iors-tablica tr.iors-ceka td { color: var(--text-muted, #777); font-style: italic; }
 @media print { .page-actions, .breadcrumb, .alert { display: none !important; } }
@@ -4236,37 +4186,6 @@ body.karta-puni-zaslon-otvoren { overflow: hidden; }
 .iors-dan-razredi { margin-top: 0.2rem; }
 .iors-dan.iors-ceka { border-style: dashed; color: var(--text-muted, #777); }
 
-/* Unos u dnevnik COP-a: traka na dnu zaslona, tekst prvi */
-.unos-zapisa { position: sticky; bottom: 0; z-index: 5; margin-top: 1rem; padding: 0.6rem 0.9rem 0.5rem;
-  background: var(--surface, #fff); border: 1px solid var(--border, #ddd); border-bottom: 0; border-radius: 8px 8px 0 0;
-  box-shadow: 0 -6px 18px rgba(0,0,0,0.08); }
-.unos-tekst { width: 100%; resize: vertical; min-height: 2.6rem; font-size: 1rem; }
-.unos-red { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; margin-top: 0.45rem; }
-.unos-polje { display: inline-flex; align-items: center; gap: 0.3rem; margin: 0; font-size: 0.85rem; color: var(--text-secondary, #555); }
-.unos-polje .form-control { width: auto; padding-top: 0.3rem; padding-bottom: 0.3rem; }
-.unos-javio { flex: 1 1 12rem; }
-.unos-javio .form-control { width: 100%; }
-.unos-dan { font-size: 0.85rem; }
-.unos-dan > summary { cursor: pointer; list-style: none; color: var(--text-secondary, #555); padding: 0.3rem 0.4rem; border: 1px dashed var(--border, #ccc); border-radius: 4px; }
-.unos-dan > summary::-webkit-details-marker { display: none; }
-.unos-dan[open] { display: inline-flex; align-items: center; gap: 0.4rem; }
-.unos-dan[open] > summary { border-style: solid; }
-.unos-gumb { margin-left: auto; }
-.unos-napomena { margin-top: 0.3rem; }
-/* Zapis na koji se stiglo (novi ili ispravljen) nakratko svijetli, i ne
-   ostaje ispod trake za unos ni ispod gornje trake. */
-.zapis { scroll-margin-bottom: 11rem; scroll-margin-top: calc(var(--vrh-visina, 3rem) + 1rem); }
-.zapis:target { animation: zapis-svjetlo 2.5s ease-out; }
-@keyframes zapis-svjetlo { from { background: var(--primary-light, #e8eef7); } to { background: transparent; } }
-@media (max-width: 640px) { .unos-polje > span { display: none; } .unos-gumb { margin-left: 0; width: 100%; } }
-
-/* storno uz zapis bez sistemskog dijaloga; naslov dana ostaje pri vrhu, ispod gornje trake */
-.zapis-storno > summary { list-style: none; cursor: pointer; }
-.zapis-storno > summary::-webkit-details-marker { display: none; }
-.zapis-storno[open] { display: block; margin: 0.4rem 0 0; }
-.zapis-storno-obrazac { display: flex; gap: 0.4rem; margin-top: 0.4rem; max-width: 34rem; }
-.dan-naslov { position: sticky; top: var(--vrh-visina, 0); z-index: 2; background: var(--bg, #f4f4f4); padding: 0.4rem 0; }
-.dan-dezurstva { scroll-margin-top: 0.5rem; }
 
 .dezurni-sad { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.35rem 0.6rem; border-radius: 4px; background: var(--primary-light, #e8eef7); color: var(--primary, #173e74); font-size: 0.9rem; }
 
@@ -7511,7 +7430,7 @@ html:not(.js) .nav-caret { display: none; }
 @media (max-width: 599px) {
   .btn, .btn-sm { min-height: var(--size-touchtarget); }
   .btn { padding-left: var(--space-16); padding-right: var(--space-16); }
-  table .btn-sm, .zapis-storno .btn-sm { min-height: 40px; }
+  table .btn-sm { min-height: 40px; }
   .reading-row .btn-sm { min-height: 36px; }
   /* široka tablica ili obrazac lista se unutar svoje kartice, ne cijela stranica */
   .main-content { overflow-x: clip; }
@@ -8900,6 +8819,122 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
   .cop-okvir { padding: 12px; }
   table.cop-tablica { border-spacing: 0; margin-top: 8px; }
   .cop-tablica td, .cop-tablica tbody tr:hover td { background: none; }
+}
+
+/* ── Dnevnik COP-a: zapisi ──────────────────────────────────────────────────
+   Dani su sklopivi blokovi: najnoviji otvoren, dan prije sklopljen, stariji u
+   jednom rasponu. Zapis je redak: sat, tko je javio i tko je upisao, oznake,
+   tekst, storno desno. Na mobitelu je unos gore, a najnoviji zapis prvi. */
+.cop-podrucje { display: inline-flex; align-items: center; height: 32px; margin: 0; padding: 0 0 0 12px; border: 1px solid var(--md-sys-color-outline); border-radius: 8px; font-size: 0.875rem; }
+.cop-podrucje label { margin: 0; font-weight: 400; color: var(--md-sys-color-on-surface); }
+.cop-podrucje label::after { content: ":"; }
+.cop-podrucje .form-control { width: auto; field-sizing: content; max-width: 320px; height: 30px; min-height: 0; padding-top: 0; padding-bottom: 0; padding-left: 4px; border: 0; background-color: transparent; font-size: 0.875rem; box-shadow: none; }
+.cop-podrucje:focus-within, .unos-polje:focus-within { outline: 2px solid var(--md-sys-color-primary); outline-offset: -1px; }
+.cop-alati-skok { font-size: 0.875rem; color: var(--md-sys-color-on-surface-variant); }
+.cop-alati-skok a { color: var(--md-sys-color-primary); text-decoration: none; }
+.cop-alati-skok a:hover { text-decoration: underline; }
+.cop-dani { display: flex; flex-direction: column; gap: 16px; }
+.cop-dan { border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px; background: var(--md-sys-color-surface-container-low); }
+.cop-dan-glava { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; cursor: pointer; list-style: none; }
+.cop-dan-glava::-webkit-details-marker { display: none; }
+.cop-dan[open] > .cop-dan-glava { min-height: 56px; }
+.cop-dan-naslov { font-size: 0.875rem; color: var(--md-sys-color-on-surface); }
+.cop-dan[open] > .cop-dan-glava .cop-dan-naslov { font-size: 1rem; }
+.cop-dan-broj { font-size: 0.8125rem; color: var(--md-sys-color-on-surface-variant); white-space: nowrap; }
+.cop-dan-strelica { display: flex; margin-left: auto; color: var(--md-sys-color-on-surface-variant); }
+.cop-dan:not([open]) .cop-dan-broj { margin-left: auto; }
+.cop-dan:not([open]) .cop-dan-strelica { margin-left: 8px; }
+.cop-dan-strelica .icon { width: 20px; height: 20px; margin: 0; }
+.cop-dan:not([open]) .cop-dan-strelica .icon { transform: rotate(-90deg); }
+.cop-dan-sadrzaj { display: flex; flex-direction: column; gap: 16px; padding: 0 16px 16px; }
+.dan-dezurstva { scroll-margin-top: calc(var(--vrh-visina, 3rem) + 1rem); }
+.dan-naslov { margin: 0 0 8px; font-size: 0.875rem; font-weight: 500; color: var(--md-sys-color-on-surface); }
+.zapisi { display: flex; flex-direction: column; gap: 8px; }
+.zapis {
+  display: grid; grid-template-columns: 52px minmax(0, 160px) minmax(0, 1fr) auto;
+  grid-template-areas: "kad tko oznake radnja" "kad tko tekst radnja" "kad tko razlog radnja";
+  gap: 4px 12px; align-items: start; padding: 10px 12px; border-radius: 8px;
+  background: var(--md-sys-color-surface-container-lowest); color: var(--md-sys-color-on-surface); font-size: 0.875rem; line-height: 20px;
+  scroll-margin-bottom: 9rem; scroll-margin-top: calc(var(--vrh-visina, 3rem) + 1rem);
+}
+.zapis-kad { grid-area: kad; font-variant-numeric: tabular-nums; }
+.zapis-tko { grid-area: tko; overflow-wrap: anywhere; }
+.zapis-javio-rijec { display: none; }
+.zapis-upisao { font-size: 0.75rem; line-height: 16px; color: var(--md-sys-color-on-surface-variant); }
+.zapis-nakon-ovjere { display: inline-block; margin-top: 2px; padding: 0 4px; border-radius: 4px; font-size: 0.75rem; color: var(--warning-fg); background: var(--warning-bg); }
+.zapis-oznake { grid-area: oznake; display: flex; flex-wrap: wrap; gap: 4px; }
+.zapis-oznake .reg-chip { margin: 0; padding: 0 8px; border: 0; border-radius: 4px; font-size: 0.75rem; line-height: 20px; color: var(--md-sys-color-on-surface-variant); background: var(--md-sys-color-surface-container-high); }
+.zapis-tekst { grid-area: tekst; white-space: pre-wrap; overflow-wrap: anywhere; }
+.zapis-storno-razlog { grid-area: razlog; font-size: 0.75rem; }
+.zapis-storniran .zapis-tekst { text-decoration: line-through; color: var(--md-sys-color-on-surface-variant); }
+.zapis-radnja { grid-area: radnja; align-self: center; display: flex; flex-direction: column; align-items: flex-end; }
+.zapis-radnja:empty { display: none; }
+.zapis-radnja > details > summary { padding: 4px 8px; border-radius: 4px; list-style: none; cursor: pointer; color: var(--md-sys-color-primary); font-size: 0.875rem; }
+.zapis-radnja > details > summary::-webkit-details-marker { display: none; }
+.zapis-radnja > details > summary:hover { background: var(--primary-light); }
+/* otvoren storno ili ispravak dobiva cijeli redak ispod zapisa */
+.zapis-radnja:has(details[open]) { grid-column: 1 / -1; grid-row: 4; align-items: stretch; }
+.zapis-radnja > details[open] > summary { align-self: flex-end; }
+.zapis-radnja > details[open] { display: flex; flex-direction: column; }
+.zapis-storno-obrazac { display: flex; gap: 8px; margin-top: 8px; }
+.zapis-storno-obrazac .form-control { flex: 1; min-width: 0; }
+.zapis-ispravak-obrazac { margin-top: 8px; padding: 12px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 8px; }
+.zapis:target { animation: zapis-svjetlo 2.5s ease-out; }
+@keyframes zapis-svjetlo { from { background: var(--primary-light, #e8eef7); } }
+/* Unos zapisa: jedan redak na dnu, tekst prvi i najveći. */
+.unos-zapisa {
+  position: sticky; bottom: 0; z-index: 5; margin-top: 16px; padding: 12px 16px 8px;
+  border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px;
+  background: var(--md-sys-color-surface-container-low); box-shadow: 0 -4px 16px rgb(0 0 0 / 0.06);
+}
+.unos-naslov { display: none; }
+.unos-red { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.unos-tekst { flex: 1 1 180px; min-width: 0; font-family: inherit; height: 40px; min-height: 40px; padding-top: 9px; padding-bottom: 9px; resize: vertical; font-size: 0.875rem; }
+.unos-polje { display: inline-flex; align-items: center; gap: 4px; height: 40px; margin: 0; padding: 0 0 0 12px; border: 1px solid var(--md-sys-color-outline); border-radius: 8px; background: var(--md-sys-color-surface); font-size: 0.875rem; color: var(--md-sys-color-on-surface-variant); }
+.unos-polje .form-control { width: auto; field-sizing: content; max-width: 240px; height: 38px; min-height: 0; padding-top: 0; padding-bottom: 0; padding-left: 0; border: 0; background-color: transparent; font-size: 0.875rem; box-shadow: none; }
+.unos-javio { flex: 0 1 180px; }
+.unos-javio .form-control { field-sizing: fixed; max-width: none; }
+.unos-javio .form-control { width: 100%; min-width: 0; }
+.unos-dan { font-size: 0.875rem; }
+.unos-dan > summary { display: flex; align-items: center; gap: 4px; height: 40px; padding: 0 12px; border: 1px solid var(--md-sys-color-outline); border-radius: 8px; list-style: none; cursor: pointer; color: var(--md-sys-color-on-surface-variant); background: var(--md-sys-color-surface); }
+.unos-dan > summary::-webkit-details-marker { display: none; }
+.unos-dan[open] { display: inline-flex; align-items: center; gap: 8px; }
+.unos-dan[open] .form-control { width: auto; }
+.unos-gumb { min-height: 40px; padding: 0 24px; border-radius: 20px; }
+.unos-napomena { margin-top: 8px; font-size: 0.75rem; }
+.cop-kraj-napomena { margin-top: 16px; font-size: 0.75rem; }
+/* Ovjera: ovjeren dnevnik i zaključen koji ovjeru čeka */
+.cop-ovjera { display: flex; align-items: center; gap: 12px; }
+.cop-ovjera > .icon { flex: none; width: 24px; height: 24px; margin: 0; }
+.cop-ovjera > p { flex: 1; margin: 0; }
+.cop-ovjera > .btn-link { flex: none; }
+.cop-ovjera-naslov { display: flex; align-items: center; gap: 12px; margin: 0 0 8px; font-size: 1rem; }
+.cop-ovjera-naslov .icon { flex: none; width: 24px; height: 24px; margin: 0; }
+.cop-ovjera-obrazac { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 12px; }
+.cop-ovjera-obrazac .form-label { margin: 0; }
+.cop-ovjera-obrazac .form-control { flex: 0 1 320px; width: auto; min-width: 0; }
+@media (max-width: 599px) {
+  .cop-alati { display: block; }
+  .cop-alati-skok { display: none; }
+  .cop-podrucje { display: flex; width: 100%; height: 48px; }
+  .cop-podrucje .form-control { flex: 1; max-width: none; field-sizing: fixed; height: 46px; }
+  .cop-zapisi { display: flex; flex-direction: column; }
+  .cop-zapisi .unos-zapisa { order: -1; position: static; margin: 0 0 16px; box-shadow: none; }
+  .unos-naslov { display: block; margin: 0 0 8px; font-size: 1rem; font-weight: 500; }
+  .unos-tekst { flex-basis: 100%; height: auto; min-height: 56px; font-size: 1rem; }
+  .unos-javio { flex: 1 1 100%; }
+  .unos-gumb { width: 100%; min-height: 48px; border-radius: 24px; }
+  .cop-zapisi-zivi .cop-dani, .cop-zapisi-zivi .cop-dan-sadrzaj, .cop-zapisi-zivi .zapisi { flex-direction: column-reverse; }
+  .cop-dan-sadrzaj { padding: 0 8px 8px; }
+  .zapis { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "kad oznake radnja" "tekst tekst tekst" "razlog razlog razlog" "tko tko tko"; }
+  .zapis-radnja:has(details[open]) { grid-row: 5; }
+  .zapis-tko { display: flex; flex-wrap: wrap; gap: 0 4px; font-size: 0.75rem; line-height: 16px; color: var(--md-sys-color-on-surface-variant); }
+  .zapis-javio-rijec { display: inline; }
+  .zapis-nitko { display: none; }
+  .zapis-javio + .zapis-upisao::before { content: "· "; }
+  .zapis-nakon-ovjere { flex-basis: 100%; }
+  .cop-ovjera { flex-wrap: wrap; }
+  .cop-ovjera-obrazac .form-control, .cop-ovjera-obrazac .btn { flex: 1 1 100%; }
 }
 
 .akti-traka-sukoba {
