@@ -35,6 +35,8 @@ func (h *JournalsHandler) ShowDezurstva(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	data.Dezurstva, _ = h.journals.Dezurstva(r.Context(), j.ID)
+	// najnovije dežurstvo prvo, kao na crtežu; repozitorij slaže po početku
+	slices.Reverse(data.Dezurstva)
 	data.OpisiRada = models.OpisiRada
 	data.Areas, _ = h.users.ListAreas(j.CentarSektor)
 	h.zaglavljeCOP(&data, j, area, "plan")
