@@ -37,8 +37,7 @@ func (h *JournalsHandler) ShowDezurstva(w http.ResponseWriter, r *http.Request) 
 	data.Dezurstva, _ = h.journals.Dezurstva(r.Context(), j.ID)
 	data.OpisiRada = models.OpisiRada
 	data.Areas, _ = h.users.ListAreas(j.CentarSektor)
-	data.UpravaCentra = h.journals.UpravaCentra(data.Permissions, j)
-	data.MozeSebe = h.journals.MozeSebeUPlan(data.Permissions, h.opseg(j, area), j)
+	h.zaglavljeCOP(&data, j, area, "plan")
 	data.Osobe = h.osobeZaPlan(data, j)
 	h.render(w, h.tmplDezurstva, "dnevnik_dezurstva.html", data)
 }
@@ -184,6 +183,7 @@ func (h *JournalsHandler) ShowObracun(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, porukaObracuna, http.StatusForbidden)
 		return
 	}
+	h.zaglavljeCOP(&data, j, area, "obracun")
 	od, do := h.razdobljeObracuna(r, j)
 	data.From, data.To = od.Format("2006-01-02"), do.AddDate(0, 0, -1).Format("2006-01-02")
 	var err error

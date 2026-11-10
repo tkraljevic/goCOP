@@ -3,30 +3,14 @@
 {{define "title"}}goCOP — Plan dežurstava, {{.Journal.DisplayTitle}}{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/dnevnici">Dokumenti</a> ›
-  <a href="/dnevnici/popis?vrsta=DEZURSTVA">Plan dežurstava</a> › {{.Journal.DisplayTitle}}</div>
+{{template "dnevnikZaglavlje" .}}
 
-<div class="detail-head">
-  <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "users"}} Plan dežurstava</h1>
-    <p class="page-desc">
-      {{.Journal.DisplayTitle}}{{if .Journal.CentarNaziv}} — <strong>{{.Journal.CentarNaziv}}</strong>{{end}}
-      {{if .Journal.StartedAt}} · {{.Journal.StartedAt.Format "2.1.2006."}}{{if .Journal.EndedAt}} – {{.Journal.EndedAt.Format "2.1.2006."}}{{end}}{{end}}
-      · {{len .Dezurstva}} {{uzBroj (len .Dezurstva) "dežurstvo" "dežurstva" "dežurstava"}}
-    </p>
-    {{/* Plan i obračun su jedna evidencija: razmak od–do jedne osobe s opisom
-         rada je prije obrane plan, poslije nje ulaz za obrazac IORS. Nije samo
-         dežurstvo u centru — isti zapis nosi i rukovođenje na terenu, obilazak
-         objekata, administrativni rad. Slaže ga uprava centra; dežurni ga vidi. */}}
-    <p class="page-desc">Tko dežura kad, i što radi: u centru, na terenu, u uredu. Isti zapisi poslije obrane daju
-      obračun sati — jedna evidencija, ne dvije. Svatko upisuje sebe, od vodočuvara do glavnog rukovoditelja;
-      uprava centra to provjeri i potvrdi.</p>
-  </div>
-  <div class="page-actions">
-    <a href="/dnevnici/{{.Journal.ID}}" class="btn btn-secondary">{{icon "activity"}} Dnevnik COP-a</a>
-    {{if .UpravaCentra}}<a href="/dnevnici/{{.Journal.ID}}/obracun" class="btn btn-primary">{{icon "calculator"}} Obračun sati</a>{{end}}
-  </div>
-</div>
+{{/* Plan i obračun su jedna evidencija: razmak od–do jedne osobe s opisom
+     rada je prije obrane plan, poslije nje ulaz za obrazac IORS. Nije samo
+     dežurstvo u centru — isti zapis nosi i rukovođenje na terenu, obilazak
+     objekata, administrativni rad. Slaže ga uprava centra; dežurni ga vidi. */}}
+<p class="page-desc cop-kartica-opis">Tko dežura kad, i što radi: u centru, na terenu, u uredu. Isti zapisi poslije obrane daju
+  obračun sati. Svatko upisuje sebe, od vodočuvara do glavnog rukovoditelja; uprava centra to provjeri i potvrdi.</p>
 
 {{if .Journal.Ovjeren}}<div class="alert alert-info">{{icon "lock"}} Dnevnik COP-a je ovjeren, pa je plan dežurstava zaključan.{{if .UpravaCentra}} Ispravak radi voditelj ili zamjenik centra, uz razlog. Razlog ostaje zapisan u napomeni dežurstva.{{else}} Ispravlja ga samo voditelj ili zamjenik centra.{{end}}</div>{{end}}
 

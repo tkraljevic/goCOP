@@ -173,6 +173,29 @@ func (j Journal) StanjeCOP() string {
 	return "otvoren"
 }
 
+// Pocetak je dan otvaranja dnevnika („12. 10. 2026.”), prazno bez početka.
+func (j Journal) Pocetak() string { return danZaslona(j.StartedAt) }
+
+// Razdoblje je od početka do kraja dnevnika, „14. 3. 2026. – 3. 5. 2026.”;
+// bez kraja samo „od” početka, a bez početka crtica.
+func (j Journal) Razdoblje() string {
+	od, do := danZaslona(j.StartedAt), danZaslona(j.EndedAt)
+	switch {
+	case od == "":
+		return "—"
+	case do == "":
+		return "od " + od
+	}
+	return od + " – " + do
+}
+
+func danZaslona(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	return t.In(Zagreb).Format("2. 1. 2006.")
+}
+
 // DanaObrane je broj kalendarskih dana od početka dnevnika do kraja, a dok
 // traje do danas, oba dana uključena. Bez početka je nula.
 func (j Journal) DanaObrane(danas time.Time) int {

@@ -3,17 +3,9 @@
 {{define "title"}}goCOP — Obračun sati, {{.Journal.DisplayTitle}}{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/dnevnici">Dokumenti</a> ›
-  <a href="/dnevnici/popis?vrsta=DEZURSTVA">Plan dežurstava</a> ›
-  <a href="/dnevnici/{{.Journal.ID}}/dezurstva">{{.Journal.DisplayTitle}}</a> › Obračun sati</div>
+{{template "dnevnikZaglavlje" .}}
 
-<div class="detail-head">
-  <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "calculator"}} Obračun sati u obrani</h1>
-    <p class="page-desc">{{.Journal.DisplayTitle}}{{if .Journal.CentarNaziv}} — {{.Journal.CentarNaziv}}{{end}}.
-      Iz plana dežurstava: tko je koliko odradio i koliko mu ide, po branjenom području za koje je radio.</p>
-  </div>
-</div>
+<p class="page-desc cop-kartica-opis">Iz plana dežurstava: tko je koliko odradio i koliko mu ide, po branjenom području za koje je radio.</p>
 
 {{/* Filtar je jedan redak, ne kartica: dva datuma i gumb. */}}
 <form method="GET" action="/dnevnici/{{.Journal.ID}}/obracun" class="obracun-filtar">
