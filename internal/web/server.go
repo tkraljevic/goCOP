@@ -203,6 +203,7 @@ func templateFuncs() template.FuncMap {
 		"vrstaDnevnika": models.JournalKindLabel,
 		"danTjedna":     danTjednaHR,
 		"danKratko":     danKratko,
+		"rasponDana":    rasponDana,
 		"statika":       statickaAdresa,
 		// svjeze daje oznaku za poveznicu na izvoz: svako učitavanje stranice
 		// daje novu adresu, pa preglednik ne može dati staru spremljenu datoteku
