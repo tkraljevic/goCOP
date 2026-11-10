@@ -1,7 +1,7 @@
 # Postavljanje i održavanje goCOP čvora
 
 Administratorske upute za izdanje 0.0.55-alfa. Pregledane 15. 10. 2026.,
-odjeljak o nadogradnji dopunjen 9. 11. 2026.
+odjeljak o nadogradnji dopunjen 10. 11. 2026.
 Kratki pregled projekta: [README](../README.md). Korisnički postupci su u Pomoći aplikacije.
 
 Operativni program za obranu od poplava Hrvatskih voda: povezuje organizaciju,
@@ -10,7 +10,7 @@ i bez interneta; kopije na različitim računalima međusobno se usklađuju.
 Repozitorij nosi program i praznu shemu baze, a podatke unosi ili uvozi
 organizacija koja ga koristi.
 
-> **Status: alfa, izdanje 0.0.55-alfa (9. 11. 2026.), za testiranje i daljnji
+> **Status: alfa, izdanje 0.0.55-alfa (10. 11. 2026.), za testiranje i daljnji
 > razvoj.** Nije za operativnu upotrebu. Sve se još mijenja. Što je u kojem
 > izdanju, piše u [popisu izmjena](../CHANGELOG.md).
 >
@@ -1068,7 +1068,9 @@ i akt čiji elektronički potpis ne vrijedi ne šalju se. Računalo s 0.0.54-alf
 još smije sastaviti akt s dionicama dvaju područja i poslati poništen akt, a
 takav akt drugo računalo prima razmjenom kao i dosad. Zato prvo treba
 nadograditi računala na kojima se akti sastavljaju i šalju, a ostala kad
-odgovara.
+odgovara. Protok koji Hrvatske vode ne daju računa računalo koje uvozi
+očitanja, i to samo za očitanja uvezena nakon nadogradnje; ranija ostaju bez
+protoka.
 
 0.0.54-alfa dodaje u glavnu bazu tablice `prijave_gresaka`,
 `prijave_gresaka_odgovori` i `prijave_gresaka_posta`, a u bazu prognoza praznu
