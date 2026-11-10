@@ -104,7 +104,7 @@ func TestDnevnaIzvjescaKrozRute(t *testing.T) {
 
 	mora(zovi(http.MethodGet, "/izvjesca", nil), http.StatusOK, "popis", "Nema izvješća", `href="/izvjesca/novo"`)
 	mora(zovi(http.MethodGet, "/izvjesca/novo", nil), http.StatusOK, "obrazac",
-		`name="dan"`, `<option value="B.16.3" selected>`, "Stadij obrane", "nagli porast", "Spremi i predaj")
+		`name="dan"`, `<option value="B.16.3" selected>`, "Stupanj obrane", "nagli porast", "Spremi i predaj")
 
 	danas := time.Now().In(models.Zagreb).Format("2006-01-02")
 	obrazac := url.Values{
