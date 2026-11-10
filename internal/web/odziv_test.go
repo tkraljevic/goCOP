@@ -59,3 +59,34 @@ func TestOdzivPorukeKadKasni(t *testing.T) {
 		}
 	}
 }
+
+// Odziv se učitava prije ostalih skripti, jer one zovu window.odziv već pri
+// pokretanju; filtar koji se šalje sam (form.submit()) i radnje koje skripta
+// šalje sama također pokazuju da rade, a stranice koje skripta otvara idu
+// kroz odziv.idi i odziv.ponovno, ne izravno.
+func TestOdzivZaSkripte(t *testing.T) {
+	html := iscrtajSkoljku(t, DashboardViewData{ActiveNav: "registers"})
+	if o, a := strings.Index(html, "js/odziv.js"), strings.Index(html, "js/app.js"); o < 0 || a < 0 || o > a {
+		t.Error("odziv.js se ne učitava prije app.js")
+	}
+	js, err := fs.ReadFile(web.Files, "static/js/odziv.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, trazi := range []string{"HTMLFormElement.prototype.submit = function", "window.odziv = {", "idi: function", "ponovno: function", "gumb: function", "traka: function"} {
+		if !strings.Contains(string(js), trazi) {
+			t.Errorf("odziv.js nema %q", trazi)
+		}
+	}
+	for _, datoteka := range []string{"settings.html", "sinkronizacija.html", "watercourse_detail.html", "izvjesce_form.html", "sektorsko_form.html", "prognoze_vrijeme.html"} {
+		b, err := fs.ReadFile(web.Files, "templates/"+datoteka)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, izravno := range []string{"location.reload()", "location.href =", "location.href="} {
+			if strings.Contains(string(b), izravno) {
+				t.Errorf("%s otvara stranicu bez odziva (%s)", datoteka, izravno)
+			}
+		}
+	}
+}

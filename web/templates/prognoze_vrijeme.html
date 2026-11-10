@@ -63,10 +63,11 @@
   if (gumb && window.isSecureContext && navigator.geolocation) {
     gumb.hidden = false;
     gumb.addEventListener('click', function () {
-      gumb.disabled = true;
+      // traženje lokacije traje i do 10 s, pa gumb kaže što radi
+      var gotovo = window.odziv.gumb('Tražim lokaciju…');
       navigator.geolocation.getCurrentPosition(function (p) {
-        window.location.href = '/prognoze/vrijeme?lat=' + p.coords.latitude.toFixed(4) + '&lon=' + p.coords.longitude.toFixed(4);
-      }, function () { gumb.disabled = false; gumb.textContent = 'Lokacija nije dopuštena'; }, { timeout: 10000 });
+        window.odziv.idi('/prognoze/vrijeme?lat=' + p.coords.latitude.toFixed(4) + '&lon=' + p.coords.longitude.toFixed(4));
+      }, function () { gotovo(); gumb.textContent = 'Lokacija nije dopuštena'; }, { timeout: 10000 });
     });
   }
   var okvir = document.getElementById('pv-dio');

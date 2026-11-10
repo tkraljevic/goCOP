@@ -833,11 +833,13 @@
       }
 
       function posalji(adresa, tijelo) {
+        var gotovo = window.odziv.gumb('Spremam…');
         return fetch(adresa, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(tijelo) })
           .then(function (res) {
             if (res.ok) return null;
             return res.text().then(function (t) { throw new Error(t.trim() || ('greška ' + res.status)); });
-          }, function () { throw new Error('nema veze s programom.'); });
+          }, function () { throw new Error('nema veze s programom.'); })
+          .finally(gotovo);
       }
 
       function zahtjev(a) {
@@ -913,13 +915,15 @@
       });
 
       function ucitajJson(adresa, poruka) {
+        // duga crta vodotoka zna se učitavati sekundama
+        var gotovo = window.odziv.gumb();
         return fetch(adresa, { credentials: 'same-origin' }).then(function (r) {
           if (r.ok) return r.json();
           return r.text().then(function (t) { throw new Error(t.trim() || poruka); });
         }, function () { throw new Error(poruka); }).catch(function (e) {
           if (window.showToast) window.showToast(e.message || poruka);
           throw e;
-        });
+        }).finally(gotovo);
       }
 
       // uredi: p.vrsta 'letva' s p.id i p.ll, p.kod za vodotok, inače p.id objekta
