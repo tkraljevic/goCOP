@@ -7861,6 +7861,38 @@ button.karta-nedostaje-ucrtaj { padding: 0; border: 0; background: none; font-fa
   .odziv-salje::before { animation-duration: 2s; }
 }
 
+/* ── Izvješće dionice: zaglavlje, odjeljci kao kartice, brojke kao pločice ── */
+.izv-dok-glava { align-items: flex-start; }
+.izv-dok-naslov { flex: 1 1 0; min-width: 0; }
+.izv-dok-naslov .page-desc { margin-top: 4px; color: var(--md-sys-color-on-surface-variant); font-size: 0.875rem; }
+.izv-dok-oznake { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.izv-dok-oznake .reading-meta { font-size: 0.8125rem; }
+.izv-dok-radnje { align-items: center; }
+.izv-dok-radnje .btn-link { color: var(--md-sys-color-primary); }
+.izv-dok .list-kartica > h2 { margin: 0 0 8px; font-size: 1rem; font-weight: 400; line-height: 24px; color: var(--md-sys-color-on-surface); }
+.izv-podnaslov { margin: 12px 0 8px; font-size: 0.8125rem; font-weight: 400; color: var(--md-sys-color-on-surface-variant); }
+.izv-redci { margin: 8px 0 0; }
+.izv-redci > div { display: grid; grid-template-columns: 192px minmax(0, 1fr); gap: 4px 16px; padding: 4px 0; }
+.izv-redci dt { font-weight: 400; color: var(--md-sys-color-on-surface-variant); }
+.izv-redci dd { margin: 0; color: var(--md-sys-color-on-surface); }
+.izv-tekst { white-space: pre-wrap; overflow-wrap: anywhere; }
+.izv-plocice { display: grid; gap: 8px; margin-top: 12px; }
+.izv-plocice-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.izv-plocice-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.izv-plocice-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.izv-plocice > div { padding: 8px 10px; border-radius: 8px; background: var(--md-sys-color-surface-container-lowest); font-size: 1rem; line-height: 24px; overflow-wrap: anywhere; }
+.izv-plocice small { display: block; font-size: 0.75rem; line-height: 16px; color: var(--md-sys-color-on-surface-variant); }
+.izv-plocica-siroka { grid-column: 1 / -1; }
+.izv-dok-podnozje { margin-top: 16px; font-size: 0.75rem; }
+@media (max-width: 899px) {
+  .izv-plocice-5, .izv-plocice-6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 599px) {
+  .izv-dok-glava { flex-direction: column; }
+  .izv-redci > div { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .izv-plocice-4, .izv-plocice-5, .izv-plocice-6 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 /* ── Ravnalo (ravnalo-karte.js) ──────────────────────────────────────────────
    Na svim kartama; mjeri udaljenost, površinu i duljinu po nasipu ili vodi.
    Dok mjeri, klik ide na kartu, ne na slojeve. */
