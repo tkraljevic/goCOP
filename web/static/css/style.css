@@ -7861,6 +7861,50 @@ button.karta-nedostaje-ucrtaj { padding: 0; border: 0; background: none; font-fa
   .odziv-salje::before { animation-duration: 2s; }
 }
 
+/* ── Dnevnici usluga: popis (crtež 9 i 9a) ─────────────────────────────────
+   Kartica po dnevniku preko cijele širine: naslov, oznake, naslovnica u tri
+   stupca i broj listova, strelica desno. Područje je okvir iznad kartica; uz
+   jedno područje samo oznaka, uz više njih izbor. Na mobitelu natpis
+   „Branjeno područje” stoji u okviru, a činjenice jedna ispod druge. */
+@media (min-width: 600px) { .usluge-glava > div { flex: 1 1 0; min-width: 0; } }
+.usluge-glava .page-desc { margin-top: 4px; color: var(--md-sys-color-on-surface-variant); font-size: 0.875rem; }
+.usluge-podrucje {
+  position: relative; display: inline-flex; align-items: center; min-height: 32px; margin: 0 0 16px; padding: 0 8px 0 16px;
+  border: 1px solid var(--md-sys-color-outline); border-radius: 8px; color: var(--md-sys-color-on-surface); font-size: 0.875rem;
+}
+.usluge-podrucje-natpis { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.usluge-podrucje-izbor { padding: 4px 0; color: inherit; font: inherit; }
+select.usluge-podrucje-izbor { padding-right: 32px; border: 0; background: transparent; appearance: none; cursor: pointer; }
+select.usluge-podrucje-izbor:focus { outline: none; }
+.usluge-podrucje:focus-within { border-color: var(--md-sys-color-primary); box-shadow: 0 0 0 1px var(--md-sys-color-primary); }
+.usluge-podrucje > .icon { position: absolute; right: 8px; top: calc(50% - 10px); width: 20px; height: 20px; color: var(--md-sys-color-on-surface-variant); pointer-events: none; }
+.usluge-podrucje-jedno { padding-right: 16px; }
+.usluge-popis { display: flex; flex-direction: column; gap: 16px; margin-bottom: 16px; }
+.usluge-kartica { border-color: var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container-low); box-shadow: none; }
+.usluge-kartica .reg-card-link { position: relative; gap: 12px; padding: 16px 56px 16px 16px; }
+.usluge-kartica .reg-card-title { font-size: 1rem; font-weight: 600; line-height: 24px; color: var(--md-sys-color-on-surface); }
+.usluge-kartica .reg-card-sub { margin: 0; color: var(--md-sys-color-on-surface-variant); font-size: 0.875rem; line-height: 20px; }
+.usluge-oznake { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.usluge-oznake .oznaka-stanja { font-size: 0.75rem; }
+.usluge-cinjenice { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 16px; font-size: 0.875rem; }
+.usluge-cinjenice dt { color: var(--md-sys-color-on-surface-variant); font-size: 0.75rem; letter-spacing: 0; line-height: 16px; text-transform: none; }
+.usluge-cinjenice dd { color: var(--md-sys-color-on-surface); font-weight: 400; line-height: 20px; }
+.usluge-kartica-dno { display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--md-sys-color-on-surface-variant); font-size: 0.875rem; line-height: 20px; }
+.usluge-kartica-strelica { position: absolute; top: 20px; right: 16px; display: flex; color: var(--md-sys-color-on-surface-variant); }
+.usluge-kartica-strelica .icon { width: 24px; height: 24px; }
+.usluge-prazno p { margin: 0; }
+.usluge-prazno .usluge-prazno-uputa { margin-top: 4px; color: var(--md-sys-color-on-surface-variant); font-size: 0.75rem; line-height: 16px; }
+@media (max-width: 599px) {
+  .usluge-glava > .btn { align-self: stretch; min-height: 48px; }
+  .usluge-podrucje { display: flex; flex-direction: column; align-items: stretch; min-height: 56px; padding: 8px 48px 8px 16px; border-radius: 4px; }
+  .usluge-podrucje-natpis { position: static; width: auto; height: auto; overflow: visible; clip: auto; color: var(--md-sys-color-on-surface-variant); font-size: 0.75rem; line-height: 16px; }
+  .usluge-podrucje-izbor { padding: 0; font-size: 1rem; line-height: 24px; }
+  select.usluge-podrucje-izbor { width: calc(100% + 32px); min-height: 24px; }
+  .usluge-podrucje > .icon { right: 16px; top: calc(50% - 12px); width: 24px; height: 24px; }
+  .usluge-cinjenice { grid-template-columns: minmax(0, 1fr); }
+  .usluge-cinjenice dd { font-size: 1rem; line-height: 24px; }
+}
+
 /* ── Ravnalo (ravnalo-karte.js) ──────────────────────────────────────────────
    Na svim kartama; mjeri udaljenost, površinu i duljinu po nasipu ili vodi.
    Dok mjeri, klik ide na kartu, ne na slojeve. */
