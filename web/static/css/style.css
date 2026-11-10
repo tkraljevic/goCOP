@@ -7827,6 +7827,42 @@ button.karta-nedostaje-ucrtaj { padding: 0; border: 0; background: none; font-fa
   .plan-tablica .dezurstvo-ispravak { margin-top: 8px; }
 }
 
+/* ── Obrazac izvješća dionice: kartice redom Privitka 4 ───────────────────── */
+.izv-obrazac { max-width: 1104px; }
+.izv-obrazac .list-kartica > h2 { margin: 0 0 12px; font-size: 1rem; font-weight: 400; line-height: 24px; color: var(--md-sys-color-on-surface); }
+.izv-obrazac .form-group { min-width: 0; margin-bottom: 12px; }
+.izv-obrazac textarea { font-family: inherit; }
+.izv-mreza { display: grid; gap: 0 12px; }
+.izv-mreza-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.izv-mreza-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.izv-mreza-4, .izv-mreza-vodostaj { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.izv-mreza-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.izv-obrazac .izvjesce-brojevi { gap: 8px 12px; margin-bottom: 12px; }
+.izv-obrazac .izvjesce-brojevi label { display: flex; flex-direction: column; gap: 4px; min-width: 0; margin: 0; font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); }
+.izv-obrazac .izvjesce-brojevi .form-control { width: 100%; }
+.izv-siroko { grid-column: 1 / -1; }
+.izv-podnaslov { margin: 4px 0 8px; font-size: 0.8125rem; font-weight: 400; color: var(--md-sys-color-on-surface-variant); }
+.izv-dodaj { margin: 4px 0 12px; }
+.izv-dodaj > summary { display: inline-flex; align-items: baseline; gap: 8px; padding: 6px 0; list-style: none; cursor: pointer; color: var(--md-sys-color-primary); font-size: 0.875rem; }
+.izv-dodaj > summary::-webkit-details-marker { display: none; }
+.izv-dodaj[open] > summary { margin-bottom: 8px; }
+.izv-cipovi { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.izv-cip { display: inline-flex; align-items: center; gap: 6px; height: 32px; margin: 0; padding: 0 12px; border: 1px solid var(--md-sys-color-outline); border-radius: 8px; cursor: pointer; font-size: 0.875rem; font-weight: 400; color: var(--md-sys-color-on-surface-variant); }
+.izv-cip input { margin: 0; accent-color: var(--md-sys-color-primary); }
+.izv-cip:has(input:checked) { border-color: transparent; background: var(--md-sys-color-secondary-container, var(--primary-light)); color: var(--md-sys-color-on-secondary-container, var(--md-sys-color-on-surface)); }
+.izv-cip:has(input:focus-visible) { outline: 2px solid var(--md-sys-color-primary); outline-offset: 2px; }
+.izv-obrazac-radnje { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 16px; }
+.izv-obrazac-radnje .reading-meta { flex: 1 1 280px; font-size: 0.75rem; }
+@media (max-width: 899px) {
+  .izv-mreza-4, .izv-mreza-5, .izv-mreza-vodostaj { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 599px) {
+  .izv-mreza-2, .izv-mreza-3 { grid-template-columns: minmax(0, 1fr); }
+  .izv-mreza-4, .izv-mreza-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .izv-obrazac-radnje { flex-direction: column-reverse; align-items: stretch; }
+  .izv-obrazac-radnje .btn { min-height: 48px; }
+}
+
 /* ── Odziv na klik (js/odziv.js) ─────────────────────────────────────────────
    Pritisnuti gumb odmah vrti, traka pri vrhu javi se kad učitavanje potraje,
    a poruka dolje kad odgovor dugo ne stiže. Bez prekrivanja cijelog zaslona. */
