@@ -322,7 +322,7 @@ function loadAreasForSelect(sectorSelectId, areaSelectId, preselectedAreaId) {
         areaSelect.appendChild(opt);
       });
     })
-    .catch((err) => console.error("Greška pri dohvatu područja:", err));
+    .catch(() => showToast("Branjena područja nisu učitana. Provjerite vezu i promijenite sektor ponovno."));
 }
 
 // Potvrda brisanja korisničkog profila
@@ -1118,14 +1118,16 @@ function dodajKontroleKarte(karta, platno, opcije) {
         // KML i GeoJSON čita datoteka-karte.js; program crtu zatim provjeri
         window.datotekaKarte.procitaj(f).then(function (gj) {
           if (input.dataset.ima && !confirm('Zamijeniti ucrtani objekt onim iz datoteke „' + f.name + '”? Prethodni ostaje u povijesti zapisa.')) return;
+          // velik GeoJSON se šalje i provjerava dulje: traka pokazuje da radi
+          var gotovo = window.odziv.traka();
           return fetch('/api/structures/geometry', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: input.dataset.id, geojson: JSON.stringify(gj) })
           }).then(function (res) {
-            if (!res.ok) return res.text().then(function (t) { alert('Objekt nije ucrtan: ' + t.trim()); });
+            if (!res.ok) return res.text().then(function (t) { gotovo(); alert('Objekt nije ucrtan: ' + t.trim()); });
             location.hash = 'karta';
-            location.reload();
-          });
+            window.odziv.ponovno();
+          }, function (e) { gotovo(); throw new Error('Objekt nije ucrtan: nema veze s programom.'); });
         }).catch(function (e) { alert(e.message); }).finally(function () { input.value = ''; });
       });
     });
@@ -1588,6 +1590,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
     if (uTijeku) uTijeku.abort();
     uTijeku = typeof AbortController !== 'undefined' ? new AbortController() : null;
     okvir.setAttribute('aria-busy', 'true');
+    var gotovo = window.odziv.traka();
 
     fetch(url, {
       credentials: 'same-origin',
@@ -1604,6 +1607,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
         if (!novi) throw new Error('nema popisa u odgovoru');
         okvir.innerHTML = novi.innerHTML;
         okvir.removeAttribute('aria-busy');
+        gotovo();
         try { history.pushState({ listanje: kljuc }, '', url); } catch (e) { /* file:// */ }
         document.dispatchEvent(new CustomEvent('gocop:sadrzaj', { detail: { okvir: okvir } }));
         // Ako je popis iznad vidljivog dijela — dogodi se kad zadnja stranica
@@ -1614,7 +1618,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
       })
       .catch(function (e) {
         if (e && e.name === 'AbortError') return;
-        window.location.href = url; // pa neka radi kao i bez skripte
+        window.odziv.idi(url); // pa neka radi kao i bez skripte
       });
   }
 
@@ -1630,7 +1634,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
 
   // Natrag i naprijed moraju vratiti stranicu koja je bila. Popis se dohvaća
   // iznova jer se u međuvremenu mogao promijeniti.
-  window.addEventListener('popstate', function () { window.location.reload(); });
+  window.addEventListener('popstate', function () { window.odziv.ponovno(); });
 })();
 
 
@@ -1891,9 +1895,13 @@ function dodajKontroleKarte(karta, platno, opcije) {
         body: new FormData(forma),
         signal: prekid.signal
       })
-        .then(function (o) { return o.ok ? o.text() : ''; })
+        .then(function (o) { if (!o.ok) throw new Error(o.status); return o.text(); })
         .then(function (html) { okvir.innerHTML = html; uTijeku = null; })
-        .catch(function () { /* prekinut ili pao — okvir ostaje kakav je */ });
+        .catch(function (e) {
+          // prekinut novim upitom: okvir puni taj upit
+          if (e && e.name === 'AbortError') return;
+          okvir.innerHTML = '<p class="reading-meta">Nije provjereno što arhiva već ima za ovaj niz. Provjerite vezu i promijenite polje ponovno.</p>';
+        });
     }
 
     POLJA.forEach(function (ime) {
@@ -2418,10 +2426,11 @@ function dodajKontroleKarte(karta, platno, opcije) {
         function ucitaj(kljuc) {
           if (slojevi[kljuc]) return Promise.resolve(slojevi[kljuc]);
           if (!ucitavanje[kljuc]) {
+            var gotovo = window.odziv.traka();
             ucitavanje[kljuc] = fetch(URL_SLOJA[kljuc])
               .then(function (r) { return r.ok ? r.json() : r.text().then(function (t) { throw new Error(t); }); })
-              .then(function (d) { return nacrtaj(d, kljuc === 'sektori'); })
-              .catch(function (e) { delete ucitavanje[kljuc]; throw e; });
+              .then(function (d) { gotovo(); return nacrtaj(d, kljuc === 'sektori'); })
+              .catch(function (e) { gotovo(); delete ucitavanje[kljuc]; throw e; });
           }
           return ucitavanje[kljuc];
         }
@@ -2804,6 +2813,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
         }
         if (naseljaLoading[cNum]) return naseljaLoading[cNum];
 
+        var gotovo = window.odziv.traka();
         naseljaLoading[cNum] = fetch(naseljaUrlBase + cNum)
           .then(function (res) {
             if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -2821,10 +2831,11 @@ function dodajKontroleKarte(karta, platno, opcije) {
             }
             return true;
           })
-          .catch(function (err) {
-            console.error('Greška pri dohvatu naselja za županiju ' + cNum, err);
+          .catch(function () {
+            showToast('Naselja nisu učitana. Provjerite vezu i pokušajte ponovno.');
           })
           .finally(function () {
+            gotovo();
             delete naseljaLoading[cNum];
           });
 

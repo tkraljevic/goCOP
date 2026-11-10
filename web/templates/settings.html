@@ -274,11 +274,17 @@
 </div>
 
 <script>
-const api = (url, body) => fetch(url, {
-  method: body === undefined ? 'GET' : 'POST',
-  headers: {'Content-Type': 'application/json'},
-  body: body === undefined ? undefined : JSON.stringify(body)
-}).then(async r => { if (!r.ok) throw new Error(await r.text()); return r.json(); });
+// Slanje (POST) pokazuje da čeka na pritisnutom gumbu (odziv.gumb), a
+// čitanje stanja ne, jer se vrti samo.
+const api = (url, body) => {
+  const gotovo = body === undefined ? null : odziv.gumb();
+  return fetch(url, {
+    method: body === undefined ? 'GET' : 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: body === undefined ? undefined : JSON.stringify(body)
+  }).then(async r => { if (!r.ok) throw new Error(await r.text()); return r.json(); })
+    .finally(() => { if (gotovo) gotovo(); });
+};
 
 // Što javlja drugi čvor (naziv, oznaka, poruka greške) neprovjereno je: u
 // stranicu ide samo kao tekst, a gumbi uzimaju vrijednost iz popisa po rednom broju
@@ -329,7 +335,7 @@ async function pairConfirm(approved) {
   try {
     const r = await api('/api/peers/pair/confirm', {approved, lozinka_racuna: lozinkaRacuna('pair-lozinka')});
     alert(r.message || (r.paired ? 'Čvor je uparen.' : 'Uparivanje odbijeno.'));
-    location.reload();
+    odziv.ponovno();
   } catch (e) { alert(e.message); }
 }
 
@@ -337,7 +343,7 @@ async function createNetwork() {
   const name = document.getElementById('network-name').value.trim();
   if (!name) { alert('Upišite naziv mreže.'); return; }
   if (!confirm('Osnovati mrežu "' + name + '"? Ovaj čvor dobiva ključ mreže — čuvajte datoteku data/network-key.')) return;
-  try { await api('/api/network/create', {name, lozinka_racuna: lozinkaRacuna('mreza-lozinka')}); location.reload(); } catch (e) { alert(e.message); }
+  try { await api('/api/network/create', {name, lozinka_racuna: lozinkaRacuna('mreza-lozinka')}); odziv.ponovno(); } catch (e) { alert(e.message); }
 }
 
 // pogodjeniPoruka: čvorovi čije članstvo pada s opozivom ovlasti njihova primatelja
@@ -352,7 +358,7 @@ async function revokeMember(node, kljucMreze) {
   try {
     const r = await api('/api/network/members/' + encodeURIComponent(node) + '/revoke', {lozinka_racuna: lozinkaRacuna('clan-lozinka')});
     if (r.pogodjeni && r.pogodjeni.length) alert('Članstvo opozvano.' + pogodjeniPoruka(r.pogodjeni));
-    location.reload();
+    odziv.ponovno();
   } catch (e) { alert(e.message); }
 }
 
@@ -378,21 +384,21 @@ async function ucitajKopijuKljuca() {
   try {
     const r = await api('/api/network/kljuc/ucitaj', {kopija: await f.text(), lozinka: document.getElementById('kljuc-lozinka').value});
     st.textContent = r.message;
-    setTimeout(() => location.reload(), 1500);
+    setTimeout(() => odziv.ponovno(), 1500);
   } catch (e) { st.innerHTML = '<span class="err">' + escPronadjeno(e.message) + '</span>'; }
 }
 
 async function obnoviClanstvo() {
-  try { const r = await api('/api/network/obnovi', {lozinka_racuna: lozinkaRacuna('clan-lozinka')}); alert(r.message); location.reload(); } catch (e) { alert(e.message); }
+  try { const r = await api('/api/network/obnovi', {lozinka_racuna: lozinkaRacuna('clan-lozinka')}); alert(r.message); odziv.ponovno(); } catch (e) { alert(e.message); }
 }
 
 async function obnoviClana(node) {
-  try { const r = await api('/api/network/members/' + encodeURIComponent(node) + '/obnovi', {lozinka_racuna: lozinkaRacuna('clan-lozinka')}); alert(r.message); location.reload(); } catch (e) { alert(e.message); }
+  try { const r = await api('/api/network/members/' + encodeURIComponent(node) + '/obnovi', {lozinka_racuna: lozinkaRacuna('clan-lozinka')}); alert(r.message); odziv.ponovno(); } catch (e) { alert(e.message); }
 }
 
 async function izdajOvlast(node) {
   if (!confirm('Dati čvoru "' + node + '" ovlast za primanje? Moći će primati računala u mrežu bez ključa mreže. Ovlast se može oduzeti; tada prestaju vrijediti i članstva svih koje je primio.')) return;
-  try { await api('/api/network/members/' + encodeURIComponent(node) + '/ovlast', {lozinka_racuna: lozinkaRacuna('clan-lozinka')}); location.reload(); } catch (e) { alert(e.message); }
+  try { await api('/api/network/members/' + encodeURIComponent(node) + '/ovlast', {lozinka_racuna: lozinkaRacuna('clan-lozinka')}); odziv.ponovno(); } catch (e) { alert(e.message); }
 }
 
 async function opozoviOvlast(node) {
@@ -400,7 +406,7 @@ async function opozoviOvlast(node) {
   try {
     const r = await api('/api/network/members/' + encodeURIComponent(node) + '/ovlast/opozovi', {lozinka_racuna: lozinkaRacuna('clan-lozinka')});
     alert('Ovlast oduzeta.' + pogodjeniPoruka(r.pogodjeni));
-    location.reload();
+    odziv.ponovno();
   } catch (e) { alert(e.message); }
 }
 
@@ -446,24 +452,24 @@ async function addAddress() {
   const node = document.getElementById('addr-node').value;
   const add = document.getElementById('addr-new').value.trim();
   if (!add) { alert('Upišite domenu ili IP adresu.'); return; }
-  try { await api('/api/peers/' + encodeURIComponent(node) + '/adrese', {add, lozinka_racuna: lozinkaRacuna('adresa-lozinka')}); location.reload(); }
+  try { await api('/api/peers/' + encodeURIComponent(node) + '/adrese', {add, lozinka_racuna: lozinkaRacuna('adresa-lozinka')}); odziv.ponovno(); }
   catch (e) { alert(e.message); }
 }
 
 async function removeAddress(node, remove) {
   if (!confirm('Maknuti adresu ' + remove + '?')) return;
-  try { await api('/api/peers/' + encodeURIComponent(node) + '/adrese', {remove, lozinka_racuna: lozinkaRacuna('adresa-lozinka')}); location.reload(); }
+  try { await api('/api/peers/' + encodeURIComponent(node) + '/adrese', {remove, lozinka_racuna: lozinkaRacuna('adresa-lozinka')}); odziv.ponovno(); }
   catch (e) { alert(e.message); }
 }
 
 async function setBootstrap(node, bootstrap) {
-  try { await api('/api/peers/' + encodeURIComponent(node) + '/bootstrap', {bootstrap, lozinka_racuna: lozinkaRacuna('cvor-lozinka')}); location.reload(); }
+  try { await api('/api/peers/' + encodeURIComponent(node) + '/bootstrap', {bootstrap, lozinka_racuna: lozinkaRacuna('cvor-lozinka')}); odziv.ponovno(); }
   catch (e) { alert(e.message); }
 }
 
 async function forgetPeer(node, name) {
   if (!confirm('Zaboraviti čvor "' + (name || node) + '"? Ostaje u povijesti i može se ponovno upariti.')) return;
-  try { await api('/api/peers/' + encodeURIComponent(node) + '/forget', {lozinka_racuna: lozinkaRacuna('cvor-lozinka')}); location.reload(); }
+  try { await api('/api/peers/' + encodeURIComponent(node) + '/forget', {lozinka_racuna: lozinkaRacuna('cvor-lozinka')}); odziv.ponovno(); }
   catch (e) { alert(e.message); }
 }
 

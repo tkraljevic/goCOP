@@ -208,13 +208,18 @@ async function ucitajTokVode(input) {
     let gj;
     try { gj = await window.datotekaKarte.procitaj(f); } catch (e) { alert(e.message); return; }
     if (input.dataset.ima && !confirm('Zamijeniti ucrtani tok tokom iz datoteke „' + f.name + '”? Prethodni ostaje u povijesti zapisa.')) return;
-    const res = await fetch('/api/watercourses/geometry', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({code: input.dataset.sifra, geojson: JSON.stringify(gj)})
-    });
-    if (!res.ok) { alert('Tok nije upisan: ' + (await res.text()).trim()); return; }
+    // velik GeoJSON se šalje i provjerava dulje: traka pokazuje da radi
+    const gotovo = odziv.traka();
+    let res;
+    try {
+      res = await fetch('/api/watercourses/geometry', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({code: input.dataset.sifra, geojson: JSON.stringify(gj)})
+      });
+    } catch (e) { gotovo(); alert('Tok nije upisan: nema veze s programom. Provjerite vezu i pokušajte ponovno.'); return; }
+    if (!res.ok) { gotovo(); alert('Tok nije upisan: ' + (await res.text()).trim()); return; }
     location.hash = 'karta';
-    location.reload();
+    odziv.ponovno();
   } finally { input.value = ''; }
 }
 </script>
