@@ -438,7 +438,16 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	if d, _ := akti.Get(ctx, id4); d == nil || d.Broj != 2 {
 		t.Errorf("drugi ovjereni akt u godini bi trebao imati broj 2: %+v", d)
 	}
-	mora(zovi(http.MethodGet, "/akti/"+id4, nil), "ovjeren prekid", "Poništi akt (storno)")
+	mora(zovi(http.MethodGet, "/akti/"+id4, nil), "ovjeren prekid", "Poništi akt (storno)", `href="#ponisti"`, `id="ponisti"`)
+
+	// raniji akt se ne poništava dok poslije njega vrijedi prekid (crtež 4h):
+	// panel ostaje otvoren s upisanim razlogom, a traka nudi kasniji akt
+	loc := zovi(http.MethodPost, "/akti/"+id+"/storno", url.Values{"razlog": {"krivo upisana letva"}}).Header().Get("Location")
+	if !strings.Contains(loc, "storno=") || !strings.Contains(loc, "kasniji="+id4) || !strings.HasSuffix(loc, "#ponisti") {
+		t.Fatalf("odbijeno poništenje ranijeg akta: %s", loc)
+	}
+	mora(zovi(http.MethodGet, strings.TrimSuffix(loc, "#ponisti"), nil), "odbijeno poništenje", "Akt nije poništen: na dionici",
+		"Najprije poništite kasniji akt.", `href="/akti/`+id4+`">Otvori B-2/2026`, ">krivo upisana letva</textarea>")
 
 	// storno prekida: obrana opet traje, akt ostaje u popisu označen
 	if w := zovi(http.MethodPost, "/akti/"+id4+"/storno", url.Values{"razlog": {"prekid je ovjeren prerano"}}); !strings.Contains(w.Header().Get("Location"), "success=") {
@@ -450,7 +459,7 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	if e, _ := episodes.Open(ctx, "B.34.1"); e == nil || e.Phase != models.PhaseEmergency {
 		t.Errorf("nakon poništenja prekida izvanredna obrana opet traje: %+v", e)
 	}
-	if w := zovi(http.MethodPost, "/akti/"+id4+"/storno", url.Values{"razlog": {"opet"}}); !strings.Contains(w.Header().Get("Location"), "error=") {
+	if w := zovi(http.MethodPost, "/akti/"+id4+"/storno", url.Values{"razlog": {"opet"}}); !strings.Contains(w.Header().Get("Location"), "storno=") {
 		t.Errorf("ponovni storno kroz rutu: %s", w.Header().Get("Location"))
 	}
 	if w := zovi(http.MethodPost, "/akti/nema-ga/storno", url.Values{"razlog": {"razlog"}}); w.Code != http.StatusNotFound {

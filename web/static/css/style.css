@@ -8651,11 +8651,10 @@ summary.ocitanja-cip { padding-right: 8px; }
 .akt-koraci li.ponisten .akt-korak-znak { background: var(--md-sys-color-inverse-surface); color: var(--md-sys-color-inverse-on-surface); }
 
 .akt-ovjera form .btn { width: 100%; }
-.akt-ploca .akt-uredi > summary, .akt-ploca .akt-ponisti > summary {
+.akt-ploca .akt-uredi > summary {
   display: flex; align-items: center; gap: 8px; min-height: 40px; margin: -8px 0; cursor: pointer; font-weight: 500;
 }
-.akt-ploca .akt-uredi[open] > summary, .akt-ploca .akt-ponisti[open] > summary { margin-bottom: 0; }
-.akt-ploca .akt-ponisti > summary { color: var(--danger-fg); }
+.akt-ploca .akt-uredi[open] > summary { margin-bottom: 0; }
 .akt-stanje-potpisa { display: flex; align-items: flex-start; gap: 12px; }
 .akt-stanje-potpisa > .icon { flex: none; width: 20px; height: 20px; margin: 0; color: var(--md-sys-color-on-surface-variant); }
 .akt-stanje-potpisa > p, .akt-stanje-potpisa > div { flex: 1 1 auto; min-width: 0; margin: 0; overflow-wrap: anywhere; }
@@ -8691,6 +8690,12 @@ summary.ocitanja-cip { padding-right: 8px; }
 .akt-ploca:has(.akt-panel:target) .akt-jos .akt-jos-ovjera { display: flex; }
 .akt-ploca:has(#uredi:target) .akt-jos a[href="#uredi"], .akt-ploca:has(#ispis:target) .akt-jos a[href="#ispis"],
 .akt-ploca:has(#brisanje:target) .akt-jos a[href="#brisanje"] { display: none; }
+/* Poništavanje (4g, 4h): otvoren panel stoji na mjestu slanja i poruke, a „Još” se skriva. */
+.akt-ploca:has(#ponisti:target) :is(.akt-slanje, .akt-slanje-poruka, .akt-jos) { display: none; }
+.akt-storno > .form-help { margin-bottom: 20px; }
+.akt-storno form { display: flex; flex-direction: column; gap: 12px; }
+.akt-storno .list-polje { margin: 0; }
+.akt-storno-gumbi { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 @media (max-width: 599px), (pointer: coarse) {
   .akt-jos a { min-height: 48px; }
 }
@@ -8728,7 +8733,7 @@ summary.ocitanja-cip { padding-right: 8px; }
 .akt-ploca .akt-slanje-poruka[open] > summary { margin-bottom: 12px; }
 
 @media (max-width: 599px), (pointer: coarse) {
-  .akt-ploca .akt-uredi > summary, .akt-ploca .akt-ponisti > summary { min-height: 48px; }
+  .akt-ploca .akt-uredi > summary { min-height: 48px; }
 }
 /* Na papiru ostaju trake i tekst akta, bez obrazaca u trakama; ploču skriva .list-ploca. */
 @media print {
