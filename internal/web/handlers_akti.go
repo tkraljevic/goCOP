@@ -126,6 +126,12 @@ type AktiPageData struct {
 	Slanje            *SlanjeData   // slanje izvornika primateljima "na znanje"
 	Upozorenja        []string
 
+	// StornoOdbijen je poruka odbijenog poništenja, RazlogStorna razlog koji
+	// je osoba upisala, a KasnijiAkt akt koji treba najprije poništiti (crtež 4h)
+	StornoOdbijen string
+	RazlogStorna  string
+	KasnijiAkt    *models.Akt
+
 	// Sukobi oznaka (Odluke (8. 10. 2026.), pitanje 4): u popisu po ID-u
 	// akta, a na stranici akta njegov sukob i smije li ga osoba riješiti
 	Sukobi              map[string]models.SukobOznake
@@ -642,6 +648,7 @@ func (h *AktiHandler) ShowAkt(w http.ResponseWriter, r *http.Request) {
 	data.SmijeObrisati = !a.Ovjeren() && u != nil && (a.IzradioID == u.ID.String() || s.SmijeOvjeriti(perms, a))
 	data.SmijeUreditiNacrt = !a.Ovjeren() && service.SmijeUreditiNacrt(perms, u, a)
 	data.SmijeObrisatiTrajno = s.SmijeObrisatiTrajno(r.Context(), perms, a)
+	odbijenoPonistenje(r, s, perms, &data)
 	h.sukobAkta(r.Context(), s, perms, a, &data)
 	pregledPrimatelja(r.Context(), s, a, &data)
 	for i := range data.Sektori {
@@ -658,6 +665,19 @@ func (h *AktiHandler) ShowAkt(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := h.tmplAkt.ExecuteTemplate(w, "akt.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// odbijenoPonistenje upisuje u stranicu akta poruku odbijenog poništenja,
+// upisani razlog i kasniji akt koji treba najprije poništiti, ako ga osoba
+// smije vidjeti
+func odbijenoPonistenje(r *http.Request, s *service.AktService, perms *models.UserPermissions, data *AktiPageData) {
+	q := r.URL.Query()
+	data.StornoOdbijen, data.RazlogStorna = q.Get("storno"), q.Get("razlog")
+	if id := q.Get("kasniji"); id != "" && data.StornoOdbijen != "" {
+		if k, err := s.Get(r.Context(), id); err == nil && service.VidiAkt(perms, k) {
+			data.KasnijiAkt = k
+		}
 	}
 }
 
@@ -794,9 +814,10 @@ func (h *AktiHandler) HandleStorno(w http.ResponseWriter, r *http.Request) {
 	if a == nil {
 		return
 	}
-	a, upozorenja, err := s.Storniraj(r.Context(), perms, u, a.ID, r.FormValue("razlog"))
+	razlog := r.FormValue("razlog")
+	a, upozorenja, err := s.Storniraj(r.Context(), perms, u, a.ID, razlog)
 	if err != nil {
-		redirectWith(w, r, "/akti/"+r.PathValue("id"), "error", err.Error())
+		redirectWith(w, r, natragNaStorno(r.PathValue("id"), razlog, err), "storno", "Akt nije poništen: "+err.Error())
 		return
 	}
 	poruka := "Akt " + a.Oznaka() + " je poništen."
@@ -804,6 +825,24 @@ func (h *AktiHandler) HandleStorno(w http.ResponseWriter, r *http.Request) {
 		poruka += " Povijest obrane: " + strings.Join(upozorenja, "; ")
 	}
 	redirectWith(w, r, "/akti/"+a.ID, "success", poruka)
+}
+
+// natragNaStorno je adresa na koju se vraća odbijeno poništenje (crtež 4h):
+// panel ostaje otvoren s upisanim razlogom, a kad je na putu kasniji akt,
+// stranica nudi da se otvori on
+func natragNaStorno(id, razlog string, err error) string {
+	q := url.Values{}
+	if razlog = strings.TrimSpace(razlog); razlog != "" {
+		q.Set("razlog", razlog)
+	}
+	if k := (*service.KasnijiAktError)(nil); errors.As(err, &k) {
+		q.Set("kasniji", k.Kasniji.ID)
+	}
+	natrag := "/akti/" + id
+	if len(q) > 0 {
+		natrag += "?" + q.Encode()
+	}
+	return natrag + "#ponisti"
 }
 
 // HandleSpranca sprema šprancu sektora; "zadano" vraća zadani tekst

@@ -957,9 +957,20 @@ func (s *AktService) provjeriStorno(ctx context.Context, perms *models.UserPermi
 		return err
 	}
 	if k, d, ima := models.KasnijiAkt(ovjereni, *a); ima {
-		return fmt.Errorf("na dionici %s poslije njega vrijedi %s %s: najprije se poništava kasniji akt", d, strings.ToLower(k.Naslov()), k.Oznaka())
+		return &KasnijiAktError{Kasniji: k, Dionica: d}
 	}
 	return nil
+}
+
+// KasnijiAktError: akt se ne poništava jer na njegovoj dionici poslije njega
+// vrijedi kasniji akt; najprije se poništava taj (crtež 4h)
+type KasnijiAktError struct {
+	Kasniji models.Akt
+	Dionica string
+}
+
+func (e *KasnijiAktError) Error() string {
+	return fmt.Sprintf("na dionici %s poslije njega vrijedi %s %s. Najprije poništite kasniji akt.", e.Dionica, strings.ToLower(e.Kasniji.Naslov()), e.Kasniji.Oznaka())
 }
 
 // smijeStornirati provjerava akt i osobu za poništenje: akt je ovjeren i

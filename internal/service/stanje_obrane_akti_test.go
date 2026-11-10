@@ -152,7 +152,9 @@ func TestStornoAkta(t *testing.T) {
 	a1, _ := o.ovjeri(t, models.AktUspostava, models.PhasePrep, sat)
 	a2, _ := o.ovjeri(t, models.AktUspostava, models.PhaseRegular, sat.Add(10*time.Minute))
 
-	if _, _, err := o.akti.Storniraj(ctx, o.ovlasti, o.rukovod, a1.ID, "pogrešan stadij"); err == nil || !strings.Contains(err.Error(), "najprije se poništava kasniji akt") {
+	_, _, err := o.akti.Storniraj(ctx, o.ovlasti, o.rukovod, a1.ID, "pogrešan stadij")
+	var kasniji *service.KasnijiAktError
+	if !errors.As(err, &kasniji) || kasniji.Kasniji.ID != a2.ID || !strings.Contains(err.Error(), "Najprije poništite kasniji akt.") {
 		t.Errorf("poništenje ranijeg akta: %v", err)
 	}
 	if _, _, err := o.akti.Storniraj(ctx, o.vodOvl, o.vodocuv, a2.ID, "pogrešan stadij"); !errors.Is(err, service.ErrUnauthorized) {
