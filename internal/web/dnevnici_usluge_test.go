@@ -3,6 +3,7 @@ package web
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"gocop/internal/models"
 )
@@ -76,5 +77,80 @@ func TestPopisDnevnikaUslugaPoCrtezu(t *testing.T) {
 	d.Area = nil
 	if html = iscrtaj(t, "dnevnici.html", d); !strings.Contains(html, "<p>Nema područja.</p>") {
 		t.Error("bez područja nema rečenice")
+	}
+}
+
+// Stranica dnevnika usluge (crtež 9b, 9g, 9h): povratak na popis vrste,
+// naslovnica, Novi list, nalozi i listovi kao tablica i kartice, rekonstrukcija
+// u boji upozorenja. Rupe u brojevima ostaju crvene.
+func TestStranicaDnevnikaUslugePoCrtezu(t *testing.T) {
+	dan := func(m, d int) time.Time { return time.Date(2026, time.Month(m), d, 0, 0, 0, 0, models.Zagreb) }
+	pocetak, prosli, potvrdio := dan(1, 15), dan(10, 22), dan(10, 23)
+	rok := time.Now().In(models.Zagreb).AddDate(0, 1, 0)
+	temp := 12.0
+	d := JournalPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Journal: &models.Journal{ID: "j1", Kind: models.JournalKindMaintenanceA02, Title: "A.02. Kanali I. i II. reda", Year: 2026, AreaID: 16,
+			Contractor: "Vodogradnja Primjer d.o.o.", ContractorLead: "Pero Primjer", Supervisor: "Zoran Primjer", SupervisorDeputy: "Dario Primjer",
+			Contract: "KLASA 325-01/26-09/000", StartedAt: &pocetak},
+		Area:     &models.Area{ID: 16, Name: "Mali sliv Baranja"},
+		CanWrite: true, CanManage: true, BriseDnevnik: true, Today: "2026-10-26",
+		OpenTasks: []models.JournalEntry{
+			{ID: "e1", SheetID: "s1", Number: 412, Date: dan(10, 23), Kind: models.EntryKindTask, Status: models.TaskOpen, Place: "Kanal Travnik 2+100", Text: "Ponoviti košnju pokosa", DueDate: &rok, UserName: "Zoran Primjer"},
+			{ID: "e2", SheetID: "s2", Number: 405, Date: dan(10, 15), Kind: models.EntryKindTask, Status: models.TaskOpen, Text: "Popraviti rampu", DueDate: &prosli},
+		},
+		Sheets: []models.JournalSheet{
+			{ID: "s1", Number: 148, Date: dan(10, 26), Label: "košnja", Conditions: "oblačno", Temperature: &temp, Rating: 3, EntryCount: 5},
+			{ID: "s2", Number: 147, Date: dan(10, 23), Rating: 4, EntryCount: 1, ContractorConfirmedAt: &potvrdio, ContractorConfirmedBy: "Pero Primjer"},
+			{ID: "s3", Number: 146, Date: dan(10, 22)},
+		},
+		Gaps: []int{7},
+	}
+	html := iscrtaj(t, "dnevnik.html", d)
+	for _, want := range []string{
+		`<a href="/dnevnici/popis?vrsta=ODRZAVANJE_A02&amp;area=16" class="povratna-poveznica">← Dnevnik usluga A.02</a>`,
+		`data-naziv-stranice="Dnevnik"`, "BP 16: Mali sliv Baranja", `href="/dnevnici/j1/ispis"`, `href="/dnevnici/j1/edit"`,
+		"<dt>Ovlaštenik</dt><dd>Zoran Primjer</dd>", "<dt>Početak</dt><dd>15. 1. 2026.</dd>", `action="/dnevnici/j1/obrisi"`,
+		`action="/dnevnici/j1/listovi"`, `name="date"`, `value="2026-10-26"`, `name="label"`,
+		"Otvoreni nalozi (2)", "Ponoviti košnju pokosa", rok.Format("2. 1. 2006."), "22. 10. 2026.", "zadao Zoran Primjer", `<span class="oznaka-stanja pozor">rok prošao</span>`,
+		"Listovi dnevnika (3)", `href="/dnevnici/j1/listovi/s1"`, "oblačno, 12 °C · 3. dobri", "4. vrlo dobri</td>", "—</td>",
+		`<span class="oznaka-stanja obrub" title="Pero Primjer">✓ izvođač</span>`, `<span class="oznaka-stanja">nadzor</span>`,
+		`alert alert-danger`, "nedostaju: 7",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("dnevnik nema %q", want)
+		}
+	}
+	if strings.Contains(html, "breadcrumb") || strings.Contains(html, "table-responsive") || strings.Contains(html, "Rekonstrukcija.") {
+		t.Error("dnevnik ima stari put, tablicu s klizačem ili traku rekonstrukcije bez razloga")
+	}
+	// Prvi nalog nema rok prošao, drugi ima; nalog bez mjesta piše crticu.
+	if strings.Count(html, "rok prošao") != 1 {
+		t.Error("rok prošao mora stajati samo uz nalog kojem je rok prošao")
+	}
+
+	// Rekonstrukcija (9h) u boji upozorenja, A.03 se vraća na svoj popis,
+	// izvođač bez prava nema Naslovnicu, brisanje ni Novi list.
+	d.Journal.Reconstruction, d.Journal.Notes, d.Journal.Kind = true, "Dnevnik je složen iz starije evidencije.", models.JournalKindMaintenanceA03
+	d.CanWrite, d.CanManage, d.BriseDnevnik, d.Sheets, d.OpenTasks, d.Gaps = false, false, false, nil, nil, nil
+	html = iscrtaj(t, "dnevnik.html", d)
+	for _, want := range []string{"alert alert-warning", "<strong>Rekonstrukcija.</strong> Dnevnik je složen iz starije evidencije.",
+		"← Dnevnik usluga A.03", "Još nema nijednog lista."} {
+		if !strings.Contains(html, want) {
+			t.Errorf("rekonstruirani dnevnik nema %q", want)
+		}
+	}
+	for _, nesmije := range []string{"/edit", "/obrisi", `action="/dnevnici/j1/listovi"`, "Otvoreni nalozi", "nedostaju"} {
+		if strings.Contains(html, nesmije) {
+			t.Errorf("dnevnik bez prava ima %q", nesmije)
+		}
+	}
+
+	// Stariji dnevnik obrane po području vraća se na Dokumente i zove nadzor po svom.
+	d.Journal.Kind, d.Journal.Reconstruction = models.JournalKindDefense, false
+	html = iscrtaj(t, "dnevnik.html", d)
+	if !strings.Contains(html, `<a href="/dnevnici" class="povratna-poveznica">← Dokumenti</a>`) || !strings.Contains(html, "<dt>Nadzorni inženjer</dt>") {
+		t.Error("dnevnik obrane po području nema povratak na Dokumente ili nadzornog inženjera")
 	}
 }

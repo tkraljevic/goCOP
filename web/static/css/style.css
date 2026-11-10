@@ -7905,6 +7905,90 @@ select.usluge-podrucje-izbor:focus { outline: none; }
   .usluge-cinjenice dd { font-size: 1rem; line-height: 24px; }
 }
 
+/* ── Dnevnik usluge: stranica (crtež 9b, 9g, 9h) ────────────────────────────
+   Naslovnica kao činjenice u tri stupca (tablet dva, mobitel jedan), Novi list
+   u kartici, nalozi i listovi kao tablica s recima-pločicama. Na tabletu
+   „Zadao” ulazi u ćeliju naloga, a potvrde idu jedna ispod druge. Na mobitelu
+   su nalozi i listovi kartice; cijela kartica lista vodi na list. */
+.usluga-glava .page-desc { margin-top: 4px; color: var(--md-sys-color-on-surface-variant); font-size: 0.875rem; }
+.usluga-glava .page-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+.usluga-naslovnica { margin-bottom: 16px; }
+.usluga-cinjenice { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 16px; margin: 0; }
+.usluga-cinjenice dt { color: var(--md-sys-color-on-surface-variant); font-size: 0.75rem; font-weight: 400; line-height: 16px; }
+.usluga-cinjenice dd { margin: 0; color: var(--md-sys-color-on-surface); font-size: 0.875rem; line-height: 20px; overflow-wrap: anywhere; }
+.usluga-prazna-naslovnica { margin: 8px 0 0; color: var(--md-sys-color-on-surface-variant); }
+.usluga-brisanje { margin: 0 0 16px; }
+.usluga-novi-list { --list-podloga: var(--md-sys-color-surface-container-low); display: flex; flex-direction: column; gap: 12px; }
+.usluga-novi-list > .usluga-novi-list-naslov { display: none; margin: 0; font-weight: 400; }
+.usluga-novi-list-polja { display: flex; align-items: center; gap: 16px; }
+.usluga-novi-list-polja .form-group { margin: 0; }
+.usluga-dan { flex: 0 0 200px; }
+.usluga-ekipa { flex: 1 1 auto; min-width: 0; }
+.usluga-novi-list-polja > .btn { flex: none; }
+.usluga-pomoc { margin: 0; color: var(--md-sys-color-on-surface-variant); font-size: 0.75rem; line-height: 16px; }
+.usluga-okvir { margin-bottom: 16px; }
+.usluga-okvir > h2 { font-size: 1rem; line-height: 24px; }
+.usluga-okvir .oznaka-stanja { min-height: 22px; padding: 0 8px; font-size: 0.75rem; white-space: nowrap; }
+.un-dan, .un-rok-dan, .ul-dan > a { white-space: nowrap; }
+.usluga-okvir td { vertical-align: top; }
+.usluga-okvir td.cop-prazno { background: none; }
+.usluga-potvrde { display: inline-flex; flex-wrap: wrap; gap: 8px; }
+.ul-strelica, .usluga-samo-usko, .usluga-tablet { display: none; }
+.un-rok-dan { display: block; }
+.un-rok .oznaka-stanja { margin-top: 4px; }
+.usluga-okvir td a { color: var(--md-sys-color-on-surface); text-decoration: none; }
+.usluga-okvir td a:hover { text-decoration: underline; }
+.usluga-okvir td .ul-poveznica { color: var(--md-sys-color-primary); }
+.un-prazno { color: var(--md-sys-color-on-surface-variant); }
+@media (min-width: 600px) {
+  .usluga-glava > div:first-child { flex: 1 1 0; min-width: 0; }
+}
+@media (min-width: 600px) and (max-width: 1099px) {
+  .usluga-cinjenice { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .usluga-ne-tablet { display: none; }
+  .usluga-tablet { display: inline; }
+  .usluga-potvrde { flex-direction: column; align-items: flex-start; gap: 4px; }
+}
+@media (max-width: 599px) {
+  .usluga-glava .page-actions { gap: 0; }
+  .usluga-samo-siroko { display: none; }
+  .usluga-samo-usko { display: inline; }
+  .usluga-cinjenice { grid-template-columns: minmax(0, 1fr); }
+  .usluga-cinjenice dd { font-size: 1rem; line-height: 24px; }
+  .usluga-brisanje .btn { width: 100%; min-height: 48px; }
+  .usluga-novi-list > .usluga-novi-list-naslov { display: block; }
+  .usluga-novi-list-polja { flex-direction: column; align-items: stretch; gap: 12px; }
+  .usluga-dan { flex: none; }
+  .usluga-novi-list-polja > .btn { width: 100%; min-height: 48px; }
+  /* Kartice naloga i listova: reci se slažu u retke kartice, ćelije bez natpisa. */
+  table.usluga-nalozi.kartice-na-mobitelu tr,
+  table.usluga-listovi.kartice-na-mobitelu tr {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 4px; padding: 12px 16px; border: 0; border-radius: 8px;
+    background: var(--md-sys-color-surface-container-lowest);
+  }
+  table.usluga-nalozi.kartice-na-mobitelu tr:hover,
+  table.usluga-listovi.kartice-na-mobitelu tr:hover { background: var(--md-sys-color-surface-container-lowest); }
+  table.usluga-nalozi.kartice-na-mobitelu td,
+  table.usluga-listovi.kartice-na-mobitelu td { display: block; padding: 0; color: var(--md-sys-color-on-surface-variant); font-size: 0.875rem; line-height: 20px; }
+  table.usluga-nalozi.kartice-na-mobitelu td.un-broj { order: 1; padding: 0; font-size: 0.875rem; }
+  table.usluga-nalozi td.un-dan { order: 2; }
+  table.usluga-nalozi td.un-nalog { order: 3; width: 100%; color: var(--md-sys-color-on-surface); font-size: 1rem; font-weight: 500; line-height: 24px; }
+  table.usluga-nalozi td.un-gdje { order: 4; width: 100%; color: var(--md-sys-color-on-surface); }
+  table.usluga-nalozi td.un-rok { order: 5; font-size: 0.75rem; line-height: 16px; }
+  table.usluga-nalozi td.un-zadao { order: 6; font-size: 0.75rem; line-height: 16px; }
+  table.usluga-nalozi td.un-prazno { display: none; }
+  table.usluga-nalozi .un-rok .oznaka-stanja { position: absolute; top: 12px; right: 16px; margin: 0; }
+  table.usluga-nalozi .un-dan a, table.usluga-listovi .ul-dan a, table.usluga-listovi .ul-poveznica { color: inherit; text-decoration: none; }
+  table.usluga-listovi.kartice-na-mobitelu tr { padding-right: 48px; }
+  table.usluga-listovi.kartice-na-mobitelu td.ul-broj, table.usluga-listovi td.ul-dan { padding: 0; color: var(--md-sys-color-on-surface); font-size: 1rem; font-weight: 500; line-height: 24px; }
+  table.usluga-listovi td.ul-uvjeti, table.usluga-listovi td.ul-upisa { width: 100%; }
+  table.usluga-listovi td.ul-potvrde { width: 100%; margin-top: 4px; }
+  table.usluga-listovi td.cop-prazno { width: 100%; }
+  .ul-poveznica::after { content: ""; position: absolute; inset: 0; border-radius: 8px; }
+  .ul-strelica { display: flex; position: absolute; top: calc(50% - 12px); right: 16px; color: var(--md-sys-color-on-surface-variant); pointer-events: none; }
+  .ul-strelica .icon { width: 24px; height: 24px; }
+}
+
 /* ── Ravnalo (ravnalo-karte.js) ──────────────────────────────────────────────
    Na svim kartama; mjeri udaljenost, površinu i duljinu po nasipu ili vodi.
    Dok mjeri, klik ide na kartu, ne na slojeve. */
