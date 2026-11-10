@@ -3,7 +3,7 @@
 {{define "title"}}goCOP — Dnevnici{{end}}
 
 {{define "content"}}
-{{if .StranicaCOP}}{{template "dnevnici_cop" .}}{{else}}{{template "dnevnici_popis" .}}{{end}}
+{{if .StranicaCOP}}{{template "dnevnici_cop" .}}{{else if or (eq .Vrsta "ODRZAVANJE_A02") (eq .Vrsta "ODRZAVANJE_A03")}}{{template "dnevnici_usluge" .}}{{else}}{{template "dnevnici_popis" .}}{{end}}
 {{end}}
 
 {{define "dnevnici_popis"}}
@@ -15,10 +15,6 @@
     <p class="page-desc">
       {{if eq .Vrsta "DEZURSTVA"}}Tko dežura kad, i što radi: u centru, na terenu, u uredu. Plan stoji uz dnevnik
       COP-a jer traje koliko i obrana; isti zapisi poslije daju obračun sati.
-      {{else if eq .Vrsta "ODRZAVANJE_A02"}}Održavanje voda I. i II. reda. Vodi ga izvođač svaki dan, a nadzire
-      ovlaštenik za praćenje ugovora. Dok ovlaštenika nema, nadzire uprava područja ili sektora.
-      {{else if eq .Vrsta "ODRZAVANJE_A03"}}Održavanje kanala III. i IV. reda. Isti oblik kao A.02, druga usluga
-      i drugi ugovor.
       {{else}}Sve vrste dnevnika.{{end}}
     </p>
   </div>
@@ -93,6 +89,74 @@
   <div class="reg-empty">
     {{if eq .Vrsta "DEZURSTVA"}}Nema plana dežurstava koji vidite. Plan se otvara s dnevnikom COP-a, a vide ga uprava i djelatnici sektora tog centra.
     {{else if .Area}}U području {{.Area.Name}} još nema dnevnika te vrste.{{if .CanManage}} Otvorite ga gumbom „Novi dnevnik“ i popunite naslovnicu.{{end}}{{else}}Nema područja.{{end}}
+  </div>
+  {{end}}
+</div>
+{{end}}
+
+{{/* Popis dnevnika usluga A.02 i A.03 (crtež 9 i 9a): kartica po dnevniku s
+   naslovnicom, nalozima i brojem listova. Plan dežurstava i popis bez vrste
+   ostaju u dnevnici_popis. */}}
+{{define "dnevnici_usluge"}}
+<a href="/dnevnici" class="povratna-poveznica">← Dokumenti</a>
+<div class="page-header list-glava usluge-glava">
+  <div>
+    <h1 class="page-title" data-naziv-stranice>{{if eq .Vrsta "ODRZAVANJE_A02"}}Dnevnik usluga A.02{{else}}Dnevnik usluga A.03{{end}}</h1>
+    <p class="page-desc">
+      {{if eq .Vrsta "ODRZAVANJE_A02"}}Održavanje voda I. i II. reda. Vodi ga izvođač svaki dan, a nadzire
+      ovlaštenik za praćenje ugovora.
+      {{else}}Održavanje kanala III. i IV. reda. Isti oblik kao A.02, druga usluga i drugi ugovor.{{end}}
+    </p>
+  </div>
+  {{if and .Area .CanManage}}
+  <a href="/dnevnici/new?area={{.Area.ID}}&kind={{.Vrsta}}" class="btn btn-primary">Novi dnevnik</a>
+  {{end}}
+</div>
+
+{{/* Jedno područje je samo oznaka; uz više njih bira se, a izbor odmah šalje obrazac. */}}
+{{if gt (len .Areas) 1}}
+<form action="/dnevnici/popis" method="GET" class="usluge-podrucje">
+  <input type="hidden" name="vrsta" value="{{.Vrsta}}">
+  <label class="usluge-podrucje-natpis" for="area">{{term "podrucje"}}</label>
+  <select id="area" name="area" class="usluge-podrucje-izbor" onchange="this.form.submit()">
+    {{range .Areas}}<option value="{{.ID}}" {{if and $.Area (eq $.Area.ID .ID)}}selected{{end}}>{{term "bp"}} {{.ID}}: {{.Name}}</option>{{end}}
+  </select>
+  {{icon "chevron-down"}}
+  <noscript><button type="submit" class="btn btn-secondary">Prikaži</button></noscript>
+</form>
+{{else if .Area}}
+<div class="usluge-podrucje usluge-podrucje-jedno">
+  <span class="usluge-podrucje-natpis">{{term "podrucje"}}</span>
+  <span class="usluge-podrucje-izbor">{{term "bp"}} {{.Area.ID}}: {{.Area.Name}}</span>
+</div>
+{{end}}
+
+<div class="usluge-popis">
+  {{range .Journals}}
+  <article class="reg-card usluge-kartica">
+    <a class="reg-card-link" href="/dnevnici/{{.ID}}">
+      <div class="usluge-kartica-glava">
+        <h3 class="reg-card-title">{{.DisplayTitle}}</h3>
+        <div class="reg-card-sub">{{.KindLabel}} · {{.Year}}.{{if .SectionCode}} · dionica {{.SectionCode}}{{end}}</div>
+        {{if or .Reconstruction .OpenTasks}}<div class="usluge-oznake">{{if .Reconstruction}}<span class="oznaka-stanja pozor" title="Upisi preneseni iz starije evidencije radi primjera; ovjereni listovi postoje zasebno">rekonstrukcija</span>{{end}}{{if .OpenTasks}}<span class="oznaka-stanja obrub">{{.OpenTasks}} {{uzBroj .OpenTasks "otvoren nalog" "otvorena naloga" "otvorenih naloga"}}</span>{{end}}</div>{{end}}
+      </div>
+      {{if or .Contractor .ContractorLead .Supervisor}}
+      <dl class="reg-facts usluge-cinjenice">
+        {{if .Contractor}}<div><dt>Izvođač</dt><dd>{{.Contractor}}</dd></div>{{end}}
+        {{if .ContractorLead}}<div><dt>Voditelj usluga</dt><dd>{{.ContractorLead}}</dd></div>{{end}}
+        {{if .Supervisor}}<div><dt>Nadzor</dt><dd>{{.Supervisor}}</dd></div>{{end}}
+      </dl>
+      {{end}}
+      <div class="usluge-kartica-dno">
+        <span>{{.SheetCount}} {{uzBroj .SheetCount "list" "lista" "listova"}}</span>
+        {{if .LastSheetOn}}<span>zadnji list {{danNaZaslonu .LastSheetOn}}</span>{{end}}
+      </div>
+      <span class="usluge-kartica-strelica" aria-hidden="true">{{icon "chevron-right"}}</span>
+    </a>
+  </article>
+  {{else}}
+  <div class="list-kartica usluge-prazno">
+    {{if .Area}}<p>U području {{.Area.Name}} još nema dnevnika te vrste.</p>{{if .CanManage}}<p class="usluge-prazno-uputa">Otvorite ga gumbom „Novi dnevnik“ i popunite naslovnicu.</p>{{end}}{{else}}<p>Nema područja.</p>{{end}}
   </div>
   {{end}}
 </div>
