@@ -135,7 +135,7 @@ func TestDezurstvoZaProvjeruKrozRute(t *testing.T) {
 	mora(zovi(ana, uprava, http.MethodGet, obr+"?od=2026-09-01&do=2026-09-29", nil), http.StatusOK, "obračun",
 		"U razdoblju je <strong>8:00 h</strong>", "u zapisima <strong>„mjesto nepoznato — za provjeru”</strong>: ne zna se je li rad bio u uredu ili na terenu",
 		"nema potvrđenih sati",
-		"Čiji sati nisu u obračunu: <a href=\""+obr+"/"+ivo.ID.String()+"?od=2026-09-01&amp;do=2026-09-29\">Ivo Ivić</a> 8:00 h")
+		"Čiji sati: <a href=\""+obr+"/"+ivo.ID.String()+"?od=2026-09-01&amp;do=2026-09-29\">Ivo Ivić</a> 8:00 h")
 	mora(zovi(ana, uprava, http.MethodGet, iors, nil), http.StatusOK, "IORS", "badge badge-warning\">mjesto nepoznato — za provjeru",
 		"U razdoblju je <strong>8:00 h</strong>", "u zapisima <strong>„mjesto nepoznato — za provjeru”</strong>: vide se u popisu, ali nisu u obračunu")
 

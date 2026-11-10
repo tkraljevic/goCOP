@@ -327,8 +327,18 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	w = zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun?od=2026-09-11&do=2026-09-14", nil)
 	mora(w, http.StatusOK, "veza na IORS", "/obracun/"+dezurni.ID.String()+"?od=2026-09-11")
 	w = zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun/"+dezurni.ID.String()+"?od=2026-09-11&do=2026-09-14", nil)
-	mora(w, http.StatusOK, "IORS", "Ana Anić", "Subota <strong>12.9.2026.</strong>", "Nedjelja <strong>13.9.2026.</strong>", "Ponedjeljak <strong>14.9.2026.</strong>",
-		"19:00", "24:00", "00:00", "07:00", "Dežurstvo u COP-u", "Vuka", "Obilazak i pregled", ">5,5<", ">14,0<", ">0,5<", ">1,5<", ">26,0<", ">2,0<")
+	mora(w, http.StatusOK, "IORS", "Ana Anić", "sub 12. 9. 2026.", "ned 13. 9. 2026.", "pon 14. 9. 2026.",
+		"19:00", "24:00", "00:00", "07:00", "Dežurstvo u COP-u", "Vuka", "Obilazak i pregled", ">5,5<", ">14,0<", ">0,5<", ">1,5<", ">26,0<", ">2,0<",
+		"← Obračun sati", "11. 9. – 14. 9. 2026.")
+	// Uprava centra nema postavke obračuna (samo administrator), pa im IORS i
+	// obračun ne nude poveznicu koja bi završila odbijanjem. U tablici su
+	// samo razredi sa satima: Ana nema radnog dana noćnog.
+	if b := w.Body.String(); strings.Contains(b, "/administracija/obracun") || strings.Contains(b, `title="NRD"`) {
+		t.Error("IORS nudi postavke obračuna ili razred bez sati")
+	}
+	if b := zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun?od=2026-09-11&do=2026-09-14", nil).Body.String(); strings.Contains(b, "/administracija/obracun") || !strings.Contains(b, "Kako se računa i zaokružuje") {
+		t.Error("obračun upravi centra nudi postavke obračuna ili nema objašnjenja")
+	}
 	// IORS u Excelu: redak po danu, sati po razredu, sveukupno.
 	w = zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun/"+dezurni.ID.String()+"/iors.xlsx?od=2026-09-11&do=2026-09-14", nil)
 	if w.Code != http.StatusOK || !strings.Contains(w.Header().Get("Content-Disposition"), "IORS_ana-anic_2026-09-11_2026-09-14.xlsx") {
@@ -360,7 +370,10 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 
 	// Sama sebe vidi i bez prava pisanja u dnevnik; tuđe ne.
 	rw = kaoDezurni(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun/"+dezurni.ID.String(), nil)
-	mora(rw, http.StatusOK, "svoj IORS", "Ana Anić")
+	mora(rw, http.StatusOK, "svoj IORS", "Ana Anić", `href="/profile#dezurstva"`)
+	if strings.Contains(rw.Body.String(), "← Obračun sati") || strings.Contains(rw.Body.String(), ">Obračun</a>") {
+		t.Error("osoba bez uprave na svom IORS-u ima poveznicu na obračun")
+	}
 
 	// Excel za računovodstvo: list po području, redak po osobi, satnica prazna.
 	w = zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun.xlsx?od=2026-09-11&do=2026-09-14", nil)
@@ -465,7 +478,7 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	if danas := time.Now().In(models.Zagreb); danas.After(krajPlana) {
 		krajPlana = time.Date(danas.Year(), danas.Month(), danas.Day(), 0, 0, 0, 0, models.Zagreb)
 	}
-	mora(zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun", nil), http.StatusOK, "zadano razdoblje", ">2,0<", "do kraja plana", krajPlana.Format("2.1.2006."))
+	mora(zovi(http.MethodGet, "/dnevnici/"+dnevnik+"/obracun", nil), http.StatusOK, "zadano razdoblje", ">2,0<", "do kraja plana", krajPlana.Format("2. 1. 2006."))
 	if strings.Contains(w.Body.String(), "čeka potvrdu") {
 		t.Error("poslije potvrde još nešto čeka")
 	}
