@@ -935,6 +935,9 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	// u prognozi (Odluke (25. 10. 2026.)). Bez arhive vrijedi zadani prag.
 	pragovi := pragoviSkoka(arhivaPut)
 	javniUvoznik.Prag = pragovi.Za
+	// Protok iz naše krivulje kad izvor da samo vodostaj (Hrvatske vode od
+	// 6. 11. 2026. na novim brojevima postaja).
+	javniUvoznik.Krivulje = krivuljeLetvi(arhivaPut)
 	// Kvar mjerila (zaglavljen ili odskočen uređaj) prepoznaje se iz
 	// očitanja ovog čvora uz svojstva iz arhive; isto vide stranica letve i
 	// prognoza (Odluke (25. 10. 2026.)).

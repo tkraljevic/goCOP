@@ -493,6 +493,11 @@ type Uvoznik struct {
 	// nil znači skok.ZadaniPrag za svaku letvu.
 	Prag func(sifra string) float64
 
+	// Krivulje daje naše krivulje protoka letve iz arhive. Kad izvor da
+	// vodostaj bez protoka, protok se izračuna njima (protokIzKrivulje); nil
+	// znači da se ne računa.
+	Krivulje KrivuljeLetve
+
 	mu      sync.Mutex
 	stanja  map[string]StanjeLetve // po ID-u postaje
 	postaje []Postaja              // javni popis, predmemoriran
@@ -895,6 +900,7 @@ func (u *Uvoznik) Preuzmi(ctx context.Context, st *models.Station) StanjeLetve {
 		s.Greska = "izvor trenutačno nema valjano očitanje"
 		return s
 	}
+	u.protokIzKrivulje(cctx, st, redci, rezerva)
 	s.Preuzeto = len(redci) + len(rezerva)
 	svi := retciZaUpis(redci, izvor.Naziv(), rezerva, s.Kad)
 	if len(svi) == 0 {
