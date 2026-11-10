@@ -8590,9 +8590,9 @@ summary.ocitanja-cip { padding-right: 8px; }
    sadržaja (prozor oko 1280 px uz izbornik) papir je lijevo, a ploča desno; uže je sve u
    jednom stupcu, prvo papir, pa ploča. Papir se smije suziti, ploča ostaje 340 do 400 px. */
 /* Kartica Poništenje (4b): razlog, tko i kada u dva stupca, pa gumb Novi akt. */
-.akt-ponistenje dl { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 6px 12px; margin: 0 0 12px; font-size: 0.875rem; line-height: 20px; }
-.akt-ponistenje dt { color: var(--md-sys-color-on-surface-variant); }
-.akt-ponistenje dd { margin: 0; overflow-wrap: anywhere; }
+.akt-ponistenje dl, .akt-sazetak dl { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 6px 12px; margin: 0 0 12px; font-size: 0.875rem; line-height: 20px; }
+.akt-ponistenje dt, .akt-sazetak dt { color: var(--md-sys-color-on-surface-variant); }
+.akt-ponistenje dd, .akt-sazetak dd { margin: 0; overflow-wrap: anywhere; }
 .akt-ponistenje .btn { margin-bottom: 8px; }
 .akt-stranica { container-type: inline-size; }
 .akt-glava .page-title { gap: 8px 12px; }
@@ -8780,6 +8780,17 @@ summary.ocitanja-cip { padding-right: 8px; }
 .akt-preventivna h2 .icon { width: 20px; height: 20px; color: var(--md-sys-color-on-surface-variant); }
 .akt-preventivna p { margin: 8px 0 16px; font-size: 0.875rem; line-height: 20px; color: var(--md-sys-color-on-surface-variant); }
 .akt-preventivna-gumbi { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+/* Akt na mobitelu (crteži akta za mobitel): umjesto papira kartica Dokument akta sa sažetkom i PDF-om,
+   bez gumba PDF u zaglavlju; tekst nacrta ispravlja se na računalu. */
+.akt-sazetak, .akt-jos-racunalo { display: none; }
+.akt-sazetak-glava { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.akt-sazetak-glava h2 { margin: 0; font-size: 1rem; }
+.akt-sazetak-naslov { margin: 0 0 12px; font-size: 0.875rem; line-height: 20px; font-weight: 500; }
+@media (max-width: 599px) {
+  .akt-stranica .akt-list, .akt-glava .page-actions, .akt-jos a[href="#uredi"] { display: none; }
+  .akt-sazetak { display: block; }
+  .akt-jos-racunalo { display: flex; align-items: center; min-height: 48px; font-size: 0.9375rem; color: var(--md-sys-color-on-surface-variant); }
+}
 /* Na mobitelu se akt ne sastavlja (Odluke (6. 11. 2026.)): poruka umjesto obrasca, tablet ima obrazac. */
 .akt-samo-racunalo { display: none; }
 @media (max-width: 599px) {

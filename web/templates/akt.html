@@ -133,6 +133,7 @@
     {{else}}<p class="form-help mt-0">Akt prije poništenja nije poslan nikome.</p>{{end}}
     <p class="form-help mb-0">Poništen akt više se ne šalje. Ako treba ispravak, izdaje se novi akt.</p>
   </section>
+  {{template "akt_sazetak" $}}
   {{else}}
   {{/* Kartica Slanje (crteži 4a, 4d, 4f, 4c, 4i): broj poslanih, popis sklopljen dok akt nije ni jednom slan,
        neuspjeli na vrhu, pet primatelja pa „Još N” u istom obrascu, broj označenih na gumbu. Ništa nije označeno unaprijed. */}}
@@ -267,6 +268,7 @@
     <p class="form-help">Na popisu "na znanje" nema nijedne adrese e-pošte. Adrese se upisuju u registar primatelja i u službe po županijama.</p>
     {{end}}
   </section>
+  {{template "akt_sazetak" $}}
   {{if .Adresati}}
   <details class="list-kartica akt-slanje-poruka">
     <summary>Poruka koja se šalje {{icon "chevron-right"}}</summary>
@@ -277,6 +279,8 @@
   {{end}}
   {{end}}
   {{end}}
+
+  {{if not $a.Ovjeren}}{{template "akt_sazetak" $}}{{end}}
 
   {{if and (not $a.Ovjeren) (or .Pregled $a.UpozorenjaPrimatelja)}}
   <section class="list-kartica akt-potpis-opcije" id="primatelji">
@@ -355,7 +359,7 @@
   <nav class="list-kartica akt-jos" aria-label="Još">
     <h2>Još</h2>
     {{if .SmijeOvjeriti}}<a href="#ovjera" class="akt-jos-ovjera">Ovjeri u goCOP-u {{icon "chevron-right"}}</a>{{end}}
-    {{if .SmijeUreditiNacrt}}<a href="#uredi">Ispravi tekst nacrta {{icon "chevron-right"}}</a>{{end}}
+    {{if .SmijeUreditiNacrt}}<a href="#uredi">Ispravi tekst nacrta {{icon "chevron-right"}}</a><span class="akt-jos-racunalo">Tekst nacrta ispravlja se na računalu.</span>{{end}}
     {{if .SmijePripremiti}}<a href="#ispis">Ispis, potpis i žig (PDF za ispis, sken) {{icon "chevron-right"}}</a>{{end}}
     {{if .SmijeObrisati}}<a href="#brisanje" class="opasno">Obriši nacrt {{icon "chevron-right"}}</a>{{end}}
   </nav>
@@ -400,4 +404,22 @@
 </aside>
 </div>
 </div>
+{{end}}
+
+{{/* Sažetak akta na mobitelu (crteži akta za mobitel): umjesto papira kartica s letvom, područjem, dionicama,
+     danom i potpisnikom, a puni tekst je u PDF-u. Na širem zaslonu se ne vidi, jer tamo stoji papir. */}}
+{{define "akt_sazetak"}}{{$a := .Akt}}
+<section class="list-kartica akt-sazetak">
+  <div class="akt-sazetak-glava"><h2>Dokument akta</h2><a href="/akti/{{$a.ID}}/akt.pdf" class="btn btn-secondary" target="_blank">Otvori PDF</a></div>
+  <p class="akt-sazetak-naslov">{{if $a.Storniran}}PONIŠTEN · {{end}}{{$a.VrstaNaziv}} o {{$a.RadnjaLabel}} {{$a.Predmet}}{{if not $a.Ovjeren}} · NACRT{{end}}</p>
+  <dl>
+    <dt>Letva</dt><dd>{{$a.StationName}}{{with $a.VodostajCm}} · {{.}} cm u {{(localTime $a.VodostajKad).Format "15:04"}}{{end}}</dd>
+    <dt>Područje</dt><dd>BP {{$a.AreaID}}{{with .Podrucje}} {{.Name}}{{end}}</dd>
+    <dt>Dionice</dt><dd>{{range $i, $d := $a.Dionice}}{{if $i}}, {{end}}{{$d.Code}}{{end}}</dd>
+    <dt>Dana</dt><dd>{{vrijemeLista $a.Vrijedi}}</dd>
+    <dt>Potpisnik</dt><dd>{{$a.Potpisnik}}{{if $a.Ovjeren}}, {{$a.ImePotpisa}}{{end}}</dd>
+  </dl>
+  {{if $a.Ovjeren}}<p class="form-help">Ovjereno u goCOP-u: {{$a.Ovjerio}}, {{formatDate (localTime (derefTime $a.OvjerenoAt))}} · akt {{$a.Oznaka}} · kod <span class="mono">{{$a.OvjeraKod}}</span>. Isti kod stoji na PDF-u.</p>{{end}}
+  <p class="form-help mb-0">Ovo je sažetak. Puni tekst, na papiru, je u PDF-u.</p>
+</section>
 {{end}}
