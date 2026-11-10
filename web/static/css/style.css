@@ -7884,6 +7884,13 @@ button.karta-nedostaje-ucrtaj { padding: 0; border: 0; background: none; font-fa
 .izv-plocice small { display: block; font-size: 0.75rem; line-height: 16px; color: var(--md-sys-color-on-surface-variant); }
 .izv-plocica-siroka { grid-column: 1 / -1; }
 .izv-dok-podnozje { margin-top: 16px; font-size: 0.75rem; }
+.izv-tablica-okvir { overflow-x: auto; }
+.izv-dok .list-kartica > p.izv-tekst { margin: 0; }
+.izv-sektor-tablica { margin: 0; }
+.izv-sektor-tablica a { color: var(--md-sys-color-primary); text-decoration: none; }
+.izv-sektor-tablica .threshold-pill { white-space: nowrap; }
+.izv-brojke td:not(:first-child) { font-variant-numeric: tabular-nums; }
+.izv-sektor-tablica tr.zbroj td { background: var(--md-sys-color-surface-container-high); }
 @media (max-width: 899px) {
   .izv-plocice-5, .izv-plocice-6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
