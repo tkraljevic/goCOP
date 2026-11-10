@@ -120,8 +120,11 @@ type JournalPageData struct {
 	Osobe     []models.User // koga se može staviti u plan; samo za upravu centra
 	// UpravaCentra slaže plan dežurstava; CanManage (nadzor) za to nije dovoljan
 	UpravaCentra   bool
-	CitaCOP        bool // smije otvoriti dnevnike COP-a i plan dežurstava; izvođač ne smije
-	VidiPlan       bool // smije vidjeti plan dežurstava ovog dnevnika COP-a (VidiPlanDezurstava)
+	CitaCOP        bool   // smije otvoriti dnevnike COP-a i plan dežurstava; izvođač ne smije
+	VidiPlan       bool   // smije vidjeti plan dežurstava ovog dnevnika COP-a (VidiPlanDezurstava)
+	VidiObracun    bool   // smije vidjeti obračun sati, za karticu u zaglavlju
+	KarticaCOP     string // kartica dnevnika COP-a na kojoj se stoji: zapisi, plan ili obracun
+	DanaCOP        int    // kalendarski dani dnevnika COP-a, za zaglavlje
 	VoditeljCOP    bool
 	IzvornikCOP    service.StanjeIzvornika // nalaz provjere izvornika ovjerenog dnevnika COP-a
 	MozeSebe       bool                    // smije upisati vlastito dežurstvo
@@ -397,29 +400,6 @@ type RedakCOP struct {
 	Dana int
 }
 
-// Pocetak je dan otvaranja dnevnika („12. 10. 2026.”), prazno bez početka.
-func (r RedakCOP) Pocetak() string { return danZaslona(r.StartedAt) }
-
-// Razdoblje je od početka do kraja dnevnika, „14. 3. 2026. – 3. 5. 2026.”;
-// bez kraja samo „od” početka, a bez početka crtica.
-func (r RedakCOP) Razdoblje() string {
-	od, do := danZaslona(r.StartedAt), danZaslona(r.EndedAt)
-	switch {
-	case od == "":
-		return "—"
-	case do == "":
-		return "od " + od
-	}
-	return od + " – " + do
-}
-
-func danZaslona(t *time.Time) string {
-	if t == nil {
-		return ""
-	}
-	return t.In(models.Zagreb).Format("2. 1. 2006.")
-}
-
 func slozenaStranicaCOP(sektori []models.Sector, izabran string, js []models.Journal, otvaranje []models.Centar, danas time.Time) *StranicaCOP {
 	st := &StranicaCOP{
 		Cipovi: cipoviSektoraPo("/dnevnici/popis", "centar", url.Values{"vrsta": {models.JournalKindDefense}}, sektori, izabran),
@@ -633,47 +613,61 @@ func (h *JournalsHandler) ShowJournal(w http.ResponseWriter, r *http.Request) {
 	// Dnevnik COP-a nema listova ni naloga: to je zapisnik dežurstva, a zapisi
 	// teku po danima izravno uz dnevnik.
 	if j.CentarSektor != "" {
-		zapisi, err := h.journals.EntriesForJournal(ctx, j.ID)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		if j.Reconstruction {
-			service.PripisiUpisivace(zapisi)
-		}
-		// Dnevnik se čita i po području: ?podrucje=16 ostavlja zapise tog
-		// područja i one za cijeli sektor, jer se sektorski tiču svakoga.
-		data.Areas, _ = h.users.ListAreas(j.CentarSektor)
-		if data.Podrucje, _ = strconv.Atoi(r.URL.Query().Get("podrucje")); data.Podrucje > 0 {
-			var samo []models.JournalEntry
-			for _, z := range zapisi {
-				if !z.ZaPodrucje() || z.PodrucjeID() == data.Podrucje {
-					samo = append(samo, z)
-				}
-			}
-			zapisi = samo
-		}
-		data.Dani = poDanima(zapisi)
-		for _, d := range data.Dani {
-			if d.Dan.Format("2006-01-02") == data.Today {
-				data.ImaDanas = true
-			}
-		}
-		// Plan dežurstava ima svoju stranicu; ovdje samo koliko ih je, za
-		// gumb, i samo onome tko plan smije vidjeti.
-		data.VidiPlan = h.journals.VidiPlanDezurstava(data.Permissions, data.Opseg, j)
-		data.Dezurstva = h.dezurstvaKojaVidi(ctx, data, j)
-		data.UpravaCentra = h.journals.UpravaCentra(data.Permissions, j)
-		data.VoditeljCOP = h.journals.VoditeljCOP(data.CurrentUser, j)
-		data.IzvornikCOP = h.journals.ProvjeriIzvornikCOP(ctx, j)
-		data.MozeSebe = h.journals.MozeSebeUPlan(data.Permissions, h.opseg(j, area), j)
-		h.render(w, h.tmplCOP, "dnevnik_cop.html", data)
+		h.showDnevnikCOP(w, r, data, j, area)
 		return
 	}
-	data.Sheets, _ = h.journals.ListSheets(ctx, j.ID)
-	data.OpenTasks, _ = h.journals.OpenTasks(ctx, j.ID)
-	data.Gaps, _ = h.journals.NumberGaps(ctx, j.ID)
+	data.Sheets, _ = h.journals.ListSheets(ctx, j.ID)   // bez listova naslovnica ostaje, s praznim popisom
+	data.OpenTasks, _ = h.journals.OpenTasks(ctx, j.ID) // bez naloga stranica samo nema popisa otvorenih
+	data.Gaps, _ = h.journals.NumberGaps(ctx, j.ID)     // rupe u brojevima su upozorenje, ne uvjet
 	h.render(w, h.tmplJournal, "dnevnik.html", data)
+}
+
+// zaglavljeCOP puni ono što traži zajedničko zaglavlje dnevnika COP-a
+// (dnevnikZaglavlje) na karticama Zapisi, Plan dežurstava i Obračun sati:
+// ista prava koja su stranice i prije čitale, samo na jednom mjestu.
+func (h *JournalsHandler) zaglavljeCOP(d *JournalPageData, j *models.Journal, area *models.Area, kartica string) {
+	d.KarticaCOP = kartica
+	d.VidiPlan = h.journals.VidiPlanDezurstava(d.Permissions, d.Opseg, j)
+	d.VidiObracun = h.journals.VidiObracun(d.Permissions, j)
+	d.UpravaCentra = h.journals.UpravaCentra(d.Permissions, j)
+	d.MozeSebe = h.journals.MozeSebeUPlan(d.Permissions, h.opseg(j, area), j)
+	d.DanaCOP = j.DanaObrane(time.Now())
+}
+
+// showDnevnikCOP prikazuje zapise dnevnika COP-a po danima, po želji samo
+// za jedno područje (?podrucje=), sa zaglavljem dnevnika
+func (h *JournalsHandler) showDnevnikCOP(w http.ResponseWriter, r *http.Request, data JournalPageData, j *models.Journal, area *models.Area) {
+	ctx := r.Context()
+	zapisi, err := h.journals.EntriesForJournal(ctx, j.ID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if j.Reconstruction {
+		service.PripisiUpisivace(zapisi)
+	}
+	// Dnevnik se čita i po području: ?podrucje=16 ostavlja zapise tog
+	// područja i one za cijeli sektor, jer se sektorski tiču svakoga.
+	data.Areas, _ = h.users.ListAreas(j.CentarSektor)
+	if data.Podrucje, _ = strconv.Atoi(r.URL.Query().Get("podrucje")); data.Podrucje > 0 {
+		var samo []models.JournalEntry
+		for _, z := range zapisi {
+			if !z.ZaPodrucje() || z.PodrucjeID() == data.Podrucje {
+				samo = append(samo, z)
+			}
+		}
+		zapisi = samo
+	}
+	h.zaglavljeCOP(&data, j, area, "zapisi")
+	data.Dani = poDanima(zapisi)
+	for _, d := range data.Dani {
+		if d.Dan.Format("2006-01-02") == data.Today {
+			data.ImaDanas = true
+		}
+	}
+	data.VoditeljCOP = h.journals.VoditeljCOP(data.CurrentUser, j)
+	data.IzvornikCOP = h.journals.ProvjeriIzvornikCOP(ctx, j)
+	h.render(w, h.tmplCOP, "dnevnik_cop.html", data)
 }
 
 // HandleOpenSheet otvara novi list za dan i vodi na njega

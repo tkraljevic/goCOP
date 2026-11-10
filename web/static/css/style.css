@@ -8856,6 +8856,44 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
 .cop-tablica tr:hover { background: none; }
 .cop-tablica tbody tr:hover td { background: var(--surface-hover); }
 .cop-prazno { margin: 8px 0; color: var(--md-sys-color-on-surface-variant); font-size: 0.875rem; }
+
+/* Zaglavlje dnevnika COP-a (crtež 5, 5a, 5b), isto na Zapisima, Planu i Obračunu:
+   naslov s oznakom stanja, radnje kao tekst desno (na mobitelu pod „Još”), traka
+   dežurstva i obrane, kartice. */
+.cop-glava { align-items: flex-end; }
+.cop-glava .page-title { align-items: center; gap: 4px 12px; }
+.cop-glava .page-title .oznaka-stanja { font-size: 0.75rem; }
+.cop-glava .page-desc { margin-top: 4px; color: var(--md-sys-color-on-surface-variant); font-size: 0.875rem; }
+.cop-radnje { align-items: center; }
+.cop-radnje .btn-link { color: var(--md-sys-color-primary); }
+.cop-jos { display: none; }
+.cop-jos-izbornik .btn, .cop-jos-izbornik form { display: flex; width: 100%; margin: 0; }
+.cop-jos-izbornik .btn { justify-content: flex-start; min-height: 48px; padding: 0 16px; border-radius: 0; color: var(--text); }
+.cop-traka-dnevnika {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin: 0 0 16px; padding: 8px 16px;
+  border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px; background: var(--md-sys-color-surface-container-low); font-size: 0.875rem;
+}
+.cop-dezura, .cop-obrana { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.cop-dezura > .icon, .cop-obrana > .icon { flex: none; width: 20px; height: 20px; margin: 0; color: var(--md-sys-color-on-surface-variant); }
+.cop-dezura form { margin: 0; }
+.cop-kartice { margin-bottom: 16px; }
+.cop-kartice .kartica-stranice { flex: 0 0 auto; min-width: 140px; }
+.cop-kartica-opis { margin: 0 0 16px; color: var(--md-sys-color-on-surface-variant); font-size: 0.875rem; }
+.cop-alati { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 16px; }
+.cop-alati .obracun-filtar { margin: 0; }
+.cop-alati-skok { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+@media (max-width: 599px) {
+  .cop-glava { flex-direction: row; flex-wrap: wrap; align-items: flex-start; }
+  .cop-glava-naslov { flex: 1 1 0; min-width: 0; }
+  .cop-glava .page-title { flex-direction: column; align-items: flex-start; }
+  .cop-radnje { display: none !important; }
+  .cop-jos { display: block; }
+  .cop-jos > summary { list-style: none; }
+  .cop-jos > summary::-webkit-details-marker { display: none; }
+  .cop-traka-dnevnika { flex-direction: column; align-items: stretch; }
+  .cop-dezura form, .cop-dezura .btn { width: 100%; min-height: 48px; }
+  .cop-kartice .kartica-stranice { flex: 1 0 auto; min-width: 0; }
+}
 @media (max-width: 599px) {
   .cop-traka { flex-wrap: wrap; }
   .cop-traka > .btn { width: 100%; min-height: 48px; }

@@ -514,3 +514,65 @@
   <text class="korito-os" x="{{printf "%.1f" .KrajX}}" y="{{sub .Visina 6}}" text-anchor="end">{{brojHRf .KrajM 0}} m · d. obala</text>
 </svg>
 {{end}}
+
+{{/* Zaglavlje dnevnika COP-a (crtež 5, 5a, 5b): isto na karticama Zapisi, Plan
+     dežurstava i Obračun sati. Puni ga zaglavljeCOP; radnje su na računalu
+     desno, a na mobitelu pod „Još”. */}}
+{{define "dnevnikZaglavlje"}}
+{{$j := .Journal}}
+<a href="/dnevnici/popis?vrsta=OBRANA&amp;centar={{$j.CentarSektor}}" class="povratna-poveznica">← Dnevnik COP-a</a>
+<div class="page-header list-glava cop-glava">
+  <div class="cop-glava-naslov">
+    <h1 class="page-title" data-naziv-stranice="{{if eq .KarticaCOP "plan"}}Plan dežurstava{{else if eq .KarticaCOP "obracun"}}Obračun sati{{else}}Dnevnik COP-a{{end}}">{{$j.DisplayTitle}} <span class="oznaka-stanja {{if $j.Reconstruction}}pozor{{else}}obrub{{end}}">{{$j.StanjeCOP}}</span></h1>
+    <p class="page-desc">Dežurstvo centra: {{with $j.CentarNaziv}}{{.}}, {{end}}{{term "sektor"}} {{$j.CentarSektor}} · {{$j.Razdoblje}}{{if .DanaCOP}} · {{.DanaCOP}} {{uzBroj .DanaCOP "dan" "dana" "dana"}}{{end}}</p>
+  </div>
+  <div class="page-actions cop-radnje">{{template "dnevnikRadnje" .}}</div>
+  <details class="ocitanja-izbor cop-jos">
+    <summary class="btn btn-link">Još {{icon "chevron-down"}}</summary>
+    <div class="ocitanja-izbornik cop-jos-izbornik" role="menu">{{template "dnevnikRadnje" .}}</div>
+  </details>
+</div>
+
+{{/* Dežurstvo: dolaskom se preuzme, odlaskom preda. Oboje je zapis u
+     dnevniku, a odrađeni razmak ide u plan i obračun. */}}
+{{if and (not $j.EndedAt) (not $j.Reconstruction)}}
+<div class="cop-traka-dnevnika">
+  <div class="cop-dezura">
+    {{icon "user"}}
+    {{if $j.NetkoDezura}}<span>Dežura <strong>{{$j.DezurniIme}}</strong> od {{(localTime $j.DezurniOd).Format "2. 1. 2006. 15:04"}}</span>
+      {{if or (eq $j.DezurniID .CurrentUser.ID.String) .UpravaCentra}}
+      <form method="POST" action="/dnevnici/{{$j.ID}}/dezurstvo/predaj" class="d-inline"><button type="submit" class="btn btn-secondary">Predajem dežurstvo</button></form>
+      {{end}}
+      {{if and .MozeSebe (ne $j.DezurniID .CurrentUser.ID.String)}}
+      <form method="POST" action="/dnevnici/{{$j.ID}}/dezurstvo/preuzmi" class="d-inline"
+        onsubmit="return confirm('{{$j.DezurniIme}} nije predao dežurstvo. Preuzimanjem se njegovo dežurstvo zaključuje sad. Nastaviti?');"><button type="submit" class="btn btn-primary">Preuzimam dežurstvo</button></form>
+      {{end}}
+    {{else}}<span>Nitko ne dežura.</span>
+      {{if .MozeSebe}}<form method="POST" action="/dnevnici/{{$j.ID}}/dezurstvo/preuzmi" class="d-inline"><button type="submit" class="btn btn-primary">Preuzimam dežurstvo</button></form>{{end}}
+    {{end}}
+  </div>
+  {{if $j.NosiAktivnuObranu}}<div class="cop-obrana">{{icon "shield"}} <span>{{term "sektor"}} {{$j.CentarSektor}}: aktivna obrana</span></div>{{end}}
+</div>
+{{end}}
+
+{{/* Tko vidi samo zapise, nema trake kartica. */}}
+{{if or .VidiPlan .VidiObracun}}
+<nav class="kartice-stranice cop-kartice" aria-label="Dnevnik COP-a">
+  {{if eq .KarticaCOP "zapisi"}}<span class="kartica-stranice" aria-current="page">Zapisi</span>{{else}}<a class="kartica-stranice" href="/dnevnici/{{$j.ID}}">Zapisi</a>{{end}}
+  {{if .VidiPlan}}{{if eq .KarticaCOP "plan"}}<span class="kartica-stranice" aria-current="page">Plan dežurstava</span>{{else}}<a class="kartica-stranice" href="/dnevnici/{{$j.ID}}/dezurstva">Plan dežurstava</a>{{end}}{{end}}
+  {{if .VidiObracun}}{{if eq .KarticaCOP "obracun"}}<span class="kartica-stranice" aria-current="page">Obračun sati</span>{{else}}<a class="kartica-stranice" href="/dnevnici/{{$j.ID}}/obracun">Obračun sati</a>{{end}}{{end}}
+</nav>
+{{end}}
+{{end}}
+
+{{/* Radnje dnevnika COP-a, iste u zaglavlju i u izborniku „Još”. Uvjeti su
+     isti kao prije: Zaglavlje uprava centra, Obriši uprava centra, oboje
+     dok dnevnik nije ovjeren. */}}
+{{define "dnevnikRadnje"}}
+{{$j := .Journal}}
+<a href="/dnevnici/{{$j.ID}}/dnevnik.pdf" class="btn btn-link" title="Renderirani dnevnik za ispis i ovjeru">PDF</a>
+<a href="/dnevnici/{{$j.ID}}/dnevnik.xlsx{{if .Podrucje}}?podrucje={{.Podrucje}}{{end}}" class="btn btn-link" title="Podaci dnevnika za analizu">Excel</a>
+{{if and .CanManage (not $j.Ovjeren)}}<a href="/dnevnici/{{$j.ID}}/edit" class="btn btn-link">Zaglavlje</a>{{end}}
+{{if and .UpravaCentra (not $j.Ovjeren)}}<form method="POST" action="/dnevnici/{{$j.ID}}/obrisi" class="d-inline"
+  onsubmit="return confirm('Obrisati dnevnik „{{$j.DisplayTitle}}“ sa svim zapisima i dežurstvima? U knjizi verzija ostaje arhiviran, ali s popisa nestaje.');"><button type="submit" class="btn btn-link">Obriši</button></form>{{end}}
+{{end}}

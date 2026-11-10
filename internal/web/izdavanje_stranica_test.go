@@ -634,3 +634,40 @@ func TestPopisCOPNeTraziPodrucje(t *testing.T) {
 		t.Error("dnevnik COP-a broji listove")
 	}
 }
+
+// Zaglavlje dnevnika COP-a je isto na Zapisima, Planu i Obračunu: povratak
+// na sektor, stanje, kalendarski dani i kartice samo po pravu. Tko vidi samo
+// zapise, nema trake kartica.
+func TestZaglavljeDnevnikaCOP(t *testing.T) {
+	pocetak := time.Date(2026, 10, 12, 8, 0, 0, 0, models.Zagreb)
+	d := JournalPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{},
+		Journal:     &models.Journal{ID: "dn-1", Kind: models.JournalKindDefense, CentarSektor: "B", CentarNaziv: "COP Osijek", Title: "Dnevnik COP-a, 2026.", StartedAt: &pocetak},
+		KarticaCOP:  "zapisi",
+		DanaCOP:     15,
+	}
+	html := iscrtaj(t, "dnevnik_cop.html", d)
+	for _, want := range []string{
+		`href="/dnevnici/popis?vrsta=OBRANA&amp;centar=B" class="povratna-poveznica">← Dnevnik COP-a`,
+		`class="oznaka-stanja obrub">otvoren<`, "Dežurstvo centra: COP Osijek, Sektor B · od 12. 10. 2026. · 15 dana",
+		"Nitko ne dežura.", "Sektor B: aktivna obrana",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("zaglavlje nema %q", want)
+		}
+	}
+	if strings.Contains(html, "cop-kartice") {
+		t.Error("tko vidi samo zapise, dobiva traku kartica")
+	}
+	d.VidiPlan, d.KarticaCOP = true, "plan"
+	html = iscrtaj(t, "dnevnik_dezurstva.html", d)
+	for _, want := range []string{`aria-current="page">Plan dežurstava<`, `href="/dnevnici/dn-1">Zapisi<`, `data-naziv-stranice="Plan dežurstava"`} {
+		if !strings.Contains(html, want) {
+			t.Errorf("plan nema %q", want)
+		}
+	}
+	if strings.Contains(html, "/obracun") {
+		t.Error("kartica Obračun bez prava na obračun")
+	}
+}

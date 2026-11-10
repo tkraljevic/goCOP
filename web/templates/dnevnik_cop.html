@@ -3,46 +3,7 @@
 {{define "title"}}goCOP — {{.Journal.DisplayTitle}}{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/dnevnici">Dokumenti</a> ›
-  <a href="/dnevnici/popis?vrsta=OBRANA">Dnevnici COP-a</a> › {{.Journal.DisplayTitle}}</div>
-
-<div class="detail-head">
-  <div>
-    <h1 class="page-title" data-naziv-stranice="Dnevnik COP-a">{{icon "activity"}} {{.Journal.DisplayTitle}}</h1>
-    <p class="page-desc">
-      Dežurstvo centra{{if .Journal.CentarNaziv}} — <strong>{{.Journal.CentarNaziv}}</strong>{{else if .Journal.CentarSektor}} — {{terml "sektor"}} {{.Journal.CentarSektor}}{{end}}
-      {{if .Journal.StartedAt}} · {{.Journal.StartedAt.Format "2.1.2006."}}{{if .Journal.EndedAt}} – {{.Journal.EndedAt.Format "2.1.2006."}}{{end}}{{end}}
-      · {{len .Dani}} {{uzBroj (len .Dani) "dan" "dana" "dana"}}
-      {{if .Journal.EndedAt}}· <strong>zaključen</strong>{{else if not .Journal.Reconstruction}}· <strong>otvoren</strong>{{end}}
-    </p>
-  </div>
-  <div class="page-actions">
-    {{/* Dežurstvo: dolaskom se preuzme, odlaskom preda. Oboje je zapis u
-         dnevniku, a odrađeni razmak ide u plan i obračun. */}}
-    {{if and (not .Journal.EndedAt) (not .Journal.Reconstruction)}}
-      {{if .Journal.NetkoDezura}}
-        <span class="dezurni-sad" title="od {{.Journal.DezurniOd.Format "2.1.2006. 15:04"}}">{{icon "user"}} Dežura <strong>{{.Journal.DezurniIme}}</strong> od {{.Journal.DezurniOd.Format "15:04"}}</span>
-        {{if or (eq .Journal.DezurniID .CurrentUser.ID.String) .UpravaCentra}}
-        <form method="POST" action="/dnevnici/{{.Journal.ID}}/dezurstvo/predaj" class="d-inline"><button type="submit" class="btn btn-secondary">{{icon "log-out"}} Predajem dežurstvo</button></form>
-        {{end}}
-        {{if and .MozeSebe (ne .Journal.DezurniID .CurrentUser.ID.String)}}
-        <form method="POST" action="/dnevnici/{{.Journal.ID}}/dezurstvo/preuzmi" class="d-inline"
-          onsubmit="return confirm('{{.Journal.DezurniIme}} nije predao dežurstvo. Preuzimanjem se njegovo dežurstvo zaključuje sad. Nastaviti?');"><button type="submit" class="btn btn-primary">{{icon "user"}} Preuzimam dežurstvo</button></form>
-        {{end}}
-      {{else if .MozeSebe}}
-        <form method="POST" action="/dnevnici/{{.Journal.ID}}/dezurstvo/preuzmi" class="d-inline"><button type="submit" class="btn btn-primary">{{icon "user"}} Preuzimam dežurstvo</button></form>
-      {{end}}
-    {{end}}
-    <a href="/dnevnici/{{.Journal.ID}}/dnevnik.pdf" class="btn btn-secondary" title="Renderirani dnevnik za ispis i ovjeru">{{icon "file-text"}} PDF</a>
-    <a href="/dnevnici/{{.Journal.ID}}/dnevnik.xlsx{{if .Podrucje}}?podrucje={{.Podrucje}}{{end}}" class="btn btn-secondary" title="Podaci dnevnika za analizu">{{icon "download"}} Excel</a>
-    {{if and .CanManage (not .Journal.Ovjeren)}}<a href="/dnevnici/{{.Journal.ID}}/edit" class="btn btn-secondary">{{icon "pencil"}} Zaglavlje</a>{{end}}
-    {{if and .UpravaCentra (not .Journal.Ovjeren)}}<form method="POST" action="/dnevnici/{{.Journal.ID}}/obrisi" class="d-inline"
-      onsubmit="return confirm('Obrisati dnevnik „{{.Journal.DisplayTitle}}“ sa svim zapisima i dežurstvima? U knjizi verzija ostaje arhiviran, ali s popisa nestaje.');"><button type="submit" class="btn btn-secondary" title="Obriši dnevnik">{{icon "trash"}}</button></form>{{end}}
-    {{if .Dani}}<a href="#{{if .ImaDanas}}dan-{{.Today}}{{else}}kraj{{end}}" class="btn btn-secondary" title="{{if .ImaDanas}}Na današnje zapise{{else}}Na zadnji zapis{{end}}">{{icon "arrow-right"}} {{if .ImaDanas}}Danas{{else}}Na kraj{{end}}</a>{{end}}
-    {{if .VidiPlan}}<a href="/dnevnici/{{.Journal.ID}}/dezurstva" class="btn btn-secondary">{{icon "users"}} Plan dežurstava{{if .Dezurstva}} <span class="reg-chip">{{len .Dezurstva}}</span>{{end}}</a>{{end}}
-    {{if and .CanWrite (not .Journal.Ovjeren)}}<a href="#novi-zapis" class="btn btn-primary">{{icon "plus"}} Novi zapis</a>{{end}}
-  </div>
-</div>
+{{template "dnevnikZaglavlje" .}}
 
 {{if .Journal.Ovjeren}}
 {{if .IzvornikCOP.Ispravan}}
@@ -76,6 +37,8 @@
 </div>
 {{end}}
 
+{{/* Područje, skok na danas ili kraj i novi zapis. Raspored zapisa po crtežu dolazi zasebno. */}}
+<div class="cop-alati">
 {{if .Areas}}
 <form method="GET" action="/dnevnici/{{.Journal.ID}}" class="obracun-filtar">
   <label for="f-podrucje">Prikaži</label>
@@ -86,6 +49,11 @@
   <noscript><button type="submit" class="btn btn-secondary">Prikaži</button></noscript>
 </form>
 {{end}}
+  <div class="cop-alati-skok">
+    {{if .Dani}}<a href="#{{if .ImaDanas}}dan-{{.Today}}{{else}}kraj{{end}}" class="btn btn-link" title="{{if .ImaDanas}}Na današnje zapise{{else}}Na zadnji zapis{{end}}">{{if .ImaDanas}}Danas{{else}}Na kraj{{end}}</a>{{end}}
+    {{if and .CanWrite (not .Journal.Ovjeren)}}<a href="#novi-zapis" class="btn btn-secondary">{{icon "plus"}} Novi zapis</a>{{end}}
+  </div>
+</div>
 
 {{range .Dani}}
 <section class="dan-dezurstva" id="dan-{{.Dan.Format "2006-01-02"}}">
