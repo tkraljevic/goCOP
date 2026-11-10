@@ -7853,6 +7853,11 @@ button.karta-nedostaje-ucrtaj { padding: 0; border: 0; background: none; font-fa
 .izv-cip:has(input:focus-visible) { outline: 2px solid var(--md-sys-color-primary); outline-offset: 2px; }
 .izv-obrazac-radnje { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 16px; }
 .izv-obrazac-radnje .reading-meta { flex: 1 1 280px; font-size: 0.75rem; }
+.izv-obrazac .izv-tablica-okvir { overflow-x: auto; margin-bottom: 4px; }
+.izv-obrazac .izv-sektor-tablica a { color: var(--md-sys-color-primary); text-decoration: none; }
+.izv-sektor-tablica th, .izv-sektor-tablica td a, .izv-sektor-tablica .badge, .izv-sektor-tablica .oznaka-stanja, .izv-sektor-tablica .threshold-pill { white-space: nowrap; }
+.izv-obrazac .izv-sektor-tablica input[type="checkbox"] { width: 18px; height: 18px; margin: 0; accent-color: var(--md-sys-color-primary); }
+.izv-obrazac .list-kartica > .form-group:last-child { margin-bottom: 0; }
 @media (max-width: 899px) {
   .izv-mreza-4, .izv-mreza-5, .izv-mreza-vodostaj { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -7861,6 +7866,8 @@ button.karta-nedostaje-ucrtaj { padding: 0; border: 0; background: none; font-fa
   .izv-mreza-4, .izv-mreza-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .izv-obrazac-radnje { flex-direction: column-reverse; align-items: stretch; }
   .izv-obrazac-radnje .btn { min-height: 48px; }
+  /* široke tablice izvješća sektora klize unutar kartice, stupci se ne stišću */
+  .izv-tablica-okvir > table { min-width: 640px; }
 }
 
 /* ── Odziv na klik (js/odziv.js) ─────────────────────────────────────────────
