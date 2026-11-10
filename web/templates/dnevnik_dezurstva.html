@@ -7,38 +7,109 @@
 
 {{/* Plan i obračun su jedna evidencija: razmak od–do jedne osobe s opisom
      rada je prije obrane plan, poslije nje ulaz za obrazac IORS. Nije samo
-     dežurstvo u centru — isti zapis nosi i rukovođenje na terenu, obilazak
-     objekata, administrativni rad. Slaže ga uprava centra; dežurni ga vidi. */}}
-<p class="page-desc cop-kartica-opis">Tko dežura kad, i što radi: u centru, na terenu, u uredu. Isti zapisi poslije obrane daju
-  obračun sati. Svatko upisuje sebe, od vodočuvara do glavnog rukovoditelja; uprava centra to provjeri i potvrdi.</p>
-
+     dežurstvo u centru: isti zapis nosi i rukovođenje na terenu, obilazak
+     objekata, administrativni rad. Svatko upisuje sebe; uprava centra to
+     provjeri i potvrdi. */}}
 {{if .Journal.Ovjeren}}<div class="alert alert-info">{{icon "lock"}} Dnevnik COP-a je ovjeren, pa je plan dežurstava zaključan.{{if .UpravaCentra}} Ispravak radi voditelj ili zamjenik centra, uz razlog. Razlog ostaje zapisan u napomeni dežurstva.{{else}} Ispravlja ga samo voditelj ili zamjenik centra.{{end}}</div>{{end}}
 
+{{/* Plan ovjerenog dnevnika je zaključan: ispravlja ga samo uprava centra.
+     Obrazac je sklopljen iznad popisa; otvoren je dok je plan prazan, i kad
+     adresa vodi na #novo-dezurstvo. */}}
+{{if or .UpravaCentra (and .MozeSebe (not .Journal.Ovjeren))}}
+<details class="plan-dodaj"{{if not .Dezurstva}} open{{end}}>
+  <summary class="btn btn-primary plan-dodaj-gumb">Dodaj dežurstvo</summary>
+  <form method="POST" action="/dnevnici/{{.Journal.ID}}/dezurstva" id="novo-dezurstvo" class="plan-obrazac">
+    <h2 class="plan-obrazac-naslov">{{icon "plus"}} Dodaj dežurstvo</h2>
+    <div class="plan-polja plan-polja-tri">
+      <div class="form-group">
+        <label class="form-label" for="d-osoba">Tko *</label>
+        {{if .UpravaCentra}}
+        <select id="d-osoba" name="user_id" class="form-control" required>
+          {{range .Osobe}}<option value="{{.ID}}"{{if eq .ID.String $.CurrentUser.ID.String}} selected{{end}}>{{.FullName}}{{if eq .ID.String $.CurrentUser.ID.String}} (ja){{end}}</option>{{end}}
+        </select>
+        {{else}}
+        <input type="hidden" name="user_id" value="{{.CurrentUser.ID}}">
+        <input type="text" id="d-osoba" class="form-control" value="{{.CurrentUser.FullName}}" disabled>
+        {{end}}
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="d-podrucje">Za koga *</label>
+        <select id="d-podrucje" name="podrucje" class="form-control">
+          <option value="">cijeli {{terml "sektor"}} {{.Journal.CentarSektor}}</option>
+          {{range .Areas}}<option value="{{.ID}}">{{.Name}} ({{.ID}})</option>{{end}}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="d-opis">Opis rada *</label>
+        <select id="d-opis" name="opis" class="form-control" required>
+          {{range .OpisiRada}}<option value="{{.Opis}}">{{.Opis}} ({{if eq .Mjesto "TEREN"}}teren{{else}}ured{{end}})</option>{{end}}
+        </select>
+      </div>
+    </div>
+    <div class="plan-polja plan-polja-vrijeme">
+      <div class="form-group">
+        <label class="form-label" for="d-od-date">Od *</label>
+        <input type="date" id="d-od-date" name="od_date" class="form-control" value="{{.Today}}" required>
+      </div>
+      <div class="form-group plan-sat">
+        <label class="form-label" for="d-od-time">u</label>
+        <input type="time" id="d-od-time" name="od_time" class="form-control" value="07:00" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="d-do-date">Do * <span class="reg-card-sub">(dan prazan = isti dan)</span></label>
+        <input type="date" id="d-do-date" name="do_date" class="form-control">
+      </div>
+      <div class="form-group plan-sat">
+        <label class="form-label" for="d-do-time">u</label>
+        <input type="time" id="d-do-time" name="do_time" class="form-control" value="19:00" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="d-napomena">Napomena</label>
+        <input type="text" id="d-napomena" name="napomena" class="form-control" autocomplete="off" placeholder="nije obvezno">
+      </div>
+      {{if .Journal.Ovjeren}}
+      <div class="form-group">
+        <label class="form-label" for="d-razlog">Razlog ispravka *</label>
+        <input type="text" id="d-razlog" name="razlog" class="form-control" autocomplete="off" required>
+      </div>
+      {{end}}
+    </div>
+    <div class="plan-radnje">
+      <button type="submit" class="btn btn-primary">Upiši u plan</button>
+      <button type="button" class="btn btn-secondary" onclick="this.closest('details').open = false">Odustani</button>
+      <span class="reading-meta">{{if .UpravaCentra}}Što uprava upiše potvrđeno je odmah.{{else}}Upis čeka potvrdu uprave centra; tek potvrđeno ulazi u obračun.{{end}}
+        Dežurstvo preko ponoći upišite s danom kraja; dulje od 36 sati kao više razmaka.</span>
+    </div>
+  </form>
+</details>
+{{end}}
+
 {{if .Dezurstva}}
-<div class="table-card"><div class="table-responsive">
-  <table class="data-table">
-    <thead><tr><th>Od</th><th>Do</th><th>Tko</th><th>Za</th><th>Opis rada</th><th>Mjesto</th><th>Potvrda</th><th></th></tr></thead>
+<div class="cop-okvir plan-okvir">
+  <table class="data-table cop-tablica plan-tablica">
+    <thead><tr><th>Od</th><th>Do</th><th>Tko</th><th>Za</th><th>Opis rada</th><th>Mjesto</th><th>Potvrda</th><th><span class="sr-only">Radnje</span></th></tr></thead>
     <tbody>
     {{range .Dezurstva}}
     <tr>
-      <td class="mono">{{danTjedna .Od}} {{.Od.Format "2.1."}} {{.Od.Format "15:04"}}</td>
-      <td class="mono">{{if ne (.Do.Format "2006-01-02") (.Od.Format "2006-01-02")}}{{.Do.Format "2.1."}} {{end}}{{.Do.Format "15:04"}} <span class="reg-card-sub">({{sati .Trajanje}})</span></td>
+      <td class="plan-kad">{{danKratko .Od}} {{.Od.Format "2. 1. 15:04"}}</td>
+      {{/* Na mobitelu je od–do u jednom retku, pa ovdje stoji i početak. */}}
+      <td class="plan-kad"><span class="plan-od-mob">{{danKratko .Od}} {{.Od.Format "2. 1. 15:04"}} – </span>{{if ne (.Do.Format "2006-01-02") (.Od.Format "2006-01-02")}}{{.Do.Format "2. 1."}} {{end}}{{.Do.Format "15:04"}} <span class="reg-card-sub">({{sati .Trajanje}})</span></td>
       <td>{{.UserName}}</td>
       <td>{{if .ZaPodrucje}}{{$id := .PodrucjeID}}{{range $.Areas}}{{if eq .ID $id}}{{.Name}}{{end}}{{end}}{{else}}cijeli {{terml "sektor"}}{{end}}</td>
-      <td>{{.Opis}}{{if .Napomena}}<div class="reg-card-sub">{{.Napomena}}</div>{{end}}
+      <td>{{.Opis}}<span class="plan-mjesto-mob"> · {{.MjestoTekst}}</span>{{if .Napomena}}<div class="reg-card-sub">{{.Napomena}}</div>{{end}}
         {{/* Opis rada ispravlja uprava centra na mjestu, bez micanja i
              ponovnog upisa; mjesto rada slijedi iz opisa. Kad se mjesto ne
              zna, obrazac je otvoren: bez ispravka nema potvrde. */}}
         {{if $.UpravaCentra}}{{$opis := .Opis}}
         <details class="dezurstvo-ispravak"{{if .ZaProvjeru}} open{{end}}>
-          <summary class="btn btn-sm btn-secondary" title="Ispravi opis rada">{{icon "pencil"}} ispravi opis</summary>
+          <summary title="Ispravi opis rada">ispravi opis</summary>
           <form method="POST" action="/dnevnici/{{$.Journal.ID}}/dezurstva/{{.ID}}/opis" class="dezurstvo-ispravak-obrazac">
             <select name="opis" class="form-control" aria-label="Opis rada" required>
               {{if .ZaProvjeru}}<option value="" selected disabled>odaberite opis s popisa</option>{{end}}
               {{range $.OpisiRada}}<option value="{{.Opis}}"{{if eq .Opis $opis}} selected{{end}}>{{.Opis}} ({{if eq .Mjesto "TEREN"}}teren{{else}}ured{{end}})</option>{{end}}
             </select>
             {{if $.Journal.Ovjeren}}<input type="text" name="razlog" class="form-control" placeholder="razlog ispravka" aria-label="Razlog ispravka" required>{{end}}
-            <button type="submit" class="btn btn-sm btn-primary">{{icon "check"}} Ispravi</button>
+            <button type="submit" class="btn btn-sm btn-secondary">Ispravi</button>
           </form>
         </details>{{end}}</td>
       <td>{{if .ZaProvjeru}}<span class="badge badge-warning">{{.MjestoTekst}}</span>{{else}}{{.MjestoTekst}}{{end}}</td>
@@ -48,80 +119,19 @@
            dok uprava ne ispravi opis. */}}
       <td>{{if .ZaProvjeru}}<span class="badge badge-warning" title="Nije u obračunu dok uprava centra ne izabere opis rada s popisa">za provjeru</span>
         {{else if .Potvrdeno}}<span class="badge" title="{{.PotvrdenoAt.Format "2.1.2006. 15:04"}}">potvrdio {{.Potvrdio}}</span>
-        {{else if $.UpravaCentra}}<form method="POST" action="/dnevnici/{{$.Journal.ID}}/dezurstva/{{.ID}}/potvrdi" class="d-inline"{{if $.Journal.Ovjeren}} onsubmit="var r=prompt('Razlog ispravka zaključenog plana:'); if(!r) return false; this.razlog.value=r; return true;"{{end}}><input type="hidden" name="razlog" value=""><button type="submit" class="btn btn-sm btn-primary" title="Provjereno, ulazi u obračun">{{icon "check"}} potvrdi</button></form>
+        {{else if $.UpravaCentra}}<form method="POST" action="/dnevnici/{{$.Journal.ID}}/dezurstva/{{.ID}}/potvrdi" class="d-inline"{{if $.Journal.Ovjeren}} onsubmit="var r=prompt('Razlog ispravka zaključenog plana:'); if(!r) return false; this.razlog.value=r; return true;"{{end}}><input type="hidden" name="razlog" value=""><button type="submit" class="btn btn-secondary plan-potvrdi" title="Provjereno, ulazi u obračun">Potvrdi</button></form>
         {{else}}<span class="badge badge-pending">čeka potvrdu</span>{{end}}</td>
       <td>{{if or $.UpravaCentra (and (not $.Journal.Ovjeren) (not .Potvrdeno) (not .OpisBiraUprava) (eq .UserID $.CurrentUser.ID.String))}}<form method="POST" action="/dnevnici/{{$.Journal.ID}}/dezurstva/{{.ID}}/makni" class="d-inline"
-        {{if $.Journal.Ovjeren}}onsubmit="var r=prompt('Razlog micanja iz zaključenog plana:'); if(!r) return false; this.razlog.value=r; return true;"{{else}}onsubmit="return confirm('Maknuti dežurstvo iz plana?');"{{end}}><input type="hidden" name="razlog" value=""><button type="submit" class="btn btn-sm btn-secondary" title="Makni iz plana">{{icon "x"}}</button></form>{{end}}</td>
+        {{if $.Journal.Ovjeren}}onsubmit="var r=prompt('Razlog micanja iz zaključenog plana:'); if(!r) return false; this.razlog.value=r; return true;"{{else}}onsubmit="return confirm('Maknuti dežurstvo iz plana?');"{{end}}><input type="hidden" name="razlog" value=""><button type="submit" class="btn-link plan-makni" title="Makni iz plana">makni</button></form>{{end}}</td>
     </tr>
     {{end}}
     </tbody>
   </table>
-</div></div>
+</div>
 {{else}}
-<div class="reg-empty">U planu još nema dežurstava.{{if or .UpravaCentra (and .MozeSebe (not .Journal.Ovjeren))}} Dodajte prvo obrascem ispod.{{end}}</div>
+<div class="reg-empty">U planu još nema dežurstava.{{if or .UpravaCentra (and .MozeSebe (not .Journal.Ovjeren))}} Dodajte prvo obrascem iznad.{{end}}</div>
+{{end}}
+<p class="reading-meta plan-napomena">U obračun ulazi samo potvrđeno.{{if .UpravaCentra}} Što uprava upiše potvrđeno je odmah.{{end}}</p>
 {{end}}
 
-{{/* Plan ovjerenog dnevnika je zaključan: ispravlja ga samo uprava centra */}}
-{{if or .UpravaCentra (and .MozeSebe (not .Journal.Ovjeren))}}
-<form method="POST" action="/dnevnici/{{.Journal.ID}}/dezurstva" id="novo-dezurstvo" class="reg-card novi-zapis">
-  <h2 class="novi-zapis-naslov">{{icon "plus"}} Dodaj dežurstvo</h2>
-  <div class="form-row novi-zapis-red">
-    <div class="form-group">
-      <label class="form-label" for="d-osoba">Tko *</label>
-      {{if .UpravaCentra}}
-      <select id="d-osoba" name="user_id" class="form-control" required>
-        {{range .Osobe}}<option value="{{.ID}}"{{if eq .ID.String $.CurrentUser.ID.String}} selected{{end}}>{{.FullName}}{{if eq .ID.String $.CurrentUser.ID.String}} (ja){{end}}</option>{{end}}
-      </select>
-      {{else}}
-      <input type="hidden" name="user_id" value="{{.CurrentUser.ID}}">
-      <input type="text" id="d-osoba" class="form-control" value="{{.CurrentUser.FullName}}" disabled>
-      {{end}}
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="d-podrucje">Za koga *</label>
-      <select id="d-podrucje" name="podrucje" class="form-control">
-        <option value="">cijeli {{terml "sektor"}} {{.Journal.CentarSektor}}</option>
-        {{range .Areas}}<option value="{{.ID}}">{{.Name}} ({{.ID}})</option>{{end}}
-      </select>
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="d-opis">Opis rada *</label>
-      <select id="d-opis" name="opis" class="form-control" required>
-        {{range .OpisiRada}}<option value="{{.Opis}}">{{.Opis}} ({{if eq .Mjesto "TEREN"}}teren{{else}}ured{{end}})</option>{{end}}
-      </select>
-    </div>
-  </div>
-  <div class="form-row novi-zapis-red">
-    <div class="form-group">
-      <label class="form-label" for="d-od-date">Od *</label>
-      <div style="display:flex; gap:0.35rem;">
-        <input type="date" id="d-od-date" name="od_date" class="form-control" value="{{.Today}}" required>
-        <input type="time" name="od_time" class="form-control" value="07:00" required>
-      </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="d-do-date">Do * <span class="reg-card-sub">(dan prazan = isti dan)</span></label>
-      <div style="display:flex; gap:0.35rem;">
-        <input type="date" id="d-do-date" name="do_date" class="form-control">
-        <input type="time" name="do_time" class="form-control" value="19:00" required>
-      </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="d-napomena">Napomena</label>
-      <input type="text" id="d-napomena" name="napomena" class="form-control" autocomplete="off">
-    </div>
-    {{if .Journal.Ovjeren}}
-    <div class="form-group">
-      <label class="form-label" for="d-razlog">Razlog ispravka *</label>
-      <input type="text" id="d-razlog" name="razlog" class="form-control" autocomplete="off" required>
-    </div>
-    {{end}}
-  </div>
-  <div class="form-actions">
-    <button type="submit" class="btn btn-primary">{{icon "check"}} Upiši u plan</button>
-    <span class="reading-meta">{{if .UpravaCentra}}Što uprava upiše potvrđeno je odmah.{{else}}Upis čeka potvrdu uprave centra; tek potvrđeno ulazi u obračun.{{end}}
-      Dežurstvo preko ponoći upišite s danom kraja; dulje od 36 sati kao više razmaka.</span>
-  </div>
-</form>
-{{end}}
-{{end}}
+{{define "scripts"}}<script src="{{statika "js/dnevnik-dani.js"}}" defer></script>{{end}}
