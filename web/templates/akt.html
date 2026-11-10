@@ -26,6 +26,11 @@
   <div><strong>Akt je poništen (storno):</strong> {{.Razlog}} Poništio {{.Ponistio}}, {{formatDate (localTime .PonistenoAt)}}. Poništen akt ne ulazi u stanje obrane; ako treba, ispravlja ga novi akt.</div>
 </div>
 {{end}}
+{{with .StornoOdbijen}}
+<div class="akt-traka" id="storno-odbijen">{{icon "triangle-alert"}}
+  <div>{{.}}{{with $.KasnijiAkt}} <a href="/akti/{{.ID}}">Otvori {{.Oznaka}}</a>{{end}}</div>
+</div>
+{{end}}
 {{if and $a.Ovjeren (eq .Potpis "NE_VRIJEDI")}}
 <div class="akt-traka">{{icon "triangle-alert"}}
   <div><strong>Elektronički potpis ne vrijedi.</strong> Sadržaj akta razlikuje se od ovjerenoga ili potpis nije ispravan; akt ne treba koristiti dok se ne provjeri.</div>
@@ -82,6 +87,19 @@
     <dl><dt>Razlog</dt><dd>{{.Razlog}}</dd><dt>Tko</dt><dd>{{.Ponistio}}</dd><dt>Kada</dt><dd>{{formatDate (localTime .PonistenoAt)}}</dd></dl>
     {{if $.SmijeSastavljati}}<a class="btn btn-secondary" href="{{$.NoviUmjestoPonistenog}}">Novi akt</a>{{end}}
     <p class="form-help mb-0">Akt ostaje u popisu, označen kao poništen. Ispravak ide novim aktom, a u njegovoj napomeni piše da zamjenjuje ovaj.</p>
+  </section>
+  {{end}}
+
+  {{if .SmijePonistiti}}
+  {{/* Poništavanje (crteži 4g i 4h): panel iz „Još”, otvara se sidrom. Dok je otvoren, slanje, poruka i „Još” se skrivaju.
+       Odbijeno poništenje vraća se ovamo s upisanim razlogom, a traka na vrhu kaže zašto. */}}
+  <section class="list-kartica akt-panel akt-storno" id="ponisti">
+    <h2>Poništi akt (storno)</h2>
+    <p class="form-help mt-0">Poništava se akt koji uopće nije trebao biti izdan; ispravak ide novim aktom. Poništava se najkasniji akt dionice. Poništenje se potpisuje ključem čvora i šalje s aktom ostalim čvorovima.</p>
+    <form method="POST" action="/akti/{{$a.ID}}/storno" onsubmit="return confirm('Poništiti akt {{$a.Oznaka}}? Akt ostaje u popisu, označen kao poništen, i ne ulazi u stanje obrane. Ovo je za akt koji uopće nije trebao biti izdan; ispravak ide novim aktom.');">
+      <div class="form-group list-polje">{{icon "pencil"}}<label class="form-label" for="razlog">Zašto se akt poništava</label><textarea id="razlog" name="razlog" class="form-control" rows="2" placeholder="upišite razlog" required>{{.RazlogStorna}}</textarea></div>
+      <div class="akt-storno-gumbi"><button type="submit" class="btn btn-secondary btn-opasno">Poništi akt</button><a href="/akti/{{$a.ID}}" class="btn btn-link">Odustani</a></div>
+    </form>
   </section>
   {{end}}
 
@@ -365,16 +383,11 @@
   </section>
   {{end}}
 
-  {{if .SmijePonistiti}}
-  <details class="list-kartica akt-ponisti">
-    <summary>{{icon "x"}} Poništi akt (storno)</summary>
-    <form method="POST" action="/akti/{{$a.ID}}/storno" class="mt-2" onsubmit="return confirm('Poništiti akt {{$a.Oznaka}}? Akt ostaje u popisu, označen kao poništen, i ne ulazi u stanje obrane. Ovo je za akt koji uopće nije trebao biti izdan; ispravak ide novim aktom.');">
-      <p class="form-help mt-0">Poništava se akt koji uopće nije trebao biti izdan; ispravak ide novim aktom. Poništava se najkasniji akt dionice; poništenje se potpisuje ključem čvora i šalje s aktom ostalim čvorovima.</p>
-      <label for="razlog" class="form-label">Zašto se akt poništava</label>
-      <textarea id="razlog" name="razlog" class="form-control" rows="2" required></textarea>
-      <button type="submit" class="btn btn-secondary btn-opasno mt-2">{{icon "x"}} Poništi akt</button>
-    </form>
-  </details>
+  {{if and $a.Ovjeren .SmijePonistiti}}
+  <nav class="list-kartica akt-jos" aria-label="Još">
+    <h2>Još</h2>
+    <a href="#ponisti" class="opasno">Poništi akt (storno) {{icon "chevron-right"}}</a>
+  </nav>
   {{end}}
 
   {{if .SmijeObrisatiTrajno}}
