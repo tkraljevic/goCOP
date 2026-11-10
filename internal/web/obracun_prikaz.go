@@ -22,8 +22,3 @@ func rasponDana(od, do string) string {
 	}
 	return a.Format("2. 1. 2006.") + " – " + kraj
 }
-
-// danKratko je dan na kartici IORS-a, „pon 26. 10. 2026.”
-func danKratko(t time.Time) string {
-	return daniUTjednuKratko[t.Weekday()] + " " + t.Format("2. 1. 2006.")
-}

@@ -38,7 +38,7 @@
     {{range .IORS.Redovi}}
     <article class="iors-dan{{if not .UObracunu}} iors-ceka{{end}}">
       <div class="iors-dan-glava">
-        <div class="iors-dan-datum">{{danKratko .Dan}}</div>
+        <div class="iors-dan-datum">{{danKratko .Dan}} {{.Dan.Format "2. 1. 2006."}}</div>
         <div class="iors-dan-vrijeme mono">{{.Od.Format "15:04"}} – {{if eq (.Do.Format "15:04") "00:00"}}24:00{{else}}{{.Do.Format "15:04"}}{{end}}</div>
         <div class="iors-dan-ukupno mono"><strong>{{sati .Ukupno}} h</strong></div>
       </div>

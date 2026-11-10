@@ -2,9 +2,6 @@ package web
 
 import (
 	"testing"
-	"time"
-
-	"gocop/internal/models"
 )
 
 // Razdoblje i dan na obračunu i IORS-u pišu se kao na crtežu: godina jednom
@@ -18,8 +15,5 @@ func TestRasponDanaIDanKratko(t *testing.T) {
 		if r := rasponDana(s.od, s.do); r != s.isto {
 			t.Errorf("rasponDana(%q, %q) = %q, a mora %q", s.od, s.do, r, s.isto)
 		}
-	}
-	if d := danKratko(time.Date(2026, 10, 26, 0, 0, 0, 0, models.Zagreb)); d != "pon 26. 10. 2026." {
-		t.Errorf("danKratko = %q", d)
 	}
 }
