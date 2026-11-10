@@ -7,7 +7,7 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 ## 0.0.55-alfa — 10. 11. 2026.
 
 Dokumenti su u novom izgledu, od vodočuvarskog dnevnika i prijava s terena do
-akata. Akt je uvijek za jedno branjeno područje, a poništen akt više se ne
+akata, dnevnika COP-a, dnevnih izvješća i dnevnika usluga. Akt je uvijek za jedno branjeno područje, a poništen akt više se ne
 šalje. Gdje Hrvatske vode više ne daju protok, goCOP ga računa sam. Baza i
 razmjena se ne mijenjaju. Računala na kojima se sastavljaju i šalju akti
 treba nadograditi prva, a ostala kad odgovara.
@@ -20,6 +20,26 @@ treba nadograditi prva, a ostala kad odgovara.
   su kartice. Prijave s terena imaju novi popis, obrazac s kartom na vrhu i
   stranicu prijave u dva stupca. Stanje lista piše se „čeka ovjeru” i
   „ovjeren”. Imena polja, adrese i prava su ista kao prije.
+- **Dnevnik COP-a, novi izgled.** Stranica sektora ima čipove sektora i traku
+  aktivne obrane s otvorenim dnevnikom i onim tko dežura. U preventivnoj obrani
+  voditelj i zamjenik centra imaju gumb „Otvori dnevnik COP-a”, a raniji
+  dnevnici su tablica sa stanjem. Zapisi, plan dežurstava i obračun sati imaju
+  isto zaglavlje i kartice. Zapisi su složeni po danima: najnoviji dan je
+  otvoren, stariji su sklopljeni, a unos je jedan redak na dnu, na mobitelu
+  gore. U planu dežurstava najnovije dežurstvo stoji prvo, a „Dodaj dežurstvo”
+  otvara obrazac iznad popisa. Obrazac zaglavlja, obračun sati i IORS osobe su
+  u karticama.
+- **Dnevna izvješća, novi izgled.** Popis ima kartice Dan i Svi i čipove
+  sektora. Svi je jedan popis izvješća dionica i sektora, noviji dan prvi, a
+  Dan pokazuje jedan dan sa strelicama, izvješćem sektora i izvješćima dionica.
+  Izvješće dionice i izvješće sektora imaju isto zaglavlje sa stupnjem i
+  stanjem predaje, a odjeljci su kartice redom Privitka 4. Brojke ljudi i
+  strojeva su pločice, a nula se piše kao „—”. Obrasci obaju izvješća su u
+  karticama, s kraćim natpisima polja, a puni tekst Privitka 4 stoji uz polje
+  kao pomoć. Stupanj se piše punim nazivom, ne kraticom.
+- **Dnevnici usluga, novi izgled.** Popis i stranica dnevnika usluga A.02 i
+  A.03 su po crtežu. Rekonstrukcija je u boji upozorenja, uz list piše
+  temperatura, a nalozi i listovi su na mobitelu kartice.
 - **Akti, novi izgled.** Popis Rješenja i obavijesti ima čipove sektora i
   stanja, a redak otvara akt. Novi akt je jedna stranica: uz letvu je kartica sa
   zadnjim vodostajem i pragovima, a promjena letve ne briše radnju, stupanj,
@@ -33,6 +53,10 @@ treba nadograditi prva, a ostala kad odgovara.
   ostali su pod „Još”. Poništavanje je također u „Još”. Kad ga program odbije
   jer poslije akta vrijedi kasniji akt, upisani razlog ostaje, a traka nudi da
   se otvori kasniji akt.
+- **Akt na mobitelu.** Mobitel više ne pokazuje cijeli papir akta, sitan i
+  dug. Ovjera ili slanje su na vrhu, a ispod njih kartica s letvom i
+  vodostajem, područjem, dionicama, danom, potpisnikom i ovjerom te gumbom
+  „Otvori PDF”. Tekst nacrta ispravlja se na računalu.
 - **Novi akt umjesto poništenog.** Na poništenom aktu je gumb Novi akt, a novi
   akt u napomeni kaže koji akt zamjenjuje.
 - **Novi akt u preventivnoj obrani.** Kad sektor nema otvoren dnevnik COP-a,
@@ -52,6 +76,12 @@ treba nadograditi prva, a ostala kad odgovara.
   na obje adrese.
 - **Očitanja.** Popis uz letvu stiže brže i stranica letve više ne skače kad se
   popis učita.
+- **Vidi se da program radi.** Filtri koji se šalju čim se promijeni izbor i
+  listanje popisa pokazuju traku pri vrhu. Gumbi koji znaju potrajati, kao
+  razmjena s jednim računalom, pretraga lokalne mreže, uparivanje, učitavanje
+  geometrije iz datoteke te „Uredi” i „Spremi” na Karti, pokazuju da čekaju.
+  Greška pri učitavanju granica i naselja na karti, bočnog popisa očitanja te
+  općina i naselja u obrascu dionice više ne prolazi bez poruke.
 - **Protok iz naše krivulje.** Od 6. 11. 2026. Hrvatske vode za neke postaje
   na Muri i Dravi daju vodostaj bez protoka. goCOP tada protok izračuna
   krivuljom iz arhive i uz očitanje piše da je protok izračunat. Očitanja od
