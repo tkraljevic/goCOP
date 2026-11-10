@@ -205,13 +205,17 @@
   function ucitajPodrucje(karta, okvir, slojevi, kljuc) {
     if (ucitavaPodrucje[kljuc] || !okvir.dataset.podrucja) return;
     ucitavaPodrucje[kljuc] = true;
+    var gotovo = window.odziv.traka();
     fetch(okvir.dataset.podrucja + kljuc + '.geojson', { credentials: 'same-origin' }).then(function (r) {
-      return r.ok ? r.json() : null;
+      if (!r.ok) throw new Error(r.status);
+      return r.json();
     }).then(function (z) {
-      if (!z) return;
       slojevi[kljuc] = slojPodrucja(kljuc, z);
       primijeniSlojeve(karta, okvir, slojevi);
-    }).catch(function () {}).then(function () { ucitavaPodrucje[kljuc] = false; });
+    }).catch(function () {
+      // kvačica ostaje, pa se sloj učita idući put kad se promijeni prikaz
+      if (window.showToast) window.showToast('Granice nisu učitane. Provjerite vezu i uključite sloj ponovno.');
+    }).then(function () { gotovo(); ucitavaPodrucje[kljuc] = false; });
   }
 
   // prekidač skupine je uključen kad su svi njezini slojevi, a napola kad su neki

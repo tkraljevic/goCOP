@@ -7764,6 +7764,69 @@ button.karta-nedostaje-ucrtaj { padding: 0; border: 0; background: none; font-fa
   .karta-stranica { height: calc(100dvh - var(--vrh-visina, 64px) - var(--donja-visina, 80px)); }
 }
 
+/* ── Dnevnik COP-a: plan dežurstava ─────────────────────────────────────────
+   „Dodaj dežurstvo” je gumb koji otvara obrazac iznad popisa; popis je
+   tablica s recima kao karticama, najnovije dežurstvo prvo. Na mobitelu je
+   svako dežurstvo jedna kartica. */
+.plan-dodaj { margin-bottom: 16px; }
+.plan-dodaj > summary { list-style: none; }
+.plan-dodaj > summary::-webkit-details-marker { display: none; }
+.plan-dodaj-gumb { display: flex; width: fit-content; margin-left: auto; }
+.plan-dodaj[open] > .plan-dodaj-gumb { display: none; }
+.plan-obrazac { padding: 16px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px; background: var(--md-sys-color-surface-container-low); }
+.plan-obrazac-naslov { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 1rem; font-weight: 400; color: var(--md-sys-color-on-surface); }
+.plan-obrazac-naslov .icon { width: 20px; height: 20px; margin: 0; }
+.plan-polja { display: grid; gap: 12px; margin-bottom: 12px; }
+.plan-polja .form-group { margin: 0; min-width: 0; }
+.plan-polja-tri { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.plan-polja-vrijeme { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr) minmax(0, 2fr); }
+.plan-polja-vrijeme:has(#d-razlog) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.plan-radnje { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.plan-radnje .reading-meta { flex: 1 1 280px; }
+.plan-tablica td { vertical-align: top; }
+.plan-kad { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.plan-tablica td:nth-child(2) .reg-card-sub { display: block; }
+.plan-od-mob, .plan-mjesto-mob { display: none; }
+.plan-tablica .dezurstvo-ispravak > summary { padding: 0; font-size: 0.875rem; color: var(--md-sys-color-primary); }
+.plan-tablica .dezurstvo-ispravak[open] > summary { margin-bottom: 4px; }
+.plan-tablica .badge { font-weight: 400; }
+.plan-makni { padding: 0; min-height: 0; font-size: 0.875rem; }
+.plan-potvrdi { border-radius: 20px; }
+.plan-napomena { margin-top: 12px; font-size: 0.75rem; }
+@media (max-width: 899px) {
+  .plan-polja-tri, .plan-polja-vrijeme, .plan-polja-vrijeme:has(#d-razlog) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 599px) {
+  .plan-dodaj-gumb { width: 100%; justify-content: center; min-height: 48px; border-radius: 24px; }
+  .plan-polja-tri, .plan-polja-vrijeme, .plan-polja-vrijeme:has(#d-razlog) { grid-template-columns: minmax(0, 1fr); }
+  .plan-radnje .btn { flex: 1 1 100%; min-height: 48px; }
+  .cop-okvir.plan-okvir { padding: 0; border: 0; background: none; }
+  table.plan-tablica, table.plan-tablica tbody { display: block; border-spacing: 0; margin: 0; }
+  .plan-tablica thead { display: none; }
+  table.plan-tablica tr {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; margin-bottom: 12px; padding: 12px;
+    border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px; background: var(--md-sys-color-surface-container-low);
+    grid-template-areas: "tko potvrda" "vrijeme vrijeme" "za za" "opis opis" "gumb gumb" "radnje radnje";
+  }
+  table.plan-tablica td, table.plan-tablica tbody tr:hover td { display: block; padding: 0; border: 0; background: none; border-radius: 0; }
+  .plan-tablica td:nth-child(1), .plan-tablica td:nth-child(6) { display: none; }
+  .plan-tablica td:nth-child(2) { grid-area: vrijeme; white-space: normal; }
+  .plan-tablica td:nth-child(2) .reg-card-sub { display: inline; font-size: inherit; }
+  .plan-tablica td:nth-child(3) { grid-area: tko; font-weight: 500; }
+  .plan-tablica td:nth-child(4) { grid-area: za; font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); }
+  .plan-tablica td:nth-child(4)::before { content: "za: "; }
+  .plan-tablica td:nth-child(5) { grid-area: opis; }
+  .plan-tablica td:nth-child(7) { grid-area: potvrda; justify-self: end; max-width: 55vw; text-align: right; }
+  .plan-tablica td:nth-child(7) .badge { white-space: normal; }
+  .plan-tablica td:nth-child(7):has(form) { grid-area: gumb; justify-self: stretch; max-width: none; margin-top: 8px; }
+  .plan-tablica td:nth-child(7):has(form) form { display: block; }
+  .plan-tablica td:nth-child(7):has(form) .btn { width: 100%; min-height: 48px; }
+  .plan-tablica td:nth-child(8) { grid-area: radnje; margin-top: 4px; }
+  .plan-tablica td:nth-child(8):empty { display: none; }
+  .plan-od-mob, .plan-mjesto-mob { display: inline; }
+  .plan-tablica .dezurstvo-ispravak { margin-top: 8px; }
+}
+
 /* ── Odziv na klik (js/odziv.js) ─────────────────────────────────────────────
    Pritisnuti gumb odmah vrti, traka pri vrhu javi se kad učitavanje potraje,
    a poruka dolje kad odgovor dugo ne stiže. Bez prekrivanja cijelog zaslona. */
@@ -7785,6 +7848,8 @@ button.karta-nedostaje-ucrtaj { padding: 0; border: 0; background: none; font-fa
 .odziv-poruka[hidden] { display: none; }
 @media (max-width: 599px) { .odziv-poruka { bottom: calc(var(--donja-visina, 80px) + 12px); } }
 .odziv-ceka { pointer-events: none; opacity: 0.7; }
+/* popis koji se lista bez nove stranice blijedi dok ne stigne sljedeća */
+[data-listanje][aria-busy="true"] { opacity: 0.55; transition: opacity 0.15s; }
 .odziv-salje { opacity: 1; cursor: progress; }
 .odziv-salje::before {
   content: ""; flex: none; display: inline-block; width: 1em; height: 1em; margin-right: 0.5em; vertical-align: -0.15em;

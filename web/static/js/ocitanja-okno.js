@@ -37,7 +37,9 @@
     if (!okno) return;
     var siroko = window.matchMedia(SIROKO);
 
-    function ucitaj(qs) {
+    // ucitaj puni popis; rukom (čip, pretraga) uz traku i poruku kad ne uspije
+    function ucitaj(qs, rukom) {
+      var gotovo = rukom ? window.odziv.traka() : function () {};
       var p = new URLSearchParams(qs);
       p.set('okno', '1');
       p.set('odabrana', okno.dataset.oknoPopisa);
@@ -55,7 +57,8 @@
       }).catch(function () {
         // bez popisa letva radi kao i prije; već učitan popis ostaje
         if (!okno.firstElementChild) okno.hidden = true;
-      });
+        else if (rukom && window.showToast) window.showToast('Popis nije osvježen. Provjerite vezu i pokušajte ponovno.');
+      }).then(gotovo);
     }
 
     // čipovi i pretraga u popisu uz letvu mijenjaju samo popis, letva ostaje
@@ -65,7 +68,7 @@
       e.preventDefault();
       var qs = bezStranice((a.getAttribute('href').split('?')[1]) || '');
       zapamti(qs);
-      ucitaj(qs);
+      ucitaj(qs, true);
     });
     okno.addEventListener('submit', function (e) {
       var f = e.target.closest('form.ocitanja-trazi');
@@ -73,7 +76,7 @@
       e.preventDefault();
       var qs = bezStranice(new URLSearchParams(new FormData(f)).toString());
       zapamti(qs);
-      ucitaj(qs);
+      ucitaj(qs, true);
     });
 
     function provjeri() {
