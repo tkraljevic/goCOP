@@ -40,13 +40,19 @@ func adresaSIzborom(staza string, izbor url.Values) string {
 // godinu, a područje briše, jer područje pripada sektoru koji se upravo mijenja.
 func cipoviSektoraStranice(staza string, sektori []models.Sector, izabran string, q url.Values) []CipPopisa {
 	osnova := zadrziParametre(q, "q", "stupanj", "radnja", "status", "godina")
+	return cipoviSektoraPo(staza, "sektor", osnova, sektori, izabran)
+}
+
+// cipoviSektoraPo su čipovi sektora koji sektor nose u parametru ime, uz
+// stalni dio adrese osnova (dnevnik COP-a sektor bira parametrom centar).
+func cipoviSektoraPo(staza, ime string, osnova url.Values, sektori []models.Sector, izabran string) []CipPopisa {
 	out := []CipPopisa{{Naziv: "Svi", URL: adresaSIzborom(staza, osnova), Odabran: izabran == ""}}
 	for _, s := range sektori {
 		if s.ID == "DIREKCIJA" {
 			continue
 		}
 		izbor := maps.Clone(osnova)
-		izbor.Set("sektor", s.ID)
+		izbor.Set(ime, s.ID)
 		naziv := s.ID
 		// Sektor bez opisa u nazivu („Sektor B”) ima samo oznaku.
 		if ime := imeSektora(s); ime != "" && !strings.HasPrefix(ime, "Sektor "+s.ID) {

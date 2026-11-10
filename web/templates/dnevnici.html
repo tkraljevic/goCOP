@@ -3,6 +3,10 @@
 {{define "title"}}goCOP — Dnevnici{{end}}
 
 {{define "content"}}
+{{if .StranicaCOP}}{{template "dnevnici_cop" .}}{{else}}{{template "dnevnici_popis" .}}{{end}}
+{{end}}
+
+{{define "dnevnici_popis"}}
 <div class="breadcrumb"><a href="/dnevnici">Dokumenti</a> › {{vrstaDnevnika .Vrsta}}</div>
 
 <div class="page-header">
@@ -11,8 +15,6 @@
     <p class="page-desc">
       {{if eq .Vrsta "DEZURSTVA"}}Tko dežura kad, i što radi: u centru, na terenu, u uredu. Plan stoji uz dnevnik
       COP-a jer traje koliko i obrana; isti zapisi poslije daju obračun sati.
-      {{else if eq .Vrsta "OBRANA"}}Dežurstvo centra obrane od poplava. Upisuju ga operateri dok traje obrana:
-      vrijeme, tko javlja i što. Teče danima, bez izvođača i nadzora.
       {{else if eq .Vrsta "ODRZAVANJE_A02"}}Održavanje voda I. i II. reda. Vodi ga izvođač svaki dan, a nadzire
       ovlaštenik za praćenje ugovora. Dok ovlaštenika nema, nadzire uprava područja ili sektora.
       {{else if eq .Vrsta "ODRZAVANJE_A03"}}Održavanje kanala III. i IV. reda. Isti oblik kao A.02, druga usluga
@@ -20,18 +22,16 @@
       {{else}}Sve vrste dnevnika.{{end}}
     </p>
   </div>
-  {{if eq .Vrsta "OBRANA"}}
-  {{if .CentriZaOtvaranje}}<a href="/dnevnici/novi-cop{{if .Centar}}?centar={{.Centar}}{{end}}" class="btn btn-primary">{{icon "plus"}} Novi dnevnik COP-a</a>{{end}}
-  {{else if and .Area .CanManage}}
+  {{if and .Area .CanManage}}
   <a href="/dnevnici/new?area={{.Area.ID}}{{if .Vrsta}}&kind={{.Vrsta}}{{end}}" class="btn btn-primary">{{icon "plus"}} Novi dnevnik</a>
   {{end}}
 </div>
 
 
-{{if and (or (eq .Vrsta "OBRANA") (eq .Vrsta "DEZURSTVA")) .Centri}}
+{{if and (eq .Vrsta "DEZURSTVA") .Centri}}
 <div class="filter-card">
   <form action="/dnevnici/popis" method="GET">
-    <input type="hidden" name="vrsta" value="OBRANA">
+    <input type="hidden" name="vrsta" value="DEZURSTVA">
     <div class="filters-row stupci-20">
       <div class="filter-group">
         <label class="filter-label" for="centar">{{icon "activity"}} Centar obrane</label>
@@ -92,8 +92,72 @@
   {{else}}
   <div class="reg-empty">
     {{if eq .Vrsta "DEZURSTVA"}}Nema plana dežurstava koji vidite. Plan se otvara s dnevnikom COP-a, a vide ga uprava i djelatnici sektora tog centra.
-    {{else if eq .Vrsta "OBRANA"}}Još nema nijednog dnevnika COP-a.{{if .CentriZaOtvaranje}} Otvara se kad počne dežurstvo, gumbom „Novi dnevnik COP-a“.{{end}}{{else if .Area}}U području {{.Area.Name}} još nema dnevnika te vrste.{{if .CanManage}} Otvorite ga gumbom „Novi dnevnik“ i popunite naslovnicu.{{end}}{{else}}Nema područja.{{end}}
+    {{else if .Area}}U području {{.Area.Name}} još nema dnevnika te vrste.{{if .CanManage}} Otvorite ga gumbom „Novi dnevnik“ i popunite naslovnicu.{{end}}{{else}}Nema područja.{{end}}
   </div>
   {{end}}
 </div>
+{{end}}
+
+{{/* Stranica sektora dnevnika COP-a (crtež 5g i 5d). Otvoren dnevnik znači
+   aktivnu obranu sektora, a bez njega je preventivna (Odluke (6. 11. 2026.)). */}}
+{{define "dnevnici_cop"}}
+{{$st := .StranicaCOP}}
+<a href="/dnevnici" class="povratna-poveznica">← Dokumenti</a>
+<div class="page-header list-glava akti-glava">
+  <div>
+    <h1 class="page-title" data-naziv-stranice>Dnevnik COP-a</h1>
+    <p class="page-desc">Dežurstvo centra obrane od poplava. Upisuju ga operateri dok traje obrana: vrijeme, tko javlja i što.</p>
+  </div>
+</div>
+
+{{/* Na računalu i tabletu čipovi, na mobitelu polje s istim poveznicama. */}}
+<div class="ocitanja-cipovi cipovi-stranice akti-sektori" role="group" aria-label="{{term "sektor"}}">
+  {{range $st.Cipovi}}<a class="ocitanja-cip" href="{{.URL}}" aria-pressed="{{if .Odabran}}true{{else}}false{{end}}">{{.Naziv}}</a>{{end}}
+</div>
+<details class="ocitanja-izbor akti-sektor-polje">
+  <summary><span class="akti-sektor-natpis">{{term "sektor"}}</span><span class="akti-sektor-izbor">{{range $st.Cipovi}}{{if .Odabran}}{{.Naziv}}{{end}}{{end}}</span>{{icon "chevron-down"}}</summary>
+  <div class="ocitanja-izbornik" role="menu">
+    {{range $st.Cipovi}}<a role="menuitemradio" aria-checked="{{if .Odabran}}true{{else}}false{{end}}" href="{{.URL}}">{{.Naziv}}</a>{{end}}
+  </div>
+</details>
+
+{{range $st.Aktivni}}
+<div class="cop-traka">
+  {{icon "shield"}}
+  <div class="cop-traka-tekst">
+    <strong>{{term "sektor"}} {{.CentarSektor}}: aktivna obrana</strong>
+    <span>{{.DisplayTitle}}{{with .Pocetak}} · od {{.}}{{end}}{{if .Dana}} · {{.Dana}} {{uzBroj .Dana "dan" "dana" "dana"}}{{end}}{{if .NetkoDezura}} · dežura {{.DezurniIme}}{{end}}</span>
+  </div>
+  <a class="btn btn-primary" href="/dnevnici/{{.ID}}">Otvori dnevnik</a>
+</div>
+{{else}}
+<section class="list-kartica akt-preventivna cop-preventivna">
+  <h2>{{icon "shield"}} {{if $st.Sektor}}{{term "sektor"}} {{$st.Sektor}}{{else}}Svi sektori{{end}}: preventivna obrana</h2>
+  <p>Nema otvorenog dnevnika COP-a, pa se stupnjevi ne proglašavaju. Otvoreni dnevnik znači da je {{terml "sektor"}} u aktivnoj obrani i da se stupnjevi smiju proglašavati.</p>
+  {{if $st.Otvara}}<div class="akt-preventivna-gumbi"><a class="btn btn-primary" href="/dnevnici/novi-cop{{if $st.Sektor}}?centar={{$st.Sektor}}{{end}}">Otvori dnevnik COP-a</a></div>{{end}}
+</section>
+{{end}}
+{{/* Program dopušta i drugi otvoren dnevnik sektora (nova godina prije zaključenja stare). */}}
+{{if and $st.Aktivni $st.Otvara}}<div class="cop-jos-jedan"><a class="btn btn-link" href="/dnevnici/novi-cop{{if $st.Sektor}}?centar={{$st.Sektor}}{{end}}">{{if $st.Sektor}}Otvori još jedan dnevnik COP-a{{else}}Otvori dnevnik COP-a{{end}}</a></div>{{end}}
+
+<section class="cop-okvir">
+  <h2>{{if $st.Sektor}}Raniji dnevnici · {{term "sektor"}} {{$st.Sektor}}{{else}}Raniji dnevnici{{end}}</h2>
+  {{if $st.Raniji}}
+  <table class="data-table kartice-na-mobitelu cop-tablica">
+    <thead><tr><th>Dnevnik</th><th>Razdoblje</th><th>Dani</th><th>Stanje</th></tr></thead>
+    <tbody>
+    {{range $st.Raniji}}
+    <tr>
+      <td><a class="ap-poveznica" href="/dnevnici/{{.ID}}">{{.DisplayTitle}}</a>{{if not $st.Sektor}} <span class="ap-pod">{{if .CentarNaziv}}{{.CentarNaziv}}{{else}}{{term "sektor"}} {{.CentarSektor}}{{end}}</span>{{end}}</td>
+      <td data-stupac="Razdoblje">{{.Razdoblje}}</td>
+      <td data-stupac="Dani">{{if .Dana}}{{.Dana}}{{else}}—{{end}}</td>
+      <td data-stupac="Stanje"><span class="oznaka-stanja{{if .Reconstruction}} pozor{{end}}">{{.StanjeCOP}}</span></td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="cop-prazno">{{if $st.Aktivni}}Ranijih dnevnika nema.{{else}}Još nema nijednog dnevnika COP-a.{{end}}</p>
+  {{end}}
+</section>
 {{end}}
