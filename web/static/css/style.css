@@ -9002,6 +9002,37 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
   .cop-ovjera-obrazac .form-control, .cop-ovjera-obrazac .btn { flex: 1 1 100%; }
 }
 
+/* ── Dnevna izvješća: kartice Dan i Svi ─────────────────────────────────────
+   Čipovi sektora, izvješće sektora za dan kao kartica, a izvješća dionica i
+   sektora u jednoj tablici s recima kao karticama. */
+.izv-kartice { margin-bottom: 16px; }
+.izv-kartice .kartica-stranice { flex: 0 0 auto; min-width: 140px; }
+.izv-glava + .alert { margin-top: 0; }
+.izv-dan-traka { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin: 0 0 16px; }
+.izv-dan-izbor { display: flex; align-items: center; gap: 4px; margin: 0; }
+.izv-dan-izbor .form-control { width: auto; }
+.izv-strelica { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 20px; color: var(--md-sys-color-on-surface-variant); }
+.izv-strelica:hover { background: var(--surface-hover); }
+.izv-strelica .icon { width: 20px; height: 20px; margin: 0; }
+.izv-karta-sektora { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.izv-karta-tekst { display: flex; flex: 1 1 280px; flex-direction: column; min-width: 0; }
+.izv-karta-tekst strong { font-size: 1rem; font-weight: 400; line-height: 24px; }
+.izv-karta-sektora form { margin: 0; }
+.izv-filtri { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 0 0 16px; }
+.izv-filtri .izv-trazi { margin: 0; }
+.izv-okvir > h2 { margin: 0 0 4px; font-size: 1rem; font-weight: 400; line-height: 24px; color: var(--md-sys-color-on-surface); }
+.izv-tablica .threshold-pill { white-space: nowrap; }
+.izv-tablica a { color: var(--md-sys-color-primary); text-decoration: none; }
+.izv-tablica a:hover { text-decoration: underline; }
+.izv-sektor td[data-stupac="Dionica"] .reg-card-sub { display: block; }
+.izv-tablica td[data-stupac="Dan"] a, .izv-tablica td[data-stupac="Dionica"] a { white-space: nowrap; }
+@media (max-width: 599px) {
+  .izv-kartice .kartica-stranice { flex: 1 0 auto; min-width: 0; }
+  .izv-karta-sektora .btn, .izv-karta-sektora form { width: 100%; }
+  .izv-karta-sektora .btn { min-height: 48px; }
+  .izv-filtri .izv-trazi { display: grid; width: 100%; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto auto auto; grid-auto-flow: column; gap: 4px 12px; }
+  .izv-filtri .izv-trazi .form-control { width: 100%; max-width: none; }
+  .izv-filtri .izv-trazi .btn { grid-column: 1 / -1; grid-row: 3; min-height: 48px; margin-top: 8px; }
 /* ── Dnevnik COP-a: obrazac zaglavlja i otvaranja ─────────────────────────── */
 .cop-obrazac { max-width: 1104px; }
 .cop-obrazac-kartica > h2 { margin: 0 0 12px; font-size: 1rem; font-weight: 400; line-height: 24px; color: var(--md-sys-color-on-surface); }

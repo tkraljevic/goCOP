@@ -149,7 +149,7 @@ func TestDnevnaIzvjescaKrozRute(t *testing.T) {
 	if iz, _ := svc.Get(context.Background(), id); !iz.Predano() || iz.Sadrzaj.Poplavljeno.SumskeHa != 12.5 || iz.Sadrzaj.Poplavljeno.PoljoprivredneHa != 1500 || iz.Sadrzaj.Poplavljeno.OstaleHa != 0.25 {
 		t.Errorf("nakon obrasca poslanog natrag: predano %v, površine %+v", iz.Predano(), iz.Sadrzaj.Poplavljeno)
 	}
-	mora(zovi(http.MethodGet, "/izvjesca?dionica=B.16.3", nil), http.StatusOK, "popis poslije", "B.16.3", "Dunav", ">R<", "predano")
+	mora(zovi(http.MethodGet, "/izvjesca?dionica=B.16.3", nil), http.StatusOK, "popis poslije", "B.16.3", "Dunav", ">Redovna obrana<", "predano")
 
 	// Izvoz je valjana .xlsx datoteka s obrascem.
 	w = zovi(http.MethodGet, "/izvjesca/"+id+"/izvjesce.xlsx", nil)
@@ -300,7 +300,7 @@ func TestSektorskoIzvjesceKrozRute(t *testing.T) {
 	}
 
 	// popis nudi sastavljanje; obrazac nudi oba izvješća (nacrt neoznačen) i zapis
-	mora(zovi(http.MethodGet, "/izvjesca", nil), http.StatusOK, "popis", "Izvješće sektora", `action="/sektorsko-izvjesce/novo"`, "Sastavi za dan", "Još nema izvješća sektora")
+	mora(zovi(http.MethodGet, "/izvjesca", nil), http.StatusOK, "popis", "Izvješće sektora", `action="/sektorsko-izvjesce/novo"`, "Sastavi za dan", "nije sastavljeno")
 	w := zovi(http.MethodGet, "/sektorsko-izvjesce/novo?sektor=B&dan="+danas, nil)
 	mora(w, http.StatusOK, "obrazac", `value="`+iz1.ID+`" checked`, `value="`+iz2.ID+`">`, "Procjeđivanje kod Zmajevca.", "vodočuvar", "Baranja — B.16.1 (Dunav): Procjeđivanje", "[vreće 1 800]")
 	zapisID := ""
@@ -330,6 +330,16 @@ func TestSektorskoIzvjesceKrozRute(t *testing.T) {
 	mora(zovi(http.MethodGet, "/sektorsko-izvjesce/"+id+"/uredi", nil), http.StatusOK, "uređivanje", "Kiša na cijelom sektoru.", `value="`+iz2.ID+`" checked`, `value="`+zapisID+`" checked`)
 	mora(zovi(http.MethodPost, "/sektorsko-izvjesce/"+id+"/predaj", url.Values{}), http.StatusSeeOther, "predaja")
 	mora(zovi(http.MethodGet, "/izvjesca", nil), http.StatusOK, "popis poslije", `href="/sektorsko-izvjesce/`+id+`"`, "predano")
+	// kartica Dan: izvješće sektora toga dana i izvješća dionica, s danom prije
+	mora(zovi(http.MethodGet, "/izvjesca?prikaz=dan&dan="+danas, nil), http.StatusOK, "dan", `aria-current="page">Dan<`,
+		"Izvješće sektora B", `href="/sektorsko-izvjesce/`+id+`"`, "B.16.1", "B.16.2", "Rok 08:00", "Dan prije")
+	// samo izvješća dionica: redak sektora otpada
+	if b := zovi(http.MethodGet, "/izvjesca?vrsta=dionice", nil).Body.String(); strings.Contains(b, `class="izv-sektor"`) || !strings.Contains(b, "B.16.2") {
+		t.Error("čip Dionice ne skriva izvješće sektora")
+	}
+	if b := zovi(http.MethodGet, "/izvjesca?vrsta=sektor", nil).Body.String(); !strings.Contains(b, `class="izv-sektor"`) || strings.Contains(b, `href="/izvjesca/`+iz2.ID+`"`) {
+		t.Error("čip Sektor ne skriva izvješća dionica")
+	}
 
 	w = zovi(http.MethodGet, "/sektorsko-izvjesce/"+id+"/izvjesce.xlsx", nil)
 	if w.Code != http.StatusOK || !strings.Contains(w.Header().Get("Content-Disposition"), "dnevno-izvjesce-sektor-B-"+danas) {
