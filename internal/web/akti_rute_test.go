@@ -277,7 +277,10 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	if strings.Contains(spojeno, "Vatrogasna zajednica") || strings.Contains(spojeno, "Stožer") {
 		t.Error("vatrogasci ne idu na akt, a stožer tek od izvanrednog stanja")
 	}
-	mora(zovi(http.MethodGet, putanja, nil), "nacrt", `class="oznaka-stanja nacrt">nacrt</span>`, "NACRT", "RJEŠENJE", "izvanredne obrane od poplava", "652 cm", "s tendencijom daljnjeg porasta", "B.34.1", "Zeleni otok", "Ovjeri", "Obriši nacrt", "ožujak 2025.", "članka XXIV", "Ispravi tekst nacrta")
+	mora(zovi(http.MethodGet, putanja, nil), "nacrt", `class="oznaka-stanja nacrt">nacrt</span>`, "NACRT", "RJEŠENJE", "izvanredne obrane od poplava", "652 cm", "s tendencijom daljnjeg porasta", "B.34.1", "Zeleni otok", "Ovjeri", "Obriši nacrt", "ožujak 2025.", "članka XXIV", "Ispravi tekst nacrta",
+		// na mobitelu sažetak umjesto papira, a tekst nacrta se ispravlja na računalu
+		`class="list-kartica akt-sazetak"`, "Ovo je sažetak. Puni tekst, na papiru, je u PDF-u.", " · NACRT</p>", "<dd>B.34.1",
+		"Tekst nacrta ispravlja se na računalu.")
 	// ploča nacrta (crteži 4, 4k i 4e): kartica Ovjera kaže tko ovjerava, a ispis i sken,
 	// ispravak teksta i brisanje su paneli koji se otvaraju iz „Još”
 	mora(zovi(http.MethodGet, putanja, nil), "ploča nacrta", `<section class="list-kartica akt-ovjera" id="ovjera">`,
@@ -438,7 +441,8 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	if d, _ := akti.Get(ctx, id4); d == nil || d.Broj != 2 {
 		t.Errorf("drugi ovjereni akt u godini bi trebao imati broj 2: %+v", d)
 	}
-	mora(zovi(http.MethodGet, "/akti/"+id4, nil), "ovjeren prekid", "Poništi akt (storno)", `href="#ponisti"`, `id="ponisti"`)
+	mora(zovi(http.MethodGet, "/akti/"+id4, nil), "ovjeren prekid", "Poništi akt (storno)", `href="#ponisti"`, `id="ponisti"`,
+		"Ovjereno u goCOP-u: ", "Isti kod stoji na PDF-u.</p>\n  <p class=\"form-help mb-0\">Ovo je sažetak.")
 
 	// raniji akt se ne poništava dok poslije njega vrijedi prekid (crtež 4h):
 	// panel ostaje otvoren s upisanim razlogom, a traka nudi kasniji akt
@@ -453,7 +457,8 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	if w := zovi(http.MethodPost, "/akti/"+id4+"/storno", url.Values{"razlog": {"prekid je ovjeren prerano"}}); !strings.Contains(w.Header().Get("Location"), "success=") {
 		t.Fatalf("storno kroz rutu: %s", w.Header().Get("Location"))
 	}
-	mora(zovi(http.MethodGet, "/akti/"+id4, nil), "poništen akt", "poništen", "Akt je poništen (storno):", "prekid je ovjeren prerano")
+	mora(zovi(http.MethodGet, "/akti/"+id4, nil), "poništen akt", "poništen", "Akt je poništen (storno):", "prekid je ovjeren prerano",
+		`<p class="akt-sazetak-naslov">PONIŠTEN · Rješenje o prekidu`)
 	mora(zovi(http.MethodGet, "/akti", nil), "popis s poništenim", "poništen")
 	novoUmjesto(t, akti, id4, zovi, mora)
 	if e, _ := episodes.Open(ctx, "B.34.1"); e == nil || e.Phase != models.PhaseEmergency {
