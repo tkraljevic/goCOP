@@ -511,7 +511,7 @@ func TestDnevnikCOPPokazujeZapisePoDanima(t *testing.T) {
 	}
 	html := iscrtaj(t, "dnevnik_cop.html", d)
 	for _, want := range []string{
-		"Ponedjeljak 29.6.2009.", "07:15", "Marko Marić", "vodostaj Batina",
+		"pon 29. 6. 2009.", "07:15", "Marko Marić", "vodostaj Batina",
 		"Ana Anić", "zapis-smjena", "Prijepis iz uveza",
 		"ispraviti na mjestu",
 	} {

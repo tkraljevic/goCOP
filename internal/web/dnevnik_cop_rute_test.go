@@ -156,8 +156,8 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 		t.Fatalf("zapis nije prošao: %s", l)
 	}
 	w = zovi(http.MethodGet, "/dnevnici/"+dnevnik, nil)
-	mora(w, http.StatusOK, "dnevnik sa zapisom", "07:15", "Sa porte", "vodostaj Batina u 07:00 iznosi 551 cm", "upisao Voditelj Centra", "/storno",
-		`class="reg-chip zapis-podrucje" title="branjeno područje 15">Vuka</span>`)
+	mora(w, http.StatusOK, "dnevnik sa zapisom", "07:15", "Sa porte", "vodostaj Batina u 07:00 iznosi 551 cm", "upis: Voditelj Centra", "/storno",
+		`class="reg-chip zapis-podrucje" title="Vuka">BP 15</span>`, `class="reg-chip zapis-vrsta">Dojava</span>`)
 	// Zapis za cijeli sektor, pa čitanje po području: Vuka vidi oboje, a
 	// područje 99 nije u sektoru i odbija se.
 	w = zovi(http.MethodPost, "/dnevnici/"+dnevnik+"/zapisi", url.Values{
@@ -215,7 +215,7 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 		t.Fatalf("ispravak: %s", l)
 	}
 	w = zovi(http.MethodGet, "/dnevnici/"+prijepis.ID, nil)
-	mora(w, http.StatusOK, "poslije ispravka", "07:00", "S porte", "vodostaj Batina 551 cm", "Ponedjeljak 29.6.2009.")
+	mora(w, http.StatusOK, "poslije ispravka", "07:00", "S porte", "vodostaj Batina 551 cm", "pon 29. 6. 2009.")
 	if strings.Contains(w.Body.String(), "55l cm") {
 		t.Error("krivo čitanje još stoji na stranici")
 	}
