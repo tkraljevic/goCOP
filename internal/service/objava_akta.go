@@ -36,11 +36,9 @@ func (s *JournalService) AktivnaObrana(ctx context.Context, sektor string) *mode
 	return nil
 }
 
-// otvorenDnevnikObrane javlja nosi li dnevnik COP-a aktivnu obranu: nije
-// zaključen, ovjeren ni prijepis
-func otvorenDnevnikObrane(j models.Journal) bool {
-	return j.EndedAt == nil && !j.Reconstruction && !j.Ovjeren()
-}
+// otvorenDnevnikObrane javlja nosi li dnevnik COP-a aktivnu obranu
+// (models.Journal.NosiAktivnuObranu)
+func otvorenDnevnikObrane(j models.Journal) bool { return j.NosiAktivnuObranu() }
 
 // PocetakAktivneObrane vraća najranije otvoren dnevnik COP-a sektora, s
 // poznatim otvaranjem: od tada traje aktivna obrana i kad je u sektoru

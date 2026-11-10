@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -90,6 +91,7 @@ type JournalPageData struct {
 	// CentriZaOtvaranje su centri u kojima osoba smije otvoriti dnevnik:
 	// uprava sektora, ne svatko tko piše.
 	CentriZaOtvaranje []models.Centar
+	StranicaCOP       *StranicaCOP // samo na popisu dnevnika COP-a
 	Journal           *models.Journal
 	Sheets            []models.JournalSheet
 	Sheet             *models.JournalSheet
@@ -366,9 +368,77 @@ func (h *JournalsHandler) popisCOP(w http.ResponseWriter, r *http.Request, data 
 	}
 	if data.Vrsta == models.PopisDezurstava {
 		js = h.planoviKojeVidi(data.Permissions, js)
+	} else {
+		sektori, _ := h.users.ListSectors() // bez sektora stranica je bez čipova
+		data.StranicaCOP = slozenaStranicaCOP(sektori, data.Centar, js, data.CentriZaOtvaranje, time.Now())
 	}
 	data.Journals = js
 	h.render(w, h.tmplList, "dnevnici.html", data)
+}
+
+// StranicaCOP je stranica sektora dnevnika COP-a (crtež 5g i 5d): čipovi
+// sektora, za izabrani sektor otvoreni dnevnici ili preventivna obrana, i
+// raniji dnevnici u tablici.
+type StranicaCOP struct {
+	Cipovi []CipPopisa
+	// Sektor je izabrani sektor; prazno je „Svi”.
+	Sektor string
+	// Aktivni su dnevnici koji drže sektor u aktivnoj obrani.
+	Aktivni []RedakCOP
+	// Otvara javlja smije li osoba ovdje otvoriti dnevnik: u izabranom
+	// sektoru, ili u bilo kojem kad su izabrani svi.
+	Otvara bool
+	Raniji []RedakCOP
+}
+
+// RedakCOP je dnevnik COP-a s kalendarskim brojem dana za popis.
+type RedakCOP struct {
+	models.Journal
+	Dana int
+}
+
+// Pocetak je dan otvaranja dnevnika („12. 10. 2026.”), prazno bez početka.
+func (r RedakCOP) Pocetak() string { return danZaslona(r.StartedAt) }
+
+// Razdoblje je od početka do kraja dnevnika, „14. 3. 2026. – 3. 5. 2026.”;
+// bez kraja samo „od” početka, a bez početka crtica.
+func (r RedakCOP) Razdoblje() string {
+	od, do := danZaslona(r.StartedAt), danZaslona(r.EndedAt)
+	switch {
+	case od == "":
+		return "—"
+	case do == "":
+		return "od " + od
+	}
+	return od + " – " + do
+}
+
+func danZaslona(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	return t.In(models.Zagreb).Format("2. 1. 2006.")
+}
+
+func slozenaStranicaCOP(sektori []models.Sector, izabran string, js []models.Journal, otvaranje []models.Centar, danas time.Time) *StranicaCOP {
+	st := &StranicaCOP{
+		Cipovi: cipoviSektoraPo("/dnevnici/popis", "centar", url.Values{"vrsta": {models.JournalKindDefense}}, sektori, izabran),
+		Sektor: izabran,
+	}
+	for _, c := range otvaranje {
+		if izabran == "" || c.Sektor == izabran {
+			st.Otvara = true
+		}
+	}
+	for _, j := range js {
+		r := RedakCOP{Journal: j, Dana: j.DanaObrane(danas)}
+		if j.NosiAktivnuObranu() {
+			st.Aktivni = append(st.Aktivni, r)
+		} else {
+			st.Raniji = append(st.Raniji, r)
+		}
+	}
+	return st
 }
 
 // brojDezurstavaKojaVidi je broj dežurstava za karticu plana na

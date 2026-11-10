@@ -389,8 +389,11 @@ func TestPopisDnevnikaNosiSvojuVrstu(t *testing.T) {
 		Area:        &models.Area{ID: 34, Name: "Međudržavne rijeke"},
 		CanManage:   true,
 	}
+	sektori := []models.Sector{{ID: "B", Name: "Sektor B — Dunav i donja Drava"}, {ID: "C", Name: "Sektor C — Gornja Sava"}}
+	sad := time.Date(2026, 10, 26, 10, 0, 0, 0, models.Zagreb)
+	d.StranicaCOP = slozenaStranicaCOP(sektori, "", nil, nil, sad)
 	html := iscrtaj(t, "dnevnici.html", d)
-	for _, want := range []string{"Obrana od poplava", `href="/dnevnici"`, "operateri"} {
+	for _, want := range []string{"Dnevnik COP-a</h1>", `href="/dnevnici"`, "operateri", "Svi sektori: preventivna obrana"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("popis nema %q", want)
 		}
@@ -400,11 +403,58 @@ func TestPopisDnevnikaNosiSvojuVrstu(t *testing.T) {
 			t.Errorf("popis bez centra za otvaranje nudi %q", nesmije)
 		}
 	}
-	d.CentriZaOtvaranje = []models.Centar{{Sektor: "B", Naziv: "COP Osijek"}}
-	d.Centar = "B"
+	// Voditelj centra B otvara dnevnik u svom sektoru, a u tuđem ne.
+	centri := []models.Centar{{Sektor: "B", Naziv: "COP Osijek"}}
+	d.CentriZaOtvaranje = centri
+	d.StranicaCOP = slozenaStranicaCOP(sektori, "B", nil, centri, sad)
 	html = iscrtaj(t, "dnevnici.html", d)
-	if !strings.Contains(html, `href="/dnevnici/novi-cop?centar=B"`) {
+	if !strings.Contains(html, `href="/dnevnici/novi-cop?centar=B">Otvori dnevnik COP-a`) {
 		t.Error("voditelj centra nema gumb za novi dnevnik COP-a")
+	}
+	if !strings.Contains(html, "Sektor B: preventivna obrana") {
+		t.Error("sektor bez otvorenog dnevnika nije u preventivnoj obrani")
+	}
+	d.StranicaCOP = slozenaStranicaCOP(sektori, "C", nil, centri, sad)
+	if html = iscrtaj(t, "dnevnici.html", d); strings.Contains(html, "novi-cop") {
+		t.Error("voditelj centra B otvara dnevnik u sektoru C")
+	}
+}
+
+// Stranica sektora: otvoren dnevnik je traka aktivne obrane s gumbom, a
+// zaključeni, ovjereni i prijepisi idu u tablicu ranijih s kalendarskim
+// brojem dana i stanjem.
+func TestStranicaSektoraCOP(t *testing.T) {
+	dan := func(g, m, d int) *time.Time { t := time.Date(g, time.Month(m), d, 9, 0, 0, 0, models.Zagreb); return &t }
+	sad := time.Date(2026, 10, 26, 10, 0, 0, 0, models.Zagreb)
+	js := []models.Journal{
+		{ID: "otv", CentarSektor: "B", Title: "Dnevnik COP-a, 2026.", StartedAt: dan(2026, 10, 12), DezurniID: "u1", DezurniIme: "Marko Primjer", DezurniOd: dan(2026, 10, 26)},
+		{ID: "ovj", CentarSektor: "B", Title: "Dnevnik COP-a, ožujak 2026.", StartedAt: dan(2026, 3, 14), EndedAt: dan(2026, 5, 3), ZakljucenoAt: dan(2026, 5, 4)},
+		{ID: "zak", CentarSektor: "B", Title: "Dnevnik COP-a, 2025.", StartedAt: dan(2025, 4, 9), EndedAt: dan(2025, 4, 21)},
+		{ID: "pri", CentarSektor: "B", Title: "Dnevnik COP-a, 2010.", StartedAt: dan(2010, 5, 17), EndedAt: dan(2010, 5, 31), Reconstruction: true},
+	}
+	d := JournalPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Vrsta:       models.JournalKindDefense,
+		StranicaCOP: slozenaStranicaCOP([]models.Sector{{ID: "B", Name: "Sektor B — Dunav i donja Drava"}}, "B", js, nil, sad),
+	}
+	html := iscrtaj(t, "dnevnici.html", d)
+	for _, want := range []string{
+		"Sektor B: aktivna obrana", "Dnevnik COP-a, 2026. · od 12. 10. 2026. · 15 dana · dežura Marko Primjer", `href="/dnevnici/otv">Otvori dnevnik`,
+		"Raniji dnevnici · Sektor B",
+		"14. 3. 2026. – 3. 5. 2026.", `data-stupac="Dani">51<`, ">ovjeren<",
+		">zaključen, čeka ovjeru<", `class="oznaka-stanja pozor">prijepis iz uveza<`,
+		`aria-pressed="true">B · Dunav i donja Drava<`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("stranica sektora nema %q", want)
+		}
+	}
+	if strings.Contains(html, "preventivna obrana") {
+		t.Error("sektor s otvorenim dnevnikom je u preventivnoj obrani")
+	}
+	if strings.Contains(html, `href="/dnevnici/ovj">Otvori dnevnik`) {
+		t.Error("ovjeren dnevnik stoji u traci aktivne obrane")
 	}
 }
 
@@ -547,6 +597,8 @@ func TestDnevnikCOPNudiObrazacZaZapis(t *testing.T) {
 // područje im je prazno, pa ih popis po području nikad nije našao — stranica
 // je izgledala prazno iako je u bazi trinaest dnevnika.
 func TestPopisCOPNeTraziPodrucje(t *testing.T) {
+	pocetak := time.Date(2009, 6, 28, 0, 0, 0, 0, models.Zagreb)
+	kraj := time.Date(2009, 6, 30, 0, 0, 0, 0, models.Zagreb)
 	d := JournalPageData{
 		CurrentUser: &models.User{FullName: "P"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
@@ -556,14 +608,15 @@ func TestPopisCOPNeTraziPodrucje(t *testing.T) {
 			ID: "dn-1", Kind: models.JournalKindDefense, CentarSektor: "B",
 			Title: "Dnevnik COP-a, lipanj 2009.", Year: 2009,
 			Reconstruction: true, SheetCount: 3, LastSheetOn: "2009-06-30",
+			StartedAt: &pocetak, EndedAt: &kraj,
 		}},
 	}
-	d.Centri = []models.Centar{{Sektor: "B", Naziv: "COP Osijek", Dnevnika: 13}}
 	d.Journals[0].CentarNaziv = "COP Osijek"
+	d.StranicaCOP = slozenaStranicaCOP([]models.Sector{{ID: "B", Name: "Sektor B — Dunav i donja Drava"}}, "", d.Journals, nil, kraj)
 
 	html := iscrtaj(t, "dnevnici.html", d)
-	for _, want := range []string{"Dnevnik COP-a, lipanj 2009.", "dana dežurstva", "prijepis iz uveza",
-		"COP Osijek", `id="centar"`} {
+	for _, want := range []string{"Dnevnik COP-a, lipanj 2009.", "28. 6. 2009. – 30. 6. 2009.", "prijepis iz uveza",
+		"COP Osijek", `href="/dnevnici/popis?centar=B&amp;vrsta=OBRANA"`} {
 		if !strings.Contains(html, want) {
 			t.Errorf("popis nema %q", want)
 		}

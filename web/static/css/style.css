@@ -4900,6 +4900,9 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .list-kartica > h2 { display: block; margin: 0 0 8px; font-size: 1rem; font-weight: 500; line-height: 24px; color: var(--md-sys-color-on-surface); }
 .list-kartica a { color: var(--md-sys-color-primary); text-decoration: none; }
 .list-kartica a:hover { text-decoration: underline; }
+/* Gumb u kartici zadržava boju gumba, a ne poveznice (Otvori dnevnik COP-a u preventivnoj obrani). */
+.list-kartica a.btn, .list-kartica a.btn:hover { text-decoration: none; }
+.list-kartica a.btn-primary { color: var(--gumb-tekst); }
 .list-kartica .form-help { margin-top: 0; font-size: 0.75rem; line-height: 16px; color: var(--md-sys-color-on-surface-variant); }
 .list-kartica .vodocuvar-dl { grid-template-columns: 170px minmax(0, 1fr); gap: 0; }
 .list-kartica .vodocuvar-dl dt, .list-kartica .vodocuvar-dl dd { padding-block: 9px; border-top: 1px solid var(--md-sys-color-outline-variant); }
@@ -8829,6 +8832,37 @@ summary.ocitanja-cip { padding-right: 8px; }
 .obrana-sektor.aktivna { border-left-color: var(--md-sys-color-primary); background: var(--primary-light); }
 .obrana-sektor.aktivna strong { color: var(--md-sys-color-primary); font-weight: 500; }
 .obrana-sektor.preventivna strong { font-weight: 500; }
+
+/* Stranica sektora dnevnika COP-a (crtež 5g i 5d): traka otvorenog dnevnika,
+   kartica preventivne obrane i raniji dnevnici u tablici. */
+.cop-traka {
+  display: flex; align-items: center; gap: 12px; margin: 0 0 16px; padding: 12px 16px; border-left: 3px solid var(--md-sys-color-primary); border-radius: 8px;
+  background: var(--primary-light); color: var(--md-sys-color-primary);
+}
+.cop-traka > .icon { flex: none; width: 24px; height: 24px; margin: 0; color: var(--md-sys-color-on-surface-variant); }
+.cop-traka-tekst { display: flex; flex: 1; flex-direction: column; min-width: 0; font-size: 0.875rem; line-height: 20px; }
+.cop-traka-tekst strong { font-size: 1rem; font-weight: 400; line-height: 24px; }
+.cop-traka > .btn { flex: none; }
+.cop-preventivna { margin-bottom: 16px; }
+.cop-jos-jedan { margin: -8px 0 8px; }
+.cop-okvir { padding: 16px 16px 8px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px; background: var(--md-sys-color-surface-container-low); }
+.cop-okvir > h2 { margin: 0; font-size: 0.875rem; font-weight: 400; line-height: 20px; color: var(--md-sys-color-on-surface); }
+table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
+.cop-tablica tr { position: relative; }
+.cop-tablica th { padding: 4px 12px 0; border: 0; color: var(--md-sys-color-on-surface-variant); font-size: 0.8125rem; font-weight: 500; letter-spacing: 0; text-transform: none; }
+.cop-tablica td { padding: 10px 12px; border: 0; background: var(--md-sys-color-surface-container-lowest); color: var(--md-sys-color-on-surface); }
+.cop-tablica tbody td:first-child { border-radius: 8px 0 0 8px; }
+.cop-tablica tbody td:last-child { border-radius: 0 8px 8px 0; }
+.cop-tablica tr:hover { background: none; }
+.cop-tablica tbody tr:hover td { background: var(--surface-hover); }
+.cop-prazno { margin: 8px 0; color: var(--md-sys-color-on-surface-variant); font-size: 0.875rem; }
+@media (max-width: 599px) {
+  .cop-traka { flex-wrap: wrap; }
+  .cop-traka > .btn { width: 100%; min-height: 48px; }
+  .cop-okvir { padding: 12px; }
+  table.cop-tablica { border-spacing: 0; margin-top: 8px; }
+  .cop-tablica td, .cop-tablica tbody tr:hover td { background: none; }
+}
 
 .akti-traka-sukoba {
   display: flex; align-items: flex-start; gap: 12px; margin: 0 0 12px; padding: 12px 16px; border-left: 3px solid var(--warning-fg); border-radius: 8px;

@@ -152,6 +152,47 @@ func (j Journal) NetkoDezura() bool { return j.DezurniID != "" && j.DezurniOd !=
 
 func (j Journal) Ovjeren() bool { return j.ZakljucenoAt != nil }
 
+// NosiAktivnuObranu javlja drži li dnevnik COP-a sektor u aktivnoj obrani:
+// nije zaključen, ovjeren ni prijepis iz uveza. Bez takvog dnevnika sektor je
+// u preventivnoj obrani.
+func (j Journal) NosiAktivnuObranu() bool {
+	return j.EndedAt == nil && !j.Reconstruction && !j.Ovjeren()
+}
+
+// StanjeCOP je oznaka stanja dnevnika COP-a na popisu: otvoren, zaključen
+// koji čeka ovjeru, ovjeren ili prijepis iz uveza.
+func (j Journal) StanjeCOP() string {
+	switch {
+	case j.Reconstruction:
+		return "prijepis iz uveza"
+	case j.Ovjeren():
+		return "ovjeren"
+	case j.EndedAt != nil:
+		return "zaključen, čeka ovjeru"
+	}
+	return "otvoren"
+}
+
+// DanaObrane je broj kalendarskih dana od početka dnevnika do kraja, a dok
+// traje do danas, oba dana uključena. Bez početka je nula.
+func (j Journal) DanaObrane(danas time.Time) int {
+	if j.StartedAt == nil {
+		return 0
+	}
+	kraj := danas
+	if j.EndedAt != nil {
+		kraj = *j.EndedAt
+	}
+	od := j.StartedAt.In(Zagreb)
+	do := kraj.In(Zagreb)
+	a := time.Date(od.Year(), od.Month(), od.Day(), 12, 0, 0, 0, time.UTC)
+	b := time.Date(do.Year(), do.Month(), do.Day(), 12, 0, 0, 0, time.UTC)
+	if b.Before(a) {
+		return 0
+	}
+	return int(b.Sub(a).Hours()/24) + 1
+}
+
 // ZapisNakonOvjere javlja je li zapis upisan nakon ovjere dnevnika. Ovjeren
 // dnevnik novi zapis ne prima, pa takav zapis najčešće stigne s računala koje
 // ovjeru još nije imalo. Ostaje u dnevniku i prikazuje se s oznakom, a ovjera
