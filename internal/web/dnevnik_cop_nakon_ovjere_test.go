@@ -32,7 +32,7 @@ func TestDnevnikCOPOznacavaZapisNakonOvjere(t *testing.T) {
 	if n := strings.Count(html, "nastao nakon ovjere"); n != 1 {
 		t.Errorf("oznaka nakon ovjere stoji %d puta, a treba uz jedan zapis", n)
 	}
-	if !strings.Contains(html, "upisao Iva Ivić") || !strings.Contains(html, "nastao nakon ovjere, upisan 30.10.2026. 14:25") {
+	if !strings.Contains(html, "upis: Iva Ivić") || !strings.Contains(html, "nastao nakon ovjere, upisan 30.10.2026. 14:25") {
 		t.Error("zapis nakon ovjere nema ime i vrijeme upisa")
 	}
 	if n := strings.Count(html, "storniran nakon ovjere, 30.10.2026. 14:30"); n != 1 {

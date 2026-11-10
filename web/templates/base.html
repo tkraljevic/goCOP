@@ -555,6 +555,8 @@
 </div>
 {{end}}
 
+{{template "dnevnikTrake" .}}
+
 {{/* Tko vidi samo zapise, nema trake kartica. */}}
 {{if or .VidiPlan .VidiObracun}}
 <nav class="kartice-stranice cop-kartice" aria-label="Dnevnik COP-a">
@@ -576,3 +578,7 @@
 {{if and .UpravaCentra (not $j.Ovjeren)}}<form method="POST" action="/dnevnici/{{$j.ID}}/obrisi" class="d-inline"
   onsubmit="return confirm('Obrisati dnevnik „{{$j.DisplayTitle}}“ sa svim zapisima i dežurstvima? U knjizi verzija ostaje arhiviran, ali s popisa nestaje.');"><button type="submit" class="btn btn-link">Obriši</button></form>{{end}}
 {{end}}
+
+{{/* Trake o ovjeri i prijepisu stoje iznad kartica; puni ih stranica Zapisi
+     (dnevnik_cop.html), ostale kartice ih nemaju. */}}
+{{define "dnevnikTrake"}}{{end}}

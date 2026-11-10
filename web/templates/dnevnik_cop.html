@@ -5,79 +5,63 @@
 {{define "content"}}
 {{template "dnevnikZaglavlje" .}}
 
-{{if .Journal.Ovjeren}}
-{{if .IzvornikCOP.Ispravan}}
-<div class="alert alert-success">{{icon "lock"}} <strong>Dnevnik je ovjeren.</strong>
-  Zaključio i potpisao {{.Journal.Zakljucio}}, {{.Journal.ZakljucenoAt.Format "2.1.2006. u 15:04"}}.
-  Rukovoditelj sektora dobiva zaključeni dnevnik na znanje. Izvornik: <a href="/dnevnici/{{.Journal.ID}}/dnevnik.pdf">potpisani PDF</a>, SHA-256 <span class="mono">{{printf "%.16s" .IzvornikCOP.Sazetak}}…</span>, ispravan.
-</div>
-{{else}}
-<div class="alert alert-error">{{icon "x"}} <strong>Dnevnik je ovjeren ({{.Journal.Zakljucio}}, {{.Journal.ZakljucenoAt.Format "2.1.2006. u 15:04"}}), ali izvornik nije ispravan:</strong> {{.IzvornikCOP.Greska}}. Javite administratoru; izvornik se obnavlja iz knjige verzija drugog čvora.</div>
-{{end}}
-{{end}}
-
-{{if and .VoditeljCOP .Journal.EndedAt (not .Journal.Ovjeren)}}
-<form method="POST" action="/dnevnici/{{.Journal.ID}}/ovjera" class="form-inline card" onsubmit="return confirm('Zaključiti, renderirati i elektronički potpisati ovaj dnevnik? Nakon toga se više ne mijenja.');">
-  <input type="hidden" name="radnja" value="zakljuci">
-  <label class="form-label" for="lozinka-z">Lozinka za potpisni ključ</label>
-  <input id="lozinka-z" type="password" name="lozinka" class="form-control" autocomplete="current-password">
-  <button class="btn btn-primary" type="submit">{{icon "lock"}} Zaključi i ovjeri</button>
-</form>
-{{end}}
-
-
-{{if .Journal.Reconstruction}}
-{{/* Prijepis nije dokument. Dokument je uvez na papiru; ovo je preslika, i
-     zato se ovdje ispravak KRIVO PROČITANOG radi na mjestu — za razliku od
-     živog dnevnika, gdje je zapis sam dokument pa se ispravlja novim zapisom. */}}
-<div class="alert alert-warning">
-  {{icon "triangle-alert"}} <strong>Prijepis iz uveza.</strong> {{.Journal.Notes}}
-  {{if .Journal.SmijePrepravakZapisa}}<br>Krivo pročitan zapis smije se ispraviti na mjestu — ispravak
-  presliku približava izvorniku. U živom dnevniku ispravak je novi zapis uz stari.{{end}}
-</div>
-{{end}}
-
-{{/* Područje, skok na danas ili kraj i novi zapis. Raspored zapisa po crtežu dolazi zasebno. */}}
+{{/* Alati, zapisi i unos su jedan stupac: na računalu unos stoji na dnu,
+     kao u bilježnici; na mobitelu je prvi, a najnoviji zapis je na vrhu
+     (samo CSS). */}}
+<div class="cop-zapisi{{if not .Journal.Reconstruction}} cop-zapisi-zivi{{end}}">
+{{/* Područje i skok na danas ili na kraj. */}}
 <div class="cop-alati">
 {{if .Areas}}
-<form method="GET" action="/dnevnici/{{.Journal.ID}}" class="obracun-filtar">
-  <label for="f-podrucje">Prikaži</label>
+<form method="GET" action="/dnevnici/{{.Journal.ID}}" class="cop-podrucje">
+  <label for="f-podrucje">Područje</label>
   <select id="f-podrucje" name="podrucje" class="form-control" onchange="this.form.submit()">
-    <option value="">sve zapise</option>
-    {{range .Areas}}<option value="{{.ID}}"{{if eq .ID $.Podrucje}} selected{{end}}>{{.Name}} ({{.ID}}) i cijeli {{terml "sektor"}}</option>{{end}}
+    <option value="">svi</option>
+    {{range .Areas}}<option value="{{.ID}}"{{if eq .ID $.Podrucje}} selected{{end}}>BP {{.ID}} {{.Name}} i cijeli {{terml "sektor"}}</option>{{end}}
   </select>
   <noscript><button type="submit" class="btn btn-secondary">Prikaži</button></noscript>
 </form>
 {{end}}
-  <div class="cop-alati-skok">
-    {{if .Dani}}<a href="#{{if .ImaDanas}}dan-{{.Today}}{{else}}kraj{{end}}" class="btn btn-link" title="{{if .ImaDanas}}Na današnje zapise{{else}}Na zadnji zapis{{end}}">{{if .ImaDanas}}Danas{{else}}Na kraj{{end}}</a>{{end}}
-    {{if and .CanWrite (not .Journal.Ovjeren)}}<a href="#novi-zapis" class="btn btn-secondary">{{icon "plus"}} Novi zapis</a>{{end}}
-  </div>
+  {{if .Dani}}<div class="cop-alati-skok">
+    {{if .ImaDanas}}<a href="#dan-{{.Today}}" title="Na današnje zapise">Danas</a><span aria-hidden="true">·</span>{{end}}
+    <a href="#kraj" title="Na zadnji zapis">Na kraj</a>
+  </div>{{end}}
 </div>
-
-{{range .Dani}}
-<section class="dan-dezurstva" id="dan-{{.Dan.Format "2006-01-02"}}">
-  <h2 class="dan-naslov">{{danTjedna .Dan}} {{.Dan.Format "2.1.2006."}}
-    <span class="reg-chip">{{len .Zapisi}} {{uzBroj (len .Zapisi) "zapis" "zapisa" "zapisa"}}</span></h2>
-  <div class="zapisi">
-    {{range .Zapisi}}
-    <article id="zapis-{{.Number}}" class="zapis{{if .Voided}} zapis-storniran{{end}}{{if eq .Kind "DEZURSTVO"}} zapis-smjena{{end}}">
-      <div class="zapis-kad mono">{{if .HappenedAt}}{{.HappenedAt.Format "15:04"}}{{else}}—{{end}}</div>
-      <div class="zapis-tko">
-        {{if .ReportedBy}}{{.ReportedBy}}{{else}}<span class="reading-meta">—</span>{{end}}
-        {{if .UserName}}<div class="zapis-upisao">upisao {{.UserName}}</div>{{else if .UpisaoPoDezurstvu}}<div class="zapis-upisao" title="Zaključak iz zapisa o dežurstvu, ne podatak iz uveza">dežurao {{.UpisaoPoDezurstvu}}</div>{{end}}
-        {{/* Ovjeren dnevnik ne prima zapise ni izmjene, pa takav najčešće
-             stiže s računala koje ovjeru još nije imalo: ostaje, s oznakom.
-             Ime je u retku „upisao”. */}}
-        {{if $.Journal.ZapisNakonOvjere .}}<div class="zapis-nakon-ovjere" title="Vrijeme upisa je poslije ovjere dnevnika. Takav zapis najčešće stigne s drugog računala koje ovjeru još nije imalo. Što je ovjereno, piše u potpisanom izvorniku.">{{icon "triangle-alert"}} nastao nakon ovjere, upisan {{vrijemeHR .CreatedAt}}</div>{{else if $.Journal.ZapisIzmijenjenNakonOvjere .}}<div class="zapis-nakon-ovjere" title="Zapis je izmijenjen poslije ovjere dnevnika, najčešće na drugom računalu koje ovjeru još nije imalo. Što je ovjereno, piše u potpisanom izvorniku.">{{icon "triangle-alert"}} {{if .Voided}}storniran{{else}}izmijenjen{{end}} nakon ovjere, {{vrijemeHR .UpdatedAt}}</div>{{end}}
-      </div>
-      <div class="zapis-tekst">{{if .ZaPodrucje}}{{$id := .PodrucjeID}}{{range $.Areas}}{{if eq .ID $id}}<span class="reg-chip zapis-podrucje" title="branjeno područje {{.ID}}">{{.Name}}</span>{{end}}{{end}} {{end}}{{.Text}}{{if .Voided}}
-        <div class="reading-meta">storniran{{if .VoidReason}}: {{.VoidReason}}{{end}}{{if .VoidedBy}} — {{.VoidedBy}}{{end}}</div>{{end}}
+<div class="cop-dani">
+{{range .Skupine}}
+{{$raspon := .Raspon}}
+<details class="cop-dan{{if $raspon}} cop-raspon{{end}}"{{if .Otvoren}} open{{end}}>
+  <summary class="cop-dan-glava">
+    <span class="cop-dan-naslov">{{.Naslov}}</span>
+    <span class="cop-dan-broj">{{if $raspon}}{{len .Dani}} {{uzBroj (len .Dani) "dan" "dana" "dana"}} · {{end}}{{.BrojZapisa}} {{uzBroj .BrojZapisa "zapis" "zapisa" "zapisa"}}</span>
+    <span class="cop-dan-strelica">{{icon "chevron-down"}}</span>
+  </summary>
+  <div class="cop-dan-sadrzaj">
+  {{range .Dani}}
+  <section class="dan-dezurstva" id="dan-{{.Dan.Format "2006-01-02"}}">
+    {{if $raspon}}<h3 class="dan-naslov">{{.Naslov}} <span class="reading-meta">{{len .Zapisi}} {{uzBroj (len .Zapisi) "zapis" "zapisa" "zapisa"}}</span></h3>{{end}}
+    <div class="zapisi">
+      {{range .Zapisi}}
+      <article id="zapis-{{.Number}}" class="zapis{{if .Voided}} zapis-storniran{{end}}{{if eq .Kind "DEZURSTVO"}} zapis-smjena{{end}}">
+        <div class="zapis-kad mono">{{if .HappenedAt}}{{.HappenedAt.Format "15:04"}}{{else}}—{{end}}</div>
+        <div class="zapis-tko">
+          {{if .ReportedBy}}<span class="zapis-javio"><span class="zapis-javio-rijec">javio </span>{{.ReportedBy}}</span>{{else}}<span class="reading-meta zapis-nitko">—</span>{{end}}
+          {{if .UserName}}<div class="zapis-upisao">upis: {{.UserName}}</div>{{else if .UpisaoPoDezurstvu}}<div class="zapis-upisao" title="Zaključak iz zapisa o dežurstvu, ne podatak iz uveza">dežurstvo: {{.UpisaoPoDezurstvu}}</div>{{end}}
+          {{/* Ovjeren dnevnik ne prima zapise ni izmjene, pa takav najčešće
+               stiže s računala koje ovjeru još nije imalo: ostaje, s oznakom. */}}
+          {{if $.Journal.ZapisNakonOvjere .}}<div class="zapis-nakon-ovjere" title="Vrijeme upisa je poslije ovjere dnevnika. Takav zapis najčešće stigne s drugog računala koje ovjeru još nije imalo. Što je ovjereno, piše u potpisanom izvorniku.">{{icon "triangle-alert"}} nastao nakon ovjere, upisan {{vrijemeHR .CreatedAt}}</div>{{else if $.Journal.ZapisIzmijenjenNakonOvjere .}}<div class="zapis-nakon-ovjere" title="Zapis je izmijenjen poslije ovjere dnevnika, najčešće na drugom računalu koje ovjeru još nije imalo. Što je ovjereno, piše u potpisanom izvorniku.">{{icon "triangle-alert"}} {{if .Voided}}storniran{{else}}izmijenjen{{end}} nakon ovjere, {{vrijemeHR .UpdatedAt}}</div>{{end}}
+        </div>
+        <div class="zapis-oznake">
+          <span class="reg-chip zapis-vrsta">{{entryKind .Kind}}</span>
+          {{if .ZaPodrucje}}{{$id := .PodrucjeID}}{{range $.Areas}}{{if eq .ID $id}}<span class="reg-chip zapis-podrucje" title="{{.Name}}">BP {{.ID}}</span>{{end}}{{end}}{{end}}
+        </div>
+        <div class="zapis-tekst">{{.Text}}</div>
+        {{if .Voided}}<div class="zapis-storno-razlog reading-meta">storniran{{if .VoidReason}}: {{.VoidReason}}{{end}}{{if .VoidedBy}} — {{.VoidedBy}}{{end}}</div>{{end}}
+        <div class="zapis-radnja">
         {{/* Zapis se ne briše nego stornira: ostaje s brojem i razlogom.
-             U prijepisu se ne stornira — ondje se krivo pročitano ispravlja. */}}
+             U prijepisu se ne stornira, ondje se krivo pročitano ispravlja. */}}
         {{if and $.CanWrite (not .Voided) (not $.Journal.Reconstruction) (not $.Journal.Ovjeren)}}
         <details class="zapis-storno">
-          <summary class="btn btn-sm btn-secondary" title="Storniraj zapis br. {{.Number}}">{{icon "x"}} storno</summary>
+          <summary title="Storniraj zapis br. {{.Number}}">storno</summary>
           <form method="POST" action="/dnevnici/{{$.Journal.ID}}/upisi/{{.ID}}/storno" class="zapis-storno-obrazac">
             <input type="text" name="reason" class="form-control" placeholder="razlog storniranja zapisa br. {{.Number}}" required autocomplete="off">
             <button type="submit" class="btn btn-sm btn-primary">{{icon "check"}} Storniraj</button>
@@ -88,7 +72,7 @@
              zapis, sklopljen, s onim što sad piše. Dan se ne mijenja. */}}
         {{if and $.CanWrite $.Journal.SmijePrepravakZapisa (not $.Journal.Ovjeren)}}
         <details class="zapis-ispravak">
-          <summary class="btn btn-sm btn-secondary" title="Ispravi krivo pročitan zapis br. {{.Number}}">{{icon "pencil"}} ispravi</summary>
+          <summary title="Ispravi krivo pročitan zapis br. {{.Number}}">ispravi</summary>
           <form method="POST" action="/dnevnici/{{$.Journal.ID}}/upisi/{{.ID}}/ispravak" class="zapis-ispravak-obrazac">
             <div class="form-row novi-zapis-red">
               <div class="form-group">
@@ -124,29 +108,32 @@
           </form>
         </details>
         {{end}}
-      </div>
-    </article>
-    {{end}}
+        </div>
+      </article>
+      {{end}}
+    </div>
+  </section>
+  {{end}}
   </div>
-</section>
+</details>
 {{else}}
 <div class="reg-empty">U ovom dnevniku još nema zapisa.</div>
 {{end}}
+</div>
 <div id="kraj"></div>
 
-{{/* Obrazac stoji ispod zapisa: dežurni piše na kraj, kao u bilježnici.
-     Dan i vrijeme su odvojeni — dan je obvezan, vrijeme se upisuje kad se
+{{/* Dan i vrijeme su odvojeni: dan je obvezan, vrijeme se upisuje kad se
      zna kad se dogodilo; kad je upisano vidi se iz zapisa samog. */}}
 {{if and .CanWrite .AllowedKinds (not .Journal.Ovjeren)}}
 <form method="POST" action="/dnevnici/{{.Journal.ID}}/zapisi" id="novi-zapis" class="unos-zapisa">
-  {{/* Unos je traka na dnu zaslona, kao redak u bilježnici: tekst prvi i
-       najveći, ostalo su sitnice s razumnim zadanim vrijednostima — sad,
-       dojava, cijeli sektor. Dan je skriven dok se ne traži drugi.
-       Ctrl+Enter upisuje. */}}
-  <textarea id="z-text" name="text" class="form-control unos-tekst" rows="2" required autofocus
-    placeholder="vodostaj Batina u 07:00 +551, tendencija porast…"
-    onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){this.form.requestSubmit();}"></textarea>
+  {{/* Unos je redak u bilježnici: tekst prvi i najveći, ostalo su sitnice s
+       razumnim zadanim vrijednostima: sad, dojava, cijeli sektor. Dan je
+       skriven dok se ne traži drugi. Ctrl+Enter upisuje. */}}
+  <h2 class="unos-naslov"><label for="z-text">Novi zapis</label></h2>
   <div class="unos-red">
+    <textarea id="z-text" name="text" class="form-control unos-tekst" rows="1" required autofocus
+      placeholder="Što se dogodilo…" aria-label="Zapis"
+      onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){this.form.requestSubmit();}"></textarea>
     <label class="unos-polje" title="Kad se dogodilo; kad je upisano vidi se samo">
       <span>u</span><input type="time" id="z-time" name="time" class="form-control" value="{{.Sada}}">
     </label>
@@ -159,21 +146,70 @@
       <span>za</span>
       <select id="z-podrucje" name="podrucje" class="form-control" title="Na koje se područje odnosi">
         <option value="">cijeli {{terml "sektor"}} {{.Journal.CentarSektor}}</option>
-        {{range .Areas}}<option value="{{.ID}}"{{if eq .ID $.Podrucje}} selected{{end}}>{{.Name}}</option>{{end}}
+        {{range .Areas}}<option value="{{.ID}}"{{if eq .ID $.Podrucje}} selected{{end}}>BP {{.ID}} {{.Name}}</option>{{end}}
       </select>
     </label>
     <label class="unos-polje unos-javio">
       <span>javio</span><input type="text" id="z-reported" name="reported_by" class="form-control" placeholder="tko, kad niste vi" autocomplete="off">
     </label>
     <details class="unos-dan">
-      <summary title="Zapis za drugi dan">{{icon "clock"}} dan</summary>
+      <summary title="Zapis za drugi dan">dan: <span class="unos-dan-vrijednost">danas</span></summary>
       <input type="date" id="z-date" name="date" class="form-control" value="{{.Today}}" required>
     </details>
     <button type="submit" class="btn btn-primary unos-gumb">{{icon "check"}} Upiši</button>
   </div>
   <div class="unos-napomena reading-meta">Upisuje {{.CurrentUser.FullName}} · Ctrl+Enter upisuje · zapis se ne briše, krivi se stornira uz razlog</div>
 </form>
-{{else if .Journal.EndedAt}}
-<p class="reading-meta">Dnevnik je zaključen {{.Journal.EndedAt.Format "2.1.2006."}} i više se u njega ne piše.</p>
+{{end}}
+</div>
+{{if and .Journal.EndedAt (not (and .CanWrite .AllowedKinds (not .Journal.Ovjeren)))}}
+<p class="reading-meta cop-kraj-napomena">Dnevnik je zaključen {{.Journal.EndedAt.Format "2. 1. 2006."}} i više se u njega ne piše.</p>
 {{end}}
 {{end}}
+
+{{/* Trake o ovjeri i prijepisu, iznad kartica (dnevnikZaglavlje). */}}
+{{define "dnevnikTrake"}}
+{{if .Journal.Ovjeren}}
+{{if .IzvornikCOP.Ispravan}}
+<div class="alert alert-success cop-ovjera">
+  {{icon "lock"}}
+  <p><strong>Dnevnik je ovjeren.</strong> Zaključio i potpisao {{.Journal.Zakljucio}}, {{.Journal.ZakljucenoAt.Format "2. 1. 2006. u 15:04"}}.
+    Rukovoditelj sektora dobiva zaključeni dnevnik na znanje. Izvornik je ispravan.</p>
+  <a href="/dnevnici/{{.Journal.ID}}/dnevnik.pdf" class="btn btn-link" title="Izvornik, SHA-256 {{printf "%.16s" .IzvornikCOP.Sazetak}}…">Potpisani PDF</a>
+</div>
+{{else}}
+<div class="alert alert-error">{{icon "x"}} <strong>Dnevnik je ovjeren ({{.Journal.Zakljucio}}, {{.Journal.ZakljucenoAt.Format "2. 1. 2006. u 15:04"}}), ali izvornik nije ispravan:</strong> {{.IzvornikCOP.Greska}}. Javite administratoru; izvornik se obnavlja iz knjige verzija drugog čvora.</div>
+{{end}}
+{{else if and .Journal.EndedAt (or .VoditeljCOP (not .Journal.Reconstruction))}}
+{{/* Zaključen, a još neovjeren: ovjeru radi voditelj COP-a, lozinkom
+     svog potpisnog ključa. Ostali vide samo da ovjera čeka, osim u
+     prijepisu, koji ima svoju traku. */}}
+<div class="list-kartica cop-ovjera-ceka">
+  <p class="cop-ovjera-naslov">{{icon "lock"}} Kraj obrane upisan je {{.Journal.EndedAt.Format "2. 1. 2006."}}</p>
+  {{if .VoditeljCOP}}
+  <p class="reading-meta">Još treba ovjeriti dnevnik. Dnevnik se zaključi, pretvori u PDF i potpiše vašim potpisnim ključem. Nakon toga se više ne mijenja. Rukovoditelj sektora dobiva ga na znanje.</p>
+  <form method="POST" action="/dnevnici/{{.Journal.ID}}/ovjera" class="cop-ovjera-obrazac" onsubmit="return confirm('Zaključiti, renderirati i elektronički potpisati ovaj dnevnik? Nakon toga se više ne mijenja.');">
+    <input type="hidden" name="radnja" value="zakljuci">
+    <label class="form-label" for="lozinka-z">Lozinka za potpisni ključ</label>
+    <input id="lozinka-z" type="password" name="lozinka" class="form-control" autocomplete="current-password">
+    <button class="btn btn-primary" type="submit">{{icon "lock"}} Zaključi i ovjeri</button>
+  </form>
+  {{else}}
+  <p class="reading-meta">Dnevnik još treba ovjeriti voditelj COP-a.</p>
+  {{end}}
+</div>
+{{end}}
+
+{{if .Journal.Reconstruction}}
+{{/* Prijepis nije dokument. Dokument je uvez na papiru; ovo je preslika, i
+     zato se ovdje ispravak KRIVO PROČITANOG radi na mjestu, za razliku od
+     živog dnevnika, gdje je zapis sam dokument pa se ispravlja novim zapisom. */}}
+<div class="alert alert-warning">
+  {{icon "triangle-alert"}} <strong>Prijepis iz uveza.</strong> {{.Journal.Notes}}
+  {{if .Journal.SmijePrepravakZapisa}}Krivo pročitan zapis smije se ispraviti na mjestu, jer ispravak
+  presliku približava izvorniku. U živom dnevniku ispravak je novi zapis uz stari.{{end}}
+</div>
+{{end}}
+{{end}}
+
+{{define "scripts"}}<script src="{{statika "js/dnevnik-dani.js"}}" defer></script>{{end}}
