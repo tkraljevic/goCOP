@@ -212,6 +212,7 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	if s := stranica(id); !strings.Contains(s, "upišite lozinku e-pošte") || !strings.Contains(s, "Općina bez adrese") {
 		t.Fatalf("stranica prije lozinke:\n%s", s)
 	}
+	karticaSlanja(t, stranica(id), false)
 
 	// lozinka: kriva se ne sprema, ispravna se provjeri i spremi šifrirana
 	ponovnaLozinka.Reset(kljucPrijaveAD(voditelj.ID.String(), "voditelj"))
@@ -279,6 +280,7 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	if s := stranica(id); !strings.Contains(s, "poslano") || !strings.Contains(s, "nije prošlo") {
 		t.Error("stranica ne pokazuje stanje slanja")
 	}
+	karticaSlanja(t, stranica(id), true)
 	sl, _ := aktiRepo.ListSlanja(ctx, id)
 	if len(sl) != 4 {
 		t.Fatalf("zapisa slanja: %d", len(sl))

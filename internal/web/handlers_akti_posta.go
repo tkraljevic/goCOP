@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -32,6 +33,38 @@ type SlanjeData struct {
 	SpremaPoslano  bool // Exchange sam sprema poslanu poruku u Poslano
 	NijePoslanoJos int
 	Zabrana        error // zašto se akt ne šalje (poništen, potpis ne vrijedi); nil kad se smije
+}
+
+// prvihPrimatelja je koliko primatelja kartica Slanje pokazuje odmah;
+// ostali su ispod „Još N primatelja”, u istom obrascu (crtež 4a)
+const prvihPrimatelja = 5
+
+// redSlanja: na vrhu su adrese na koje slanje nije prošlo, pa one kojima
+// još nije poslano, a poslane na dnu (crtež 4a)
+func redSlanja(x service.Adresat) int {
+	switch {
+	case x.Zadnje != nil && !x.Zadnje.Uspjelo:
+		return 0
+	case x.Zadnje == nil:
+		return 1
+	}
+	return 2
+}
+
+// BrojPoslanih je broj adresa na koje je akt stigao, za „12 od 14”
+func (d *SlanjeData) BrojPoslanih() int { return len(d.Adresati) - d.NijePoslanoJos }
+
+// ImaPokusaja javlja je li akt ikad slan; dotad je popis primatelja sklopljen
+func (d *SlanjeData) ImaPokusaja() bool { return len(d.Slanja) > 0 }
+
+// PrviPrimatelji su primatelji koji se vide odmah, a OstaliPrimatelji oni
+// ispod „Još N primatelja”
+func (d *SlanjeData) PrviPrimatelji() []service.Adresat {
+	return d.Adresati[:min(len(d.Adresati), prvihPrimatelja)]
+}
+
+func (d *SlanjeData) OstaliPrimatelji() []service.Adresat {
+	return d.Adresati[min(len(d.Adresati), prvihPrimatelja):]
 }
 
 // PoslanoPrije su adrese na koje je akt stigao do poslužitelja, svaka jednom,
@@ -186,6 +219,8 @@ func (h *AktiHandler) slanjeZaStranicu(r *http.Request, s *service.AktService, p
 	d := &SlanjeData{Podesena: s.PostaPodesena(r.Context()), Posluzitelj: s.PostaPosluzitelj(r.Context()), SmijeSlati: s.SmijeSlati(perms, u, a), SpremaPoslano: s.PostaSpremaPoslano(r.Context())}
 	d.Zabrana = service.ZabranaSlanja(a)
 	d.Adresati, d.BezAdrese, d.Slanja = s.AdresatiAkta(r.Context(), a)
+	// samo prikaz: papir i slanje drže redoslijed popisa
+	slices.SortStableFunc(d.Adresati, func(x, y service.Adresat) int { return redSlanja(x) - redSlanja(y) })
 	for _, x := range d.Adresati {
 		if !x.Poslano() {
 			d.NijePoslanoJos++

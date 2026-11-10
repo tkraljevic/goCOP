@@ -410,6 +410,20 @@ type OvjeraStupnja struct {
 	Tekst   string
 }
 
+// UpozoriNaOznaku: akt ima istu oznaku kao drugi akt i sukob nije riješen.
+// Slati se smije, ali uz upozorenje u kartici Slanje (crtež 4c, Odluke
+// (6. 11. 2026.)). Isti nacrt ovjeren na dva čvora ovdje se ne broji.
+func (d AktiPageData) UpozoriNaOznaku() bool {
+	return len(d.Sukob.Drugi) > 0 && !d.Sukob.Rijesen()
+}
+
+// JosNeVrijedi javlja je li ovjeren akt još prije trenutka u kojem stupa na
+// snagu: dotad stanje dionica ostaje kakvo jest, a slati se smije (crtež 4d)
+func (d AktiPageData) JosNeVrijedi() bool {
+	a := d.Akt
+	return a != nil && a.Ovjeren() && !a.Storniran() && a.Vrijedi.After(time.Now())
+}
+
 // OvjeravaAkt je rečenica „Tko ovjerava” za stupanj i sektor ovog akta, u
 // kartici Ovjera na stranici nacrta
 func (d AktiPageData) OvjeravaAkt() string {

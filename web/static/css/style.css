@@ -8617,7 +8617,7 @@ summary.ocitanja-cip { padding-right: 8px; }
 .akt-traka-obrazac { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 16px; }
 .akt-traka-obrazac .list-polje { flex: 1 1 280px; margin: 0; }
 /* Riješen sukob oznake više ne traži pažnju: neutralna ploha s tankim rubom, bez ruba upozorenja. */
-.akt-traka.rijeseno {
+.akt-traka.rijeseno, .akt-traka.neutralna {
   --list-podloga: var(--md-sys-color-surface-container-low);
   border-left: 0; background: var(--md-sys-color-surface-container-low);
   box-shadow: inset 0 0 0 1px var(--md-sys-color-outline-variant);
@@ -8705,6 +8705,27 @@ summary.ocitanja-cip { padding-right: 8px; }
 .akt-ploca .akt-slanje-tablica td:not(:first-child) { grid-column: 2; }
 .akt-ploca .akt-slanje-tablica td.mono { font-size: 0.8125rem; color: var(--md-sys-color-on-surface-variant); overflow-wrap: anywhere; }
 .akt-ploca .akt-slanje-poruka pre { background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface); }
+/* Kartica Slanje (4a, 4d, 4f, 4c, 4i): broj poslanih uz naslov, popis sklopljen dok akt nije slan,
+   „Još N primatelja” kao poveznica, poruka u zasebnoj sklopivoj kartici. */
+.akt-slanje-glava { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.akt-slanje-glava h2 { margin: 0 0 8px; }
+.akt-slanje-broj { flex: none; font-size: 0.875rem; color: var(--md-sys-color-on-surface-variant); font-variant-numeric: tabular-nums; }
+.akt-ploca .akt-slanje .alert { display: flex; align-items: flex-start; gap: 12px; margin: 0 0 12px; }
+.akt-ploca .akt-slanje .alert > .icon { flex: none; }
+.akt-slanje-popis > summary { display: inline-flex; list-style: none; margin: 4px 0 0; }
+.akt-slanje-popis > summary::-webkit-details-marker { display: none; }
+.akt-slanje-popis[open] > summary { display: none; }
+.akt-slanje-ostali { margin: 0; }
+.akt-slanje-ostali > summary { display: inline-flex; align-items: center; min-height: 40px; color: var(--md-sys-color-primary); cursor: pointer; list-style: none; font-size: 0.875rem; }
+.akt-slanje-ostali > summary::-webkit-details-marker { display: none; }
+.akt-slanje-ostali > summary::after { content: " →"; white-space: pre; }
+.akt-slanje-ostali[open] > summary { display: none; }
+.akt-ploca .akt-slanje-poruka { margin: 0; font-size: 0.875rem; }
+.akt-ploca .akt-slanje-poruka > summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 24px; cursor: pointer; list-style: none; font-size: 0.9375rem; }
+.akt-ploca .akt-slanje-poruka > summary::-webkit-details-marker { display: none; }
+.akt-ploca .akt-slanje-poruka > summary .icon { width: 20px; height: 20px; color: var(--md-sys-color-on-surface-variant); transition: transform 0.15s; }
+.akt-ploca .akt-slanje-poruka[open] > summary .icon { transform: rotate(90deg); }
+.akt-ploca .akt-slanje-poruka[open] > summary { margin-bottom: 12px; }
 
 @media (max-width: 599px), (pointer: coarse) {
   .akt-ploca .akt-uredi > summary, .akt-ploca .akt-ponisti > summary { min-height: 48px; }
