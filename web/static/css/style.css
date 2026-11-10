@@ -9033,6 +9033,18 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
   .izv-filtri .izv-trazi { display: grid; width: 100%; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto auto auto; grid-auto-flow: column; gap: 4px 12px; }
   .izv-filtri .izv-trazi .form-control { width: 100%; max-width: none; }
   .izv-filtri .izv-trazi .btn { grid-column: 1 / -1; grid-row: 3; min-height: 48px; margin-top: 8px; }
+/* ── Dnevnik COP-a: obrazac zaglavlja i otvaranja ─────────────────────────── */
+.cop-obrazac { max-width: 1104px; }
+.cop-obrazac-kartica > h2 { margin: 0 0 12px; font-size: 1rem; font-weight: 400; line-height: 24px; color: var(--md-sys-color-on-surface); }
+.cop-obrazac-kartica .form-group { margin-bottom: 16px; }
+.cop-obrazac-kartica > .form-group:last-child { margin-bottom: 0; }
+.cop-obrazac-kartica .form-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 16px; }
+.cop-obrazac-kartica textarea { font-family: inherit; }
+.cop-obrazac-radnje { display: flex; justify-content: flex-end; align-items: center; gap: 8px 16px; }
+@media (max-width: 599px) {
+  .cop-obrazac-radnje { flex-direction: column-reverse; align-items: stretch; }
+  .cop-obrazac-kartica .form-row { grid-template-columns: minmax(0, 1fr); }
+  .cop-obrazac-radnje .btn { min-height: 48px; }
 }
 
 .akti-traka-sukoba {
