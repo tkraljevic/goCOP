@@ -31,6 +31,11 @@
   <div><strong>Elektronički potpis ne vrijedi.</strong> Sadržaj akta razlikuje se od ovjerenoga ili potpis nije ispravan; akt ne treba koristiti dok se ne provjeri.</div>
 </div>
 {{end}}
+{{if .JosNeVrijedi}}
+<div class="akt-traka neutralna">{{icon "clock"}}
+  <div>Akt je ovjeren, ali još ne vrijedi. Stupa na snagu {{vrijemeLista $a.Vrijedi}}. Dotad stanje dionica ostaje kakvo jest.</div>
+</div>
+{{end}}
 {{with .PitanjeVrijedi}}
 <div class="akt-traka" id="vrijedi-potvrda">{{icon "triangle-alert"}}
   <div><strong>{{.}}</strong> Nacrt tu potvrdu nema, pa je traži ovjera; potvrda se bilježi uz akt.
@@ -111,14 +116,20 @@
     <p class="form-help mb-0">Poništen akt više se ne šalje. Ako treba ispravak, izdaje se novi akt.</p>
   </section>
   {{else}}
+  {{/* Kartica Slanje (crteži 4a, 4d, 4f, 4c, 4i): broj poslanih, popis sklopljen dok akt nije ni jednom slan,
+       neuspjeli na vrhu, pet primatelja pa „Još N” u istom obrascu, broj označenih na gumbu. Ništa nije označeno unaprijed. */}}
   <section class="list-kartica akt-slanje" id="slanje">
-    <h2>Slanje na znanje</h2>
+    <div class="akt-slanje-glava"><h2>Slanje na znanje</h2>{{if .Adresati}}<span class="akt-slanje-broj">{{.BrojPoslanih}} od {{len .Adresati}}</span>{{end}}</div>
     {{if not .Podesena}}<div class="alert alert-warning">Slanje e-poštom nije uključeno na ovom računalu (<span class="mono">gocop.toml</span>, odjeljak <span class="mono">[posta]</span>).</div>
     {{else if not .Posiljatelj}}<div class="alert alert-warning">U vašem profilu nema adrese e-pošte; s nje se akt šalje.</div>
     {{else if not .Racun}}<div class="alert alert-warning">Za slanje upišite lozinku e-pošte: <a href="/profile/posta">Profil › E-pošta za slanje akata</a>.</div>{{end}}
     {{if .Adresati}}
+    {{if not .ImaPokusaja}}<p class="form-help mt-0">Primatelji još nisu označeni.{{if $.JosNeVrijedi}} Akt se smije poslati i prije nego što stupi na snagu.{{end}}</p>{{end}}
+    {{if $.UpozoriNaOznaku}}<div class="alert alert-info akt-slanje-sukob">{{icon "triangle-alert"}} <span>Akt ima istu oznaku kao drugi akt. Možete ga poslati, ali primatelje upozorite na to.</span></div>{{end}}
+    <details class="akt-slanje-popis"{{if .ImaPokusaja}} open{{end}}>
+    <summary class="btn btn-secondary">Otvori popis primatelja</summary>
     <form method="POST" action="/akti/{{$a.ID}}/posalji" id="akt-slanje-obrazac">
-      <div class="alert alert-warning mt-0 mb-2">{{icon "triangle-alert"}} Ništa se ne šalje dok sami ne označite primatelje. Za probu koristite „Probno samo meni”: stvarnim primateljima ne odlazi ništa.</div>
+      <div class="alert alert-info akt-slanje-uputa">{{icon "triangle-alert"}} <span>Ništa se ne šalje dok sami ne označite primatelje. Za probu koristite „Probno samo meni”.</span></div>
       <p class="form-help akt-slanje-odabir">
         <a href="#" data-odaberi="sve">označi sve</a> · <a href="#" data-odaberi="nista">ništa</a> · <a href="#" data-odaberi="neposlane">samo one kojima još nije poslano</a>
         <span class="akt-slanje-brojac"></span>
@@ -126,7 +137,7 @@
       <table class="table akt-slanje-tablica">
         <thead><tr><th></th><th>Primatelj</th><th>Adresa</th><th>Stanje</th></tr></thead>
         <tbody>
-        {{range .Adresati}}
+        {{range .PrviPrimatelji}}
           <tr>
             <td><input type="checkbox" name="adresa" value="{{.Adresa}}" data-poslano="{{if .Poslano}}1{{else}}0{{end}}" {{if or (not $.Slanje.SmijeSlati) $.Slanje.Zabrana}}disabled{{end}}></td>
             <td>{{.Naziv}}{{with .Skupina}} <span class="form-help">· {{.}}</span>{{end}}</td>
@@ -136,13 +147,25 @@
         {{end}}
         </tbody>
       </table>
-      {{with .BezAdrese}}<p class="form-help">Bez adrese e-pošte u registru, ne šalje im se: {{range $i, $p := .}}{{if $i}}; {{end}}{{$p.Naziv}}{{end}}.</p>{{end}}
-      <details class="akt-slanje-poruka">
-        <summary>Poruka koja se šalje</summary>
-        <p><strong>Od:</strong> {{$.CurrentUser.FullName}} &lt;{{.Posiljatelj}}&gt;<br><strong>Predmet:</strong> {{.Poruka.Predmet}}<br><strong>Privitak:</strong> {{.Poruka.ImeDatoteke}} (izvornik)</p>
-        <pre>{{.Poruka.Tekst}}</pre>
-        <p class="form-help">Svaki primatelj dobiva zasebnu poruku, pa ne vidi ostale adrese.</p>
+      {{with .OstaliPrimatelji}}
+      <details class="akt-slanje-ostali">
+        <summary>Još {{len .}} {{uzBroj (len .) "primatelj" "primatelja" "primatelja"}}</summary>
+        <table class="table akt-slanje-tablica">
+          <thead><tr><th></th><th>Primatelj</th><th>Adresa</th><th>Stanje</th></tr></thead>
+          <tbody>
+          {{range .}}
+          <tr>
+            <td><input type="checkbox" name="adresa" value="{{.Adresa}}" data-poslano="{{if .Poslano}}1{{else}}0{{end}}" {{if or (not $.Slanje.SmijeSlati) $.Slanje.Zabrana}}disabled{{end}}></td>
+            <td>{{.Naziv}}{{with .Skupina}} <span class="form-help">· {{.}}</span>{{end}}</td>
+            <td class="mono">{{.Adresa}}</td>
+            <td>{{with .Zadnje}}{{if .Uspjelo}}<span class="badge badge-active">poslano</span> {{formatDate (localTime .Kad)}}, {{.Poslao}}{{else}}<span class="badge badge-danger">nije prošlo</span> {{.Greska}}{{end}}{{else}}—{{end}}</td>
+          </tr>
+          {{end}}
+          </tbody>
+        </table>
       </details>
+      {{end}}
+      {{with .BezAdrese}}<p class="form-help">Bez adrese e-pošte u registru, ne šalje im se: {{range $i, $p := .}}{{if $i}}; {{end}}{{$p.Naziv}}{{end}}.</p>{{end}}
       {{if .SmijeSlati}}
       <div class="form-group adresa-polje mt-2 mb-2">
         <label class="form-label" for="dodatne">Dodatne adrese</label>
@@ -153,7 +176,7 @@
       {{if .SpremaPoslano}}<p class="form-help">Poruke se šalju preko Exchangea kao iz Outlooka i ostaju u vašoj mapi Poslano.</p>
       {{else}}<label class="checkbox-label"><input type="checkbox" name="kopija" value="1" checked> Pošalji kopiju i meni (poslužitelj ne sprema poslanu poštu u Outlookovu mapu Poslano)</label>{{end}}
       <div class="mt-2 d-flex gap-2 flex-wrap items-center">
-        <button type="submit" class="btn btn-primary" id="akt-posalji" {{if or (not .Podesena) (not .Racun) (not .Posiljatelj) .Zabrana}}disabled{{end}}>{{icon "mail"}} Pošalji odabranima</button>
+        <button type="submit" class="btn btn-primary" id="akt-posalji" {{if or (not .Podesena) (not .Racun) (not .Posiljatelj) .Zabrana}}disabled{{end}}>{{icon "mail"}} Pošalji odabranima<span class="akt-posalji-broj"></span></button>
         <button type="submit" class="btn btn-secondary" name="proba" value="1" formnovalidate {{if or (not .Podesena) (not .Racun) (not .Posiljatelj) .Zabrana}}disabled{{end}}>{{icon "user"}} Probno samo meni</button>
         {{if .Zabrana}}<span class="form-help akt-slanje-zabrana">Ne može se poslati jer elektronički potpis ne vrijedi. Prvo treba provjeriti akt.</span>{{else if eq .NijePoslanoJos 0}}<span class="form-help">Svim adresama je već poslano.</span>{{end}}</div>
       <script>
@@ -169,6 +192,7 @@
             var ima = n > 0 || dodatne.value.trim() !== '';
             if (moze) gumb.disabled = !ima;
             brojac.textContent = n ? ' · označeno: ' + n : '';
+            gumb.querySelector('.akt-posalji-broj').textContent = n ? ' (' + n + ')' : '';
           }
           f.querySelectorAll('[data-odaberi]').forEach(function (a) {
             a.addEventListener('click', function (e) {
@@ -220,10 +244,19 @@
       </script>
       {{end}}
     </form>
+    </details>
     {{else}}
     <p class="form-help">Na popisu "na znanje" nema nijedne adrese e-pošte. Adrese se upisuju u registar primatelja i u službe po županijama.</p>
     {{end}}
   </section>
+  {{if .Adresati}}
+  <details class="list-kartica akt-slanje-poruka">
+    <summary>Poruka koja se šalje {{icon "chevron-right"}}</summary>
+    <p><strong>Od:</strong> {{$.CurrentUser.FullName}} &lt;{{.Posiljatelj}}&gt;<br><strong>Predmet:</strong> {{.Poruka.Predmet}}<br><strong>Privitak:</strong> {{.Poruka.ImeDatoteke}} (izvornik)</p>
+    <pre>{{.Poruka.Tekst}}</pre>
+    <p class="form-help mb-0">Svaki primatelj dobiva zasebnu poruku, pa ne vidi ostale adrese.</p>
+  </details>
+  {{end}}
   {{end}}
   {{end}}
 
