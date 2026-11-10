@@ -4,12 +4,13 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
-## 0.0.55-alfa — 9. 11. 2026.
+## 0.0.55-alfa — 10. 11. 2026.
 
 Dokumenti su u novom izgledu, od vodočuvarskog dnevnika i prijava s terena do
 akata. Akt je uvijek za jedno branjeno područje, a poništen akt više se ne
-šalje. Baza i razmjena se ne mijenjaju. Računala na kojima se sastavljaju i
-šalju akti treba nadograditi prva, a ostala kad odgovara.
+šalje. Gdje Hrvatske vode više ne daju protok, goCOP ga računa sam. Baza i
+razmjena se ne mijenjaju. Računala na kojima se sastavljaju i šalju akti
+treba nadograditi prva, a ostala kad odgovara.
 
 - **Dokumenti, novi izgled.** Ulaz je složen u skupine Obrana, Teren, Usluge i
   Kronologija. Vodočuvar na mobitelu ima Moju knjigu s gumbom „Današnji list”,
@@ -26,6 +27,17 @@ akata. Akt je uvijek za jedno branjeno područje, a poništen akt više se ne
   ovjera, slanje i poništenje desno, s koracima Nacrt, Ovjera i Slanje. Ono što
   treba vidjeti prvo stoji u traci na vrhu, a preko poništenog akta žig
   PONIŠTEN.
+- **Stranica akta.** Nacrt ima karticu Ovjera koja kaže tko je akt sastavio i
+  tko ga ovjerava, a ispis i sken, ispravak teksta i brisanje su u „Još”.
+  Kartica Slanje kaže koliko je primatelja akt dobilo i pokazuje prvih pet, a
+  ostali su pod „Još”. Poništavanje je također u „Još”. Kad ga program odbije
+  jer poslije akta vrijedi kasniji akt, upisani razlog ostaje, a traka nudi da
+  se otvori kasniji akt.
+- **Novi akt umjesto poništenog.** Na poništenom aktu je gumb Novi akt, a novi
+  akt u napomeni kaže koji akt zamjenjuje.
+- **Novi akt u preventivnoj obrani.** Kad sektor nema otvoren dnevnik COP-a,
+  umjesto obrasca stoji objašnjenje, a voditelj COP-a i zamjenik dobivaju gumb
+  za otvaranje dnevnika. Na mobitelu piše da se akt sastavlja na računalu.
 - **Akt za jedno branjeno područje.** Obavijest i rješenje više ne mogu
   obuhvatiti dionice dvaju područja. Kad je letva mjerodavna za dva područja,
   kao Batina za BP 16 i BP 34, na obrascu se bira područje, a za svako se
@@ -40,6 +52,12 @@ akata. Akt je uvijek za jedno branjeno područje, a poništen akt više se ne
   na obje adrese.
 - **Očitanja.** Popis uz letvu stiže brže i stranica letve više ne skače kad se
   popis učita.
+- **Protok iz naše krivulje.** Od 6. 11. 2026. Hrvatske vode za neke postaje
+  na Muri i Dravi daju vodostaj bez protoka. goCOP tada protok izračuna
+  krivuljom iz arhive i uz očitanje piše da je protok izračunat. Očitanja od
+  6. 11. do nadogradnje ostaju bez protoka.
+- **Prijava greške.** Naslov prozora je „Prijavi grešku ili predloži
+  poboljšanje”.
 - **Prognoze.** Upozorenja uz prognozu napisana su običnim riječima, umjesto
   dugog niza letvi i sati u jednoj rečenici.
 - **Obrazac letve.** Spremanje više ne briše opis uz najviši zabilježeni
