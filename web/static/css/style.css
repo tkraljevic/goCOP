@@ -8661,6 +8661,40 @@ summary.ocitanja-cip { padding-right: 8px; }
 .akt-stanje-potpisa > p, .akt-stanje-potpisa > div { flex: 1 1 auto; min-width: 0; margin: 0; overflow-wrap: anywhere; }
 .akt-brisanje { display: flex; flex-wrap: wrap; gap: 8px; }
 
+/* Ploča nacrta (4, 4k, 4e): Ovjera kaže tko je sastavio i tko ovjerava. Ispis i sken, ispravak teksta
+   i brisanje su paneli koji se otvaraju iz „Još” sidrom (:target), bez skripte. Otvoreni panel stoji
+   na mjestu kartica Ovjera i Primatelji, a „Još” tada nudi povratak na ovjeru. */
+.akt-ovjera-tko { margin: 0 0 12px; font-size: 0.875rem; line-height: 20px; color: var(--md-sys-color-on-surface-variant); }
+.akt-ovjera .alert, .akt-ispis .alert { display: flex; align-items: flex-start; gap: 12px; margin: 0 0 12px; }
+.akt-ovjera .alert > .icon, .akt-ispis .alert > .icon { flex: none; }
+.akt-ovjera .checkbox-label { margin: 0 0 12px; }
+.akt-ovjera form { margin-bottom: 8px; }
+.akt-panel:not(:target) { display: none; }
+.akt-panel { scroll-margin-top: 80px; }
+.akt-panel h2 { margin: 0 0 8px; }
+.akt-panel.akt-brisanje:target { display: block; }
+.akt-ploca:has(.akt-panel:target) .akt-ovjera, .akt-ploca:has(.akt-panel:target) #primatelji { display: none; }
+.akt-ispis > .btn { margin: 4px 0 16px; }
+/* Obrazac ispravka teksta u panelu je dio kartice, bez vlastitog okvira i trake. */
+.akt-uredi .form-page { max-width: none; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; overflow: visible; }
+.akt-uredi .form-page::before { display: none; }
+.akt-ploca .akt-sken { gap: 12px; margin-bottom: 8px; }
+.akt-ploca .akt-sken .list-polje { margin: 0; }
+.akt-ploca .akt-sken .btn { width: 100%; }
+.akt-jos { display: flex; flex-direction: column; padding-block: 8px; }
+.akt-jos h2 { margin: 4px 0 4px; font-size: 0.8125rem; font-weight: 400; color: var(--md-sys-color-on-surface-variant); }
+.akt-jos a { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 40px; color: var(--md-sys-color-on-surface); text-decoration: none; font-size: 0.9375rem; }
+.akt-jos a:hover { text-decoration: underline; }
+.akt-jos a .icon { flex: none; width: 20px; height: 20px; color: var(--md-sys-color-on-surface-variant); }
+.akt-jos a.opasno { color: var(--danger-fg); }
+.akt-jos .akt-jos-ovjera { display: none; }
+.akt-ploca:has(.akt-panel:target) .akt-jos .akt-jos-ovjera { display: flex; }
+.akt-ploca:has(#uredi:target) .akt-jos a[href="#uredi"], .akt-ploca:has(#ispis:target) .akt-jos a[href="#ispis"],
+.akt-ploca:has(#brisanje:target) .akt-jos a[href="#brisanje"] { display: none; }
+@media (max-width: 599px), (pointer: coarse) {
+  .akt-jos a { min-height: 48px; }
+}
+
 /* Slanje u ploči: svaki primatelj je redak s kućicom lijevo i imenom, adresom i stanjem
    jedno ispod drugoga. Zaglavlje tablice ostaje za čitač zaslona. */
 .akt-ploca .akt-slanje-tablica, .akt-ploca .akt-slanje-tablica tbody { display: block; }

@@ -80,10 +80,19 @@
   </section>
   {{end}}
 
-  {{if .SmijeOvjeriti}}
-  <section class="list-kartica akt-ovjera">
+  {{if not $a.Ovjeren}}
+  {{/* Ploča nacrta (crteži 4, 4k i 4e): kartica Ovjera s upozorenjem uz popis, Primatelji pri ovjeri,
+       a ispis i sken, ispravak teksta i brisanje u „Još”, kao paneli koji se otvaraju sidrom (:target). */}}
+  <section class="list-kartica akt-ovjera" id="ovjera">
     <h2>Ovjera</h2>
+    <p class="akt-ovjera-tko">Sastavio {{$a.Izradio}}, {{formatDate (localTime $a.IzradenoAt)}}. Ovjerava: {{.OvjeravaAkt}}</p>
+    {{with .Pregled}}{{with .Upozorenja}}<div class="alert alert-warning">{{icon "triangle-alert"}} <div><strong>Upozorenje uz popis koji ulazi u ovjeru:</strong>
+      <ul class="mb-0">{{range .}}<li>{{.}}</li>{{end}}</ul></div></div>
+      {{if $.SmijeOvjeriti}}<label class="checkbox-label"><input type="checkbox" name="potvrda_primatelja" value="1" form="ovjera-obrazac" required> Ovjeravam u goCOP-u unatoč upozorenju o popisu primatelja</label>{{end}}{{end}}{{end}}
+    {{if .SmijeOvjeriti}}
     <form method="POST" action="/akti/{{$a.ID}}/ovjeri" id="ovjera-obrazac" onsubmit="return confirm('Ovjeriti akt u goCOP-u? Ovjera se potpisuje ključem čvora, akt dobiva broj i kod ovjere, a PDF sa žigom i potpisom postaje izvornik.{{with .Pregled}}{{if .Razlikuje}} Popis primatelja složen pri ovjeri razlikuje se od nacrta ({{.OpisRazlike}}); razlika je na stranici, pod Primatelji pri ovjeri.{{end}}{{end}}');">{{with .Pregled}}<input type="hidden" name="otisak" value="{{.Otisak}}">{{end}}<button type="submit" class="btn btn-primary" title="Hitna ovjera u programu, bez kvalificiranog potpisa">{{icon "check"}} Ovjeri u goCOP-u</button></form>
+    <p class="form-help mb-0">Ovjera se potpisuje ključem čvora. Akt dobiva oznaku, a stanje dionica se mijenja. Ako treba papir sa žigom, u „Još” je ispis i sken.</p>
+    {{end}}
   </section>
   {{end}}
 
@@ -226,19 +235,39 @@
     {{with .Pregled}}
     <p class="form-help mt-0">Pri ovjeri u goCOP-u popis se slaže ponovno iz registara i takav ulazi u ovjereni akt. {{if .Razlikuje}}Razlika prema popisu u nacrtu:{{else}}Popis složen sada jednak je popisu u nacrtu.{{end}}</p>
     {{if .Razlikuje}}<ul class="akt-razlika">{{range .Dodani}}<li>+ {{.Naziv}}{{with .Email}} &lt;{{.}}&gt;{{end}}</li>{{end}}{{range .Uklonjeni}}<li>− {{.Naziv}}{{with .Email}} &lt;{{.}}&gt;{{end}}</li>{{end}}</ul>{{end}}
-    {{with .Upozorenja}}<div class="alert alert-warning">{{icon "triangle-alert"}} <strong>Upozorenje uz popis koji ulazi u ovjeru:</strong>
-      <ul class="mb-0">{{range .}}<li>{{.}}</li>{{end}}</ul></div>
-      {{if $.SmijeOvjeriti}}<label class="checkbox-label"><input type="checkbox" name="potvrda_primatelja" value="1" form="ovjera-obrazac" required> Ovjeravam u goCOP-u unatoč upozorenju o popisu primatelja</label>{{end}}{{end}}
     {{if $.SmijeUreditiNacrt}}<form method="POST" action="/akti/{{$a.ID}}/slozi-primatelje" class="mt-2"><button type="submit" class="btn btn-sm btn-secondary">{{icon "refresh-cw"}} Ponovno složi primatelje</button>
       <span class="form-help">Nacrt dobiva popis složen sada; ispis za potpis tada treba ponoviti.</span></form>{{end}}
     {{end}}
   </section>
   {{end}}
 
+  {{if not $a.Ovjeren}}
+  {{if .SmijePripremiti}}
+  <section class="list-kartica akt-panel akt-ispis" id="ispis">
+    <h2>Ispis, potpis i žig</h2>
+    <p class="form-help mt-0">Kad treba i papir sa žigom, ispišite nacrt, rukovoditelj ga potpiše, udarite žig i sken učitajte. Sken tada postaje izvornik i akt je time ovjeren.{{if not .SmijeOvjeriti}} Sken učitava onaj tko akt smije ovjeriti.{{end}}</p>
+    <a href="/akti/{{$a.ID}}/za-ispis.pdf" target="_blank" class="btn btn-secondary">{{icon "printer"}} PDF za ispis</a>
+    {{if .SmijeOvjeriti}}<form method="POST" action="/akti/{{$a.ID}}/sken" enctype="multipart/form-data" class="akt-sken">
+      <div class="form-group list-polje">{{icon "upload"}}<label class="form-label" for="sken">Sken u PDF-u</label><input type="file" id="sken" name="sken" accept="application/pdf,.pdf" required class="form-control"></div>
+      <div class="form-group list-polje">{{icon "user"}}<label class="form-label" for="potpisnik_id">Tko je potpisao</label>
+        <select id="potpisnik_id" name="potpisnik_id" class="form-control" required>
+          <option value="">— tko je potpisao —</option>
+          {{range .MoguPotpisati}}<option value="{{.ID}}">{{.FullName}}{{with .PrimaryDuty}} · {{.Title}}{{end}}</option>{{end}}
+        </select></div>
+      {{with .PitanjeVrijedi}}<label class="checkbox-label"><input type="checkbox" name="potvrda_vrijedi" value="1" required> {{.}} Da, točno je upisan</label>{{end}}
+      {{with .Pregled}}{{with .Upozorenja}}<div class="alert alert-warning">{{icon "triangle-alert"}} <div><strong>Upozorenje uz popis koji ulazi u ovjeru:</strong>
+        <ul class="mb-0">{{range .}}<li>{{.}}</li>{{end}}</ul></div></div>{{end}}{{end}}
+      {{with .Pregled}}{{if or $a.UpozorenjaPrimatelja .Upozorenja .Razlikuje}}<label class="checkbox-label"><input type="checkbox" name="potvrda_primatelja" value="1" required> Sken nosi popis primatelja s ispisa{{if or $a.UpozorenjaPrimatelja .Upozorenja}}, uz upozorenje koje i dalje stoji{{end}}{{if .Razlikuje}}, a popis složen sada bio bi drukčiji ({{.OpisRazlike}}){{end}}: svejedno ovjeravam</label>{{end}}{{end}}
+      <button type="submit" class="btn btn-primary">{{icon "upload"}} Učitaj sken</button>
+    </form>
+    <p class="form-help mb-0">Potpis na skenu program ne može provjeriti, pa ovjeru bilježi na osobu koju odaberete i na onoga tko je sken učitao.</p>{{end}}
+  </section>
+  {{end}}
+
   {{if .SmijeUreditiNacrt}}
-  <details class="list-kartica akt-uredi"{{if .ErrorMessage}} open{{end}}>
-    <summary>{{icon "pencil"}} Ispravi tekst nacrta</summary>
-    <form method="POST" action="/akti/{{$a.ID}}/tekst" class="form-page mt-3">
+  <section class="list-kartica akt-panel akt-uredi" id="uredi">
+    <h2>Ispravi tekst nacrta</h2>
+    <form method="POST" action="/akti/{{$a.ID}}/tekst" class="form-page">
       <div class="form-group">
         <label class="form-label" for="uvod">Uvod: pravna osnova i vodostaj</label>
         <textarea id="uvod" name="uvod" class="form-control" rows="5" required>{{$a.TekstUvoda}}</textarea>
@@ -260,27 +289,26 @@
       <div class="form-help">Ispravak vrijedi samo za ovaj nacrt. Za sve buduće akte uredite <a href="/akti/spranca?sektor={{$a.Sektor}}">šprancu sektora</a>.</div>
       <div class="form-actions"><button type="submit" class="btn btn-primary">Spremi tekst</button></div>
     </form>
-  </details>
+  </section>
   {{end}}
 
-  {{if .SmijePripremiti}}
-  <section class="list-kartica akt-potpis-opcije">
-    <h2>Ispis, potpis i žig</h2>
-    <p class="form-help mt-0 mb-3">Akt se ovjerava u goCOP-u gumbom Ovjeri (elektronička ovjera ključem čvora). Kad treba i papir sa žigom, ispišite nacrt, rukovoditelj ga potpiše, udarite žig i sken učitajte: sken tada postaje izvornik i akt je time ovjeren.{{if not .SmijeOvjeriti}} Sken učitava onaj tko akt smije ovjeriti.{{end}}</p>
-    <ol>
-      <li><a href="/akti/{{$a.ID}}/za-ispis.pdf" target="_blank" class="btn btn-sm btn-secondary">{{icon "printer"}} PDF za ispis</a></li>
-      {{if .SmijeOvjeriti}}<li><form method="POST" action="/akti/{{$a.ID}}/sken" enctype="multipart/form-data" class="akt-sken">
-        <input type="file" name="sken" accept="application/pdf,.pdf" required class="form-control">
-        <select name="potpisnik_id" class="form-control" required>
-          <option value="">— tko je potpisao —</option>
-          {{range .MoguPotpisati}}<option value="{{.ID}}">{{.FullName}}{{with .PrimaryDuty}} · {{.Title}}{{end}}</option>{{end}}
-        </select>
-        {{with .PitanjeVrijedi}}<label class="checkbox-label"><input type="checkbox" name="potvrda_vrijedi" value="1" required> {{.}} Da, točno je upisan</label>{{end}}
-        {{with .Pregled}}{{if or $a.UpozorenjaPrimatelja .Upozorenja .Razlikuje}}<label class="checkbox-label"><input type="checkbox" name="potvrda_primatelja" value="1" required> Sken nosi popis primatelja s ispisa{{if or $a.UpozorenjaPrimatelja .Upozorenja}}, uz upozorenje koje i dalje stoji{{end}}{{if .Razlikuje}}, a popis složen sada bio bi drukčiji ({{.OpisRazlike}}){{end}}: svejedno ovjeravam</label>{{end}}{{end}}
-        <button type="submit" class="btn btn-sm btn-secondary">{{icon "upload"}} Učitaj sken</button></form>
-        <div class="form-help">Sken u PDF-u. Potpis na skenu program ne može provjeriti, pa ovjeru bilježi na osobu koju odaberete i na onoga tko je sken učitao.</div></li>{{end}}
-    </ol>
+  {{if .SmijeObrisati}}
+  <section class="list-kartica akt-panel akt-brisanje" id="brisanje">
+    <h2>Obriši nacrt</h2>
+    <p class="form-help mt-0">Briše se samo nacrt. Ovjeren akt se ne briše, nego poništava.</p>
+    <form method="POST" action="/akti/{{$a.ID}}/obrisi" onsubmit="return confirm('Obrisati nacrt?');"><button type="submit" class="btn btn-secondary btn-opasno">{{icon "trash"}} Obriši nacrt</button></form>
   </section>
+  {{end}}
+
+  {{if or .SmijePripremiti .SmijeUreditiNacrt .SmijeObrisati}}
+  <nav class="list-kartica akt-jos" aria-label="Još">
+    <h2>Još</h2>
+    {{if .SmijeOvjeriti}}<a href="#ovjera" class="akt-jos-ovjera">Ovjeri u goCOP-u {{icon "chevron-right"}}</a>{{end}}
+    {{if .SmijeUreditiNacrt}}<a href="#uredi">Ispravi tekst nacrta {{icon "chevron-right"}}</a>{{end}}
+    {{if .SmijePripremiti}}<a href="#ispis">Ispis, potpis i žig (PDF za ispis, sken) {{icon "chevron-right"}}</a>{{end}}
+    {{if .SmijeObrisati}}<a href="#brisanje" class="opasno">Obriši nacrt {{icon "chevron-right"}}</a>{{end}}
+  </nav>
+  {{end}}
   {{end}}
 
   {{with $a.Rucno}}
@@ -316,11 +344,8 @@
   </details>
   {{end}}
 
-  {{if or .SmijeObrisati .SmijeObrisatiTrajno}}
+  {{if .SmijeObrisatiTrajno}}
   <section class="list-kartica akt-brisanje">
-    {{if .SmijeObrisati}}
-    <form method="POST" action="/akti/{{$a.ID}}/obrisi" onsubmit="return confirm('Obrisati nacrt?');"><button type="submit" class="btn btn-secondary">{{icon "trash"}} Obriši nacrt</button></form>
-    {{end}}
     {{if .SmijeObrisatiTrajno}}
     <form method="POST" action="/akti/{{$a.ID}}/obrisi" onsubmit="return confirm('TRAJNO obrisati ovjereni akt {{$a.Oznaka}} s izvornikom i dnevnikom slanja? Ovo je dopušteno samo u testnom okruženju (Administracija › Opcije).');"><button type="submit" class="btn btn-secondary btn-opasno">{{icon "trash"}} Obriši trajno</button></form>
     {{end}}

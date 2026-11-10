@@ -40,3 +40,15 @@ func novoUmjesto(t *testing.T, akti *service.AktService, id string,
 		t.Error("akt koji nije poništen nema adrese novog akta umjesto njega")
 	}
 }
+
+// Kartica Ovjera na nacrtu kaže tko ovjerava akt njegova stupnja i sektora;
+// bez akta nema rečenice
+func TestOvjeravaAkt(t *testing.T) {
+	if got := (AktiPageData{}).OvjeravaAkt(); got != "" {
+		t.Errorf("bez akta: %q", got)
+	}
+	d := AktiPageData{Akt: &models.Akt{Sektor: "B", Stupanj: models.PhaseEmergency}}
+	if got := d.OvjeravaAkt(); !strings.HasPrefix(got, "Rukovoditelj obrane od poplava Sektora B ili viši.") {
+		t.Errorf("izvanredna obrana: %q", got)
+	}
+}
