@@ -3,6 +3,7 @@ package web
 import (
 	"html/template"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -15,6 +16,7 @@ import (
 // pregled kao dokument, predaja. Obrazac je standardni iz Privitka 4, a
 // popunjava se iz onoga što program zna.
 type IzvjescaHandler struct {
+	sektori                  func() ([]models.Sector, error)     // za čipove sektora na popisu; nil dok se ne postavi
 	zaglavlje                func(sektor string) ZaglavljeIzvoza // za izvoz; nil dok se ne postavi
 	tmplSektObr, tmplSektDok *template.Template                  // sektorsko izvješće: obrazac i dokument
 
@@ -54,6 +56,21 @@ type IzvjescaPageData struct {
 	Sektorska []models.SektorskoIzvjesce
 	Sektori   []string // za koje osoba slaže sektorsko izvješće
 
+	// Popis po crtežu: kartice Dan i Svi, čipovi sektora i vrste, jedan
+	// popis izvješća dionica i sektora, i izvješće sektora za dan.
+	Prikaz        string // "svi" ili "dan"
+	Sektor        string // izabrani sektor (?sektor=)
+	Vrsta         string // "", "dionice" ili "sektor"
+	Redovi        []RedakIzvjesca
+	CipoviSektora []CipPopisa
+	CipoviVrste   []CipPopisa
+	KarteSektora  []KartaSektora
+	DanKarte      time.Time // dan za koji stoji izvješće sektora
+	KarticaDan    string
+	KarticaSvi    string
+	DanPrije      string // poveznice strelica u prikazu Dan
+	DanPoslije    string
+
 	SuccessMessage string
 	ErrorMessage   string
 	ActiveNav      string
@@ -79,7 +96,12 @@ func (h *IzvjescaHandler) render(w http.ResponseWriter, t *template.Template, na
 	}
 }
 
-// ShowPopis prikazuje izvješća koja osoba smije vidjeti: po danu i dionici
+// SetSektori daje popis sektora za čipove na popisu izvješća.
+func (h *IzvjescaHandler) SetSektori(f func() ([]models.Sector, error)) { h.sektori = f }
+
+// ShowPopis prikazuje izvješća koja osoba smije vidjeti. Kartica Svi je jedan
+// popis izvješća dionica i sektora, po danu, dionici, sektoru i vrsti; kartica
+// Dan (?prikaz=dan) je jedan dan: izvješće sektora i izvješća dionica.
 func (h *IzvjescaHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 	data := h.pageData(r)
 	svc := h.svc()
@@ -87,37 +109,125 @@ func (h *IzvjescaHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "izvješća nisu dostupna", http.StatusServiceUnavailable)
 		return
 	}
-	data.Dionice, _ = svc.DioniceZaPisanje(data.Permissions)
-	data.Sifra = strings.TrimSpace(r.URL.Query().Get("dionica"))
-	var dan *time.Time
-	if t, err := time.ParseInLocation("2006-01-02", r.URL.Query().Get("dan"), models.Zagreb); err == nil {
-		dan = &t
-		data.Dan = t.Format("2006-01-02")
-	}
-	sva, err := svc.List(r.Context(), "", data.Sifra, "", dan)
+	q := r.URL.Query()
+	data.Dionice, _ = svc.DioniceZaPisanje(data.Permissions) // bez popisa nema gumba „Novo izvješće”, popis i dalje stoji
+	dan := izborPopisaIzvjesca(&data, q)
+	sva, err := svc.List(r.Context(), "", data.Sifra, data.Sektor, dan)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	// vidi se ono što je u dosegu: pravo se provjerava po dionici
-	for _, iz := range sva {
-		sec := &models.Section{Code: iz.SectionCode, SectorID: iz.Sektor}
-		if d, err := svc.Dionica(iz.SectionCode); err == nil && d != nil {
-			sec = d
-		}
-		if svc.SmijeVidjeti(data.Permissions, sec) {
-			data.Izvjesca = append(data.Izvjesca, iz)
-		}
-	}
+	data.Izvjesca = vidljivaIzvjesca(svc, data.Permissions, sva)
 	data.Sektori = svc.SektoriZaSastavljanje(data.Permissions)
-	if sektorska, err := svc.ListSektorska(r.Context(), ""); err == nil {
+	if sektorska, err := svc.ListSektorska(r.Context(), data.Sektor); err == nil {
 		for _, si := range sektorska {
 			if svc.SmijeVidjetiSektor(data.Permissions, si.Sektor) {
 				data.Sektorska = append(data.Sektorska, si)
 			}
 		}
 	}
+	h.slozPopis(&data, q)
 	h.render(w, h.tmplPopis, "izvjesca.html", data)
+}
+
+// izborPopisaIzvjesca čita iz adrese dionicu, sektor, prikaz, vrstu i dan; prikaz
+// Dan bez dana je danas. Vraća dan za upit, nil za sve dane.
+func izborPopisaIzvjesca(data *IzvjescaPageData, q url.Values) *time.Time {
+	data.Sifra = strings.TrimSpace(q.Get("dionica"))
+	data.Sektor = strings.TrimSpace(q.Get("sektor"))
+	data.Prikaz = "svi"
+	if q.Get("prikaz") == "dan" {
+		data.Prikaz = "dan"
+	}
+	if v := q.Get("vrsta"); v == vrstaIzvjescaDionice || v == vrstaIzvjescaSektor {
+		data.Vrsta = v
+	}
+	dan := q.Get("dan")
+	if dan == "" && data.Prikaz == "dan" {
+		dan = data.Danas
+	}
+	t, err := time.ParseInLocation("2006-01-02", dan, models.Zagreb)
+	if err != nil {
+		return nil
+	}
+	data.Dan = t.Format("2006-01-02")
+	return &t
+}
+
+// vidljivaIzvjesca ostavlja izvješća u dosegu osobe: pravo se provjerava po
+// dionici
+func vidljivaIzvjesca(svc *service.IzvjescaService, perms *models.UserPermissions, sva []models.DnevnoIzvjesce) []models.DnevnoIzvjesce {
+	var out []models.DnevnoIzvjesce
+	for _, iz := range sva {
+		sec := &models.Section{Code: iz.SectionCode, SectorID: iz.Sektor}
+		if d, err := svc.Dionica(iz.SectionCode); err == nil && d != nil {
+			sec = d
+		}
+		if svc.SmijeVidjeti(perms, sec) {
+			out = append(out, iz)
+		}
+	}
+	return out
+}
+
+// slozPopis slaže čipove, kartice, izvješće sektora za dan i zajednički
+// popis iz izvješća koja je ShowPopis već filtrirao po pravima.
+func (h *IzvjescaHandler) slozPopis(data *IzvjescaPageData, q url.Values) {
+	danKarte := data.Dan
+	if danKarte == "" {
+		danKarte = data.Danas
+	}
+	data.DanKarte, _ = time.ParseInLocation("2006-01-02", danKarte, models.Zagreb) // oba su datumi iz obrasca ili sata
+	data.KarteSektora = karteSektora(danKarte, data.Sektor, data.Sektori, data.Sektorska)
+
+	sektorska := sektorskaZaPopis(data)
+	dionice := data.Izvjesca
+	data.CipoviVrste = cipoviVrsteIzvjesca(zadrziParametre(q, "sektor", "dan", "dionica"), data.Vrsta, len(dionice), len(sektorska))
+	switch data.Vrsta {
+	case vrstaIzvjescaDionice:
+		sektorska = nil
+	case vrstaIzvjescaSektor:
+		dionice = nil
+	}
+	data.Redovi = slozenRedoslijed(dionice, sektorska)
+
+	var sektori []models.Sector
+	if h.sektori != nil {
+		sektori, _ = h.sektori() // bez popisa sektora stoji samo čip Svi
+	}
+	data.CipoviSektora = cipoviSektoraPo("/izvjesca", "sektor", zadrziParametre(q, "prikaz", "dan", "dionica", "vrsta"), sektori, data.Sektor)
+	data.KarticaSvi = adresaSIzborom("/izvjesca", zadrziParametre(q, "sektor"))
+	uDan := zadrziParametre(q, "sektor")
+	uDan.Set("prikaz", "dan")
+	data.KarticaDan = adresaSIzborom("/izvjesca", uDan)
+	if data.Prikaz == "dan" {
+		strelicePrikazaDan(data, uDan)
+	}
+}
+
+// sektorskaZaPopis su izvješća sektora za popis: za izabrani dan, i nijedno
+// kad se traži dionica
+func sektorskaZaPopis(data *IzvjescaPageData) []models.SektorskoIzvjesce {
+	if data.Sifra != "" {
+		return nil
+	}
+	var out []models.SektorskoIzvjesce
+	for _, si := range data.Sektorska {
+		if data.Dan == "" || danKljuc(si.Dan) == data.Dan {
+			out = append(out, si)
+		}
+	}
+	return out
+}
+
+// strelicePrikazaDan vode na dan prije i, dok ne prijeđe današnji, poslije.
+func strelicePrikazaDan(data *IzvjescaPageData, uDan url.Values) {
+	uDan.Set("dan", data.DanKarte.AddDate(0, 0, -1).Format("2006-01-02"))
+	data.DanPrije = adresaSIzborom("/izvjesca", uDan)
+	if sutra := data.DanKarte.AddDate(0, 0, 1).Format("2006-01-02"); sutra <= data.Danas {
+		uDan.Set("dan", sutra)
+		data.DanPoslije = adresaSIzborom("/izvjesca", uDan)
+	}
 }
 
 // ShowNovo prikazuje obrazac za dionicu i dan, popunjen iz programa; kad
