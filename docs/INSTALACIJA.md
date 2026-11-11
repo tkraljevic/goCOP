@@ -1,7 +1,7 @@
 # Postavljanje i održavanje goCOP čvora
 
-Administratorske upute za izdanje 0.0.55-alfa. Pregledane 15. 10. 2026.,
-odjeljak o nadogradnji dopunjen 10. 11. 2026.
+Administratorske upute za izdanje 0.0.56-alfa. Pregledane 15. 10. 2026.,
+odjeljak o nadogradnji dopunjen 11. 11. 2026.
 Kratki pregled projekta: [README](../README.md). Korisnički postupci su u Pomoći aplikacije.
 
 Operativni program za obranu od poplava Hrvatskih voda: povezuje organizaciju,
@@ -10,7 +10,7 @@ i bez interneta; kopije na različitim računalima međusobno se usklađuju.
 Repozitorij nosi program i praznu shemu baze, a podatke unosi ili uvozi
 organizacija koja ga koristi.
 
-> **Status: alfa, izdanje 0.0.55-alfa (10. 11. 2026.), za testiranje i daljnji
+> **Status: alfa, izdanje 0.0.56-alfa (11. 11. 2026.), za testiranje i daljnji
 > razvoj.** Nije za operativnu upotrebu. Sve se još mijenja. Što je u kojem
 > izdanju, piše u [popisu izmjena](../CHANGELOG.md).
 >
@@ -1061,6 +1061,9 @@ Nadograđuje se redom: najprije stalni čvor, odmah zatim ostala računala. Dok
 sva ne rade na istom izdanju, ne dodavati, mijenjati ni brisati djelatnike i
 zaduženja. Na kojem izdanju radi koji čvor, pokazuju pločica „Razmjena s
 čvorovima” i stranica Stanje razmjene.
+
+0.0.56-alfa samo vraća izgled stranica na računalu i ne mijenja bazu ni način
+razmjene, pa se računala mogu nadograditi kad odgovara.
 
 0.0.55-alfa ne mijenja bazu ni način razmjene. Nova pravila akata vrijede na
 računalu koje ih ima: akt je uvijek za jedno branjeno područje, a poništen akt
