@@ -14,7 +14,7 @@ import (
 // Tuhovec…), jer je ondje protok računala letva iz krivulje upisane na starom
 // zapisu. Krivulje istih letvi imamo u arhivi, pa protok izračunamo sami kad
 // ga izvor ne da. Očitanje to i kaže: način je krivulja, a bilješka govori
-// čija.
+// čija. Isto vrijedi kad izvor umjesto protoka da 0 tamo gdje rijeka teče.
 
 // KrivuljeLetve daje krivulje protoka letve po šifri (botovo, tuhovec…),
 // najnovija prva. Prazno kad letva krivulje nema.
@@ -40,20 +40,44 @@ func (u *Uvoznik) protokIzKrivulje(ctx context.Context, st *models.Station, skup
 		return
 	}
 	for _, redci := range skupine {
+		odbaciNulu(redci, krivulje)
 		dopuniKrivuljom(redci, krivulje)
 	}
 }
 
-// trebaProtok javlja ima li redak s vodostajem, a bez protoka
+// trebaProtok javlja ima li redak s vodostajem, a bez protoka ili s
+// protokom 0 (vidi odbaciNulu)
 func trebaProtok(skupine ...[]Redak) bool {
 	for _, redci := range skupine {
 		for _, r := range redci {
-			if r.LevelCm != nil && r.FlowM3s == nil {
+			if r.LevelCm != nil && (r.FlowM3s == nil || *r.FlowM3s <= 0) {
 				return true
 			}
 		}
 	}
 	return false
+}
+
+// odbaciNulu briše protok 0 (ili manji) koji je izvor dao uz vodostaj na
+// kojem naša krivulja kaže da rijeka teče (models.HQKrivulja.NulaNijeProtok).
+// Takav redak poslije dopuni naša krivulja, ako je vodostaj u njezinu
+// rasponu; inače ostaje bez protoka, a prognoza ga računa iz vodostaja.
+// Vraća koliko je nula odbačeno.
+func odbaciNulu(redci []Redak, krivulje []models.HQKrivulja) int {
+	n := 0
+	for i := range redci {
+		r := &redci[i]
+		if r.FlowM3s == nil || *r.FlowM3s > 0 || r.LevelCm == nil {
+			continue
+		}
+		k := models.KrivuljaUTrenutku(krivulje, r.Kad)
+		if k == nil || !k.NulaNijeProtok(*r.LevelCm) {
+			continue
+		}
+		r.FlowM3s, r.FlowMetoda, r.FlowBiljeska = nil, "", ""
+		n++
+	}
+	return n
 }
 
 // dopuniKrivuljom upiše protok retcima koji imaju vodostaj, a nemaju protok,

@@ -989,13 +989,18 @@ func uVelicini(velicina string, cm sql.NullInt64, q sql.NullFloat64,
 		}
 		return float64(cm.Int64), true
 	}
-	if q.Valid {
+	if q.Valid && (q.Float64 > 0 || !cm.Valid) {
 		return q.Float64, true
 	}
 	if !cm.Valid {
 		return 0, false
 	}
 	k := KrivuljaZa(krivulje, kad)
+	if q.Valid && (k == nil || !k.NulaNijeProtok(int(cm.Int64))) {
+		return q.Float64, true
+	}
+	// Protoka nema ili je 0 na vodostaju na kojem rijeka teče (izvor je
+	// izvan svoje krivulje upisao nulu): računa se iz vodostaja.
 	if k == nil {
 		return 0, false
 	}
