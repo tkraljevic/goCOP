@@ -136,7 +136,13 @@ func TestKopijaISat(t *testing.T) {
 // Pločica i blok Dohvatljivost: redak o prijavi i upozorenje o kvaru stoje
 // uz ostalo, a pločica nije „sve je usklađeno” dok kvar traje
 func TestSignalNaPlociciIDohvatljivosti(t *testing.T) {
-	malo := time.Now().Add(-2 * time.Minute)
+	// dvije minute ranije, ali isti dan po našem vremenu: odmah iza ponoći
+	// bilo bi to jučer, pa bi redak nosio datum, a ne samo sat
+	sad := time.Now()
+	malo := sad.Add(-2 * time.Minute)
+	if malo.In(models.Zagreb).YearDay() != sad.In(models.Zagreb).YearDay() {
+		malo = sad
+	}
 	s, _ := cvorSPostavkama(t, sadrzajPostavk, nil)
 	s.SetRazmjena(func(context.Context) RazmjenaStanje {
 		return RazmjenaStanje{UMrezi: true, Cvorovi: []CvorRazmjene{{Naziv: "laptop", Dostupnost: "online", Zadnja: &malo}}}
@@ -213,5 +219,23 @@ func TestSastajalisteBezPrijave(t *testing.T) {
 	}
 	if (&Server{}).upozorenjeSastajalista() != "" {
 		t.Error("poslužitelj bez postavki")
+	}
+}
+
+// Prijava od danas piše se samo satom, a od prije datumom i satom, po našem
+// vremenu i kad je u UTC-u još jučer.
+func TestOdKad(t *testing.T) {
+	sad := time.Date(2026, 11, 12, 0, 8, 0, 0, models.Zagreb)
+	for _, c := range []struct {
+		od    time.Time
+		treba string
+	}{
+		{time.Date(2026, 11, 12, 0, 6, 0, 0, models.Zagreb), "00:06"},
+		{time.Date(2026, 11, 11, 23, 6, 0, 0, time.UTC), "00:06"},
+		{time.Date(2026, 11, 11, 23, 59, 0, 0, models.Zagreb), "11. 11. u 23:59"},
+	} {
+		if got := odKad(c.od, sad.UTC()); got != c.treba {
+			t.Errorf("%v: %q, treba %q", c.od, got, c.treba)
+		}
 	}
 }
