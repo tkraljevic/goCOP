@@ -370,6 +370,13 @@ func TestUVelicini(t *testing.T) {
 		{"protok bez ičega", "protok", sql.NullInt64{}, sql.NullFloat64{}, krivulje, kad, 0, false},
 		{"krivulja još ne vrijedi", "protok", cm(150), sql.NullFloat64{}, krivulje, time.Date(1999, 1, 1, 0, 0, 0, 0, time.UTC), 0, false},
 		{"vodostaj daleko iznad krivulje", "protok", cm(900), sql.NullFloat64{}, krivulje, kad, 0, false},
+		// Izvor ispod svoje krivulje upiše 0 (Belišće, 9.–11. 11. 2026.):
+		// gdje rijeka teče, protok se računa iz vodostaja.
+		{"nula na vodostaju gdje rijeka teče", "protok", cm(150), q(0), krivulje, kad, 200, true},
+		{"nula malo ispod krivulje", "protok", cm(-5), q(0), krivulje, kad, 45, true},
+		{"nula daleko ispod krivulje", "protok", cm(-100), q(0), krivulje, kad, 0, false},
+		{"nula bez krivulje ostaje", "protok", cm(150), q(0), nil, kad, 0, true},
+		{"nula bez vodostaja ostaje", "protok", sql.NullInt64{}, q(0), krivulje, kad, 0, true},
 	} {
 		v, ima := uVelicini(s.velicina, s.cm, s.q, s.krivulje, s.kad)
 		if ima != s.ima || math.Abs(v-s.want) > 1e-9 {

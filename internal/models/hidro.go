@@ -953,6 +953,26 @@ func (k HQKrivulja) RasponProduljenja() (dolje, gore int, ok bool) {
 	return produljenje(najn, najn.OdCm, -1), produljenje(najv, najv.DoCm, 1), true
 }
 
+// NulaNijeProtok javlja da protok 0 (ili manji) uz ovaj vodostaj ne može biti
+// pravi: krivulja ondje daje protok veći od nule. Krivulja raste s
+// vodostajem, pa kad i na donjem kraju produljenja daje protok, rijeka teče
+// na svakom vodostaju, pa i daleko ispod krivulje.
+//
+// HidroView protok računa svojom krivuljom, a kad vodostaj padne ispod nje,
+// upiše 0 umjesto da ostavi prazno. Belišće je tako od 9. 11. 2026. pri
+// vodostaju oko 0 cm imalo protok 0,0 m³/s, a na 0 cm krivulja daje 170.
+func (k HQKrivulja) NulaNijeProtok(vodostajCm int) bool {
+	if q, _, ok := k.ProtokProsiren(vodostajCm); ok && q > 0 {
+		return true
+	}
+	dolje, _, ok := k.RasponProduljenja()
+	if !ok {
+		return false
+	}
+	q, _, ok := k.ProtokProsiren(dolje)
+	return ok && q > 0
+}
+
 // rubniOdsjecci su odsječak koji počinje najniže i odsječak koji završava
 // najviše. Krivulja mora imati barem jedan odsječak.
 func (k HQKrivulja) rubniOdsjecci() (najn, najv HQOdsjecak) {
