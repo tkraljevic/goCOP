@@ -23,7 +23,7 @@
 </form>
 
 <div class="pv-mjesto">
-  <h2 class="pv-mjesto-naslov">{{.Mjesto.NaslovMjesta}}<span class="pv-samo-siroko"> · {{.Mjesto.NaslovZupanije}}</span></h2>
+  <h2 class="pv-mjesto-naslov">{{if .Mjesto.SamoZupanija}}{{.Mjesto.NaslovZupanije}}{{else}}{{.Mjesto.NaslovMjesta}}<span class="pv-samo-siroko"> · {{.Mjesto.NaslovZupanije}}</span>{{end}}</h2>
   <div class="pv-mjesto-radnje">
     <button type="button" class="btn btn-link pv-lokacija" hidden>Moja lokacija</button>
     <details class="pv-promijeni">
@@ -103,8 +103,8 @@
   </div>
   {{end}}
   {{template "praznoVremena" .UpozorenjaPrazno}}
-  {{if .Ostalih}}<p class="pv-sitno pv-ostala">DHMZ ima još {{.Ostalih}} {{if eq .Ostalih 1}}upozorenje{{else}}upozorenja{{end}} za druga područja.</p>{{end}}
 </div>
+{{with .Drugdje}}{{template "upozorenjaDrugdje" .}}{{end}}
 
 <div class="pv-stupci">
   <section class="pv-kartica pv-sada">
@@ -173,3 +173,36 @@
   {{end}}
 </section>
 {{end}}
+
+{{/* upozorenjaDrugdje (goCOP-m3, 13a · Prognoze, odjeljak „Vrijeme ·
+     upozorenja drugdje u Hrvatskoj”): zatvoreno jedan redak, otvoreno
+     jedno područje jedan redak s brojem i sažetkom po razini. Županija
+     vodi na svoje mjesto, a pomorsko područje otvara svoja upozorenja
+     ispod retka. Crta je u boji najviše razine. */}}
+{{define "upozorenjaDrugdje"}}
+<details class="pv-kartica pv-drugdje"{{if .Otvoreno}} open{{end}}>
+  <summary class="pv-drugdje-glava">
+    {{icon "chevron-right"}}
+    <span class="pv-drugdje-naslov"><span class="pv-samo-siroko">{{.Naslov}}</span><span class="pv-samo-usko">{{.NaslovUsko}}</span></span>
+    <span class="pv-sitno pv-drugdje-najvise pv-samo-siroko">{{.Najvise}}</span>
+    {{if .Izvor}}<span class="pv-izvor pv-samo-siroko">{{.Izvor}}</span>{{end}}
+  </summary>
+  <ul class="pv-drugdje-popis">
+    {{range .Podrucja}}
+    <li class="pv-drugdje-podrucje dhmz-{{.Razina}}">
+      {{if .URL}}<a class="pv-drugdje-redak" href="{{.URL}}">{{template "redakDrugdje" .}}</a>
+      {{else}}<details class="pv-drugdje-more">
+        <summary class="pv-drugdje-redak">{{template "redakDrugdje" .}}</summary>
+        <div class="pv-drugdje-upozorenja">
+          {{range .Upozorenja}}<div class="pv-upozorenje-tekst"><span class="pv-upozorenje-naslov">{{.Naslov}}</span>{{if .Opis}}<span class="pv-upozorenje-opis">{{.Opis}}</span>{{end}}</div>
+          {{end}}
+        </div>
+      </details>{{end}}
+    </li>
+    {{end}}
+  </ul>
+  <p class="pv-sitno pv-drugdje-uputa">Klik na područje pokazuje sva njegova upozorenja, kao kad se promijeni mjesto.</p>
+</details>
+{{end}}
+
+{{define "redakDrugdje"}}<span class="pv-drugdje-ime">{{.Naziv}}<span class="pv-samo-usko"> · {{.BrojRijecima}}</span></span><span class="pv-drugdje-broj pv-samo-siroko">{{.BrojRijecima}}</span><span class="pv-drugdje-sazetak">{{.Sazetak}}</span>{{icon "chevron-right"}}{{end}}

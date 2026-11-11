@@ -99,8 +99,8 @@ func TestKarticaVremena(t *testing.T) {
 	p := PlocaVremena{Mjesto: "Osijek", Regija: "istočna Hrvatska",
 		Upozorenja: []dhmz.Upozorenje{{Dogadjaj: "kiša", Razina: 2, Podrucje: "Osječko-baranjska", Od: od, Do: od.Add(6 * time.Hour)}},
 		Ostala: []dhmz.Upozorenje{
-			{Dogadjaj: "Narančasto upozorenje za vjetar", Razina: 3}, {Dogadjaj: "Narančasto upozorenje za vjetar", Razina: 3},
-			{Dogadjaj: "Žuto upozorenje za kišu", Razina: 2}},
+			{Dogadjaj: "Narančasto upozorenje za vjetar", Razina: 3, Podrucje: "Zadarska"}, {Dogadjaj: "Narančasto upozorenje za vjetar", Razina: 3, Podrucje: "Zadarska"},
+			{Dogadjaj: "Žuto upozorenje za kišu", Razina: 2, Podrucje: "Zadarska"}, {Dogadjaj: "Narančasto upozorenje za vjetar", Razina: 3, Podrucje: "Velebitski kanal"}},
 		Postaja:   &dhmz.Postaja{Opis: "kiša", Temp: &temp, VjetarSmjer: "S", VjetarBrzina: &vjetar},
 		Izmjereno: &IzmjerenaKisa{Naziv: "Osijek", Danas: &kisa},
 		Prognoza:  strings.Repeat("Oblačno i kišovito ", 20)}
@@ -111,8 +111,9 @@ func TestKarticaVremena(t *testing.T) {
 	if u := k.Redovi[0]; u.Glavno != "DHMZ · žuto upozorenje: kiša" || u.Sporedno != "Osječko-baranjska · 2. 11. 14:00–20:00" || u.Istaknuto != "dhmz-2" || u.Hitno {
 		t.Errorf("upozorenje županije: %+v", u)
 	}
-	if o := k.Redovi[1]; o.Glavno != "DHMZ · 3 upozorenja u drugim županijama" || o.Istaknuto != "dhmz-3" ||
-		o.Sporedno != "Narančasto upozorenje za vjetar · Žuto upozorenje za kišu" {
+	// isto upozorenje dvaput za isto područje broji se jednom; broj je zbroj po područjima
+	if o := k.Redovi[1]; o.Glavno != "DHMZ · 3 upozorenja drugdje" || o.Istaknuto != "dhmz-3" ||
+		o.Sporedno != "u 2 područja · najviše narančasto" || o.URL != "/prognoze/vrijeme?drugdje=1" {
 		t.Errorf("ostale županije: %+v", o)
 	}
 	if s := k.Redovi[2]; s.Glavno != "12 °C · kiša" || s.Sporedno != "južni vjetar 20 km/h · kišomjer Osijek: 6,2 mm danas" {
