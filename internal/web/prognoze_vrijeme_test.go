@@ -138,6 +138,18 @@ func TestStranicaVremena(t *testing.T) {
 		t.Error("ured bez koordinata u izboru ili krivi broj čipova")
 	}
 
+	// županija iz popisa upozorenja drugdje: naslov je samo županija, regija
+	// njezina; dolazak s Naslovne prenosi otvoren popis u dio
+	w = httptest.NewRecorder()
+	h.ShowVrijeme(w, zahtjevAdmina("/prognoze/vrijeme?zupanija=LS&drugdje=1"))
+	s = stdhtml.UnescapeString(w.Body.String())
+	for _, trazi := range []string{`<h2 class="pv-mjesto-naslov">Ličko-senjska županija</h2>`, `aria-current="true">Gorska Hrvatska</a>`,
+		`data-url="/prognoze/vrijeme/dio?drugdje=1&zupanija=LS"`} {
+		if !strings.Contains(s, trazi) {
+			t.Errorf("županija: nema %q", trazi)
+		}
+	}
+
 	// bez registra i bez rukovatelja vremena: zadano mjesto, izbor ureda u izradi
 	h.podrucja, h.glava = nil, nil
 	w = httptest.NewRecorder()
@@ -239,7 +251,8 @@ func TestDioVremena(t *testing.T) {
 	s := stdhtml.UnescapeString(w.Body.String())
 	for _, trazi := range []string{
 		`class="pv-upozorenje dhmz-3"`, "DHMZ · Narančasto upozorenje za kišu", "do 25 mm", "pročitano u ",
-		"DHMZ ima još 1 upozorenje za druga područja.",
+		`<details class="pv-kartica pv-drugdje">`, "Drugdje u Hrvatskoj · 1 upozorenje u 1 području", "najviše narančasto: kiša",
+		`<li class="pv-drugdje-podrucje dhmz-3">`, `href="/prognoze/vrijeme?zupanija=ZD"`, ">Zadarska<", "narančasto: kiša",
 		"Sada · postaja Osijek-Čepin, 12 km", "12,0 °C", "slaba kiša, sjeverni vjetar 20 km/h", "vlaga 88 % · tlak 1.012 hPa · u 08:00",
 		">Osijek-Čepin · 08:00<", ">Kiša · kišomjer</span>", ">Kišomjer</span> Točka stv, 2 km", "<dt>zadnji sat</dt><dd>0,4 mm</dd>", "<dt>danas od ponoći</dt><dd>6,2 mm</dd>", "<dt>jučer</dt><dd>1,8 mm</dd>",
 		"javljeno u ", "· pljusak",
@@ -588,20 +601,6 @@ func TestIkonaVremena(t *testing.T) {
 		if g := ikonaVremena(opis); g != ikona {
 			t.Errorf("%q: %q, a treba %q", opis, g, ikona)
 		}
-	}
-}
-
-// Upozorenje DHMZ-a za više područja broji se jednom.
-func TestBrojUpozorenja(t *testing.T) {
-	od := time.Date(2026, 11, 5, 14, 0, 0, 0, models.Zagreb)
-	u := func(podrucje string, razina int) dhmz.Upozorenje {
-		return dhmz.Upozorenje{Dogadjaj: "Žuto upozorenje za vjetar", Razina: razina, Od: od, Do: od.Add(6 * time.Hour), Podrucje: podrucje}
-	}
-	if n := brojUpozorenja([]dhmz.Upozorenje{u("Zadarska", 2), u("Splitsko-dalmatinska", 2), u("Srednji Jadran", 2), u("Zadarska", 3)}); n != 2 {
-		t.Errorf("upozorenja: %d", n)
-	}
-	if brojUpozorenja(nil) != 0 {
-		t.Error("bez upozorenja")
 	}
 }
 
