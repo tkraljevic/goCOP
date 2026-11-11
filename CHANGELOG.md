@@ -4,6 +4,28 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.57-alfa — 12. 11. 2026.
+
+Manje izdanje s ispravkom prognoze i popisom upozorenja DHMZ-a. Baza i
+razmjena se ne mijenjaju. Računalo koje preuzima vodostaje i izdaje prognozu
+nadograđuje se prvo, a ostala kad odgovara.
+
+- **Prognoza uz nisku Dravu kod Belišća.** Kad vodostaj Belišća padne ispod
+  krivulje protoka koju koriste Hrvatske vode, HidroView umjesto protoka
+  upiše 0,0 m³/s. goCOP je tu nulu uzimao kao pravi protok Drave, pa je
+  prognoza Osijeka i Aljmaša nekoliko sati stajala previsoko, a Belišće je
+  počinjalo od protoka blizu nule. Sad se protok 0 ne uzima kao protok kad
+  naša krivulja kaže da rijeka uz taj vodostaj teče: uvoz ga zamijeni našim
+  protokom, a prognoza ga računa iz vodostaja. Na potoku čija krivulja i
+  sama dolazi do nule, nula ostaje.
+- **Upozorenja DHMZ-a drugdje u Hrvatskoj.** Naslovna je pisala koliko
+  upozorenja ima u drugim županijama, ali se ona nisu mogla otvoriti. Sad
+  redak „DHMZ · 30 upozorenja drugdje” vodi na Prognoze › Vrijeme, gdje su
+  upozorenja složena po područjima: jedno područje je jedan redak, s brojem
+  upozorenja i razinama, a najviša razina je prva. Klik na županiju pokazuje
+  njezina upozorenja i vrijeme, a pomorsko područje otvara svoja upozorenja
+  ispod retka. Broj je isti na Naslovnoj i na Prognozama.
+
 ## 0.0.56-alfa — 11. 11. 2026.
 
 Brzinsko izdanje s jednim popravkom. Baza i razmjena se ne mijenjaju, pa se
