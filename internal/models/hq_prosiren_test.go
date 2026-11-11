@@ -159,3 +159,33 @@ func TestRasponProduljenja(t *testing.T) {
 		t.Error("krivulja bez odsječaka ima raspon produljenja")
 	}
 }
+
+// Protok 0 uz vodostaj nije pravi kad krivulja ondje daje protok. Krivulja
+// Belišća na 0 cm daje 170 m³/s, pa ni 50 cm ispod nje Drava ne stoji;
+// potoku čija krivulja na dnu dolazi do nule, nula ispod nje može biti prava.
+func TestNulaNijeProtok(t *testing.T) {
+	belisce := HQKrivulja{Odsjecci: []HQOdsjecak{
+		{OdCm: 0, DoCm: 370, Oblik: OblikPolinom, P1: 11.394, P2: 199.58, P3: 170.44},
+	}}
+	potok := HQKrivulja{Odsjecci: []HQOdsjecak{
+		{OdCm: 0, DoCm: 300, Oblik: OblikPolinom, P2: 100},
+	}}
+	for _, s := range []struct {
+		opisano string
+		k       HQKrivulja
+		cm      int
+		want    bool
+	}{
+		{"Belišće u rasponu", belisce, 100, true},
+		{"Belišće malo ispod", belisce, -3, true},
+		{"Belišće daleko ispod", belisce, -50, true},
+		{"potok na dnu", potok, 0, false},
+		{"potok ispod dna", potok, -10, false},
+		{"potok u rasponu", potok, 50, true},
+		{"krivulja bez odsječaka", HQKrivulja{}, 50, false},
+	} {
+		if got := s.k.NulaNijeProtok(s.cm); got != s.want {
+			t.Errorf("%s (%d cm): %v, očekivano %v", s.opisano, s.cm, got, s.want)
+		}
+	}
+}

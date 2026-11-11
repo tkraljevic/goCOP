@@ -989,23 +989,28 @@ func uVelicini(velicina string, cm sql.NullInt64, q sql.NullFloat64,
 		}
 		return float64(cm.Int64), true
 	}
-	if q.Valid && (q.Float64 > 0 || !cm.Valid) {
+	return protokUVelicini(cm, q, KrivuljaZa(krivulje, kad))
+}
+
+// protokUVelicini uzima izmjereni protok, a kad ga nema ili je to nula
+// koju izvor upiše ispod svoje krivulje (nulaIspodKrivulje), računa ga iz
+// vodostaja krivuljom k.
+func protokUVelicini(cm sql.NullInt64, q sql.NullFloat64, k *models.HQKrivulja) (float64, bool) {
+	if q.Valid && !nulaIspodKrivulje(cm, q, k) {
 		return q.Float64, true
 	}
-	if !cm.Valid {
-		return 0, false
-	}
-	k := KrivuljaZa(krivulje, kad)
-	if q.Valid && (k == nil || !k.NulaNijeProtok(int(cm.Int64))) {
-		return q.Float64, true
-	}
-	// Protoka nema ili je 0 na vodostaju na kojem rijeka teče (izvor je
-	// izvan svoje krivulje upisao nulu): računa se iz vodostaja.
-	if k == nil {
+	if !cm.Valid || k == nil {
 		return 0, false
 	}
 	v, _, ok := k.ProtokProsiren(int(cm.Int64))
 	return v, ok
+}
+
+// nulaIspodKrivulje: protok 0 (ili manji) uz vodostaj na kojem krivulja
+// kaže da rijeka teče nije protok. HidroView ga tako upiše kad vodostaj
+// padne ispod njegove krivulje (Belišće, 9.–11. 11. 2026.).
+func nulaIspodKrivulje(cm sql.NullInt64, q sql.NullFloat64, k *models.HQKrivulja) bool {
+	return q.Float64 <= 0 && cm.Valid && k != nil && k.NulaNijeProtok(int(cm.Int64))
 }
 
 // KrivuljaZa bira krivulju koja vrijedi u zadanom trenutku.
