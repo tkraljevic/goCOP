@@ -4,6 +4,18 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.56-alfa — 11. 11. 2026.
+
+Brzinsko izdanje s jednim popravkom. Baza i razmjena se ne mijenjaju, pa se
+računala mogu nadograditi kad odgovara, a ona na 0.0.54-alfa mogu odmah na
+ovo izdanje.
+
+- **Izgled na računalu.** U 0.0.55-alfa na računalu su bez stila ostale
+  Očitanja i druge stranice, među njima popis akata i dnevna izvješća: popis
+  je imao točke i podcrtane poveznice, a filtri su stajali kao goli tekst. Na
+  mobitelu je sve izgledalo dobro. Uzrok su bila dva nezatvorena bloka u
+  datoteci stilova. Sad su zatvoreni, a test pazi da se to ne ponovi.
+
 ## 0.0.55-alfa — 10. 11. 2026.
 
 Dokumenti su u novom izgledu, od vodočuvarskog dnevnika i prijava s terena do
