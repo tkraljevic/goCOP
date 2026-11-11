@@ -284,7 +284,7 @@ func karticaVremena(p PlocaVremena) KarticaNaslovne {
 	for _, u := range p.Upozorenja {
 		k.Redovi = append(k.Redovi, redakUpozorenja(u))
 	}
-	if r, ima := redakOstalihUpozorenja(p.Ostala); ima {
+	if r, ima := redakOstalihUpozorenja(p.Ostala, time.Now()); ima {
 		k.Redovi = append(k.Redovi, r)
 	}
 	if r, ima := redakSada(p); ima {
@@ -321,24 +321,18 @@ func nazivUpozorenja(u dhmz.Upozorenje) string {
 	return razineUpozorenja[u.Razina] + " upozorenje: " + u.Dogadjaj
 }
 
-// redakOstalihUpozorenja sažme upozorenja drugih županija u jedan redak, s
-// najvišom razinom i nazivima bez ponavljanja, da ne zatrpaju karticu
-func redakOstalihUpozorenja(ostala []dhmz.Upozorenje) (RedakKartice, bool) {
-	if len(ostala) == 0 {
+// redakOstalihUpozorenja sažme upozorenja drugih područja u jedan redak
+// („DHMZ · 18 upozorenja drugdje”, „u 7 područja · najviše narančasto”) s
+// crtom najviše razine. Broj je isti kao na Prognozama › Vrijeme, a klik
+// ondje otvara popis po područjima.
+func redakOstalihUpozorenja(ostala []dhmz.Upozorenje, sada time.Time) (RedakKartice, bool) {
+	d := upozorenjaDrugdje(ostala, sada)
+	if d == nil {
 		return RedakKartice{}, false
 	}
-	najvise, vidjeno := 0, map[string]bool{}
-	var nazivi []string
-	for _, u := range ostala {
-		najvise = max(najvise, u.Razina)
-		if n := nazivUpozorenja(u); !vidjeno[n] {
-			vidjeno[n] = true
-			nazivi = append(nazivi, n)
-		}
-	}
-	n := len(ostala)
-	return RedakKartice{Ikona: "triangle-alert", Glavno: fmt.Sprintf("DHMZ · %d %s u drugim županijama", n, models.UzBrojHR(n, "upozorenje", "upozorenja", "upozorenja")),
-		Sporedno: skrati(strings.Join(nazivi, " · "), 120), Istaknuto: fmt.Sprintf("dhmz-%d", najvise)}, true
+	return RedakKartice{Ikona: "triangle-alert", Glavno: "DHMZ · " + brojUpozorenjaRijecima(d.Ukupno) + " drugdje",
+		Sporedno: "u " + uPodrucja(len(d.Podrucja)) + " · najviše " + razineUpozorenja[d.Razina],
+		Istaknuto: fmt.Sprintf("dhmz-%d", d.Razina), URL: "/prognoze/vrijeme?drugdje=1"}, true
 }
 
 // redakSada: temperatura i opis s najbliže postaje, vjetar i kiša s

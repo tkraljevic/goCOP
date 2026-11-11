@@ -8421,7 +8421,34 @@ summary.ocitanja-cip { padding-right: 8px; }
 .pv-upozorenje-naslov { font-size: 0.875rem; font-weight: 500; line-height: 20px; }
 .pv-upozorenje-opis { font-size: 0.8125rem; line-height: 18px; color: var(--md-sys-color-on-surface, var(--text)); }
 .pv-izvor { flex: none; font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant, var(--text-secondary)); }
-.pv-ostala { margin: 0; }
+/* upozorenja drugdje u Hrvatskoj: kartica koja se otvara u popis po
+   područjima; crta retka je u boji najviše razine područja */
+.pv-drugdje { padding: 10px 16px; }
+.pv-drugdje[open] { padding-bottom: 16px; }
+.pv-drugdje-glava { display: flex; align-items: center; gap: 8px; list-style: none; cursor: pointer; min-height: 28px; }
+.pv-drugdje-glava::-webkit-details-marker { display: none; }
+.pv-drugdje-glava > .icon { flex: none; width: 20px; height: 20px; color: var(--text-secondary); transition: transform .15s; }
+.pv-drugdje[open] > .pv-drugdje-glava > .icon { transform: rotate(90deg); }
+.pv-drugdje-naslov { font-size: 0.875rem; font-weight: 500; line-height: 18px; color: var(--md-sys-color-on-surface, var(--text)); }
+.pv-drugdje-najvise { flex: 1 1 auto; min-width: 0; }
+.pv-drugdje[open] .pv-drugdje-najvise { visibility: hidden; }
+.pv-drugdje-glava .pv-izvor { margin-left: auto; }
+.pv-drugdje-popis { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 8px; padding: 0; list-style: none; }
+.pv-drugdje-podrucje { border-left: 4px solid var(--upozorenje-meteo-zuto); border-radius: 8px; overflow: hidden;
+  background: var(--md-sys-color-surface, var(--surface)); }
+.pv-drugdje-podrucje.dhmz-3 { border-left-color: var(--rub-izvanredno); }
+.pv-drugdje-podrucje.dhmz-4 { border-left-color: var(--rub-izvanrednostanje); }
+.pv-drugdje-redak { display: grid; grid-template-columns: 240px 130px minmax(0, 1fr) 24px; align-items: center; gap: 16px;
+  padding: 6px 12px 6px 16px; color: var(--md-sys-color-on-surface, var(--text)); text-decoration: none; cursor: pointer; list-style: none; }
+.pv-drugdje-redak::-webkit-details-marker { display: none; }
+.pv-drugdje-redak:hover { background: var(--surface-2); }
+.pv-drugdje-redak:focus-visible { outline: 2px solid var(--md-sys-color-primary, var(--primary)); outline-offset: -2px; }
+.pv-drugdje-redak > .icon { width: 20px; height: 20px; color: var(--text-secondary); }
+.pv-drugdje-more[open] > .pv-drugdje-redak > .icon { transform: rotate(90deg); }
+.pv-drugdje-ime { font-size: 0.875rem; font-weight: 500; line-height: 18px; }
+.pv-drugdje-broj, .pv-drugdje-sazetak { font-size: 0.8125rem; line-height: 18px; }
+.pv-drugdje-upozorenja { display: flex; flex-direction: column; gap: 8px; padding: 4px 16px 10px; }
+.pv-drugdje-uputa { margin: 0; font-size: 0.75rem; }
 .pv-stupci { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
 .pv-kartica { margin: 0; padding: 16px; border: 1px solid var(--rub-kartica, var(--border)); border-radius: 12px;
   background: var(--md-sys-color-surface-container-low, var(--surface)); min-width: 0; }
@@ -8465,6 +8492,11 @@ summary.ocitanja-cip { padding-right: 8px; }
   .pv-samo-siroko { display: none; }
   .pv-samo-usko { display: inline; }
   .pv-mjesto-radnje .btn-link { padding-inline: 6px; font-size: 0.8125rem; }
+  .pv-drugdje { padding: 10px 14px; }
+  .pv-drugdje-redak { grid-template-columns: minmax(0, 1fr) 20px; gap: 2px 8px; padding: 8px 8px 8px 12px; }
+  .pv-drugdje-ime { grid-column: 1; }
+  .pv-drugdje-sazetak { grid-column: 1; grid-row: 2; }
+  .pv-drugdje-redak > .icon { grid-column: 2; grid-row: 1 / span 2; }
   .pv-mjesto-radnje > :last-child { margin-right: -6px; }
   .pv-sada-temp { font-size: 1.75rem; line-height: 34px; }
   .pv-sada-tijelo { gap: 12px; }

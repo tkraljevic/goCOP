@@ -21,7 +21,8 @@ import (
 // naknadno (/prognoze/vrijeme/dio), da spor DHMZ ne zadrži stranicu.
 //
 // Mjesto je, redom: glavno mjesto regije kad je regija izabrana
-// (?regija=istocna), ured branjenog područja iz registra (?podrucje=15),
+// (?regija=istocna), središte županije iz popisa upozorenja drugdje
+// (?zupanija=LS), ured branjenog područja iz registra (?podrucje=15),
 // lokacija preglednika (?lat&lon), područje iz dužnosti osobe, Osijek.
 // Nepoznata regija ili područje daju zadano, bez greške.
 
@@ -68,9 +69,12 @@ type MjestoVremena struct {
 	Lat, Lon float64
 	Lokacija bool // iz preglednika
 	Podrucje int  // izabrani ured branjenog područja; 0 kad nije izabran
-	Zupanija dhmz.Zupanija
-	Regija   RegijaVremena
-	upit     url.Values // regija, podrucje ili lat i lon, za adresu dijela
+	// SamoZupanija: mjesto je središte županije izabrane u popisu
+	// upozorenja drugdje, pa naslov nosi samo ime županije
+	SamoZupanija bool
+	Zupanija     dhmz.Zupanija
+	Regija       RegijaVremena
+	upit         url.Values // regija, podrucje ili lat i lon, za adresu dijela
 }
 
 // mjestoU je točka sa županijom najbližeg središta i njezinom regijom
@@ -86,6 +90,13 @@ func (h *VrijemeHandler) mjestoVremena(r *http.Request, podrucja []models.Area) 
 	if rg, ok := regijaVremena(q.Get("regija")); ok {
 		m := mjestoU(rg.Mjesto, rg.Lat, rg.Lon)
 		m.upit.Set("regija", rg.Kljuc)
+		return m
+	}
+	if z, ok := zupanijaPoOznaci(q.Get("zupanija")); ok {
+		m := mjestoU(z.Naziv, z.Lat, z.Lon)
+		m.Zupanija, m.SamoZupanija = z, true
+		m.Regija, _ = regijaVremena(z.Regija)
+		m.upit.Set("zupanija", z.Oznaka)
 		return m
 	}
 	if a := podrucjeIzUpita(q.Get("podrucje"), podrucja); a != nil {
@@ -185,9 +196,17 @@ func (h *VrijemePrognozaHandler) ShowVrijeme(w http.ResponseWriter, r *http.Requ
 	pod := h.svaPodrucja(r.Context())
 	m := h.vh().mjestoVremena(r, pod)
 	data.Mjesto, data.Regije, data.Podrucja = m, cipoviRegija(m.Regija.Kljuc), cipoviPodrucja(pod, m.Podrucje)
+	// s Naslovne se dolazi s otvorenim popisom upozorenja drugdje
+	upit := url.Values{}
+	for k, v := range m.upit {
+		upit[k] = v
+	}
+	if r.URL.Query().Get("drugdje") == "1" {
+		upit.Set("drugdje", "1")
+	}
 	data.DioURL = "/prognoze/vrijeme/dio"
-	if len(m.upit) > 0 {
-		data.DioURL += "?" + m.upit.Encode()
+	if len(upit) > 0 {
+		data.DioURL += "?" + upit.Encode()
 	}
 	if err := h.tmpl.ExecuteTemplate(w, "prognoze_vrijeme.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -233,6 +252,9 @@ func (h *VrijemePrognozaHandler) ShowDio(w http.ResponseWriter, r *http.Request)
 	p := vh.vrijemeMjesta(ctx, m, sada)
 	svc, sp := vh.izvoriKise()
 	dio := slaziDio(m, p, <-kisa, sada)
+	if dio.Drugdje != nil {
+		dio.Drugdje.Otvoreno = r.URL.Query().Get("drugdje") == "1"
+	}
 	dio.Kisomjer, dio.KisomjerPrazno = kisomjerDijela(p, svc != nil && sp != nil, sada)
 	d := <-dani
 	dio.Dani, dio.DaniIzvor, dio.DaniPrazno = d.Dani, d.Izvor, d.Prazno
@@ -282,8 +304,8 @@ type VrijemeDio struct {
 	Regija           RegijaVremena
 	Upozorenja       []UpozorenjeVremena
 	UpozorenjaPrazno *PraznaKartica
-	Procitano        string // „pročitano u 07:30”
-	Ostalih          int    // upozorenja za druge županije
+	Procitano        string             // „pročitano u 07:30”
+	Drugdje          *UpozorenjaDrugdje // upozorenja drugih područja; nil kad ih nema
 
 	Sada       *SadaVremena
 	SadaPrazno *PraznaKartica
@@ -339,10 +361,13 @@ type DanVremena struct {
 
 // slaziDio slaže upozorenja, Sada, kišu po slivovima i prognozu regije
 func slaziDio(m MjestoVremena, p PlocaVremena, kisa *kisaSlivovaPodaci, sada time.Time) VrijemeDio {
-	d := VrijemeDio{Regija: m.Regija, Ostalih: brojUpozorenja(p.Ostala)}
+	d := VrijemeDio{Regija: m.Regija, Drugdje: upozorenjaDrugdje(p.Ostala, sada)}
 	d.Upozorenja, d.UpozorenjaPrazno = upozorenjaDijela(p, m, sada)
 	if !p.UpozorenjaProcitano.IsZero() {
 		d.Procitano = "pročitano u " + satIliDan(p.UpozorenjaProcitano, sada)
+		if d.Drugdje != nil {
+			d.Drugdje.Izvor = "DHMZ, " + satIliDan(p.UpozorenjaProcitano, sada)
+		}
 	}
 	d.Sada, d.SadaPrazno = sadaDijela(p, sada)
 	d.Slivovi, d.SlivoviPrazno = slivoviDijela(m.Regija, kisa)
@@ -357,21 +382,6 @@ func slaziDio(m MjestoVremena, p PlocaVremena, kisa *kisaSlivovaPodaci, sada tim
 	return d
 }
 
-// brojUpozorenja broji upozorenja bez ponavljanja: DHMZ isto upozorenje
-// šalje za svako područje posebno
-func brojUpozorenja(u []dhmz.Upozorenje) int {
-	type kljuc struct {
-		dogadjaj string
-		razina   int
-		od, do   int64
-	}
-	vidjeno := map[kljuc]bool{}
-	for _, x := range u {
-		vidjeno[kljuc{x.Dogadjaj, x.Razina, x.Od.Unix(), x.Do.Unix()}] = true
-	}
-	return len(vidjeno)
-}
-
 // upozorenjaDijela: upozorenja za županiju mjesta; bez njih potvrda da ih
 // nema (s razdobljem bez upozorenja), a kad DHMZ ne odgovori, crta
 // upozorenja s porukom
@@ -381,14 +391,7 @@ func upozorenjaDijela(p PlocaVremena, m MjestoVremena, sada time.Time) ([]Upozor
 	}
 	var out []UpozorenjeVremena
 	for _, u := range p.Upozorenja {
-		opis := []string{}
-		if r := razdobljeUpozorenja(u.Od, u.Do, sada); r != "" {
-			opis = append(opis, r)
-		}
-		if u.Opis != "" {
-			opis = append(opis, u.Opis)
-		}
-		out = append(out, UpozorenjeVremena{Razina: u.Razina, Naslov: "DHMZ · " + nazivUpozorenja(u), Opis: strings.Join(opis, " · ")})
+		out = append(out, upozorenjeVremena(u, sada))
 	}
 	if len(out) > 0 {
 		return out, nil
@@ -398,6 +401,18 @@ func upozorenjaDijela(p PlocaVremena, m MjestoVremena, sada time.Time) ([]Upozor
 		tekst += " do " + danISat(p.ZelenoDo, sada)
 	}
 	return nil, &PraznaKartica{Vrsta: PraznoGotovo, Tekst: tekst + "."}
+}
+
+// upozorenjeVremena: naslov s razinom, ispod razdoblje i opis DHMZ-a
+func upozorenjeVremena(u dhmz.Upozorenje, sada time.Time) UpozorenjeVremena {
+	opis := []string{}
+	if r := razdobljeUpozorenja(u.Od, u.Do, sada); r != "" {
+		opis = append(opis, r)
+	}
+	if u.Opis != "" {
+		opis = append(opis, u.Opis)
+	}
+	return UpozorenjeVremena{Razina: u.Razina, Naslov: "DHMZ · " + nazivUpozorenja(u), Opis: strings.Join(opis, " · ")}
 }
 
 // razdobljeUpozorenja: „Danas od 14 do 20 h”, „Danas od 14 h do sutra 8 h”
