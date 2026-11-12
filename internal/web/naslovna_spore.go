@@ -233,10 +233,12 @@ func karticaJacihOborina(p kisaSlivovaPodaci) KarticaNaslovne {
 		if naziv == "" {
 			naziv = s.Sliv
 		}
-		k.Redovi = append(k.Redovi, RedakKartice{Glavno: naziv, Sporedno: opisKise(s), Istaknuto: "kisa", Hitno: s.Razina >= 2})
+		k.Redovi = append(k.Redovi, RedakKartice{Glavno: naziv, Sporedno: opisKise(s), Istaknuto: "kisa", Hitno: s.Razina >= 2,
+			URL: "/slivovi#sliv-" + s.Sliv})
 	}
 	switch {
 	case len(k.Redovi) > 0:
+		k.Napomena = napomenaKiseSlivova
 	case p.Greska != "":
 		k.Prazno = &PraznaKartica{Vrsta: PraznoNedostupno, Tekst: p.Greska}
 	default:
@@ -244,6 +246,10 @@ func karticaJacihOborina(p kisaSlivovaPodaci) KarticaNaslovne {
 	}
 	return k
 }
+
+// napomenaKiseSlivova kaže odakle je broj: međusliv je dio sliva između dvije
+// letve, a kiša je prosjek izvedenih točaka, ne mjerenje kišomjera
+const napomenaKiseSlivova = "Prosjek kiše na međuslivu između dvije letve, iz modela; pravi kišomjeri u njega ne ulaze."
 
 // opisKise: „18 mm palo u 24 h · 32 mm očekivano u 48 h · jednom u 2 godine
 // · Osijek +45 cm”

@@ -1,10 +1,13 @@
 package web
 
 import (
+	"cmp"
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -25,7 +28,11 @@ type SlivoviHandler struct {
 	stations     *service.StationService
 	tmpl         func(string) *template.Template
 	karta        func() KartaPostavke
+	kisa         func(context.Context) kisaSlivovaPodaci // nil: kiša se na ovom čvoru ne računa
 }
+
+// SetKisa daje stranici kišu po međuslivovima, istu kao na Naslovnoj
+func (h *SlivoviHandler) SetKisa(f func(context.Context) kisaSlivovaPodaci) { h.kisa = f }
 
 func NewSlivoviHandler(svc func() *service.KisomjerService, watercourses *service.WatercourseService,
 	stations *service.StationService, tmpl func(string) *template.Template, karta func() KartaPostavke) *SlivoviHandler {
@@ -40,6 +47,7 @@ type SkupinaKisomjera struct {
 	Tezina          float64            // zbroj težina aktivnih točaka; oko 1 kad je sliv pokriven
 	UPrognozi       []string           // letve čija dnevna prognoza čita kišu ovog međusliva
 	UPrognoziTocaka int
+	Kisa            *RedakSliva // kiša sada; nil kad se ne računa
 }
 
 // KarticaKisomjera je postaja na popisu s odgovorom čita li je prognoza.
@@ -68,7 +76,10 @@ type SlivoviPageData struct {
 	ViewAsBanner
 
 	Skupine   []SkupinaKisomjera
-	Izvedenih int
+	// Kiša po međuslivovima, jača prva; KisaGreska kad izvor ne odgovori
+	Kisa       []RedakSliva
+	KisaGreska string
+	Izvedenih  int
 	Stvarnih  int
 	UPrognozi int
 	Ukupno    int
@@ -139,6 +150,7 @@ func (h *SlivoviHandler) ShowSlivovi(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	kisa := kisaUsporedno(ctx, h.kisa)
 	tocke, err := svc.ListKisomjeri(ctx)
 	if err != nil {
 		data.ErrorMessage = err.Error()
@@ -190,6 +202,7 @@ func (h *SlivoviHandler) ShowSlivovi(w http.ResponseWriter, r *http.Request) {
 			s.Tezina += *t.Tezina
 		}
 	}
+	data.Kisa, data.KisaGreska = kisaPoMedjuslivovima(<-kisa, poOznaci)
 	for _, s := range redom {
 		data.Skupine = append(data.Skupine, *s)
 	}
@@ -571,4 +584,28 @@ func (h *SlivoviHandler) HandleListAPI(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, map[string]any{"success": true, "kisomjeri": tocke, "slivovi": ms})
+}
+
+// kisaPoMedjuslivovima slaže tablicu kiše: jača kiša prva, pa ono gdje je
+// palo i dolazi više. Svaki međusliv dobije i svoj redak u zaglavlju.
+func kisaPoMedjuslivovima(k *kisaSlivovaPodaci, skupine map[string]*SkupinaKisomjera) ([]RedakSliva, string) {
+	if k == nil {
+		return nil, ""
+	}
+	slivovi := slices.Clone(k.Slivovi)
+	slices.SortStableFunc(slivovi, func(a, b SlivUKisi) int {
+		return cmp.Or(cmp.Compare(b.Razina, a.Razina), cmp.Compare(b.Palo24+b.Dolazi48, a.Palo24+a.Dolazi48))
+	})
+	var out []RedakSliva
+	for _, s := range slivovi {
+		r := redakSliva(s)
+		out = append(out, r)
+		if sk := skupine[s.Sliv]; sk != nil {
+			sk.Kisa = &r
+		}
+	}
+	if len(out) == 0 && k.Greska != "" {
+		return nil, k.Greska
+	}
+	return out, ""
 }

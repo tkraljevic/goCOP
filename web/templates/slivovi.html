@@ -61,6 +61,30 @@
   <span class="stat-badge has-items">{{icon "check"}} {{.UPrognozi}} u prognozi</span>
 </div>
 
+{{if or .Kisa .KisaGreska}}
+<section class="detail-section" id="kisa">
+  <h2>{{icon "cloud-rain"}} Kiša po međuslivovima</h2>
+  <p class="reg-card-sub">Prosjek kiše na dijelu sliva između dvije letve, iz izvedenih točaka (model): palo u zadnja 24 h i očekivano u idućih 48 h, jača kiša na vrhu. Pravi kišomjeri u taj broj ne ulaze; vide se ispod, u svakom međuslivu.</p>
+  {{if .Kisa}}
+  <table class="pv-tablica sliv-kisa">
+    <thead><tr><th>Međusliv</th><th class="pv-samo-siroko">Palo 24 h</th><th class="pv-samo-siroko">Očekivano 48 h</th><th class="pv-samo-siroko">Koliko je rijetko</th><th>Gdje raste voda</th></tr></thead>
+    <tbody>
+    {{range .Kisa}}<tr{{if .Klasa}} class="{{.Klasa}}"{{end}}>
+      <td class="pv-sliv-naziv"><a href="#sliv-{{.Oznaka}}">{{.Naziv}}</a><span class="pv-samo-usko pv-sliv-mm">{{.Ukratko}}</span></td>
+      <td class="pv-samo-siroko">{{.Palo24}}</td>
+      <td class="pv-samo-siroko">{{.Dolazi48}}</td>
+      <td class="pv-samo-siroko">{{.Rijetko}}</td>
+      <td class="pv-raste{{if eq .Raste "—"}} pv-bez-porasta{{end}}">{{.Raste}}</td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="reg-empty">{{.KisaGreska}}</p>
+  {{end}}
+</section>
+{{end}}
+
 {{if .Karta.Ima}}
 <section class="detail-section" id="karta">
   <div class="detail-section-head d-flex justify-between items-center flex-wrap gap-2">
@@ -117,6 +141,10 @@
     {{if .Sliv.Km2}}<span class="reg-chip">{{brojHRd .Sliv.Km2 0}} km²</span>{{end}}
     {{if .Tocke}}<span class="reg-chip {{if or (lt .Tezina 0.95) (gt .Tezina 1.05)}}empty{{end}}" title="Zbroj težina aktivnih izvedenih točaka; oko 1 kad je međusliv u cijelosti pokriven">Σ težina {{brojHRd .Tezina 2}}</span>{{end}}
   </h2>
+  {{with .Kisa}}
+  <p class="sliv-kisa-sad{{if .Klasa}} {{.Klasa}}{{end}}">{{icon "cloud-rain"}}
+    {{if eq .Palo24 "—"}}Kiša sada: nema podataka.{{else}}Kiša sada: {{.Palo24}} palo u 24 h · {{.Dolazi48}} očekivano u 48 h · {{.Rijetko}}{{if ne .Raste "—"}} · raste: {{.Raste}}{{end}}{{end}}</p>
+  {{end}}
   {{if .UPrognozi}}
   <p class="kis-prognoza-sliv kis-u-prognozi">{{icon "check"}} Kiša ovog međusliva ulazi u dnevnu prognozu za:
     <strong>{{range $i, $l := .UPrognozi}}{{if $i}}, {{end}}{{$l}}{{end}}</strong> — iz {{.UPrognoziTocaka}} {{uzBroj .UPrognoziTocaka "izvedene točke" "izvedene točke" "izvedenih točaka"}}.</p>
