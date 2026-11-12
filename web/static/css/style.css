@@ -9890,6 +9890,34 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
   table.usluga-upisi td.cop-prazno { width: 100%; }
 }
 
+/* List dnevnika usluge: obrazac uvjeta i novi upis (15f, 9c, 9d). Prilike u
+   jednom redu, osoblje i strojevi kao redovi s natpisom iznad svakog polja. */
+.lista-uvjeti, .lista-novi-upis { max-width: none; }
+.lista-polja { min-width: 0; margin: 0; padding: 0; border: 0; }
+.lista-prilike { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0 12px; }
+.lista-ocjena { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
+.lista-podnaslov { margin: 16px 0 8px; color: var(--md-sys-color-on-surface); font-size: 0.875rem; font-weight: 500; }
+.lista-redovi { display: flex; flex-direction: column; gap: 8px; }
+.lista-redak { display: grid; grid-template-columns: minmax(0, 1fr) 96px; gap: 0 12px; }
+.lista-redak .form-group { margin: 0; }
+.lista-jos { min-height: 32px; padding: 0; margin-top: 4px; color: var(--md-sys-color-primary); }
+.lista-gumbi { display: flex; flex-wrap: wrap; gap: 8px 12px; margin-top: 16px; }
+.lista-upis-polja { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 12px; }
+.lista-novi-upis [hidden] { display: none; }
+.lista-uvjeti .lista-prilike + input + .form-help { margin: 0 0 12px; }
+@media (min-width: 600px) and (max-width: 1099px) {
+  .lista-prilike { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 599px) {
+  .lista-prilike, .lista-ocjena { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lista-ocjena { grid-template-columns: minmax(0, 1fr); }
+  .lista-redak { grid-template-columns: minmax(0, 1fr) 72px; }
+  .lista-upis-polja { grid-template-columns: minmax(0, 1fr); }
+  .lista-gumbi { flex-direction: column; }
+  .lista-gumbi .btn { width: 100%; min-height: 48px; }
+  .lista-jos { min-height: 48px; }
+}
+
 /* Slivovi: kiša po međuslivovima na vrhu i redak kiše u svakom međuslivu */
 .pv-tablica .pv-sliv-naziv a { color: var(--md-sys-color-primary); text-decoration: none; }
 .pv-tablica .pv-sliv-naziv a:hover { text-decoration: underline; }

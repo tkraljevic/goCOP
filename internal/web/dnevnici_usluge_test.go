@@ -163,12 +163,14 @@ func TestListDnevnikaUslugePoCrtezu(t *testing.T) {
 	upisano := time.Date(2026, 10, 26, 8, 5, 0, 0, models.Zagreb)
 	rok := time.Now().In(models.Zagreb).AddDate(0, 1, 0)
 	d := JournalPageData{
-		CurrentUser: &models.User{FullName: "P"},
-		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
-		Journal:     &models.Journal{ID: "j1", Kind: models.JournalKindMaintenanceA02, Title: "A.02. Kanali", Year: 2026, AreaID: 16, Contractor: "Vodogradnja Primjer d.o.o."},
-		Area:        &models.Area{ID: 16, Name: "Mali sliv Baranja"},
-		Sheet:       &models.JournalSheet{ID: "s1", JournalID: "j1", Number: 148, Date: dan, Label: "košnja"},
-		CanWrite:    true, CanSupervise: true, Capacity: 6, Used: 2,
+		CurrentUser:  &models.User{FullName: "P"},
+		Permissions:  &models.UserPermissions{IsGlobalAdmin: true},
+		Journal:      &models.Journal{ID: "j1", Kind: models.JournalKindMaintenanceA02, Title: "A.02. Kanali", Year: 2026, AreaID: 16, Contractor: "Vodogradnja Primjer d.o.o."},
+		Area:         &models.Area{ID: 16, Name: "Mali sliv Baranja"},
+		Sheet:        &models.JournalSheet{ID: "s1", JournalID: "j1", Number: 148, Date: dan, Label: "košnja", Staff: "STROJAR:2;RADNIK:2"},
+		StaffRows:    []models.Count{{Name: "STROJAR", N: 2}, {Name: "RADNIK", N: 2}},
+		AllowedKinds: []string{models.EntryKindWork, models.EntryKindTask},
+		CanWrite:     true, CanSupervise: true, Capacity: 6, Used: 2,
 		Entries: []models.JournalEntry{
 			{ID: "e1", Number: 610, Kind: models.EntryKindWork, Place: "Kanal Travnik 1+000", Text: "Strojna košnja trave.", WorkItemNo: "1.2", WorkItemText: "Strojna košnja trave",
 				UserName: "Pero Primjer", CreatedAt: upisano, Voided: true, VoidedBy: "Pero Primjer", VoidReason: "krivo upisana stacionaža"},
@@ -181,6 +183,11 @@ func TestListDnevnikaUslugePoCrtezu(t *testing.T) {
 		"izvođač: nije potvrdio", "nadzor: nije potvrdio", `action="/dnevnici/j1/listovi/s1/potvrdi"`, "Potvrdi list</button>",
 		`class="uu-storno"`, "STORNO (Pero Primjer): krivo upisana stacionaža", "1.2 · Strojna košnja trave", "26. 10. 26. 08:05",
 		">izveden</button>", ">otkaži</button>", ">storniraj</button>", "—</td>", "Novi list za ovaj dan",
+		// obrazac uvjeta (9c): zbroj osoblja, retci s natpisima, prazan red strojeva
+		"Struktura osoblja: 4</h3>", `<label class="form-label">Uloga</label><input type="text" name="staff_name" value="STROJAR"`,
+		`<label class="form-label">Stroj ili alat</label>`, "Spremi uvjete", "Povuci vrijeme i vodostaje", `name="weather_edited"`,
+		// novi upis (9d): rok naloga skriven dok vrsta nije nalog, pomoć nadzoru
+		`<div id="nalog-rok" hidden`, "Ocjenu i nalog upisuje nadzor.",
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("list nema %q", want)
