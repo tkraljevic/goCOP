@@ -9904,6 +9904,25 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
   .dio-poddionica .part-obj { grid-template-columns: 1fr; gap: 0; }
 }
 
+/* Obrazac dionice (goCOP-m3, 17b · Registri, 3c): ploče jedna ispod druge, gumbi dolje desno. */
+.form-page.dio-obrazac { padding: 0; overflow: visible; border: 0; background: none; box-shadow: none; }
+.form-page.dio-obrazac::before, .form-page.dio-obrazac::after { display: none; }
+.dio-obrazac > .list-kartica { margin-bottom: 16px; }
+.dio-obrazac .form-row { margin-bottom: 0; }
+.dio-obrazac input[readonly] { color: var(--md-sys-color-on-surface-variant); background: var(--md-sys-color-surface-container); }
+.dio-dodaj { margin: 0 0 16px; padding-inline: 0; }
+.dio-opis-sam { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 12px; }
+.dio-opis-sam .form-help { display: block; margin: 0; }
+.dio-gumbi { justify-content: flex-end; }
+/* Poddionica u obrascu: glava je gumb koji je otvara; sklopljena pokazuje samo glavu i sažetak. */
+.dio-pod-uredi-glava { gap: 12px; }
+.dio-pod-preklop { display: flex; flex: 1; align-items: center; gap: 12px; min-width: 0; padding: 0; text-align: left; color: inherit; font: inherit; border: 0; background: none; cursor: pointer; }
+.dio-pod-preklop .redak-glavno, .dio-pod-preklop .redak-sporedno { display: block; }
+.dio-pod-preklop > .icon:last-child { flex: none; width: 20px; height: 20px; margin-left: auto; color: var(--md-sys-color-on-surface-variant); }
+.dio-pod-preklop[aria-expanded="true"] > .icon:last-child { transform: rotate(180deg); }
+.part-edit.sklopljena { padding-block: 12px !important; }
+.part-edit.sklopljena .dio-pod-uredi-glava [data-role=remove] { display: none; }
+
 /* Popis vodomjernih postaja (17c, 4a): tablica i kartice kao kod dionica (.dio-tablica),
    uz izbor vodotoka i države ispod čipova. */
 .let-izbori { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 16px; margin: 8px 0 16px; }
