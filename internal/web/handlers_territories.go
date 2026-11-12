@@ -56,7 +56,8 @@ type TerritoriesPageData struct {
 	ActiveTab        string
 	TotalCounties    int
 	TotalMunis       int
-	TotalCities      int
+	TotalCities      int // gradova u cijeloj zemlji, ne samo u filtriranom popisu
+	TotalOpcine      int
 	TotalSettlements int
 	BrojSluzbi       map[int]int // službe po županiji, za karticu
 	SuccessMessage   string
@@ -123,12 +124,10 @@ func (h *TerritoriesHandler) ShowTerritories(w http.ResponseWriter, r *http.Requ
 
 	totalCounties, totalMunis, totalSettlements, _ := h.territoryService.GetTerritoryCounts(ctx)
 
-	totalCities := 0
-	for _, m := range municipalities {
-		if m.Type == "GRAD" {
-			totalCities++
-		}
-	}
+	// Gradovi se broje u cijeloj zemlji, ne u filtriranom popisu; općine su
+	// ostatak jedinica lokalne samouprave.
+	gradovi, _ := h.territoryService.ListMunicipalities(ctx, 0, "GRAD", "") // bez popisa kartica pokaže nulu
+	totalCities := len(gradovi)
 
 	page, pager := paginate(municipalities, r, registryPerPage)
 	data := TerritoriesPageData{
@@ -145,6 +144,7 @@ func (h *TerritoriesHandler) ShowTerritories(w http.ResponseWriter, r *http.Requ
 		TotalCounties:         totalCounties,
 		TotalMunis:            totalMunis,
 		TotalCities:           totalCities,
+		TotalOpcine:           max(totalMunis-totalCities, 0),
 		TotalSettlements:      totalSettlements,
 		SuccessMessage:        r.URL.Query().Get("success"),
 		ErrorMessage:          r.URL.Query().Get("error"),
