@@ -94,6 +94,7 @@ type JournalPageData struct {
 	StranicaCOP       *StranicaCOP // samo na popisu dnevnika COP-a
 	Journal           *models.Journal
 	Sheets            []models.JournalSheet
+	SviListovi        bool // ?listovi=svi: dnevnik pokazuje sve listove, ne samo najnovije
 	Sheet             *models.JournalSheet
 	Entries           []models.JournalEntry
 	OpenTasks         []models.JournalEntry
@@ -617,6 +618,7 @@ func (h *JournalsHandler) ShowJournal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data.Sheets, _ = h.journals.ListSheets(ctx, j.ID)   // bez listova naslovnica ostaje, s praznim popisom
+	data.SviListovi = r.URL.Query().Get("listovi") == "svi"
 	data.OpenTasks, _ = h.journals.OpenTasks(ctx, j.ID) // bez naloga stranica samo nema popisa otvorenih
 	data.Gaps, _ = h.journals.NumberGaps(ctx, j.ID)     // rupe u brojevima su upozorenje, ne uvjet
 	h.render(w, h.tmplJournal, "dnevnik.html", data)
@@ -1146,4 +1148,23 @@ func (h *JournalsHandler) HandleObrisiDnevnik(w http.ResponseWriter, r *http.Req
 		popis += "&area=" + strconv.Itoa(j.AreaID)
 	}
 	redirectWith(w, r, popis, "success", fmt.Sprintf("Dnevnik „%s“ je obrisan, s %d %s; u knjizi verzija ostaje arhiviran.", j.DisplayTitle(), n, models.UzBrojHR(n, "zapisom", "zapisa", "zapisa")))
+}
+
+// NajviseListova je koliko najnovijih listova dnevnik usluge pokazuje dok se
+// ne otvori „Više” (Odluke (7. 11. 2026.)): isto na svakom zaslonu, jer
+// poslužitelj ne zna veličinu zaslona.
+const NajviseListova = 4
+
+// ListoviZaPrikaz su listovi u tablici: najnoviji, ili svi uz ?listovi=svi.
+// ListSheets ih daje od najnovijeg.
+func (d JournalPageData) ListoviZaPrikaz() []models.JournalSheet {
+	if d.SviListovi || len(d.Sheets) <= NajviseListova {
+		return d.Sheets
+	}
+	return d.Sheets[:NajviseListova]
+}
+
+// ListovaJos je koliko listova „Više: još N” otvara
+func (d JournalPageData) ListovaJos() int {
+	return len(d.Sheets) - len(d.ListoviZaPrikaz())
 }
