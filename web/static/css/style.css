@@ -9931,6 +9931,25 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
 .sliv-kisa-sad.kisa-narancasto { border-left-color: var(--kisa-narancasto); }
 .sliv-kisa-sad.kisa-crveno { border-left-color: var(--faza-s-crta); }
 
+/* Potvrđen list i prikaz bez pisanja (15f, 9e): traka s lokotom i uvjeti
+   kao retci oznaka i vrijednost. */
+.lista-oba { min-height: 22px; padding: 0 8px; font-size: 0.75rem; vertical-align: middle; }
+.lista-zakljucano {
+  display: flex; align-items: flex-start; gap: 12px; margin: 0 0 16px; padding: 10px 16px; border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 12px; color: var(--md-sys-color-on-surface); font-size: 0.875rem;
+}
+.lista-zakljucano > .icon { flex: none; width: 20px; height: 20px; margin: 0; color: var(--md-sys-color-on-surface-variant); }
+.lista-retci { margin: 0; }
+.lista-retci > div { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 0 16px; padding: 8px 0; border-bottom: 1px solid var(--md-sys-color-outline-variant); }
+.lista-retci > div:last-child { border-bottom: 0; }
+.lista-retci dt { color: var(--md-sys-color-on-surface-variant); font-size: 0.8125rem; font-weight: 400; }
+.lista-retci dd { margin: 0; color: var(--md-sys-color-on-surface); font-size: 0.875rem; }
+@media (max-width: 599px) {
+  .lista-retci > div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .lista-retci dt { font-size: 0.75rem; }
+  .lista-retci dd { font-size: 1rem; }
+}
+
 /* Naslovnica dnevnika usluge (15f, 9f): obrazac bez okvira, rubrike kao
    obični podnaslovi, gumbi dolje lijevo; na mobitelu gumbi preko cijele širine. */
 .naslovnica-obrazac { max-width: 860px; padding: 0; overflow: visible; border: 0; background: none; box-shadow: none; }

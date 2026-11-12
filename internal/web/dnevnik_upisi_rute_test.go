@@ -149,7 +149,7 @@ func TestStariListCOPaSamoZaCitanje(t *testing.T) {
 			t.Error("list usluge A.02 ne nudi samo lokacije svog programa")
 		}
 		put := "/dnevnici/" + j.ID + "/listovi/" + sh.ID
-		uvjeti = !strings.Contains(html, `<fieldset disabled`)
+		uvjeti = strings.Contains(html, put+`/uvjeti"`)
 		return strings.Contains(html, put+`/potvrdi"`), strings.Contains(html, put+`/upisi"`), uvjeti
 	}
 	if potvrda, upis, uvjeti := obrasci(p.cop); potvrda || upis || uvjeti {
