@@ -371,7 +371,7 @@ func TestObrazacDioniceSiriIObjektiUTriStupca(t *testing.T) {
 		Section:     models.Section{Code: "B.34.1", AreaID: 34, SectorID: "B"},
 		IsEdit:      true,
 	})
-	if !strings.Contains(html, `class="form-page form-wide"`) {
+	if !strings.Contains(html, `class="form-page form-wide dio-obrazac"`) {
 		t.Error("obrazac dionice nije na punu širinu")
 	}
 	obj := izmedju(html, `<template id="tpl-obj">`, "</template>")
