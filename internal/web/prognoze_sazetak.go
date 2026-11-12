@@ -178,17 +178,21 @@ func cmS(v float64) string {
 	return strings.Replace(fmt.Sprintf("%d", int(math.Round(v))), "-", "−", 1)
 }
 
-// danS skraćuje „pet 2.10." na „2. 10."
+// danS skraćuje „pet 13. 11." (i stari oblik „pet 2.10.") na „13. 11."
 func danS(naslov string) string {
 	f := strings.Fields(naslov)
 	if len(f) == 0 {
 		return naslov
 	}
-	d := strings.Split(strings.TrimSuffix(f[len(f)-1], "."), ".")
+	// dan u tjednu ispred datuma se ispušta
+	if r := f[0][0]; len(f) > 1 && (r < '0' || r > '9') {
+		f = f[1:]
+	}
+	d := strings.Split(strings.TrimSuffix(strings.Join(f, ""), "."), ".")
 	if len(d) == 2 {
 		return d[0] + ". " + d[1] + "."
 	}
-	return f[len(f)-1]
+	return strings.Join(f, " ")
 }
 
 // recenicaRijeke opisuje rijeku u jednoj do dvije rečenice

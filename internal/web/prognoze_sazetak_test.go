@@ -3,6 +3,7 @@ package web
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func pf(v float64) *float64 { return &v }
@@ -31,5 +32,23 @@ func TestRecenicaRijeke(t *testing.T) {
 	}
 	if s := recenicaRijeke("Mura", []postajaSazetka{{Ime: "Goričan", Sada: pf(73), Naslovi: naslovi, Dani: []*float64{pf(72)}}}); s != "Mura je stabilna." {
 		t.Errorf("mirna Mura: %q", s)
+	}
+}
+
+// Natpisi dana su „pet 13. 11.” s razmakom; sažetak je od njih uzimao samo
+// mjesec pa je u Excelu svugdje pisalo „11.”.
+func TestDanSOblici(t *testing.T) {
+	for ulaz, treba := range map[string]string{
+		"pet 13. 11.": "13. 11.",
+		"pet 2.10.":   "2. 10.",
+		"18. 11.":     "18. 11.",
+		"":            "",
+	} {
+		if s := danS(ulaz); s != treba {
+			t.Errorf("danS(%q) = %q, treba %q", ulaz, s, treba)
+		}
+	}
+	if d, _ := daniPregleda(time.Date(2026, 11, 12, 22, 0, 0, 0, time.UTC)); danS(d[0]) != "13. 11." || danS(d[5]) != "18. 11." {
+		t.Errorf("dani pregleda %v daju %q i %q", d, danS(d[0]), danS(d[5]))
 	}
 }
