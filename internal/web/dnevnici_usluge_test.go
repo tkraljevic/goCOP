@@ -156,6 +156,45 @@ func TestStranicaDnevnikaUslugePoCrtezu(t *testing.T) {
 	}
 }
 
+// List dnevnika usluge (crtež 9c, 9d): povratak na dnevnik, potvrde ispod
+// naslova, upisi kao tablica s radnjama riječima, storno precrtan s razlogom.
+func TestListDnevnikaUslugePoCrtezu(t *testing.T) {
+	dan := time.Date(2026, 10, 26, 0, 0, 0, 0, models.Zagreb)
+	upisano := time.Date(2026, 10, 26, 8, 5, 0, 0, models.Zagreb)
+	rok := time.Now().In(models.Zagreb).AddDate(0, 1, 0)
+	d := JournalPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Journal:     &models.Journal{ID: "j1", Kind: models.JournalKindMaintenanceA02, Title: "A.02. Kanali", Year: 2026, AreaID: 16, Contractor: "Vodogradnja Primjer d.o.o."},
+		Area:        &models.Area{ID: 16, Name: "Mali sliv Baranja"},
+		Sheet:       &models.JournalSheet{ID: "s1", JournalID: "j1", Number: 148, Date: dan, Label: "košnja"},
+		CanWrite:    true, CanSupervise: true, Capacity: 6, Used: 2,
+		Entries: []models.JournalEntry{
+			{ID: "e1", Number: 610, Kind: models.EntryKindWork, Place: "Kanal Travnik 1+000", Text: "Strojna košnja trave.", WorkItemNo: "1.2", WorkItemText: "Strojna košnja trave",
+				UserName: "Pero Primjer", CreatedAt: upisano, Voided: true, VoidedBy: "Pero Primjer", VoidReason: "krivo upisana stacionaža"},
+			{ID: "e2", Number: 613, Kind: models.EntryKindTask, Status: models.TaskOpen, Text: "Popraviti rampu.", DueDate: &rok, UserName: "Zoran Primjer", CreatedAt: upisano},
+		},
+	}
+	html := iscrtaj(t, "dnevnik_list.html", d)
+	for _, want := range []string{
+		`<a href="/dnevnici/j1" class="povratna-poveznica">← A.02. Kanali`, `data-naziv-stranice="List dnevnika"`, "List 148 · 26. 10. 2026. · košnja",
+		"izvođač: nije potvrdio", "nadzor: nije potvrdio", `action="/dnevnici/j1/listovi/s1/potvrdi"`, "Potvrdi list</button>",
+		`class="uu-storno"`, "STORNO (Pero Primjer): krivo upisana stacionaža", "1.2 · Strojna košnja trave", "26. 10. 26. 08:05",
+		">izveden</button>", ">otkaži</button>", ">storniraj</button>", "—</td>", "Novi list za ovaj dan",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("list nema %q", want)
+		}
+	}
+	if strings.Contains(html, "breadcrumb") || strings.Contains(html, "table-responsive") || strings.Contains(html, `title="Storniraj upis"`) {
+		t.Error("list ima stari put, tablicu s klizačem ili radnje kao ikone")
+	}
+	// stornirani upis nema radnji; otvoreni nalog ima tri
+	if n := strings.Count(html, ">storniraj</button>"); n != 1 {
+		t.Errorf("storniraj se nudi %d puta, želim jednom", n)
+	}
+}
+
 // Dnevnik usluge pokazuje četiri najnovija lista, a „Više: još N” otvara sve
 // (Odluke (7. 11. 2026.)). Naslov uvijek broji sve listove.
 func TestDnevnikUslugeViseListova(t *testing.T) {

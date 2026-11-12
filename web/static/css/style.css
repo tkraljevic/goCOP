@@ -9841,6 +9841,55 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
   .prim-novi .btn { width: 100%; min-height: 48px; }
 }
 
+/* List dnevnika usluge (15f, 9c–9e): potvrde ispod naslova, upisi kao
+   tablica na računalu i kartice na mobitelu, radnje riječima. */
+.lista-potvrde { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.lista-potvrde .oznaka-stanja { min-height: 22px; padding: 0 8px; font-size: 0.75rem; }
+.lista-radnje { align-items: center; }
+.lista-potvrdi { margin: 0; }
+.lista-novi-list { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 16px; margin: 0 0 12px; }
+.lista-novi-list .form-group { flex: 0 1 260px; margin: 0; }
+.lista-novi-list .usluga-pomoc { flex: 1 0 100%; }
+.usluga-upisi .uu-broj { font-weight: 500; white-space: nowrap; }
+.uu-oznake { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.uu-stanje, .uu-sitno { display: block; margin-top: 4px; color: var(--md-sys-color-on-surface-variant); font-size: 0.75rem; line-height: 16px; }
+.uu-tekst { display: block; white-space: pre-line; }
+.uu-storno .uu-tekst { text-decoration: line-through; color: var(--md-sys-color-on-surface-variant); }
+.uu-storno-razlog { color: var(--md-sys-color-error); }
+.uu-upisao { color: var(--md-sys-color-on-surface-variant); font-size: 0.75rem; line-height: 16px; white-space: nowrap; }
+.uu-kad { display: block; }
+.uu-radnje { white-space: nowrap; text-align: right; }
+.uu-radnje form { display: block; margin: 0; }
+.uu-radnje .btn-link { min-height: 24px; padding: 0; color: var(--md-sys-color-primary); font-size: 0.8125rem; }
+@media (min-width: 600px) and (max-width: 1099px) {
+  .usluga-upisi .uu-upisao { white-space: normal; }
+}
+@media (max-width: 599px) {
+  .lista-glava .page-actions { flex-direction: column; align-items: stretch; align-self: stretch; }
+  .lista-radnje .btn-link { align-self: flex-start; min-height: 48px; padding-inline: 0; }
+  .lista-potvrdi .btn { width: 100%; min-height: 48px; }
+  .lista-novi-list { flex-direction: column; align-items: stretch; }
+  .lista-novi-list .form-group { flex: none; }
+  .lista-novi-list .btn { width: 100%; min-height: 48px; }
+  /* Kartica upisa: broj i vrsta u prvom retku, zatim gdje, upis, tko i radnje. */
+  table.usluga-upisi.kartice-na-mobitelu tr {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; padding: 12px 16px; border: 0; border-radius: 8px;
+    background: var(--md-sys-color-surface-container-lowest);
+  }
+  table.usluga-upisi.kartice-na-mobitelu tr:hover { background: var(--md-sys-color-surface-container-lowest); }
+  table.usluga-upisi.kartice-na-mobitelu td { display: block; padding: 0; color: var(--md-sys-color-on-surface); font-size: 0.875rem; line-height: 20px; }
+  table.usluga-upisi.kartice-na-mobitelu td.uu-broj { padding: 0; }
+  table.usluga-upisi td.uu-gdje, table.usluga-upisi td.uu-upis, table.usluga-upisi td.uu-upisao, table.usluga-upisi td.uu-radnje { width: 100%; }
+  table.usluga-upisi td.uu-vrsta .uu-stanje { margin-top: 0; }
+  table.usluga-upisi td.uu-vrsta { flex: 1 1 0; }
+  table.usluga-upisi td.uu-upisao { color: var(--md-sys-color-on-surface-variant); font-size: 0.75rem; white-space: normal; }
+  table.usluga-upisi .uu-kad { display: inline; }
+  table.usluga-upisi td.uu-radnje { display: flex; flex-wrap: wrap; gap: 0 16px; text-align: left; }
+  table.usluga-upisi td.uu-radnje:empty { display: none; }
+  table.usluga-upisi .uu-radnje .btn-link { min-height: 48px; font-size: 0.875rem; }
+  table.usluga-upisi td.cop-prazno { width: 100%; }
+}
+
 /* Slivovi: kiša po međuslivovima na vrhu i redak kiše u svakom međuslivu */
 .pv-tablica .pv-sliv-naziv a { color: var(--md-sys-color-primary); text-decoration: none; }
 .pv-tablica .pv-sliv-naziv a:hover { text-decoration: underline; }
