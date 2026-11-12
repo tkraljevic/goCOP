@@ -181,6 +181,28 @@ func TestPredlosciRegistaraProlazeUvoz(t *testing.T) {
 	if err := baza.QueryRow(`SELECT vgi_phone FROM areas WHERE id = 1`).Scan(&telefon); err != nil || telefon != "000 000 004" {
 		t.Errorf("telefon ispostave iz osmog stupca: %q (%v)", telefon, err)
 	}
+
+	// Izvoz područja ima naziv osmog stupca, a ponovni uvoz istog CSV-a
+	// osvježava samo stupce iz datoteke: točka za vremenske prilike i ugovorna
+	// pravna osoba, upisane u obrascu, ostaju.
+	if izvoz := zaglavljeIzvoza(t, zovi(httptest.NewRequest(http.MethodGet, "/organizacija/podrucja.csv", nil))); len(izvoz) != 8 || izvoz[7] != "Telefon ispostave" {
+		t.Errorf("zaglavlje izvoza područja: %q", izvoz)
+	}
+	ctx := context.Background()
+	a, err := org.GetArea(ctx, 1)
+	if err != nil || a == nil {
+		t.Fatalf("područje 1: %v", err)
+	}
+	sirina, duzina := 45.55, 18.69
+	a.Latitude, a.Longitude, a.ContractorName = sirina, duzina, "Ugovorna Primjer d.o.o."
+	if err := org.SaveArea(ctx, perms, a, false); err != nil {
+		t.Fatal(err)
+	}
+	posalji("/organizacija/uvoz", "podrucja", predlozak(t, "registri/branjena-podrucja.csv"))
+	if a, _ = org.GetArea(ctx, 1); a == nil || a.Latitude != sirina || a.Longitude != duzina ||
+		a.ContractorName != "Ugovorna Primjer d.o.o." {
+		t.Errorf("ponovni uvoz CSV-a izbrisao je ono čega u CSV-u nema: %+v", a)
+	}
 }
 
 func TestPredlozakOcitanjaLetveSeCita(t *testing.T) {
