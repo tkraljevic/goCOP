@@ -7154,24 +7154,6 @@ body.skoljka {
   font-weight: 600;
 }
 
-.nav-group .nav-caret { margin-left: auto; font-size: 0.7em; opacity: 0.7; transition: transform 0.15s ease; }
-.nav-group.open .nav-caret { transform: rotate(180deg); }
-.nav-dropdown { display: none; padding: 0.125rem 0 0.5rem 2.25rem; }
-.nav-group.open .nav-dropdown { display: block; }
-.nav-dropdown-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 999px;
-  font-size: 0.875rem;
-  text-decoration: none;
-  color: var(--text-muted);
-}
-.nav-dropdown-item .icon { width: 18px; height: 18px; flex-shrink: 0; }
-.nav-dropdown-item:hover { background: var(--surface-hover); color: var(--text); }
-.nav-dropdown-item.active { background: var(--md-sys-color-ploha-odabrano); color: var(--text); font-weight: 600; }
-
 .nav-dno { margin-top: auto; padding-top: 0.5rem; border-top: 1px solid var(--border); }
 .nav-dno form { margin: 0; }
 
@@ -7292,8 +7274,6 @@ html.izbornik-uski .nav-link > span:not(.nav-caret) {
   overflow: hidden;
   white-space: normal;
 }
-html.izbornik-uski .nav-caret,
-html.izbornik-uski .nav-dropdown { display: none; }
 html.izbornik-uski .nav-dno { border-top: 0; padding-top: 0; }
 
 /* Do 839 px izbornik se ne može raširiti u mjestu, pa se otvara preko
@@ -7401,11 +7381,9 @@ html.izbornik-uski .nav-dno { border-top: 0; padding-top: 0; }
   .donja-stavka span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
 
-/* Bez skripte (html bez razreda js, koji daje js/tema.js) podstavke Registara
-   su uvijek vidljive, a na mobitelu izbornik stoji na vrhu stranice kao
-   običan popis, jer ga „Više” ne može otvoriti */
-html:not(.js) .nav-dropdown { display: block; }
-html:not(.js) .nav-caret { display: none; }
+/* Bez skripte (html bez razreda js, koji daje js/tema.js) izbornik na
+   mobitelu stoji na vrhu stranice kao običan popis, jer ga „Više” ne može
+   otvoriti */
 @media (max-width: 599px) {
   html:not(.js) body.skoljka { flex-direction: column; }
   html:not(.js) .izbornik {
@@ -9459,16 +9437,16 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
   .akti-filtri-obrazac, .akti-sektor-polje { display: none !important; }
 }
 
-/* ===== Ulaz u Dokumente (goCOP-m3, 15 · Dokumenti, 1) =====
+/* ===== Ulaz u Dokumente i Registre (goCOP-m3, 15 · Dokumenti, 1 i 17a · Registri, 1) =====
    Skupine stoje po dvije u redu kad ima mjesta, inače jedna ispod druge. Širina se
    mjeri na ploči, jer izbornik sa strane može biti otvoren. Na mobitelu retci nemaju
    opisa i visoki su bar 56 px. */
-.ulaz-dokumenti-opis { margin: 0 0 16px; font-size: 0.875rem; color: var(--md-sys-color-on-surface-variant); }
-.ulaz-dokumenti-ploca {
+.ulaz-opis { margin: 0 0 16px; font-size: 0.875rem; color: var(--md-sys-color-on-surface-variant); }
+.ulaz-ploca {
   padding: 16px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px;
   background: var(--md-sys-color-surface-container-low); container-type: inline-size;
 }
-.ulaz-dokumenti-ploca > h2 { margin: 0 0 12px; font-size: 1rem; line-height: 24px; font-weight: 500; color: var(--md-sys-color-on-surface); }
+.ulaz-ploca > h2 { margin: 0 0 12px; font-size: 1rem; line-height: 24px; font-weight: 500; color: var(--md-sys-color-on-surface); }
 .ulaz-skupine { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
 @container (min-width: 540px) { .ulaz-skupine { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .ulaz-skupina h3 { margin: 0 0 8px; font-size: 0.8125rem; line-height: 16px; font-weight: 500; color: var(--md-sys-color-on-surface-variant); }
