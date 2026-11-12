@@ -145,17 +145,8 @@ func opisLetveDionice(st models.Station, seq []int) string {
 	if mjesto := strings.TrimSpace(st.Watercourse + " " + st.Stationing); mjesto != "" {
 		dijelovi = append(dijelovi, mjesto)
 	}
-	var pragovi []string
-	for _, p := range []struct {
-		oznaka string
-		prag   models.Threshold
-	}{{"P", st.Prep}, {"R", st.Regular}, {"I", st.Emergency}, {"IS", st.State}} {
-		if p.prag.Cm != nil {
-			pragovi = append(pragovi, p.oznaka+" "+strconv.Itoa(*p.prag.Cm))
-		}
-	}
-	if len(pragovi) > 0 {
-		dijelovi = append(dijelovi, strings.Join(pragovi, " · ")+" cm")
+	if p := pragoviLetve(st); p != "" {
+		dijelovi = append(dijelovi, p)
 	}
 	if len(seq) > 0 {
 		dijelovi = append(dijelovi, popisPoddionica(seq))
@@ -205,4 +196,54 @@ func nasipiDionice(parts []PartView) []RedakNasipaDionice {
 		}
 	}
 	return out
+}
+
+// pragoviLetve: „P 120 · R 200 · I 250 · IS 300 cm”; prag bez centimetara ne piše se.
+func pragoviLetve(st models.Station) string {
+	var pragovi []string
+	for _, p := range []struct {
+		oznaka string
+		prag   models.Threshold
+	}{{"P", st.Prep}, {"R", st.Regular}, {"I", st.Emergency}, {"IS", st.State}} {
+		if p.prag.Cm != nil {
+			pragovi = append(pragovi, p.oznaka+" "+strconv.Itoa(*p.prag.Cm))
+		}
+	}
+	if len(pragovi) == 0 {
+		return ""
+	}
+	return strings.Join(pragovi, " · ") + " cm"
+}
+
+// Redak je letva poddionice u jednom retku, iza imena: stacionaža, pragovi i
+// zabilježeni ekstremi (crtež 3b: „pkm 23,37 · P 120 · … · najviši +338”).
+func (b LetvaBlok) Redak() string {
+	var dijelovi []string
+	for _, d := range []string{strings.TrimSpace(b.Station.Stationing), pragoviLetve(b.Station), b.Station.SazetakEkstrema()} {
+		if d != "" {
+			dijelovi = append(dijelovi, d)
+		}
+	}
+	return strings.Join(dijelovi, " · ")
+}
+
+// SazetakRetka je drugi redak zaglavlja poddionice: obuhvat, stacionaža,
+// duljina i broj nasipa i objekata.
+func (p PartView) SazetakRetka() string {
+	var dijelovi []string
+	for _, d := range []string{strings.TrimSpace(p.Extent), p.RangeLabel()} {
+		if d != "" {
+			dijelovi = append(dijelovi, d)
+		}
+	}
+	if l := p.Length(); l > 0 {
+		dijelovi = append(dijelovi, models.FormatKm(l)+" km")
+	}
+	if n := len(p.Embankments); n > 0 {
+		dijelovi = append(dijelovi, strconv.Itoa(n)+" "+models.UzBrojHR(n, "nasip", "nasipa", "nasipa"))
+	}
+	if n := len(p.Objects); n > 0 {
+		dijelovi = append(dijelovi, strconv.Itoa(n)+" "+models.UzBrojHR(n, "objekt", "objekta", "objekata"))
+	}
+	return strings.Join(dijelovi, " · ")
 }

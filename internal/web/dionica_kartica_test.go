@@ -128,3 +128,45 @@ func TestPopisPoddionica(t *testing.T) {
 		}
 	}
 }
+
+// Poddionice se otvaraju jedna po jedna: prva je otvorena, ostale su redak
+// sa sažetkom; letva je jedan redak, a pragovi su sklopljeni ispod nje.
+func TestPoddioniceJednaPoJedna(t *testing.T) {
+	duljina, nasip := 2.971, 1.85
+	od, do := 0.0, 2.971
+	letva := models.Station{ID: uuid.MustParse("9f1c0b2e-0000-7000-8000-000000000003"), Name: "Branjin Vrh",
+		Stationing: "pkm 23,37", Prep: models.Threshold{Cm: cm(120)}, State: models.Threshold{Cm: cm(300)},
+		Extremes: []models.StationExtreme{{Kind: models.ExtremeMax, LevelCm: cm(338), OnDate: "2010-06-04"}}}
+	prva := models.SectionPart{Seq: 1, WatercourseName: "kanal Travnik", Bank: "LD", Extent: "Ušće u p. Karašicu - državna granica",
+		StationingKind: "kkm", KmFrom: &od, KmTo: &do, LengthKm: &duljina,
+		Embankments: []models.PartEmbankment{{Name: "Usporni nasip uz l.o. K. Travnik", LengthKm: &nasip}},
+		Objects:     []models.PartObject{{Name: "ploč.propust 7,0 m", StationingKind: "kkm", StationingText: "kkm 0+340"}}}
+	druga := models.SectionPart{Seq: 2, WatercourseName: "kanal Hatvan"}
+	pogledi := []PartView{
+		{SectionPart: prva, Rows: embankmentRows(prva), Stations: []models.Station{letva}},
+		{SectionPart: druga},
+	}
+	napuniLetveBlokove(pogledi)
+	d := SectionPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{},
+		Section:     models.Section{Code: "B.16.1", AreaID: 16, SectorID: "B", Parts: []models.SectionPart{prva, druga}},
+		Parts:       pogledi,
+	}
+	html := iscrtaj(t, "section_detail.html", d)
+	if n := strings.Count(html, `class="list-kartica dio-poddionica" open>`); n != 1 {
+		t.Errorf("otvorenih poddionica je %d, a treba jedna", n)
+	}
+	if strings.Index(html, "kanal Hatvan") < strings.Index(html, `dio-poddionica" open>`) {
+		t.Error("otvorena je druga poddionica, a ne prva")
+	}
+	for _, want := range []string{
+		"Ušće u p. Karašicu - državna granica · kkm 0&#43;000 – 2&#43;971 · 2,971 km · 1 nasip · 1 objekt",
+		"Branjin Vrh</a> · pkm 23,37 · P 120 · IS 300 cm · najviši &#43;338 cm (2010-06-04)",
+		"<summary>Pragovi i kota nule</summary>",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("na kartici nema %q", want)
+		}
+	}
+}

@@ -202,8 +202,8 @@ func TestUgrozenoPoddioniceBezNaseljaIBezNasipa(t *testing.T) {
 	}
 }
 
-// Kartica: naselja poddionice stoje uz nasip s kvačicom i broje se u
-// njegovu „Ugroženo područje”; nasip bez kvačice ima nula.
+// Kartica: naselja poddionice stoje uz nasip s kvačicom; nasip bez kvačice
+// nema ugroženo područje.
 func TestKarticaUgrozenoPoddioniceUzNasip(t *testing.T) {
 	part, poKljucu := poddionicaB3414(true, false, false)
 	retci, iznad := slozi(part, poKljucu)
@@ -219,10 +219,10 @@ func TestKarticaUgrozenoPoddioniceUzNasip(t *testing.T) {
 		t.Error("naselja i dalje stoje izvan nasipa")
 	}
 	prvi := karte[1]
-	if !strings.Contains(prvi, "Blanje") || !strings.Contains(prvi, `Ugroženo područje <span class="reg-chip">5</span>`) {
+	if !strings.Contains(prvi, "Blanje") || strings.Contains(prvi, "nije određeno") {
 		t.Error("nasip s kvačicom ne pokazuje naselja poddionice")
 	}
-	if strings.Contains(karte[2], "Blanje") || !strings.Contains(karte[2], `Ugroženo područje <span class="reg-chip">0</span>`) {
+	if strings.Contains(karte[2], "Blanje") || !strings.Contains(karte[2], "Ugroženo područje nije određeno.") {
 		t.Error("nasip bez kvačice pokazuje naselja poddionice")
 	}
 }

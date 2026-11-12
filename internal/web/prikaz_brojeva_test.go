@@ -305,7 +305,7 @@ func TestKarticaDioniceSlazeObjektePoNasipima(t *testing.T) {
 	napuniLetveBlokove(dionica.Parts)
 	html := iscrtaj(t, "section_detail.html", dionica)
 	for _, want := range []string{
-		"letva-blokovi-glava", "Batina", "80,450 m",
+		`class="dio-letva"`, "Batina", "80,450 m",
 		`class="nasip-karta"`, "Nasip za zaštitu Batine", "2,005 km", "vodokaz Batina",
 	} {
 		if !strings.Contains(html, want) {
