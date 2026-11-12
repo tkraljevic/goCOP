@@ -11,8 +11,8 @@ func TestVrsteDnevnika(t *testing.T) {
 		kind, label, program string
 		poznata              bool
 	}{
-		{JournalKindMaintenanceA02, "Održavanje A.02 — vode I. i II. reda", "A.02", true},
-		{JournalKindMaintenanceA03, "Održavanje A.03 — kanali III. i IV. reda", "A.03", true},
+		{JournalKindMaintenanceA02, "Dnevnik usluga A.02", "A.02", true},
+		{JournalKindMaintenanceA03, "Dnevnik usluga A.03", "A.03", true},
 		{JournalKindDefense, "Obrana od poplava", "A.02", true},
 		{PopisDezurstava, "Plan dežurstava", "", false},
 		{"NEPOZNATO", "NEPOZNATO", "", false},
@@ -60,7 +60,7 @@ func TestGaugeCodesINazivDnevnika(t *testing.T) {
 	}{
 		{Journal{Title: "A.02. Kanali I. i II. reda", Kind: JournalKindDefense, SectionCode: "B.34.1"}, "A.02. Kanali I. i II. reda"},
 		{Journal{Kind: JournalKindDefense, SectionCode: "B.34.1"}, "Obrana od poplava · B.34.1"},
-		{Journal{Kind: JournalKindMaintenanceA03}, "Održavanje A.03 — kanali III. i IV. reda"},
+		{Journal{Kind: JournalKindMaintenanceA03}, "Dnevnik usluga A.03"},
 	} {
 		if got := s.j.DisplayTitle(); got != s.want {
 			t.Errorf("DisplayTitle %q, očekivano %q", got, s.want)

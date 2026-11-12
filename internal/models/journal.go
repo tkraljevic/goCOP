@@ -129,13 +129,15 @@ type Centar struct {
 	Dnevnika int
 }
 
-// JournalKindLabel vraća vrstu za prikaz
+// JournalKindLabel vraća vrstu za prikaz. Na ekranima je dnevnik usluge
+// „Dnevnik usluga A.02” (vode I. i II. reda) i „Dnevnik usluga A.03” (vode
+// III. i IV. reda), Odluke (7. 11. 2026.); tiskani obrazac ima svoj natpis.
 func JournalKindLabel(kind string) string {
 	switch kind {
 	case JournalKindMaintenanceA02:
-		return "Održavanje A.02 — vode I. i II. reda"
+		return "Dnevnik usluga A.02"
 	case JournalKindMaintenanceA03:
-		return "Održavanje A.03 — kanali III. i IV. reda"
+		return "Dnevnik usluga A.03"
 	case JournalKindDefense:
 		return "Obrana od poplava"
 	case PopisDezurstava:

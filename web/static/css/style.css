@@ -9949,3 +9949,15 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
   .lista-retci dt { font-size: 0.75rem; }
   .lista-retci dd { font-size: 1rem; }
 }
+
+/* Naslovnica dnevnika usluge (15f, 9f): obrazac bez okvira, rubrike kao
+   obični podnaslovi, gumbi dolje lijevo; na mobitelu gumbi preko cijele širine. */
+.naslovnica-obrazac { max-width: 860px; padding: 0; overflow: visible; border: 0; background: none; box-shadow: none; }
+.naslovnica-obrazac::before, .naslovnica-obrazac::after { display: none; }
+.naslovnica-obrazac .obrazac-podnaslov { margin: 20px 0 8px; color: var(--md-sys-color-on-surface); font-size: 1rem; font-weight: 400; }
+.naslovnica-gumbi { display: flex; flex-wrap: wrap; gap: 8px 12px; }
+@media (max-width: 599px) {
+  .naslovnica-obrazac { padding: 0; }
+  .naslovnica-gumbi { flex-direction: column; }
+  .naslovnica-gumbi .btn { width: 100%; min-height: 48px; }
+}
