@@ -185,3 +185,22 @@ func TestDonjaTrakaNaMobitelu(t *testing.T) {
 		t.Errorf("vodočuvaru bez dokumenata donja traka ne vodi na Teren:\n%s", traka)
 	}
 }
+
+// Ulaz u Registre (17a, 1): skupine s retcima kao ulaz Dokumenata, svaki
+// redak vodi na svoj registar; Djelatnici i Sredstva imaju svoje stavke
+// izbornika, pa ih na ulazu nema (Odluke (10. 11. 2026.), 18).
+func TestUlazURegistrePoSkupinama(t *testing.T) {
+	html := sadrzajStranice(iscrtajSkoljku(t, DashboardViewData{ActiveNav: "registri"}))
+	for _, zeli := range []string{`data-naziv-stranice="Registri"`, "<h3>Ustroj</h3>", "<h3>Mjerenja</h3>", "<h3>Objekti</h3>", "<h3>Vode</h3>", "<h3>Ostalo</h3>",
+		`href="/organizacija"`, `href="/sections"`, `href="/stations"`, `href="/slivovi"`, `href="/nasipi"`, `href="/ostali-objekti"`,
+		`href="/registri/povezanost-objekata"`, `href="/watercourses"`, `href="/territories"`, `href="/firme"`, `href="/odrzavanje"`} {
+		if !strings.Contains(html, zeli) {
+			t.Errorf("ulaz u Registre nema %q", zeli)
+		}
+	}
+	for _, ne := range []string{`href="/users"`, `href="/sredstva"`, "Otvori registar"} {
+		if strings.Contains(html, ne) {
+			t.Errorf("ulaz u Registre ima %q", ne)
+		}
+	}
+}

@@ -9459,16 +9459,16 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
   .akti-filtri-obrazac, .akti-sektor-polje { display: none !important; }
 }
 
-/* ===== Ulaz u Dokumente (goCOP-m3, 15 · Dokumenti, 1) =====
+/* ===== Ulaz u Dokumente i Registre (goCOP-m3, 15 · Dokumenti, 1 i 17a · Registri, 1) =====
    Skupine stoje po dvije u redu kad ima mjesta, inače jedna ispod druge. Širina se
    mjeri na ploči, jer izbornik sa strane može biti otvoren. Na mobitelu retci nemaju
    opisa i visoki su bar 56 px. */
-.ulaz-dokumenti-opis { margin: 0 0 16px; font-size: 0.875rem; color: var(--md-sys-color-on-surface-variant); }
-.ulaz-dokumenti-ploca {
+.ulaz-opis { margin: 0 0 16px; font-size: 0.875rem; color: var(--md-sys-color-on-surface-variant); }
+.ulaz-ploca {
   padding: 16px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px;
   background: var(--md-sys-color-surface-container-low); container-type: inline-size;
 }
-.ulaz-dokumenti-ploca > h2 { margin: 0 0 12px; font-size: 1rem; line-height: 24px; font-weight: 500; color: var(--md-sys-color-on-surface); }
+.ulaz-ploca > h2 { margin: 0 0 12px; font-size: 1rem; line-height: 24px; font-weight: 500; color: var(--md-sys-color-on-surface); }
 .ulaz-skupine { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
 @container (min-width: 540px) { .ulaz-skupine { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .ulaz-skupina h3 { margin: 0 0 8px; font-size: 0.8125rem; line-height: 16px; font-weight: 500; color: var(--md-sys-color-on-surface-variant); }
