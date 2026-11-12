@@ -9904,8 +9904,7 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
   .dio-poddionica .part-obj { grid-template-columns: 1fr; gap: 0; }
 }
 
-/* Obrazac vodomjerne postaje (goCOP-m3, 17c · Registri, 4b): ploče jedna ispod druge. Donji dio
-   obrasca još je u starom obliku i prelazi u ploče sljedećim korakom. */
+/* Obrazac vodomjerne postaje (goCOP-m3, 17c · Registri, 4b): ploče jedna ispod druge. */
 .lob-stranica > .form-page { padding: 0; overflow: visible; border: 0; background: none; box-shadow: none; }
 .lob-stranica > .form-page::before, .lob-stranica > .form-page::after { display: none; }
 .lob-stranica .list-kartica { margin-bottom: 16px; }
@@ -9916,3 +9915,10 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
 .lob-dionice { margin-top: 8px; }
 .lob-cipovi { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 6px; }
 .lob-cipovi a { text-decoration: none; }
+/* Donji dio obrasca postaje: sklopke kao prekidači (ostaju kvačice), zasivljena telemetrija bez računa. */
+.lob-sklopka { display: flex; align-items: center; gap: 12px; margin: 8px 0; cursor: pointer; }
+.lob-zasivljeno { cursor: default; opacity: 0.55; }
+.lob-podnaslov { margin: 16px 0 4px; font-size: 0.875rem; font-weight: 500; color: var(--md-sys-color-on-surface); }
+.lob-podrucja { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-left: 1.5rem; }
+.lob-karta { padding-inline: 0; }
+.lob-gumbi { justify-content: flex-end; }

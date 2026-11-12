@@ -49,3 +49,30 @@ func TestObrazacPostajePoCrtezu(t *testing.T) {
 		}
 	}
 }
+
+// Donji dio obrasca: Postavi na Karti vodi na uređivanje letve na Karti, a
+// sklopke su prekidači koji ostaju kvačice s istim imenom i vrijednošću.
+func TestObrazacPostajeDonjiDio(t *testing.T) {
+	st := models.Station{ID: uuid.MustParse("9f1c0b2e-0000-7000-8000-000000000022"), Name: "Batina",
+		NeedsReview: true, JavniUvoz: true}
+	html := iscrtaj(t, "station_form.html", StationPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     st, IsEdit: true, CanEdit: true,
+	})
+	for _, want := range []string{
+		`href="/karta#uredi=letva:` + st.ID.String() + `">Postavi na Karti</a>`,
+		"<h3>Izvor očitanja</h3>", "<h3>Podrijetlo i provjera</h3>",
+		`class="prekidac" role="switch" name="javni_uvoz" value="1" checked`,
+		`class="prekidac" role="switch" name="needs_review" value="1" checked`,
+		`class="prekidac" role="switch" name="telemetrija_uvoz" value="1"`,
+		"lob-sklopka lob-zasivljeno", "Letva bez praga u centimetrima ostaje na pregledu",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("obrazac nema %q", want)
+		}
+	}
+	if strings.Contains(izmedju(html, `class="lob-stranica"`, "</form>"), `style="`) {
+		t.Error("u obrascu postaje ostao je stil u retku")
+	}
+}
