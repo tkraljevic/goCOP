@@ -242,7 +242,7 @@ func (h *VrijemePrognozaHandler) ShowDio(w http.ResponseWriter, r *http.Request)
 	vh := h.vh()
 	m := vh.mjestoVremena(r, h.svaPodrucja(ctx))
 	sada := h.sat()
-	kisa := h.kisaUsporedno(ctx)
+	kisa := kisaUsporedno(ctx, h.kisa)
 	dani := make(chan daniVremena, 1)
 	go func() {
 		dctx, gotovo := context.WithTimeout(r.Context(), 8*time.Second)
@@ -270,15 +270,16 @@ func (h *VrijemePrognozaHandler) sat() time.Time {
 }
 
 // kisaUsporedno računa kišu po slivovima uz ostalo, jer prvi izračun
-// pragova zna potrajati; bez izvora stiže nil
-func (h *VrijemePrognozaHandler) kisaUsporedno(ctx context.Context) <-chan *kisaSlivovaPodaci {
+// pragova zna potrajati; bez izvora stiže nil. Isto rade Prognoze › Vrijeme
+// i stranica Slivova.
+func kisaUsporedno(ctx context.Context, izvor func(context.Context) kisaSlivovaPodaci) <-chan *kisaSlivovaPodaci {
 	kisa := make(chan *kisaSlivovaPodaci, 1)
-	if h.kisa == nil {
+	if izvor == nil {
 		kisa <- nil
 		return kisa
 	}
 	go func() {
-		k := h.kisa(ctx)
+		k := izvor(ctx)
 		kisa <- &k
 	}()
 	return kisa
@@ -350,6 +351,7 @@ type RedakKise struct{ Natpis, Vrijednost, Napomena string }
 // RedakSliva je međusliv u kiši po slivovima; Ukratko je palo i
 // očekivano u jednom („18 · 32 mm”), za mobitel
 type RedakSliva struct {
+	Oznaka                                           string // međusliv, za poveznicu /slivovi#sliv-OZNAKA
 	Naziv, Palo24, Dolazi48, Ukratko, Rijetko, Raste string
 	Klasa                                            string // kisa-zuto…; prazno kad je uobičajeno
 }
@@ -614,7 +616,7 @@ func slivoviDijela(rg RegijaVremena, kisa *kisaSlivovaPodaci) ([]RedakSliva, *Pr
 
 // redakSliva: palo 24 h, očekivano 48 h, koliko je rijetko i gdje raste voda
 func redakSliva(s SlivUKisi) RedakSliva {
-	r := RedakSliva{Naziv: s.Naziv, Palo24: "—", Dolazi48: "—", Ukratko: "—", Rijetko: "—", Raste: "—", Klasa: s.Klasa}
+	r := RedakSliva{Oznaka: s.Sliv, Naziv: s.Naziv, Palo24: "—", Dolazi48: "—", Ukratko: "—", Rijetko: "—", Raste: "—", Klasa: s.Klasa}
 	if r.Naziv == "" {
 		r.Naziv = s.Sliv
 	}

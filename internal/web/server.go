@@ -1281,6 +1281,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /karta/podrucja/{datoteka}", s.authMiddleware(http.HandlerFunc(kartaH.HandlePodrucje)))
 	slivH := NewSlivoviHandler(func() *service.KisomjerService { return s.kisomjeri }, s.watercourseService, s.stationService,
 		func(ime string) *template.Template { return s.templates[ime] }, func() KartaPostavke { return s.karta })
+	slivH.SetKisa(s.podaciKiseSlivova)
 	s.mux.Handle("GET /slivovi", s.authMiddleware(http.HandlerFunc(slivH.ShowSlivovi)))
 	if s.dhmzKlijent == nil {
 		s.dhmzKlijent = &dhmz.Klijent{}

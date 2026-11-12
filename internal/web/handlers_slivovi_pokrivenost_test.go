@@ -13,6 +13,7 @@ import (
 
 	"gocop/internal/ledger"
 	"gocop/internal/models"
+	"gocop/internal/prognoza"
 	"gocop/internal/repository"
 )
 
@@ -69,12 +70,21 @@ func TestStranicaSlivovaKrozPosluzitelj(t *testing.T) {
 	if w := p.posalji("", http.MethodGet, "/slivovi", nil, ""); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/login" {
 		t.Errorf("bez prijave: %d %q", w.Code, w.Header().Get("Location"))
 	}
+	// kiša po međuslivovima: jača kiša prva, i redak u svakom međuslivu
+	p.s.SetKisaSlivova(func(context.Context) ([]prognoza.StanjeSliva, map[string][]prognoza.DnevnaIzdana, error) {
+		return []prognoza.StanjeSliva{{Sliv: "Z", Palo24: 3, Ima: true},
+			{Sliv: "B", Palo24: 23, Dolazi48: 32, Ima: true, Razina: 2, Ucestalost: "toliko padne u prosjeku jednom godišnje"}}, nil, nil
+	})
 	w := p.posalji("dežurni", http.MethodGet, "/slivovi?success=Spremljeno", nil, "")
 	if w.Code != http.StatusOK {
 		t.Fatalf("stranica: %d %s", w.Code, w.Body.String())
 	}
 	html := w.Body.String()
+	if b, z := strings.Index(html, `href="#sliv-B"`), strings.Index(html, `href="#sliv-Z"`); b < 0 || z < 0 || b > z {
+		t.Errorf("tablica kiše: međusliv B s jakom kišom nije prvi (%d, %d)", b, z)
+	}
 	for _, zeli := range []string{
+		`id="kisa"`, "Kiša po međuslivovima", `class="kisa-narancasto"`, "Kiša sada: 23 mm palo u 24 h · 32 mm očekivano u 48 h",
 		"2 međusliva", "5 izvedenih točaka", "1 pravi kišomjer", "2 u prognozi", "Spremljeno",
 		`id="sliv-B"`, "Mura do Goričana", "10.500 km²", "izmišljeni opis",
 		"ulazi u dnevnu prognozu za:", "mursko-sredisce, Goričan, letenye", "iz 2 izvedene točke",
