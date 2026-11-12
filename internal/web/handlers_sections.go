@@ -55,6 +55,9 @@ type SectionsPageData struct {
 	SelectedArea   int
 	SearchQuery    string
 	CanCreateAny   bool
+	CipoviSektora  []CipPopisa
+	CipoviPodrucja []CipPopisa // samo uz izabran sektor
+	IzvozURL       string      // Excel po istim filtrima
 	SuccessMessage string
 	ErrorMessage   string
 	ActiveNav      string
@@ -98,6 +101,7 @@ func (h *SectionsHandler) ShowSections(w http.ResponseWriter, r *http.Request) {
 		CanCreateAny: canCreate, SuccessMessage: r.URL.Query().Get("success"), ErrorMessage: r.URL.Query().Get("error"),
 		ActiveNav: "sections", ViewAsBanner: viewBanner(r),
 	}
+	izgledPopisaDionica(&data, r.URL.Query())
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := h.tmpl.ExecuteTemplate(w, "sections.html", data); err != nil {

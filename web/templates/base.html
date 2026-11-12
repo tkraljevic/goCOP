@@ -51,43 +51,8 @@
       {{if .Sees "registri"}}
       {{/* Sredstva za obranu su vlastita stavka, a ne dio Registara */}}
       <a href="/sredstva" class="nav-link {{if eq .ActiveNav "sredstva"}}active{{end}}">{{icon "package"}}<span>Sredstva</span></a>
-      <div class="nav-group {{if eq (navSkupina .ActiveNav) "registri"}}open{{end}}">
-        <button type="button" class="nav-link nav-group-btn {{if eq (navSkupina .ActiveNav) "registri"}}active{{end}}"
-                onclick="toggleNavGroup(event)" aria-expanded="{{if eq (navSkupina .ActiveNav) "registri"}}true{{else}}false{{end}}">
-          {{icon "layers"}}<span>Registri</span><span class="nav-caret" aria-hidden="true">▾</span>
-        </button>
-        <div class="nav-dropdown">
-          <a href="/organizacija" class="nav-dropdown-item {{if eq .ActiveNav "organizacija"}}active{{end}}">
-            {{icon "building"}} Administrativna organizacija
-          </a>
-          <a href="/sections" class="nav-dropdown-item {{if eq .ActiveNav "sections"}}active{{end}}">
-            {{icon "layers"}} Dionice
-          </a>
-          <a href="/territories" class="nav-dropdown-item {{if eq .ActiveNav "territories"}}active{{end}}">
-            {{icon "map"}} Branjena područja
-          </a>
-          <a href="/stations" class="nav-dropdown-item {{if eq .ActiveNav "stations"}}active{{end}}">
-            {{icon "gauge"}} Vodomjerne postaje
-          </a>
-          {{range registriObjekata}}
-          <a href="{{.Path}}" class="nav-dropdown-item {{if eq $.ActiveNav (navObjekta .Kind)}}active{{end}}">
-            {{icon .Icon}} {{.Title}}
-          </a>
-          {{end}}
-          <a href="/watercourses" class="nav-dropdown-item {{if eq .ActiveNav "watercourses"}}active{{end}}">
-            {{icon "waves"}} Vodotoci
-          </a>
-          <a href="/slivovi" class="nav-dropdown-item {{if eq .ActiveNav "slivovi"}}active{{end}}">
-            {{icon "droplet"}} Slivovi
-          </a>
-          <a href="/firme" class="nav-dropdown-item {{if eq .ActiveNav "firme"}}active{{end}}">
-            {{icon "building-2"}} Licencirane firme
-          </a>
-          <a href="/odrzavanje" class="nav-dropdown-item {{if eq .ActiveNav "maintenance"}}active{{end}}">
-            {{icon "wrench"}} Održavanje
-          </a>
-        </div>
-      </div>
+      {{/* Registri su jedna stavka koja vodi na ulaz s popisom registara (Odluke (10. 11. 2026.)) */}}
+      <a href="/registri" class="nav-link {{if eq (navSkupina .ActiveNav) "registri"}}active{{end}}">{{icon "layers"}}<span>Registri</span></a>
       {{end}}
       {{/* Djelatnici su vlastita stavka, ne dio Registara (Odluke (30. 10. 2026.)) */}}
       {{if .Sees "djelatnici"}}<a href="/users" class="nav-link {{if eq .ActiveNav "users"}}active{{end}}">{{icon "users"}}<span>Djelatnici i dežurstva</span></a>{{end}}
@@ -225,19 +190,6 @@
     }
 
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') zatvoriIzbornik(); });
-
-    function toggleNavGroup(event) {
-      var gumb = event.currentTarget;
-      var skupina = gumb.closest('.nav-group');
-      // u uskoj traci podstavke se ne vide, pa skupina najprije raširi izbornik
-      if (document.documentElement.classList.contains('izbornik-uski')) {
-        suziIzbornik();
-        if (skupina.classList.contains('open')) { gumb.focus(); return; }
-      }
-      var otvorena = skupina.classList.toggle('open');
-      gumb.setAttribute('aria-expanded', otvorena ? 'true' : 'false');
-      gumb.focus();
-    }
 
     // Oznaka razmjene u gornjoj traci: zelena točka kad je sve usklađeno
     (function () {

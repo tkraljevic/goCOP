@@ -32,6 +32,8 @@ func TestSluzbeUzZupanijuKrozRute(t *testing.T) {
 	for _, q := range []string{
 		`INSERT INTO counties (id, code, name, seat) VALUES (14, 'OB', 'Osječko-baranjska županija', 'Osijek')`,
 		`INSERT INTO municipalities (id, county_id, name, type) VALUES (302, 14, 'Beli Manastir', 'GRAD')`,
+		`INSERT INTO municipalities (id, county_id, name, type) VALUES (303, 14, 'Bilje', 'OPCINA')`,
+		`INSERT INTO settlements (id, municipality_id, county_id, name, postal_code, population) VALUES (4801, 302, 14, 'Branjin Vrh', '31300', 0)`,
 	} {
 		if _, err := baza.Exec(q); err != nil {
 			t.Fatal(err)
@@ -87,6 +89,25 @@ func TestSluzbeUzZupanijuKrozRute(t *testing.T) {
 	}
 	if w := zovi(http.MethodGet, "/territories", nil); !strings.Contains(w.Body.String(), "Službe (2)") {
 		t.Error("kartica županije ne pokazuje broj službi")
+	}
+	// Brojevi na stranici dolaze iz baze, a gradovi se broje u cijeloj zemlji
+	// i kad je popis suzen na općine.
+	stranica := zovi(http.MethodGet, "/territories?type=OPCINA", nil).Body.String()
+	for _, zeli := range []string{`<div class="kpi-number">1</div>
+        <div class="kpi-label">Gradova</div>`, `<div class="kpi-number">1</div>
+        <div class="kpi-label">Općina</div>`, `<div class="kpi-number">1</div>
+        <div class="kpi-label">Naselja</div>`} {
+		if !strings.Contains(stranica, zeli) {
+			t.Errorf("teritorij nema %q", zeli)
+		}
+	}
+	for _, staro := range []string{"428", "6.724", "556"} {
+		if strings.Contains(stranica, staro) {
+			t.Errorf("teritorij i dalje ima upisan broj %s", staro)
+		}
+	}
+	if b := zovi(http.MethodGet, "/territories/counties/14?success=Spremljeno.", nil).Body.String(); strings.Count(b, "Spremljeno.") != 1 {
+		t.Errorf("poruka na kartici županije stoji %d puta", strings.Count(b, "Spremljeno."))
 	}
 	if w := zovi(http.MethodGet, "/territories/municipalities/302", nil); !strings.Contains(w.Body.String(), "PP Beli Manastir") || !strings.Contains(w.Body.String(), "Lučka kapetanija Osijek") {
 		t.Error("grad ne pokazuje službe")
