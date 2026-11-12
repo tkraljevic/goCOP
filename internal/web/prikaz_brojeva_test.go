@@ -344,7 +344,7 @@ func TestObrazacDioniceIdeRedomPrivitka(t *testing.T) {
 	if tpl == "" {
 		t.Fatal("predložak poddionice nije nađen")
 	}
-	redoslijed := []string{"Nasipi i brane", "Objekti <span", "Ugroženo područje", "Mjerodavni vodomjeri"}
+	redoslijed := []string{"Nasipi i brane", "Objekti <span", "Ugroženo područje", "Mjerodavne letve"}
 	zadnji := -1
 	for _, r := range redoslijed {
 		i := strings.Index(tpl, r)
@@ -374,7 +374,7 @@ func TestObrazacDioniceSiriIObjektiUTriStupca(t *testing.T) {
 		Section:     models.Section{Code: "B.34.1", AreaID: 34, SectorID: "B"},
 		IsEdit:      true,
 	})
-	if !strings.Contains(html, `class="form-page form-wide"`) {
+	if !strings.Contains(html, `class="form-page form-wide dio-obrazac"`) {
 		t.Error("obrazac dionice nije na punu širinu")
 	}
 	obj := izmedju(html, `<template id="tpl-obj">`, "</template>")
