@@ -135,6 +135,12 @@ func TestStrukturaOsobljaIStrojeva(t *testing.T) {
 	if got := CountsText("VODITELJ USLUGA:1;STROJAR:4"); got != "VODITELJ USLUGA: 1, STROJAR: 4" {
 		t.Errorf("za čitanje %q", got)
 	}
+	if got := CountsSum("VODITELJ USLUGA:1;STROJAR:4;krivo"); got != 5 {
+		t.Errorf("CountsSum: %d", got)
+	}
+	if got := CountsSum(""); got != 0 {
+		t.Errorf("CountsSum prazno: %d", got)
+	}
 	if got := CountsText(""); got != "" {
 		t.Errorf("prazno za čitanje %q", got)
 	}

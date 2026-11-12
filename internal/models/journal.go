@@ -475,6 +475,15 @@ func CountsText(s string) string {
 	return strings.Join(parts, ", ")
 }
 
+// CountsSum je ukupan broj u zapisu "ULOGA:broj;…": „Struktura osoblja: 4”
+func CountsSum(s string) int {
+	n := 0
+	for _, c := range ParseCounts(s) {
+		n += c.N
+	}
+	return n
+}
+
 // StaffRoles su uloge osoblja izvođača, kako ih obrazac lista nabraja
 var StaffRoles = []string{
 	"VODITELJ USLUGA", "POSLOVOĐA", "VSS TEHNIČKE STRUKE", "VŠS TEHNIČKE STRUKE", "SSS TEHNIČKE STRUKE",

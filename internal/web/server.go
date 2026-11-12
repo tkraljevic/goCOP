@@ -514,6 +514,7 @@ func templateFuncs() template.FuncMap {
 		"entryKind":       models.EntryKindLabel,
 		"ratingLabel":     models.RatingLabel,
 		"countsText":      models.CountsText,
+		"countsZbroj":     models.CountsSum,
 		"now":             func() time.Time { return time.Now().In(models.Zagreb) },
 		// icon crta ikonu iz ugrađenog SVG sprajta (Lucide, ISC). Ikone su
 		// dio binarne datoteke, pa izgledaju isto na svakom uređaju i rade
