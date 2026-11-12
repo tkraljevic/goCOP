@@ -1,6 +1,7 @@
 package web
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -191,5 +192,43 @@ func TestListDnevnikaUslugePoCrtezu(t *testing.T) {
 	// stornirani upis nema radnji; otvoreni nalog ima tri
 	if n := strings.Count(html, ">storniraj</button>"); n != 1 {
 		t.Errorf("storniraj se nudi %d puta, želim jednom", n)
+	}
+}
+
+// Dnevnik usluge pokazuje četiri najnovija lista, a „Više: još N” otvara sve
+// (Odluke (7. 11. 2026.)). Naslov uvijek broji sve listove.
+func TestDnevnikUslugeViseListova(t *testing.T) {
+	d := JournalPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Journal:     &models.Journal{ID: "j1", Kind: models.JournalKindMaintenanceA02, Title: "A.02", Year: 2026, AreaID: 16},
+		Area:        &models.Area{ID: 16, Name: "Mali sliv Baranja"},
+	}
+	for i := 6; i >= 1; i-- {
+		d.Sheets = append(d.Sheets, models.JournalSheet{ID: "s" + strconv.Itoa(i), Number: i,
+			Date: time.Date(2026, 10, 20+i, 0, 0, 0, 0, models.Zagreb)})
+	}
+	html := iscrtaj(t, "dnevnik.html", d)
+	if n := strings.Count(html, `class="ul-poveznica"`); n != NajviseListova {
+		t.Errorf("redaka %d, želim %d", n, NajviseListova)
+	}
+	for _, want := range []string{"Listovi dnevnika (6)", `id="listovi"`, `href="/dnevnici/j1?listovi=svi#listovi">Više: još 2 →</a>`, `href="/dnevnici/j1/listovi/s6"`} {
+		if !strings.Contains(html, want) {
+			t.Errorf("dnevnik nema %q", want)
+		}
+	}
+	if strings.Contains(html, `href="/dnevnici/j1/listovi/s2"`) {
+		t.Error("stariji list vidi se prije „Više”")
+	}
+
+	d.SviListovi = true
+	html = iscrtaj(t, "dnevnik.html", d)
+	if n := strings.Count(html, `class="ul-poveznica"`); n != 6 || strings.Contains(html, "Više: još") {
+		t.Errorf("uz ?listovi=svi redaka %d i poveznica Više", n)
+	}
+
+	d.SviListovi, d.Sheets = false, d.Sheets[:NajviseListova]
+	if html = iscrtaj(t, "dnevnik.html", d); strings.Contains(html, "Više: još") {
+		t.Error("četiri lista ne trebaju poveznicu Više")
 	}
 }
