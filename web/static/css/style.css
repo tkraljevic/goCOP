@@ -9793,3 +9793,50 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
   .spr-zadano ul { padding-left: 32px; }
   .spr-uredio { margin: 0; text-align: center; }
 }
+
+/* Primatelji akata (15a · Dokumenti, 2e): pravilo „kome akt ide” kao redak,
+   kartica po skupini s tablicom, novi primatelj u kartici ispod. Na mobitelu
+   je svaki primatelj kartica. */
+.prim-pravilo {
+  display: flex; align-items: flex-start; gap: 12px; margin: 0 0 16px; padding: 10px 16px; border-radius: 12px;
+  background: var(--md-sys-color-surface-container-low); color: var(--md-sys-color-on-surface-variant); font-size: 0.75rem;
+}
+.prim-pravilo > .icon { flex: none; width: 20px; height: 20px; margin: 2px 0 0; }
+.prim-pravilo p { margin: 0; }
+.prim-pravilo strong { display: block; color: var(--md-sys-color-on-surface); font-size: 0.875rem; font-weight: 400; }
+.prim-skupina > h2 { margin: 0 0 8px; font-size: 1rem; font-weight: 400; color: var(--md-sys-color-on-surface); }
+.prim-tablica { table-layout: fixed; width: 100%; border-collapse: separate; border-spacing: 0 4px; }
+.prim-tablica th:nth-child(1) { width: 40%; }
+.prim-tablica th:nth-child(2) { width: 28%; }
+.prim-tablica th:nth-child(5) { width: 48px; }
+.prim-tablica td { overflow-wrap: anywhere; }
+.prim-tablica th { padding: 4px 12px; border: 0; color: var(--md-sys-color-on-surface-variant); font-size: 0.75rem; font-weight: 400; letter-spacing: 0; text-transform: none; }
+.prim-tablica td { padding: 6px 12px; border: 0; background: var(--md-sys-color-surface); font-size: 0.8125rem; }
+.prim-tablica td:first-child { border-radius: 8px 0 0 8px; }
+.prim-tablica td:last-child { border-radius: 0 8px 8px 0; }
+.prim-tablica .prim-obrisi { width: 48px; text-align: right; }
+.prim-tablica .prim-obrisi form { margin: 0; }
+.prim-neaktivan td { color: var(--md-sys-color-on-surface-variant); opacity: 0.7; }
+.prim-oznaka { margin-left: 4px; padding: 0 6px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 6px; font-size: 0.75rem; }
+.prim-novi > h2 { margin: 0 0 12px; font-size: 1rem; font-weight: 400; }
+.prim-polja { display: grid; gap: 0 16px; }
+.prim-polja-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.prim-polja-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+@media screen and (max-width: 1023px) {
+  .prim-polja-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media screen and (max-width: 599px) {
+  .prim-polja-2, .prim-polja-4 { grid-template-columns: minmax(0, 1fr); }
+  .prim-tablica thead { display: none; }
+  .prim-tablica, .prim-tablica tbody { display: block; }
+  .prim-tablica tr { position: relative; display: block; margin-bottom: 4px; padding: 10px 52px 10px 12px; border-radius: 8px; background: var(--md-sys-color-surface); }
+  .prim-tablica td { display: inline; padding: 0; background: none; }
+  .prim-tablica .prim-naziv { display: block; font-size: 0.875rem; }
+  .prim-tablica .prim-email { display: block; overflow-wrap: anywhere; color: var(--md-sys-color-on-surface-variant); }
+  .prim-tablica .prim-vrijedi, .prim-tablica .prim-stupanj { color: var(--md-sys-color-on-surface-variant); font-size: 0.75rem; }
+  .prim-tablica .prim-stupanj::before { content: " · "; }
+  .prim-tablica .prim-obrisi { position: absolute; top: 4px; right: 4px; width: auto; }
+  .prim-tablica .dog-obrisi-gumb { width: 48px; height: 48px; margin: 0; }
+  .prim-novi .btn { width: 100%; min-height: 48px; }
+}

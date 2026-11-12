@@ -68,6 +68,37 @@ func (AktiPageData) NatpisClanka(p models.DefensePhase) string {
 	return "Članak za " + strings.ReplaceAll(strings.ToLower(p.Label()), "na obrana", "nu obranu")
 }
 
+// SkupinaPrimatelja je kartica na stranici primatelja: „Službe (9)”.
+type SkupinaPrimatelja struct {
+	Naziv      string
+	Primatelji []models.Primatelj
+}
+
+// PrimateljiPoSkupinama slaže primatelje u kartice redom kojim skupine stoje
+// na aktu; skupina bez primatelja se ne prikazuje. Primatelj nepoznate
+// skupine (upisan na novijem programu) ide u svoju karticu na kraju.
+func (d AktiPageData) PrimateljiPoSkupinama() []SkupinaPrimatelja {
+	redom := slices.Clone(d.Skupine)
+	for _, p := range d.Primatelji {
+		if !slices.Contains(redom, p.Skupina) {
+			redom = append(redom, p.Skupina)
+		}
+	}
+	var out []SkupinaPrimatelja
+	for _, sk := range redom {
+		var uSkupini []models.Primatelj
+		for _, p := range d.Primatelji {
+			if p.Skupina == sk {
+				uSkupini = append(uSkupini, p)
+			}
+		}
+		if len(uSkupini) > 0 {
+			out = append(out, SkupinaPrimatelja{Naziv: upperFirst(models.SkupinaLabel(sk)), Primatelji: uSkupini})
+		}
+	}
+	return out
+}
+
 // cipoviJednogSektora su čipovi sektora na stranici koja uvijek pokazuje jedan
 // sektor (špranca, primatelji), pa „Svi” nema.
 func cipoviJednogSektora(staza string, sektori []models.Sector, izabran string) []CipPopisa {
