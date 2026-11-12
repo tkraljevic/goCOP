@@ -61,9 +61,9 @@ func prikaziNavigaciju(t *testing.T, moduli models.Visibility) string {
 	return dio(t, html, `<nav class="main-nav"`, `</nav>`)
 }
 
-// Djelatnici su vlastita stavka glavnog izbornika, a Administrativna
-// organizacija ostaje pod Registrima (Odluke (30. 10. 2026.)). Isti izbornik
-// je i na mobitelu, otvoren gumbom „Više”.
+// Djelatnici su vlastita stavka glavnog izbornika (Odluke (30. 10. 2026.)), a
+// Registri jedna stavka koja vodi na ulaz s popisom registara (Odluke
+// (10. 11. 2026.)). Isti izbornik je i na mobitelu, otvoren gumbom „Više”.
 func TestDjelatniciSuVlastitaStavkaIzbornika(t *testing.T) {
 	nav := prikaziNavigaciju(t, models.Visibility{
 		models.ModuleRegisters: true,
@@ -72,14 +72,11 @@ func TestDjelatniciSuVlastitaStavkaIzbornika(t *testing.T) {
 	if !strings.Contains(nav, `<a href="/users" class="nav-link active"`) {
 		t.Error("Djelatnici nisu istaknuta stavka glavnog izbornika")
 	}
-	if strings.Contains(nav, `<a href="/users" class="nav-dropdown-item`) {
-		t.Error("Djelatnici su ostali i u padajućem izborniku Registara")
+	if strings.Count(nav, `href="/users"`) != 1 {
+		t.Error("Djelatnici su u izborniku više puta")
 	}
-	if !strings.Contains(nav, `href="/organizacija" class="nav-dropdown-item`) {
-		t.Error("Administrativna organizacija nije pod Registrima")
-	}
-	if razredi, _, _ := strings.Cut(nav[strings.Index(nav, "nav-group-btn"):], `"`); strings.Contains(razredi, "active") {
-		t.Error("Registri su istaknuti dok je otvoren imenik djelatnika")
+	if !strings.Contains(nav, `<a href="/registri" class="nav-link ">`) || strings.Contains(nav, `href="/organizacija"`) {
+		t.Error("Registri nisu jedna stavka izbornika, ili su istaknuti dok je otvoren imenik djelatnika")
 	}
 }
 
@@ -88,14 +85,14 @@ func TestDjelatniciBezRegistaraIRegistriBezDjelatnika(t *testing.T) {
 	if !strings.Contains(nav, `<a href="/users" class="nav-link`) {
 		t.Error("korisnik s imenikom nema stavku Djelatnici")
 	}
-	if strings.Contains(nav, `nav-group-btn`) || strings.Contains(nav, `href="/organizacija"`) {
+	if strings.Contains(nav, `href="/registri"`) {
 		t.Error("korisniku bez modula Registri ponuđeni su Registri")
 	}
 	nav = prikaziNavigaciju(t, models.Visibility{models.ModuleRegisters: true})
 	if strings.Contains(nav, `href="/users"`) {
 		t.Error("korisniku bez modula Djelatnici ponuđeni su Djelatnici")
 	}
-	if !strings.Contains(nav, `nav-group-btn`) {
+	if !strings.Contains(nav, `href="/registri"`) {
 		t.Error("korisnik s Registrima nema Registre")
 	}
 }
@@ -107,8 +104,8 @@ func TestSredstvaSuVlastitaStavkaIzbornika(t *testing.T) {
 	if !strings.Contains(nav, `<a href="/sredstva" class="nav-link`) {
 		t.Error("Sredstva nisu stavka glavnog izbornika")
 	}
-	if strings.Contains(nav, `<a href="/sredstva" class="nav-dropdown-item`) {
-		t.Error("Sredstva su ostala i pod Registrima")
+	if strings.Count(nav, `href="/sredstva"`) != 1 {
+		t.Error("Sredstva su u izborniku više puta")
 	}
 	if strings.Contains(prikaziNavigaciju(t, models.Visibility{models.ModuleUsers: true}), `href="/sredstva"`) {
 		t.Error("korisniku bez modula Registri ponuđena su Sredstva")
@@ -156,7 +153,7 @@ func TestGornjaTraka(t *testing.T) {
 		}
 	}
 	nav := dio(t, html, `<nav class="main-nav"`, `</nav>`)
-	if razredi, _, _ := strings.Cut(nav[strings.Index(nav, "nav-group-btn"):], `"`); !strings.Contains(razredi, "active") {
+	if !strings.Contains(nav, `<a href="/registri" class="nav-link active">`) {
 		t.Error("registar objekata ne ističe Registre u izborniku")
 	}
 	vrh = dio(t, iscrtajSkoljku(t, DashboardViewData{}), `<header class="vrh"`, `</header>`)
