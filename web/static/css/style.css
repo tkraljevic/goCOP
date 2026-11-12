@@ -9764,3 +9764,32 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
   .dog-obrisi-gumb { width: 48px; height: 48px; margin: -12px 0 0; }
   .dog-podnozje .btn-link { min-height: 48px; }
 }
+
+/* Špranca akata (15a · Dokumenti, 2d): uvod, članci po stupnju i završetak
+   u karticama, propisi kao redak koji se otvara. */
+.spr-obrazac { max-width: none; }
+.spr-clanci { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 16px; }
+.spr-clanci .form-group { margin-bottom: 0; }
+.spr-zadano { margin: 0 0 16px; border-radius: 12px; background: var(--md-sys-color-surface-container-low); }
+.spr-zadano > summary {
+  display: grid; grid-template-columns: 24px minmax(0, 1fr) 24px; align-items: center; gap: 12px; min-height: 56px; padding: 8px 16px;
+  cursor: pointer; list-style: none; font-size: 0.875rem;
+}
+.spr-zadano > summary::-webkit-details-marker { display: none; }
+.spr-zadano > summary .icon { width: 20px; height: 20px; margin: 0; color: var(--md-sys-color-on-surface-variant); }
+.spr-zadano[open] > summary > .icon:last-child { transform: rotate(90deg); }
+.spr-zadano strong { display: block; font-weight: 400; color: var(--md-sys-color-on-surface); }
+.spr-zadano small { display: block; color: var(--md-sys-color-on-surface-variant); font-size: 0.75rem; }
+.spr-zadano ul { margin: 0; padding: 0 16px 16px 68px; color: var(--md-sys-color-on-surface-variant); font-size: 0.8125rem; }
+.spr-zadano li { margin-bottom: 4px; }
+.spr-uredio { margin: 0 auto 0 0; color: var(--md-sys-color-on-surface-variant); font-size: 0.75rem; }
+
+@media screen and (max-width: 1023px) {
+  .spr-clanci { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+}
+@media screen and (max-width: 599px) {
+  .spr-clanci { grid-template-columns: minmax(0, 1fr); }
+  .spr-obrazac textarea { min-height: 10em; }
+  .spr-zadano ul { padding-left: 32px; }
+  .spr-uredio { margin: 0; text-align: center; }
+}

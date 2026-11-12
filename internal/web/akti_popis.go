@@ -63,6 +63,17 @@ func cipoviSektoraPo(staza, ime string, osnova url.Values, sektori []models.Sect
 	return out
 }
 
+// NatpisClanka je natpis polja članka na šprancu: „Članak za redovnu obranu”.
+func (AktiPageData) NatpisClanka(p models.DefensePhase) string {
+	return "Članak za " + strings.ReplaceAll(strings.ToLower(p.Label()), "na obrana", "nu obranu")
+}
+
+// cipoviJednogSektora su čipovi sektora na stranici koja uvijek pokazuje jedan
+// sektor (špranca, primatelji), pa „Svi” nema.
+func cipoviJednogSektora(staza string, sektori []models.Sector, izabran string) []CipPopisa {
+	return cipoviSektoraPo(staza, "sektor", url.Values{}, sektori, izabran)[1:]
+}
+
 // cipoviStanjaAkata mijenjaju samo parametar status, pa ostali izbor ostaje.
 func cipoviStanjaAkata(izabrano string, q url.Values) []CipPopisa {
 	osnova := zadrziParametre(q, "q", "sektor", "podrucje", "stupanj", "radnja", "godina")

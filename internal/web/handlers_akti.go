@@ -801,6 +801,7 @@ func (h *AktiHandler) ShowSpranca(w http.ResponseWriter, r *http.Request) {
 	data.Spranca, _ = s.Spranca(r.Context(), data.SektorID)
 	data.Zadana = models.ZadanaSpranca(data.SektorID)
 	data.SmijeUrediti = perms != nil && perms.CanAdminister(data.SektorID, 0)
+	data.CipoviSektora = cipoviJednogSektora("/akti/spranca", data.Sektori, data.SektorID)
 	if err := h.tmplSpranca.ExecuteTemplate(w, "spranca.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
