@@ -9903,3 +9903,16 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
 @media (max-width: 599px) {
   .dio-poddionica .part-obj { grid-template-columns: 1fr; gap: 0; }
 }
+
+/* Obrazac vodomjerne postaje (goCOP-m3, 17c · Registri, 4b): ploče jedna ispod druge. Donji dio
+   obrasca još je u starom obliku i prelazi u ploče sljedećim korakom. */
+.lob-stranica > .form-page { padding: 0; overflow: visible; border: 0; background: none; box-shadow: none; }
+.lob-stranica > .form-page::before, .lob-stranica > .form-page::after { display: none; }
+.lob-stranica .list-kartica { margin-bottom: 16px; }
+.lob-stranica .list-kartica > h3 { margin: 0 0 12px; font-size: 1rem; font-weight: 500; line-height: 24px; color: var(--md-sys-color-on-surface); }
+.lob-vodotok { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 12px; }
+.lob-vodotok .form-group { flex: 1 1 14rem; margin: 0; }
+.lob-vodotok .btn { min-height: 40px; }
+.lob-dionice { margin-top: 8px; }
+.lob-cipovi { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 6px; }
+.lob-cipovi a { text-decoration: none; }
