@@ -83,6 +83,10 @@ func TestKarticaJacihOborina(t *testing.T) {
 		!k.Redovi[0].Hitno || k.Redovi[0].Istaknuto != "kisa" || k.Redovi[1].Glavno != "vuka" || k.Redovi[1].Hitno {
 		t.Errorf("redovi: %+v", k.Redovi)
 	}
+	// redak vodi na svoj međusliv, „Više” na tablicu kiše; kartica kaže odakle je broj
+	if k.Redovi[0].URL != "/slivovi#sliv-drava-dm" || k.URL != "/slivovi#kisa" || k.Napomena != napomenaKiseSlivova {
+		t.Errorf("poveznice i napomena: %q %q %q", k.Redovi[0].URL, k.URL, k.Napomena)
+	}
 	if g := karticaJacihOborina(kisaSlivovaPodaci{Greska: "nema"}); g.Prazno == nil || g.Prazno.Vrsta != PraznoNedostupno || g.Prazno.Tekst != "nema" {
 		t.Errorf("greška: %+v", g)
 	}

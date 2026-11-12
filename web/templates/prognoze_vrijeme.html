@@ -144,7 +144,7 @@
     <thead><tr><th>Međusliv</th><th>Palo 24 h</th><th>Očekivano 48 h</th><th>Koliko je rijetko</th><th>Gdje raste voda</th></tr></thead>
     <tbody>
     {{range .Slivovi}}<tr{{if .Klasa}} class="{{.Klasa}}"{{end}}>
-      <td class="pv-sliv-naziv"><span>{{.Naziv}}</span><span class="pv-samo-usko pv-sliv-mm">{{.Ukratko}}</span></td>
+      <td class="pv-sliv-naziv"><a href="/slivovi#sliv-{{.Oznaka}}">{{.Naziv}}</a><span class="pv-samo-usko pv-sliv-mm">{{.Ukratko}}</span></td>
       <td class="pv-samo-siroko">{{.Palo24}}</td>
       <td class="pv-samo-siroko">{{.Dolazi48}}</td>
       <td class="pv-samo-siroko">{{.Rijetko}}</td>
@@ -153,7 +153,7 @@
     {{end}}
     </tbody>
   </table>
-  <p class="pv-sitno">Srednjak međusliva, prema onome što je na njemu uobičajeno (ERA5 od 1990.). <a href="/slivovi">Slivovi</a></p>
+  <p class="pv-sitno">Srednjak međusliva, prema onome što je na njemu uobičajeno (ERA5 od 1990.). <a href="/slivovi#kisa">Slivovi</a></p>
   {{else}}
   {{template "praznoVremena" .SlivoviPrazno}}
   {{end}}
