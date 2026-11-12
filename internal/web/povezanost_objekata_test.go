@@ -149,3 +149,15 @@ func TestObrazacObjektaSmjerRada(t *testing.T) {
 		t.Errorf("iz obrasca: %+v", got)
 	}
 }
+
+// Kota „0” letve uz objekt piše se s tri decimale, kao na obrascu letve, pa
+// spremanje bez izmjene ne zaokruži 82,064 na 82,06
+func TestObrazacObjektaKotaNuleTriDecimale(t *testing.T) {
+	kota := 82.064
+	st := &models.Structure{Name: "CS Proba", Kind: models.StructureKindPumpingStation, ZeroDatum: &kota}
+	html := iscrtaj(t, "structure_form.html", StructurePageData{CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Structure: st, IsEdit: true})
+	if !strings.Contains(html, `name="zero_datum" class="form-control" value="82,064"`) {
+		t.Error("kota nule objekta nije upisana s tri decimale")
+	}
+}
