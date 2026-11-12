@@ -2,206 +2,73 @@
 
 {{define "title"}}goCOP — Dionice{{end}}
 
+{{/* Popis dionica (goCOP-m3, 17b · Registri, 3a): sektor i branjeno područje kao
+     čipovi (na mobitelu sektor kao izbor), pretraga, tablica na računalu i
+     kartice na mobitelu. Imena letava, oznaka „bez crte” i „Prikaži još” su
+     novo ponašanje i dolaze poslije; straničenje ostaje. */}}
 {{define "content"}}
-<div class="page-header">
+<a href="/registri" class="povratna-poveznica">← Registri</a>
+<div class="page-header list-glava dio-glava">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "waves"}} Dionice</h1>
-    <p class="page-desc">Registar 465 štićenih dionica, nasipa, crpnih stanica, ustavnih objekata i mjerodavnih vodomjera</p>
+    <h1 class="page-title" data-naziv-stranice>Dionice</h1>
+    <p class="page-desc">Štićene dionice s poddionicama, nasipima, objektima, ugroženim područjem i mjerodavnim letvama.</p>
   </div>
   <div class="page-actions">
-    <a href="/sections/dionice.xlsx{{if or .SelectedSector .SelectedArea .SearchQuery}}?sector={{.SelectedSector}}&area={{if .SelectedArea}}{{.SelectedArea}}{{end}}&q={{.SearchQuery}}{{end}}" class="btn btn-secondary" title="Popis dionica po sektoru i području, A4">{{icon "download"}} Excel</a>
-    {{if .CanCreateAny}}
-    <a href="/sections/new" class="btn btn-primary">{{icon "plus"}} Nova dionica</a>
+    <a href="{{.IzvozURL}}" class="btn btn-link" title="Popis dionica po istim filtrima, A4">Excel</a>
+    {{if .CanCreateAny}}<a href="/sections/new" class="btn btn-primary">Nova dionica</a>{{end}}
+  </div>
+</div>
+
+{{/* Na računalu i tabletu čipovi, na mobitelu polje s istim poveznicama. */}}
+<div class="ocitanja-cipovi cipovi-stranice akti-sektori" role="group" aria-label="{{term "sektor"}}">
+  {{range .CipoviSektora}}<a class="ocitanja-cip" href="{{.URL}}" aria-pressed="{{if .Odabran}}true{{else}}false{{end}}">{{.Naziv}}</a>{{end}}
+</div>
+<details class="ocitanja-izbor akti-sektor-polje">
+  <summary><span class="akti-sektor-natpis">{{term "sektor"}}</span><span class="akti-sektor-izbor">{{range .CipoviSektora}}{{if .Odabran}}{{.Naziv}}{{end}}{{end}}</span>{{icon "chevron-down"}}</summary>
+  <div class="ocitanja-izbornik" role="menu">
+    {{range .CipoviSektora}}<a role="menuitemradio" aria-checked="{{if .Odabran}}true{{else}}false{{end}}" href="{{.URL}}">{{.Naziv}}</a>{{end}}
+  </div>
+</details>
+
+<form method="GET" action="/sections" class="akti-filtri-obrazac">
+  {{with .SelectedSector}}<input type="hidden" name="sector" value="{{.}}">{{end}}
+  {{with .SelectedArea}}<input type="hidden" name="area" value="{{.}}">{{end}}
+  <div class="akti-filtri-vrh">
+    <div class="ocitanja-cipovi cipovi-stranice" role="group" aria-label="{{term "podrucje"}}">
+      {{range .CipoviPodrucja}}<a class="ocitanja-cip" href="{{.URL}}" aria-pressed="{{if .Odabran}}true{{else}}false{{end}}">{{if .Odabran}}{{icon "check"}}{{end}}{{.Naziv}}</a>{{end}}
+    </div>
+    <div class="akti-trazi">
+      <button type="submit" class="akti-trazi-gumb" aria-label="Traži">{{icon "search"}}</button>
+      <input type="text" name="q" value="{{.SearchQuery}}" placeholder="Traži: šifra, voda, objekt, mjesto" aria-label="Traži: šifra, voda, objekt, mjesto">
+    </div>
+  </div>
+</form>
+
+<div class="akti-okvir dio-okvir" data-listanje="popis">
+  {{template "pager" .Pager}}
+  <table class="data-table kartice-na-mobitelu dio-tablica">
+    <thead><tr><th>Šifra</th><th>Voda i obuhvat</th><th class="dl-podd">Poddionice</th><th class="dl-duljina">Duljina</th><th>Nasipi</th><th class="dl-letve">Mjerodavne letve</th><th class="dl-objekti">Objekti</th></tr></thead>
+    <tbody>
+    {{range .Sections}}
+    {{$prvi := .FirstPart}}
+    <tr>
+      <td class="dl-sifra"><a class="dl-poveznica" href="/sections/{{.Code}}">{{.Code}}</a></td>
+      <td class="dl-voda">
+        <span class="dl-naziv">{{if .WatercourseName}}{{.WatercourseName}}{{with bankLabel .Bank}}, {{.}}{{end}}{{else}}{{.EffectiveDescription}}{{end}}</span>
+        <span class="dl-obuhvat">{{with $prvi.Extent}}{{.}}{{end}}{{with $prvi.RangeLabel}}{{if $prvi.Extent}} · {{end}}{{.}}{{end}}{{if gt (len .Parts) 1}} · i još {{sub (len .Parts) 1}}{{end}}</span>
+      </td>
+      <td class="dl-podd"><span class="dl-broj">{{len .Parts}}</span><span class="usluga-samo-usko"> {{uzBroj (len .Parts) "poddionica" "poddionice" "poddionica"}}</span></td>
+      <td class="dl-duljina">{{if .Length}}{{brojHRf .Length 3}} km{{else}}—{{end}}</td>
+      <td class="dl-nasipi">{{if .EmbankmentCount}}{{if .EmbankmentLength}}<span class="dl-km">{{brojHRf .EmbankmentLength 3}} km</span>{{end}}<span class="dl-sitno">{{.EmbankmentCount}} {{uzBroj .EmbankmentCount "nasip" "nasipa" "nasipa"}}</span>{{else}}<span class="oznaka-stanja obrub">Bez nasipa</span>{{end}}</td>
+      <td class="dl-letve">{{if .GaugeCount}}{{.GaugeCount}} {{uzBroj .GaugeCount "letva" "letve" "letava"}}{{else}}—{{end}}</td>
+      <td class="dl-objekti"><span class="usluga-samo-usko">objekata: </span>{{.ObjectCount}}</td>
+    </tr>
+    {{else}}
+    <tr class="dl-prazno"><td colspan="7"><p>Nije pronađena nijedna dionica.</p><a href="/sections" class="btn btn-link">Poništi sve filtre</a></td></tr>
     {{end}}
-  </div>
+    </tbody>
+  </table>
+  {{template "pager" .Pager}}
 </div>
-
-<!-- Traka za pretraživanje i filtriranje -->
-<div class="filter-card">
-  <form id="sections-filter-form" action="/sections" method="GET">
-    <!-- Prvi red: Pretraga i gumbi -->
-    <div class="search-bar-row">
-      <div class="search-input-wrapper">
-        <span class="search-icon">{{icon "search"}} </span>
-        <input 
-          type="text" 
-          name="q" 
-          value="{{.SearchQuery}}" 
-          placeholder="Pretraži po šifri (npr. B.15.1), rijeci (Sava, Vuka), objektu (CS Teča), vodomjeru ili naselju..." 
-          class="search-input"
-          id="search-input"
-        >
-        {{if .SearchQuery}}
-        <button type="button" class="search-clear-btn" onclick="clearSearch()" title="Očisti pretragu">&times;</button>
-        {{end}}
-      </div>
-      <button type="submit" class="btn btn-primary">Pretraži</button>
-      {{if or .SelectedSector .SelectedArea .SearchQuery}}
-      <a href="/sections" class="btn btn-secondary">{{icon "x"}} Poništi filtre</a>
-      {{end}}
-    </div>
-
-    <!-- Drugi red: Filtri po sektorima i područjima -->
-    <div class="filters-row" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
-      <div class="filter-group">
-        <label for="sector-select" class="filter-label">{{icon "building-2"}} {{term "sektor"}}</label>
-        <select id="sector-select" name="sector" class="filter-select" onchange="onSectorChange()">
-          <option value="">Svi: {{terml "sektori"}}</option>
-          {{range .Sectors}}
-          {{if ne .ID "DIREKCIJA"}}
-          <option value="{{.ID}}" {{if eq $.SelectedSector .ID}}selected{{end}}>{{.Name}}</option>
-          {{end}}
-          {{end}}
-        </select>
-      </div>
-
-      <div class="filter-group">
-        <label for="area-select" class="filter-label">{{icon "waves"}} {{term "podrucje"}}</label>
-        <select id="area-select" name="area" class="filter-select" onchange="document.getElementById('sections-filter-form').submit()">
-          <option value="">Sva: {{terml "podrucja"}}</option>
-          {{range .Areas}}
-          <option value="{{.ID}}" {{if eq $.SelectedArea .ID}}selected{{end}}>{{.ID}}: {{.Name}}</option>
-          {{end}}
-        </select>
-      </div>
-    </div>
-  </form>
-
-  <!-- Prikaz aktivnih filtara i brojača -->
-  <div class="active-filters-bar">
-    <div class="active-pills-wrap">
-      {{if .SelectedSector}}
-      <span class="filter-pill">
-        {{icon "building-2"}} {{term "sektor"}}: <strong>{{.SelectedSector}}</strong>
-        <a href="javascript:removeFilter('sector')" class="pill-remove">&times;</a>
-      </span>
-      {{end}}
-
-      {{if .SelectedArea}}
-      <span class="filter-pill">
-        {{icon "waves"}} Područje: <strong>{{.SelectedArea}}</strong>
-        <a href="javascript:removeFilter('area')" class="pill-remove">&times;</a>
-      </span>
-      {{end}}
-
-      {{if .SearchQuery}}
-      <span class="filter-pill">
-        {{icon "search"}} "{{.SearchQuery}}"
-        <a href="javascript:removeFilter('q')" class="pill-remove">&times;</a>
-      </span>
-      {{end}}
-    </div>
-
-    <div class="filter-count">
-      Dionica: <strong>{{.Pager.Total}}</strong>
-    </div>
-  </div>
-</div>
-
-
-<div data-listanje="popis">
-{{template "pager" .Pager}}
-
-<!-- Popis dionica -->
-<div class="sections-grid">
-  {{if eq (len .Sections) 0}}
-  <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; background: var(--surface); border: 1px solid var(--border); border-radius: 12px;">
-    <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">{{icon "search"}} </div>
-    <h3>Nije pronađena niti jedna dionica</h3>
-    <p class="c-muted text-sm">Pokušajte promijeniti filtre ili upišite drugi pojam za pretragu.</p>
-    <a href="/sections" class="btn btn-secondary btn-sm mt-4">Poništi sve filtre</a>
-  </div>
-  {{end}}
-
-  {{range .Sections}}
-  <div class="section-card" id="card-{{.Code}}">
-    <div class="section-card-top">
-      <div class="section-code-badge">{{.Code}}</div>
-      <div class="section-sector-tag">{{term "sektor"}} {{.SectorID}} · {{term "bp"}} {{.AreaID}}</div>
-    </div>
-
-    <div class="section-card-content">
-      <div class="section-watercourse-title">{{.EffectiveDescription}}</div>
-      {{if or .WatercourseName .Bank .RkmFrom}}
-      <div class="section-area-sub" style="display:flex; gap:0.6rem; flex-wrap:wrap;">
-        {{if .WatercourseName}}<span>{{icon "droplet"}} {{.WatercourseName}}</span>{{end}}
-        {{if .Bank}}<span>{{bankLabel .Bank}}</span>{{end}}
-        {{with .FirstPart.RangeLabel}}<span class="mono">{{.}}</span>{{end}}
-      </div>
-      {{end}}
-      {{if .AreaName}}
-      <div class="section-area-sub">{{.AreaName}}</div>
-      {{end}}
-
-      {{with .ProtectedSummary}}
-      <div class="section-protected-text" title="{{.}}">
-        {{icon "house"}} {{renderMarkdown .}}
-      </div>
-      {{end}}
-
-      <!-- Značke s brojem objekata, nasipa i vodomjera -->
-      <div class="section-stats-row">
-        {{if gt (len .Parts) 1}}<span class="stat-badge has-items" title="Poddionice">{{len .Parts}} {{uzBroj (len .Parts) "poddionica" "poddionice" "poddionica"}}</span>{{end}}
-        <span class="stat-badge {{if gt .ObjectCount 0}}has-items{{end}}" title="Objekti na dionici">
-          {{icon "construction"}} {{.ObjectCount}} {{uzBroj .ObjectCount "objekt" "objekta" "objekata"}}
-        </span>
-        <span class="stat-badge {{if gt .EmbankmentCount 0}}has-items{{end}}" title="Nasipi i brane">
-          {{icon "shield"}} {{.EmbankmentCount}} {{uzBroj .EmbankmentCount "nasip" "nasipa" "nasipa"}}
-        </span>
-        <span class="stat-badge {{if gt .GaugeCount 0}}has-items{{end}}" title="Mjerodavni vodomjeri">
-          {{icon "chart-column"}} {{.GaugeCount}} {{uzBroj .GaugeCount "vodomjer" "vodomjera" "vodomjera"}}
-        </span>
-      </div>
-    </div>
-
-    <div class="section-card-actions">
-      <a href="/sections/{{.Code}}" class="btn btn-secondary btn-sm flex-1 justify-center">
-        {{icon "eye"}} Detalji dionice
-      </a>
-      {{if .CanEdit}}
-      <a href="/sections/{{.Code}}/edit" class="btn btn-secondary btn-sm" title="Uredi podatke dionice">{{icon "pencil"}} </a>
-      {{end}}
-    </div>
-  </div>
-  {{end}}
-</div>
-
-{{template "pager" .Pager}}
-</div>
-
-<script>
-
-function onSectorChange() {
-  const form = document.getElementById('sections-filter-form');
-  const areaSelect = document.getElementById('area-select');
-  if (areaSelect) {
-    areaSelect.value = '';
-  }
-  form.submit();
-}
-
-function clearSearch() {
-  const searchInput = document.getElementById('search-input');
-  if (searchInput) {
-    searchInput.value = '';
-    document.getElementById('sections-filter-form').submit();
-  }
-}
-
-function removeFilter(type) {
-  if (type === 'sector') {
-    const s = document.getElementById('sector-select');
-    if (s) s.value = '';
-    const a = document.getElementById('area-select');
-    if (a) a.value = '';
-  } else if (type === 'area') {
-    const a = document.getElementById('area-select');
-    if (a) a.value = '';
-  } else if (type === 'q') {
-    const q = document.getElementById('search-input');
-    if (q) q.value = '';
-  }
-  document.getElementById('sections-filter-form').submit();
-}
-</script>
+<p class="dio-podnozje">{{.Pager.Total}} {{uzBroj .Pager.Total "dionica" "dionice" "dionica"}}{{if .SelectedArea}} · {{term "bp"}} {{.SelectedArea}}{{else if .SelectedSector}} · {{term "sektor"}} {{.SelectedSector}}{{end}}</p>
 {{end}}

@@ -92,11 +92,10 @@ i pošaljite istu datoteku ponovno. Redak koji je već ušao samo se osvježi.
   uvozom firmi.
 - **Izravno pod razinom 2:** `da`, `1` ili `x` znači da područje nema
   ispostavu i pripada izravno sektoru.
-- **Telefon ispostave** je osmi stupac. Uvoz ga čita, a izvoz ga piše, ali bez
-  naziva u zaglavlju. Predložak naziv ima.
-- Osvježavanje postojećeg područja preko CSV-a briše mu točku za vremenske
-  prilike (širinu i dužinu) i naziv ugovorne pravne osobe. Te podatke nakon
-  uvoza upišite ponovno u obrascu područja.
+- **Telefon ispostave** je osmi stupac. Uvoz ga čita, a izvoz ga piše.
+- Osvježavanje postojećeg područja preko CSV-a mijenja samo stupce iz
+  datoteke. Točka za vremenske prilike (širina i dužina) i naziv ugovorne
+  pravne osobe ostaju kakvi jesu.
 
 ### licencirane-firme.csv
 
