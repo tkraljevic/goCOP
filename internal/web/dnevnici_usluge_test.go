@@ -239,3 +239,31 @@ func TestDnevnikUslugeViseListova(t *testing.T) {
 		t.Error("četiri lista ne trebaju poveznicu Više")
 	}
 }
+
+// Naslovnica dnevnika usluge (crtež 9f): povratak na dnevnik, kraći uvod bez
+// „građevinskog dnevnika”, ista polja; vrsta je pri izmjeni zaključana.
+func TestNaslovnicaDnevnikaUsluge(t *testing.T) {
+	d := JournalPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Journal:     &models.Journal{ID: "j1", Kind: models.JournalKindMaintenanceA02, Title: "A.02. Kanali", Year: 2026, AreaID: 16},
+		Area:        &models.Area{ID: 16, Name: "Mali sliv Baranja"},
+		IsEdit:      true,
+	}
+	html := iscrtaj(t, "dnevnik_form.html", d)
+	for _, want := range []string{`<a href="/dnevnici/j1" class="povratna-poveznica">← A.02. Kanali</a>`, "Tko izvodi, tko nadzire i po kojem aktu.",
+		`value="Dnevnik usluga A.02" readonly`, `<input type="hidden" name="kind" value="ODRZAVANJE_A02">`, "Spremi naslovnicu</button>"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("naslovnica nema %q", want)
+		}
+	}
+	for _, polje := range []string{"area", "year", "title", "contract", "contractor", "contractor_lead", "contractor_lead_act", "supervisor",
+		"supervisor_act", "supervisor_deputy", "chief_supervisor", "investor", "started_at", "ended_at", "gauges", "latitude", "longitude", "notes"} {
+		if !strings.Contains(html, `name="`+polje+`"`) {
+			t.Errorf("naslovnica nema polje %s", polje)
+		}
+	}
+	if strings.Contains(html, "breadcrumb") || strings.Contains(html, "građevinskog") {
+		t.Error("naslovnica ima stari put ili „građevinski dnevnik”")
+	}
+}
