@@ -3,87 +3,106 @@
 {{define "title"}}goCOP — {{if .IsEdit}}Uređivanje dionice {{.Section.Code}}{{else}}Nova dionica{{end}}{{end}}
 
 {{define "content"}}
-<div class="breadcrumb">
-  <a href="/sections">Dionice</a>
-  {{if .IsEdit}} › <a href="/sections/{{.Section.Code}}">{{.Section.Code}}</a> › Uređivanje{{else}} › Nova dionica{{end}}
-</div>
-
-<div class="page-header">
+{{/* Obrazac dionice (goCOP-m3, 17b · Registri, 3c): ploče Osnovno, poddionice i Dionica ukupno,
+     gumbi dolje. Imena polja, skrivena polja i skripta su isti; u izmjeni BP i šifra samo se pokazuju. */}}
+{{if .IsEdit}}<a href="/sections/{{.Section.Code}}" class="povratna-poveznica">← {{.Section.Code}}</a>
+{{else}}<a href="/sections" class="povratna-poveznica">← Dionice</a>{{end}}
+<div class="page-header list-glava">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{if .IsEdit}}{{icon "pencil"}} Dionica {{.Section.Code}}{{else}}{{icon "plus"}} Nova štićena dionica{{end}}</h1>
-    <p class="page-desc">
-      Dionica ima jednu ili više poddionica. Poddionica je jedna voda s jednim obuhvatom: na njoj se biraju ugroženo
-      područje, mjerodavni vodomjeri, objekti te nasipi i brane iz registra. Svaka izmjena ostaje u povijesti zapisa.
-    </p>
+    <h1 class="page-title" data-naziv-stranice>{{if .IsEdit}}Uredi dionicu {{.Section.Code}}{{else}}Nova dionica{{end}}</h1>
+    <p class="page-desc">Dionica ima jednu ili više poddionica. Svaka izmjena ostaje u povijesti zapisa. Polja sa zvjezdicom su obavezna.</p>
   </div>
 </div>
 
-
-<form class="form-page form-wide" method="POST" action="{{if .IsEdit}}/sections/update{{else}}/sections/create{{end}}" id="section-form" onsubmit="return collectParts()">
+<form class="form-page form-wide dio-obrazac" method="POST" action="{{if .IsEdit}}/sections/update{{else}}/sections/create{{end}}" id="section-form" onsubmit="return collectParts()">
   <input type="hidden" name="parts_json" id="parts_json">
-  {{if .IsEdit}}
-  <input type="hidden" name="code" value="{{.Section.Code}}">
-  <input type="hidden" name="area_id" value="{{.Section.AreaID}}">
-  {{else}}
-  <div class="form-row">
-    <div class="form-group">
-      <label class="form-label" for="area_id">{{term "podrucje"}} *</label>
-      <select id="area_id" name="area_id" class="form-control" required onchange="areaChanged()">
-        <option value="">Odaberi područje…</option>
-        {{range .Areas}}<option value="{{.ID}}" data-sector="{{.SectorID}}" {{if eq $.Section.AreaID .ID}}selected{{end}}>{{.ID}}: {{.Name}} ({{terml "sektor"}} {{.SectorID}})</option>{{end}}
-      </select>
+  <section class="list-kartica">
+    <h2>Osnovno</h2>
+    {{if .IsEdit}}
+    <input type="hidden" name="code" value="{{.Section.Code}}">
+    <input type="hidden" name="area_id" value="{{.Section.AreaID}}">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="podrucje-prikaz">{{term "podrucje"}}</label>
+        <input type="text" id="podrucje-prikaz" class="form-control" readonly value="{{if .Section.AreaID}}{{.Section.AreaID}}{{if .Section.AreaName}}: {{.Section.AreaName}}{{end}}{{else}}izravno sektoru{{end}}">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="sifra-prikaz">Šifra dionice</label>
+        <input type="text" id="sifra-prikaz" class="form-control font-mono" readonly value="{{.Section.Code}}">
+      </div>
     </div>
-    <div class="form-group">
-      <label class="form-label" for="code">Šifra dionice *</label>
-      <input type="text" id="code" name="code" class="form-control font-mono" required placeholder="npr. B.15.5" autocomplete="off" value="{{.PredlozenaSifra}}">
-      <div class="form-help">Sektor.područje.broj — sektor slijedi iz područja.{{if .PredlozenaSifra}} Predložen je prvi slobodan broj; prepišite ga ako niz preskače.{{end}}</div>
+    <p class="form-help mb-0">Područje i šifra dionice ovdje se ne mijenjaju.</p>
+    {{else}}
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="area_id">{{term "podrucje"}} *</label>
+        <select id="area_id" name="area_id" class="form-control" required onchange="areaChanged()">
+          <option value="">Odaberi područje…</option>
+          {{range .Areas}}<option value="{{.ID}}" data-sector="{{.SectorID}}" {{if eq $.Section.AreaID .ID}}selected{{end}}>{{.ID}}: {{.Name}} ({{terml "sektor"}} {{.SectorID}})</option>{{end}}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="code">Šifra dionice *</label>
+        <input type="text" id="code" name="code" class="form-control font-mono" required placeholder="npr. B.15.5" autocomplete="off" value="{{.PredlozenaSifra}}">
+      </div>
     </div>
-  </div>
-  {{end}}
+    <p class="form-help mb-0">Šifra je sektor.područje.broj; sektor slijedi iz područja.{{if .PredlozenaSifra}} Predložen je prvi slobodan broj; prepišite ga ako niz preskače.{{end}}</p>
+    {{end}}
+  </section>
 
   <div id="parts"></div>
-  <button type="button" class="btn btn-secondary" onclick="addPart()">{{icon "plus"}} Dodaj poddionicu</button>
+  <button type="button" class="btn btn-link dio-dodaj" onclick="otvoriPoddionicu(addPart())">Dodaj poddionicu</button>
 
-  <h2 style="font-size:1rem; margin:1.5rem 0 0.5rem;">Dionica ukupno</h2>
-  <div class="form-row">
-    <div class="form-group">
-      <label class="form-label" for="length_km">Ukupna duljina (km)</label>
-      <input type="text" inputmode="decimal" id="length_km" name="length_km" class="form-control" value="{{if .Section.LengthKm}}{{unosD .Section.LengthKm 3}}{{end}}" placeholder="zbroj poddionica">
+  <section class="list-kartica">
+    <h2>Dionica ukupno</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="length_km">Ukupna duljina (km)</label>
+        <input type="text" inputmode="decimal" id="length_km" name="length_km" class="form-control" value="{{if .Section.LengthKm}}{{unosD .Section.LengthKm 3}}{{end}}" placeholder="zbroj poddionica">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="embankment_km">Ukupno nasipa (km)</label>
+        <input type="text" inputmode="decimal" id="embankment_km" name="embankment_km" class="form-control" value="{{if .Section.EmbankmentKm}}{{unosD .Section.EmbankmentKm 3}}{{end}}" placeholder="zbroj nasipa">
+      </div>
     </div>
-    <div class="form-group">
-      <label class="form-label" for="embankment_km">Ukupno nasipa (km)</label>
-      <input type="text" inputmode="decimal" id="embankment_km" name="embankment_km" class="form-control" value="{{if .Section.EmbankmentKm}}{{unosD .Section.EmbankmentKm 3}}{{end}}" placeholder="zbroj odsjeka">
-    </div>
-  </div>
-  <div class="form-group">
-    <label class="form-label" for="description">Opis dionice</label>
-    <textarea id="description" name="description" class="form-control" rows="2" {{if not .Section.DescriptionCustom}}readonly{{end}}>{{.Section.EffectiveDescription}}</textarea>
-    <label style="display:flex; gap:0.4rem; align-items:center; font-size:0.85rem; margin-top:0.35rem;">
+    <p class="form-help">Prazno polje znači zbroj; broj se upisuje samo kad dokumentacija navodi drukčiji.</p>
+    <label class="checkbox-label dio-opis-sam">
       <input type="checkbox" name="description_custom" value="1" {{if .Section.DescriptionCustom}}checked{{end}} onchange="document.getElementById('description').readOnly = !this.checked; if(!this.checked) refreshDescription()">
-      Upisujem opis sam (inače se slaže iz poddionica)
+      <span>Upisujem opis sam<span class="form-help">Inače se opis dionice slaže iz poddionica.</span></span>
     </label>
-  </div>
-  <div class="form-group">
-    <label class="form-label" for="notes">Operativne napomene</label>
-    <textarea id="notes" name="notes" class="form-control" rows="3">{{.Section.Notes}}</textarea>
-  </div>
+    <div class="form-group">
+      <label class="form-label" for="description">Opis dionice</label>
+      <textarea id="description" name="description" class="form-control" rows="2" {{if not .Section.DescriptionCustom}}readonly{{end}}>{{.Section.EffectiveDescription}}</textarea>
+    </div>
+    <div class="form-group mb-0">
+      <label class="form-label" for="notes">Operativne napomene</label>
+      <textarea id="notes" name="notes" class="form-control" rows="3" placeholder="npr. prilaz, ključ ustave, posebnosti">{{.Section.Notes}}</textarea>
+    </div>
+  </section>
 
-  <div class="form-actions">
-    <a href="{{if .IsEdit}}/sections/{{.Section.Code}}{{else}}/sections{{end}}" class="btn btn-secondary">Odustani</a>
+  <div class="form-actions naslovnica-gumbi dio-gumbi">
+    <a href="{{if .IsEdit}}/sections/{{.Section.Code}}{{else}}/sections{{end}}" class="btn btn-link">Odustani</a>
     {{if not .IsEdit}}
     <button type="submit" class="btn btn-secondary" name="dalje" value="1"
-            title="Upisuje ovu i odmah otvara praznu, u istom području i sa sljedećom šifrom">{{icon "plus"}} Upiši i sljedeću</button>
+            title="Upisuje ovu i odmah otvara praznu, u istom području i sa sljedećom šifrom">Upiši i sljedeću</button>
     {{end}}
-    <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi izmjene{{else}}Upiši dionicu{{end}}</button>
+    <button type="submit" class="btn btn-primary">Spremi</button>
   </div>
 </form>
 
 <template id="tpl-part">
   <section class="reg-card part-edit p-4 mb-4">
-    <div class="part-head justify-between">
-      <div class="d-flex items-center gap-2"><span class="part-ordinal" data-role="ordinal">1</span><strong>Poddionica</strong></div>
-      <button type="button" class="btn btn-sm btn-secondary" data-role="remove">{{icon "trash"}} Ukloni poddionicu</button>
+    {{/* Poddionice se otvaraju jedna po jedna (crtež 3c). Sklopljena ostaje u stranici sa svim
+         poljima, jer collectParts čita svaku .part-edit; skriva se samo tijelo. */}}
+    <div class="part-head justify-between dio-pod-uredi-glava">
+      <button type="button" class="dio-pod-preklop" data-role="toggle" aria-expanded="true" onclick="otvoriPoddionicu(partOf(this))">
+        <span class="part-ordinal" data-role="ordinal">1</span>
+        <span class="redak-tekst"><span class="redak-glavno">Poddionica<span data-role="naslov"></span></span><span class="redak-sporedno" data-role="sazetak" hidden></span></span>
+        {{icon "chevron-down"}}
+      </button>
+      <button type="button" class="btn btn-link btn-opasno" data-role="remove">Ukloni poddionicu</button>
     </div>
+    <div data-role="part-body">
     <div class="form-row mt-3">
       <div class="form-group">
         <label class="form-label">Vodotok *</label>
@@ -111,7 +130,7 @@
     <details open class="part-block">
       <summary class="part-label cursor-pointer">{{icon "shield"}} Nasipi i brane <span class="reg-chip" data-role="emb-count">0</span></summary>
       <div class="rows-emb">
-        <div class="rows-head"><div>Nasip ili brana</div><div>Uz vodu od</div><div>do</div><div>Po nasipu od</div><div>do</div><div>km</div><div></div></div>
+        <div class="rows-head"><div>Nasip ili brana</div><div>Uz vodu od</div><div>do</div><div>Po nasipu od</div><div>do</div><div>Duljina</div><div></div></div>
         <div data-role="emb-rows"></div>
       </div>
       <button type="button" class="btn btn-sm btn-secondary" onclick="addEmbankment(this)">{{icon "plus"}} Dodaj nasip ili branu</button>
@@ -138,7 +157,7 @@
           <select class="form-control" data-role="county" onchange="loadMunicipalities(this)"><option value="">—</option>{{range .Counties}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></div>
         <div class="form-group m-0"><label class="form-label">Grad ili općina</label>
           <select class="form-control" data-role="muni" disabled onchange="loadSettlements(this)"><option value="">—</option></select></div>
-        <button type="button" class="btn btn-sm btn-secondary" data-role="terr-add" disabled onclick="addTerritory(this)">{{icon "plus"}} Dodaj</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-role="terr-add" disabled onclick="addTerritory(this)">{{icon "plus"}} Dodaj naselje</button>
       </div>
       <div data-role="settlements" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap:0.3rem; margin-top:0.5rem; font-size:0.85rem;" hidden></div>
       <div class="form-help">Bez odabranih naselja dodaje se cijela općina ili grad.</div>
@@ -148,16 +167,17 @@
     </details>
 
     <details open class="part-block">
-      <summary class="part-label cursor-pointer">{{icon "chart-column"}} Mjerodavni vodomjeri <span class="reg-chip" data-role="st-count">0</span></summary>
+      <summary class="part-label cursor-pointer">{{icon "chart-column"}} Mjerodavne letve <span class="reg-chip" data-role="st-count">0</span></summary>
       <div data-role="st-chips" style="display:flex; flex-wrap:wrap; gap:0.35rem; margin:0.5rem 0;"></div>
       <div class="d-flex gap-2 flex-wrap items-center">
         <input type="text" class="form-control max-w-20" data-role="st-input" list="stations-list" placeholder="naziv postaje iz registra" autocomplete="off">
-        <button type="button" class="btn btn-sm btn-secondary" onclick="addStation(this)">{{icon "plus"}} Dodaj</button>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="addStation(this)">{{icon "plus"}} Dodaj letvu</button>
       </div>
       <div class="reading-meta" data-role="gauges-text" hidden></div>
       <button type="button" class="btn btn-sm btn-secondary" data-role="st-prepis" hidden onclick="prepisiVodomjere(this)">{{icon "clipboard-list"}} Prepiši iz dokumentacije</button>
       <div class="form-help" data-role="st-prepis-poruka" hidden></div>
     </details>
+    </div>
   </section>
 </template>
 
@@ -260,6 +280,42 @@ function addPart(p) {
   box.appendChild(el);
   renderChips(el);
   renumber();
+  osvjeziSazetke();
+  return el;
+}
+// Otvorena je jedna poddionica, ostale su redak sa sažetkom (crtež 3c). Polja
+// sklopljene ostaju u stranici i šalju se kao i prije.
+function otvoriPoddionicu(el) {
+  document.querySelectorAll('#parts .part-edit').forEach(p => {
+    const otvorena = p === el;
+    p.querySelector('[data-role=part-body]').hidden = !otvorena;
+    p.querySelector('[data-role=toggle]').setAttribute('aria-expanded', otvorena ? 'true' : 'false');
+    p.classList.toggle('sklopljena', !otvorena);
+  });
+}
+function oblikBroja(n, jednina, dvojina, mnozina) {
+  const d = n % 10, s = n % 100;
+  if (d === 1 && s !== 11) return jednina;
+  if (d >= 2 && d <= 4 && (s < 12 || s > 14)) return dvojina;
+  return mnozina;
+}
+// Glava poddionice: voda u naslovu, a ispod stacionaža, duljina i broj nasipa i objekata.
+function osvjeziSazetke() {
+  document.querySelectorAll('#parts .part-edit').forEach(el => {
+    const v = f => el.querySelector('[data-field=' + f + ']').value.trim();
+    const w = WATERS.find(x => x.code === v('watercourse_code'));
+    el.querySelector('[data-role=naslov]').textContent = w ? ' · ' + w.name : '';
+    const segs = [];
+    if (v('km_from') && v('km_to')) segs.push((v('stationing_kind') ? v('stationing_kind') + ' ' : '') + v('km_from') + ' – ' + v('km_to'));
+    if (v('length_km')) segs.push(v('length_km') + ' km');
+    const ne = el.querySelectorAll('[data-role=emb-rows] .emb-row').length;
+    if (ne) segs.push(ne + ' ' + oblikBroja(ne, 'nasip', 'nasipa', 'nasipa'));
+    const no = el.querySelectorAll('[data-role=obj-rows] .obj-row').length;
+    if (no) segs.push(no + ' ' + oblikBroja(no, 'objekt', 'objekta', 'objekata'));
+    const s = el.querySelector('[data-role=sazetak]');
+    s.textContent = segs.join(' · ');
+    s.hidden = !segs.length;
+  });
 }
 // uputa "dodaj u registar" ima smisla samo dok voda nije odabrana; uz odabranu
 // vodu čitala se kao upozorenje da je nema
@@ -666,9 +722,12 @@ function areaChanged() {
   document.querySelectorAll('.obj-row').forEach(row => fillVeza(row, row.querySelector('[data-field=veza]').value));
   document.querySelectorAll('#parts .part-edit').forEach(renderChips);
 }
-document.addEventListener('input', e => { if (e.target.closest && e.target.closest('#parts')) { if (e.target.dataset.field === 'length_km') e.target.dataset.manual = '1'; refreshDescription(); } });
-document.addEventListener('change', e => { if (e.target.closest && e.target.closest('#parts')) refreshDescription(); });
+document.addEventListener('input', e => { if (e.target.closest && e.target.closest('#parts')) { if (e.target.dataset.field === 'length_km') e.target.dataset.manual = '1'; refreshDescription(); osvjeziSazetke(); } });
+document.addEventListener('change', e => { if (e.target.closest && e.target.closest('#parts')) { refreshDescription(); osvjeziSazetke(); } });
+// dodani ili uklonjeni nasip i objekt mijenjaju broj u glavi poddionice
+document.addEventListener('click', e => { if (e.target.closest && e.target.closest('#parts')) setTimeout(osvjeziSazetke); });
 (SECTION.parts && SECTION.parts.length ? SECTION.parts : [{}]).forEach(p => addPart(p));
+otvoriPoddionicu(document.querySelector('#parts .part-edit'));
 refreshDescription();
 </script>
 {{end}}
