@@ -9945,3 +9945,17 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
   table.let-tablica td.lp-dionice { order: 4; width: 100%; }
   table.let-tablica td.lp-kota, table.let-tablica td.lp-izvor, table.let-tablica td.lp-pregled { display: none; }
 }
+
+/* Popis objekata (17d, 5a): tablica i kartice kao kod dionica i letava. */
+.obj-tablica .ob-razine, .obj-tablica .ob-kota, .obj-tablica .ob-kapacitet { white-space: nowrap; font-variant-numeric: tabular-nums; }
+@media (min-width: 600px) and (max-width: 1023px) {
+  .obj-tablica .ob-smjer, .obj-tablica .ob-ustava, .obj-tablica th.ob-dionice { display: none; }
+  .obj-tablica td.ob-dionice { display: none; }
+}
+@media (max-width: 599px) {
+  table.obj-tablica td.ob-ime { order: 1; width: 100%; font-size: 1rem; }
+  table.obj-tablica .ob-ime .dl-sitno { display: block; font-size: 0.8125rem; }
+  table.obj-tablica td { order: 2; width: 100%; }
+  table.obj-tablica td.ob-letva { order: 3; }
+  table.obj-tablica td.ob-smjer, table.obj-tablica td.ob-ustava { display: none; }
+}
