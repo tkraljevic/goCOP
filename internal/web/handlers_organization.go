@@ -230,7 +230,7 @@ func (h *OrgHandler) ExportAreasCSV(w http.ResponseWriter, r *http.Request) {
 	}
 	t := models.Terms()
 	idx, _ := h.org.ContractorIndex(r.Context())
-	rows := [][]string{{t.Sector, t.AreaShort, "Naziv", t.AreaOffice, t.Subcenter, "Licencirane firme", "Izravno pod razinom 2"}}
+	rows := [][]string{{t.Sector, t.AreaShort, "Naziv", t.AreaOffice, t.Subcenter, "Licencirane firme", "Izravno pod razinom 2", "Telefon ispostave"}}
 	for _, a := range areas {
 		direct := ""
 		if a.DirectToSector {
@@ -299,6 +299,23 @@ func cell(row []string, i int) string {
 	return ""
 }
 
+// podrucjeIzCSV slaže branjeno područje iz retka CSV-a. Postojeće područje
+// osvježava samo stupcima koje CSV nosi, pa točka za vremenske prilike i
+// ugovorna pravna osoba ostaju.
+func podrucjeIzCSV(row []string, postojece *models.Area) *models.Area {
+	a := &models.Area{}
+	if postojece != nil {
+		k := *postojece
+		a = &k
+	}
+	a.ID, _ = strconv.Atoi(cell(row, 1)) // broj koji nije broj daje 0, a SaveArea takav redak odbije s porukom
+	direct := strings.ToLower(cell(row, 6))
+	a.SectorID, a.Name, a.VgiName, a.Subcenter = cell(row, 0), cell(row, 2), cell(row, 3), cell(row, 4)
+	a.DirectToSector = direct == "da" || direct == "1" || direct == "x"
+	a.VgiPhone = cell(row, 7)
+	return a
+}
+
 // HandleImportCSV uvozi sektore ili područja iz CSV-a istog oblika kao izvoz.
 // Postojeći se osvježe, novi se dodaju; redci s greškom se preskaču i navedu.
 func (h *OrgHandler) HandleImportCSV(w http.ResponseWriter, r *http.Request) {
@@ -330,10 +347,8 @@ func (h *OrgHandler) HandleImportCSV(w http.ResponseWriter, r *http.Request) {
 		switch kind {
 		case "podrucja":
 			id, _ := strconv.Atoi(cell(row, 1))
-			direct := strings.ToLower(cell(row, 6))
-			a := &models.Area{SectorID: cell(row, 0), ID: id, Name: cell(row, 2), VgiName: cell(row, 3),
-				Subcenter: cell(row, 4), DirectToSector: direct == "da" || direct == "1" || direct == "x", VgiPhone: cell(row, 7)}
 			existing, _ := h.org.GetArea(ctx, id)
+			a := podrucjeIzCSV(row, existing)
 			if err = h.org.SaveArea(ctx, perms, a, existing == nil); err == nil {
 				if existing == nil {
 					added++
