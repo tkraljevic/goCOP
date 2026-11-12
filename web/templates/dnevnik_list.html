@@ -10,7 +10,7 @@
 
 <div class="page-header list-glava usluga-glava lista-glava">
   <div>
-    <h1 class="page-title" data-naziv-stranice="List dnevnika">List {{.Sheet.Number}} · {{.Sheet.Date.Format "2. 1. 2006."}}{{if .Sheet.Label}} · {{.Sheet.Label}}{{end}}</h1>
+    <h1 class="page-title" data-naziv-stranice="List dnevnika">List {{.Sheet.Number}} · {{.Sheet.Date.Format "2. 1. 2006."}}{{if .Sheet.Label}} · {{.Sheet.Label}}{{end}}{{if .Sheet.IsConfirmed}} <span class="oznaka-stanja obrub lista-oba">✓ oba potvrdila</span>{{end}}</h1>
     <p class="page-desc">{{.Journal.DisplayTitle}}{{if .Journal.Contractor}} · {{.Journal.Contractor}}{{end}}</p>
     <div class="lista-potvrde">
       {{if .Sheet.ContractorConfirmedAt}}<span class="oznaka-stanja obrub">✓ izvođač: {{.Sheet.ContractorConfirmedBy}}, {{(localTime .Sheet.ContractorConfirmedAt).Format "2. 1. 2006. 15:04"}}</span>{{else}}<span class="oznaka-stanja">izvođač: nije potvrdio</span>{{end}}
@@ -19,7 +19,7 @@
   </div>
   <div class="page-actions lista-radnje">
     <a href="/dnevnici/{{.Journal.ID}}/ispis?od={{.Sheet.DateKey}}&do={{.Sheet.DateKey}}" class="btn btn-link" target="_blank">Ispis lista</a>
-    {{if and .CanWrite (or .IsContractor .CanSupervise)}}
+    {{if and .CanWrite (or .IsContractor .CanSupervise) (not .Sheet.IsConfirmed)}}
     <form method="POST" action="/dnevnici/{{.Journal.ID}}/listovi/{{.Sheet.ID}}/potvrdi" class="lista-potvrdi"
           onsubmit="return confirm('Potvrditi list {{.Sheet.Number}} za {{if .IsContractor}}izvođača{{else}}nadzor{{end}}?')">
       <button type="submit" class="btn btn-primary" {{if .IsContractor}}{{if .Sheet.ContractorConfirmedAt}}disabled{{end}}{{else}}{{if .Sheet.SupervisorConfirmedAt}}disabled{{end}}{{end}}>Potvrdi list</button>
@@ -31,10 +31,11 @@
 {{if .Journal.Reconstruction}}<div class="alert alert-warning">{{icon "triangle-alert"}} <span><strong>Rekonstrukcija.</strong> List je složen iz starije evidencije radi primjera i nije istovjetan ovjerenom listu.</span></div>{{end}}
 
 {{$locked := .Sheet.IsConfirmed}}
+{{if $locked}}<p class="lista-zakljucano">{{icon "lock"}}<span>List su potvrdili izvođač i nadzor, pa se više ne mijenja i upis na njemu se ne stornira. Ispravak upišite kao novi upis s napomenom, na novom listu.</span></p>{{end}}
 
+{{if and .CanWrite (not $locked)}}
 <form method="POST" action="/dnevnici/{{.Journal.ID}}/listovi/{{.Sheet.ID}}/uvjeti" class="list-kartica cop-obrazac-kartica lista-uvjeti">
   <h2>Uvjeti, osoblje i strojevi</h2>
-  <fieldset {{if or $locked (not .CanWrite)}}disabled {{end}}class="lista-polja">
   <div class="form-group">
     <label class="form-label" for="label">Ekipa / gradilište</label>
     <input type="text" id="label" name="label" class="form-control" value="{{.Sheet.Label}}" placeholder="kad istog dana radi više ekipa, npr. košnja ili bager">
@@ -100,15 +101,34 @@
     }
   </script>
 
-  {{if and .CanWrite (not $locked)}}
   <div class="lista-gumbi">
     <button type="submit" class="btn btn-primary">Spremi uvjete</button>
     <button type="submit" class="btn btn-secondary" formaction="/dnevnici/{{.Journal.ID}}/listovi/{{.Sheet.ID}}/vrijeme" formnovalidate title="Povuci prilike s Open-Meteo i vodostaje iz očitanja">Povuci vrijeme i vodostaje</button>
   </div>
-  {{end}}
-  </fieldset>
-  {{if $locked}}<p class="form-help">List su potvrdili izvođač i nadzor, pa se više ne mijenja i upis na njemu se ne stornira. Ispravak upišite kao novi upis s napomenom, na novom listu.</p>{{end}}
 </form>
+{{else}}
+{{/* Potvrđen list i osoba koja ne piše (9e): uvjeti kao retci oznaka i
+   vrijednost, bez obrasca; prazno se ne pokazuje. */}}
+{{$sh := .Sheet}}
+<section class="list-kartica cop-obrazac-kartica lista-uvjeti">
+  <h2>Uvjeti, osoblje i strojevi</h2>
+  <dl class="lista-retci">
+    {{if $sh.Label}}<div><dt>Ekipa / gradilište</dt><dd>{{$sh.Label}}</dd></div>{{end}}
+    {{if $sh.Conditions}}<div><dt>Hidrometeorološki uvjeti</dt><dd>{{$sh.Conditions}}</dd></div>{{end}}
+    {{if $sh.Temperature}}<div><dt>Temperatura</dt><dd>{{unosD $sh.Temperature 0}} °C</dd></div>{{end}}
+    {{if or $sh.WindFrom $sh.WindTo}}<div><dt>Vjetar</dt><dd>{{if $sh.WindFrom}}{{unosD $sh.WindFrom 0}}{{end}}{{if and $sh.WindFrom $sh.WindTo}} do {{else if $sh.WindTo}}do {{end}}{{if $sh.WindTo}}{{unosD $sh.WindTo 0}}{{end}} m/s</dd></div>{{end}}
+    {{if $sh.Pressure}}<div><dt>Tlak</dt><dd>{{unosD $sh.Pressure 0}} hPa</dd></div>{{end}}
+    {{if $sh.Precipitation}}<div><dt>Oborine</dt><dd>{{unosD $sh.Precipitation 1}} mm</dd></div>{{end}}
+    {{if $sh.WaterLevels}}<div><dt>Vodostaji</dt><dd>{{$sh.WaterLevels}}</dd></div>{{end}}
+    {{if $sh.Rating}}<div><dt>Uvjeti sveukupno</dt><dd>{{ratingLabel $sh.Rating}}</dd></div>{{end}}
+    {{if $sh.RatingNote}}<div><dt>Obrazloženje</dt><dd>{{$sh.RatingNote}}</dd></div>{{end}}
+    {{if .StaffRows}}<div><dt>Struktura osoblja</dt><dd>{{range $i, $r := .StaffRows}}{{if $i}}, {{end}}{{$r.Name}} {{$r.N}}{{end}}</dd></div>{{end}}
+    {{if .MachineRows}}<div><dt>Strojevi, alati i oprema</dt><dd>{{range $i, $r := .MachineRows}}{{if $i}}, {{end}}{{$r.Name}} {{$r.N}}{{end}}</dd></div>{{end}}
+  </dl>
+  {{if not (or $sh.Conditions $sh.Temperature $sh.WaterLevels $sh.Rating .StaffRows .MachineRows)}}<p class="form-help">Uvjeti na ovom listu nisu upisani.</p>
+  {{else if eq $sh.WeatherSource "OPEN_METEO"}}<p class="form-help">Prilike su povučene s Open-Meteo za dan lista.</p>{{end}}
+</section>
+{{end}}
 
 <section class="cop-okvir usluga-okvir" id="upisi">
   <h2>Upisi <span class="reg-chip" title="izvođačevi upisi / mjesta na listu">{{.Used}} / {{.Capacity}}</span></h2>
