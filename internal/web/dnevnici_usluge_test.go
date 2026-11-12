@@ -239,3 +239,37 @@ func TestDnevnikUslugeViseListova(t *testing.T) {
 		t.Error("četiri lista ne trebaju poveznicu Više")
 	}
 }
+
+// Potvrđen list (crtež 9e): oznaka „oba potvrdila”, traka o zaključavanju,
+// uvjeti kao retci bez obrasca i bez praznog obrazloženja, bez storna.
+// „Novi list za ovaj dan” ostaje (Odluke (7. 11. 2026.)).
+func TestPotvrdjenListDnevnikaUsluge(t *testing.T) {
+	potvrdio := time.Date(2026, 10, 22, 15, 2, 0, 0, models.Zagreb)
+	temp, od, do, tlak := 14.0, 1.0, 3.0, 1018.0
+	d := JournalPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Journal:     &models.Journal{ID: "j1", Kind: models.JournalKindMaintenanceA02, Title: "A.02. Kanali", Year: 2026, AreaID: 16},
+		Area:        &models.Area{ID: 16, Name: "Mali sliv Baranja"},
+		Sheet: &models.JournalSheet{ID: "s1", JournalID: "j1", Number: 146, Date: time.Date(2026, 10, 22, 0, 0, 0, 0, models.Zagreb),
+			Conditions: "sunčano", Temperature: &temp, WindFrom: &od, WindTo: &do, Pressure: &tlak, Rating: 5,
+			ContractorConfirmedAt: &potvrdio, ContractorConfirmedBy: "Pero Primjer", SupervisorConfirmedAt: &potvrdio, SupervisorConfirmedBy: "Zoran Primjer"},
+		StaffRows: []models.Count{{Name: "STROJAR", N: 2}, {Name: "RADNIK", N: 2}},
+		CanWrite:  true, CanSupervise: true, Capacity: 6,
+		Entries: []models.JournalEntry{{ID: "e1", Number: 599, Kind: models.EntryKindWork, Text: "Strojna košnja trave.", UserName: "Pero Primjer", CreatedAt: potvrdio}},
+	}
+	html := iscrtaj(t, "dnevnik_list.html", d)
+	for _, want := range []string{"✓ oba potvrdila", "pa se više ne mijenja i upis na njemu se ne stornira",
+		"<dt>Hidrometeorološki uvjeti</dt><dd>sunčano</dd>", "<dt>Temperatura</dt><dd>14 °C</dd>", "<dt>Vjetar</dt><dd>1 do 3 m/s</dd>",
+		"<dt>Tlak</dt><dd>1018 hPa</dd>", "<dt>Uvjeti sveukupno</dt><dd>5. odlični</dd>", "<dt>Struktura osoblja</dt><dd>STROJAR 2, RADNIK 2</dd>",
+		"Novi list za ovaj dan"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("potvrđen list nema %q", want)
+		}
+	}
+	for _, ne := range []string{`/listovi/s1/uvjeti"`, `/listovi/s1/potvrdi"`, "Obrazloženje", ">storniraj</button>", `/listovi/s1/upisi"`, "Oborine"} {
+		if strings.Contains(html, ne) {
+			t.Errorf("potvrđen list ima %q", ne)
+		}
+	}
+}
