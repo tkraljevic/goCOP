@@ -45,7 +45,7 @@ func TestPrazanSazetakNeIscrtavaKarticu(t *testing.T) {
 	}
 	d.Sazetak = sazetakDionice(d.Section, d.Parts)
 	html := iscrtaj(t, "section_detail.html", d)
-	if strings.Contains(html, "Ukupna duljina") || strings.Contains(html, "Poddionica</dt>") {
+	if strings.Contains(html, "dio-sazetak") || strings.Contains(html, "Poddionice</dt>") {
 		t.Error("sažetak se iscrtao iako nema što sažeti")
 	}
 }
