@@ -56,12 +56,16 @@ type DogadjanjaPageData struct {
 	Permissions *models.UserPermissions
 
 	Dogadjaji []service.Dogadjaj
-	Moduli    []struct{ ID, Naziv, Ikona string }
 	Sektori   []models.Sector
 	Podrucja  []models.Area
 	Filtar    service.FiltarZida
 	Od, Do    string
 	Dalje     string // oznaka za listanje unatrag
+
+	CipoviModula []CipPopisa
+	Razdoblje    string // „19. – 26. 10. 2026.”
+	IzvozURL     string // Excel po istim filtrima
+	StarijeURL   string // prazno kad starijih nema
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -128,10 +132,11 @@ func (h *DogadjanjaHandler) ShowDogadjanja(w http.ResponseWriter, r *http.Reques
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	data := DogadjanjaPageData{CurrentUser: u, Permissions: perms, Dogadjaji: dogadjaji, Moduli: service.ModuliZida, Filtar: f, Od: od, Do: do, Dalje: dalje,
+	data := DogadjanjaPageData{CurrentUser: u, Permissions: perms, Dogadjaji: dogadjaji, Filtar: f, Od: od, Do: do, Dalje: dalje,
 		ActiveNav: "journals", ViewAsBanner: viewBanner(r)}
 	data.Sektori, _ = h.users.ListSectors()
 	data.Podrucja, _ = h.users.ListAreas(f.Sektor)
+	izgledDogadjanja(&data, r.URL.Query())
 	data.SmijeBrisati = h.opcije != nil && perms != nil && perms.IsGlobalAdmin && h.opcije(r.Context()).BrisanjeSOglasnePloce
 	if err := h.tmpl.ExecuteTemplate(w, "dogadjanja.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

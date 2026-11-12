@@ -9666,3 +9666,101 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
   .iors-razred-naziv { color: var(--md-sys-color-on-surface); font-size: 0.9375rem; }
   .iors-razredi-ukupno { display: flex; justify-content: space-between; gap: 12px; font-size: 0.875rem; }
 }
+
+/* Događanja (15a · Dokumenti, 1b): modul kao čipovi, razdoblje i ostali
+   filtri iznad popisa, dani kao kartice, važno u boji odabira. */
+.dog-glava { margin-bottom: 8px; }
+.dog-glava .page-desc { margin-top: 4px; color: var(--md-sys-color-on-surface-variant); font-size: 0.875rem; }
+.dog-moduli { padding-bottom: 4px; }
+.dog-filtri { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; margin: 4px 0 16px; }
+.dog-filtri summary { list-style: none; cursor: pointer; }
+.dog-filtri summary::-webkit-details-marker { display: none; }
+.dog-razdoblje { position: relative; }
+.dog-razdoblje > summary {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 0 8px 0 12px; border: 1px solid var(--md-sys-color-outline); border-radius: 8px;
+  color: var(--md-sys-color-on-surface); font-size: 0.875rem; white-space: nowrap;
+}
+.dog-razdoblje > summary .icon { width: 18px; height: 18px; margin: 0; }
+.dog-razdoblje .dog-natpis::after { content: ":"; }
+.dog-razdoblje-polja {
+  position: absolute; z-index: 5; top: calc(100% + 4px); left: 0; display: flex; align-items: center; gap: 8px; padding: 12px;
+  border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px; background: var(--md-sys-color-surface-container-high); box-shadow: 0 2px 8px rgb(0 0 0 / 15%);
+}
+.dog-razdoblje-polja label { margin: 0; color: var(--md-sys-color-on-surface-variant); font-size: 0.875rem; }
+.dog-razdoblje-polja .form-control { width: auto; height: 36px; min-height: 36px; padding-block: 0; }
+.dog-ostali { flex: 1 1 0; min-width: 0; }
+.dog-ostali > summary { display: none; }
+.dog-ostali-polja { display: flex; flex-wrap: wrap; gap: 8px; }
+.dog-ostali-polja .form-control { width: auto; max-width: 220px; height: 32px; min-height: 32px; padding-block: 0; border-radius: 8px; font-size: 0.875rem; }
+.dog-osoba { flex: 1 1 160px; max-width: 280px; margin-left: auto; }
+
+.dog-dan { margin-bottom: 16px; padding: 0 12px 12px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px; background: var(--md-sys-color-surface-container-low); }
+.dog-dan-glava { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 12px 0 8px; }
+.dog-dan-glava h2 { margin: 0; color: var(--md-sys-color-on-surface); font-size: 1rem; font-weight: 400; }
+.dog-dan-broj { color: var(--md-sys-color-primary); font-size: 0.875rem; }
+.dog-popis { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.dog-redak {
+  display: grid; grid-template-columns: 44px 32px minmax(0, 1fr) auto; align-items: start; padding: 10px 8px 10px 12px; border-radius: 8px;
+  background: var(--md-sys-color-surface); font-size: 0.875rem;
+}
+.dog-redak.vazno { background: var(--md-sys-color-ploha-odabrano); }
+.dog-sat { padding-top: 2px; color: var(--md-sys-color-on-surface-variant); font-size: 0.8125rem; }
+.dog-ikona { color: var(--md-sys-color-on-surface-variant); }
+.dog-ikona .icon { width: 20px; height: 20px; margin: 0; }
+.dog-glava-retka { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.dog-naslov { color: var(--md-sys-color-on-surface); font-weight: 400; }
+.dog-naslov a { color: var(--md-sys-color-primary); text-decoration: none; }
+.dog-naslov a:hover { text-decoration: underline; }
+.dog-podrucje {
+  display: inline-flex; align-items: center; min-height: 20px; padding: 0 6px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 6px;
+  color: var(--md-sys-color-on-surface-variant); font-size: 0.75rem; white-space: nowrap;
+}
+.dog-tekst { margin: 2px 0 0; color: var(--md-sys-color-on-surface); }
+.dog-tko { margin: 2px 0 0; color: var(--md-sys-color-on-surface-variant); font-size: 0.75rem; }
+.dog-obrisi { margin: 0; }
+.dog-obrisi-gumb {
+  display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; margin: -8px 0; padding: 0; border: 0; border-radius: 50%;
+  background: none; color: var(--md-sys-color-on-surface-variant); cursor: pointer;
+}
+.dog-obrisi-gumb:hover { background: var(--surface-hover); color: var(--md-sys-color-error); }
+.dog-obrisi-gumb .icon { width: 20px; height: 20px; margin: 0; }
+.dog-podnozje { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--md-sys-color-on-surface-variant); font-size: 0.875rem; }
+.dog-podnozje .btn-link { color: var(--md-sys-color-primary); }
+
+@media screen and (max-width: 599px) {
+  .dog-glava { flex-direction: column; align-items: flex-start; }
+  .dog-glava .btn-link { min-height: 48px; padding-inline: 0; }
+  .dog-moduli .ocitanja-cip { min-height: 40px; }
+  .dog-filtri { flex-direction: column; align-items: stretch; }
+  .dog-razdoblje > summary, .dog-ostali > summary {
+    display: grid; grid-template-columns: minmax(0, 1fr) 24px; align-items: center; min-height: 56px; padding: 6px 12px 6px 16px;
+    border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px; background: var(--md-sys-color-surface-container-low); white-space: normal;
+  }
+  .dog-razdoblje .dog-natpis::after { content: none; }
+  .dog-natpis { grid-column: 1; color: var(--md-sys-color-on-surface); font-size: 0.875rem; }
+  .dog-vrijednost { grid-column: 1; color: var(--md-sys-color-on-surface-variant); font-size: 0.75rem; }
+  .dog-razdoblje > summary .icon, .dog-ostali > summary .icon { grid-column: 2; grid-row: 1 / span 2; width: 24px; height: 24px; margin: 0; }
+  .dog-razdoblje[open] > summary .icon { transform: rotate(180deg); }
+  .dog-ostali[open] > summary .icon { transform: rotate(90deg); }
+  .dog-razdoblje-polja { position: static; display: grid; grid-template-columns: auto minmax(0, 1fr); margin-top: 8px; box-shadow: none; }
+  .dog-razdoblje-polja .form-control { width: 100%; height: 48px; min-height: 48px; font-size: 1rem; }
+  .dog-razdoblje-polja .btn { grid-column: 1 / -1; min-height: 48px; }
+  .dog-ostali-polja { flex-direction: column; padding-top: 8px; }
+  .dog-ostali-polja .form-control { width: 100%; max-width: none; height: 48px; min-height: 48px; border-radius: 4px; font-size: 1rem; }
+  .dog-osoba { flex: none; max-width: none; margin-left: 0; min-height: 48px; border-radius: 4px; }
+  .dog-osoba .akti-trazi-gumb { width: 48px; min-height: 46px; }
+  .dog-osoba input { min-height: 46px; font-size: 1rem; }
+
+  .dog-dan { padding: 0 8px 8px; }
+  .dog-redak { grid-template-columns: 32px auto minmax(0, 1fr) auto; gap: 0 8px; padding: 10px 4px 10px 8px; }
+  .dog-tijelo, .dog-glava-retka { display: contents; }
+  .dog-ikona { grid-column: 1; grid-row: 1 / span 4; }
+  .dog-sat { grid-column: 2; grid-row: 1; padding: 0; }
+  .dog-podrucje { grid-column: 3; grid-row: 1; justify-self: start; }
+  .dog-naslov { grid-column: 2 / span 2; grid-row: 2; margin-top: 2px; }
+  .dog-tekst { grid-column: 2 / span 2; grid-row: 3; }
+  .dog-tko { grid-column: 2 / span 2; grid-row: 4; }
+  .dog-obrisi { grid-column: 4; grid-row: 1 / span 4; }
+  .dog-obrisi-gumb { width: 48px; height: 48px; margin: -12px 0 0; }
+  .dog-podnozje .btn-link { min-height: 48px; }
+}
