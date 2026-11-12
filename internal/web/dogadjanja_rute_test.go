@@ -97,9 +97,9 @@ func TestNaslovnaIDogadjanjaKrozRute(t *testing.T) {
 	mora(zovi("/"), "prazna naslovna", "Mirno: nema proglašene obrane", "Još nema događanja", "Dnevnik COP-a", "Događanja", `href="/dnevnici" class="modul-gumb"`)
 	// zaseban gumb zida za prijave s terena (Odluke (8. 10. 2026.), pitanje 20)
 	mora(zovi("/"), "gumb prijava na zidu", `href="/?modul=prijave"`, "Prijave s terena")
-	mora(zovi("/dogadjanja"), "modul prijava u događanjima", `value="prijave"`, "Prijave s terena")
+	mora(zovi("/dogadjanja"), "modul prijava u događanjima", `modul=prijave`, "Prijave s terena")
 	// opis stranice Događanja navodi i prijave s terena, kao opis zida
-	mora(zovi("/dogadjanja"), "opis događanja", "objavljena i riješena prijava s terena")
+	mora(zovi("/dogadjanja"), "opis događanja", "izvješća, prijave s terena, obrana")
 
 	// dnevnik sa zapisom i skladište s primkom
 	ctx := context.Background()

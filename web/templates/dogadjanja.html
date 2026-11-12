@@ -3,49 +3,76 @@
 {{define "title"}}goCOP — Događanja{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/dnevnici">Dokumenti</a> › Događanja</div>
-
-<div class="page-header">
+<a href="/dnevnici" class="povratna-poveznica">← Dokumenti</a>
+<div class="page-header list-glava dog-glava">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "activity"}} Događanja</h1>
-    <p class="page-desc">Kronologija iz knjige verzija: svaki upis u dnevnik, dežurstvo, izvješće, objavljena i riješena prijava s terena,
-      proglašena obrana, zahvat u skladištu i očitanje iznad praga, s vremenom i osobom. Suzite razdoblje ili modul i izvezite kao prilog izvješću.</p>
+    <h1 class="page-title" data-naziv-stranice>Događanja</h1>
+    <p class="page-desc">Kronologija iz knjige verzija: dnevnik, dežurstva, izvješća, prijave s terena, obrana, sredstva i očitanja iznad praga, s vremenom i osobom.</p>
   </div>
+  <div class="page-actions"><a href="{{.IzvozURL}}" class="btn btn-link" title="Kronologija po istim filtrima, A4">Excel</a></div>
 </div>
 
-<form method="GET" action="/dogadjanja" class="obracun-filtar">
-  <label for="f-od">od</label><input type="date" id="f-od" name="od" class="form-control" value="{{.Od}}">
-  <label for="f-do">do</label><input type="date" id="f-do" name="do" class="form-control" value="{{.Do}}">
-  <label for="f-modul">Modul</label>
-  <select id="f-modul" name="modul" class="form-control"><option value="">svi</option>{{range .Moduli}}<option value="{{.ID}}"{{if eq .ID $.Filtar.Modul}} selected{{end}}>{{.Naziv}}</option>{{end}}</select>
-  <label for="f-sektor">{{term "sektor"}}</label>
-  <select id="f-sektor" name="sektor" class="form-control"><option value="">svi</option>{{range .Sektori}}{{if ne .ID "DIREKCIJA"}}<option value="{{.ID}}"{{if eq .ID $.Filtar.Sektor}} selected{{end}}>{{.ID}}</option>{{end}}{{end}}</select>
-  <label for="f-podrucje">BP</label>
-  <select id="f-podrucje" name="podrucje" class="form-control"><option value="">sva</option>{{range .Podrucja}}<option value="{{.ID}}"{{if eq .ID $.Filtar.AreaID}} selected{{end}}>{{.ID}} {{.Name}}</option>{{end}}</select>
-  <label for="f-osoba">Osoba</label><input type="text" id="f-osoba" name="osoba" class="form-control max-w-11" value="{{.Filtar.Osoba}}" placeholder="dio imena">
-  <button type="submit" class="btn btn-secondary">{{icon "search"}} Prikaži</button>
-  <button type="submit" formaction="/dogadjanja.xlsx" class="btn btn-secondary" title="kronologija po istim filtrima, A4">{{icon "download"}} Excel</button>
+<div class="ocitanja-cipovi cipovi-stranice dog-moduli" role="group" aria-label="Modul">
+  {{range .CipoviModula}}<a class="ocitanja-cip" href="{{.URL}}" aria-pressed="{{if .Odabran}}true{{else}}false{{end}}">{{if .Odabran}}{{icon "check"}}{{end}}{{.Naziv}}</a>{{end}}
+</div>
+
+{{/* Razdoblje i ostali filtri šalju se zajedno: polja u sklopljenom dijelu
+     ostaju u obrascu. Na računalu su ostali filtri u istom retku, a na
+     mobitelu se sklope dok nijedan nije izabran. Bez skripte ostaju otvoreni. */}}
+<form method="GET" action="/dogadjanja" class="dog-filtri">
+  {{with .Filtar.Modul}}<input type="hidden" name="modul" value="{{.}}">{{end}}
+  <details class="dog-razdoblje">
+    <summary><span class="dog-natpis">Razdoblje</span><span class="dog-vrijednost">{{.Razdoblje}}</span>{{icon "chevron-down"}}</summary>
+    <div class="dog-razdoblje-polja">
+      <label for="f-od">od</label><input type="date" id="f-od" name="od" class="form-control" value="{{.Od}}">
+      <label for="f-do">do</label><input type="date" id="f-do" name="do" class="form-control" value="{{.Do}}">
+      <button type="submit" class="btn btn-primary">Prikaži</button>
+    </div>
+  </details>
+  <details class="dog-ostali" open>
+    <summary><span class="dog-natpis">Ostali filtri</span><span class="dog-vrijednost">{{term "sektor"}}{{if .Filtar.Sektor}} {{.Filtar.Sektor}}{{else}}: svi{{end}} · BP{{if .Filtar.AreaID}} {{.Filtar.AreaID}}{{else}}: sva{{end}} · {{or .Filtar.Osoba "osoba"}}</span>{{icon "chevron-right"}}</summary>
+    <div class="dog-ostali-polja">
+      <select name="sektor" class="form-control" aria-label="{{term "sektor"}}" onchange="this.form.submit()"><option value="">{{term "sektor"}}: svi</option>{{range .Sektori}}{{if ne .ID "DIREKCIJA"}}<option value="{{.ID}}"{{if eq .ID $.Filtar.Sektor}} selected{{end}}>{{term "sektor"}}: {{.ID}}</option>{{end}}{{end}}</select>
+      <select name="podrucje" class="form-control" aria-label="BP" onchange="this.form.submit()"><option value="">BP: sva</option>{{range .Podrucja}}<option value="{{.ID}}"{{if eq .ID $.Filtar.AreaID}} selected{{end}}>BP: {{.ID}} {{.Name}}</option>{{end}}</select>
+      <div class="akti-trazi dog-osoba">
+        <button type="submit" class="akti-trazi-gumb" aria-label="Traži osobu">{{icon "search"}}</button>
+        <input type="text" name="osoba" value="{{.Filtar.Osoba}}" placeholder="Osoba: dio imena" aria-label="Osoba: dio imena">
+      </div>
+    </div>
+  </details>
+  {{if not (or .Filtar.Sektor .Filtar.AreaID .Filtar.Osoba)}}<script>if (matchMedia("(max-width: 599px)").matches) document.currentScript.previousElementSibling.open = false;</script>{{end}}
 </form>
 
 {{if .Dogadjaji}}
-<div class="zid">
-  {{range .PoDanima}}
-  <h2 class="zid-dan">{{danTjedna .Dan}} {{.Dan.Format "2.1.2006."}}</h2>
-  {{range .Dogadjaji}}
-  <article class="zid-redak{{if .Vazno}} vazno{{end}}">
-    <div class="zid-ikona" title="{{.ModulNaziv}}">{{icon .ModulIkona}}</div>
-    <div class="zid-tijelo">
-      <div class="zid-glava"><span class="zid-vrijeme mono">{{satHR .Kad}}</span> <strong>{{if .Link}}<a href="{{.Link}}">{{.Naslov}}</a>{{else}}{{.Naslov}}{{end}}</strong>
-        {{if .Sektor}}<span class="reg-chip">{{.Sektor}}{{if .AreaID}} · BP {{.AreaID}}{{end}}</span>{{end}}</div>
-      {{if .Tekst}}<div class="zid-tekst">{{.Tekst}}</div>{{end}}
-      {{if .Tko}}<div class="reg-card-sub">{{.Tko}}</div>{{end}}
-    </div>
-    {{if $.SmijeBrisati}}<form method="POST" action="/dogadjanja/obrisi" class="zid-obrisi" onsubmit="return confirm('Obrisati ovaj zapis s oglasne ploče? Briše se ta verzija iz knjige na ovom čvoru.')"><input type="hidden" name="verzija" value="{{.VersionID}}"><button type="submit" class="btn btn-sm btn-secondary btn-opasno" title="Obriši s ploče">{{icon "trash"}}</button></form>{{end}}
-  </article>
-  {{end}}
-  {{end}}
+{{range .PoDanima}}
+<section class="dog-dan">
+  <header class="dog-dan-glava">
+    <h2>{{danKratko .Dan}} {{.Dan.Format "2. 1. 2006."}}</h2>
+    <span class="dog-dan-broj">{{len .Dogadjaji}} {{uzBroj (len .Dogadjaji) "događanje" "događanja" "događanja"}}</span>
+  </header>
+  <ol class="dog-popis">
+    {{range .Dogadjaji}}
+    <li class="dog-redak{{if .Vazno}} vazno{{end}}">
+      <span class="dog-sat mono">{{satHR .Kad}}</span>
+      <span class="dog-ikona" title="{{.ModulNaziv}}">{{icon .ModulIkona}}</span>
+      <div class="dog-tijelo">
+        <div class="dog-glava-retka">
+          <strong class="dog-naslov">{{if .Link}}<a href="{{.Link}}">{{.Naslov}}</a>{{else}}{{.Naslov}}{{end}}</strong>
+          {{if .Sektor}}<span class="dog-podrucje">{{.Sektor}}{{if .AreaID}} · BP {{.AreaID}}{{end}}</span>{{end}}
+        </div>
+        {{if .Tekst}}<p class="dog-tekst">{{.Tekst}}</p>{{end}}
+        {{if .Tko}}<p class="dog-tko">{{.Tko}}</p>{{end}}
+      </div>
+      {{if $.SmijeBrisati}}<form method="POST" action="/dogadjanja/obrisi" class="dog-obrisi" onsubmit="return confirm('Obrisati ovaj zapis s oglasne ploče? Briše se ta verzija iz knjige na ovom čvoru.')"><input type="hidden" name="verzija" value="{{.VersionID}}"><button type="submit" class="dog-obrisi-gumb" title="Obriši s ploče" aria-label="Obriši s ploče">{{icon "trash"}}</button></form>{{end}}
+    </li>
+    {{end}}
+  </ol>
+</section>
+{{end}}
+<div class="dog-podnozje">
+  <span>Prikazano {{len .Dogadjaji}} {{uzBroj (len .Dogadjaji) "događanje" "događanja" "događanja"}}</span>
+  {{with .StarijeURL}}<a href="{{.}}" class="btn btn-link">Starije</a>{{end}}
 </div>
-{{if .Dalje}}<p class="mt-4"><a href="/dogadjanja?modul={{.Filtar.Modul}}&sektor={{.Filtar.Sektor}}&podrucje={{if .Filtar.AreaID}}{{.Filtar.AreaID}}{{end}}&osoba={{.Filtar.Osoba}}&od={{.Od}}&do={{.Do}}&prije={{.Dalje}}" class="btn btn-secondary">{{icon "arrow-right"}} Starije</a></p>{{end}}
 {{else}}
 <div class="reg-empty">Nema događanja za taj izbor.</div>
 {{end}}
