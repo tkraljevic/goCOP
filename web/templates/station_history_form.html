@@ -3,27 +3,25 @@
 {{define "title"}}goCOP — {{.Station.Name}}, uređivanje historijata{{end}}
 
 {{define "content"}}
-<div class="breadcrumb">
-  <a href="/stations">Vodomjerne postaje</a> ›
-  <a href="/stations/{{.Station.ID}}">{{.Station.Name}}</a> ›
-  <a href="/stations/{{.Station.ID}}/historijat">Historijat</a> › Uređivanje
-</div>
-
-<div class="page-header">
+{{/* Obrazac historijata (goCOP-m3, 17c · Registri, 4c): tri ploče s brojem u naslovu i praznim
+     stanjem. Skrivena polja, retci i skripte su isti. */}}
+<div class="lob-stranica">
+<a href="/stations/{{.Station.ID}}/historijat" class="povratna-poveznica">← {{.Station.Name}} · historijat</a>
+<div class="page-header list-glava">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "pencil"}} {{.Station.Name}} — historijat</h1>
-    <p class="page-desc">Troje što se na historijatu upisuje rukom. Niz i valovi dolaze sami;
-      pragove, kotu nule i ekstreme uređuje <a href="/stations/{{.Station.ID}}/edit">kartica letve</a>.</p>
+    <h1 class="page-title" data-naziv-stranice>Uredi historijat</h1>
+    <p class="page-desc">Povratni vodostaji, promjene kote nule i ograde uz nizove upisuju se rukom; niz i valovi
+      dolaze sami. Pragove, kotu nule i ekstreme uređuje <a href="/stations/{{.Station.ID}}/edit">obrazac postaje</a>.</p>
   </div>
 </div>
-
 
 <form class="form-page form-wide" id="station-form" method="POST" action="/api/stations/update">
   <input type="hidden" name="id" value="{{.Station.ID}}">
   <input type="hidden" name="obrazac" value="historijat">
 
-  <h3 class="obrazac-podnaslov">Povratni vodostaji</h3>
-  <p class="form-help mt-0 mb-2">
+  <section class="list-kartica">
+  <h3>Povratni vodostaji ({{len .Station.ReturnLevels}})</h3>
+  <p class="form-help">
     Procjena iz niza, ne mjerenje — zato uz brojku ide metoda i niz na kojem je računata.
     Granice pouzdanosti idu u paru ili nikako.
     <span class="reg-card-sub">Ne ulaze u pragove obrane: prag je propisan, povratni vodostaj proračunat.</span>
@@ -33,6 +31,7 @@
     <div class="rows-head"><div>Jednom u (god.)</div><div>Vodostaj (cm)</div><div>Donja (cm)</div><div>Gornja (cm)</div><div>Metoda</div><div>Niz</div><div>Izvor</div><div>Izračunato</div><div>Napomena</div><div></div></div>
     <div id="return-rows"></div>
   </div>
+  <p class="form-help his-prazno">Povratni vodostaji nisu upisani.</p>
   <button type="button" class="btn btn-sm btn-secondary" onclick="addReturnRow()">{{icon "plus"}} Dodaj povratni vodostaj</button>
   <template id="tpl-return">
     <div class="return-row">
@@ -71,9 +70,11 @@
   (RETURN_LEVELS || []).forEach(addReturnRow);
   document.getElementById('station-form') && document.getElementById('station-form').addEventListener('submit', collectReturnLevels);
   </script>
+  </section>
 
-  <h3 class="obrazac-podnaslov">Promjene kote nule kroz vrijeme</h3>
-  <p class="form-help mt-0 mb-2">
+  <section class="list-kartica">
+  <h3>Promjene kote nule kroz vrijeme ({{len .Station.ZeroDatumHistory}})</h3>
+  <p class="form-help">
     Kad je letva premještena, obnovljena ili dobila novi elaborat.
     <span class="reg-card-sub">Vodostaji u bazi svedeni su na zadnju kotu; povijest govori što je koja starija
     evidencija mjerila.</span>
@@ -83,6 +84,8 @@
     <div class="rows-head"><div>Vrijedi od</div><div>Kota „0“ (m)</div><div>Sustav</div><div>Napomena</div><div></div></div>
     <div id="zero-rows"></div>
   </div>
+  <p class="form-help his-prazno">Kota nule nije mijenjana.</p>
+  <p class="form-help his-sada">Sada: HVRS71 {{if .Station.ZeroDatumNew}}{{brojHRd .Station.ZeroDatumNew 3}} m{{else}}nije upisana{{end}} · Trst {{if .Station.ZeroDatum}}{{brojHRd .Station.ZeroDatum 3}} m{{else}}nije upisana{{end}}</p>
   <button type="button" class="btn btn-sm btn-secondary" onclick="addZeroRow()">{{icon "plus"}} Dodaj promjenu kote</button>
   <template id="tpl-zero">
     <div class="zero-row">
@@ -114,10 +117,12 @@
   (ZERO_HISTORY || []).forEach(addZeroRow);
   document.getElementById('station-form') && document.getElementById('station-form').addEventListener('submit', collectZeroHistory);
   </script>
+  </section>
 
 
-  <h3 style="font-size:0.9rem; margin:1.5rem 0 0.25rem;">Ograde uz nizove</h3>
-  <p class="form-help mt-0 mb-2">
+  <section class="list-kartica">
+  <h3>Ograde uz nizove ({{len .Station.OgradeNiza}})</h3>
+  <p class="form-help">
     Što o nizu znate, a iz brojki se ne vidi — zaleđen mjerač, sumnjiva zima, prekid u mjerenju.
     Stoji uz niz i ide u izvješće. Prazna veličina znači sve veličine tog izvora.
     <strong>Ispod</strong> i <strong>Iznad</strong> sužavaju ogradu na raspon vrijednosti: tlačna sonda ne laže
@@ -130,6 +135,7 @@
     <div class="rows-head"><div>Izvor</div><div>Veličina</div><div>Od</div><div>Do</div><div>Ispod</div><div>Iznad</div><div>Što treba znati</div><div></div></div>
     <div id="ograda-rows"></div>
   </div>
+  <p class="form-help his-prazno">Za ovu letvu nema ograda.</p>
   <button type="button" class="btn btn-sm btn-secondary" onclick="addOgradaRow()">{{icon "plus"}} Dodaj ogradu</button>
   <template id="tpl-ograda">
     <div class="ograda-row">
@@ -169,10 +175,12 @@
   (OGRADE || []).forEach(addOgradaRow);
   document.getElementById('station-form') && document.getElementById('station-form').addEventListener('submit', collectOgrade);
   </script>
+  </section>
 
-  <div class="form-actions">
-    <a href="/stations/{{.Station.ID}}/historijat" class="btn btn-secondary">Odustani</a>
+  <div class="form-actions lob-gumbi">
+    <a href="/stations/{{.Station.ID}}/historijat" class="btn btn-link">Odustani</a>
     <button type="submit" class="btn btn-primary">Spremi izmjene</button>
   </div>
 </form>
+</div>
 {{end}}

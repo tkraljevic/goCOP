@@ -76,3 +76,26 @@ func TestObrazacPostajeDonjiDio(t *testing.T) {
 		t.Error("u obrascu postaje ostao je stil u retku")
 	}
 }
+
+// Obrazac historijata po crtežu 4c: povratak na historijat, tri ploče s brojem
+// u naslovu i praznim stanjem, trenutna kota nule i ista skrivena polja.
+func TestObrazacHistorijataPoCrtezu(t *testing.T) {
+	kota := 80.45
+	st := models.Station{ID: uuid.MustParse("9f1c0b2e-0000-7000-8000-000000000023"), Name: "Batina", ZeroDatum: &kota,
+		ReturnLevels: []models.StationReturnLevel{{Years: 100}}}
+	html := iscrtaj(t, "station_history_form.html", StationPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     st, CanEdit: true, IsEdit: true,
+	})
+	for _, want := range []string{
+		`href="/stations/` + st.ID.String() + `/historijat" class="povratna-poveznica">← Batina · historijat`,
+		"Uredi historijat", "Povratni vodostaji (1)", "Promjene kote nule kroz vrijeme (0)", "Ograde uz nizove (0)",
+		"Kota nule nije mijenjana.", "Za ovu letvu nema ograda.", "Sada: HVRS71 nije upisana · Trst 80,450 m",
+		`name="return_levels"`, `name="zero_datum_history"`, `name="ograde_niza"`, `name="obrazac" value="historijat"`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("obrazac historijata nema %q", want)
+		}
+	}
+}

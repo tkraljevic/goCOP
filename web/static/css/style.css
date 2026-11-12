@@ -9922,3 +9922,12 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
 .lob-podrucja { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-left: 1.5rem; }
 .lob-karta { padding-inline: 0; }
 .lob-gumbi { justify-content: flex-end; }
+/* Historijat letve: prazno stanje dok ploča nema redaka; nestaje čim se doda redak. */
+.his-prazno { margin: 4px 0 8px; }
+.lob-stranica .list-kartica:has(#return-rows:not(:empty)) .his-prazno,
+.lob-stranica .list-kartica:has(#zero-rows:not(:empty)) .his-prazno,
+.lob-stranica .list-kartica:has(#ograda-rows:not(:empty)) .his-prazno { display: none; }
+.lob-stranica .list-kartica:has(#return-rows:empty) .rows-head,
+.lob-stranica .list-kartica:has(#zero-rows:empty) .rows-head,
+.lob-stranica .list-kartica:has(#ograda-rows:empty) .rows-head { display: none; }
+.his-sada { margin: 0 0 8px; color: var(--md-sys-color-on-surface); }
