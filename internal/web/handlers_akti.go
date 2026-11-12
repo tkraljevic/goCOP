@@ -1052,6 +1052,7 @@ func (h *AktiHandler) ShowPrimatelji(w http.ResponseWriter, r *http.Request) {
 	data.Podrucja, _ = h.users.ListAreas(data.SektorID)
 	data.Primatelji, _ = s.Primatelji(r.Context(), data.SektorID)
 	data.SmijeUrediti = perms != nil && perms.CanAdminister(data.SektorID, 0)
+	data.CipoviSektora = cipoviJednogSektora("/akti/primatelji", data.Sektori, data.SektorID)
 	if err := h.tmplPrimatelji.ExecuteTemplate(w, "primatelji.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

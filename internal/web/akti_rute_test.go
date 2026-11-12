@@ -210,7 +210,8 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	if !strings.Contains(w0.Header().Get("Location"), "success") {
 		t.Fatalf("špranca: %s", w0.Header().Get("Location"))
 	}
-	mora(zovi(http.MethodGet, "/akti/primatelji?sektor=B", nil), "primatelji", "Glavni centar obrane od poplava Zagreb", "Župan osječko-baranjski", "Izvanredno stanje")
+	mora(zovi(http.MethodGet, "/akti/primatelji?sektor=B", nil), "primatelji", "Glavni centar obrane od poplava Zagreb", "Župan osječko-baranjski", "Izvanredno stanje",
+		"Kome akt ide", "Uprava organizacije (", `href="/akti/primatelji?sektor=B" aria-pressed="true"`, "Dodaj primatelja")
 
 	// uz dnevnik COP-a: vodočuvar područja i otvoren dnevnik održavanja
 	a02 := &models.Journal{Kind: models.JournalKindMaintenanceA02, AreaID: 34, Title: "A.02 Dunav", Year: 2026, Contractor: "Vodogradnja", StartedAt: &pocetakObrane}

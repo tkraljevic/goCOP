@@ -3,64 +3,66 @@
 {{define "title"}}goCOP — Primatelji akata{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/dnevnici">Dokumenti</a> › <a href="/akti">Rješenja i obavijesti</a> › Primatelji</div>
-
-<div class="page-header">
+<a href="/akti?sektor={{.SektorID}}" class="povratna-poveznica">← Rješenja i obavijesti</a>
+<div class="page-header list-glava">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "users"}} Primatelji akata, {{term "sektor"}} {{.SektorID}}</h1>
-    <p class="page-desc">Stalni primatelji rješenja i obavijesti: Direkcija i Glavni centar, ispostave i izvođači, civilna zaštita, 112,
-      policija, lučke kapetanije. Županije, gradovi i općine dolaze iz ugroženih područja dionica od izvanrednog stanja, a
-      rukovoditelji dionica iz zaduženja, pa se ovdje ne upisuju. Licencirane firme i rukovoditelji idu za sva
-      branjena područja čije su dionice u aktu, kao i ispostava i izvođač upisani ovdje za ta područja; ostali
-      primatelji upisani za jedno područje idu samo na akte tog područja.</p>
+    <h1 class="page-title" data-naziv-stranice>Primatelji akata, {{term "sektor"}} {{.SektorID}}</h1>
+    <p class="page-desc">Stalni primatelji rješenja i obavijesti. Županije, gradovi i općine dolaze iz ugroženih područja dionica,
+      a rukovoditelji dionica iz zaduženja, pa se ovdje ne upisuju.</p>
   </div>
 </div>
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 
-<form method="GET" action="/akti/primatelji" class="obracun-filtar">
-  <label for="f-sektor">{{term "sektor"}}</label>
-  <select id="f-sektor" name="sektor" class="form-control" onchange="this.form.submit()">{{range .Sektori}}{{if ne .ID "DIREKCIJA"}}<option value="{{.ID}}"{{if eq .ID $.SektorID}} selected{{end}}>{{.ID}} — {{.Name}}</option>{{end}}{{end}}</select>
-</form>
+<div class="ocitanja-cipovi cipovi-stranice" role="group" aria-label="{{term "sektor"}}">
+  {{range .CipoviSektora}}<a class="ocitanja-cip" href="{{.URL}}" aria-pressed="{{if .Odabran}}true{{else}}false{{end}}">{{.Naziv}}</a>{{end}}
+</div>
 
-{{if .Primatelji}}
-<div class="table-card"><div class="table-responsive">
-  <table class="data-table">
-    <thead><tr><th>Skupina</th><th>Primatelj</th><th>E-pošta</th><th>Vrijedi za</th><th>Od stupnja</th>{{if .SmijeUrediti}}<th></th>{{end}}</tr></thead>
+<div class="prim-pravilo">
+  {{icon "info"}}
+  <p><strong>Kome akt ide</strong>
+    Licencirane firme i rukovoditelji idu za sva branjena područja čije su dionice u aktu, kao i ispostava i izvođač
+    upisani ovdje za ta područja; ostali primatelji upisani za jedno područje idu samo na akte tog područja.</p>
+</div>
+
+{{range .PrimateljiPoSkupinama}}
+<section class="list-kartica prim-skupina">
+  <h2>{{.Naziv}} ({{len .Primatelji}})</h2>
+  <table class="data-table prim-tablica">
+    <thead><tr><th>Primatelj</th><th>E-pošta</th><th>Vrijedi za</th><th>Od stupnja</th>{{if $.SmijeUrediti}}<th><span class="sr-only">Obriši</span></th>{{end}}</tr></thead>
     <tbody>
     {{range .Primatelji}}
-    <tr{{if not .Aktivan}} class="mts-prazno"{{end}}>
-      <td>{{skupinaLabel .Skupina}}</td>
-      <td>{{.Naziv}}</td>
-      <td class="mono">{{.Email}}</td>
-      <td>{{if .AreaID}}BP {{.AreaID}}{{else}}cijeli sektor{{end}}</td>
-      <td>{{if .OdStupnja}}{{.OdStupnja.Label}}{{else}}uvijek{{end}}</td>
-      {{if $.SmijeUrediti}}<td class="radnje"><form method="POST" action="/akti/primatelji/{{.ID}}/obrisi" class="d-inline" onsubmit="return confirm('Obrisati primatelja?');"><input type="hidden" name="sektor" value="{{.Sektor}}"><button type="submit" class="btn btn-sm btn-secondary">{{icon "x"}} Obriši</button></form></td>{{end}}
+    <tr{{if not .Aktivan}} class="prim-neaktivan"{{end}}>
+      <td class="prim-naziv">{{.Naziv}}{{if not .Aktivan}} <span class="prim-oznaka">neaktivan</span>{{end}}</td>
+      <td class="prim-email">{{.Email}}</td>
+      <td class="prim-vrijedi">{{if .AreaID}}BP {{.AreaID}}{{else}}cijeli sektor{{end}}</td>
+      <td class="prim-stupanj">{{if .OdStupnja}}{{.OdStupnja.Label}}{{else}}uvijek{{end}}</td>
+      {{if $.SmijeUrediti}}<td class="prim-obrisi"><form method="POST" action="/akti/primatelji/{{.ID}}/obrisi" onsubmit="return confirm('Obrisati primatelja?');"><input type="hidden" name="sektor" value="{{.Sektor}}"><button type="submit" class="dog-obrisi-gumb" title="Obriši primatelja" aria-label="Obriši primatelja {{.Naziv}}">{{icon "x"}}</button></form></td>{{end}}
     </tr>
     {{end}}
     </tbody>
   </table>
-</div></div>
+</section>
 {{else}}
 <div class="reg-empty">Registar je prazan. Dodajte primatelje kako stoje na dosadašnjim aktima.</div>
 {{end}}
 
 {{if .SmijeUrediti}}
-<h2 style="font-size:1rem; margin:1.5rem 0 0.5rem;">Novi primatelj</h2>
-<form method="POST" action="/akti/primatelji" class="form-page">
+<form method="POST" action="/akti/primatelji" class="list-kartica cop-obrazac-kartica prim-novi">
+  <h2>Novi primatelj</h2>
   <input type="hidden" name="sektor" value="{{.SektorID}}">
-  <div class="form-row">
+  <div class="prim-polja prim-polja-2">
     <div class="form-group"><label class="form-label" for="naziv">Naziv *</label><input type="text" id="naziv" name="naziv" class="form-control" required placeholder="npr. Županijski centar 112 Osijek"></div>
-    <div class="form-group"><label class="form-label" for="email">E-pošta</label><input type="email" id="email" name="email" class="form-control" placeholder="osijek112@mup.hr"></div>
+    <div class="form-group"><label class="form-label" for="email">E-pošta</label><input type="email" id="email" name="email" class="form-control" placeholder="npr. 112@primjer.hr"></div>
   </div>
-  <div class="form-row">
+  <div class="prim-polja prim-polja-4">
     <div class="form-group"><label class="form-label" for="skupina">Skupina</label><select id="skupina" name="skupina" class="form-control">{{range .Skupine}}<option value="{{.}}">{{skupinaLabel .}}</option>{{end}}</select></div>
     <div class="form-group"><label class="form-label" for="area_id">Vrijedi za</label><select id="area_id" name="area_id" class="form-control"><option value="0">cijeli sektor</option>{{range .Podrucja}}<option value="{{.ID}}">BP {{.ID}} — {{.Name}}</option>{{end}}</select></div>
     <div class="form-group"><label class="form-label" for="od_stupnja">Od stupnja</label><select id="od_stupnja" name="od_stupnja" class="form-control"><option value="">uvijek</option>{{range .Stupnjevi}}<option value="{{.}}">{{.Label}}</option>{{end}}</select></div>
     <div class="form-group"><label class="form-label" for="redoslijed">Redoslijed</label><input type="text" inputmode="numeric" id="redoslijed" name="redoslijed" class="form-control" value="10"></div>
   </div>
-  <div class="form-actions"><button type="submit" class="btn btn-primary">{{icon "plus"}} Dodaj</button></div>
+  <div class="cop-obrazac-radnje"><button type="submit" class="btn btn-primary">Dodaj primatelja</button></div>
 </form>
 {{end}}
 {{end}}
