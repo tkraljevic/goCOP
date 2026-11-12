@@ -215,18 +215,21 @@ func izmedju(s, od, do string) string {
 }
 
 // Naziv sektora u registru već glasi "Sektor B — Dunav i donja Drava", pa ga
-// stranica ne smije još jednom uvoditi svojim "Sektor B —".
+// stranica ne smije još jednom uvoditi svojim "Sektor B —". U Podacima stoji
+// kao na čipovima sektora: „B · Dunav i donja Drava”.
 func TestStranicaDioniceNePonavljaSektor(t *testing.T) {
+	sec := models.Section{
+		Code: "B.34.1", AreaID: 34, SectorID: "B",
+		SectorName: "Sektor B — Dunav i donja Drava",
+	}
 	html := iscrtaj(t, "section_detail.html", SectionPageData{
 		CurrentUser: &models.User{FullName: "Provjera"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
-		Section: models.Section{
-			Code: "B.34.1", AreaID: 34, SectorID: "B",
-			SectorName: "Sektor B — Dunav i donja Drava",
-		},
+		Section:     sec,
+		Kartica:     karticaDionice(sec, nil, nil),
 	})
-	if strings.Count(html, "Sektor B — Dunav i donja Drava") != 1 {
-		t.Error("naziv sektora ne stoji točno jednom")
+	if strings.Count(html, "Dunav i donja Drava") != 1 || !strings.Contains(html, "B · Dunav i donja Drava") {
+		t.Error("naziv sektora ne stoji točno jednom, kao „B · Dunav i donja Drava”")
 	}
 	if strings.Contains(html, "Sektor B — Sektor B") {
 		t.Error("sektor je napisan dvaput")
@@ -302,7 +305,7 @@ func TestKarticaDioniceSlazeObjektePoNasipima(t *testing.T) {
 	napuniLetveBlokove(dionica.Parts)
 	html := iscrtaj(t, "section_detail.html", dionica)
 	for _, want := range []string{
-		"letva-blokovi-glava", "Batina", "80,450 m",
+		`class="dio-letva"`, "Batina", "80,450 m",
 		`class="nasip-karta"`, "Nasip za zaštitu Batine", "2,005 km", "vodokaz Batina",
 	} {
 		if !strings.Contains(html, want) {

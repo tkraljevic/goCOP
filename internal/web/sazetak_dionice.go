@@ -33,9 +33,9 @@ func (s SazetakDionice) Ima() bool {
 func sazetakDionice(sec models.Section, parts []PartView) SazetakDionice {
 	vise := len(parts) > 1
 	return SazetakDionice{
-		// Vlastiti opis je čovjekov tekst i uvijek se pokazuje; složeni ima
-		// smisla samo kad spaja više poddionica.
-		Opis:          sec.DescriptionCustom || (vise && sec.EffectiveDescription() != ""),
+		// Vlastiti opis je čovjekov tekst i uvijek se pokazuje. Složeni opis
+		// ponavlja retke poddionica ispod sažetka, pa ga kartica ne piše.
+		Opis:          sec.DescriptionCustom,
 		Duljina:       vise && sec.Length() > 0,
 		NasipiDuljina: sec.EmbankmentLength() > 0 && (vise || sec.EmbankmentCount() > 1),
 		Poddionica:    vise,

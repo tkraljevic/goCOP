@@ -2324,14 +2324,11 @@ textarea {
 .part { margin-bottom: 1.25rem; }
 .part-head { display: flex; gap: 0.75rem; align-items: flex-start; margin-bottom: 0.5rem; }
 .part-ordinal { flex: 0 0 auto; width: 1.75rem; height: 1.75rem; border-radius: 999px; background: var(--primary); color: var(--primary-contrast); font-weight: 700; font-size: 0.85rem; display: inline-flex; align-items: center; justify-content: center; }
-.part-desc { font-weight: 600; color: var(--text-strong); line-height: 1.4; }
 .part-row { padding: 0.75rem 1rem; gap: 0.5rem; margin-bottom: 0.5rem; }
 .part-block + .part-block { border-top: 1px dashed var(--border); padding-top: 0.5rem; }
 .part-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin-bottom: 0.2rem; }
 .part-emb { font-size: 0.9rem; }
 .part-emb .mono { font-size: 0.75rem; color: var(--text-muted); margin-left: 0.35rem; }
-.part-objects { margin: 0; padding-left: 1.1rem; font-size: 0.875rem; line-height: 1.5; }
-.part-objects .mono { font-size: 0.78rem; color: var(--text-secondary); }
 .part-gauge { font-size: 0.9rem; }
 .part-gauges { margin: 0 0 0.5rem 2.5rem; font-size: 0.9rem; }
 .part-gauges .part-gauge + .part-gauge { margin-top: 0.15rem; }
@@ -2344,9 +2341,6 @@ textarea {
 
 /* Kartica dionice po uzoru na Privitak: vodomjer u jednom retku s pragovima u
    nizu, a nasipi i objekti u tablici gdje je nasip nosivi red. */
-.gauge-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: inherit; margin-bottom: 0.4rem; }
-.gauge-row:hover { background: var(--bg-hover, rgba(0,0,0,0.03)); }
-.gauge-name { font-weight: 700; color: var(--text-strong); }
 .gauge-thresholds { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-left: auto; }
 .gauge-thresholds .threshold-pill { font-size: 0.8rem; white-space: nowrap; }
 .part-table td { vertical-align: top; }
@@ -3942,46 +3936,8 @@ body.karta-puni-zaslon-otvoren { overflow: hidden; }
 }
 .nasip-duljina { font-weight: 600; color: var(--text-strong); font-variant-numeric: tabular-nums; }
 
-/* Objekti i naselja stoje jedno uz drugo dok ima mjesta; na uskom zaslonu
-   jedno ispod drugog. Objekti dobivaju više prostora jer nose stacionažu. */
-.nasip-tijelo {
-  display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-  gap: 0.75rem 1.5rem;
-  padding: 0.8rem 0.9rem;
-}
-@media (max-width: 48rem) {
-  .nasip-tijelo { grid-template-columns: 1fr; }
-}
-.nasip-stupac { min-width: 0; }
-.nasip-stupac + .nasip-stupac { border-left: 1px dashed var(--border); padding-left: 1.5rem; }
-@media (max-width: 48rem) {
-  .nasip-stupac + .nasip-stupac {
-    border-left: 0; padding-left: 0;
-    border-top: 1px dashed var(--border); padding-top: 0.7rem;
-  }
-}
-
-/* Stacionaža u svom stupcu, da se brojevi poravnaju i oko ih može pročitati
-   odozgo prema dolje umjesto da ih traži u svakom retku posebno. */
-.nasip-stupac .part-obj {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 0.5rem;
-  align-items: baseline;
-  padding: 0.12rem 0;
-}
-.nasip-stupac .part-obj-km {
-  margin: 0;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-secondary);
-  font-weight: 600;
-}
 .part-obj-ime { overflow-wrap: anywhere; }
 .part-obj-ime a { color: var(--primary); }
-
-.nasip-naselja { display: flex; flex-wrap: wrap; gap: 0.3rem; }
 
 /* Os stacionaže bojom: voda plavo, nasip zeleno.
    Na istoj dionici stoje obje — crpna stanica ima rkm uz rijeku i kkm uz
@@ -4000,19 +3956,6 @@ body.karta-puni-zaslon-otvoren { overflow: hidden; }
    ih drži i od poddionice kojoj pripadaju. Ime letve nosi težinu; naslovi
    unutra spuštaju se na razinu oznake, istu kakvu imaju "Objekti" i "Ugroženo
    područje" pod nasipom. */
-.letva-blokovi-glava {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.4rem 0.6rem;
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--text-strong);
-  padding-bottom: 0.3rem;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 0.5rem;
-}
-.letva-blokovi-glava a { color: var(--primary); }
 .letva-blokovi .detail-section { margin: 0.6rem 0 0; }
 .letva-blokovi .detail-section h2 {
   font-size: 0.7rem;
@@ -4029,20 +3972,10 @@ body.karta-puni-zaslon-otvoren { overflow: hidden; }
 .letva-blokovi .table-card { padding: 0.75rem 0.9rem; }
 
 /* Ugroženo područje kao u Privitku: županija, pa općina, pa naselja. */
-.ugrozeno-zupanija + .ugrozeno-zupanija { margin-top: 0.6rem; }
 .ugrozeno-zup-ime {
   font-weight: 700;
   color: var(--text-strong);
   font-size: 0.85rem;
-  margin-bottom: 0.2rem;
-}
-.ugrozeno-opcina {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.3rem 0.5rem;
-  padding: 0.2rem 0 0.2rem 0.6rem;
-  border-left: 2px solid var(--border);
   margin-bottom: 0.2rem;
 }
 .ugrozeno-opc-ime {
@@ -4051,7 +3984,6 @@ body.karta-puni-zaslon-otvoren { overflow: hidden; }
   color: var(--text-secondary);
   white-space: nowrap;
 }
-.ugrozeno-naselja { display: flex; flex-wrap: wrap; gap: 0.3rem; }
 
 /* Sklopljeni ekstremi na kartici dionice. */
 .ekstremi-sklop > summary {
@@ -9906,6 +9838,70 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
   table.dio-tablica td.dl-duljina::after, table.dio-tablica td.dl-nasipi::after, table.dio-tablica td.dl-letve::after { content: " ·"; }
   table.dio-tablica .dl-poveznica::after { content: ""; position: absolute; inset: 0; border-radius: 12px; }
   table.dio-tablica tr.dl-prazno { display: block; }
+}
+
+/* Kartica dionice (goCOP-m3, 17b · Registri, 3b i 3d): lijevo sažetak i poddionice, desno
+   podaci i veze kao retci. Stupci i ploča su isti kao kod lista (.list-stupci, .list-ploca). */
+.dio-stranica .page-header { margin-bottom: 16px; }
+.dio-sazetak { margin-bottom: 16px; }
+.dio-opis { margin: 0 0 12px; font-size: 0.9375rem; line-height: 22px; }
+.dio-plocice { display: flex; flex-wrap: wrap; gap: 8px 32px; margin: 0; }
+.dio-plocice dt { font-size: 0.75rem; line-height: 16px; color: var(--md-sys-color-on-surface-variant); }
+.dio-plocice dd { margin: 0; font-size: 1rem; line-height: 24px; color: var(--md-sys-color-on-surface); }
+.dio-naslov { margin: 0 0 8px; font-size: 1rem; font-weight: 500; line-height: 24px; }
+.dio-lijevo > .detail-section:first-of-type { margin-top: 0; }
+.dio-broj { float: right; font-weight: 400; color: var(--md-sys-color-primary); }
+.dio-veze .redak { margin-inline: -16px; min-height: 56px; }
+.dio-veze .redak-glavno, .dio-veze .redak-sporedno { display: block; }
+.dio-veze a.redak, .dio-veze a.redak:hover { text-decoration: none; }
+.dio-veze a.redak .redak-glavno { color: var(--md-sys-color-on-surface); }
+.dio-veze .redak > .icon:last-child { width: 20px; height: 20px; }
+.dio-veze .oznaka-stanja { margin-left: 4px; font-size: 0.75rem; }
+.dio-jos > summary { padding-block: 8px; cursor: pointer; color: var(--md-sys-color-primary); list-style: none; }
+.dio-jos > summary::-webkit-details-marker { display: none; }
+.dio-jos[open] > summary { display: none; }
+.dio-obrana-traje { margin: 0 0 8px; padding: 12px; border-left: 4px solid var(--danger); border-radius: var(--r-kartica); background: var(--md-sys-color-surface-container-high); }
+.dio-obrana-glava { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 4px; }
+.dio-zaduzeni > summary { cursor: pointer; list-style: none; }
+.dio-zaduzeni > summary::-webkit-details-marker { display: none; }
+.dio-zaduzeni[open] > summary > .icon:last-child { transform: rotate(180deg); }
+.dio-razina { margin: 12px 0 4px; font-size: 0.8125rem; font-weight: 500; line-height: 18px; color: var(--md-sys-color-on-surface-variant); }
+.dio-osoba { padding-block: 8px; border-top: 1px solid var(--md-sys-color-outline-variant); }
+.dio-osoba-ime { font-weight: 500; }
+.dio-osoba-ime small { font-weight: 400; color: var(--md-sys-color-on-surface-variant); }
+.dio-osoba-veze { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 2px; }
+.dio-napomene { white-space: pre-wrap; }
+.dio-gumbi-dno { display: none; }
+@media (max-width: 599px) {
+  .dio-stranica .page-header .page-actions { display: none; }
+  .dio-gumbi-dno { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; }
+  .dio-gumbi-dno .btn { width: 100%; min-height: 48px; }
+}
+
+/* Poddionice na kartici dionice (crtež 3b i 3d): sklopiva ploča po poddionici, prva otvorena.
+   Nasip je redak s crtom lijevo, a objekti i naselja stoje ispod njega, kao u Privitku. */
+.dio-lijevo > .dio-poddionica { margin-bottom: 8px; padding: 0; }
+.dio-poddionica > summary { display: flex; align-items: center; gap: 16px; padding: 12px 16px; cursor: pointer; list-style: none; }
+.dio-poddionica > summary::-webkit-details-marker { display: none; }
+.dio-poddionica > summary .redak-glavno, .dio-poddionica > summary .redak-sporedno { display: block; }
+.dio-poddionica > summary > .icon { flex: none; width: 20px; height: 20px; color: var(--md-sys-color-on-surface-variant); }
+.dio-poddionica[open] > summary > .icon { transform: rotate(180deg); }
+.dio-pod-tijelo { padding: 0 16px 16px; }
+.dio-pod-tijelo > .form-help:first-child { margin-bottom: 4px; }
+.dio-oznaka { margin: 12px 0 4px; font-size: 0.75rem; line-height: 16px; color: var(--md-sys-color-on-surface-variant); }
+.dio-poddionica .nasip-popis { gap: 12px; }
+.dio-poddionica .nasip-karta { padding: 2px 0 2px 12px; border: 0; border-left: 3px solid var(--md-sys-color-outline-variant); border-radius: 0; background: none; }
+.dio-poddionica .nasip-glava { padding: 0; border: 0; background: none; }
+.dio-poddionica .nasip-ime { font-weight: 500; }
+.dio-poddionica .part-obj { display: grid; grid-template-columns: 8rem minmax(0, 1fr); gap: 8px; margin: 4px 0 0; }
+.dio-poddionica .part-obj-km { margin: 0; font-weight: 400; }
+.dio-ugrozeno { margin: 4px 0 0; }
+.dio-ugrozeno .ugrozeno-zup-ime, .dio-ugrozeno .ugrozeno-opc-ime { display: inline; margin: 0; font-size: inherit; font-weight: 500; }
+.dio-letva { margin: 0 0 4px; }
+.dio-pragovi { margin: 0 0 8px; }
+.dio-pragovi > summary { padding-block: 4px; cursor: pointer; font-size: 0.875rem; color: var(--md-sys-color-primary); }
+@media (max-width: 599px) {
+  .dio-poddionica .part-obj { grid-template-columns: 1fr; gap: 0; }
 }
 
 /* Popis vodomjernih postaja (17c, 4a): tablica i kartice kao kod dionica (.dio-tablica),
