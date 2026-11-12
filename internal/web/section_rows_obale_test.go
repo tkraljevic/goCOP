@@ -284,7 +284,7 @@ func TestObjektUzDvaNasipaNaKarticiIIzvozu(t *testing.T) {
 	if n := strings.Count(html, "HŽ.m. Osijek-Vinkovci"); n != 2 {
 		t.Errorf("most je na kartici %d puta, očekivano uz oba nasipa", n)
 	}
-	if !strings.Contains(html, ">2 objekta<") {
+	if !strings.Contains(html, "· 2 objekta<") {
 		t.Error("zaglavlje ne broji objekte poddionice")
 	}
 

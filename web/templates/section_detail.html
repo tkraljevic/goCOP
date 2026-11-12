@@ -3,262 +3,256 @@
 {{define "title"}}goCOP — Dionica {{.Section.Code}}{{end}}
 
 {{define "content"}}
-<div class="breadcrumb">
-  <a href="/sections">Dionice</a>
-  {{if .Section.AreaID}} › <a href="/sections?sector={{.Section.SectorID}}&area={{.Section.AreaID}}">BP {{.Section.AreaID}}</a>{{end}}
-  › {{.Section.Code}}
-</div>
-
-<div class="detail-head">
+{{/* Kartica dionice (goCOP-m3, 17b · Registri, 3b i 3d): glava s vodama u podnaslovu,
+     lijevo sažetak i poddionice, desno podaci, letve, nasipi, obrana i zaduženi.
+     Karta dionice dolazi kasnije, na vrh lijevog stupca. Ispod oko 1280 px sve je u jednom stupcu. */}}
+<div class="list-stranica list-stranica-ploca dio-stranica">
+<a href="/sections" class="povratna-poveznica">← Dionice</a>
+<div class="page-header list-glava">
   <div>
-    <h1 class="page-title" data-naziv-stranice="Dionica {{.Section.Code}}"><span class="section-code-badge" style="font-size:1.05rem; vertical-align:middle;">{{.Section.Code}}</span></h1>
-    <p class="page-desc">
-      {{if .Section.SectorName}}{{.Section.SectorName}}{{else}}{{term "sektor"}} {{.Section.SectorID}}{{end}}
-      {{if .Section.AreaName}} · BP {{.Section.AreaID}}: {{.Section.AreaName}}{{end}}
-    </p>
+    <h1 class="page-title" data-naziv-stranice="Dionica {{.Section.Code}}">{{.Section.Code}}</h1>
+    <p class="page-desc">Dionica · {{term "sektor"}} {{.Section.SectorID}}{{if .Section.AreaID}} · {{.Kartica.Podrucje}}{{end}}{{with .Kartica.Vode}} · {{.}}{{end}}</p>
   </div>
-  <div class="detail-actions">
-    {{if .CanEdit}}<a href="/sections/{{.Section.Code}}/edit" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>{{end}}
-    <a href="/sections/{{.Section.Code}}/dionica.xlsx" class="btn btn-secondary" title="Kartica dionice za ispis, A4">{{icon "download"}} Excel</a>
+  <div class="page-actions">
+    <a href="/sections/{{.Section.Code}}/dionica.xlsx" class="btn btn-link" title="Kartica dionice za ispis, A4">Excel</a>
+    {{if .CanEdit}}<a href="/sections/{{.Section.Code}}/edit" class="btn btn-primary">Uredi</a>{{end}}
   </div>
 </div>
 
-
+<div class="stupci-stranice list-stupci">
+<div class="dio-lijevo">
 {{/* Sažetak stoji samo ondje gdje doista sažima. Kod jedne poddionice opis je
-     doslovan prijepis onoga što piše dva retka niže, a sve brojke stoje kao
-     značke uz same stavke — tada samo odgađa prvi pravi podatak za jedan ekran. */}}
+     doslovan prijepis onoga što piše niže, a sve brojke stoje uz same stavke. */}}
 {{if .Sazetak.Ima}}
-<div class="reg-card p-4">
-  {{if .Sazetak.Opis}}<p style="margin:0 0 0.5rem; font-size:0.95rem; font-weight:500;">{{.Section.EffectiveDescription}}</p>{{end}}
-  <dl class="reg-facts">
-    {{if .Sazetak.Duljina}}<div><dt>Ukupna duljina</dt><dd>{{km .Section.Length}} km</dd></div>{{end}}
-    {{if .Sazetak.NasipiDuljina}}<div><dt>Ukupno nasipa</dt><dd>{{km .Section.EmbankmentLength}} km</dd></div>{{end}}
-    {{if .Sazetak.Poddionica}}<div><dt>Poddionica</dt><dd>{{len .Parts}}</dd></div>{{end}}
-    {{if .Sazetak.Vodomjera}}<div><dt>Vodomjera</dt><dd>{{.Section.GaugeCount}}</dd></div>{{end}}
-    {{if .Sazetak.Objekata}}<div><dt>Objekata</dt><dd>{{.Section.ObjectCount}}</dd></div>{{end}}
-    {{if .Sazetak.NasipaIBrana}}<div><dt>Nasipa i brana</dt><dd>{{.Section.EmbankmentCount}}</dd></div>{{end}}
+<section class="list-kartica dio-sazetak">
+  {{if .Sazetak.Opis}}<p class="dio-opis">{{.Section.EffectiveDescription}}</p>{{end}}
+  {{if or .Sazetak.Duljina .Sazetak.NasipiDuljina .Sazetak.NasipaIBrana .Sazetak.Poddionica .Sazetak.Objekata}}
+  <dl class="dio-plocice">
+    {{if .Sazetak.Duljina}}<div><dt>Duljina dionice</dt><dd>{{km .Section.Length}} km</dd></div>{{end}}
+    {{if or .Sazetak.NasipiDuljina .Sazetak.NasipaIBrana}}<div><dt>Nasipi</dt><dd>{{if .Sazetak.NasipiDuljina}}{{km .Section.EmbankmentLength}} km{{end}}{{if and .Sazetak.NasipiDuljina .Sazetak.NasipaIBrana}}, {{end}}{{if .Sazetak.NasipaIBrana}}{{.Section.EmbankmentCount}} {{uzBroj .Section.EmbankmentCount "nasip" "nasipa" "nasipa"}}{{end}}</dd></div>{{end}}
+    {{if .Sazetak.Poddionica}}<div><dt>Poddionice</dt><dd>{{len .Parts}}</dd></div>{{end}}
+    {{if .Sazetak.Objekata}}<div><dt>Objekti</dt><dd>{{.Section.ObjectCount}}</dd></div>{{end}}
   </dl>
-</div>
+  {{end}}
+</section>
 {{end}}
 
+<h2 class="dio-naslov">Poddionice ({{len .Parts}})</h2>
+{{/* Poddionice jedna po jedna (crtež 3b i 3d): prva je otvorena, ostale su redak sa sažetkom.
+     Objekti i naselja ostaju uz svoj nasip, kao u Privitku (Odluke (10. 11. 2026.), 5); letva je
+     jedan redak, a pragovi i kota nule sklopljeni su ispod nje (Odluke (10. 11. 2026.), 6). */}}
 {{range $pi, $p := .Parts}}
-<section class="detail-section part">
-  <div class="part-head">
-    <span class="part-ordinal">{{$p.Seq}}</span>
-    <div style="min-width:0;">
-      <div class="part-desc">
-        {{if $p.WatercourseCode}}<a href="/watercourses/{{$p.WatercourseCode}}" class="c-primary">{{icon "droplet"}} {{if $p.WatercourseName}}{{$p.WatercourseName}}{{else}}{{$p.WatercourseCode}}{{end}}</a>{{else}}{{icon "droplet"}} <span class="reg-chip empty">voda nije vezana</span>{{end}}
-        {{if $p.Bank}} · {{bankLabel $p.Bank}}{{end}}
-        {{with $p.RangeLabel}} · <span class="mono">{{.}}</span>{{end}}
-        {{if gt $p.Length 0.0}} · {{km $p.Length}} km{{end}}
-      </div>
-      {{if $p.Extent}}<div class="reading-meta">{{$p.Extent}}</div>{{end}}
-    </div>
-  </div>
+<details class="list-kartica dio-poddionica"{{if eq $pi 0}} open{{end}}>
+  <summary class="dio-pod-glava">
+    <span class="redak-tekst">
+      <span class="redak-glavno">{{$p.Seq}} · {{if $p.WatercourseName}}{{$p.WatercourseName}}{{else if $p.WatercourseCode}}{{$p.WatercourseCode}}{{else}}voda nije vezana{{end}}{{if $p.Bank}} · {{bankLabel $p.Bank}}{{end}}</span>
+      {{with $p.SazetakRetka}}<span class="redak-sporedno">{{.}}</span>{{end}}
+    </span>
+    {{icon "chevron-down"}}
+  </summary>
+  <div class="dio-pod-tijelo">
+  {{if $p.WatercourseCode}}<p class="form-help"><a href="/watercourses/{{$p.WatercourseCode}}">{{icon "droplet"}} {{if $p.WatercourseName}}{{$p.WatercourseName}}{{else}}{{$p.WatercourseCode}}{{end}}</a> u registru voda</p>{{end}}
   {{if $p.Unaligned}}<div class="alert alert-warning mt-2 mb-2">{{icon "triangle-alert"}} Stupci izvorne tablice ovdje se nisu poravnali pri prijepisu; provjeriti prema Privitku.</div>{{end}}
 
   {{if or $p.Territories (not $p.Rows)}}
-  <div class="part-block">
-    <div class="part-label">{{icon "house"}} Ugroženo područje{{if .Rows}} <small style="font-weight:400; text-transform:none; letter-spacing:0;">— bez nasipa</small>{{end}}</div>
-    <div style="display:flex; flex-wrap:wrap; gap:0.375rem; align-items:center;">
-      {{range $p.Territories}}
-      <span class="reg-chip">{{if .SettlementName}}{{.SettlementName}} <small class="fw-500 c-muted">({{.MunicipalityName}})</small>{{else}}{{muniType .MunicipalityType}} {{.MunicipalityName}}{{end}}</span>
-      {{else}}
-      {{if $p.ProtectedText}}<span class="reading-meta">{{renderMarkdown $p.ProtectedText}}</span>{{else}}<span class="page-desc">Nije određeno.</span>{{end}}
-      {{end}}
-    </div>
-  </div>
-  {{end}}
-
-  <div class="part-block">
-    <div class="part-label">{{icon "chart-column"}} Mjerodavni vodomjeri <span class="reg-chip">{{len $p.Stations}}</span></div>
-    {{/* Letva se pokazuje jednom: zaglavlje bloka nosi ime, stacionažu i
-         poveznicu, a ispod stoje pragovi, kota nule i ekstremi povučeni s nje.
-         Prije je iznad toga stajao još i redak s istim imenom. */}}
-    {{range $p.LetveBlokovi}}
-    {{if .Ponovljena}}
-    <div class="gauge-row"><span class="gauge-name"><a href="/stations/{{.Station.ID}}">{{.Station.Name}}</a></span>
-      <span class="reading-meta">ista letva kao gore</span></div>
-    {{else}}
-    <div class="letva-blokovi">
-      <div class="letva-blokovi-glava">{{icon "chart-column"}} <a href="/stations/{{.Station.ID}}">{{.Station.Name}}</a>
-        <span class="reg-card-sub">{{if .Station.Stationing}}{{.Station.Stationing}}{{end}}</span>
-        {{if .Station.NeedsReview}}<span class="badge badge-inactive" title="{{.Station.ReviewNote}}">{{icon "triangle-alert"}}</span>{{end}}</div>
-      {{template "letva-pragovi" .}}
-      {{template "letva-kota-nule" .}}
-      {{template "letva-ekstremi" .}}
-    </div>
-    {{end}}
-    {{end}}
-    {{if and (not $p.Stations) (not $p.Criteria)}}
-    <div class="reg-empty">Bez mjerodavnog vodomjera iz registra.</div>
-    {{end}}
-    {{range $p.Criteria}}
-    <div class="part-gauge">{{icon "ruler"}} <strong>{{.StationName}}</strong>
-      {{if or .PrepCm .RegularCm .EmergCm .CriticalCm}}<span class="reading-meta">{{if .PrepCm}}P {{.PrepCm}}{{end}}{{if .RegularCm}} · R {{.RegularCm}}{{end}}{{if .EmergCm}} · I {{.EmergCm}}{{end}}{{if .CriticalCm}} · IS {{.CriticalCm}}{{end}}{{if .RecordCm}} · M {{.RecordCm}}{{end}}</span>{{end}}
-      {{if .Notes}}<span class="reading-meta"> · {{.Notes}}</span>{{end}}
-    </div>
-    {{end}}
-  </div>
-
-  <div class="part-block">
-    <div class="part-label">{{icon "shield"}} Nasipi i objekti
-      <span class="reg-chip">{{len $p.Embankments}} {{uzBroj (len $p.Embankments) "nasip" "nasipa" "nasipa"}}</span>
-      <span class="reg-chip">{{len $p.Objects}} {{uzBroj (len $p.Objects) "objekt" "objekta" "objekata"}}</span>
-    </div>
-    {{if $p.Rows}}
-    {{/* Redak je jedan nasip sa svime što se uz njega brani — tako stoji i u
-         Privitku. Nekad je to bila tablica s tri stupca, ali oni nisu ni blizu
-         jednako dugi: jedno ime nasipa naspram osam objekata i dvanaest
-         naselja, pa je prvi stupac ostajao prazan kroz cijelu visinu retka. */}}
-    <div class="nasip-popis">
-      {{range $p.Rows}}
-      <article class="nasip-karta">
-        <header class="nasip-glava">
-          <div class="nasip-ime">
-            {{with .Embankment}}
-            {{if .StructureID}}<a href="/structures/{{.StructureID}}">{{.Name}}</a>{{else}}{{.Name}}{{end}}
-            {{if eq .StructureKind "BRANA"}}<span class="reg-chip">brana</span>{{end}}
-            {{else}}<span class="reading-meta">Bez nasipa</span>{{end}}
-          </div>
-          {{with .Embankment}}
-          <div class="nasip-mjere">
-            {{range .RangeDijelovi}}<span class="mono os os-{{osStacionaze .}}">{{.}}</span>{{end}}
-            {{if .LengthKm}}<span class="nasip-duljina">{{brojHRd .LengthKm 3}} km</span>{{end}}
-          </div>
-          {{end}}
-        </header>
-
-        <div class="nasip-tijelo">
-          <div class="nasip-stupac">
-            <div class="part-label">Objekti <span class="reg-chip">{{len .Objects}}</span></div>
-            {{range .Objects}}
-            <div class="part-obj"><span class="mono part-obj-km os os-{{osStacionaze .StationingLabel}}">{{.StationingLabel}}</span><span class="part-obj-ime">{{if .StructureID}}<a href="/structures/{{.StructureID}}">{{if .StructureName}}{{.StructureName}}{{else}}{{.Name}}{{end}}</a>{{if and .Name .StructureName (ne .Name .StructureName)}} <span class="reading-meta">{{.Name}}</span>{{end}}{{else if .WatercourseCode}}<a href="/watercourses/{{.WatercourseCode}}" title="{{.WatercourseName}}">{{.Name}}</a>{{else}}{{.Name}}{{end}}{{if and .Bank (ne .Bank $p.Bank)}} <span class="reading-meta">({{bankLabel .Bank}})</span>{{end}}</span></div>
-            {{else}}
-            <div class="reading-meta">Nema ih.</div>
-            {{end}}
-          </div>
-
-          <div class="nasip-stupac">
-            <div class="part-label">Ugroženo područje <span class="reg-chip">{{len .Territories}}</span></div>
-            {{if .Territories}}
-            {{/* Županija, pa općina, pa naselja — kako stoji u Privitku. Ravan
-                 popis gubi ono što je ondje nosivo: Kneževi Vinogradi su
-                 općina, Zmajevac naselje u njoj, a kao dvije značke izgledaju
-                 jednakovrijedno. */}}
-            {{range .UgrozenoPoZupanijama}}
-            <div class="ugrozeno-zupanija">
-              <div class="ugrozeno-zup-ime">{{.Naziv}}</div>
-              {{range .Opcine}}
-              <div class="ugrozeno-opcina">
-                <span class="ugrozeno-opc-ime">{{muniType .Tip}} {{.Naziv}}</span>
-                <span class="ugrozeno-naselja">
-                  {{range .Naselja}}{{if .CijelaOpcina}}<span class="reading-meta">cijela jedinica</span>{{else}}<span class="reg-chip">{{.Naziv}}</span>{{end}}{{end}}
-                </span>
-              </div>
-              {{end}}
-            </div>
-            {{end}}
-            {{else}}
-            <div class="reading-meta">Nije određeno.</div>
-            {{end}}
-          </div>
-        </div>
-      </article>
-      {{end}}
-    </div>
-    {{else}}
-    <div class="reg-empty">Dokumentacija ne navodi nasipe ni objekte.</div>
-    {{end}}
-  </div>
-</section>
-{{end}}
-
-<section class="detail-section" id="obrana">
-  <h2>{{icon "activity"}} Obrana od poplava{{if .Episodes}} <span class="reg-chip">{{len .Episodes}}</span>{{end}}</h2>
-
-  {{if .StanjeObrane.Traje}}
-  {{$vrh := .StanjeObrane.Vrh}}
-  <div class="table-card" style="padding:1rem 1.25rem; margin-bottom:1rem; border-left:4px solid var(--danger);">
-    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:0.75rem 1.25rem;">
-      <span class="threshold-pill {{$vrh.Stupanj.PillClass}}">{{$vrh.Stupanj.Label}}</span>
-      <span>na snazi od <strong>{{formatDate (localTime $vrh.Od)}}</strong></span>
-      {{if .Sees "dnevnici"}}<a href="/akti/{{$vrh.AktID}}" class="reg-card-sub c-primary">akt o uspostavi</a>{{end}}
-    </div>
-    {{with .StanjeObrane.Pozadina}}
-    <p class="page-desc mt-2 mb-0">U pozadini vrijedi{{range $i, $x := .}}{{if $i}};{{end}} {{$x.Stupanj.Label}} od {{formatDate (localTime $x.Od)}}{{end}} — kad se viši stadij ukine, vrijedi sljedeći niži.</p>
-    {{end}}
-    {{with .OpenEpisode}}
-    {{if .DeclaredBeforeThreshold}}
-    <p class="page-desc mt-2 mb-0">Obrana je proglašena {{.LeadHours}} {{uzBroj .LeadHours "sat" "sata" "sati"}} prije nego što je vodostaj prešao prag.</p>
-    {{else if not .ThresholdAt}}
-    <p class="page-desc mt-2 mb-0">Vodostaj još nije prešao prag pripremnog stanja.</p>
-    {{end}}
-    {{end}}
-  </div>
-  {{else if and .OpenEpisode (not .StanjeObrane.IzAkata)}}
-  <div class="table-card" style="padding:1rem 1.25rem; margin-bottom:1rem; border-left:4px solid var(--danger);">
-    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:0.75rem 1.25rem;">
-      <span class="threshold-pill {{if eq .OpenEpisode.Phase "IZVANREDNO_STANJE"}}crit{{else if eq .OpenEpisode.Phase "IZVANREDNA"}}emerg{{else if eq .OpenEpisode.Phase "REDOVNA"}}regular{{else}}prep{{end}}">{{.OpenEpisode.Phase.Label}}</span>
-      <span>na snazi od <strong>{{formatDate (localTime .OpenEpisode.StartedAt)}}</strong>, {{.OpenEpisode.Days}}. dan</span>
-      {{if .OpenEpisode.Basis}}<span class="reg-card-sub">osnova: {{.OpenEpisode.BasisLabel}}</span>{{end}}
-      {{if .OpenEpisode.DeclaredByName}}<span class="reg-card-sub">proglasio: {{.OpenEpisode.DeclaredByName}}</span>{{end}}
-    </div>
-    {{if .OpenEpisode.DeclaredBeforeThreshold}}
-    <p class="page-desc mt-2 mb-0">Obrana je proglašena {{.OpenEpisode.LeadHours}} {{uzBroj .OpenEpisode.LeadHours "sat" "sata" "sati"}} prije nego što je vodostaj prešao prag.</p>
-    {{else if not .OpenEpisode.ThresholdAt}}
-    <p class="page-desc mt-2 mb-0">Vodostaj još nije prešao prag pripremnog stanja.</p>
-    {{end}}
-    {{if .OpenEpisode.Note}}<p class="page-desc mt-2 mb-0">{{.OpenEpisode.Note}}</p>{{end}}
-  </div>
-  {{end}}
-
-  {{range .NajavljeniAkti}}
-  <p class="page-desc mt-2">{{if $.Sees "dnevnici"}}<a href="/akti/{{.ID}}" class="c-primary fw-600">{{.Naslov}} {{.Oznaka}}</a>{{else}}{{.Naslov}} {{.Oznaka}}{{end}} stupa na snagu <strong>{{formatDate (localTime .Vrijedi)}}</strong>.</p>
-  {{end}}
-
-  {{if .Gauge}}
-  <p class="page-desc mt-2">
-    Obrana se proglašava i prekida uz letvu <a href="/stations/{{.Gauge.ID}}/historijat#obrane" class="c-primary fw-600">{{.Gauge.Name}}</a>, ondje gdje se vodostaj i čita; ondje se vodi i povijest, zajedno s ostalim dionicama koje se po toj letvi vode{{if .Episodes}} — na ovoj ih je dionici zabilježeno {{len .Episodes}}{{end}}.
+  <div class="dio-oznaka">Ugroženo područje{{if .Rows}} bez nasipa{{end}}</div>
+  <p class="dio-ugrozeno">
+    {{range $i, $t := $p.Territories}}{{if $i}} · {{end}}{{if $t.SettlementName}}{{$t.SettlementName}} ({{$t.MunicipalityName}}){{else}}{{muniType $t.MunicipalityType}} {{$t.MunicipalityName}}{{end}}{{else}}{{if $p.ProtectedText}}{{renderMarkdown $p.ProtectedText}}{{else}}Nije određeno.{{end}}{{end}}
   </p>
-  {{else if .Episodes}}
-  <p class="page-desc mt-2">Zabilježenih obrana: {{len .Episodes}}. Obrana se proglašava uz mjerodavnu letvu, a dionica je nema upisanu.</p>
-  {{else}}
-  <p class="page-desc mt-2">Obrana se proglašava uz mjerodavnu letvu, ondje gdje se vodostaj i čita. Ova dionica nema upisanu letvu.</p>
   {{end}}
-</section>
 
-<section class="detail-section">
-  <h2>{{icon "users"}} Zaduženi djelatnici <span class="reg-chip">{{len .Section.Personnel}}</span></h2>
-  {{range .Section.PersonnelByLevel}}
-  <h3 class="part-label" style="margin:1rem 0 0.35rem 0;">{{.Label}} <span class="reg-chip">{{len .Members}}</span></h3>
-  <div class="reg-list">
-    {{range .Members}}
-    <article class="reg-card" style="padding:0.875rem 1rem; gap:0.35rem;">
-      <div class="reg-card-head">
-        <div>
-          <div class="reg-card-title" style="font-size:0.95rem;">{{.FullName}}{{if .Title}} <small class="fw-normal c-muted">{{.Title}}</small>{{end}}</div>
-          <div class="reg-card-sub">{{.DutyTitle}}{{if .OrgName}} · {{.OrgName}}{{end}}</div>
+  {{if $p.Rows}}
+  <div class="dio-oznaka">Nasipi ({{len $p.Embankments}}){{if $p.Objects}} i objekti ({{len $p.Objects}}){{end}}</div>
+  {{/* Redak je jedan nasip sa svime što se uz njega brani, kao u Privitku. */}}
+  <div class="nasip-popis">
+    {{range $p.Rows}}
+    <article class="nasip-karta">
+      <header class="nasip-glava">
+        <div class="nasip-ime">
+          {{with .Embankment}}
+          {{if .StructureID}}<a href="/structures/{{.StructureID}}">{{.Name}}</a>{{else}}{{.Name}}{{end}}
+          {{if eq .StructureKind "BRANA"}}<span class="oznaka-stanja">brana</span>{{end}}
+          {{else}}Bez nasipa{{end}}
         </div>
-        <span class="badge badge-area-admin">{{.RoleLabel}}</span>
-      </div>
-      <div style="display:flex; flex-wrap:wrap; gap:0.75rem; font-size:0.85rem;">
-        {{if .MobilePhone}}<a href="tel:{{.MobilePhone}}" style="color:var(--primary); font-weight:600; text-decoration:none;">{{icon "smartphone"}} {{.MobilePhone}}</a>{{end}}
-        {{if .Phone}}<a href="tel:{{.Phone}}" style="color:var(--text); text-decoration:none;">{{icon "phone"}} {{.Phone}}</a>{{end}}
-        {{if .Email}}<a href="mailto:{{.Email}}" style="color:var(--text-muted); text-decoration:none;">{{icon "mail"}} {{.Email}}</a>{{end}}
-      </div>
+        {{with .Embankment}}
+        <div class="nasip-mjere">
+          {{range .RangeDijelovi}}<span class="mono os os-{{osStacionaze .}}">{{.}}</span>{{end}}
+          {{if .LengthKm}}<span class="nasip-duljina">{{brojHRd .LengthKm 3}} km</span>{{end}}
+        </div>
+        {{end}}
+      </header>
+      {{range .Objects}}
+      <div class="part-obj"><span class="mono part-obj-km os os-{{osStacionaze .StationingLabel}}">{{.StationingLabel}}</span><span class="part-obj-ime">{{if .StructureID}}<a href="/structures/{{.StructureID}}">{{if .StructureName}}{{.StructureName}}{{else}}{{.Name}}{{end}}</a>{{if and .Name .StructureName (ne .Name .StructureName)}} <span class="reading-meta">{{.Name}}</span>{{end}}{{else if .WatercourseCode}}<a href="/watercourses/{{.WatercourseCode}}" title="{{.WatercourseName}}">{{.Name}}</a>{{else}}{{.Name}}{{end}}{{if and .Bank (ne .Bank $p.Bank)}} <span class="reading-meta">({{bankLabel .Bank}})</span>{{end}}</span></div>
+      {{end}}
+      {{/* Županija, pa općina, pa naselja, kako stoji u Privitku: Kneževi Vinogradi su
+           općina, a Zmajevac naselje u njoj. */}}
+      <p class="dio-ugrozeno">{{if .Territories}}{{range $i, $z := .UgrozenoPoZupanijama}}{{if $i}}; {{end}}<span class="ugrozeno-zup-ime">{{$z.Naziv}}</span>{{range $z.Opcine}} · <span class="ugrozeno-opc-ime">{{.Naziv}}</span>{{if .Naselja}}:{{range $j, $n := .Naselja}}{{if $j}},{{end}} {{if $n.CijelaOpcina}}cijela jedinica{{else}}{{$n.Naziv}}{{end}}{{end}}{{end}}{{end}}{{end}}{{else}}Ugroženo područje nije određeno.{{end}}</p>
     </article>
     {{end}}
   </div>
   {{else}}
-  <div class="reg-empty">Nitko nije zadužen za ovu dionicu.</div>
+  <p class="form-help">Dokumentacija ne navodi nasipe ni objekte.</p>
+  {{end}}
+
+  <div class="dio-oznaka">Mjerodavna letva</div>
+  {{range $p.LetveBlokovi}}
+  {{if .Ponovljena}}
+  <p class="dio-letva"><a href="/stations/{{.Station.ID}}">{{.Station.Name}}</a> <span class="form-help">ista letva kao gore</span></p>
+  {{else}}
+  <p class="dio-letva"><a href="/stations/{{.Station.ID}}">{{.Station.Name}}</a>{{with .Redak}} · {{.}}{{end}}
+    {{if .Station.NeedsReview}} <span class="oznaka-stanja" title="{{.Station.ReviewNote}}">za provjeru</span>{{end}}</p>
+  <details class="dio-pragovi letva-blokovi">
+    <summary>Pragovi i kota nule</summary>
+    {{template "letva-pragovi" .}}
+    {{template "letva-kota-nule" .}}
+    {{template "letva-ekstremi" .}}
+  </details>
+  {{end}}
+  {{end}}
+  {{range $p.Criteria}}
+  <p class="dio-letva">{{.StationName}}{{if or .PrepCm .RegularCm .EmergCm .CriticalCm}} · {{if .PrepCm}}P {{.PrepCm}}{{end}}{{if .RegularCm}} · R {{.RegularCm}}{{end}}{{if .EmergCm}} · I {{.EmergCm}}{{end}}{{if .CriticalCm}} · IS {{.CriticalCm}}{{end}}{{if .RecordCm}} · M {{.RecordCm}}{{end}}{{end}}{{with .Notes}} · {{.}}{{end}}
+    <span class="form-help">iz dokumentacije</span></p>
+  {{end}}
+  {{if and (not $p.Stations) (not $p.Criteria)}}<p class="form-help">Bez mjerodavnog vodomjera iz registra.</p>{{end}}
+  </div>
+</details>
+{{end}}
+{{if not .Parts}}<p class="reg-empty">Dionica nema upisanu nijednu poddionicu.</p>{{end}}
+</div>
+
+<aside class="ploca-stranice list-ploca dio-ploca" aria-label="Podaci o dionici">
+<section class="list-kartica">
+  <h2>Podaci</h2>
+  <dl class="vodocuvar-dl">
+    <dt>Šifra</dt><dd>{{.Section.Code}}</dd>
+    <dt>{{term "sektor"}}</dt><dd>{{.Kartica.Sektor}}</dd>
+    <dt>Branjeno područje</dt><dd>{{.Kartica.Podrucje}}</dd>
+    {{if gt .Section.Length 0.0}}<dt>Duljina dionice</dt><dd>{{km .Section.Length}} km{{if not .Section.LengthKm}}, zbroj poddionica{{end}}</dd>{{end}}
+    {{if gt .Section.EmbankmentLength 0.0}}<dt>Nasipi</dt><dd>{{km .Section.EmbankmentLength}} km{{if not .Section.EmbankmentKm}}, zbroj nasipa{{end}}</dd>{{end}}
+    {{with .Kartica.Ugrozeno}}<dt>Ugroženo područje</dt><dd>{{.}}</dd>{{end}}
+    {{with .Kartica.Izmijenjeno}}<dt>Zapis</dt><dd>izmijenjen {{.}}</dd>{{end}}
+  </dl>
+</section>
+
+<section class="list-kartica dio-veze">
+  <h2>Mjerodavne letve <span class="dio-broj">{{len .Kartica.Letve}}</span></h2>
+  {{range .Kartica.Letve}}
+  <a class="redak" href="/stations/{{.Station.ID}}">{{icon "ruler"}}
+    <span class="redak-tekst"><span class="redak-glavno">{{.Station.Name}}{{if .Station.NeedsReview}} <span class="oznaka-stanja" title="{{.Station.ReviewNote}}">za provjeru</span>{{end}}</span>
+    {{with .Opis}}<span class="redak-sporedno">{{.}}</span>{{end}}</span>{{icon "chevron-right"}}</a>
+  {{else}}
+  <p class="form-help mb-0">Dionica nema upisanu letvu iz registra.</p>
+  {{end}}
+</section>
+
+<section class="list-kartica dio-veze">
+  <h2>Nasipi <span class="dio-broj">{{len .Kartica.Nasipi}}</span></h2>
+  {{range .Kartica.NasipiPrvi}}{{template "dionica-nasip" .}}{{end}}
+  {{with .Kartica.NasipiOstali}}
+  <details class="dio-jos"><summary>i još {{len .}}</summary>
+    {{range .}}{{template "dionica-nasip" .}}{{end}}
+  </details>
+  {{end}}
+  {{if not .Kartica.Nasipi}}<p class="form-help mb-0">Dokumentacija ne navodi nasipe.</p>{{end}}
+</section>
+
+<section class="list-kartica dio-veze" id="obrana">
+  <h2>Obrana od poplava{{if .Episodes}} <span class="dio-broj">{{len .Episodes}}</span>{{end}}</h2>
+  {{if .Gauge}}
+  <p class="form-help">Obrana se proglašava i prekida uz letvu <a href="/stations/{{.Gauge.ID}}/historijat#obrane">{{.Gauge.Name}}</a>, ondje gdje se vodostaj i čita; ondje se vodi i povijest, zajedno s ostalim dionicama koje se po toj letvi vode{{if .Episodes}} — na ovoj ih je dionici zabilježeno {{len .Episodes}}{{end}}.</p>
+  {{else if .Episodes}}
+  <p class="form-help">Zabilježenih obrana: {{len .Episodes}}. Obrana se proglašava uz mjerodavnu letvu, a dionica je nema upisanu.</p>
+  {{else}}
+  <p class="form-help">Obrana se proglašava uz mjerodavnu letvu, ondje gdje se vodostaj i čita. Ova dionica nema upisanu letvu.</p>
+  {{end}}
+
+  {{if .StanjeObrane.Traje}}
+  {{$vrh := .StanjeObrane.Vrh}}
+  <div class="dio-obrana-traje">
+    <div class="dio-obrana-glava">
+      <span class="threshold-pill {{$vrh.Stupanj.PillClass}}">{{$vrh.Stupanj.Label}}</span>
+      <span>na snazi od <strong>{{formatDate (localTime $vrh.Od)}}</strong></span>
+      {{if .Sees "dnevnici"}}<a href="/akti/{{$vrh.AktID}}">akt o uspostavi</a>{{end}}
+    </div>
+    {{with .StanjeObrane.Pozadina}}
+    <p class="form-help mb-0">U pozadini vrijedi{{range $i, $x := .}}{{if $i}};{{end}} {{$x.Stupanj.Label}} od {{formatDate (localTime $x.Od)}}{{end}} — kad se viši stadij ukine, vrijedi sljedeći niži.</p>
+    {{end}}
+    {{with .OpenEpisode}}
+    {{if .DeclaredBeforeThreshold}}
+    <p class="form-help mb-0">Obrana je proglašena {{.LeadHours}} {{uzBroj .LeadHours "sat" "sata" "sati"}} prije nego što je vodostaj prešao prag.</p>
+    {{else if not .ThresholdAt}}
+    <p class="form-help mb-0">Vodostaj još nije prešao prag pripremnog stanja.</p>
+    {{end}}
+    {{end}}
+  </div>
+  {{else if and .OpenEpisode (not .StanjeObrane.IzAkata)}}
+  <div class="dio-obrana-traje">
+    <div class="dio-obrana-glava">
+      <span class="threshold-pill {{if eq .OpenEpisode.Phase "IZVANREDNO_STANJE"}}crit{{else if eq .OpenEpisode.Phase "IZVANREDNA"}}emerg{{else if eq .OpenEpisode.Phase "REDOVNA"}}regular{{else}}prep{{end}}">{{.OpenEpisode.Phase.Label}}</span>
+      <span>na snazi od <strong>{{formatDate (localTime .OpenEpisode.StartedAt)}}</strong>, {{.OpenEpisode.Days}}. dan</span>
+    </div>
+    {{if .OpenEpisode.Basis}}<p class="form-help mb-0">osnova: {{.OpenEpisode.BasisLabel}}</p>{{end}}
+    {{if .OpenEpisode.DeclaredByName}}<p class="form-help mb-0">proglasio: {{.OpenEpisode.DeclaredByName}}</p>{{end}}
+    {{if .OpenEpisode.DeclaredBeforeThreshold}}
+    <p class="form-help mb-0">Obrana je proglašena {{.OpenEpisode.LeadHours}} {{uzBroj .OpenEpisode.LeadHours "sat" "sata" "sati"}} prije nego što je vodostaj prešao prag.</p>
+    {{else if not .OpenEpisode.ThresholdAt}}
+    <p class="form-help mb-0">Vodostaj još nije prešao prag pripremnog stanja.</p>
+    {{end}}
+    {{if .OpenEpisode.Note}}<p class="form-help mb-0">{{.OpenEpisode.Note}}</p>{{end}}
+  </div>
+  {{else}}
+  <div class="redak">{{icon "shield"}}<span class="redak-tekst"><span class="redak-glavno">Stanje obrane</span><span class="redak-sporedno">Nema proglašene obrane na dionici</span></span></div>
+  {{end}}
+
+  {{range .NajavljeniAkti}}
+  <p class="form-help">{{if $.Sees "dnevnici"}}<a href="/akti/{{.ID}}">{{.Naslov}} {{.Oznaka}}</a>{{else}}{{.Naslov}} {{.Oznaka}}{{end}} stupa na snagu <strong>{{formatDate (localTime .Vrijedi)}}</strong>.</p>
+  {{end}}
+
+  {{/* Zaduženi su jedan redak; popis po razinama otvara se ispod njega (Odluke (10. 11. 2026.), 7). */}}
+  {{$z := len .Section.Personnel}}
+  {{if $z}}
+  {{$r := len .Section.PersonnelByLevel}}
+  <details class="dio-zaduzeni">
+    <summary class="redak">{{icon "users"}}<span class="redak-tekst"><span class="redak-glavno">Zaduženi djelatnici</span><span class="redak-sporedno">{{$z}} {{uzBroj $z "osoba" "osobe" "osoba"}} na {{$r}} {{uzBroj $r "razini" "razine" "razina"}}</span></span>{{icon "chevron-down"}}</summary>
+    {{range .Section.PersonnelByLevel}}
+    <h3 class="dio-razina">{{.Label}} <span class="dio-broj">{{len .Members}}</span></h3>
+    {{range .Members}}
+    <div class="dio-osoba">
+      <div class="dio-osoba-ime">{{.FullName}}{{if .Title}} <small>{{.Title}}</small>{{end}} <span class="badge badge-area-admin">{{.RoleLabel}}</span></div>
+      <div class="form-help mb-0">{{.DutyTitle}}{{if .OrgName}} · {{.OrgName}}{{end}}</div>
+      <div class="dio-osoba-veze">
+        {{if .MobilePhone}}<a href="tel:{{.MobilePhone}}">{{icon "smartphone"}} {{.MobilePhone}}</a>{{end}}
+        {{if .Phone}}<a href="tel:{{.Phone}}">{{icon "phone"}} {{.Phone}}</a>{{end}}
+        {{if .Email}}<a href="mailto:{{.Email}}">{{icon "mail"}} {{.Email}}</a>{{end}}
+      </div>
+    </div>
+    {{end}}
+    {{end}}
+  </details>
+  {{else}}
+  <div class="redak">{{icon "users"}}<span class="redak-tekst"><span class="redak-glavno">Zaduženi djelatnici</span><span class="redak-sporedno">Nitko nije zadužen za ovu dionicu.</span></span></div>
   {{end}}
 </section>
 
 {{if .Section.Notes}}
-<section class="detail-section">
-  <h2>{{icon "notebook-pen"}} Operativne napomene</h2>
-  <div class="reg-card" style="padding:1rem; font-size:0.9rem; white-space:pre-wrap;">{{.Section.Notes}}</div>
+<section class="list-kartica">
+  <h2>Operativne napomene</h2>
+  <p class="dio-napomene mb-0">{{.Section.Notes}}</p>
 </section>
 {{end}}
+</aside>
+</div>
+{{/* Na mobitelu glava nema gumbe (crtež 3b); stoje na dnu kartice. */}}
+<div class="dio-gumbi-dno">
+  <a href="/sections/{{.Section.Code}}/dionica.xlsx" class="btn btn-secondary">Excel</a>
+  {{if .CanEdit}}<a href="/sections/{{.Section.Code}}/edit" class="btn btn-primary">Uredi</a>{{end}}
+</div>
+</div>
+{{end}}
+
+{{define "dionica-nasip"}}
+{{if .StructureID}}<a class="redak" href="/structures/{{.StructureID}}">{{else}}<div class="redak">{{end}}{{icon "shield"}}
+  <span class="redak-tekst"><span class="redak-glavno">{{.Naziv}}</span>
+  <span class="redak-sporedno">{{if .Duljina}}{{km .Duljina}} km{{end}}{{if not .StructureID}}{{if .Duljina}} · {{end}}nije vezan uz registar{{end}}</span></span>
+{{if .StructureID}}{{icon "chevron-right"}}</a>{{else}}</div>{{end}}
 {{end}}

@@ -51,6 +51,8 @@ type SectionPageData struct {
 	CanEdit        bool
 	// Sazetak kaže koji dijelovi trake na vrhu nose nešto što se ne vidi niže.
 	Sazetak SazetakDionice
+	// Kartica su glava i desni stupac kartice dionice, složeni riječima
+	Kartica KarticaDionice
 	// PredlozenaSifra je prvi slobodan broj u odabranom području; upisuje se u
 	// obrazac unaprijed jer se dionice unose u nizu.
 	PredlozenaSifra string
@@ -187,6 +189,7 @@ func (h *SectionsHandler) napuniDionicu(r *http.Request, data *SectionPageData) 
 	// letvi vode, pa mu je mjesto ondje, a ne na svakoj dionici posebno.
 	napuniLetveBlokove(data.Parts)
 	data.Sazetak = sazetakDionice(data.Section, data.Parts)
+	data.Kartica = karticaDionice(data.Section, data.Parts, terrByKey)
 	for _, p := range data.Parts {
 		if len(p.Stations) > 0 {
 			st := p.Stations[0]
