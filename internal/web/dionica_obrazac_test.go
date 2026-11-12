@@ -54,3 +54,33 @@ func TestObrazacDionicePoCrtezu(t *testing.T) {
 		}
 	}
 }
+
+// Poddionica u obrascu ima glavu koja je otvara i tijelo koje se samo skriva:
+// collectParts čita svaku .part-edit, pa sklopljena mora ostati u stranici.
+func TestObrazacDioniceSklapaPoddionice(t *testing.T) {
+	html := iscrtaj(t, "section_form.html", SectionPageData{
+		CurrentUser: &models.User{FullName: "Provjera"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Section:     models.Section{Code: "B.16.1", AreaID: 16, SectorID: "B"},
+		IsEdit:      true,
+	})
+	tpl := izmedju(html, `<template id="tpl-part">`, "</template>")
+	tijelo := izmedju(tpl, `<div data-role="part-body">`, "</section>")
+	for _, polje := range []string{"watercourse_code", "bank", "stationing_kind", "km_from", "km_to", "length_km", "extent"} {
+		if !strings.Contains(tijelo, `data-field="`+polje+`"`) {
+			t.Errorf("polje %s nije u tijelu poddionice", polje)
+		}
+	}
+	for _, want := range []string{`data-role="toggle"`, `data-role="sazetak"`, "Mjerodavne letve", "Dodaj naselje", "Dodaj letvu"} {
+		if !strings.Contains(tpl, want) {
+			t.Errorf("predložak poddionice nema %q", want)
+		}
+	}
+	skripta := izmedju(html, "function otvoriPoddionicu(el)", "function oblikBroja")
+	if !strings.Contains(skripta, ".hidden = !otvorena") || strings.Contains(skripta, "remove()") {
+		t.Error("sklapanje poddionice mora samo skrivati tijelo, ne micati ga iz stranice")
+	}
+	if !strings.Contains(html, "otvoriPoddionicu(document.querySelector('#parts .part-edit'))") {
+		t.Error("pri otvaranju obrasca nije otvorena prva poddionica")
+	}
+}

@@ -341,7 +341,7 @@ func TestObrazacDioniceIdeRedomPrivitka(t *testing.T) {
 	if tpl == "" {
 		t.Fatal("predložak poddionice nije nađen")
 	}
-	redoslijed := []string{"Nasipi i brane", "Objekti <span", "Ugroženo područje", "Mjerodavni vodomjeri"}
+	redoslijed := []string{"Nasipi i brane", "Objekti <span", "Ugroženo područje", "Mjerodavne letve"}
 	zadnji := -1
 	for _, r := range redoslijed {
 		i := strings.Index(tpl, r)

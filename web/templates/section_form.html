@@ -51,7 +51,7 @@
   </section>
 
   <div id="parts"></div>
-  <button type="button" class="btn btn-link dio-dodaj" onclick="addPart()">Dodaj poddionicu</button>
+  <button type="button" class="btn btn-link dio-dodaj" onclick="otvoriPoddionicu(addPart())">Dodaj poddionicu</button>
 
   <section class="list-kartica">
     <h2>Dionica ukupno</h2>
@@ -92,10 +92,17 @@
 
 <template id="tpl-part">
   <section class="reg-card part-edit p-4 mb-4">
-    <div class="part-head justify-between">
-      <div class="d-flex items-center gap-2"><span class="part-ordinal" data-role="ordinal">1</span><strong>Poddionica</strong></div>
-      <button type="button" class="btn btn-sm btn-secondary" data-role="remove">{{icon "trash"}} Ukloni poddionicu</button>
+    {{/* Poddionice se otvaraju jedna po jedna (crtež 3c). Sklopljena ostaje u stranici sa svim
+         poljima, jer collectParts čita svaku .part-edit; skriva se samo tijelo. */}}
+    <div class="part-head justify-between dio-pod-uredi-glava">
+      <button type="button" class="dio-pod-preklop" data-role="toggle" aria-expanded="true" onclick="otvoriPoddionicu(partOf(this))">
+        <span class="part-ordinal" data-role="ordinal">1</span>
+        <span class="redak-tekst"><span class="redak-glavno">Poddionica<span data-role="naslov"></span></span><span class="redak-sporedno" data-role="sazetak" hidden></span></span>
+        {{icon "chevron-down"}}
+      </button>
+      <button type="button" class="btn btn-link btn-opasno" data-role="remove">Ukloni poddionicu</button>
     </div>
+    <div data-role="part-body">
     <div class="form-row mt-3">
       <div class="form-group">
         <label class="form-label">Vodotok *</label>
@@ -123,7 +130,7 @@
     <details open class="part-block">
       <summary class="part-label cursor-pointer">{{icon "shield"}} Nasipi i brane <span class="reg-chip" data-role="emb-count">0</span></summary>
       <div class="rows-emb">
-        <div class="rows-head"><div>Nasip ili brana</div><div>Uz vodu od</div><div>do</div><div>Po nasipu od</div><div>do</div><div>km</div><div></div></div>
+        <div class="rows-head"><div>Nasip ili brana</div><div>Uz vodu od</div><div>do</div><div>Po nasipu od</div><div>do</div><div>Duljina</div><div></div></div>
         <div data-role="emb-rows"></div>
       </div>
       <button type="button" class="btn btn-sm btn-secondary" onclick="addEmbankment(this)">{{icon "plus"}} Dodaj nasip ili branu</button>
@@ -150,7 +157,7 @@
           <select class="form-control" data-role="county" onchange="loadMunicipalities(this)"><option value="">—</option>{{range .Counties}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></div>
         <div class="form-group m-0"><label class="form-label">Grad ili općina</label>
           <select class="form-control" data-role="muni" disabled onchange="loadSettlements(this)"><option value="">—</option></select></div>
-        <button type="button" class="btn btn-sm btn-secondary" data-role="terr-add" disabled onclick="addTerritory(this)">{{icon "plus"}} Dodaj</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-role="terr-add" disabled onclick="addTerritory(this)">{{icon "plus"}} Dodaj naselje</button>
       </div>
       <div data-role="settlements" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap:0.3rem; margin-top:0.5rem; font-size:0.85rem;" hidden></div>
       <div class="form-help">Bez odabranih naselja dodaje se cijela općina ili grad.</div>
@@ -160,16 +167,17 @@
     </details>
 
     <details open class="part-block">
-      <summary class="part-label cursor-pointer">{{icon "chart-column"}} Mjerodavni vodomjeri <span class="reg-chip" data-role="st-count">0</span></summary>
+      <summary class="part-label cursor-pointer">{{icon "chart-column"}} Mjerodavne letve <span class="reg-chip" data-role="st-count">0</span></summary>
       <div data-role="st-chips" style="display:flex; flex-wrap:wrap; gap:0.35rem; margin:0.5rem 0;"></div>
       <div class="d-flex gap-2 flex-wrap items-center">
         <input type="text" class="form-control max-w-20" data-role="st-input" list="stations-list" placeholder="naziv postaje iz registra" autocomplete="off">
-        <button type="button" class="btn btn-sm btn-secondary" onclick="addStation(this)">{{icon "plus"}} Dodaj</button>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="addStation(this)">{{icon "plus"}} Dodaj letvu</button>
       </div>
       <div class="reading-meta" data-role="gauges-text" hidden></div>
       <button type="button" class="btn btn-sm btn-secondary" data-role="st-prepis" hidden onclick="prepisiVodomjere(this)">{{icon "clipboard-list"}} Prepiši iz dokumentacije</button>
       <div class="form-help" data-role="st-prepis-poruka" hidden></div>
     </details>
+    </div>
   </section>
 </template>
 
@@ -272,6 +280,42 @@ function addPart(p) {
   box.appendChild(el);
   renderChips(el);
   renumber();
+  osvjeziSazetke();
+  return el;
+}
+// Otvorena je jedna poddionica, ostale su redak sa sažetkom (crtež 3c). Polja
+// sklopljene ostaju u stranici i šalju se kao i prije.
+function otvoriPoddionicu(el) {
+  document.querySelectorAll('#parts .part-edit').forEach(p => {
+    const otvorena = p === el;
+    p.querySelector('[data-role=part-body]').hidden = !otvorena;
+    p.querySelector('[data-role=toggle]').setAttribute('aria-expanded', otvorena ? 'true' : 'false');
+    p.classList.toggle('sklopljena', !otvorena);
+  });
+}
+function oblikBroja(n, jednina, dvojina, mnozina) {
+  const d = n % 10, s = n % 100;
+  if (d === 1 && s !== 11) return jednina;
+  if (d >= 2 && d <= 4 && (s < 12 || s > 14)) return dvojina;
+  return mnozina;
+}
+// Glava poddionice: voda u naslovu, a ispod stacionaža, duljina i broj nasipa i objekata.
+function osvjeziSazetke() {
+  document.querySelectorAll('#parts .part-edit').forEach(el => {
+    const v = f => el.querySelector('[data-field=' + f + ']').value.trim();
+    const w = WATERS.find(x => x.code === v('watercourse_code'));
+    el.querySelector('[data-role=naslov]').textContent = w ? ' · ' + w.name : '';
+    const segs = [];
+    if (v('km_from') && v('km_to')) segs.push((v('stationing_kind') ? v('stationing_kind') + ' ' : '') + v('km_from') + ' – ' + v('km_to'));
+    if (v('length_km')) segs.push(v('length_km') + ' km');
+    const ne = el.querySelectorAll('[data-role=emb-rows] .emb-row').length;
+    if (ne) segs.push(ne + ' ' + oblikBroja(ne, 'nasip', 'nasipa', 'nasipa'));
+    const no = el.querySelectorAll('[data-role=obj-rows] .obj-row').length;
+    if (no) segs.push(no + ' ' + oblikBroja(no, 'objekt', 'objekta', 'objekata'));
+    const s = el.querySelector('[data-role=sazetak]');
+    s.textContent = segs.join(' · ');
+    s.hidden = !segs.length;
+  });
 }
 // uputa "dodaj u registar" ima smisla samo dok voda nije odabrana; uz odabranu
 // vodu čitala se kao upozorenje da je nema
@@ -678,9 +722,12 @@ function areaChanged() {
   document.querySelectorAll('.obj-row').forEach(row => fillVeza(row, row.querySelector('[data-field=veza]').value));
   document.querySelectorAll('#parts .part-edit').forEach(renderChips);
 }
-document.addEventListener('input', e => { if (e.target.closest && e.target.closest('#parts')) { if (e.target.dataset.field === 'length_km') e.target.dataset.manual = '1'; refreshDescription(); } });
-document.addEventListener('change', e => { if (e.target.closest && e.target.closest('#parts')) refreshDescription(); });
+document.addEventListener('input', e => { if (e.target.closest && e.target.closest('#parts')) { if (e.target.dataset.field === 'length_km') e.target.dataset.manual = '1'; refreshDescription(); osvjeziSazetke(); } });
+document.addEventListener('change', e => { if (e.target.closest && e.target.closest('#parts')) { refreshDescription(); osvjeziSazetke(); } });
+// dodani ili uklonjeni nasip i objekt mijenjaju broj u glavi poddionice
+document.addEventListener('click', e => { if (e.target.closest && e.target.closest('#parts')) setTimeout(osvjeziSazetke); });
 (SECTION.parts && SECTION.parts.length ? SECTION.parts : [{}]).forEach(p => addPart(p));
+otvoriPoddionicu(document.querySelector('#parts .part-edit'));
 refreshDescription();
 </script>
 {{end}}
