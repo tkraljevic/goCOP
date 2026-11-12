@@ -308,7 +308,7 @@ func podrucjeIzCSV(row []string, postojece *models.Area) *models.Area {
 		k := *postojece
 		a = &k
 	}
-	a.ID, _ = strconv.Atoi(cell(row, 1))
+	a.ID, _ = strconv.Atoi(cell(row, 1)) // broj koji nije broj daje 0, a SaveArea takav redak odbije s porukom
 	direct := strings.ToLower(cell(row, 6))
 	a.SectorID, a.Name, a.VgiName, a.Subcenter = cell(row, 0), cell(row, 2), cell(row, 3), cell(row, 4)
 	a.DirectToSector = direct == "da" || direct == "1" || direct == "x"

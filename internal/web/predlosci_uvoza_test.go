@@ -199,7 +199,7 @@ func TestPredlosciRegistaraProlazeUvoz(t *testing.T) {
 		t.Fatal(err)
 	}
 	posalji("/organizacija/uvoz", "podrucja", predlozak(t, "registri/branjena-podrucja.csv"))
-	if a, _ = org.GetArea(ctx, 1); a == nil || a.Latitude != sirina || a.Longitude != duzina ||
+	if a, err = org.GetArea(ctx, 1); err != nil || a == nil || a.Latitude != sirina || a.Longitude != duzina ||
 		a.ContractorName != "Ugovorna Primjer d.o.o." {
 		t.Errorf("ponovni uvoz CSV-a izbrisao je ono čega u CSV-u nema: %+v", a)
 	}
