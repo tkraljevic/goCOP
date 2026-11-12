@@ -2,6 +2,7 @@ package web
 
 import (
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -45,7 +46,9 @@ func TestPopisDionicaPoCrtezu(t *testing.T) {
 			t.Errorf("popis dionica nema %q", zeli)
 		}
 	}
-	if strings.Contains(html, "465") || strings.Contains(html, "breadcrumb") || strings.Contains(html, "section-card") {
+	// „465” se traži kao samostalan broj: otisak verzije u adresi CSS-a
+	// (?v=…) zna sadržavati iste znamenke.
+	if regexp.MustCompile(`\b465\b`).MatchString(html) || strings.Contains(html, "breadcrumb") || strings.Contains(html, "section-card") {
 		t.Error("popis dionica ima stari izgled ili upisan broj 465")
 	}
 }
