@@ -9961,3 +9961,41 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
   .naslovnica-gumbi { flex-direction: column; }
   .naslovnica-gumbi .btn { width: 100%; min-height: 48px; }
 }
+
+/* Kartica dionice (goCOP-m3, 17b · Registri, 3b i 3d): lijevo sažetak i poddionice, desno
+   podaci i veze kao retci. Stupci i ploča su isti kao kod lista (.list-stupci, .list-ploca). */
+.dio-stranica .page-header { margin-bottom: 16px; }
+.dio-sazetak { margin-bottom: 16px; }
+.dio-opis { margin: 0 0 12px; font-size: 0.9375rem; line-height: 22px; }
+.dio-plocice { display: flex; flex-wrap: wrap; gap: 8px 32px; margin: 0; }
+.dio-plocice dt { font-size: 0.75rem; line-height: 16px; color: var(--md-sys-color-on-surface-variant); }
+.dio-plocice dd { margin: 0; font-size: 1rem; line-height: 24px; color: var(--md-sys-color-on-surface); }
+.dio-naslov { margin: 0 0 8px; font-size: 1rem; font-weight: 500; line-height: 24px; }
+.dio-lijevo > .detail-section:first-of-type { margin-top: 0; }
+.dio-broj { float: right; font-weight: 400; color: var(--md-sys-color-primary); }
+.dio-veze .redak { margin-inline: -16px; min-height: 56px; }
+.dio-veze .redak-glavno, .dio-veze .redak-sporedno { display: block; }
+.dio-veze a.redak, .dio-veze a.redak:hover { text-decoration: none; }
+.dio-veze a.redak .redak-glavno { color: var(--md-sys-color-on-surface); }
+.dio-veze .redak > .icon:last-child { width: 20px; height: 20px; }
+.dio-veze .oznaka-stanja { margin-left: 4px; font-size: 0.75rem; }
+.dio-jos > summary { padding-block: 8px; cursor: pointer; color: var(--md-sys-color-primary); list-style: none; }
+.dio-jos > summary::-webkit-details-marker { display: none; }
+.dio-jos[open] > summary { display: none; }
+.dio-obrana-traje { margin: 0 0 8px; padding: 12px; border-left: 4px solid var(--danger); border-radius: var(--r-kartica); background: var(--md-sys-color-surface-container-high); }
+.dio-obrana-glava { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 4px; }
+.dio-zaduzeni > summary { cursor: pointer; list-style: none; }
+.dio-zaduzeni > summary::-webkit-details-marker { display: none; }
+.dio-zaduzeni[open] > summary > .icon:last-child { transform: rotate(180deg); }
+.dio-razina { margin: 12px 0 4px; font-size: 0.8125rem; font-weight: 500; line-height: 18px; color: var(--md-sys-color-on-surface-variant); }
+.dio-osoba { padding-block: 8px; border-top: 1px solid var(--md-sys-color-outline-variant); }
+.dio-osoba-ime { font-weight: 500; }
+.dio-osoba-ime small { font-weight: 400; color: var(--md-sys-color-on-surface-variant); }
+.dio-osoba-veze { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 2px; }
+.dio-napomene { white-space: pre-wrap; }
+.dio-gumbi-dno { display: none; }
+@media (max-width: 599px) {
+  .dio-stranica .page-header .page-actions { display: none; }
+  .dio-gumbi-dno { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; }
+  .dio-gumbi-dno .btn { width: 100%; min-height: 48px; }
+}
