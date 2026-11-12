@@ -184,7 +184,7 @@ var glaveKartica = map[string]KarticaNaslovne{
 	kZaRijesiti:  {Naslov: "Za riješiti"},
 	kVodostaji:   {Naslov: "Vodostaji", Poveznica: "Prognoze", URL: "/prognoze"},
 	kVrijeme:     {Naslov: "Vrijeme", Poveznica: "Prognoze", URL: "/prognoze/vrijeme"},
-	kJaceOborine: {Naslov: "Jače oborine", Poveznica: "Slivovi", URL: "/slivovi"},
+	kJaceOborine: {Naslov: "Jače oborine", Poveznica: "Slivovi", URL: "/slivovi#kisa"},
 	kSustav:      {Naslov: "Sustav", Poveznica: "Administracija", URL: "/administracija"},
 	kMojeLetve:   {Naslov: "Moje letve", Poveznica: "Sve letve područja", URL: "/teren"},
 	kDnevniList:  {Naslov: "Dnevni list"},

@@ -9840,3 +9840,16 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
   .prim-tablica .dog-obrisi-gumb { width: 48px; height: 48px; margin: 0; }
   .prim-novi .btn { width: 100%; min-height: 48px; }
 }
+
+/* Slivovi: kiša po međuslivovima na vrhu i redak kiše u svakom međuslivu */
+.pv-tablica .pv-sliv-naziv a { color: var(--md-sys-color-primary); text-decoration: none; }
+.pv-tablica .pv-sliv-naziv a:hover { text-decoration: underline; }
+.sliv-kisa th, .sliv-kisa td:nth-child(2), .sliv-kisa td:nth-child(3) { white-space: nowrap; }
+.sliv-kisa-sad {
+  display: flex; align-items: flex-start; gap: 8px; margin: 0 0 8px; padding: 8px 12px; border-left: 4px solid transparent; border-radius: 8px;
+  background: var(--md-sys-color-surface-container-low); font-size: 0.875rem;
+}
+.sliv-kisa-sad .icon { flex: none; width: 18px; height: 18px; margin: 1px 0 0; }
+.sliv-kisa-sad.kisa-zuto { border-left-color: var(--faza-r-crta); }
+.sliv-kisa-sad.kisa-narancasto { border-left-color: var(--kisa-narancasto); }
+.sliv-kisa-sad.kisa-crveno { border-left-color: var(--faza-s-crta); }

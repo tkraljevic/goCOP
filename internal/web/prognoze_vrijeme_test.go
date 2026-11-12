@@ -471,7 +471,7 @@ func TestKisomjerDijela(t *testing.T) {
 // imena, porast bez dana dnevne piše redni dan.
 func TestRedakSliva(t *testing.T) {
 	r := redakSliva(SlivUKisi{StanjeSliva: prognoza.StanjeSliva{Sliv: "J"}, Letve: []PorastLetve{{Naziv: "Aljmaš", Cm: 12, Dan: 2, Ima: true}}})
-	if r != (RedakSliva{Naziv: "J", Palo24: "—", Dolazi48: "—", Ukratko: "—", Rijetko: "—", Raste: "Aljmaš +12 cm (2. dan)"}) {
+	if r != (RedakSliva{Oznaka: "J", Naziv: "J", Palo24: "—", Dolazi48: "—", Ukratko: "—", Rijetko: "—", Raste: "Aljmaš +12 cm (2. dan)"}) {
 		t.Errorf("bez podataka: %+v", r)
 	}
 	if mmSliva(0.4) != "0,4 mm" || mmSliva(0) != "0 mm" || mmSliva(17.6) != "18 mm" {
