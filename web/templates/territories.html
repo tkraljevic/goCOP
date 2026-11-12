@@ -68,14 +68,14 @@
     <div class="kpi-card">
       <div class="kpi-icon-wrap warning">{{icon "house"}}</div>
       <div>
-        <div class="kpi-number">428</div>
+        <div class="kpi-number">{{.TotalOpcine}}</div>
         <div class="kpi-label">Općina</div>
       </div>
     </div>
     <div class="kpi-card">
       <div class="kpi-icon-wrap purple">{{icon "house"}}</div>
       <div>
-        <div class="kpi-number">6.724</div>
+        <div class="kpi-number">{{brojHR .TotalSettlements}}</div>
         <div class="kpi-label">Naselja</div>
       </div>
     </div>
@@ -100,7 +100,7 @@
       <label class="karta-sloj-kontrola sloj-opcine">
         <input type="checkbox" id="sloj-chk-opcine" class="karta-sloj-prekidac sloj-prekidac" data-sloj="opcine" checked>
         <span class="sloj-uzorak"></span>
-        <span>Općine (428)</span>
+        <span>Općine ({{.TotalOpcine}})</span>
       </label>
       <label class="karta-sloj-kontrola sloj-naselja">
         <input type="checkbox" id="sloj-chk-naselja" class="karta-sloj-prekidac sloj-prekidac" data-sloj="naselja">
@@ -127,7 +127,7 @@
         <label for="karta-brzi-izbor-zupanije">{{icon "landmark"}} Odaberi županiju:</label>
         <select id="karta-brzi-izbor-zupanije" class="form-control form-control-sm">
           <option value="">-- Odaberi županiju --</option>
-          <option value="sve">Sve županije (556 jedinica)</option>
+          <option value="sve">Sve županije ({{.TotalMunis}} jedinica)</option>
           {{range .Counties}}
           <option value="{{.ID}}">{{.Name}}</option>
           {{end}}
@@ -199,7 +199,7 @@
             <label for="ploca-select-zupanija">Županija:</label>
             <select id="ploca-select-zupanija" class="form-control form-control-sm">
               <option value="">-- Odaberi županiju --</option>
-              <option value="sve">Sve županije (556 jedinica)</option>
+              <option value="sve">Sve županije ({{.TotalMunis}} jedinica)</option>
               {{range .Counties}}
               <option value="{{.ID}}">{{.Name}}</option>
               {{end}}
@@ -283,7 +283,7 @@
     </div>
     <div class="karta-podnozje">
       <div>
-        {{icon "landmark"}} <strong>{{.TotalCounties}}</strong> {{uzBroj .TotalCounties "županija" "županije" "županija"}} · <strong>{{.TotalCities}}</strong> {{uzBroj .TotalCities "grad" "grada" "gradova"}} · <strong>428</strong> općina (visoka OSM preciznost granica)
+        {{icon "landmark"}} <strong>{{.TotalCounties}}</strong> {{uzBroj .TotalCounties "županija" "županije" "županija"}} · <strong>{{.TotalCities}}</strong> {{uzBroj .TotalCities "grad" "grada" "gradova"}} · <strong>{{.TotalOpcine}}</strong> {{uzBroj .TotalOpcine "općina" "općine" "općina"}} (visoka OSM preciznost granica)
       </div>
       <div class="karta-legenda">
         <span class="sloj-zupanije"><i class="sloj-uzorak"></i> Županija</span>
