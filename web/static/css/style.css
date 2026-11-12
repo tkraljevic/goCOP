@@ -9907,3 +9907,26 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
   table.dio-tablica .dl-poveznica::after { content: ""; position: absolute; inset: 0; border-radius: 12px; }
   table.dio-tablica tr.dl-prazno { display: block; }
 }
+
+/* Popis vodomjernih postaja (17c, 4a): tablica i kartice kao kod dionica (.dio-tablica),
+   uz izbor vodotoka i države ispod čipova. */
+.let-izbori { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 16px; margin: 8px 0 16px; }
+.let-izbor { display: flex; flex-direction: column; gap: 2px; min-width: 12rem; font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); }
+.let-tablica .lp-pragovi, .let-tablica .lp-kota { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.let-tablica .lp-pozor-usko, .let-tablica .lp-kota-ispod { display: none; }
+.let-objasnjenje { margin-top: 24px; }
+.let-objasnjenje p { margin: 0 0 6px; }
+@media (min-width: 600px) and (max-width: 1099px) {
+  .let-tablica .lp-kota, .let-tablica .lp-dionice, .let-tablica .lp-izvor { display: none; }
+  .let-tablica .lp-kota-ispod { display: inline; }
+}
+@media (max-width: 599px) {
+  .let-izbor { flex: 1 1 100%; }
+  table.let-tablica td.lp-ime { order: 1; flex: 1 1 0; font-size: 1rem; }
+  table.let-tablica .lp-pozor-usko { display: inline-flex; }
+  table.let-tablica td.lp-voda { order: 2; width: 100%; }
+  table.let-tablica .lp-kota-ispod { display: inline; }
+  table.let-tablica td.lp-pragovi { order: 3; width: 100%; }
+  table.let-tablica td.lp-dionice { order: 4; width: 100%; }
+  table.let-tablica td.lp-kota, table.let-tablica td.lp-izvor, table.let-tablica td.lp-pregled { display: none; }
+}

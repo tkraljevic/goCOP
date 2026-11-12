@@ -110,11 +110,10 @@ func TestShowStationsMapView(t *testing.T) {
 		t.Fatalf("status = %d, want 200", w.Code)
 	}
 	body := w.Body.String()
-	if !strings.Contains(body, "prikaz-preklopnik") {
-		t.Error("nedostaje prikaz-preklopnik")
-	}
-	if !strings.Contains(body, "view=map") {
-		t.Error("nedostaje poveznica na kartu (view=map)")
+	// Gumb Karta vodi na glavnu Kartu (Odluke (4. 11. 2026.)); stari prikaz
+	// ?view=map još radi, ali se na njega više ne upućuje.
+	if !strings.Contains(body, `<a href="/karta`) || !strings.Contains(body, `>Karta</a>`) {
+		t.Error("nedostaje gumb Karta na glavnu Kartu")
 	}
 	if strings.Contains(body, "karta-sve-postaje") {
 		t.Error("karta ne bi trebala biti prikazana u popisu")

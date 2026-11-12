@@ -2,78 +2,48 @@
 
 {{define "title"}}goCOP — Vodomjerne postaje{{end}}
 
+{{/* Popis vodomjernih postaja (goCOP-m3, 17c · Registri, 4a): čipovi Sve i Čeka pregled, pretraga,
+     vodotok i država, tablica na računalu, kartice na mobitelu. Karta vodi na glavnu Kartu
+     zumiranu na letve ove stranice; stari prikaz ?view=map još radi dok ga glavna Karta ne zamijeni. */}}
 {{define "content"}}
-<div class="page-header">
+<a href="/registri" class="povratna-poveznica">← Registri</a>
+<div class="page-header list-glava dio-glava let-glava">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "ruler"}} Vodomjerne postaje</h1>
-    <p class="page-desc">
-      Registar mjerodavnih vodomjera s kotom nule i pragovima obrane od poplava.
-      Postaje se na dionice dodaju iz modula dionica — isti vodomjer mjerodavan je za više dionica.
-    </p>
+    <h1 class="page-title" data-naziv-stranice>Vodomjerne postaje</h1>
+    <p class="page-desc">Mjerodavne letve s kotom nule i pragovima obrane; letva se dionici dodaje u obrascu dionice.</p>
   </div>
-  <div class="d-flex gap-2 items-center flex-wrap">
-    <div class="prikaz-preklopnik">
-      <a href="{{.ListURL}}" class="btn btn-sm {{if ne .ViewMode "map"}}btn-primary{{else}}btn-secondary{{end}}">{{icon "list"}} Popis</a>
-      <a href="{{.MapURL}}" class="btn btn-sm {{if eq .ViewMode "map"}}btn-primary{{else}}btn-secondary{{end}}">{{icon "map"}} Karta</a>
-    </div>
-    {{if and .Permissions .Permissions.IsGlobalAdmin}}
-    <a href="/stations/new" class="btn btn-primary">{{icon "plus"}} Nova postaja</a>
-    {{end}}
+  <div class="page-actions">
+    <a href="{{.KartaURL}}" class="btn btn-link">Karta</a>
+    {{if and .Permissions .Permissions.IsGlobalAdmin}}<a href="/stations/new" class="btn btn-primary">Nova postaja</a>{{end}}
   </div>
 </div>
 
-<div class="d-flex gap-2 flex-wrap mb-5">
-  <span class="stat-badge has-items">{{icon "ruler"}} {{.TotalStations}} {{uzBroj .TotalStations "postaja" "postaje" "postaja"}} u registru</span>
-  <span class="stat-badge has-items">{{icon "link"}} {{.SectionLinks}} {{uzBroj .SectionLinks "veza" "veze" "veza"}} s dionicama</span>
-  <span class="stat-badge {{if gt .NeedsReview 0}}has-items{{end}}">{{icon "triangle-alert"}} {{.NeedsReview}} {{uzBroj .NeedsReview "traži" "traže" "traži"}} pregled</span>
-  <span class="stat-badge {{if gt .WithoutWatercourse 0}}has-items{{end}}">{{icon "waves"}} {{.WithoutWatercourse}} bez utvrđenog vodotoka</span>
-</div>
-
-
-<div class="filter-card">
-  <form action="/stations" method="GET">
-    <input type="hidden" name="view" value="{{.ViewMode}}">
-    <div class="search-bar-row">
-      <div class="search-input-wrapper">
-        <span class="search-icon">{{icon "search"}} </span>
-        <input type="search" name="q" value="{{.SearchQuery}}" class="search-input"
-               placeholder="Naziv vodomjera (Županja, Crnac, Ustava Trebež)…" autocomplete="off">
-      </div>
-      <button type="submit" class="btn btn-primary">Pretraži</button>
-      {{if or .SearchQuery .SelectedRiver .SelectedCountry .OnlyNeedsReview}}
-      <a href="/stations?view={{.ViewMode}}" class="btn btn-secondary">{{icon "x"}} </a>
-      {{end}}
+<form method="GET" action="/stations" class="akti-filtri-obrazac let-filtri">
+  {{if .OnlyNeedsReview}}<input type="hidden" name="review" value="1">{{end}}
+  {{if eq .ViewMode "map"}}<input type="hidden" name="view" value="map">{{end}}
+  <div class="akti-filtri-vrh">
+    <div class="ocitanja-cipovi cipovi-stranice" role="group" aria-label="Pregled">
+      {{range .CipoviPregleda}}<a class="ocitanja-cip" href="{{.URL}}" aria-pressed="{{if .Odabran}}true{{else}}false{{end}}">{{if .Odabran}}{{icon "check"}}{{end}}{{.Naziv}}</a>{{end}}
     </div>
-
-    <div class="filters-row stupci-14">
-      <div class="filter-group">
-        <label for="country-select" class="filter-label">{{icon "map"}} Država</label>
-        <select id="country-select" name="country" class="filter-select" onchange="this.form.submit()">
-          <option value="">Sve države</option>
-          {{range .Countries}}
-          <option value="{{.}}" {{if eq . $.SelectedCountry}}selected{{end}}>{{.}}</option>
-          {{end}}
-        </select>
-      </div>
-      <div class="filter-group">
-        <label for="watercourse-select" class="filter-label">{{icon "waves"}} Vodotok</label>
-        <select id="watercourse-select" name="watercourse" class="filter-select" onchange="this.form.submit()">
-          <option value="">Svi vodotoci</option>
-          {{range .Watercourses}}
-          <option value="{{.}}" {{if eq . $.SelectedRiver}}selected{{end}}>{{.}}</option>
-          {{end}}
-        </select>
-      </div>
-      <div class="filter-group">
-        <label class="filter-label">{{icon "triangle-alert"}} Pregled</label>
-        <label style="display:flex; align-items:center; gap:.5rem; padding-top:.4rem; min-height:44px;">
-          <input type="checkbox" name="review" value="1" {{if .OnlyNeedsReview}}checked{{end}} onchange="this.form.submit()">
-          Samo postaje bez pragova u centimetrima
-        </label>
-      </div>
+    <div class="akti-trazi">
+      <button type="submit" class="akti-trazi-gumb" aria-label="Traži">{{icon "search"}}</button>
+      <input type="text" name="q" value="{{.SearchQuery}}" placeholder="Traži: naziv, vodotok, rkm" aria-label="Traži: naziv, vodotok, rkm">
     </div>
-  </form>
-</div>
+  </div>
+  <div class="let-izbori">
+    <label class="let-izbor"><span>Vodotok</span>
+      <select id="watercourse-select" name="watercourse" class="form-control" onchange="this.form.submit()">
+        <option value="">Svi vodotoci</option>
+        {{range .Watercourses}}<option value="{{.}}" {{if eq . $.SelectedRiver}}selected{{end}}>{{.}}</option>{{end}}
+      </select></label>
+    <label class="let-izbor"><span>Država</span>
+      <select id="country-select" name="country" class="form-control" onchange="this.form.submit()">
+        <option value="">Sve države</option>
+        {{range .Countries}}<option value="{{.}}" {{if eq . $.SelectedCountry}}selected{{end}}>{{.}}</option>{{end}}
+      </select></label>
+    {{if or .SearchQuery .SelectedRiver .SelectedCountry .OnlyNeedsReview}}<a href="/stations" class="btn btn-link">Poništi filtre</a>{{end}}
+  </div>
+</form>
 
 {{if eq .ViewMode "map"}}
 <div class="karta-sve-postaje-sekcija mb-6">
@@ -103,51 +73,36 @@
   </div>
 </div>
 {{else}}
-<div data-listanje="popis">
-{{template "pager" .Pager}}
-
-<div class="reg-list">
-  {{range .Stations}}
-  <article class="reg-card">
-    <a class="reg-card-link" href="/stations/{{.ID}}">
-      <div class="reg-card-head">
-        <div>
-          <h3 class="reg-card-title">{{.Name}}</h3>
-          <div class="reg-card-sub">
-            {{if .HasWatercourse}}{{.Watercourse}}{{else}}<span title="Dokumentacija ne kaže na kojoj vodi vodomjer stoji">vodotok nije određen</span>{{end}}
-            {{if .Stationing}} · {{.Stationing}}{{end}}
-            {{if .JeInozemna}} · {{.Zemlja}}{{end}}
-          </div>
-        </div>
-        {{if .NeedsReview}}<span class="badge badge-inactive" title="{{.ReviewNote}}">{{icon "triangle-alert"}} pregled</span>{{end}}
-      </div>
-
-      <dl class="reg-facts">
-        <div><dt>Pripremno</dt><dd><span class="threshold-pill prep">{{.Prep.Label}}</span></dd></div>
-        <div><dt>Redovna</dt><dd><span class="threshold-pill regular">{{.Regular.Label}}</span></dd></div>
-        <div><dt>Izvanredna</dt><dd><span class="threshold-pill emerg">{{.Emergency.Label}}</span></dd></div>
-        <div><dt>Izv. stanje</dt><dd><span class="threshold-pill crit">{{.State.Label}}</span></dd></div>
-      </dl>
-
-      <div class="reg-card-foot">
-        <span class="reg-chip {{if eq (len .SectionCodes) 0}}empty{{end}}" title="{{range .SectionCodes}}{{.}} {{end}}">{{icon "file-text"}} {{dionice (len .SectionCodes)}}</span>
-        {{if .ZeroDatum}}<span class="reg-chip">„0“ {{brojHRd .ZeroDatum 2}} m</span>{{end}}
-        {{if .Record.Cm}}<span class="reg-chip" title="Najviši zabilježeni vodostaj">max {{.Record.Label}}</span>{{end}}
-        {{if .JeInozemna}}<span class="reg-chip">{{icon "map"}} {{.Zemlja}}</span>{{end}}
-      </div>
-    </a>
-  </article>
-  {{else}}
-  <div class="reg-empty">Nijedna postaja ne odgovara zadanim filtrima.</div>
-  {{end}}
+<div class="akti-okvir dio-okvir let-okvir" data-listanje="popis">
+  {{template "pager" .Pager}}
+  <table class="data-table kartice-na-mobitelu dio-tablica let-tablica">
+    <thead><tr><th>Letva</th><th>Vodotok i stacionaža</th><th class="lp-kota">Kota nule (m)</th><th>Pragovi P · R · I · IS (cm)</th><th class="lp-dionice">Dionice</th><th class="lp-izvor">Izvor</th><th class="lp-pregled">Pregled</th></tr></thead>
+    <tbody>
+    {{range .Stations}}
+    <tr>
+      <td class="lp-ime"><a class="dl-poveznica" href="/stations/{{.ID}}">{{.Name}}</a>{{if .NeedsReview}} <span class="oznaka-stanja pozor lp-pozor-usko" title="{{.ReviewNote}}">Čeka pregled</span>{{end}}</td>
+      <td class="lp-voda">
+        <span class="dl-naziv">{{if .HasWatercourse}}{{.Watercourse}}{{else}}<span title="Dokumentacija ne kaže na kojoj vodi vodomjer stoji">vodotok nije određen</span>{{end}}{{if .JeInozemna}} · {{.Zemlja}}{{end}}</span>
+        <span class="dl-obuhvat">{{.Stationing}}<span class="lp-kota-ispod">{{if .Stationing}} · {{end}}{{if .ZeroDatum}}„0” {{brojHRd .ZeroDatum 3}} m{{else}}kota nule nije upisana{{end}}</span></span>
+      </td>
+      <td class="lp-kota">{{if .ZeroDatum}}{{brojHRd .ZeroDatum 3}} <span class="dl-sitno">Trst</span>{{else}}<span class="dl-sitno">nije upisana</span>{{end}}</td>
+      <td class="lp-pragovi"><span class="usluga-samo-usko">P · R · I · IS: </span>{{pragoviPopisa .}}</td>
+      <td class="lp-dionice"><span class="usluga-samo-usko">Dionice: </span>{{range $i, $c := .SectionCodes}}{{if lt $i 3}}{{if $i}}, {{end}}{{$c}}{{end}}{{else}}—{{end}}{{if gt (len .SectionCodes) 3}} i još {{sub (len .SectionCodes) 3}}{{end}}</td>
+      <td class="lp-izvor">{{if .TelemetrijaUvoz}}telemetrija{{else if .JavniUvoz}}javna stranica{{else}}—{{end}}</td>
+      <td class="lp-pregled">{{if .NeedsReview}}<span class="oznaka-stanja pozor" title="{{.ReviewNote}}">Čeka pregled</span>{{else}}<span class="dl-sitno">pregledano</span>{{end}}</td>
+    </tr>
+    {{else}}
+    <tr class="dl-prazno"><td colspan="7"><p>Nijedna postaja ne odgovara zadanim filtrima.</p><a href="/stations" class="btn btn-link">Poništi filtre</a></td></tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{template "pager" .Pager}}
 </div>
-
-{{template "pager" .Pager}}
-</div>
+<p class="dio-podnozje">{{.TotalStations}} {{uzBroj .TotalStations "postaja" "postaje" "postaja"}} u registru · {{.SectionLinks}} {{uzBroj .SectionLinks "veza" "veze" "veza"}} s dionicama · {{.WithoutWatercourse}} bez utvrđenog vodotoka</p>
 {{end}}
 
-<div class="page-desc">
-  <p style="margin:0 0 0.4rem;">
+<div class="form-help let-objasnjenje">
+  <p>
     <strong>Vodotok</strong> je voda na kojoj vodomjer stoji. To nije isto što i vode za koje je postaja
     mjerodavna — Batina stoji na Dunavu, a mjerodavna je i za dionice potoka Karašice na ušću.
   </p>
