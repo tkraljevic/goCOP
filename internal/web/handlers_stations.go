@@ -93,6 +93,9 @@ type StationsPageData struct {
 	AllRiversJSON    template.JS   // FeatureCollection svih rijeka s tokom i rkm točkama
 	MapStationsJSON  template.JS   // filtrirane postaje s koordinatama i pragovima
 	MapStationsCount int           // broj postaja s koordinatama na karti
+
+	CipoviPregleda []CipPopisa // Sve i Čeka pregled
+	KartaURL       string      // glavna Karta zumirana na letve ove stranice
 }
 
 // StationMapItem predstavlja vodomjernu postaju na karti postaja
@@ -302,6 +305,7 @@ func (h *StationsHandler) ShowStations(w http.ResponseWriter, r *http.Request) {
 	if total, review, links, err := h.stationService.Counts(ctx); err == nil {
 		data.TotalStations, data.NeedsReview, data.SectionLinks = total, review, links
 	}
+	izgledPopisaLetava(&data, r.URL.Query())
 	if err := h.tmpl.ExecuteTemplate(w, "stations.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

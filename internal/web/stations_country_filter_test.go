@@ -88,7 +88,7 @@ func TestShowStationsCountryFilter(t *testing.T) {
 		t.Fatalf("status = %d, want 200", wHR.Code)
 	}
 	bodyHR := wHR.Body.String()
-	if !strings.Contains(bodyHR, "<h3 class=\"reg-card-title\">Batina</h3>") {
+	if !strings.Contains(bodyHR, ">Batina</a>") {
 		t.Error("Hrvatska filtar mora prikazati Batina")
 	}
 	if strings.Contains(bodyHR, "Bezdan") || strings.Contains(bodyHR, "Baja") {

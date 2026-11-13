@@ -68,6 +68,8 @@ type StructuresPageData struct {
 	// Register je registar jedne vrste (nasipi, crpne stanice…); prazan
 	// kod popisa svih objekata
 	Register models.StructureRegister
+	// CipoviRegistara vode na ostale registre objekata, s brojem zapisa
+	CipoviRegistara []CipPopisa
 }
 
 type StructurePageData struct {
@@ -167,6 +169,7 @@ func (h *StructuresHandler) prikaziPopis(w http.ResponseWriter, r *http.Request,
 	data.Structures, data.Pager = paginate(all, r, registryPerPage)
 	data.Sectors, _ = h.userService.ListSectors()
 	data.Areas, _ = h.userService.ListAreas(data.SelectedSector)
+	data.CipoviRegistara = cipoviRegistaraObjekata(reg, data.ByKind, q)
 
 	if err := h.tmplList.ExecuteTemplate(w, "structures.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

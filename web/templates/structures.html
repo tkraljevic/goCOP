@@ -2,101 +2,95 @@
 
 {{define "title"}}goCOP — {{.Register.Title}}{{end}}
 
+{{/* Popis objekata (goCOP-m3, 17d · Registri, 5a): čipovi vode na postojeće registre, pretraga i
+     izbori sektora, područja i (u Ostalim objektima) vrste, tablica sa stupcima po vrsti na računalu
+     i kartice na mobitelu. Jedan popis svih vrsta i „Prikaži još” su novo ponašanje. */}}
 {{define "content"}}
-<div class="page-header">
+{{$cs := eq .Register.Kind "CRPNA_STANICA"}}
+<a href="/registri" class="povratna-poveznica">← Registri</a>
+<div class="page-header list-glava dio-glava">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon .Register.Icon}} {{.Register.Title}}</h1>
+    <h1 class="page-title" data-naziv-stranice>{{.Register.Title}}</h1>
     <p class="page-desc">{{.Register.Desc}}</p>
   </div>
-  <div class="page-actions d-flex gap-2">
-  {{if or (eq .Register.Kind "CRPNA_STANICA") (eq .Register.Kind "USTAVA")}}<a href="/registri/povezanost-objekata{{if .SelectedArea}}?area={{.SelectedArea}}{{end}}" class="btn btn-secondary">{{icon "link"}} Povezanost</a>{{end}}
-  {{if .CanCreate}}
-  <a href="/structures/new?kind={{if .SelectedKind}}{{.SelectedKind}}{{else}}{{.Register.Kind}}{{end}}{{if .SelectedArea}}&area={{.SelectedArea}}{{end}}" class="btn btn-primary">{{icon "plus"}} {{.Register.NewLabel}}</a>
-  {{end}}
+  <div class="page-actions">
+    <a href="/karta" class="btn btn-link">Karta</a>
+    {{if or $cs (eq .Register.Kind "USTAVA")}}<a href="/registri/povezanost-objekata{{if .SelectedArea}}?area={{.SelectedArea}}{{end}}" class="btn btn-link">Povezanost ustava i CS</a>{{end}}
+    {{if .CanCreate}}<a href="/structures/new?kind={{if .SelectedKind}}{{.SelectedKind}}{{else}}{{.Register.Kind}}{{end}}{{if .SelectedArea}}&area={{.SelectedArea}}{{end}}" class="btn btn-primary">{{.Register.NewLabel}}</a>{{end}}
   </div>
 </div>
 
-<div class="d-flex gap-2 flex-wrap mb-5">
-  <span class="stat-badge has-items">{{icon .Register.Icon}} {{.Total}} u registru</span>
-  {{if gt (len .Register.Kinds) 1}}{{range .Register.Kinds}}{{$n := index $.ByKind .}}{{if gt $n 0}}<span class="stat-badge has-items">{{$n}} · {{structureKind .}}</span>{{end}}{{end}}{{end}}
+{{/* Na računalu i tabletu čipovi, na mobitelu polje s istim poveznicama. */}}
+<div class="ocitanja-cipovi cipovi-stranice akti-sektori" role="group" aria-label="Vrsta objekta">
+  {{range .CipoviRegistara}}<a class="ocitanja-cip" href="{{.URL}}" aria-pressed="{{if .Odabran}}true{{else}}false{{end}}">{{if .Odabran}}{{icon "check"}}{{end}}{{.Naziv}}</a>{{end}}
 </div>
+<details class="ocitanja-izbor akti-sektor-polje">
+  <summary><span class="akti-sektor-natpis">Vrsta</span><span class="akti-sektor-izbor">{{range .CipoviRegistara}}{{if .Odabran}}{{.Naziv}}{{end}}{{end}}</span>{{icon "chevron-down"}}</summary>
+  <div class="ocitanja-izbornik" role="menu">
+    {{range .CipoviRegistara}}<a role="menuitemradio" aria-checked="{{if .Odabran}}true{{else}}false{{end}}" href="{{.URL}}">{{.Naziv}}</a>{{end}}
+  </div>
+</details>
 
-
-<div class="filter-card">
-  <form action="{{.Register.Path}}" method="GET">
-    <div class="search-bar-row">
-      <div class="search-input-wrapper">
-        <span class="search-icon">{{icon "search"}}</span>
-        <input type="search" name="q" value="{{.SearchQuery}}" class="search-input" placeholder="{{.Register.Placeholder}}" autocomplete="off">
-      </div>
-      <button type="submit" class="btn btn-primary">Pretraži</button>
-      {{if or .SearchQuery .SelectedSector .SelectedArea .SelectedKind}}<a href="{{.Register.Path}}" class="btn btn-secondary">{{icon "x"}}</a>{{end}}
+<form method="GET" action="{{.Register.Path}}" class="akti-filtri-obrazac">
+  <div class="akti-filtri-vrh">
+    <div class="akti-trazi">
+      <button type="submit" class="akti-trazi-gumb" aria-label="Traži">{{icon "search"}}</button>
+      <input type="text" name="q" value="{{.SearchQuery}}" placeholder="{{.Register.Placeholder}}" aria-label="Traži">
     </div>
-<div class="filters-row stupci-14">
-      <div class="filter-group">
-        <label class="filter-label" for="sector">{{icon "building-2"}} {{term "sektor"}}</label>
-        <select id="sector" name="sector" class="filter-select" onchange="this.form.submit()">
-          <option value="">Svi: {{terml "sektori"}}</option>
-          {{range .Sectors}}{{if ne .ID "DIREKCIJA"}}<option value="{{.ID}}" {{if eq $.SelectedSector .ID}}selected{{end}}>{{.Name}}</option>{{end}}{{end}}
-        </select>
-      </div>
-      <div class="filter-group">
-        <label class="filter-label" for="area">{{icon "waves"}} {{term "podrucje"}}</label>
-        <select id="area" name="area" class="filter-select" onchange="this.form.submit()">
-          <option value="">Sva područja</option>
-          {{range .Areas}}<option value="{{.ID}}" {{if eq $.SelectedArea .ID}}selected{{end}}>{{.ID}}: {{.Name}}</option>{{end}}
-        </select>
-      </div>
-      {{if gt (len .Register.Kinds) 1}}
-      <div class="filter-group">
-        <label class="filter-label" for="kind">{{icon "construction"}} Vrsta</label>
-        <select id="kind" name="kind" class="filter-select" onchange="this.form.submit()">
-          <option value="">Sve vrste</option>
-          {{range .Kinds}}<option value="{{.}}" {{if eq $.SelectedKind .}}selected{{end}}>{{structureKind .}}</option>{{end}}
-        </select>
-      </div>
+  </div>
+  <div class="let-izbori">
+    <label class="let-izbor"><span>{{term "sektor"}}</span>
+      <select id="sector" name="sector" class="form-control" onchange="this.form.submit()">
+        <option value="">Svi: {{terml "sektori"}}</option>
+        {{range .Sectors}}{{if ne .ID "DIREKCIJA"}}<option value="{{.ID}}" {{if eq $.SelectedSector .ID}}selected{{end}}>{{.Name}}</option>{{end}}{{end}}
+      </select></label>
+    <label class="let-izbor"><span>{{term "podrucje"}}</span>
+      <select id="area" name="area" class="form-control" onchange="this.form.submit()">
+        <option value="">Sva područja</option>
+        {{range .Areas}}<option value="{{.ID}}" {{if eq $.SelectedArea .ID}}selected{{end}}>{{.ID}}: {{.Name}}</option>{{end}}
+      </select></label>
+    {{if gt (len .Register.Kinds) 1}}
+    <label class="let-izbor"><span>Vrsta</span>
+      <select id="kind" name="kind" class="form-control" onchange="this.form.submit()">
+        <option value="">Sve vrste</option>
+        {{range .Kinds}}<option value="{{.}}" {{if eq $.SelectedKind .}}selected{{end}}>{{structureKind .}}</option>{{end}}
+      </select></label>
+    {{end}}
+    {{if or .SearchQuery .SelectedSector .SelectedArea .SelectedKind}}<a href="{{.Register.Path}}" class="btn btn-link">Poništi filtre</a>{{end}}
+  </div>
+</form>
+
+<div class="akti-okvir dio-okvir" data-listanje="popis">
+  {{template "pager" .Pager}}
+  <table class="data-table kartice-na-mobitelu dio-tablica obj-tablica">
+    <thead><tr><th>Naziv</th><th class="ob-dionice">Dionice</th>
+      {{if $cs}}<th>Kapacitet (m³/s)</th><th>Uklj. · zaust. (cm)</th>{{end}}
+      <th>Letva</th>
+      {{if $cs}}<th class="ob-smjer">Smjer rada</th><th class="ob-ustava">Ustava</th>{{else}}<th class="ob-kota">Kota „0” (m)</th>{{end}}</tr></thead>
+    <tbody>
+    {{range .Structures}}
+    <tr>
+      <td class="ob-ime"><a class="dl-poveznica" href="{{.Path}}">{{.Name}}</a>
+        <span class="dl-sitno">{{if gt (len $.Register.Kinds) 1}}{{.KindLabel}} · {{end}}BP {{.AreaID}}{{if .AreaName}} {{.AreaName}}{{end}}</span></td>
+      <td class="ob-dionice"><span class="usluga-samo-usko">Dionice: </span>{{range $i, $c := .SectionCodes}}{{if lt $i 3}}{{if $i}}, {{end}}{{$c}}{{end}}{{else}}<span class="oznaka-stanja obrub">Bez dionice</span>{{end}}{{if gt (len .SectionCodes) 3}} i još {{sub (len .SectionCodes) 3}}{{end}}</td>
+      {{if $cs}}
+      <td class="ob-kapacitet">{{if .CapacityText}}{{.CapacityText}}<span class="usluga-samo-usko"> m³/s</span>{{else}}—{{end}}{{if .BrojAgregata}}<span class="dl-sitno">{{.BrojAgregata}} {{uzBroj .BrojAgregata "agregat" "agregata" "agregata"}}</span>{{end}}</td>
+      <td class="ob-razine"><span class="usluga-samo-usko">uključenje · zaustavljanje: </span>{{if .StartText}}{{.StartText}}{{else}}—{{end}} · {{if .StopText}}{{.StopText}}{{else}}—{{end}}</td>
       {{end}}
-    </div>
-  </form>
+      <td class="ob-letva"><span class="usluga-samo-usko">Letva: </span>{{if .StationName}}{{.StationName}}{{else}}<span class="dl-sitno">nije upisana</span>{{end}}</td>
+      {{if $cs}}
+      <td class="ob-smjer">{{with .SmjerNaziv}}{{.}}{{else}}—{{end}}</td>
+      <td class="ob-ustava">{{if .ImaUstavu}}ugrađena{{else}}—{{end}}</td>
+      {{else}}
+      <td class="ob-kota">{{if .ZeroDatum}}{{brojHRd .ZeroDatum 3}}{{else}}<span class="dl-sitno">nije upisana</span>{{end}}</td>
+      {{end}}
+    </tr>
+    {{else}}
+    <tr class="dl-prazno"><td colspan="7"><p>Nijedan objekt ne odgovara zadanim filtrima.</p><a href="{{.Register.Path}}" class="btn btn-link">Poništi filtre</a></td></tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{template "pager" .Pager}}
 </div>
-
-<div data-listanje="popis">
-{{template "pager" .Pager}}
-
-<div class="reg-list">
-  {{range .Structures}}
-  <article class="reg-card">
-    <a class="reg-card-link" href="{{.Path}}">
-      <div class="reg-card-head">
-        <div>
-          <h3 class="reg-card-title">{{.Name}}</h3>
-          <div class="reg-card-sub">{{.KindLabel}} · BP {{.AreaID}}{{if .AreaName}}: {{.AreaName}}{{end}}</div>
-        </div>
-        <span class="badge badge-inactive">{{term "sektor"}} {{.SectorID}}</span>
-      </div>
-      <dl class="reg-facts">
-        {{if .ZeroDatum}}<div><dt>Kota „0“</dt><dd>{{brojHRd .ZeroDatum 2}} m</dd></div>{{end}}
-        {{if .CapacityText}}<div><dt>Kapacitet</dt><dd>{{.CapacityText}} m³/s</dd></div>{{end}}
-        {{if .StartText}}<div><dt>Uključenje</dt><dd>{{.StartText}} cm</dd></div>{{end}}
-        {{if .StopText}}<div><dt>Zaustavljanje</dt><dd>{{.StopText}} cm</dd></div>{{end}}
-      </dl>
-      <div class="reg-card-foot">
-        <span class="reg-chip {{if not .StationName}}empty{{end}}">{{icon "ruler"}} {{if .StationName}}{{.StationName}}{{else}}bez vodomjera{{end}}</span>
-        <span class="reg-chip {{if eq (len .SectionCodes) 0}}empty{{end}}">{{icon "file-text"}} {{dionice (len .SectionCodes)}}</span>
-        <span class="reg-origin">{{.OriginLabel}}</span>
-      </div>
-    </a>
-  </article>
-  {{else}}
-  <div class="reg-empty">Nijedan objekt ne odgovara zadanim filtrima.</div>
-  {{end}}
-</div>
-
-{{template "pager" .Pager}}
-</div>
-
-<p class="page-desc">
-  Za sad su u registru objekti Baranje iz evidencije VGI Baranja. Ostala područja se pune iz dokumentacije
-  dionica i ručno; objekti navedeni u opisu dionice vidljivi su na stranici dionice pod „Objekti“.
-</p>
+<p class="dio-podnozje">{{.Total}} u registru · objekti Baranje iz evidencije VGI Baranja, ostala područja iz dokumentacije dionica i ručno</p>
 {{end}}
