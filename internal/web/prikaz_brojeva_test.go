@@ -117,7 +117,7 @@ func TestDetaljObjektaRenderiraMarkdownOpis(t *testing.T) {
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		Structure:   s,
 	})
-	for _, want := range []string{"Detaljni opis", "<h2>Kritična mjesta</h2>", "<li>stari proboj</li>"} {
+	for _, want := range []string{"<h2>Opis</h2>", "<h2>Kritična mjesta</h2>", "<li>stari proboj</li>"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("Markdown opis objekta nije ispravno prikazan; nema %q", want)
 		}

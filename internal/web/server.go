@@ -457,6 +457,8 @@ func templateFuncs() template.FuncMap {
 		"unos":       unos,
 		"unosD":      unosD,
 		"imaVodotok": imaVodotok,
+		// dan izmjene zapisa kako ga pišu crteži: „4. 11. 2026.”
+		"datumDana": func(t time.Time) string { return t.In(models.Zagreb).Format("2. 1. 2006.") },
 		"derefFloat": func(f *float64, decimals int) string {
 			if f == nil {
 				return "-"

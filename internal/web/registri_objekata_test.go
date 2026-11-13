@@ -64,7 +64,7 @@ func TestRegistriObjekataPoVrstama(t *testing.T) {
 			t.Errorf("%s: %d → %q, htio %q", put, w.Code, w.Header().Get("Location"), cilj)
 		}
 	}
-	if b := otvori("/nasipi/" + nasip.ID.String()); !strings.Contains(b, `<a href="/nasipi">Nasipi</a>`) || strings.Contains(b, "Upiši očitanje") ||
+	if b := otvori("/nasipi/" + nasip.ID.String()); !strings.Contains(b, `<a href="/nasipi" class="povratna-poveznica">← Nasipi</a>`) || strings.Contains(b, "Upiši očitanje") ||
 		!strings.Contains(b, `href="/nasipi/`+nasip.ID.String()+`/edit"`) {
 		t.Error("stranica nasipa ne vodi natrag na nasipe, nudi očitanje ili uređivanje nije u registru nasipa")
 	}
