@@ -3,21 +3,20 @@
 {{define "title"}}goCOP — {{if .IsEdit}}Uređivanje postaje{{else}}Nova vodomjerna postaja{{end}}{{end}}
 
 {{define "content"}}
-<div class="breadcrumb">
-  <a href="/stations">Vodomjerne postaje</a>
-  {{if .IsEdit}} › <a href="/stations/{{.Station.ID}}">{{.Station.Name}}</a> › Uređivanje{{else}} › Nova postaja{{end}}
-</div>
-
-<div class="page-header">
+{{/* Obrazac postaje (goCOP-m3, 17c · Registri, 4b): ploče Osnovno, Pragovi, Kota nule, Zabilježeni
+     ekstremi, Položaj letve, Napomena, Povijest, Izvor očitanja, praćenje te Podrijetlo i provjera. Imena polja, skrivena polja i skripte su isti; vodotok iz
+     registra stoji u Osnovnom, ali pripada zasebnom obrascu iza glavnoga (atribut form=). */}}
+<div class="lob-stranica">
+{{if .IsEdit}}<a href="/stations/{{.Station.ID}}" class="povratna-poveznica">← {{.Station.Name}}</a>
+{{else}}<a href="/stations" class="povratna-poveznica">← Vodomjerne postaje</a>{{end}}
+<div class="page-header list-glava">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{if .IsEdit}}{{icon "pencil"}} {{.Station.Name}}{{else}}{{icon "ruler"}} Nova vodomjerna postaja{{end}}</h1>
-    <p class="page-desc">Ovdje se uređuje ono što stoji na kartici letve, istim redom kojim je ondje
-      prikazano. Povratne vodostaje i promjene kote nule uređuje
-      {{if .IsEdit}}<a href="/stations/{{.Station.ID}}/historijat">historijat</a>{{else}}historijat{{end}}.
+    <h1 class="page-title" data-naziv-stranice>{{if .IsEdit}}Uredi vodomjernu postaju{{else}}Nova vodomjerna postaja{{end}}</h1>
+    <p class="page-desc">Polja sa zvjezdicom su obavezna. Vodostaj se sprema u centimetrima iznad kote nule.
+      Povratne vodostaje i promjene kote nule uređuje {{if .IsEdit}}<a href="/stations/{{.Station.ID}}/historijat">historijat</a>{{else}}historijat{{end}}.
       Svaka izmjena ostaje u povijesti zapisa i stiže na sve čvorove.</p>
   </div>
 </div>
-
 
 <form class="form-page form-wide" id="station-form" method="POST" action="{{if .IsEdit}}/api/stations/update{{else}}/api/stations/create{{end}}">
   {{if .IsEdit}}<input type="hidden" name="id" value="{{.Station.ID}}">{{end}}
@@ -26,7 +25,8 @@
   <input type="hidden" name="zero_datum_system" value="{{if .Station.ZeroDatumSystem}}{{.Station.ZeroDatumSystem}}{{else}}TRST{{end}}">
   <input type="hidden" name="zero_datum_new_system" value="{{if .Station.ZeroDatumNewSystem}}{{.Station.ZeroDatumNewSystem}}{{else}}HVRS71{{end}}">
 
-  <h3 style="font-size:0.9rem; margin:0 0 0.5rem;">Osnovni podaci</h3>
+  <section class="list-kartica">
+  <h3>Osnovno</h3>
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="name">Naziv postaje *</label>
@@ -41,14 +41,37 @@
     <div class="form-group">
       <label class="form-label" for="watercourse">Vodotok (naziv)</label>
       <input type="text" id="watercourse" name="watercourse" class="form-control" value="{{.Station.Watercourse}}" placeholder="Sava" autocomplete="off">
-      <div class="form-help">Voda na kojoj vodomjer stoji. Vezu na registar postavljate niže.</div>
+      <div class="form-help">Voda na kojoj vodomjer stoji.</div>
     </div>
     <div class="form-group">
       <label class="form-label" for="water_area">Vodno područje</label>
       <input type="text" id="water_area" name="water_area" class="form-control" value="{{.Station.WaterArea}}" placeholder="npr. Sliv Drave i Dunava" autocomplete="off">
     </div>
   </div>
-  {{if not .IsEdit}}
+  {{if and .IsEdit .WaterRegistry}}
+  <div class="lob-vodotok">
+    <div class="form-group">
+      <label class="form-label" for="watercourse_code">Vodotok iz registra</label>
+      <select id="watercourse_code" name="watercourse_code" class="form-control" form="vodotok-obrazac">
+        <option value="">— ukloni vodotok —</option>
+        {{range .WaterRegistry}}
+        <option value="{{.Code}}" {{if eq .Code $.Station.WatercourseCode}}selected{{end}}>{{.OfficialName}}</option>
+        {{end}}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-secondary" form="vodotok-obrazac">Spremi vodotok</button>
+  </div>
+  <p class="form-help">Program je zasad utvrdio: <strong>{{if .Station.HasWatercourse}}{{.Station.Watercourse}}{{else}}ništa{{end}}</strong>{{with .Station.PodrijetloVodotoka}} ({{.}}){{end}}.
+    Ručni odabir nadjačava strojno utvrđivanje i bilježi se kao potvrda operatera. Sprema se odmah i odvojeno
+    od ostatka obrasca, pa prije toga spremite ostale izmjene, inače će se izgubiti.</p>
+  {{end}}
+  {{if .IsEdit}}
+  <div class="lob-dionice">
+    <span class="form-label">Mjerodavna za dionice</span>
+    <div class="lob-cipovi">{{range .Station.SectionCodes}}<a class="oznaka-stanja obrub" href="/sections/{{.}}">{{.}}</a>{{else}}<span class="form-help">nijedna</span>{{end}}</div>
+    <p class="form-help mb-0">Letva se dodaje dionici u obrascu dionice.</p>
+  </div>
+  {{else}}
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="section_code">Dodaj na dionicu (neobavezno)</label>
@@ -57,34 +80,39 @@
     <div class="form-group"></div>
   </div>
   {{end}}
+  </section>
 
-  <h3 class="obrazac-podnaslov">Pragovi obrane od poplava</h3>
+  <section class="list-kartica">
+  <h3>Pragovi obrane od poplava</h3>
   <p class="form-help mt-0 mb-2">
     Broj se čita kao centimetri na vodomjeru i ulazi u izračun stupnja obrane.
     Svaki drugi zapis (npr. „206,30 m n. m.") čuva se kao tekst i ne ulazi u izračun.
   </p>
   <div class="form-row">
     <div class="form-group">
-      <label class="form-label" for="prep">Pripremno stanje (P)</label>
+      <label class="form-label" for="prep">Pripremno stanje (P) · cm</label>
       <input type="text" inputmode="numeric" id="prep" name="prep" class="form-control" value="{{thresholdInput .Station.Prep}}" placeholder="+600">
     </div>
     <div class="form-group">
-      <label class="form-label" for="regular">Redovna obrana (R)</label>
+      <label class="form-label" for="regular">Redovna obrana (R) · cm</label>
       <input type="text" inputmode="numeric" id="regular" name="regular" class="form-control" value="{{thresholdInput .Station.Regular}}" placeholder="+880">
     </div>
   </div>
   <div class="form-row">
     <div class="form-group">
-      <label class="form-label" for="emergency">Izvanredna obrana (I)</label>
+      <label class="form-label" for="emergency">Izvanredna obrana (I) · cm</label>
       <input type="text" inputmode="numeric" id="emergency" name="emergency" class="form-control" value="{{thresholdInput .Station.Emergency}}" placeholder="+980">
     </div>
     <div class="form-group">
-      <label class="form-label" for="state">Izvanredno stanje (IS)</label>
+      <label class="form-label" for="state">Izvanredno stanje (IS) · cm</label>
       <input type="text" inputmode="numeric" id="state" name="state" class="form-control" value="{{thresholdInput .Station.State}}" placeholder="+1080">
     </div>
   </div>
 
-  <h3 class="obrazac-podnaslov">Kota nule vodomjera</h3>
+  </section>
+
+  <section class="list-kartica">
+  <h3>Kota nule vodomjera</h3>
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="zero_datum_new">Kota „0“ — HVRS71 (m)</label>
@@ -139,7 +167,10 @@
     </div>
   </div>
 
-  <h3 class="obrazac-podnaslov">Zabilježeni ekstremi</h3>
+  </section>
+
+  <section class="list-kartica">
+  <h3>Zabilježeni ekstremi</h3>
   <p class="form-help mt-0 mb-2">
     Najviši i najniži vodostaj s datumom. Vrijednost koja nije izmjerena na ovoj letvi — preračunata iz druge postaje
     ili preuzeta iz starije evidencije — mora nositi podrijetlo, izvor i način; takva ne ulazi u pragove obrane.
@@ -219,10 +250,11 @@
   (EXTREMES || []).forEach(addExtremeRow);
   document.getElementById('station-form') && document.getElementById('station-form').addEventListener('submit', collectExtremes);
   </script>
+  </section>
 
-
-  <h3 class="obrazac-podnaslov">Položaj letve</h3>
-  <p class="form-help mt-0 mb-2">
+  <section class="list-kartica">
+  <h3>Položaj letve</h3>
+  <p class="form-help">
     Decimalni stupnjevi. Tehnički zapisnici DHMZ-a daju stupnjeve, minute i sekunde —
     npr. 45° 50′ 45″ je 45,845833. S koordinatama se letva prikazuje na karti.
   </p>
@@ -238,16 +270,21 @@
              value="{{if .Station.Longitude}}{{unosD .Station.Longitude 6}}{{end}}" placeholder="18,854722">
     </div>
   </div>
+  {{if .IsEdit}}<a class="btn btn-link lob-karta" href="/karta#uredi=letva:{{.Station.ID}}">Postavi na Karti</a>{{end}}
+  </section>
 
-  <h3 class="obrazac-podnaslov">Napomena</h3>
-  <div class="form-group">
+  <section class="list-kartica">
+  <h3>Napomena</h3>
+  <div class="form-group mb-0">
     <label class="form-label" for="notes">Napomena uz letvu</label>
     <input type="text" id="notes" name="notes" class="form-control" value="{{.Station.Notes}}"
            placeholder="ono što se o letvi mora znati, a nije brojka">
   </div>
+  </section>
 
-  <h3 style="font-size:0.9rem; margin:1.5rem 0 0.25rem;">Povijest postaje</h3>
-  <p class="form-help mt-0 mb-2">
+  <section class="list-kartica">
+  <h3>Povijest postaje</h3>
+  <p class="form-help">
     Ono što o postaji piše u dokumentaciji službe, a iz brojki se ne vidi: tko ju je i zašto osnovao, gdje
     točno stoji, koji su uređaji kad došli i otišli, na koje je stalne točke vezana. Zamjena limnigrafa ili
     premještanje letve ostave trag u nizu, a razlog ostane izvan njega.
@@ -271,14 +308,16 @@
               placeholder="osnivanje, položaj, uređaji kroz vrijeme, stalne točke i reperi">{{.Station.Povijest}}</textarea>
   </div>
   {{if .Station.KotaNM}}
-  <p class="form-help mb-4">
+  <p class="form-help mb-0">
     <span class="reg-chip">kota u cm n. m.</span> Letva akumulacije HEP-a ne vodi vodostaj nego kotu vodnog lica nad
     morem, pa prima očitanja od 5000 do 40 000 cm umjesto od −500 do 3000 cm, i pri ručnom upisu i pri preuzimanju
     i uvozu. Oznaku postavlja program; u obrascu se ne mijenja.
   </p>
   {{end}}
+  </section>
 
-  <h3 class="obrazac-podnaslov">Javna stranica vodostaja</h3>
+  <section class="list-kartica">
+  <h3>Izvor očitanja</h3>
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="javni_url">Adresa stranice ove letve</label>
@@ -289,19 +328,18 @@
         Danas program čita vodostaji.voda.hr; mađarske i srpske stranice imaju svoj oblik i dodaju se kao novi čitač. Prazno znači da letva nema javnu stranicu.</div>
     </div>
   </div>
-  <label class="form-check d-flex items-center gap-2 mb-4">
-    <input type="checkbox" name="javni_uvoz" value="1" {{if .Station.JavniUvoz}}checked{{end}}>
+  <label class="lob-sklopka">
+    <input type="checkbox" class="prekidac" role="switch" name="javni_uvoz" value="1" {{if .Station.JavniUvoz}}checked{{end}}>
     <span>Preuzimaj očitanja s javne stranice svaki sat</span>
   </label>
 
-  <h3 class="obrazac-podnaslov">Telemetrija na Geolux HydroViewu</h3>
-  <label class="form-check" style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.25rem;
-         {{if not .TelemetrijaMoguca}}opacity:0.55;{{end}}">
-    <input type="checkbox" name="telemetrija_uvoz" value="1"
+  <h4 class="lob-podnaslov">Telemetrija na Geolux HydroViewu</h4>
+  <label class="lob-sklopka{{if not .TelemetrijaMoguca}} lob-zasivljeno{{end}}">
+    <input type="checkbox" class="prekidac" role="switch" name="telemetrija_uvoz" value="1"
            {{if .Station.TelemetrijaUvoz}}checked{{end}} {{if not .TelemetrijaMoguca}}disabled{{end}}>
     <span>Čitaj vodostaj s telemetrije umjesto s javne stranice</span>
   </label>
-  <div class="form-help mb-4">
+  <div class="form-help">
     {{if .TelemetrijaMoguca}}
       Za letvu koja nema javnu stranicu, a jest na
       <a href="https://hdv.voda.hr/" target="_blank" rel="noopener">hdv.voda.hr</a>. Postaja se ondje traži po
@@ -325,21 +363,23 @@
       (Belišće ima tri), zalijepite poveznicu prave postaje iz preglednika.</div>
   </div>
   {{end}}
-  <p class="form-help" style="margin:-0.5rem 0 1rem;">
+  <p class="form-help mb-0">
     Isto što se danas zalijepi rukom: zadnja dva-tri dana satnih vodostaja, s podrijetlom te stranice.
     Sat na koji letva već ima očitanje, iz bilo kojeg izvora, ne dira se.
   </p>
+  </section>
 
   {{if .IzborPracenja}}
-  <h3 class="obrazac-podnaslov">Sektori i područja koji letvu prate</h3>
-  <p class="form-help mt-0 mb-2">
+  <section class="list-kartica">
+  <h3>Sektori i područja koji letvu prate</h3>
+  <p class="form-help">
     Neobavezno. Domaća letva je preko svojih dionica ionako u sektoru i branjenom području; ovdje se
     upisuje sektor koji prati stranu letvu (Mohács, Letenye, Barcs…) ili još koji sektor ili područje
     uz one s dionica. Područje donosi i svoj sektor. Očitanje na letvu upisuje svatko s dužnošću u
     sektoru koji je prati; letva bez ijednog sektora prima očitanje od svakoga tko igdje upisuje.
   </p>
   <input type="hidden" name="prate_obrazac" value="1">
-  <div class="mb-4">
+  <div>
     {{range .IzborPracenja}}
     <div class="mb-2">
       <label class="form-check d-flex items-center gap-2">
@@ -347,7 +387,7 @@
         <strong>{{if .Sektor.Name}}{{.Sektor.Name}}{{else}}Sektor {{.Sektor.ID}}{{end}}</strong>
       </label>
       {{if .Podrucja}}
-      <div class="d-flex gap-2" style="flex-wrap:wrap; margin-left:1.5rem;">
+      <div class="lob-podrucja">
         {{range .Podrucja}}
         <label class="form-check d-flex items-center gap-2">
           <input type="checkbox" name="prate_podrucje" value="{{.ID}}" {{if $.Station.PratiPodrucje .ID}}checked{{end}}>
@@ -359,9 +399,11 @@
     </div>
     {{end}}
   </div>
+  </section>
   {{end}}
 
-  <h3 class="obrazac-podnaslov">Podrijetlo i provjera</h3>
+  <section class="list-kartica">
+  <h3>Podrijetlo i provjera</h3>
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="source_name">Naziv kako stoji u dokumentaciji</label>
@@ -375,47 +417,29 @@
              value="{{.Station.ReviewNote}}" placeholder="npr. kota nule nije potvrđena elaboratom">
     </div>
   </div>
-  <label class="form-check d-flex items-center gap-2 mb-4">
-    <input type="checkbox" name="needs_review" value="1" {{if .Station.NeedsReview}}checked{{end}}>
-    <span>Podaci nisu potvrđeni — traže provjeru operatera</span>
+  <label class="lob-sklopka">
+    <input type="checkbox" class="prekidac" role="switch" name="needs_review" value="1" {{if .Station.NeedsReview}}checked{{end}}>
+    <span>Čeka pregled</span>
   </label>
-  <p class="form-help" style="margin:-0.5rem 0 1rem;">
-    Označena postaja upozorava da se na njezine podatke još ne treba oslanjati u automatici.
+  <p class="form-help mb-0">
+    Letva ostaje u popisu „Čeka pregled” dok se ovo ne isključi, a na njezine podatke još se ne treba
+    oslanjati u automatici. Letva bez praga u centimetrima ostaje na pregledu i kad je isključeno.
   </p>
+  </section>
 
-  <div class="form-actions">
-    <a href="{{if .IsEdit}}/stations/{{.Station.ID}}{{else}}/stations{{end}}" class="btn btn-secondary">Odustani</a>
+  <div class="form-actions lob-gumbi">
+    <a href="{{if .IsEdit}}/stations/{{.Station.ID}}{{else}}/stations{{end}}" class="btn btn-link">Odustani</a>
     <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi izmjene{{else}}Upiši u registar{{end}}</button>
   </div>
 </form>
 
 {{if .IsEdit}}
 {{if .WaterRegistry}}
-<div class="form-page form-wide mt-4">
-  <h3 style="font-size:0.9rem; margin:0 0 0.25rem;">Vodotok iz registra</h3>
-  <p class="form-help mt-0 mb-2">
-    Voda na kojoj vodomjer <strong>fizički stoji</strong> — nije isto što i vode za koje je postaja
-    mjerodavna. Program je zasad utvrdio: <strong>{{if .Station.HasWatercourse}}{{.Station.Watercourse}}{{else}}ništa{{end}}</strong>{{with .Station.PodrijetloVodotoka}} ({{.}}){{end}}.
-    Ručni odabir nadjačava strojno utvrđivanje i bilježi se kao potvrda operatera.
-  </p>
-  <p class="form-help mt-0 mb-3">
-    Sprema se odmah, odvojeno od ostatka obrasca — pa spremite izmjene gore prije nego dirate ovo,
-    inače će se izgubiti.
-  </p>
-  <form method="POST" action="/api/stations/watercourse" class="station-watercourse-form">
-    <input type="hidden" name="station_id" value="{{.Station.ID}}">
-    <div class="form-group" style="flex:1; min-width:14rem; margin:0;">
-      <label class="form-label" for="watercourse_code">Pridruži iz registra vodotoka</label>
-      <select id="watercourse_code" name="watercourse_code" class="form-control">
-        <option value="">— ukloni vodotok —</option>
-        {{range .WaterRegistry}}
-        <option value="{{.Code}}" {{if eq .Code $.Station.WatercourseCode}}selected{{end}}>{{.OfficialName}}</option>
-        {{end}}
-      </select>
-    </div>
-    <button type="submit" class="btn btn-secondary" style="min-height:40px;">Spremi vodotok</button>
-  </form>
+{{/* Zaseban obrazac vodotoka iz registra: polje i gumb su gore u Osnovnom (form="vodotok-obrazac"). */}}
+<form id="vodotok-obrazac" method="POST" action="/api/stations/watercourse" class="station-watercourse-form" hidden>
+  <input type="hidden" name="station_id" value="{{.Station.ID}}">
+</form>
+{{end}}
+{{end}}
 </div>
-{{end}}
-{{end}}
 {{end}}
