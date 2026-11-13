@@ -113,7 +113,7 @@ func TestObrazacHistorijataNeObecavaTudje(t *testing.T) {
 		}
 	}
 	// i upućuje drugamo za ono što ne prima
-	if !strings.Contains(html, "kartica letve") {
+	if !strings.Contains(html, "obrazac postaje") {
 		t.Error("obrazac ne kaže gdje se uređuje ostalo")
 	}
 	// ali ne tvrdi da krajnosti uređuje on

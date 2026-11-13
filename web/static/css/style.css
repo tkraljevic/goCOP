@@ -9923,6 +9923,34 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
 .part-edit.sklopljena { padding-block: 12px !important; }
 .part-edit.sklopljena .dio-pod-uredi-glava [data-role=remove] { display: none; }
 
+/* Obrazac vodomjerne postaje (goCOP-m3, 17c · Registri, 4b): ploče jedna ispod druge. */
+.lob-stranica > .form-page { padding: 0; overflow: visible; border: 0; background: none; box-shadow: none; }
+.lob-stranica > .form-page::before, .lob-stranica > .form-page::after { display: none; }
+.lob-stranica .list-kartica { margin-bottom: 16px; }
+.lob-stranica .list-kartica > h3 { margin: 0 0 12px; font-size: 1rem; font-weight: 500; line-height: 24px; color: var(--md-sys-color-on-surface); }
+.lob-vodotok { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 12px; }
+.lob-vodotok .form-group { flex: 1 1 14rem; margin: 0; }
+.lob-vodotok .btn { min-height: 40px; }
+.lob-dionice { margin-top: 8px; }
+.lob-cipovi { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 6px; }
+.lob-cipovi a { text-decoration: none; }
+/* Donji dio obrasca postaje: sklopke kao prekidači (ostaju kvačice), zasivljena telemetrija bez računa. */
+.lob-sklopka { display: flex; align-items: center; gap: 12px; margin: 8px 0; cursor: pointer; }
+.lob-zasivljeno { cursor: default; opacity: 0.55; }
+.lob-podnaslov { margin: 16px 0 4px; font-size: 0.875rem; font-weight: 500; color: var(--md-sys-color-on-surface); }
+.lob-podrucja { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-left: 1.5rem; }
+.lob-karta { padding-inline: 0; }
+.lob-gumbi { justify-content: flex-end; }
+/* Historijat letve: prazno stanje dok ploča nema redaka; nestaje čim se doda redak. */
+.his-prazno { margin: 4px 0 8px; }
+.lob-stranica .list-kartica:has(#return-rows:not(:empty)) .his-prazno,
+.lob-stranica .list-kartica:has(#zero-rows:not(:empty)) .his-prazno,
+.lob-stranica .list-kartica:has(#ograda-rows:not(:empty)) .his-prazno { display: none; }
+.lob-stranica .list-kartica:has(#return-rows:empty) .rows-head,
+.lob-stranica .list-kartica:has(#zero-rows:empty) .rows-head,
+.lob-stranica .list-kartica:has(#ograda-rows:empty) .rows-head { display: none; }
+.his-sada { margin: 0 0 8px; color: var(--md-sys-color-on-surface); }
+
 /* Popis vodomjernih postaja (17c, 4a): tablica i kartice kao kod dionica (.dio-tablica),
    uz izbor vodotoka i države ispod čipova. */
 .let-izbori { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 16px; margin: 8px 0 16px; }
