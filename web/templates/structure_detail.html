@@ -9,7 +9,7 @@
 {{define "content"}}
 {{/* Kartica objekta (goCOP-m3, 17d · Registri, 5b, 5d i 5e): lijevo karta i opis, desno podaci, pogon
      crpne stanice, vodomjeri i dionice kao retci. Ista je za sve vrste; karta, učitavanje KML-a i
-     „Upiši očitanje” ostaju. Ispod oko 940 px širine sve je u jednom stupcu. */}}
+     „Upiši očitanje” ostaju, a Obriši je u obrascu. Ispod oko 940 px širine sve je u jednom stupcu. */}}
 {{$s := .Structure}}
 <div class="list-stranica list-stranica-ploca obj-stranica">
 <a href="{{.Register.Path}}" class="povratna-poveznica">← {{.Register.Title}}</a>
@@ -25,10 +25,6 @@
   {{end}}
   {{if .CanEdit}}
     <a href="{{$s.Path}}/edit" class="btn {{if $s.TakesReadings}}btn-secondary{{else}}btn-primary{{end}}">Uredi</a>
-    <form method="POST" action="/structures/delete" onsubmit="return confirm('Obrisati objekt „{{$s.Name}}“ iz registra? Zapis ostaje u povijesti.')">
-      <input type="hidden" name="id" value="{{$s.ID}}">
-      <button type="submit" class="btn btn-link btn-opasno">Obriši</button>
-    </form>
   {{end}}
   </div>
 </div>

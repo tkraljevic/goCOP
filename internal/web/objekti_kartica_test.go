@@ -47,3 +47,35 @@ func TestKarticaObjektaPoCrtezu(t *testing.T) {
 		}
 	}
 }
+
+// Obrazac objekta šalje sva polja za svaku vrstu: rukovatelj prepisuje sve što
+// stigne, pa polje koje bi otpalo ili bilo onemogućeno obrisalo bi podatak.
+// Obriši je zaseban obrazac, a gumb za njega stoji uz Spremi.
+func TestObrazacObjektaSaljeSvaPolja(t *testing.T) {
+	polja := []string{"name", "kind", "area_id", "station_id", "station_down_id", "zero_datum", "zero_datum_system",
+		"watercourse_code", "vodotok_druge_strane", "u_sklopu_id", "capacity_text", "broj_agregata", "start", "stop",
+		"smjer_rada", "ima_sifon", "sifon_min_cm", "ima_ustavu", "latitude", "longitude", "notes", "id", "code"}
+	for _, vrsta := range []string{models.StructureKindEmbankment, models.StructureKindSluice, models.StructureKindPumpingStation, models.StructureKindSiphon} {
+		st := &models.Structure{ID: uuid.New(), Name: "Objekt Primjerovo", Kind: vrsta, Code: "primjerovo", SectionCodes: []string{"P.1.1"}}
+		html := iscrtaj(t, "structure_form.html", StructurePageData{
+			CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+			Structure: st, IsEdit: true, CanEdit: true, Kinds: models.StructureKinds,
+		})
+		glavni := izmedju(html, `<form class="form-page form-wide"`, "</form>")
+		for _, p := range polja {
+			if !strings.Contains(glavni, `name="`+p+`"`) {
+				t.Errorf("%s: obrazac ne šalje polje %s", vrsta, p)
+			}
+		}
+		if strings.Contains(glavni, "disabled") {
+			t.Errorf("%s: obrazac ima onemogućeno polje", vrsta)
+		}
+		for _, want := range []string{`href="` + st.Path() + `" class="povratna-poveznica">← Objekt Primjerovo`, "Uredi objekt",
+			`<form id="obrisi-objekt" method="POST" action="/structures/delete"`, `form="obrisi-objekt"`, `href="/sections/P.1.1"`,
+			`href="/karta#uredi=objekt:` + st.ID.String() + `"`} {
+			if !strings.Contains(html, want) {
+				t.Errorf("%s: obrazac nema %q", vrsta, want)
+			}
+		}
+	}
+}
