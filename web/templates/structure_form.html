@@ -18,7 +18,9 @@
 
 <form class="form-page form-wide" method="POST" action="{{if .IsEdit}}/structures/update{{else}}/structures/create{{end}}">
   {{if .IsEdit}}<input type="hidden" name="id" value="{{.Structure.ID}}"><input type="hidden" name="code" value="{{.Structure.Code}}">{{end}}
-  <input type="hidden" name="zero_datum_system" value="{{if .Structure.ZeroDatumSystem}}{{.Structure.ZeroDatumSystem}}{{else}}TRST{{end}}">
+  {{/* Sustav kote šalje se kakav jest: za novi objekt rukovatelj već upisuje TRST, a stari zapis bez
+       sustava ne smije ga dobiti samim spremanjem. */}}
+  <input type="hidden" name="zero_datum_system" value="{{.Structure.ZeroDatumSystem}}">
 
   <section class="list-kartica">
   <h3>Osnovno</h3>

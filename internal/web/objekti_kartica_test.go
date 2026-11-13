@@ -1,6 +1,9 @@
 package web
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -77,5 +80,22 @@ func TestObrazacObjektaSaljeSvaPolja(t *testing.T) {
 				t.Errorf("%s: obrazac nema %q", vrsta, want)
 			}
 		}
+	}
+}
+
+// Smjer rada čita se samo za crpnu stanicu: nasip spremljen bez izmjena ne
+// smije dobiti „odvodnju” iz skrivenog polja obrasca.
+func TestSmjerRadaSamoZaCrpnuStanicu(t *testing.T) {
+	obrazac := func(vrsta string) models.Structure {
+		r := httptest.NewRequest(http.MethodPost, "/structures/update", strings.NewReader(url.Values{
+			"name": {"Objekt"}, "kind": {vrsta}, "smjer_rada": {models.SmjerOdvodnjaINavodnjavanje}}.Encode()))
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		return structureFromForm(r)
+	}
+	if st := obrazac(models.StructureKindEmbankment); st.SmjerRada != "" || st.Reverzibilna {
+		t.Errorf("nasip je dobio smjer rada %q", st.SmjerRada)
+	}
+	if st := obrazac(models.StructureKindPumpingStation); st.SmjerRada != models.SmjerOdvodnjaINavodnjavanje || !st.Reverzibilna {
+		t.Errorf("crpna stanica nema smjer iz obrasca: %q", st.SmjerRada)
 	}
 }

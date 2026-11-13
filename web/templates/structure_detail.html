@@ -67,7 +67,7 @@
     <dt>Vrsta</dt><dd>{{$s.KindLabel}}</dd>
     <dt>{{term "sektor"}}</dt><dd>{{$s.SectorID}}</dd>
     <dt>{{term "podrucje"}}</dt><dd>{{term "bp"}} {{$s.AreaID}}{{if $s.AreaName}} {{$s.AreaName}}{{end}}</dd>
-    <dt>Kota „0” letve</dt><dd>{{if $s.ZeroDatum}}{{brojHRd $s.ZeroDatum 3}} m ({{$s.ZeroDatumSystem}}){{else}}nije upisana{{end}}</dd>
+    <dt>Kota „0” letve</dt><dd>{{if $s.ZeroDatum}}{{brojHRd $s.ZeroDatum 3}} m{{with $s.ZeroDatumSystem}} ({{.}}){{end}}{{else}}nije upisana{{end}}</dd>
     {{with .USklopu}}<dt>U sklopu</dt><dd><a href="{{.Path}}">{{.Name}}</a> · zapornica se upisuje u očitanju stanice</dd>{{end}}
     <dt>Šifra</dt><dd class="mono">{{$s.Code}}</dd>
     {{if $s.Latitude}}<dt>Položaj</dt><dd class="mono">{{derefFloat $s.Latitude 5}}, {{derefFloat $s.Longitude 5}}</dd>{{end}}
