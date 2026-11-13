@@ -10003,3 +10003,14 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
   .obj-stranica .page-actions { display: flex; flex-wrap: wrap; gap: 8px; }
   .obj-stranica .page-actions .btn-primary { flex: 1 0 100%; order: -1; min-height: 48px; }
 }
+
+/* Povezanost ustava i crpnih stanica (17d, 5f): tablica i kartice kao kod popisa dionica. */
+.pov-tablica .pv-strana .oznaka-stanja, .pov-tablica .pv-objekt .dl-sitno { white-space: normal; }
+.pov-tablica .pv-uredi .btn { padding-inline: 0; }
+@media (max-width: 599px) {
+  table.pov-tablica td { order: 2; width: 100%; }
+  table.pov-tablica td.pv-objekt { order: 1; font-size: 1rem; }
+  table.pov-tablica .pv-objekt .dl-sitno { display: block; font-size: 0.8125rem; }
+  /* cijela kartica vodi na objekt, a Uredi stoji iznad te poveznice */
+  table.pov-tablica td.pv-uredi { position: relative; z-index: 1; width: auto; }
+}

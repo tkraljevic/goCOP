@@ -26,7 +26,7 @@ func TestStranicaPovezanostiObjekata(t *testing.T) {
 	}
 	html := iscrtaj(t, "povezanost_objekata.html", PovezanostPageData{CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		Redovi: []RedakPovezanosti{potpun, nepotpun}, Nepotpunih: 1})
-	for _, zeli := range []string{"CS Proba", "crpna stanica, odvodnja i navodnjavanje", "sa sifonom", "Dunavac Proba", "Ustava Proba", "u sklopu: CS Proba", "vodotok nedostaje", "letva nedostaje", "1 nepotpunih", "/edit"} {
+	for _, zeli := range []string{"CS Proba", "crpna stanica, odvodnja i navodnjavanje", "sa sifonom", "Dunavac Proba", "Ustava Proba", "ustava u sklopu: CS Proba", "nema vodotoka", "nema letve", "nepotpunih: 1", "/edit"} {
 		if !strings.Contains(html, zeli) {
 			t.Errorf("stranica povezanosti nema %q", zeli)
 		}
@@ -159,5 +159,27 @@ func TestObrazacObjektaKotaNuleTriDecimale(t *testing.T) {
 		Structure: st, IsEdit: true})
 	if !strings.Contains(html, `name="zero_datum" class="form-control" value="82,064"`) {
 		t.Error("kota nule objekta nije upisana s tri decimale")
+	}
+}
+
+// Povezanost po crtežu 5f: čipovi „Sva” i samo područja koja imaju ustavu ili
+// crpnu stanicu, samostalna ustava tako i piše, a tablica nije u table-responsive.
+func TestPovezanostPoCrtezu(t *testing.T) {
+	cipovi := cipoviPodrucjaPovezanosti(map[int]bool{16: true, 34: true},
+		[]models.Area{{ID: 15}, {ID: 16}, {ID: 34}}, 16)
+	if len(cipovi) != 3 || cipovi[0].URL != "/registri/povezanost-objekata" || cipovi[0].Odabran ||
+		!cipovi[1].Odabran || cipovi[1].URL != "/registri/povezanost-objekata?area=16" || cipovi[2].Naziv != models.Terms().AreaShort+" 34" {
+		t.Errorf("čipovi područja: %+v", cipovi)
+	}
+	samostalna := RedakPovezanosti{Objekt: models.Structure{Name: "Ustava Samostalna", Kind: models.StructureKindSluice, AreaID: 16}}
+	html := iscrtaj(t, "povezanost_objekata.html", PovezanostPageData{CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{}, Redovi: []RedakPovezanosti{samostalna}, Podrucje: 16, CipoviPodrucja: cipovi})
+	for _, zeli := range []string{"samostalna", `class="povratna-poveznica">← Crpne stanice`, `aria-pressed="true">`, "1 objekt u"} {
+		if !strings.Contains(html, zeli) {
+			t.Errorf("povezanost nema %q", zeli)
+		}
+	}
+	if strings.Contains(html, "table-responsive") || strings.Contains(html, "/edit") {
+		t.Error("tablica je u table-responsive ili se Uredi nudi bez prava")
 	}
 }
