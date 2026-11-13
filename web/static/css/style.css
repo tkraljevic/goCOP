@@ -9987,3 +9987,19 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
   table.obj-tablica td.ob-letva { order: 3; }
   table.obj-tablica td.ob-smjer, table.obj-tablica td.ob-ustava { display: none; }
 }
+
+/* Kartica objekta (17d, 5b, 5d i 5e): dva stupca kao kartica dionice (.dio-stranica, .dio-veze). */
+.obj-karta-akcije { display: flex; flex-wrap: wrap; gap: 0 16px; margin: -4px 0 8px; }
+.obj-karta-akcije .btn, .obj-dodaj { padding-inline: 0; }
+.obj-datoteka { cursor: pointer; }
+.dio-veze .redak a.redak-glavno { display: block; color: var(--md-sys-color-primary); }
+.obj-strana { margin: 8px 0 0; font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); }
+.obj-dionice { margin: -4px 0 8px 40px; font-size: 0.8125rem; }
+.obj-kriterij { margin: 8px 0; font-size: 0.875rem; }
+.obj-stranica .page-header { margin-bottom: 16px; }
+.obj-stranica .page-actions form { display: inline-flex; margin: 0; }
+@media (max-width: 599px) {
+  .obj-stranica .page-header { flex-direction: column; align-items: stretch; }
+  .obj-stranica .page-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .obj-stranica .page-actions .btn-primary { flex: 1 0 100%; order: -1; min-height: 48px; }
+}

@@ -186,7 +186,8 @@ func TestNasipMjerodavniVodomjeriIzDionica(t *testing.T) {
 	if strings.Contains(html, "Objekt nema pridružen vodomjer") || strings.Contains(html, "Vodomjer na objektu") {
 		t.Error("nasip bez vlastite letve, a s mjerodavnima, i dalje pokazuje blok vodomjera na objektu")
 	}
-	redoslijed := []string{"Podaci objekta", `id="mjerodavni-vodomjeri"`, "Detaljni opis", "Dionice <span"}
+	// Opis je u lijevom stupcu, a podaci, mjerodavne letve i dionice u desnom.
+	redoslijed := []string{"<h2>Opis</h2>", "<h2>Podaci</h2>", `id="mjerodavni-vodomjeri"`, "Dionice <span"}
 	zadnji := -1
 	for _, dio := range redoslijed {
 		i := strings.Index(html, dio)
@@ -206,7 +207,7 @@ func TestNasipBezMjerodavnihIVlastitaLetva(t *testing.T) {
 	o.dionica("P.1.4", nasipNa(golo, nil))
 	html := o.stranica(golo)
 	blok := blokMjerodavnih(t, html)
-	if !strings.Contains(blok, "Mjerodavni vodomjer nije upisan ni u jednoj dionici na kojoj nasip stoji") || !strings.Contains(blok, "obrascu dionice") {
+	if !strings.Contains(blok, "Mjerodavna letva nije upisana ni u jednoj dionici na kojoj nasip stoji") || !strings.Contains(blok, "obrascu dionice") {
 		t.Errorf("nema upute za nasip bez mjerodavnih\n%s", blok)
 	}
 	if strings.Contains(html, "Objekt nema pridružen vodomjer") {
@@ -240,7 +241,7 @@ func TestCrpnaStanicaBezMjerodavnih(t *testing.T) {
 	if strings.Contains(html, "mjerodavni-vodomjeri") {
 		t.Error("crpna stanica dobila blok mjerodavnih vodomjera")
 	}
-	opis, vod := strings.Index(html, "Detaljni opis"), strings.Index(html, "Objekt nema pridružen vodomjer")
+	opis, vod := strings.Index(html, "<h2>Opis</h2>"), strings.Index(html, "Objekt nema pridružen vodomjer")
 	if opis < 0 || vod < opis {
 		t.Errorf("crpna stanica: opis %d, poruka o vodomjeru %d", opis, vod)
 	}

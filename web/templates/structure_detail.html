@@ -7,72 +7,49 @@
 {{define "scripts"}}{{if .CanEdit}}<script src="{{statika "js/datoteka-karte.js"}}" defer></script>{{end}}{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="{{.Register.Path}}">{{.Register.Title}}</a> › <a href="{{.Register.Path}}?area={{.Structure.AreaID}}">BP {{.Structure.AreaID}}</a> › {{.Structure.Name}}</div>
-
-<div class="detail-head">
+{{/* Kartica objekta (goCOP-m3, 17d · Registri, 5b, 5d i 5e): lijevo karta i opis, desno podaci, pogon
+     crpne stanice, vodomjeri i dionice kao retci. Ista je za sve vrste; karta, učitavanje KML-a i
+     „Upiši očitanje” ostaju. Ispod oko 940 px širine sve je u jednom stupcu. */}}
+{{$s := .Structure}}
+<div class="list-stranica list-stranica-ploca obj-stranica">
+<a href="{{.Register.Path}}" class="povratna-poveznica">← {{.Register.Title}}</a>
+<div class="page-header list-glava">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon (ikonaVrste .Structure.Kind)}} {{.Structure.Name}}</h1>
-    <p class="page-desc">
-      {{.Structure.KindLabel}} · {{term "sektor"}} {{.Structure.SectorID}} · {{term "bp"}} {{.Structure.AreaID}}{{if .Structure.AreaName}}: {{.Structure.AreaName}}{{end}}
-      · {{.Structure.OriginLabel}}
-    </p>
+    <h1 class="page-title" data-naziv-stranice>{{$s.Name}}</h1>
+    <p class="page-desc">{{$s.KindLabel}} · {{term "sektor"}} {{$s.SectorID}} · {{term "bp"}} {{$s.AreaID}}{{if $s.AreaName}} {{$s.AreaName}}{{end}}</p>
   </div>
-  <div class="detail-actions">
-  {{if .Structure.TakesReadings}}
-    <a href="/readings/new?structure={{.Structure.ID}}" class="btn btn-primary">{{icon "plus"}} Upiši očitanje</a>
-    <a href="/readings/structure/{{.Structure.ID}}" class="btn btn-secondary">{{icon "activity"}} Očitanja</a>
+  <div class="page-actions">
+  {{if $s.TakesReadings}}
+    <a href="/readings/structure/{{$s.ID}}" class="btn btn-link">Očitanja</a>
+    <a href="/readings/new?structure={{$s.ID}}" class="btn btn-primary">Upiši očitanje</a>
   {{end}}
   {{if .CanEdit}}
-    <a href="{{.Structure.Path}}/edit" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>
-    <form method="POST" action="/structures/delete" onsubmit="return confirm('Obrisati objekt „{{.Structure.Name}}“ iz registra? Zapis ostaje u povijesti.')">
-      <input type="hidden" name="id" value="{{.Structure.ID}}">
-      <button type="submit" class="btn btn-sm btn-brisi min-h-40">{{icon "trash"}} Obriši</button>
+    <a href="{{$s.Path}}/edit" class="btn {{if $s.TakesReadings}}btn-secondary{{else}}btn-primary{{end}}">Uredi</a>
+    <form method="POST" action="/structures/delete" onsubmit="return confirm('Obrisati objekt „{{$s.Name}}“ iz registra? Zapis ostaje u povijesti.')">
+      <input type="hidden" name="id" value="{{$s.ID}}">
+      <button type="submit" class="btn btn-link btn-opasno">Obriši</button>
     </form>
   {{end}}
   </div>
 </div>
 
-
-<section class="detail-section mt-0">
-  <h2>{{icon "gauge"}} Podaci objekta</h2>
-  <div class="reg-card p-4">
-    <dl class="reg-facts" style="font-size:0.9rem;">
-      <div><dt>Kota „0“ letve</dt><dd>{{if .Structure.ZeroDatum}}{{brojHRd .Structure.ZeroDatum 2}} m ({{.Structure.ZeroDatumSystem}}){{else}}<span class="c-muted fw-500">nije upisana</span>{{end}}</dd></div>
-      {{if .Structure.IsPumpingStation}}
-      <div><dt>Kapacitet</dt><dd>{{if .Structure.CapacityText}}{{.Structure.CapacityText}} m³/s{{else}}<span class="c-muted fw-500">—</span>{{end}}</dd></div>
-      <div><dt>Broj agregata</dt><dd>{{with .Structure.BrojCrpki}}{{.}}{{else}}<span class="c-muted fw-500">nije poznato</span>{{end}}</dd></div>
-      {{if .Structure.IsPumpingStation}}<div><dt>Ustava</dt><dd>{{if .Ustave}}{{range $i, $u := .Ustave}}{{if $i}}, {{end}}<a href="{{$u.Path}}">{{$u.Name}}</a>{{end}} (u sklopu){{else if .Structure.ImaUstavu}}ugrađena, gravitacijsko upuštanje i ispuštanje{{else}}<span class="c-muted fw-500">nema</span>{{end}}</dd></div>{{end}}
-      {{if .Structure.IsPumpingStation}}<div><dt>Smjer rada</dt><dd>{{.Structure.SmjerNaziv}}{{if .Structure.ImaSifon}}; sifon za navodnjavanje{{with .Structure.SifonMinCm}}, vakumira se od {{.}} cm vanjske strane{{end}}{{end}}</dd></div>{{end}}
-      {{with .USklopu}}<div><dt>U sklopu</dt><dd><a href="{{.Path}}">{{.Name}}</a> · zapornica se upisuje u očitanju stanice</dd></div>{{end}}
-      <div><dt>Vodostaj uključenja</dt><dd>{{if .Structure.StartText}}{{.Structure.StartText}} cm{{else}}<span class="c-muted fw-500">—</span>{{end}}</dd></div>
-      <div><dt>Vodostaj zaustavljanja</dt><dd>{{if .Structure.StopText}}{{.Structure.StopText}} cm{{else}}<span class="c-muted fw-500">—</span>{{end}}</dd></div>
-      {{end}}
-      <div><dt>Šifra</dt><dd class="font-mono fw-500">{{.Structure.Code}}</dd></div>
-      {{if .Structure.Latitude}}<div><dt>Položaj</dt><dd class="mono">{{derefFloat .Structure.Latitude 5}}, {{derefFloat .Structure.Longitude 5}}</dd></div>{{end}}
-    </dl>
-    {{if .Structure.IsPumpingStation}}
-    <p class="form-help mt-3">Vodostaji pogona su na letvi objekta. Kad dođu očitanja, program iz njih javlja treba li stanicu pokrenuti ili zaustaviti.</p>
-    {{end}}
-  </div>
-</section>
-
+<div class="stupci-stranice list-stupci">
+<div class="dio-lijevo">
 {{if and .Karta.Ima (or .GeometryJSON .CanEdit)}}
-<section class="detail-section" id="karta">
-  <div class="detail-section-head d-flex justify-between items-center flex-wrap gap-2">
-    <h2>{{icon "map"}} Na karti</h2>
-    {{if .CanEdit}}
-    <div class="karta-akcije d-flex gap-2 items-center">
-      <a class="btn btn-sm btn-secondary karta-uredi-na-karti" href="/karta#uredi=objekt:{{.Structure.ID}}">{{icon "pencil"}} Uredi na Karti</a>
-      <label class="btn btn-sm btn-secondary" style="cursor:pointer; display:inline-flex; width:auto;" title="KML iz Google Eartha ili GeoJSON u WGS84 (EPSG:4326), npr. izvoz iz QGIS-a; nasip kao crta, stacionaža kao točke">{{icon "upload"}} {{if .GeometryJSON}}Zamijeni iz KML-a ili GeoJSON-a{{else}}Učitaj KML ili GeoJSON{{end}}<input type="file" accept=".geojson,.json,.kml,application/geo+json,application/json,application/vnd.google-earth.kml+xml" hidden class="karta-objekta-datoteka" data-id="{{.Structure.ID}}" data-ima="{{if .GeometryJSON}}1{{end}}"></label>
-    </div>
-    {{end}}
+<section class="list-kartica dio-veze" id="karta">
+  <h2>Na karti</h2>
+  {{if .CanEdit}}
+  <div class="karta-akcije obj-karta-akcije">
+    <a class="btn btn-link karta-uredi-na-karti" href="/karta#uredi=objekt:{{$s.ID}}">Uredi na Karti</a>
+    <label class="btn btn-link obj-datoteka" title="KML iz Google Eartha ili GeoJSON u WGS84 (EPSG:4326), npr. izvoz iz QGIS-a; nasip kao crta, stacionaža kao točke">{{if .GeometryJSON}}Zamijeni iz KML-a ili GeoJSON-a{{else}}Učitaj KML ili GeoJSON{{end}}<input type="file" accept=".geojson,.json,.kml,application/geo+json,application/json,application/vnd.google-earth.kml+xml" hidden class="karta-objekta-datoteka" data-id="{{$s.ID}}" data-ima="{{if .GeometryJSON}}1{{end}}"></label>
   </div>
-  {{if not .GeometryJSON}}<p class="reg-card-sub">Objekt još nije ucrtan. Nacrtajte ga na Karti gumbom „Uredi na Karti” ili učitajte KML ili GeoJSON{{if eq .Structure.Kind "NASIP"}}: crtu nasipa i, po želji, točke stacionaže s brojem km{{end}}.</p>{{end}}
+  {{end}}
+  {{if not .GeometryJSON}}<p class="form-help">Objekt još nije ucrtan. Nacrtajte ga na Karti gumbom „Uredi na Karti” ili učitajte KML ili GeoJSON{{if eq $s.Kind "NASIP"}}: crtu nasipa i, po želji, točke stacionaže s brojem km{{end}}.</p>{{end}}
   <div class="karta-objekta"
-       data-id="{{.Structure.ID}}"
-       data-vrsta="{{.Structure.Kind}}"
-       data-naziv="{{.Structure.Name}}"
-       {{with .Structure.Latitude}}data-lat="{{printf "%.6f" .}}"{{end}} {{with .Structure.Longitude}}data-lon="{{printf "%.6f" .}}"{{end}}
+       data-id="{{$s.ID}}"
+       data-vrsta="{{$s.Kind}}"
+       data-naziv="{{$s.Name}}"
+       {{with $s.Latitude}}data-lat="{{printf "%.6f" .}}"{{end}} {{with $s.Longitude}}data-lon="{{printf "%.6f" .}}"{{end}}
        data-plocice="{{.Karta.Plocice}}"
        data-zasluge="{{.Karta.Zasluge}}"
        data-najvise-z="{{.Karta.NajviseZ}}">
@@ -84,145 +61,110 @@
   </div>
 </section>
 {{end}}
+{{template "objekt-opis" .}}
+</div>
 
-{{/* Nasip i brana nakon karte nose mjerodavne vodomjere iz dionica, a opis
-     ide iza njih; kod ostalih objekata redoslijed je kakav je bio. Blok
-     „Vodomjer na objektu” nasip pokazuje samo kad ima vlastitu letvu. */}}
-{{if .Mjerodavni}}
-{{template "objekt-vodomjer" .}}
-{{template "objekt-mjerodavni" .Mjerodavni}}
-{{template "objekt-opis" .}}
-{{else}}
-{{template "objekt-opis" .}}
-{{template "objekt-vodomjer" .}}
+<aside class="ploca-stranice list-ploca" aria-label="Podaci o objektu">
+<section class="list-kartica">
+  <h2>Podaci</h2>
+  <dl class="vodocuvar-dl">
+    <dt>Vrsta</dt><dd>{{$s.KindLabel}}</dd>
+    <dt>{{term "sektor"}}</dt><dd>{{$s.SectorID}}</dd>
+    <dt>{{term "podrucje"}}</dt><dd>{{term "bp"}} {{$s.AreaID}}{{if $s.AreaName}} {{$s.AreaName}}{{end}}</dd>
+    <dt>Kota „0” letve</dt><dd>{{if $s.ZeroDatum}}{{brojHRd $s.ZeroDatum 3}} m ({{$s.ZeroDatumSystem}}){{else}}nije upisana{{end}}</dd>
+    {{with .USklopu}}<dt>U sklopu</dt><dd><a href="{{.Path}}">{{.Name}}</a> · zapornica se upisuje u očitanju stanice</dd>{{end}}
+    <dt>Šifra</dt><dd class="mono">{{$s.Code}}</dd>
+    {{if $s.Latitude}}<dt>Položaj</dt><dd class="mono">{{derefFloat $s.Latitude 5}}, {{derefFloat $s.Longitude 5}}</dd>{{end}}
+    <dt>Zapis</dt><dd>{{$s.OriginLabel}}{{if not $s.UpdatedAt.IsZero}} · izmijenjen {{datumDana $s.UpdatedAt}}{{end}}</dd>
+  </dl>
+</section>
+
+{{if $s.IsPumpingStation}}
+<section class="list-kartica">
+  <h2>Pogon</h2>
+  <dl class="vodocuvar-dl">
+    <dt>Kapacitet</dt><dd>{{if $s.CapacityText}}{{$s.CapacityText}} m³/s{{else}}—{{end}}</dd>
+    <dt>Broj agregata</dt><dd>{{with $s.BrojCrpki}}{{.}}{{else}}nije poznato{{end}}</dd>
+    <dt>Uključenje</dt><dd>{{if $s.StartText}}{{$s.StartText}} cm{{else}}—{{end}}</dd>
+    <dt>Zaustavljanje</dt><dd>{{if $s.StopText}}{{$s.StopText}} cm{{else}}—{{end}}</dd>
+    <dt>Smjer rada</dt><dd>{{$s.SmjerNaziv}}{{if $s.ImaSifon}}; sifon za navodnjavanje{{with $s.SifonMinCm}}, vakumira se od {{.}} cm vanjske strane{{end}}{{end}}</dd>
+    <dt>Ustava</dt><dd>{{if .Ustave}}{{range $i, $u := .Ustave}}{{if $i}}, {{end}}<a href="{{$u.Path}}">{{$u.Name}}</a>{{end}} (u sklopu){{else if $s.ImaUstavu}}ugrađena, gravitacijsko upuštanje i ispuštanje{{else}}nema{{end}}</dd>
+  </dl>
+  <p class="form-help mb-0">Vodostaji pogona su na letvi objekta. Kad dođu očitanja, program iz njih javlja treba li stanicu pokrenuti ili zaustaviti.</p>
+</section>
 {{end}}
 
-<section class="detail-section">
-  <h2>{{icon "file-text"}} Dionice <span class="reg-chip">{{len .Sections}}</span></h2>
-  <div class="reg-list">
-    {{range .Sections}}
-    <article class="reg-card">
-      <a class="reg-card-link" href="/sections/{{.Code}}" style="padding-bottom:0.5rem;">
-        <div class="reg-card-head">
-          <div>
-            <h3 class="reg-card-title">{{.Code}}</h3>
-            <div class="reg-card-sub">{{.SectorName}}{{if .AreaName}} · {{.AreaName}}{{end}}</div>
-          </div>
-          {{if .Bank}}<span class="badge badge-inactive">{{bankLabel .Bank}}</span>{{end}}
-        </div>
-        <p style="font-size:0.8rem; margin:0;">{{.Description}}</p>
-      </a>
-    </article>
-    {{else}}
-    <div class="reg-empty">Objekt nije vezan ni na jednu dionicu.</div>
-    {{end}}
-  </div>
-  <p class="form-help">Objekt se na dionicu veže u obrascu dionice, u poddionici na kojoj stoji.</p>
+{{/* Nasip i brana nose mjerodavne letve iz dionica; blok „Vodomjer na objektu” nasip
+     pokazuje samo kad ima vlastitu letvu. */}}
+{{template "objekt-vodomjer" .}}
+{{if .Mjerodavni}}{{template "objekt-mjerodavni" .Mjerodavni}}{{end}}
+
+<section class="list-kartica dio-veze">
+  <h2>Dionice <span class="dio-broj">{{len .Sections}}</span></h2>
+  {{range .Sections}}
+  <a class="redak" href="/sections/{{.Code}}">{{icon "file-text"}}<span class="redak-tekst"><span class="redak-glavno">{{.Code}}{{if .Bank}} · {{bankLabel .Bank}}{{end}}</span><span class="redak-sporedno">{{.SectorName}}{{if .AreaName}} · {{.AreaName}}{{end}}</span></span>{{icon "chevron-right"}}</a>
+  {{else}}
+  <p class="form-help">Objekt nije vezan ni na jednu dionicu.</p>
+  {{end}}
+  <p class="form-help mb-0">Objekt se na dionicu veže u obrascu dionice, u poddionici na kojoj stoji.</p>
 </section>
+</aside>
+</div>
+</div>
 {{end}}
 
 {{define "objekt-opis"}}
-{{if .Structure.Notes}}
-<section class="detail-section">
-  <h2>{{icon "file-text"}} Detaljni opis</h2>
-  <div class="reg-card markdown-body">{{renderMarkdown .Structure.Notes}}</div>
+{{if or .Structure.Notes .CanEdit}}
+<section class="list-kartica">
+  <h2>Opis</h2>
+  {{if .Structure.Notes}}<div class="markdown-body">{{renderMarkdown .Structure.Notes}}</div>
+  {{else}}<p class="form-help">Opis nije upisan: kakav je objekt, kritična mjesta, prilaz.</p><a class="btn btn-link obj-dodaj" href="{{.Structure.Path}}/edit">Dodaj opis</a>{{end}}
 </section>
 {{end}}
+{{end}}
+
+{{define "objekt-letva"}}
+{{/* Letva u retku: ime s poveznicom, voda i stacionaža, pragovi P · R · I · IS sa same letve. */}}
+<div class="redak">{{icon "ruler"}}<span class="redak-tekst">
+  <a href="/stations/{{.ID}}" class="redak-glavno">{{.Name}}</a>
+  <span class="redak-sporedno">{{if .HasWatercourse}}{{.Watercourse}}{{end}}{{if .Stationing}} · {{.Stationing}}{{end}}</span>
+  <span class="redak-sporedno obj-pragovi">P {{.Prep.Label}} · R {{.Regular.Label}} · I {{.Emergency.Label}} · IS {{.State.Label}}</span>
+</span></div>
 {{end}}
 
 {{define "objekt-vodomjer"}}
 {{if or .Station .StationDown (not .Mjerodavni)}}
-<section class="detail-section">
-  <h2>{{icon "ruler"}} {{if .StationDown}}Vodomjeri na objektu{{else}}Vodomjer na objektu{{end}}</h2>
+<section class="list-kartica dio-veze">
+  <h2>{{if .StationDown}}Vodomjeri na objektu{{else}}Vodomjer na objektu{{end}}</h2>
   {{if or .Station .StationDown}}
-  <div class="reg-list">
-    {{with $l := .Station}}
-    <article class="reg-card">
-      <a class="reg-card-link" href="/stations/{{$l.ID}}">
-        <div class="reg-card-head">
-          <div>
-            <h3 class="reg-card-title">{{$l.Name}}{{if $.StationDown}} <span class="reg-chip">uzvodno</span>{{end}}</h3>
-            <div class="reg-card-sub">{{if $l.HasWatercourse}}{{$l.Watercourse}}{{end}}{{if $l.Stationing}} · {{$l.Stationing}}{{end}}</div>
-          </div>
-        </div>
-        <dl class="reg-facts">
-          <div><dt>P</dt><dd><span class="threshold-pill prep">{{$l.Prep.Label}}</span></dd></div>
-          <div><dt>R</dt><dd><span class="threshold-pill regular">{{$l.Regular.Label}}</span></dd></div>
-          <div><dt>I</dt><dd><span class="threshold-pill emerg">{{$l.Emergency.Label}}</span></dd></div>
-          <div><dt>IS</dt><dd><span class="threshold-pill crit">{{$l.State.Label}}</span></dd></div>
-        </dl>
-      </a>
-    </article>
-    {{end}}
-    {{with $l := .StationDown}}
-    <article class="reg-card">
-      <a class="reg-card-link" href="/stations/{{$l.ID}}">
-        <div class="reg-card-head">
-          <div>
-            <h3 class="reg-card-title">{{$l.Name}} <span class="reg-chip">nizvodno</span></h3>
-            <div class="reg-card-sub">{{if $l.HasWatercourse}}{{$l.Watercourse}}{{end}}{{if $l.Stationing}} · {{$l.Stationing}}{{end}}</div>
-          </div>
-        </div>
-        <dl class="reg-facts">
-          <div><dt>P</dt><dd><span class="threshold-pill prep">{{$l.Prep.Label}}</span></dd></div>
-          <div><dt>R</dt><dd><span class="threshold-pill regular">{{$l.Regular.Label}}</span></dd></div>
-          <div><dt>I</dt><dd><span class="threshold-pill emerg">{{$l.Emergency.Label}}</span></dd></div>
-          <div><dt>IS</dt><dd><span class="threshold-pill crit">{{$l.State.Label}}</span></dd></div>
-        </dl>
-      </a>
-    </article>
-    {{end}}
-  </div>
+  {{with .Station}}{{if $.StationDown}}<p class="obj-strana">uzvodno</p>{{end}}{{template "objekt-letva" .}}{{end}}
+  {{with .StationDown}}<p class="obj-strana">nizvodno</p>{{template "objekt-letva" .}}{{end}}
   {{else}}
-  <div class="reg-empty">Objekt nema pridružen vodomjer. Pridružuje se u uređivanju objekta.</div>
+  <p class="form-help mb-0">Objekt nema pridružen vodomjer. Pridružuje se u uređivanju objekta.</p>
   {{end}}
 </section>
 {{end}}
 {{end}}
 
 {{define "objekt-mjerodavni"}}
-<section class="detail-section" id="mjerodavni-vodomjeri">
-  <h2>{{icon "chart-column"}} Mjerodavni vodomjeri{{if .Ima}} <span class="reg-chip">{{.Broj}}</span>{{end}}</h2>
+<section class="list-kartica dio-veze" id="mjerodavni-vodomjeri">
+  <h2>Mjerodavne letve{{if .Ima}} <span class="dio-broj">{{.Broj}}</span>{{end}}</h2>
   {{if .Ima}}
-  {{if .Letve}}
-  <div class="reg-list">
-    {{range .Letve}}
-    {{$l := .Letva}}
-    <article class="reg-card p-4 gap-2">
-      <div class="reg-card-head">
-        <div>
-          <h3 class="reg-card-title"><a href="/stations/{{$l.ID}}">{{$l.Name}}</a></h3>
-          <div class="reg-card-sub">{{if $l.HasWatercourse}}{{$l.Watercourse}}{{end}}{{if $l.Stationing}} · {{$l.Stationing}}{{end}}</div>
-        </div>
-      </div>
-      <dl class="reg-facts">
-        <div><dt>P</dt><dd><span class="threshold-pill prep">{{$l.Prep.Label}}</span></dd></div>
-        <div><dt>R</dt><dd><span class="threshold-pill regular">{{$l.Regular.Label}}</span></dd></div>
-        <div><dt>I</dt><dd><span class="threshold-pill emerg">{{$l.Emergency.Label}}</span></dd></div>
-        <div><dt>IS</dt><dd><span class="threshold-pill crit">{{$l.State.Label}}</span></dd></div>
-      </dl>
-      <div class="reg-card-foot">
-        {{range .Dionice}}<a class="reg-chip" href="/sections/{{.Code}}">{{icon "file-text"}} {{.Oznaka}}</a>{{end}}
-      </div>
-    </article>
-    {{end}}
+  {{range .Letve}}
+  {{template "objekt-letva" .Letva}}
+  <p class="obj-dionice">{{range $i, $d := .Dionice}}{{if $i}} · {{end}}<a href="/sections/{{$d.Code}}">{{$d.Oznaka}}</a>{{end}}</p>
+  {{end}}
+  {{range .Kriteriji}}
+  {{$k := .Kriterij}}
+  <div class="part-gauge obj-kriterij">{{icon "ruler"}} <strong>{{$k.StationName}}</strong>
+    {{if or $k.PrepCm $k.RegularCm $k.EmergCm $k.CriticalCm}}<span class="reading-meta">{{if $k.PrepCm}}P {{$k.PrepCm}}{{end}}{{if $k.RegularCm}} · R {{$k.RegularCm}}{{end}}{{if $k.EmergCm}} · I {{$k.EmergCm}}{{end}}{{if $k.CriticalCm}} · IS {{$k.CriticalCm}}{{end}}{{if $k.RecordCm}} · M {{$k.RecordCm}}{{end}}</span>{{end}}
+    {{if $k.Notes}}<span class="reading-meta"> · {{$k.Notes}}</span>{{end}}
+    <span class="reading-meta"> · {{range $i, $d := .Dionice}}{{if $i}}, {{end}}<a href="/sections/{{$d.Code}}">{{$d.Oznaka}}</a>{{end}}</span>
   </div>
   {{end}}
-  {{if .Kriteriji}}
-  <div class="reg-card p-4">
-    {{range .Kriteriji}}
-    {{$k := .Kriterij}}
-    <div class="part-gauge">{{icon "ruler"}} <strong>{{$k.StationName}}</strong>
-      {{if or $k.PrepCm $k.RegularCm $k.EmergCm $k.CriticalCm}}<span class="reading-meta">{{if $k.PrepCm}}P {{$k.PrepCm}}{{end}}{{if $k.RegularCm}} · R {{$k.RegularCm}}{{end}}{{if $k.EmergCm}} · I {{$k.EmergCm}}{{end}}{{if $k.CriticalCm}} · IS {{$k.CriticalCm}}{{end}}{{if $k.RecordCm}} · M {{$k.RecordCm}}{{end}}</span>{{end}}
-      {{if $k.Notes}}<span class="reading-meta"> · {{$k.Notes}}</span>{{end}}
-      <span class="reading-meta"> · {{range $i, $d := .Dionice}}{{if $i}}, {{end}}<a href="/sections/{{$d.Code}}">{{$d.Oznaka}}</a>{{end}}</span>
-    </div>
-    {{end}}
-  </div>
-  {{end}}
-  <p class="form-help">Mjerodavni vodomjeri preuzeti su iz dionica na kojima {{.Objekt}} stoji i dodaju se u obrascu dionice. Pragovi se mijenjaju na kartici letve.</p>
+  <p class="form-help mb-0">Mjerodavne letve preuzete su iz dionica na kojima {{.Objekt}} stoji i dodaju se u obrascu dionice. Pragovi se mijenjaju na kartici letve.</p>
   {{else}}
-  <div class="reg-empty">Mjerodavni vodomjer nije upisan ni u jednoj dionici na kojoj {{.Objekt}} stoji. Upisuje se u obrascu dionice, pod „Mjerodavni vodomjeri”, u poddionici na kojoj je {{.Objekt}}.</div>
+  <p class="form-help mb-0">Mjerodavna letva nije upisana ni u jednoj dionici na kojoj {{.Objekt}} stoji. Upisuje se u obrascu dionice, pod „Mjerodavne letve”, u poddionici na kojoj je {{.Objekt}}.</p>
   {{end}}
 </section>
 {{end}}
