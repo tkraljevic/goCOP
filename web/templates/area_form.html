@@ -3,18 +3,26 @@
 {{define "title"}}goCOP — {{if .IsEdit}}{{term "bp"}} {{.Area.ID}}{{else}}Novo: {{terml "podrucje"}}{{end}}{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/organizacija">Administrativna organizacija</a> › {{if .IsEdit}}{{term "bp"}} {{.Area.ID}} › Uređivanje{{else}}Novo {{terml "podrucje"}}{{end}}</div>
-
-<div class="page-header">
+{{/* Obrazac branjenog područja (goCOP-m3, 17a · Registri, 2d): ploče Osnovno, Ispostava i
+     podcentar, Točka za vremenske prilike i Licencirane firme; dolje Obriši, Odustani i Spremi.
+     Imena polja su ista. Prekidač „izravno sektoru” je ista kvačica direct_to_sector i samo
+     skriva polja ispostave, a njihove vrijednosti se i dalje šalju. Koordinate se pišu bez
+     zaokruživanja, pa spremanje bez izmjena ne mijenja zapis. Mala karta, „Postavi na Karti”
+     i popis firmi područja su novo ponašanje. */}}
+<div class="lob-stranica">
+<a href="/organizacija" class="povratna-poveznica">← Administrativna organizacija</a>
+<div class="page-header list-glava">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{if .IsEdit}}{{icon "pencil"}} {{term "bp"}} {{.Area.ID}}: {{.Area.Name}}{{else}}{{icon "waves"}} {{term "podrucje"}}: novo{{end}}</h1>
-    <p class="page-desc">{{term "podrucje"}}: sliv s pripadnom ispostavom ({{terml "vgi"}}). Broj je drugi dio šifre dionice (npr. 16 u B.16.4) i isti je na svim čvorovima.</p>
+    <h1 class="page-title" data-naziv-stranice>{{if .IsEdit}}Uredi {{term "bp"}} {{.Area.ID}} · {{.Area.Name}}{{else}}Novo: {{terml "podrucje"}}{{end}}</h1>
+    <p class="page-desc">Polja sa zvjezdicom su obavezna.</p>
   </div>
 </div>
 
-
-<form class="form-page" method="POST" action="/organizacija/podrucja/save">
+<form class="form-page form-wide" method="POST" action="/organizacija/podrucja/save">
   <input type="hidden" name="is_new" value="{{if .IsEdit}}0{{else}}1{{end}}">
+
+  <section class="list-kartica">
+  <h3>Osnovno</h3>
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="id">Broj *</label>
@@ -33,34 +41,51 @@
     <label class="form-label" for="name">Naziv *</label>
     <input type="text" id="name" name="name" class="form-control" required value="{{.Area.Name}}" placeholder="npr. Mali sliv Baranja">
   </div>
-  <div class="form-row">
-    <div class="form-group">
-      <label class="form-label" for="vgi_name">{{term "vgi"}}</label>
-      <input type="text" id="vgi_name" name="vgi_name" class="form-control" value="{{.Area.VgiName}}" placeholder="npr. VGI Baranja, Darda">
+  <p class="form-help mb-0">Broj je drugi dio šifre dionice (npr. 16 u B.16.4) i isti je na svim čvorovima.</p>
+  </section>
+
+  <section class="list-kartica">
+  <h3>Ispostava i podcentar</h3>
+  <label class="lob-sklopka afo-sklopka">
+    <span><span class="afo-sklopka-naslov">Pripada izravno razini 2 ({{terml "sektor"}}), bez vlastite ispostave</span>
+      <span class="form-help">Npr. međudržavne rijeke. Ispostavu i centar tada nosi nadređeni {{terml "sektor"}}, pa se polja ispod skrivaju.</span></span>
+    <input type="checkbox" class="prekidac" role="switch" name="direct_to_sector" value="1" {{if .Area.DirectToSector}}checked{{end}}
+           onchange="document.getElementById('afo-ispostava').hidden = this.checked">
+  </label>
+  <div id="afo-ispostava" {{if .Area.DirectToSector}}hidden{{end}}>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="vgi_name">{{term "vgi"}}</label>
+        <input type="text" id="vgi_name" name="vgi_name" class="form-control" value="{{.Area.VgiName}}" placeholder="npr. VGI Baranja, Darda">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="vgi_phone">Telefon ispostave</label>
+        <input type="tel" id="vgi_phone" name="vgi_phone" class="form-control" value="{{.Area.VgiPhone}}" placeholder="npr. 031/740-100">
+      </div>
     </div>
-    <div class="form-group">
-      <label class="form-label" for="vgi_phone">Telefon ispostave</label>
-      <input type="tel" id="vgi_phone" name="vgi_phone" class="form-control" value="{{.Area.VgiPhone}}" placeholder="npr. 031/740-100">
-    </div>
-    <div class="form-group">
+    <div class="form-group mb-0">
       <label class="form-label" for="subcenter">{{term "podcentar"}}</label>
       <input type="text" id="subcenter" name="subcenter" class="form-control" value="{{.Area.Subcenter}}" placeholder="npr. Podcentar Darda">
     </div>
   </div>
+  </section>
+
+  <section class="list-kartica">
+  <h3>Točka za vremenske prilike</h3>
+  <p class="form-help">Po ovoj točki se za područje dohvaćaju vremenske prilike (Open-Meteo) za vodočuvarski dnevnik.</p>
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="latitude">Zemljopisna širina</label>
-      <input type="text" inputmode="decimal" id="latitude" name="latitude" class="form-control" value="{{if .Area.Latitude}}{{printf "%.5f" .Area.Latitude}}{{end}}" placeholder="45.5550">
+      <input type="text" inputmode="decimal" id="latitude" name="latitude" class="form-control" value="{{if .Area.Latitude}}{{unos .Area.Latitude -1}}{{end}}" placeholder="45,5550">
     </div>
     <div class="form-group">
       <label class="form-label" for="longitude">Zemljopisna dužina</label>
-      <input type="text" inputmode="decimal" id="longitude" name="longitude" class="form-control" value="{{if .Area.Longitude}}{{printf "%.5f" .Area.Longitude}}{{end}}" placeholder="18.6955">
+      <input type="text" inputmode="decimal" id="longitude" name="longitude" class="form-control" value="{{if .Area.Longitude}}{{unos .Area.Longitude -1}}{{end}}" placeholder="18,6955">
     </div>
   </div>
-  <div class="form-help" style="margin:-0.5rem 0 0.75rem; display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
-    <span>Točka po kojoj se za područje dohvaćaju vremenske prilike (Open-Meteo) za vodočuvarski dnevnik.</span>
-    <button type="button" class="btn btn-secondary btn-sm" id="geokod">{{icon "map-pin"}} Pronađi koordinate po mjestu ispostave</button>
-    <span id="geokod-nalaz"></span>
+  <div class="afo-geokod">
+    <button type="button" class="btn btn-link" id="geokod">Pronađi po mjestu ispostave</button>
+    <span id="geokod-nalaz" class="form-help mb-0"></span>
   </div>
   <script>
     (function () {
@@ -72,24 +97,31 @@
         var n = document.getElementById('geokod-nalaz'); n.textContent = 'tražim…';
         fetch('/organizacija/geokod?q=' + encodeURIComponent(upit), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (t) {
           if (t.greska) { n.textContent = t.greska; return; }
-          document.getElementById('latitude').value = t.lat.toFixed(5);
-          document.getElementById('longitude').value = t.lon.toFixed(5);
+          document.getElementById('latitude').value = t.lat.toFixed(5).replace('.', ',');
+          document.getElementById('longitude').value = t.lon.toFixed(5).replace('.', ',');
           n.textContent = 'nađeno: ' + t.naziv;
         }).catch(function () { n.textContent = 'traženje nije uspjelo'; });
       });
     })();
   </script>
-  <div class="form-group">
-    <label style="display:flex; gap:0.4rem; align-items:center; font-size:0.9rem;">
-      <input type="checkbox" name="direct_to_sector" value="1" {{if .Area.DirectToSector}}checked{{end}}>
-      Pripada izravno razini 2 ({{terml "sektor"}}), bez vlastite ispostave — npr. međudržavne rijeke
-    </label>
-    <div class="form-help">Ispostavu i centar tada nosi nadređeni {{terml "sektor"}}; polja iznad smiju ostati prazna ili ponoviti njegove.</div>
-  </div>
-  <div class="form-help">Licencirane firme se vode u vlastitom registru pod Registrima; tamo se označi na kojim područjima tko radi.</div>
-  <div class="form-actions">
-    <a href="/organizacija" class="btn btn-secondary">Odustani</a>
-    <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi izmjene{{else}}Upiši{{end}}</button>
+  </section>
+
+  <section class="list-kartica">
+  <h3>Licencirane firme</h3>
+  <p class="form-help mb-0">Firme se upisuju u <a href="/firme">registru Licencirane firme</a>, gdje se označi na kojim područjima tko radi.</p>
+  </section>
+
+  <div class="form-actions lob-gumbi">
+    {{if .IsEdit}}<button type="submit" form="obrisi-podrucje" class="btn btn-link btn-opasno obj-obrisi">Obriši područje</button>{{end}}
+    <a href="/organizacija" class="btn btn-link">Odustani</a>
+    <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi{{else}}Upiši{{end}}</button>
   </div>
 </form>
+{{if .IsEdit}}
+<form id="obrisi-podrucje" method="POST" action="/organizacija/podrucja/delete" hidden
+      onsubmit="return confirm('Obrisati {{terml "podrucje"}} {{.Area.ID}}: {{.Area.Name}}? Briše se tek kad se na njega ne vežu dionice ni zaduženja.')">
+  <input type="hidden" name="id" value="{{.Area.ID}}">
+</form>
+{{end}}
+</div>
 {{end}}
