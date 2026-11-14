@@ -73,6 +73,11 @@
   --md-sys-color-naplohi-odabrano: #284777;
   --karta-kopno: #EDF0E6;
   --karta-voda: #5B9BD5;
+  /* karta slivova: međusliv, stvarni kišomjer (puna točka), izvedena točka (prazna) */
+  --karta-sliv: #1976D2;
+  --karta-kisomjer: #1565C0;
+  --karta-tocka-podloga: #FFFFFF;
+  --karta-neaktivno: #9E9E9E;
   --karta-nasip: #7C7F86;
   --karta-granica: #9AA0A6;
   --karta-natpis: #2E6DA4;
@@ -153,6 +158,10 @@
   --md-sys-color-naplohi-odabrano: #D6E3FF;
   --karta-kopno: #1B1E1C;
   --karta-voda: #5E95C8;
+  --karta-sliv: #7FB2F0;
+  --karta-kisomjer: #9CC3FF;
+  --karta-tocka-podloga: #1B1E1C;
+  --karta-neaktivno: #7A7D80;
   --karta-nasip: #9EA1A8;
   --karta-granica: #6E737A;
   --karta-natpis: #8DBDE6;
