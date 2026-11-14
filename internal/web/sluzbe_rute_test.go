@@ -87,16 +87,13 @@ func TestSluzbeUzZupanijuKrozRute(t *testing.T) {
 			t.Errorf("stranica županije nema %q", zeli)
 		}
 	}
-	if w := zovi(http.MethodGet, "/territories", nil); !strings.Contains(w.Body.String(), "Službe (2)") {
+	if w := zovi(http.MethodGet, "/territories", nil); !strings.Contains(w.Body.String(), `data-stupac="Službe">2</td>`) {
 		t.Error("kartica županije ne pokazuje broj službi")
 	}
 	// Brojevi na stranici dolaze iz baze, a gradovi se broje u cijeloj zemlji
 	// i kad je popis suzen na općine.
 	stranica := zovi(http.MethodGet, "/territories?type=OPCINA", nil).Body.String()
-	for _, zeli := range []string{`<div class="kpi-number">1</div>
-        <div class="kpi-label">Gradova</div>`, `<div class="kpi-number">1</div>
-        <div class="kpi-label">Općina</div>`, `<div class="kpi-number">1</div>
-        <div class="kpi-label">Naselja</div>`} {
+	for _, zeli := range []string{`<strong>1</strong><span>Gradovi</span>`, `<strong>1</strong><span>Općine</span>`, `<strong>1</strong><span>Naselja</span>`} {
 		if !strings.Contains(stranica, zeli) {
 			t.Errorf("teritorij nema %q", zeli)
 		}
