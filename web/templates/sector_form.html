@@ -3,56 +3,75 @@
 {{define "title"}}goCOP — {{if .IsEdit}}Jedinica {{.Sector.ID}}{{else}}Nova ustrojstvena jedinica{{end}}{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/organizacija">Administrativna organizacija</a> › {{if .IsEdit}}<a href="/organizacija/sektori/{{.Sector.ID}}">{{term "sektor"}} {{.Sector.ID}}</a> › Uređivanje{{else}}Novi sektor{{end}}</div>
-
-<div class="page-header">
+{{/* Obrazac sektora (goCOP-m3, 17a · Registri, 2c): ploče Jedinica, odjel i centar obrane;
+     dolje Obriši, Odustani i Spremi. Imena polja su ista. Obriši je zaseban obrazac na istoj
+     adresi, a servis i dalje odbija sektor na koji se vežu područja, dionice ili zaduženja.
+     Razina na izmjeni ostaje izbor dok se promjena ne zabrani u programu (Odluke (10. 11. 2026.), 17).
+     Žig se zasad mijenja na kartici sektora. */}}
+{{$krovna := .Sector.IsLevel1}}
+<div class="lob-stranica">
+{{if .IsEdit}}<a href="/organizacija/sektori/{{.Sector.ID}}" class="povratna-poveznica">← {{.Sector.Name}}</a>
+{{else}}<a href="/organizacija" class="povratna-poveznica">← Administrativna organizacija</a>{{end}}
+<div class="page-header list-glava">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{if .IsEdit}}{{icon "pencil"}} {{term "sektor"}} {{.Sector.ID}}{{else}}{{icon "building"}} {{term "sektor"}}: novi{{end}}</h1>
-    <p class="page-desc">Ustrojstvena jedinica sa svojim centrom obrane. Razina 1 je krovna jedinica organizacije ({{terml "direkcija"}} i {{terml "gcop"}}), razina 2 je {{terml "sektor"}} ({{terml "vgo"}} i {{terml "cop"}}). Oznaka je prvi dio šifre svake dionice (npr. B u B.16.4) i ne mijenja se poslije.</p>
+    <h1 class="page-title" data-naziv-stranice>{{if .IsEdit}}Uredi {{if $krovna}}krovnu jedinicu{{else}}{{terml "sektor"}}{{end}}{{else}}{{if $krovna}}Nova krovna jedinica{{else}}Novi: {{terml "sektor"}}{{end}}{{end}}</h1>
+    <p class="page-desc">Polja sa zvjezdicom su obavezna.</p>
   </div>
 </div>
 
-
-<form class="form-page" method="POST" action="/organizacija/sektori/save">
+<form class="form-page form-wide" method="POST" action="/organizacija/sektori/save">
   <input type="hidden" name="is_new" value="{{if .IsEdit}}0{{else}}1{{end}}">
-  <div class="form-group">
-    <label class="form-label" for="level">Razina *</label>
-    <select id="level" name="level" class="form-control" required>
-      <option value="2" {{if not .Sector.IsLevel1}}selected{{end}}>Razina 2: {{term "sektor"}} ({{terml "vgo"}} i {{terml "cop"}})</option>
-      <option value="1" {{if .Sector.IsLevel1}}selected{{end}}>Razina 1: krovna jedinica ({{terml "direkcija"}} i {{terml "gcop"}})</option>
-    </select>
-    <div class="form-help">Krovnu jedinicu obično ima samo jedna organizacija i samo jednu; {{terml "podrucja"}} se vežu na razinu 2.</div>
-  </div>
+
+  <section class="list-kartica">
+  <h3>Jedinica</h3>
   <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="level">Razina *</label>
+      <select id="level" name="level" class="form-control" required>
+        <option value="2" {{if not $krovna}}selected{{end}}>Razina 2: {{terml "sektor"}} ({{terml "vgo"}} i {{terml "cop"}})</option>
+        <option value="1" {{if $krovna}}selected{{end}}>Razina 1: krovna jedinica ({{terml "direkcija"}} i {{terml "gcop"}})</option>
+      </select>
+    </div>
     <div class="form-group">
       <label class="form-label" for="id">Oznaka *</label>
       {{if .IsEdit}}<input type="hidden" name="id" value="{{.Sector.ID}}"><input type="text" class="form-control" value="{{.Sector.ID}}" disabled>
-      {{else}}<input type="text" id="id" name="id" class="form-control" required value="{{.Sector.ID}}" placeholder="npr. B" style="text-transform:uppercase;" maxlength="20">{{end}}
-      <div class="form-help">Slovo (A–F) ili kratka riječ velikim slovima, npr. DIREKCIJA.</div>
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="name">Naziv *</label>
-      <input type="text" id="name" name="name" class="form-control" required value="{{.Sector.Name}}" placeholder="npr. Sektor B — Dunav i donja Drava">
-    </div>
-  </div>
-  <div class="form-row">
-    <div class="form-group">
-      <label class="form-label" for="vgo_name">{{term "vgo"}}</label>
-      <input type="text" id="vgo_name" name="vgo_name" class="form-control" value="{{.Sector.VgoName}}" placeholder="npr. VGO za Dunav i donju Dravu, Osijek">
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="vgo_phone">Telefon odjela</label>
-      <input type="tel" id="vgo_phone" name="vgo_phone" class="form-control" value="{{.Sector.VgoPhone}}" placeholder="npr. 031/252-800">
-      <div class="form-help">Ide na memorandum uz naziv odjela; telefon centra piše se ispod, uz centar.</div>
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="center_cop">{{term "cop"}}</label>
-      <input type="text" id="center_cop" name="center_cop" class="form-control" value="{{.Sector.CenterCop}}" placeholder="npr. COP Osijek">
+      {{else}}<input type="text" id="id" name="id" class="form-control sfo-oznaka" required value="{{.Sector.ID}}" placeholder="npr. B" maxlength="20">{{end}}
+      {{if not .IsEdit}}<div class="form-help">Slovo (A–F) ili kratka riječ velikim slovima, npr. DIREKCIJA.</div>{{end}}
     </div>
   </div>
   <div class="form-group">
-    <label class="form-label" for="address">Adresa centra</label>
-    <input type="text" id="address" name="address" class="form-control" value="{{.Sector.Address}}">
+    <label class="form-label" for="name">Naziv *</label>
+    <input type="text" id="name" name="name" class="form-control" required value="{{.Sector.Name}}" placeholder="npr. Sektor B — Dunav i donja Drava">
+  </div>
+  <p class="form-help mb-0">Oznaka je prvi dio šifre svake dionice (npr. B u B.16.4) i ne mijenja se nakon upisa. Krovnu jedinicu obično ima samo jedna organizacija i samo jednu; {{terml "podrucja"}} se vežu na razinu 2.</p>
+  </section>
+
+  <section class="list-kartica">
+  <h3>{{if $krovna}}{{term "direkcija"}}{{else}}{{term "vgo"}}{{end}}</h3>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="vgo_name">Naziv {{if $krovna}}jedinice{{else}}odjela{{end}}</label>
+      <input type="text" id="vgo_name" name="vgo_name" class="form-control" value="{{.Sector.VgoName}}" placeholder="npr. VGO za Dunav i donju Dravu, Osijek">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="vgo_phone">Telefon {{if $krovna}}jedinice{{else}}odjela{{end}}</label>
+      <input type="tel" id="vgo_phone" name="vgo_phone" class="form-control" value="{{.Sector.VgoPhone}}" placeholder="npr. 031/252-800">
+      <div class="form-help">Ide na memorandum uz naziv odjela; telefon centra piše se ispod, uz centar.</div>
+    </div>
+  </div>
+  </section>
+
+  <section class="list-kartica">
+  <h3>{{if $krovna}}{{term "gcop"}}{{else}}{{term "cop"}}{{end}}</h3>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="center_cop">Naziv centra</label>
+      <input type="text" id="center_cop" name="center_cop" class="form-control" value="{{.Sector.CenterCop}}" placeholder="npr. COP Osijek">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="address">Adresa centra</label>
+      <input type="text" id="address" name="address" class="form-control" value="{{.Sector.Address}}">
+    </div>
   </div>
   <div class="form-row">
     <div class="form-group">
@@ -61,12 +80,29 @@
     </div>
     <div class="form-group">
       <label class="form-label" for="email">E-pošta centra</label>
-      <input type="email" id="email" name="email" class="form-control" value="{{.Sector.Email}}">
+      <input type="email" id="email" name="email" class="form-control" value="{{.Sector.Email}}" placeholder="npr. cop@voda.hr">
     </div>
   </div>
-  <div class="form-actions">
-    <a href="/organizacija" class="btn btn-secondary">Odustani</a>
-    <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi izmjene{{else}}Upiši{{end}}</button>
+  </section>
+
+  {{if and .IsEdit (not $krovna)}}
+  <section class="list-kartica">
+  <h3>Žig centra</h3>
+  <p class="form-help mb-0">Žig se skenira i mijenja na <a href="/organizacija/sektori/{{.Sector.ID}}#zig">kartici sektora</a>. Vidi ga samo uprava sektora.</p>
+  </section>
+  {{end}}
+
+  <div class="form-actions lob-gumbi">
+    {{if .IsEdit}}<button type="submit" form="obrisi-sektor" class="btn btn-link btn-opasno obj-obrisi">Obriši {{if $krovna}}jedinicu{{else}}{{terml "sektor"}}{{end}}</button>{{end}}
+    <a href="{{if .IsEdit}}/organizacija/sektori/{{.Sector.ID}}{{else}}/organizacija{{end}}" class="btn btn-link">Odustani</a>
+    <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi{{else}}Upiši{{end}}</button>
   </div>
 </form>
+{{if .IsEdit}}
+<form id="obrisi-sektor" method="POST" action="/organizacija/sektori/delete" hidden
+      onsubmit="return confirm('Obrisati {{if $krovna}}jedinicu{{else}}{{terml "sektor"}}{{end}} {{.Sector.ID}}: {{.Sector.Name}}? Briše se tek kad se na njega ne vežu područja, dionice ni zaduženja.')">
+  <input type="hidden" name="id" value="{{.Sector.ID}}">
+</form>
+{{end}}
+</div>
 {{end}}
