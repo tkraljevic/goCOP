@@ -10111,3 +10111,8 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
 .afo-sklopka .form-help { display: block; margin: 2px 0 0; }
 .afo-geokod { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
 .afo-geokod .btn-link { min-height: 0; padding: 0; border: 0; }
+
+/* Obrazac sektora (17a, 2c): oznaka se piše velikim slovima, a Obriši stoji lijevo od
+   Odustani i Spremi, kao na crtežima obrazaca registara. */
+.sfo-oznaka { text-transform: uppercase; }
+.lob-gumbi .obj-obrisi { margin-right: auto; }
