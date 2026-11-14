@@ -314,7 +314,11 @@ func structureFromForm(r *http.Request) models.Structure {
 		Longitude:          parseOptionalFloat(r.FormValue("longitude")),
 	}
 	st.SifonMinCm = najniziZaSifon(r, st.ImaSifon)
-	st.PostaviSmjer(strings.TrimSpace(r.FormValue("smjer_rada")))
+	// Smjer rada ima samo crpna stanica. Obrazac ga šalje za svaku vrstu (polje
+	// je skriveno, ali poslano), pa bi nasip pri spremanju dobio „odvodnju”.
+	if st.Kind == models.StructureKindPumpingStation {
+		st.PostaviSmjer(strings.TrimSpace(r.FormValue("smjer_rada")))
+	}
 	// vodostaj pogona: jedan broj ulazi u izračun, sve drugo ostaje kao tekst
 	st.StartCm, st.StopCm = models.VodostajPogona(st.StartText), models.VodostajPogona(st.StopText)
 	// sektor slijedi iz područja ako nije zadan

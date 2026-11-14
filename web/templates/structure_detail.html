@@ -9,7 +9,7 @@
 {{define "content"}}
 {{/* Kartica objekta (goCOP-m3, 17d · Registri, 5b, 5d i 5e): lijevo karta i opis, desno podaci, pogon
      crpne stanice, vodomjeri i dionice kao retci. Ista je za sve vrste; karta, učitavanje KML-a i
-     „Upiši očitanje” ostaju. Ispod oko 940 px širine sve je u jednom stupcu. */}}
+     „Upiši očitanje” ostaju, a Obriši je u obrascu. Ispod oko 940 px širine sve je u jednom stupcu. */}}
 {{$s := .Structure}}
 <div class="list-stranica list-stranica-ploca obj-stranica">
 <a href="{{.Register.Path}}" class="povratna-poveznica">← {{.Register.Title}}</a>
@@ -25,10 +25,6 @@
   {{end}}
   {{if .CanEdit}}
     <a href="{{$s.Path}}/edit" class="btn {{if $s.TakesReadings}}btn-secondary{{else}}btn-primary{{end}}">Uredi</a>
-    <form method="POST" action="/structures/delete" onsubmit="return confirm('Obrisati objekt „{{$s.Name}}“ iz registra? Zapis ostaje u povijesti.')">
-      <input type="hidden" name="id" value="{{$s.ID}}">
-      <button type="submit" class="btn btn-link btn-opasno">Obriši</button>
-    </form>
   {{end}}
   </div>
 </div>
@@ -71,7 +67,7 @@
     <dt>Vrsta</dt><dd>{{$s.KindLabel}}</dd>
     <dt>{{term "sektor"}}</dt><dd>{{$s.SectorID}}</dd>
     <dt>{{term "podrucje"}}</dt><dd>{{term "bp"}} {{$s.AreaID}}{{if $s.AreaName}} {{$s.AreaName}}{{end}}</dd>
-    <dt>Kota „0” letve</dt><dd>{{if $s.ZeroDatum}}{{brojHRd $s.ZeroDatum 3}} m ({{$s.ZeroDatumSystem}}){{else}}nije upisana{{end}}</dd>
+    <dt>Kota „0” letve</dt><dd>{{if $s.ZeroDatum}}{{brojHRd $s.ZeroDatum 3}} m{{with $s.ZeroDatumSystem}} ({{.}}){{end}}{{else}}nije upisana{{end}}</dd>
     {{with .USklopu}}<dt>U sklopu</dt><dd><a href="{{.Path}}">{{.Name}}</a> · zapornica se upisuje u očitanju stanice</dd>{{end}}
     <dt>Šifra</dt><dd class="mono">{{$s.Code}}</dd>
     {{if $s.Latitude}}<dt>Položaj</dt><dd class="mono">{{derefFloat $s.Latitude 5}}, {{derefFloat $s.Longitude 5}}</dd>{{end}}
