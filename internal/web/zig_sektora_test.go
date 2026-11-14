@@ -123,7 +123,7 @@ func TestUpravaSektoraSpremaZigSaStraniceSektora(t *testing.T) {
 			Sectors: []SectorView{{Sector: models.Sector{ID: "P", Name: "Sektor P", Level: 2}}}}); err != nil {
 			t.Fatalf("%s: popis organizacije: %v", tko, err)
 		}
-		if !strings.Contains(b.String(), `href="/organizacija/sektori/P" class="section-code-badge"`) {
+		if !strings.Contains(b.String(), `href="/organizacija/sektori/P" class="org-sektor-naziv"`) {
 			t.Errorf("%s: popis organizacije bez poveznice na stranicu sektora", tko)
 		}
 		if imaZig := strings.Contains(b.String(), `href="/organizacija/sektori/P#zig"`); imaZig != c.zeliZig {
