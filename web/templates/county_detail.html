@@ -2,45 +2,44 @@
 
 {{define "title"}}goCOP — {{.County.Name}}{{end}}
 
+{{/* Kartica županije (goCOP-m3, 17f · 7b): lijevo službe kao retci i gradovi i općine kao
+     čipovi, desno Podaci. Službe se i dalje uređuju ovdje (Odluke (10. 11. 2026.), 14):
+     redak vodi na obrazac službe, a Obriši je u tom obrascu. Dionice na županiji, Excel i
+     skrivanje osobne e-pošte su novo ponašanje i dolaze poslije. */}}
 {{define "content"}}
+{{$admin := and .Permissions .Permissions.IsGlobalAdmin}}
+<div class="list-stranica list-stranica-ploca">
 <a href="/territories" class="povratna-poveznica">← Teritorij</a>
-
-<div class="detail-head">
+<div class="page-header list-glava dio-glava">
   <div>
     <h1 class="page-title" data-naziv-stranice>{{.County.Name}}</h1>
-    <p class="page-desc">{{if .County.Seat}}Sjedište {{.County.Seat}}{{end}}{{if .County.Prefect}} · župan/ica {{.County.Prefect}}{{end}}{{if .County.Email}} · <a href="mailto:{{.County.Email}}">{{.County.Email}}</a>{{end}}</p>
+    <p class="page-desc">Županija{{with .County.Seat}} · sjedište {{.}}{{end}}{{if gt .County.AreaSqKm 0}} · {{brojHR .County.AreaSqKm}} km²{{end}}{{if gt .County.Population 0}} · {{brojHR .County.Population}} stanovnika{{end}}</p>
   </div>
-  <div class="detail-actions">
-    {{if .Permissions.IsGlobalAdmin}}<a href="/territories/counties/{{.County.ID}}/edit" class="btn btn-secondary">{{icon "pencil"}} Uredi županiju</a>{{end}}
-    <a href="/territories?tab=municipalities&county_id={{.County.ID}}" class="btn btn-secondary">Gradovi i općine {{icon "arrow-right"}}</a>
+  <div class="page-actions">
+    <a href="#sluzbe" class="btn btn-link">Službe</a>
+    {{if $admin}}<a href="/territories/counties/{{.County.ID}}/edit" class="btn btn-primary">Uredi</a>{{end}}
   </div>
 </div>
 
-
-<section class="detail-section mt-0">
-  <h2>{{icon "phone"}} Službe <span class="reg-chip">{{len .Sluzbe}}</span></h2>
-  <p class="form-help mt-0 mb-3">Kontakti koje rješenja i obavijesti o obrani obavještavaju kad dionica ima ugroženo područje u ovoj županiji:
-    područni ured civilne zaštite sa službom za prevenciju i pripravnost i županijskim centrom 112, policijska uprava i postaje, lučke kapetanije.
+<div class="stupci-stranice list-stupci">
+<div class="dio-lijevo">
+<section class="list-kartica dio-veze" id="sluzbe">
+  <h2>Službe za obranu ({{len .Sluzbe}}){{if .SmijeSluzbe}}<a href="/territories/counties/{{.County.ID}}#sluzba" class="dio-broj">Nova služba</a>{{end}}</h2>
+  {{range .Sluzbe}}
+  {{if $.SmijeSluzbe}}<a class="redak" href="/territories/counties/{{$.County.ID}}?uredi={{.ID}}#sluzba">{{else}}<div class="redak">{{end}}
+    {{icon "shield"}}<span class="redak-tekst"><span class="redak-glavno">{{.Naziv}}</span><span class="redak-sporedno">{{sluzbaKratko .Vrsta}}{{with .Phone}} · {{.}}{{end}}{{with .Email}} · {{.}}{{end}}{{if .MunicipalityID}} · vrijedi za {{.MunicipalityName}}{{end}}{{with .Napomena}} · {{.}}{{end}}</span></span>
+  {{if $.SmijeSluzbe}}{{icon "chevron-right"}}</a>{{else}}</div>{{end}}
+  {{else}}
+  <p class="reg-empty mb-0">Još nije upisana nijedna služba.</p>
+  {{end}}
+  <p class="form-help zup-napomena">Rješenja i obavijesti o obrani obavještavaju ove službe kad dionica ima ugroženo područje u ovoj županiji.
     Služba vezana uz grad ili općinu, npr. policijska postaja, ide na akt samo kad je taj grad ili općina ugroženo područje.
     Stožer civilne zaštite ide na akt od izvanrednog stanja; vatrogasna zajednica i Crveni križ stoje u imeniku, a na akt ne idu.</p>
-  {{if .Sluzbe}}
-  <div class="table-card"><div class="table-responsive"><table class="data-table">
-    <thead><tr><th>Vrsta</th><th>Naziv</th><th>E-pošta</th><th>Telefon</th><th>Vrijedi za</th>{{if .SmijeSluzbe}}<th></th>{{end}}</tr></thead>
-    <tbody>{{range .Sluzbe}}
-      <tr><td>{{sluzbaLabel .Vrsta}}</td><td>{{.Naziv}}{{if .Napomena}}<div class="form-help">{{.Napomena}}</div>{{end}}</td><td class="mono">{{.Email}}</td><td class="mono">{{.Phone}}</td>
-        <td>{{if .MunicipalityID}}{{.MunicipalityName}}{{else}}cijela županija{{end}}</td>
-        {{if $.SmijeSluzbe}}<td class="radnje nowrap">
-          <a href="/territories/counties/{{$.County.ID}}?uredi={{.ID}}#sluzba" class="btn btn-sm btn-secondary" title="Uredi">{{icon "pencil"}}</a>
-          <form method="POST" action="/territories/counties/{{$.County.ID}}/sluzbe/{{.ID}}/obrisi" class="d-inline" onsubmit="return confirm('Obrisati {{.Naziv}}?');"><button type="submit" class="btn btn-sm btn-secondary" title="Obriši">{{icon "x"}}</button></form>
-        </td>{{end}}</tr>{{end}}
-    </tbody>
-  </table></div></div>
-  {{else}}<div class="reg-empty">Još nije upisana nijedna služba.</div>{{end}}
 </section>
 
 {{if .SmijeSluzbe}}
-<section class="detail-section" id="sluzba">
-  <h2>{{if .Sluzba}}{{icon "pencil"}} Uredi službu{{else}}{{icon "plus"}} Nova služba{{end}}</h2>
+<section class="list-kartica" id="sluzba">
+  <h2>{{if .Sluzba}}Uredi službu{{else}}Nova služba{{end}}</h2>
   <form method="POST" action="/territories/counties/{{.County.ID}}/sluzbe" class="form-page">
     {{with .Sluzba}}<input type="hidden" name="sluzba_id" value="{{.ID}}">{{end}}
     <div class="form-row">
@@ -52,13 +51,50 @@
     <div class="form-row">
       <div class="form-group"><label class="form-label" for="email">E-pošta</label><input type="email" id="email" name="email" class="form-control" value="{{with .Sluzba}}{{.Email}}{{end}}"></div>
       <div class="form-group"><label class="form-label" for="phone">Telefon</label><input type="tel" id="phone" name="phone" class="form-control" value="{{with .Sluzba}}{{.Phone}}{{end}}"></div>
+    </div>
+    <div class="form-row">
       <div class="form-group"><label class="form-label" for="municipality_id">Vrijedi za</label>
         <select id="municipality_id" name="municipality_id" class="form-control"><option value="0">cijelu županiju</option>{{range .Municipalities}}<option value="{{.ID}}"{{if $.Sluzba}}{{if eq .ID $.Sluzba.MunicipalityID}} selected{{end}}{{end}}>{{.Name}}</option>{{end}}</select></div>
+      <div class="form-group"><label class="form-label" for="napomena">Napomena</label><input type="text" id="napomena" name="napomena" class="form-control" value="{{with .Sluzba}}{{.Napomena}}{{end}}" placeholder="npr. nadležna za Dravu od Osijeka do ušća"></div>
     </div>
-    <div class="form-group"><label class="form-label" for="napomena">Napomena</label><input type="text" id="napomena" name="napomena" class="form-control" value="{{with .Sluzba}}{{.Napomena}}{{end}}" placeholder="npr. nadležna za Dravu od Osijeka do ušća"></div>
     <input type="hidden" name="redoslijed" value="{{with .Sluzba}}{{.Redoslijed}}{{end}}">
-    <div class="form-actions">{{if .Sluzba}}<a href="/territories/counties/{{.County.ID}}" class="btn btn-secondary">Odustani</a>{{end}}<button type="submit" class="btn btn-primary">{{if .Sluzba}}Spremi{{else}}Dodaj službu{{end}}</button></div>
+    <div class="form-actions lob-gumbi">
+      {{with .Sluzba}}<button type="submit" form="obrisi-sluzbu" class="btn btn-link btn-opasno obj-obrisi">Obriši službu</button>
+      <a href="/territories/counties/{{$.County.ID}}#sluzbe" class="btn btn-link">Odustani</a>{{end}}
+      <button type="submit" class="btn btn-primary">{{if .Sluzba}}Spremi{{else}}Dodaj službu{{end}}</button>
+    </div>
   </form>
+  {{with .Sluzba}}<form id="obrisi-sluzbu" method="POST" action="/territories/counties/{{$.County.ID}}/sluzbe/{{.ID}}/obrisi" hidden onsubmit="return confirm('Obrisati {{.Naziv}}?');"></form>{{end}}
 </section>
 {{end}}
+
+<section class="list-kartica">
+  <h2>Gradovi i općine ({{len .Municipalities}}){{if $admin}}<a href="/territories/municipalities/new?county_id={{.County.ID}}" class="dio-broj">Novi grad ili općina</a>{{end}}</h2>
+  {{if .Municipalities}}
+  <ul class="zup-cipovi">
+    {{range .Municipalities}}<li><a href="/territories/municipalities/{{.ID}}">{{.Name}}{{if eq .Type "GRAD"}}<span> · grad</span>{{end}}</a></li>{{end}}
+  </ul>
+  {{else}}
+  <p class="reg-empty mb-0">Još nema upisanih gradova ni općina.</p>
+  {{end}}
+</section>
+</div>
+
+<aside class="ploca-stranice list-ploca" aria-label="Podaci">
+<section class="list-kartica">
+  <h2>Podaci</h2>
+  <dl class="vodocuvar-dl">
+    <dt>Oznaka</dt><dd>{{if .County.Code}}{{.County.Code}}{{else}}—{{end}}</dd>
+    <dt>Sjedište</dt><dd>{{if .County.Seat}}{{.County.Seat}}{{else}}—{{end}}</dd>
+    <dt>Površina</dt><dd>{{if gt .County.AreaSqKm 0}}{{brojHR .County.AreaSqKm}} km²{{else}}—{{end}}</dd>
+    <dt>Stanovnika</dt><dd>{{if gt .County.Population 0}}{{brojHR .County.Population}}{{else}}—{{end}}</dd>
+    <dt>Župan ili županica</dt><dd>{{if .County.Prefect}}{{.County.Prefect}}{{else}}—{{end}}</dd>
+    <dt>E-pošta</dt><dd>{{with .County.Email}}<a href="mailto:{{.}}">{{.}}</a>{{else}}—{{end}}</dd>
+    <dt>Telefon</dt><dd>{{with .County.Phone}}<a href="tel:{{.}}">{{.}}</a>{{else}}—{{end}}</dd>
+    <dt>Web</dt><dd>{{with websiteURL .County.Website}}<a href="{{.}}" target="_blank" rel="noopener noreferrer">{{websiteLabel .}}</a>{{else}}—{{end}}</dd>
+  </dl>
+</section>
+</aside>
+</div>
+</div>
 {{end}}

@@ -10069,3 +10069,10 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
 .karta-prazno-naslov { margin: 0; font-weight: 500; }
 .karta-prazno-gumbi { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 8px; }
 @media (max-width: 767px) { .karta-prazno { min-height: 180px; } }
+
+/* Kartica županije (17f, 7b): gradovi i općine kao čipovi. */
+.zup-napomena { margin: 12px 0 0; }
+.zup-cipovi { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; padding: 0; }
+.zup-cipovi a { display: inline-block; padding: 2px 8px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 6px; font-size: 0.85rem; color: var(--text); text-decoration: none; }
+.zup-cipovi a:hover { background: var(--md-sys-color-surface-container-high); }
+.zup-cipovi a span { color: var(--text-secondary); }
