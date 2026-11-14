@@ -10112,6 +10112,11 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
 .afo-geokod { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
 .afo-geokod .btn-link { min-height: 0; padding: 0; border: 0; }
 
+/* Obrazac sektora (17a, 2c): oznaka se piše velikim slovima, a Obriši stoji lijevo od
+   Odustani i Spremi, kao na crtežima obrazaca registara. */
+.sfo-oznaka { text-transform: uppercase; }
+.lob-gumbi .obj-obrisi { margin-right: auto; }
+
 /* Održavanje (17f, 7h): izbor područja s oznakama, lokacije i stavke kao kartice. */
 .odr-traka { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 16px; }
 .odr-traka form { margin: 0; }
