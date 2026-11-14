@@ -76,7 +76,6 @@ func novaOkolinaPrava(t *testing.T) *okolinaPrava {
 	h := NewReadingsHandler(readings, service.NewStationService(stationRepo, sections, service.NewSSEBroker()),
 		service.NewStructureService(repository.NewStructureRepository(baza, rec)), users,
 		tmpl("readings.html"), tmpl("reading_history.html"), tmpl("reading_form.html"))
-	h.SetOcitanjaCSV(tmpl("ocitanja_ispravci.html"))
 	o := &okolinaPrava{mux: http.NewServeMux(), h: h, ocitanja: readingRepo, baza: baza, stanice: stationRepo}
 	o.mux.HandleFunc("GET /readings/station/{id}", h.ShowHistory)
 	o.mux.HandleFunc("GET /readings/station/{id}/uvoz-izvoz", h.ShowUvozIzvoz)

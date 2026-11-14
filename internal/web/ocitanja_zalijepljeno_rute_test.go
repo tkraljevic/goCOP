@@ -291,3 +291,23 @@ func TestPregledUnosaLetveKojeNema(t *testing.T) {
 		t.Errorf("letva koje nema: %d", w.Code)
 	}
 }
+
+// Pregled ispravaka letve koje u međuvremenu nema javlja da je nema, a
+// stranica koja se ne da iscrtati je greška poslužitelja.
+func TestPregledIspravakaBezLetveIPredloska(t *testing.T) {
+	o := novaOkolinaPrava(t)
+	pregled := func(id string) int {
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/readings/station/x/ocitanja/uvoz", nil)
+		r.SetPathValue("id", id)
+		o.h.pokaziPregledIspravaka(w, r, &PregledOcitanja{})
+		return w.Code
+	}
+	if k := pregled(uuid.NewString()); k != http.StatusNotFound {
+		t.Errorf("letva koje nema: %d", k)
+	}
+	o.h.tmplHistory = template.Must(template.New("prazan").Parse(""))
+	if k := pregled(o.st.ID.String()); k != http.StatusInternalServerError {
+		t.Errorf("bez predloška: %d", k)
+	}
+}

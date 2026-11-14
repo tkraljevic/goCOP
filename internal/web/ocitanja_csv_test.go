@@ -159,11 +159,8 @@ func TestPregledIspravakaOcitanja(t *testing.T) {
 	novo := kriv
 	novo.LevelCm = cmP(-118)
 
-	html := iscrtaj(t, "ocitanja_ispravci.html", PregledOcitanja{
-		CurrentUser: &models.User{FullName: "P"},
-		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
-		Station:     &models.Station{ID: uuid.New(), Name: "Batina", Code: "batina"},
-		GaugeName:   "Batina", BackURL: "/readings/station/x/uvoz-izvoz", Datoteka: "batina_ocitanja.csv",
+	html := iscrtajPregledIspravaka(t, &models.Station{ID: uuid.New(), Name: "Batina", Code: "batina"}, PregledOcitanja{
+		GaugeName: "Batina", BackURL: "/readings/station/x/uvoz-izvoz", NazivPovratka: "Uvoz i izvoz", Datoteka: "batina_ocitanja.csv",
 		PotvrdaURL: "/readings/station/x/ocitanja/potvrdi",
 		Redci: []RedakOcitanja{
 			{Redak: 2, ID: kriv.ID, Staro: kriv, Novo: novo,
@@ -184,6 +181,19 @@ func TestPregledIspravakaOcitanja(t *testing.T) {
 	if !strings.Contains(html, `action="/readings/station/x/ocitanja/potvrdi"`) {
 		t.Error("obrazac ne vodi na potvrdu")
 	}
+	if !strings.Contains(html, `aria-current="page">Uvoz i izvoz`) || strings.Contains(html, "Pogledaj što bi se upisalo") {
+		t.Error("pregled nije u kartici Uvoz i izvoz, na mjestu obrazaca")
+	}
+}
+
+// iscrtajPregledIspravaka iscrtava stranicu letve s pregledom ispravaka
+func iscrtajPregledIspravaka(t *testing.T, st *models.Station, p PregledOcitanja) string {
+	t.Helper()
+	return iscrtaj(t, "reading_history.html", ReadingHistoryData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     st, GaugeName: p.GaugeName, LetvaStranica: "uvoz", CanRecord: true, PregledIspravaka: &p,
+	})
 }
 
 // Izvoz sužava popis na isti pogled koji je na zaslonu bio odabran.

@@ -41,7 +41,6 @@ type ReadingsHandler struct {
 	krajnosti        func(context.Context, string) (min, max *Krajnost)
 	ispravci         func() *repository.IspravakRepository
 	tmplIspravci     *template.Template
-	tmplOcitanjaCSV  *template.Template
 	javni            func() *javnivodostaji.Uvoznik
 	prognoze         func() *CitacPrognoza
 	prikazPrognoze   func(ctx context.Context, letva, velicina string) *PrognozaNiza
@@ -145,9 +144,6 @@ func porukaPreuzimanja(s javnivodostaji.StanjeLetve) string {
 	}
 	return poruka + "."
 }
-
-// SetOcitanjaCSV daje rukovatelju predložak pregleda ispravaka iz CSV-a.
-func (h *ReadingsHandler) SetOcitanjaCSV(tmpl *template.Template) { h.tmplOcitanjaCSV = tmpl }
 
 // SetIspravci daje rukovatelju pohranu ispravaka arhive i predložak pregleda.
 // Uzima se dohvatnik, a ne sama pohrana: poslužitelj se sastavlja prije nego
@@ -356,6 +352,8 @@ type ReadingHistoryData struct {
 	// PregledUnosa: zalijepljena ili učitana očitanja prije upisa; kartica
 	// „Uvoz i izvoz” tada pokazuje pregled umjesto obrazaca
 	PregledUnosa *PregledUvoza
+	// PregledIspravaka: što bi datoteka s ispravcima promijenila, prije upisa
+	PregledIspravaka *PregledOcitanja
 }
 
 type ReadingFormData struct {
