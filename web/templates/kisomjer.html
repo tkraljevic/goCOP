@@ -3,36 +3,56 @@
 {{define "title"}}goCOP — {{if eq .Stranica "historijat"}}Historijat{{else}}Očitanja{{end}}: {{.Tocka.Naziv}}{{end}}
 
 {{define "content"}}
-<div class="page-header">
+{{/* Kišomjer (goCOP-m3, 17e · Registri, 6e): vrh je kartica s crteža (povratak, podnaslov, Podaci i
+     oborine zadnjih sedam dana), a ispod ostaju Očitanja i Historijat kao kartice stranice. */}}
+{{$t := .Tocka}}
+<a href="/slivovi{{if $t.Sliv}}#sliv-{{$t.Sliv}}{{end}}" class="povratna-poveznica">← Slivovi i kišomjeri</a>
+<div class="page-header list-glava">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "cloud-rain"}} {{.Tocka.Naziv}}</h1>
-    <div class="kis-oznake" style="margin:0.25rem 0 0.35rem;">
-      {{if .Procjena}}<span class="badge kis-vrsta-izvedena">{{icon "cloud-rain"}} izvedena točka — procjena modela</span>{{else}}<span class="badge kis-vrsta-pravi">{{icon "gauge"}} pravi kišomjer — mjeri</span>{{end}}
-      {{if .UPrognozi}}<span class="badge kis-u-prognozi">{{icon "check"}} u prognozi{{if .PrognozaLetve}}: {{.PrognozaLetve}}{{end}}</span>{{else}}<span class="badge badge-inactive">ne ulazi u prognozu — {{.RazlogVan}}</span>{{end}}
+    <h1 class="page-title" data-naziv-stranice>{{$t.Naziv}}</h1>
+    <p class="page-desc">{{if .Procjena}}izvedena točka{{if $t.Pojas}} · {{$t.Pojas}}{{end}}{{else}}pravi kišomjer{{if $t.Izvor}} · {{$t.Izvor}}{{if $t.IzvorSifra}} {{$t.IzvorSifra}}{{end}}{{end}}{{end}}{{if $t.Sliv}} · međusliv {{$t.Sliv}}{{end}}{{if not $t.Aktivan}} · neaktivna{{end}}</p>
+    <div class="kis-oznake">
+      {{if .UPrognozi}}<span class="oznaka-stanja kis-u-prognozi">u prognozi{{if .PrognozaLetve}}: {{.PrognozaLetve}}{{end}}</span>{{else}}<span class="oznaka-stanja obrub">ne ulazi u prognozu — {{.RazlogVan}}</span>{{end}}
     </div>
-    <p class="page-desc">
-      {{if .Procjena}}Izvedena točka{{if .Tocka.Pojas}} · {{.Tocka.Pojas}}{{end}}{{else}}Stvarni kišomjer{{if .Tocka.Izvor}} · {{.Tocka.Izvor}}{{if .Tocka.IzvorSifra}} {{.Tocka.IzvorSifra}}{{end}}{{end}}{{if .Tocka.Korak}} · {{.Tocka.Korak}}{{end}}{{end}}
-      {{if .Tocka.Sliv}} · međusliv {{.Tocka.Sliv}}{{if .SlivNaziv}} ({{.SlivNaziv}}){{end}}{{end}}
-      · {{printf "%.4f" .Tocka.Latitude}}, {{printf "%.4f" .Tocka.Longitude}}{{if .Tocka.Visina}} · {{brojHRd .Tocka.Visina 0}} m n. m.{{end}}
-      {{if not .Tocka.Aktivan}} · <span class="badge badge-inactive">neaktivna</span>{{end}}
-    </p>
   </div>
+  {{if and .Permissions .Permissions.IsGlobalAdmin}}<div class="page-actions"><a href="/slivovi/kisomjer/{{$t.Code}}/edit" class="btn btn-primary">Uredi</a></div>{{end}}
 </div>
 
-<div class="detail-actions letva-izbornik">
-  {{if eq .Stranica "ocitanja"}}
-  <span class="btn btn-secondary je-ovdje" aria-current="page">{{icon "activity"}} Očitanja</span>
-  {{else}}
-  <a href="/slivovi/kisomjer/{{.Tocka.Code}}" class="btn btn-secondary">{{icon "activity"}} Očitanja</a>
-  {{end}}
-  {{if eq .Stranica "historijat"}}
-  <span class="btn btn-secondary je-ovdje" aria-current="page">{{icon "history"}} Historijat</span>
-  {{else}}
-  <a href="/slivovi/kisomjer/{{.Tocka.Code}}/historijat" class="btn btn-secondary" title="Arhiva po godinama i mjesecima">{{icon "history"}} Historijat</a>
-  {{end}}
-  <a href="/slivovi{{if .Tocka.Sliv}}#sliv-{{.Tocka.Sliv}}{{end}}" class="btn btn-secondary">{{icon "map"}} Slivovi</a>
-  {{if and .Permissions .Permissions.IsGlobalAdmin}}<a href="/slivovi/kisomjer/{{.Tocka.Code}}/edit" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>{{end}}
+<nav class="kartice-stranice kis-kartice" aria-label="Kišomjer {{$t.Naziv}}">
+  {{if eq .Stranica "ocitanja"}}<span class="kartica-stranice" aria-current="page">Očitanja</span>{{else}}<a class="kartica-stranice" href="/slivovi/kisomjer/{{$t.Code}}">Očitanja</a>{{end}}
+  {{if eq .Stranica "historijat"}}<span class="kartica-stranice" aria-current="page">Historijat</span>{{else}}<a class="kartica-stranice" href="/slivovi/kisomjer/{{$t.Code}}/historijat" title="Arhiva po godinama i mjesecima">Historijat</a>{{end}}
+</nav>
+
+{{if eq .Stranica "ocitanja"}}
+<div class="list-stranica-ploca kis-vrh">
+<div class="stupci-stranice list-stupci">
+<section class="list-kartica kis-sedam">
+  <h2>Oborine zadnjih sedam dana</h2>
+  <div class="kis-dani-sedam">
+    {{range .SedamDana}}<div class="kis-dan-sedam"><span class="dl-sitno">{{danKratko .Dan}} {{.Dan.Format "2. 1."}}</span><strong>{{with .Mm}}{{brojHRf . 1}}{{else}}—{{end}}</strong>{{if .Mm}}<span class="dl-sitno">mm</span>{{end}}</div>{{end}}
+  </div>
+  <p class="form-help mb-0">Ukupno {{brojHRf .ZbrojSedam 1}} mm. Dan bez podatka piše „—”, a ne nulu. Prognoza za slivove je u <a href="/prognoze/vrijeme">Prognoze › Vrijeme</a>.</p>
+</section>
+<aside class="ploca-stranice list-ploca">
+<section class="list-kartica">
+  <h2>Podaci</h2>
+  <dl class="vodocuvar-dl">
+    <dt>Šifra</dt><dd class="mono">{{$t.Code}}</dd>
+    <dt>Vrsta</dt><dd>{{if .Procjena}}izvedena točka (procjena modela){{else}}pravi kišomjer{{end}}</dd>
+    {{if $t.Izvor}}<dt>Izvor</dt><dd>{{$t.Izvor}}{{if $t.IzvorSifra}}, šifra postaje {{$t.IzvorSifra}}{{end}}</dd>{{end}}
+    {{if $t.Korak}}<dt>Korak</dt><dd>{{$t.Korak}}</dd>{{end}}
+    {{if $t.Sliv}}<dt>Međusliv</dt><dd><a href="/slivovi#sliv-{{$t.Sliv}}">{{$t.Sliv}}{{if .SlivNaziv}} · {{.SlivNaziv}}{{end}}</a></dd>{{end}}
+    <dt>Položaj</dt><dd>{{brojHRf $t.Latitude 3}} · {{brojHRf $t.Longitude 3}}</dd>
+    <dt>Visina</dt><dd>{{if $t.Visina}}{{brojHRd $t.Visina 0}} m n. m.{{else}}nije upisana{{end}}</dd>
+    <dt>Aktivan</dt><dd>{{if $t.Aktivan}}da{{else}}ne{{end}}</dd>
+    {{if $t.Sliv}}<dt>Drugi u međuslivu</dt><dd>{{.DrugihUMedjuslivu}}</dd>{{end}}
+    {{if $t.Napomena}}<dt>Napomena</dt><dd>{{$t.Napomena}}</dd>{{end}}
+  </dl>
+</section>
+</aside>
 </div>
+</div>
+{{end}}
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{icon "check"}} {{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{icon "triangle-alert"}} {{.ErrorMessage}}</div>{{end}}
