@@ -17,17 +17,18 @@ func TestSveStraniceImajuOkvir(t *testing.T) {
 	redci, satni, _ := citajZalijepljeno("07.09.2026. 00 h    -118\n07.09.2026. 01 h    -118")
 	postaja := &models.Station{ID: uuid.New(), Name: "Batina", Code: "batina"}
 
-	html := iscrtaj(t, "uvoz_ocitanja.html", PregledUvoza{
-		CurrentUser: &models.User{FullName: "P"},
-		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
-		Station:     postaja, GaugeName: "Batina", Satni: satni, Redci: redci, Novih: 2,
+	html := iscrtajPregledUnosa(t, PregledUvoza{
+		Station: postaja, GaugeName: "Batina", Satni: satni, Redci: redci, Novih: 2,
 		Od: time.Date(2026, 9, 7, 0, 0, 0, 0, time.UTC),
 		Do: time.Date(2026, 9, 7, 1, 0, 0, 0, time.UTC),
 	})
-	for _, want := range []string{"<!DOCTYPE html>", "Što bi se upisalo", "-118", "novo"} {
+	for _, want := range []string{"<!DOCTYPE html>", "Što bi se upisalo", "-118", "novo", `aria-current="page">Uvoz i izvoz`} {
 		if !strings.Contains(html, want) {
-			t.Errorf("uvoz_ocitanja.html nema %q", want)
+			t.Errorf("pregled unosa nema %q", want)
 		}
+	}
+	if strings.Contains(html, "Pogledaj što bi se upisalo") {
+		t.Error("uz pregled su i obrasci kartice")
 	}
 
 	html = iscrtaj(t, "arhiva_ispravci.html", PregledIspravaka{
@@ -52,11 +53,9 @@ func TestSveStraniceImajuOkvir(t *testing.T) {
 // stajao uz njega.
 func TestVrijemeNizaBezPomakaIDvostrukogSata(t *testing.T) {
 	redci, satni, _ := citajZalijepljeno("07.09.2026. 00 h    -118\n07.09.2026. 23 h    -122")
-	html := iscrtaj(t, "uvoz_ocitanja.html", PregledUvoza{
-		CurrentUser: &models.User{FullName: "P"},
-		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
-		Station:     &models.Station{ID: uuid.New(), Name: "Batina", Code: "batina"},
-		GaugeName:   "Batina", Satni: satni, Redci: redci, Novih: 2,
+	html := iscrtajPregledUnosa(t, PregledUvoza{
+		Station:   &models.Station{ID: uuid.New(), Name: "Batina", Code: "batina"},
+		GaugeName: "Batina", Satni: satni, Redci: redci, Novih: 2,
 		Od: redci[0].Kad, Do: redci[1].Kad,
 	})
 	// vrijeme s letve je lokalno: 00 h ostaje 00:00 i pri ispisu, jer se
@@ -303,4 +302,15 @@ func TestPorukaStizeIzOkviraISvimOstalima(t *testing.T) {
 	if !strings.Contains(html, "IZ-OKVIRA") {
 		t.Error("stranica je ostala bez poruke")
 	}
+}
+
+// iscrtajPregledUnosa iscrtava stranicu letve s pregledom skupnog unosa u
+// kartici „Uvoz i izvoz”
+func iscrtajPregledUnosa(t *testing.T, p PregledUvoza) string {
+	t.Helper()
+	return iscrtaj(t, "reading_history.html", ReadingHistoryData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     p.Station, GaugeName: p.GaugeName, LetvaStranica: "uvoz", CanRecord: true, PregledUnosa: &p,
+	})
 }

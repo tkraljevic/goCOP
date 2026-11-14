@@ -41,7 +41,6 @@ type ReadingsHandler struct {
 	krajnosti        func(context.Context, string) (min, max *Krajnost)
 	ispravci         func() *repository.IspravakRepository
 	tmplIspravci     *template.Template
-	tmplUvoz         *template.Template
 	tmplOcitanjaCSV  *template.Template
 	javni            func() *javnivodostaji.Uvoznik
 	prognoze         func() *CitacPrognoza
@@ -149,9 +148,6 @@ func porukaPreuzimanja(s javnivodostaji.StanjeLetve) string {
 
 // SetOcitanjaCSV daje rukovatelju predložak pregleda ispravaka iz CSV-a.
 func (h *ReadingsHandler) SetOcitanjaCSV(tmpl *template.Template) { h.tmplOcitanjaCSV = tmpl }
-
-// SetUvoz daje rukovatelju predložak pregleda zalijepljenih očitanja
-func (h *ReadingsHandler) SetUvoz(tmpl *template.Template) { h.tmplUvoz = tmpl }
 
 // SetIspravci daje rukovatelju pohranu ispravaka arhive i predložak pregleda.
 // Uzima se dohvatnik, a ne sama pohrana: poslužitelj se sastavlja prije nego
@@ -356,6 +352,10 @@ type ReadingHistoryData struct {
 	ErrorMessage   string
 	ActiveNav      string
 	ViewAsBanner
+
+	// PregledUnosa: zalijepljena ili učitana očitanja prije upisa; kartica
+	// „Uvoz i izvoz” tada pokazuje pregled umjesto obrazaca
+	PregledUnosa *PregledUvoza
 }
 
 type ReadingFormData struct {
@@ -1400,7 +1400,7 @@ func (h *ReadingsHandler) HandleZalijepiPregled(w http.ResponseWriter, r *http.R
 		return
 	}
 	back := "/readings/station/" + station.ID.String()
-	u, perms := h.base(r)
+	_, perms := h.base(r)
 	if !h.readingService.CanRecordStation(perms, station) {
 		redirectWith(w, r, back, "error", "Nemate pravo upisivati očitanja na "+station.Name)
 		return
@@ -1449,10 +1449,7 @@ func (h *ReadingsHandler) HandleZalijepiPregled(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	data := PregledUvoza{
-		CurrentUser: u, Permissions: perms, Station: station, GaugeName: station.Name,
-		Satni: satni, Redci: redci, ActiveNav: "readings", ViewAsBanner: viewBanner(r),
-	}
+	data := PregledUvoza{Station: station, GaugeName: station.Name, Satni: satni, Redci: redci}
 	// usporedba s onim što već imamo u očitanjima
 	postojece := map[int64]models.SpojenaVrijednost{}
 	if sve, err := h.readingService.List(r.Context(),
@@ -1476,7 +1473,18 @@ func (h *ReadingsHandler) HandleZalijepiPregled(w http.ResponseWriter, r *http.R
 			data.Do = x.Kad
 		}
 	}
-	if err := h.tmplUvoz.ExecuteTemplate(w, "uvoz_ocitanja.html", data); err != nil {
+	h.pokaziPregledUnosa(w, r, &data)
+}
+
+// pokaziPregledUnosa iscrtava pregled u kartici letve „Uvoz i izvoz”, na
+// mjestu obrazaca, s popisom letava i karticama letve (goCOP-m3, 12)
+func (h *ReadingsHandler) pokaziPregledUnosa(w http.ResponseWriter, r *http.Request, p *PregledUvoza) {
+	data, _, ok := h.podaciOcitanja(w, r)
+	if !ok {
+		return
+	}
+	data.LetvaStranica, data.PregledUnosa = "uvoz", p
+	if err := h.tmplHistory.ExecuteTemplate(w, "reading_history.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

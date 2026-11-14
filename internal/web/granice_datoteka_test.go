@@ -308,7 +308,6 @@ func TestZajednickaTablicaTekst(t *testing.T) {
 // ispravan ispis s letve i dalje prolazi.
 func TestZalijepljeniExcelSPreviseTeksta(t *testing.T) {
 	o := novaOkolinaPrava(t)
-	o.h.SetUvoz(predlozakStranice(t, "uvoz_ocitanja.html"))
 	id := o.st.ID.String()
 	sst := `<sst><si><t>` + strings.Repeat("A", najviseZnakovaCelije) + `</t></si></sst>`
 	los := xlsxSTablicom(t, sst, `<row>`+strings.Repeat(`<c t="s"><v>0</v></c>`, najviseTekstaXLSX/najviseZnakovaCelije+1)+`</row>`)
@@ -323,7 +322,7 @@ func TestZalijepljeniExcelSPreviseTeksta(t *testing.T) {
 		{"07.09.2026. 00:00 ", "0", "-118"},
 	})
 	r = viseDijelni(t, "/", nil, datotekaObrasca{"datoteka", "ispis.xlsx", string(dobar)})
-	if odg := naLetvi(o.h.HandleZalijepiPregled, r, id, o.pero, o.peroOvl); odg.status != http.StatusOK || !strings.Contains(odg.html, "novih <strong>1</strong>") {
+	if odg := naLetvi(o.h.HandleZalijepiPregled, r, id, o.pero, o.peroOvl); odg.status != http.StatusOK || !strings.Contains(odg.html, "<strong>1</strong><span>novo</span>") {
 		t.Errorf("ispravan ispis: %d %s", odg.status, odg.location)
 	}
 }

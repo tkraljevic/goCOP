@@ -247,7 +247,9 @@
      stranica na njoj pucala. */}}
 {{if and .Station (eq .LetvaStranica "uvoz")}}
 {{/* Kartica Uvoz i izvoz (goCOP-m3, 12 · Očitanja): izvoz za svakoga, a
-     ispravci u tablici i skupni unos za onoga tko smije upisivati */}}
+     ispravci u tablici i skupni unos za onoga tko smije upisivati. Nakon
+     „Pogledaj što bi se upisalo” na mjestu obrazaca stoji pregled. */}}
+{{with .PregledUnosa}}{{template "pregledUnosa" .}}{{else}}
 <div class="letva-mreza">
   <section class="letva-ploca">
     <h2>Izvoz</h2>
@@ -305,6 +307,7 @@
   {{end}}
 </div>
 {{end}}
+{{end}}
 
 
 {{if and .Station (ne .LetvaStranica "uvoz")}}
@@ -316,4 +319,67 @@
 
 </div>
 </div>
+{{end}}
+
+{{/* Pregled skupnog unosa (goCOP-m3, 12 · Letva Batina · pregled unosa): zbroj,
+     odakle su očitanja, tablica redaka i potvrda. Ništa se ne upisuje dok se
+     ne pritisne Upiši; očitanje s drugom vrijednošću se ne mijenja. */}}
+{{define "pregledUnosa"}}
+<section class="pun" aria-labelledby="pun-naslov">
+  <a class="povratna-poveznica" href="/readings/station/{{.Station.ID}}/uvoz-izvoz">← Uvoz i izvoz</a>
+  <h2 id="pun-naslov" class="pun-naslov">Što bi se upisalo</h2>
+  <p class="pun-opis">{{.GaugeName}} · {{if .Satni}}satna očitanja{{else}}dnevna očitanja{{end}}{{if not .Od.IsZero}} · {{formatDate (localTime .Od)}} – {{formatDate (localTime .Do)}}{{end}}. Ništa još nije upisano.</p>
+
+  <div class="pun-zbroj">
+    <div class="pun-broj"><strong>{{brojHR .Novih}}</strong><span>{{uzBroj .Novih "novo" "nova" "novih"}}</span></div>
+    <div class="pun-broj"><strong>{{brojHR .Istih}}</strong><span>već upisano</span></div>
+    <div class="pun-broj"><strong>{{brojHR .Razlicitih}}</strong><span>s drugom vrijednošću</span></div>
+    <div class="pun-broj{{if .Greske}} pun-broj-greska{{end}}"><strong>{{brojHR .Greske}}</strong><span>{{uzBroj .Greske "nečitljiv" "nečitljiva" "nečitljivih"}}</span></div>
+  </div>
+  <p class="pun-uputa">Očitanja idu u operativni zapis — ono na čemu ured radi i što se sinkronizira na druge čvorove.
+    Već upisana se preskaču, pa ponovni uvoz istog ispisa ništa ne udvostručuje.
+    Vrijeme s letve je lokalno i tako se i tumači, jednako kao u obrascu za ručni upis.</p>
+
+  <form method="POST" action="/readings/station/{{.Station.ID}}/zalijepi/potvrdi">
+    <div class="form-group pun-podrijetlo">
+      <label class="form-label" for="podrijetlo">Odakle su očitanja</label>
+      <input id="podrijetlo" name="podrijetlo" class="form-control" value="letva.voda.hr — zalijepljeno">
+      <p class="form-help">Ostaje uz svako očitanje, da se poslije zna odakle je došlo.</p>
+    </div>
+
+    <div class="pun-tablica">
+      <table class="data-table">
+        <thead><tr><th>Redak</th><th>Kad</th><th class="text-right">Vodostaj</th><th>Stanje</th></tr></thead>
+        <tbody>
+        {{range .Redci}}
+        <tr class="{{if .Greska}}pun-greska{{else if .Razlicit}}pun-razlicit{{else if .Postoji}}pun-postoji{{end}}">
+          <td class="mono">{{.Redak}}</td>
+          <td class="mono">{{if .Greska}}—{{else}}{{formatDate (localTime .Kad)}}{{end}}</td>
+          <td class="mono text-right">{{if .Greska}}—{{else}}<strong>{{brojHRf .Vrijedi 0}}</strong> cm{{end}}</td>
+          <td>
+            {{if .Greska}}<span class="pun-poruka">{{.Greska}}</span>
+            {{else if .Razlicit}}<span class="pun-znacka">bilo {{brojHRf .Staro 0}} cm</span>
+            {{else if .Postoji}}već upisano
+            {{else}}<span class="pun-znacka pun-novo">novo</span>{{end}}
+            {{if and (not .Greska) (not .Postoji)}}
+            <input type="hidden" name="kad" value="{{.Kad.Format "2006-01-02T15:04:05Z07:00"}}">
+            <input type="hidden" name="vrijednost" value="{{unos .Vrijedi 0}}">
+            {{end}}
+          </td>
+        </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+
+    {{if .Razlicitih}}
+    <p class="pun-uputa">Očitanja koja već postoje s drugom vrijednošću se ne mijenjaju. Postojeće očitanje ispravlja se
+      pojedinačno, da promjena ima svoj trag.</p>
+    {{end}}
+    <div class="pun-gumbi">
+      <a href="/readings/station/{{.Station.ID}}/uvoz-izvoz" class="btn btn-link">Odustani</a>
+      <button type="submit" class="btn btn-primary" {{if not .Novih}}disabled{{end}}>Upiši {{brojHR .Novih}} {{uzBroj .Novih "očitanje" "očitanja" "očitanja"}}</button>
+    </div>
+  </form>
+</section>
 {{end}}
