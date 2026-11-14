@@ -10070,6 +10070,53 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
 .karta-prazno-gumbi { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 8px; }
 @media (max-width: 767px) { .karta-prazno { min-height: 180px; } }
 
+/* Kartica sektora (17a, 2b): lijevo žig centra, desno Podaci. Bez žiga samo Podaci. */
+.sek-samo-podaci { max-width: 44rem; }
+.sek-prazno { color: var(--md-sys-color-on-surface-variant); }
+.sek-glava { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; margin-bottom: 12px; }
+.sek-glava h2 { margin: 0; font-size: 1rem; font-weight: 500; line-height: 24px; }
+.sek-drugi { margin: 0; font-size: 0.875rem; }
+.sek-zig-pregled { display: flex; align-items: flex-start; gap: 16px; }
+.sek-zig-pregled p { margin: 0 0 8px; }
+.sek-zig-slika { flex: none; width: 128px; height: 128px; border-radius: 50%; }
+.sek-zig-prazno { display: flex; flex: none; align-items: center; justify-content: center; width: 128px; height: 128px; border: 1px dashed var(--md-sys-color-outline); border-radius: 50%; color: var(--md-sys-color-on-surface-variant); }
+.sek-zig-prazno .icon { width: 32px; height: 32px; }
+.sek-zig-stanje { color: var(--md-sys-color-on-surface); font-size: 0.9375rem; font-weight: 500; }
+.sek-ukloni { min-height: 0; padding: 0; border: 0; }
+.sek-zig form { margin: 0; }
+.sek-zig-sken { margin-top: 12px; }
+.sek-zig-sken > summary { display: inline-flex; color: var(--md-sys-color-primary); font-size: 0.875rem; font-weight: 500; cursor: pointer; list-style: none; }
+.sek-zig-sken > summary::-webkit-details-marker { display: none; }
+.sek-zig-sken[open] > summary { margin-bottom: 8px; }
+.sek-zig-sken .form-group { margin-bottom: 8px; }
+.sek-zastita { margin-top: 12px; border-radius: 8px; background: var(--md-sys-color-surface-container); }
+.sek-zastita > summary { display: flex; align-items: center; gap: 12px; padding: 8px 12px; cursor: pointer; list-style: none; }
+.sek-zastita > summary::-webkit-details-marker { display: none; }
+.sek-zastita > summary > .icon { width: 24px; height: 24px; flex: none; color: var(--md-sys-color-on-surface-variant); }
+.sek-zastita > summary > .icon:last-child { width: 20px; height: 20px; }
+.sek-zastita[open] > summary > .icon:last-child { transform: rotate(90deg); }
+.sek-zastita .redak-glavno { font-size: 0.875rem; line-height: 20px; }
+.sek-zastita .redak-sporedno { font-size: 0.75rem; line-height: 16px; }
+.sek-zastita ul { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0 12px 12px 48px; font-size: 0.8125rem; }
+@media (max-width: 599px) {
+  .sek-zig-pregled { flex-direction: column; }
+}
+@media print {
+  .sek-zig-sken, .sek-ukloni { display: none; }
+}
+
+/* Obrazac branjenog područja (17a, 2d): prekidač „izravno sektoru” s tekstom lijevo. */
+.afo-sklopka { justify-content: space-between; align-items: flex-start; margin: 0 0 12px; }
+.afo-sklopka-naslov { display: block; color: var(--md-sys-color-on-surface); font-size: 0.875rem; }
+.afo-sklopka .form-help { display: block; margin: 2px 0 0; }
+.afo-geokod { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.afo-geokod .btn-link { min-height: 0; padding: 0; border: 0; }
+
+/* Obrazac sektora (17a, 2c): oznaka se piše velikim slovima, a Obriši stoji lijevo od
+   Odustani i Spremi, kao na crtežima obrazaca registara. */
+.sfo-oznaka { text-transform: uppercase; }
+.lob-gumbi .obj-obrisi { margin-right: auto; }
+
 /* Teritorij: popis županija (17f, 7a). Četiri brojke, čipovi s pretragom i tablica
    koja je na mobitelu kartica. */
 .ter-brojevi { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 4px 0 16px; }
