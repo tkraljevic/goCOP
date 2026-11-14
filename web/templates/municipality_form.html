@@ -3,14 +3,12 @@
 {{define "title"}}goCOP — {{if .IsEdit}}Uređivanje: {{.Municipality.Name}}{{else}}Novi grad ili općina{{end}}{{end}}
 
 {{define "content"}}
-<div class="breadcrumb">
-  <a href="/territories">Teritorijalne jedinice</a> › <a href="/territories?tab=municipalities">Gradovi i općine</a>
-  › {{if .IsEdit}}<a href="/territories/municipalities/{{.Municipality.ID}}">{{.Municipality.Name}}</a> › Uređivanje{{else}}Novi{{end}}
-</div>
+{{if .IsEdit}}<a href="/territories/municipalities/{{.Municipality.ID}}" class="povratna-poveznica">← {{if eq .Municipality.Type "GRAD"}}Grad{{else}}Općina{{end}} {{.Municipality.Name}}</a>
+{{else}}<a href="/territories?tab=municipalities" class="povratna-poveznica">← Teritorij</a>{{end}}
 
 <div class="page-header">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{if .IsEdit}}{{icon "pencil"}} {{.Municipality.Name}}{{else}}{{icon "building"}} Novi grad ili općina{{end}}</h1>
+    <h1 class="page-title" data-naziv-stranice>{{if .IsEdit}}Uredi grad ili općinu{{else}}Novi grad ili općina{{end}}</h1>
     <p class="page-desc">Naselja se dodaju na stranici grada ili općine nakon upisa.</p>
   </div>
 </div>
