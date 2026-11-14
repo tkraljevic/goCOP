@@ -43,6 +43,17 @@ type SectorView struct {
 	SectorAdmin bool // obrazac firme: smije li prijavljeni korisnik označiti cijeli sektor
 }
 
+// KratkiNaziv je naziv sektora bez oznake ispred crte: „Sektor B — Dunav i donja
+// Drava” na pločici je „Dunav i donja Drava”, jer slovo B stoji uz njega. Naziv
+// bez takve oznake ostaje cijeli.
+func (v SectorView) KratkiNaziv() string {
+	glava, rep, ima := strings.Cut(v.Name, " — ")
+	if !ima || rep == "" || !strings.HasSuffix(strings.TrimSpace(glava), v.ID) {
+		return v.Name
+	}
+	return rep
+}
+
 // AreaView je područje sa svojim licenciranim firmama
 type AreaView struct {
 	models.Area
