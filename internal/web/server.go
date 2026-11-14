@@ -302,6 +302,7 @@ func templateFuncs() template.FuncMap {
 		"skupinaLabel":       models.SkupinaLabel,
 		"redniBrojevi":       models.RedniBrojevi,
 		"sluzbaLabel":        models.SluzbaLabel,
+		"sluzbaKratko":       sluzbaKratko,
 		"flowMethods":        func() []string { return models.FlowMethods },
 		// je li procjena protoka produljenje krivulje preko umjerenog raspona
 		"protokIzvan": func(krivulje []models.HQKrivulja, kad time.Time, vodostaj any) bool {

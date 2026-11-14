@@ -228,7 +228,11 @@ func (h *DashboardHandler) jaceOborine(ctx context.Context) KarticaNaslovne {
 func karticaJacihOborina(p kisaSlivovaPodaci) KarticaNaslovne {
 	k := glavaKartice(kJaceOborine)
 	k.HitnoNaziv = "s jakom kišom"
-	for _, s := range p.Upozorenja {
+	// jača kiša ide na vrh, da ne ostane skrivena pod „Više”; ista razina
+	// ostaje redom međuslivova
+	slivovi := slices.Clone(p.Upozorenja)
+	sort.SliceStable(slivovi, func(i, j int) bool { return slivovi[i].Razina > slivovi[j].Razina })
+	for _, s := range slivovi {
 		naziv := s.Naziv
 		if naziv == "" {
 			naziv = s.Sliv
@@ -251,19 +255,29 @@ func karticaJacihOborina(p kisaSlivovaPodaci) KarticaNaslovne {
 // letve, a kiša je prosjek izvedenih točaka, ne mjerenje kišomjera
 const napomenaKiseSlivova = "Prosjek kiše na međuslivu između dvije letve, iz modela; pravi kišomjeri u njega ne ulaze."
 
-// opisKise: „18 mm palo u 24 h · 32 mm očekivano u 48 h · jednom u 2 godine
-// · Osijek +45 cm”
+// opisKise: „palo 52 mm u 72 h, 0 mm u 24 h · očekivano 15 mm u 48 h ·
+// toliko padne u prosjeku jednom godišnje (palo u 72 h) · porast u prognozi:
+// Osijek +45 cm”. Pokazuje sva tri razdoblja, jer prag može prijeći kiša
+// bilo kojeg od njih, a uz učestalost kaže kojeg.
 func opisKise(s SlivUKisi) string {
-	dijelovi := []string{brojHRf(s.Palo24, 0) + " mm palo u 24 h"}
+	palo := "palo " + brojHRf(s.Palo24, 0) + " mm u 24 h"
+	if s.Palo72 > 0 {
+		palo = "palo " + brojHRf(s.Palo72, 0) + " mm u 72 h, " + brojHRf(s.Palo24, 0) + " mm u 24 h"
+	}
+	dijelovi := []string{palo}
 	if s.Dolazi48 > 0 {
-		dijelovi = append(dijelovi, brojHRf(s.Dolazi48, 0)+" mm očekivano u 48 h")
+		dijelovi = append(dijelovi, "očekivano "+brojHRf(s.Dolazi48, 0)+" mm u 48 h")
 	}
 	if s.Ucestalost != "" {
-		dijelovi = append(dijelovi, s.Ucestalost)
+		u := s.Ucestalost
+		if prozor := prozoriKise[s.Zasto]; prozor != "" {
+			u += " (" + prozor + ")"
+		}
+		dijelovi = append(dijelovi, u)
 	}
 	for _, l := range s.Letve {
 		if l.Ima && l.Cm >= 1 {
-			dijelovi = append(dijelovi, fmt.Sprintf("%s +%s cm", l.Naziv, brojHRf(l.Cm, 0)))
+			dijelovi = append(dijelovi, fmt.Sprintf("porast u prognozi: %s +%s cm", l.Naziv, brojHRf(l.Cm, 0)))
 			break
 		}
 	}

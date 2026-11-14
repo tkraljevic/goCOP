@@ -73,15 +73,23 @@ func TestKarticaVodostaja(t *testing.T) {
 // i najvećim porastom letve; bez podataka kartica to kaže
 func TestKarticaJacihOborina(t *testing.T) {
 	p := kisaSlivovaPodaci{Upozorenja: []SlivUKisi{
-		{StanjeSliva: prognoza.StanjeSliva{Sliv: "drava-dm", Palo24: 18, Dolazi48: 32, Ucestalost: "jednom u 2 godine", Razina: 2},
-			Naziv: "Drava: Donji Miholjac – Osijek", Letve: []PorastLetve{{Naziv: "Bez", Ima: false}, {Naziv: "Osijek", Cm: 45, Ima: true}}},
 		{StanjeSliva: prognoza.StanjeSliva{Sliv: "vuka", Palo24: 12, Razina: 1}},
+		{StanjeSliva: prognoza.StanjeSliva{Sliv: "drava-dm", Palo24: 0, Palo72: 52, Dolazi48: 15, Razina: 2,
+			Zasto: "palo u zadnja 72 sata", Ucestalost: "toliko padne u prosjeku jednom godišnje"},
+			Naziv: "Drava: Donji Miholjac – Osijek", Letve: []PorastLetve{{Naziv: "Bez", Ima: false}, {Naziv: "Osijek", Cm: 45, Ima: true}}},
 	}}
 	k := karticaJacihOborina(p)
+	// jača kiša na vrhu, iako je u podacima druga; pokazana su sva tri
+	// razdoblja i razdoblje u kojem je prag prijeđen
 	if len(k.Redovi) != 2 || k.Redovi[0].Glavno != "Drava: Donji Miholjac – Osijek" ||
-		k.Redovi[0].Sporedno != "18 mm palo u 24 h · 32 mm očekivano u 48 h · jednom u 2 godine · Osijek +45 cm" ||
-		!k.Redovi[0].Hitno || k.Redovi[0].Istaknuto != "kisa" || k.Redovi[1].Glavno != "vuka" || k.Redovi[1].Hitno {
+		k.Redovi[0].Sporedno != "palo 52 mm u 72 h, 0 mm u 24 h · očekivano 15 mm u 48 h · "+
+			"toliko padne u prosjeku jednom godišnje (palo u 72 h) · porast u prognozi: Osijek +45 cm" ||
+		!k.Redovi[0].Hitno || k.Redovi[0].Istaknuto != "kisa" || k.Redovi[1].Glavno != "vuka" || k.Redovi[1].Hitno ||
+		k.Redovi[1].Sporedno != "palo 12 mm u 24 h" {
 		t.Errorf("redovi: %+v", k.Redovi)
+	}
+	if p.Upozorenja[0].Sliv != "vuka" {
+		t.Error("kartica ne smije presložiti podatke koje dijeli s ostalima")
 	}
 	// redak vodi na svoj međusliv, „Više” na tablicu kiše; kartica kaže odakle je broj
 	if k.Redovi[0].URL != "/slivovi#sliv-drava-dm" || k.URL != "/slivovi#kisa" || k.Napomena != napomenaKiseSlivova {
