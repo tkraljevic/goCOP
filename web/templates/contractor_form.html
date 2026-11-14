@@ -2,19 +2,25 @@
 
 {{define "title"}}goCOP — {{if .IsEdit}}{{.Contractor.Name}}{{else}}Nova firma{{end}}{{end}}
 
+{{/* Obrazac licencirane firme (goCOP-m3, 17f · 7g): kartice Firma, Područja rada i
+     Napomena; dolje Obriši, Odustani i Spremi. Imena polja su ista: Aktivna je ista kvačica
+     active, a područja i cijeli sektor isti potvrdni okviri area i sector, sad u obliku
+     čipova. Sektor bez označenog mjesta rada je sklopljen. */}}
 {{define "content"}}
-<div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/firme">Licencirane firme</a> › {{if .IsEdit}}{{.Contractor.Name}} › Uređivanje{{else}}Nova firma{{end}}</div>
-
-<div class="page-header">
+{{$jedan := eq (len .Sectors) 1}}
+<div class="lob-stranica">
+<a href="/firme" class="povratna-poveznica">← Licencirane firme</a>
+<div class="page-header list-glava">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{if .IsEdit}}{{icon "pencil"}} {{.Contractor.Name}}{{else}}{{icon "wrench"}} Licencirana firma: nova{{end}}</h1>
-    <p class="page-desc">Pravna osoba s licencijom koja po ugovoru radi održavanje i obranu. Označite gdje radi: cijeli {{terml "sektor"}} ili pojedina {{terml "podrucja"}}; više firmi smije dijeliti isto mjesto. Udružene firme upišite kao jednu (zajednicu) ili svaku posebno.</p>
+    <h1 class="page-title" data-naziv-stranice>{{if .IsEdit}}Uredi firmu{{else}}Nova firma{{end}}</h1>
+    <p class="page-desc">Polja sa zvjezdicom su obavezna.</p>
   </div>
 </div>
 
-
-<form class="form-page" method="POST" action="/firme/save">
+<form class="form-page form-wide" method="POST" action="/firme/save">
   {{if .IsEdit}}<input type="hidden" name="id" value="{{.Contractor.ID}}">{{end}}
+  <section class="list-kartica">
+  <h3>Firma</h3>
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="name">Naziv *</label>
@@ -41,48 +47,54 @@
     <div class="form-group">
       <label class="form-label" for="email">E-pošta</label>
       <input type="email" id="email" name="email" class="form-control" value="{{.Contractor.Email}}">
+      <div class="form-help">Na ovu adresu idu akti o obrani.</div>
     </div>
     <div class="form-group">
-      <label class="form-label" for="contact">Osoba za obranu</label>
+      <label class="form-label" for="contact">Kontakt osoba</label>
       <input type="text" id="contact" name="contact" class="form-control" value="{{.Contractor.Contact}}" placeholder="voditelj usluga ili poslovođa">
     </div>
   </div>
-  <div class="form-group">
+  <label class="lob-sklopka">
+    <span><span class="fir-sklopka-naslov">Aktivna</span>
+      <span class="form-help">Neaktivna firma ne pokazuje se uz {{terml "podrucja"}} i ne prima akte, a ostaje u povijesti.</span></span>
+    <input type="checkbox" class="prekidac" role="switch" name="active" value="1" {{if or (not .IsEdit) .Contractor.Active}}checked{{end}}>
+  </label>
+  </section>
+
+  <section class="list-kartica">
+  <h3>Područja rada</h3>
+  <p class="form-help">Označite {{terml "podrucja"}} na kojima firma radi po ugovoru; više firmi smije dijeliti isto mjesto.</p>
+  {{range .Sectors}}
+  {{$otvoren := or $jedan (index $.SectorChecked .ID)}}
+  {{range .Areas}}{{if index $.AreaChecked .ID}}{{$otvoren = true}}{{end}}{{end}}
+  <details class="fir-sektor"{{if $otvoren}} open{{end}}>
+    <summary>{{if .Name}}{{.Name}}{{else}}{{term "sektor"}} {{.ID}}{{end}}</summary>
+    <div class="fir-cipovi">
+      {{if .SectorAdmin}}<label class="fir-cip"><input type="checkbox" name="sector" value="{{.ID}}" {{if index $.SectorChecked .ID}}checked{{end}}> cijeli {{terml "sektor"}}</label>{{end}}
+      {{range .Areas}}<label class="fir-cip"><input type="checkbox" name="area" value="{{.ID}}" {{if index $.AreaChecked .ID}}checked{{end}}> {{term "bp"}} {{.ID}} {{.Name}}</label>{{end}}
+    </div>
+  </details>
+  {{end}}
+  </section>
+
+  <section class="list-kartica">
+  <h3>Napomena</h3>
+  <div class="form-group mb-0">
     <label class="form-label" for="notes">Napomena</label>
     <textarea id="notes" name="notes" class="form-control" rows="2" placeholder="npr. ugovor 2024.–2028., zajednica ponuditelja s …">{{.Contractor.Notes}}</textarea>
   </div>
-  <div class="form-group">
-    <label style="display:flex; gap:0.4rem; align-items:center; font-size:0.9rem;">
-      <input type="checkbox" name="active" value="1" {{if or (not .IsEdit) .Contractor.Active}}checked{{end}}> Aktivna (radi po važećem ugovoru)
-    </label>
-    <div class="form-help">Neaktivna firma ostaje u registru radi povijesti, ali se ne pokazuje uz {{terml "podrucja"}}.</div>
-  </div>
+  </section>
 
-  <h3 class="obrazac-podnaslov">Gdje radi</h3>
-  <div class="reg-list">
-    {{range .Sectors}}
-    <div class="reg-card" style="padding:0.75rem 1rem; gap:0.35rem;">
-      {{if .SectorAdmin}}
-      <label style="display:flex; gap:0.4rem; align-items:center; font-weight:600;">
-        <input type="checkbox" name="sector" value="{{.ID}}" {{if index $.SectorChecked .ID}}checked{{end}}> <span class="section-code-badge">{{.ID}}</span> cijeli {{terml "sektor"}}
-      </label>
-      {{else}}
-      <div style="display:flex; gap:0.4rem; align-items:center; font-weight:600;">
-        <span class="section-code-badge">{{.ID}}</span> {{terml "sektor"}}
-      </div>
-      {{end}}
-      {{range .Areas}}
-      <label style="display:flex; gap:0.4rem; align-items:center; font-size:0.9rem; margin-left:1.25rem;">
-        <input type="checkbox" name="area" value="{{.ID}}" {{if index $.AreaChecked .ID}}checked{{end}}> <span class="mono">{{.ID}}</span> {{.Name}}
-      </label>
-      {{end}}
-    </div>
-    {{end}}
-  </div>
-
-  <div class="form-actions">
-    <a href="/firme" class="btn btn-secondary">Odustani</a>
-    <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi izmjene{{else}}Upiši{{end}}</button>
+  <div class="form-actions lob-gumbi">
+    {{if .IsEdit}}<button type="submit" form="obrisi-firmu" class="btn btn-link btn-opasno obj-obrisi">Obriši firmu</button>{{end}}
+    <a href="/firme" class="btn btn-link">Odustani</a>
+    <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi{{else}}Upiši{{end}}</button>
   </div>
 </form>
+{{if .IsEdit}}
+<form id="obrisi-firmu" method="POST" action="/firme/delete" hidden onsubmit="return confirm('Obrisati firmu {{.Contractor.Name}}? Za povijest je bolje označiti je neaktivnom.')">
+  <input type="hidden" name="id" value="{{.Contractor.ID}}">
+</form>
+{{end}}
+</div>
 {{end}}

@@ -2,8 +2,12 @@ package web
 
 import (
 	"context"
+	gohtml "html"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -96,4 +100,60 @@ func TestFirmePopisPravaKrozRute(t *testing.T) {
 			t.Errorf("%s: Nova firma vidljiva %v, želi %v", tko, !zeli["nova"], zeli["nova"])
 		}
 	}
+}
+
+// Obrazac firme po crtežu (7g): sva polja s istim imenima, Aktivna kao prekidač na
+// polju active (uključen za novu firmu), područja i cijeli sektor kao čipovi; sektor
+// s označenim mjestom rada je otvoren, ostali sklopljeni; Obriši samo pri uređivanju.
+func TestObrazacFirmeCuvaPolja(t *testing.T) {
+	sektori := []SectorView{
+		{Sector: models.Sector{ID: "P", Name: "Primjerica"}, SectorAdmin: true, Areas: []AreaView{{Area: models.Area{ID: 1, Name: "Mali sliv Primjerica"}}}},
+		{Sector: models.Sector{ID: "Q", Name: "Drugo"}, SectorAdmin: true, Areas: []AreaView{{Area: models.Area{ID: 2, Name: "Drugi sliv"}}}},
+	}
+	c := models.Contractor{ID: "f1", Name: "Primjer gradnja d.o.o.", ShortName: "Primjer", OIB: "12345678903", Address: "Ulica 1",
+		Phone: "031/000-010", Email: "ured@primjer.hr", Contact: "Ivo Poslovođa", Notes: "ugovor 2024.–2028.", Active: false}
+	html := iscrtajStranicu(t, "contractor_form.html", OrgPageData{
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true}, Contractor: c, IsEdit: true, Sectors: sektori,
+		SectorChecked: map[string]bool{}, AreaChecked: map[int]bool{1: true},
+	})
+	zeli := url.Values{"id": {"f1"}, "name": {c.Name}, "short_name": {c.ShortName}, "oib": {c.OIB}, "address": {c.Address},
+		"phone": {c.Phone}, "email": {c.Email}, "contact": {c.Contact}, "area": {"1"}}
+	glavni := regexp.MustCompile(`(?s)action="/firme/save">.*?</form>`).FindString(html)
+	if dobio := poslanaPolja(glavni); !reflect.DeepEqual(dobio, zeli) {
+		t.Errorf("polja %v, želi %v", dobio, zeli)
+	}
+	for _, mora := range []string{
+		`>ugovor 2024.–2028.</textarea>`, `<input type="checkbox" class="prekidac" role="switch" name="active" value="1" >`,
+		`<input type="checkbox" name="area" value="1" checked>`, `<input type="checkbox" name="area" value="2" >`,
+		`<details class="fir-sektor" open>`, `<details class="fir-sektor">`,
+		`form="obrisi-firmu"`, `<form id="obrisi-firmu" method="POST" action="/firme/delete"`, `action="/firme/save"`,
+	} {
+		if !strings.Contains(html, mora) {
+			t.Errorf("uređivanje: nema %q", mora)
+		}
+	}
+	html = iscrtajStranicu(t, "contractor_form.html", OrgPageData{
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true}, Sectors: sektori[:1], SectorChecked: map[string]bool{}, AreaChecked: map[int]bool{},
+	})
+	if !strings.Contains(html, `name="active" value="1" checked>`) || strings.Contains(html, "obrisi-firmu") || !strings.Contains(html, `<details class="fir-sektor" open>`) {
+		t.Error("nova firma: Aktivna nije uključena, Obriši je vidljiv ili jedini sektor nije otvoren")
+	}
+}
+
+// poslanaPolja čita polja <input> onako kako bi ih preglednik poslao: neoznačene
+// kvačice izostaju, a isto ime s više vrijednosti daje popis.
+func poslanaPolja(html string) url.Values {
+	polja := url.Values{}
+	for _, in := range regexp.MustCompile(`<input[^>]*>`).FindAllString(html, -1) {
+		ime := regexp.MustCompile(`name="([^"]+)"`).FindStringSubmatch(in)
+		vr := regexp.MustCompile(`value="([^"]*)"`).FindStringSubmatch(in)
+		if ime == nil || vr == nil {
+			continue
+		}
+		if strings.Contains(in, `type="checkbox"`) && !strings.Contains(in, " checked") {
+			continue
+		}
+		polja.Add(ime[1], gohtml.UnescapeString(vr[1]))
+	}
+	return polja
 }

@@ -10351,3 +10351,12 @@ td .odr-sitno { margin-top: 2px; }
   table.opc-naselja.kartice-na-mobitelu td[data-stupac]::before { content: attr(data-stupac); flex: none; color: var(--md-sys-color-on-surface-variant); }
   table.opc-naselja.kartice-na-mobitelu td:last-child .btn { width: auto; min-height: 40px; margin: 0; }
 }
+
+/* Obrazac firme (17f, 7g): područja rada kao čipovi po sektoru. */
+.fir-sklopka-naslov { display: block; }
+.fir-sektor { margin-top: 8px; }
+.fir-sektor > summary { cursor: pointer; font-size: 0.85rem; color: var(--text-secondary); padding: 4px 0; }
+.fir-cipovi { display: flex; flex-wrap: wrap; gap: 8px; padding: 6px 0 4px; }
+.fir-cip { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 12px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 8px; font-size: 0.875rem; cursor: pointer; }
+.fir-cip:has(input:checked) { background: var(--md-sys-color-secondary-container); border-color: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
+.fir-cip input { margin: 0; accent-color: var(--md-sys-color-primary); }
