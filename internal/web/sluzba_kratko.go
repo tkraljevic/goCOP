@@ -24,3 +24,22 @@ func sluzbaKratko(v string) string {
 	}
 	return models.SluzbaLabel(v)
 }
+
+// SazetakSluzbi je dio službi za karticu grada ili općine: prvih n redom, uz njih
+// uvijek i služba vezana baš za tu općinu; Jos broji ostale.
+type SazetakSluzbi struct {
+	Prve []models.Sluzba
+	Jos  int
+}
+
+func sazetakSluzbi(sluzbe []models.Sluzba, n int) SazetakSluzbi {
+	var s SazetakSluzbi
+	for _, x := range sluzbe {
+		if len(s.Prve) < n || x.MunicipalityID != 0 {
+			s.Prve = append(s.Prve, x)
+		} else {
+			s.Jos++
+		}
+	}
+	return s
+}

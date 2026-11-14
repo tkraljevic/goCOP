@@ -10076,3 +10076,23 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
 .zup-cipovi a { display: inline-block; padding: 2px 8px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 6px; font-size: 0.85rem; color: var(--text); text-decoration: none; }
 .zup-cipovi a:hover { background: var(--md-sys-color-surface-container-high); }
 .zup-cipovi a span { color: var(--text-secondary); }
+
+/* Kartica grada ili općine (17f, 7c): naselja kao tablica, za administratora s poljima. */
+.opc-naselja .form-control { min-height: 36px; }
+.opc-naselja .opc-kratko { max-width: 8rem; }
+.opc-naselja td:first-child { width: 40%; }
+.opc-novo .form-row { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; }
+.opc-novo .form-actions { margin-top: 12px; }
+.opc-novo { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--md-sys-color-outline-variant); }
+.opc-jos { display: inline-block; margin-top: 8px; }
+@media (max-width: 767px) {
+  .opc-naselja .opc-kratko { max-width: none; }
+  .opc-novo .form-row { grid-template-columns: 1fr; }
+}
+@media (max-width: 599px) {
+  table.opc-naselja.kartice-na-mobitelu td { width: 100%; }
+  table.opc-naselja.kartice-na-mobitelu td:first-child { font-size: 1rem; line-height: 24px; color: var(--md-sys-color-on-surface); }
+  table.opc-naselja.kartice-na-mobitelu td[data-stupac] { display: flex; justify-content: space-between; gap: 12px; }
+  table.opc-naselja.kartice-na-mobitelu td[data-stupac]::before { content: attr(data-stupac); flex: none; color: var(--md-sys-color-on-surface-variant); }
+  table.opc-naselja.kartice-na-mobitelu td:last-child .btn { width: auto; min-height: 40px; margin: 0; }
+}
