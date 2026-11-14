@@ -3,35 +3,26 @@
 {{define "title"}}goCOP — {{if .IsEdit}}Uređivanje vodnog tijela{{else}}Novo vodno tijelo{{end}}{{end}}
 
 {{define "content"}}
-<div class="breadcrumb">
-  <a href="/watercourses">Vodotoci</a>
-  {{if .IsEdit}} › <a href="/watercourses/{{.Water.Code}}">{{.Water.Name}}</a> › Uređivanje{{else}} › Novo vodno tijelo{{end}}
-</div>
-
-<div class="page-header">
+{{/* Obrazac vodnog tijela (goCOP-m3, 17e · Registri, 6c): ploče Naziv i vrsta, Tok, Brojke, Na karti i
+     letve te Napomena. Imena polja, skrivena polja i skripta letava su isti; Obriši je zaseban obrazac. */}}
+<div class="lob-stranica">
+{{if .IsEdit}}<a href="/watercourses/{{.Water.Code}}" class="povratna-poveznica">← {{.Water.Name}}</a>
+{{else}}<a href="/watercourses" class="povratna-poveznica">← Vodotoci</a>{{end}}
+<div class="page-header list-glava">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{if .IsEdit}}{{icon "pencil"}} {{.Water.Name}}{{else}}{{icon "waves"}} Novo vodno tijelo{{end}}</h1>
-    <p class="page-desc">
+    <h1 class="page-title" data-naziv-stranice>{{if .IsEdit}}Uredi vodno tijelo{{else}}Novo vodno tijelo{{end}}</h1>
+    <p class="page-desc">Polja sa zvjezdicom su obavezna.
       {{if .IsEdit}}Podrijetlo zapisa: {{.Water.OriginLabel}}. Svaka izmjena ostaje u povijesti zapisa.
-      {{else}}Voda koje nema u Odluci, a štiti se — potok, kanal ili retencija iz dokumentacije dionice.{{end}}
-    </p>
+      {{else}}Voda koje nema u Odluci, a štiti se: potok, kanal ili retencija iz dokumentacije dionice.{{end}}</p>
   </div>
 </div>
 
-{{if and .IsEdit .Water.HasGeometry}}
-<div class="reg-card traka-obrasca">
-  <div>
-    <strong>{{icon "map"}} Geometrija toka rijeke</strong>
-    <p class="page-desc" style="margin:0.25rem 0 0 0; font-size:0.85rem;">Za grafičko premještanje, dodavanje i brisanje točaka pravaca toka rijeke koristite interaktivnu kartu.</p>
-  </div>
-  <a href="/watercourses/{{.Water.Code}}#karta" class="btn btn-sm btn-secondary">{{icon "pencil"}} Uredi tok na karti</a>
-</div>
-{{end}}
-
-<form class="form-page" onsubmit="return spremiLetve()" method="POST" action="{{if .IsEdit}}/api/watercourses/update{{else}}/api/watercourses/create{{end}}">
+<form class="form-page form-wide" onsubmit="return spremiLetve()" method="POST" action="{{if .IsEdit}}/api/watercourses/update{{else}}/api/watercourses/create{{end}}">
   {{if .IsEdit}}<input type="hidden" name="code" value="{{.Water.Code}}">{{end}}
   <input type="hidden" name="subcategory" value="{{.Water.Subcategory}}">
 
+  <section class="list-kartica">
+  <h3>Naziv i vrsta</h3>
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="official_name">Službeni naziv *</label>
@@ -74,24 +65,10 @@
     </div>
   </div>
 
-  <div class="form-row">
-    <div class="form-group">
-      <label class="form-label" for="length_km">Duljina (km)</label>
-      <input type="text" inputmode="decimal" id="length_km" name="length_km" class="form-control"
-             value="{{if .Water.LengthKm}}{{unosD .Water.LengthKm 1}}{{end}}" placeholder="133">
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="basin_km2">Površina sliva (km²)</label>
-      <input type="text" inputmode="decimal" id="basin_km2" name="basin_km2" class="form-control"
-             value="{{if .Water.BasinKm2}}{{unosD .Water.BasinKm2 0}}{{end}}" placeholder="596">
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="avg_flow_m3s">Prosječni protok (m³/s)</label>
-      <input type="text" inputmode="decimal" id="avg_flow_m3s" name="avg_flow_m3s" class="form-control"
-             value="{{if .Water.AvgFlowM3S}}{{unosD .Water.AvgFlowM3S 1}}{{end}}" placeholder="620">
-    </div>
-  </div>
+  </section>
 
+  <section class="list-kartica">
+  <h3>Tok</h3>
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="source">Izvorište / nastanak toka</label>
@@ -109,27 +86,50 @@
            value="{{.Water.FlowsInto}}" placeholder="Drava ⤴ Dunav → Crno more">
   </div>
 
-  <div class="form-group">
-    <label class="form-label" for="notes">Napomena</label>
-    <textarea id="notes" name="notes" class="form-control" rows="10"
-              placeholder="Opis rijeke, dodatni podaci, izvori i licenca u Markdown formatu">{{.Water.Notes}}</textarea>
-    <div class="form-help">Slobodan tekst u Markdown formatu: naslovi, popisi, poveznice i podebljanje prikazuju se oblikovano nakon spremanja.</div>
-  </div>
-
   {{if .NapomenaTokaUredljiva}}
   <div class="form-group">
     <label class="form-label" for="napomena_toka">Napomena uz vodotok</label>
     <input type="text" id="napomena_toka" name="napomena_toka" class="form-control" maxlength="300"
            value="{{.NapomenaToka}}" placeholder="npr. pkm od ušća u Dunav; iza granice orijentacijski" autocomplete="off">
-    <div class="form-help">Kratka rečenica koja se na karti prikazuje uz crtu toka — odakle je stacionaža i koliko joj vjerovati. Opširnije ide u napomenu gore.</div>
+    <div class="form-help">Kratka rečenica koja se na karti prikazuje uz crtu toka — odakle je stacionaža i koliko joj vjerovati. Opširnije ide u Napomenu, na dnu obrasca.</div>
   </div>
   {{end}}
+  </section>
 
+  <section class="list-kartica">
+  <h3>Brojke</h3>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="length_km">Duljina (km)</label>
+      <input type="text" inputmode="decimal" id="length_km" name="length_km" class="form-control"
+             value="{{if .Water.LengthKm}}{{unosD .Water.LengthKm 1}}{{end}}" placeholder="133">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="basin_km2">Površina sliva (km²)</label>
+      <input type="text" inputmode="decimal" id="basin_km2" name="basin_km2" class="form-control"
+             value="{{if .Water.BasinKm2}}{{unosD .Water.BasinKm2 0}}{{end}}" placeholder="596">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="avg_flow_m3s">Prosječni protok (m³/s)</label>
+      <input type="text" inputmode="decimal" id="avg_flow_m3s" name="avg_flow_m3s" class="form-control"
+             value="{{if .Water.AvgFlowM3S}}{{unosD .Water.AvgFlowM3S 1}}{{end}}" placeholder="620">
+    </div>
+  </div>
+  </section>
+
+  <section class="list-kartica">
+  <h3>Na karti i letve</h3>
+  {{if .IsEdit}}
+  <p class="form-help">{{if .Water.HasGeometry}}Ucrtano. {{else}}Još nije ucrtano. {{end}}Tok ili površina crta se na Karti, a KML ili GeoJSON učitava se na kartici vode. Spremite izmjene prije odlaska na Kartu.</p>
+  <a class="btn btn-link lob-karta" href="/karta#uredi=vodotok:{{.Water.Code}}">{{if .Water.HasGeometry}}Uredi na Karti{{else}}Ucrtaj na Karti{{end}}</a>
+  {{else}}
+  <p class="form-help mb-0">Tok se crta na Karti nakon upisa vode, a letve se dodaju u izmjeni.</p>
+  {{end}}
   {{if .IsEdit}}
   <div class="form-group">
     <label class="form-label" for="letva-unos">Vodomjerne letve</label>
     <div class="form-help">Letve na ovoj vodi i letve s drugih voda koje su za nju mjerodavne — npr. Batina na Dunavu za baranjsku Karašicu, zbog uspora Dunava. Letva koja još nema vodu veže se na ovu; letva s druge vode ostaje na svojoj i ovdje se samo prikazuje.</div>
-    <div style="display:flex; flex-wrap:wrap; gap:0.35rem; margin:0.5rem 0;" id="letve-cipovi"></div>
+    <div class="lob-cipovi" id="letve-cipovi"></div>
     <div class="d-flex gap-2 flex-wrap items-center">
       <input type="text" class="form-control max-w-22" id="letva-unos" list="sve-letve" placeholder="naziv letve iz registra" autocomplete="off">
       <button type="button" class="btn btn-sm btn-secondary" onclick="dodajLetvu()">{{icon "plus"}} Dodaj</button>
@@ -139,12 +139,30 @@
     <input type="hidden" name="link_station_ids" id="link_station_ids">
   </div>
   {{end}}
+  </section>
 
-  <div class="form-actions">
-    <a href="{{if .IsEdit}}/watercourses/{{.Water.Code}}{{else}}/watercourses{{end}}" class="btn btn-secondary">Odustani</a>
+  <section class="list-kartica">
+  <div class="form-group">
+    <label class="form-label" for="notes">Napomena</label>
+    <textarea id="notes" name="notes" class="form-control" rows="10"
+              placeholder="Opis rijeke, dodatni podaci, izvori i licenca u Markdown formatu">{{.Water.Notes}}</textarea>
+    <div class="form-help">Slobodan tekst u Markdown formatu: naslovi, popisi, poveznice i podebljanje prikazuju se oblikovano nakon spremanja.</div>
+  </div>
+  </section>
+
+  <div class="form-actions lob-gumbi">
+    {{if and .IsEdit (eq (add .Water.SectionCount .Water.StationCount) 0)}}<button type="submit" form="obrisi-vodu" class="btn btn-link btn-opasno obj-obrisi">Obriši vodno tijelo</button>{{end}}
+    <a href="{{if .IsEdit}}/watercourses/{{.Water.Code}}{{else}}/watercourses{{end}}" class="btn btn-link">Odustani</a>
     <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi izmjene{{else}}Upiši u registar{{end}}</button>
   </div>
 </form>
+{{if and .IsEdit (eq (add .Water.SectionCount .Water.StationCount) 0)}}
+<form id="obrisi-vodu" method="POST" action="/api/watercourses/delete" hidden
+      onsubmit="return confirm('Obrisati vodno tijelo „{{.Water.Name}}“ iz registra? Zapis ostaje u povijesti.')">
+  <input type="hidden" name="code" value="{{.Water.Code}}">
+</form>
+{{end}}
+</div>
 {{if .IsEdit}}
 <script>
 // Letve vode: vlastite nose ovu vodu u registru letvi i ovdje se samo vide;
