@@ -278,3 +278,30 @@ func TestKarticaJacihOborinaLanacITraka(t *testing.T) {
 }
 
 var ucestalostIme = map[int]string{1: "toliko padne u prosjeku tri puta godišnje", 2: "toliko padne u prosjeku jednom godišnje"}
+
+// Zbirna krivulja na Slivovima: počinje od nule, palo do „sad”, očekivano
+// dalje; pragovi su vodoravne crte, a jača kiša je prvi graf
+func TestGrafoviKise(t *testing.T) {
+	izdano := time.Date(2026, 11, 14, 14, 0, 0, 0, models.Zagreb)
+	st := func(o string, r int, d [5]float64) SlivUKisi {
+		return SlivUKisi{StanjeSliva: prognoza.StanjeSliva{Sliv: o, Razina: r, Dani: d, ImaDan: [5]bool{true, true, true, true, true},
+			Pragovi: prognoza.PragoviKise{Dan3: [3]float64{42, 51, 66}}, Ucestalost: ucestalostIme[r]}, Klasa: razineKise[r][0]}
+	}
+	g := grafoviKise(&kisaSlivovaPodaci{Izdano: izdano, Upozorenja: []SlivUKisi{st("E", 1, [5]float64{19, 21, 1, 0, 8}), st("D", 2, [5]float64{18, 33, 1, 0, 15})}}, izdano)
+	if len(g) != 2 || g[0].Naziv != "D" || g[0].Rijetko != "jednom godišnje" || g[0].URL != "#sliv-D" {
+		t.Fatalf("grafovi %+v", g)
+	}
+	d := g[0]
+	if !strings.HasPrefix(d.Palo, "8,146 ") || len(strings.Fields(d.Palo)) != 4 || len(strings.Fields(d.Ocekivano)) != 3 ||
+		len(d.Pragovi) != 3 || d.Pragovi[1].Natpis != "1× god. 51" || d.Dani[2].Tekst != "danas" || !d.Dani[2].Danas ||
+		d.Zbroj != "palo 52 mm, s očekivanim 67 mm" {
+		t.Errorf("graf D %+v", d)
+	}
+	// krivulja koja prijeđe prag je iznad njegove crte (manji y)
+	if d.Tocke[2].Y >= d.Pragovi[1].Y || d.Tocke[0].Y <= d.Pragovi[0].Y {
+		t.Errorf("točke %+v prema pragovima %+v", d.Tocke, d.Pragovi)
+	}
+	if grafoviKise(nil, izdano) != nil {
+		t.Error("bez podataka nema grafova")
+	}
+}
