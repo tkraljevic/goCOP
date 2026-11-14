@@ -7,66 +7,42 @@
 {{define "scripts"}}{{if .CanEdit}}<script src="{{statika "js/datoteka-karte.js"}}" defer></script>{{end}}{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/watercourses">Vodotoci</a> › {{.Water.Name}}</div>
-
-<div class="detail-head">
+{{/* Kartica vodotoka (goCOP-m3, 17e · Registri, 6b): lijevo karta i održavanje, desno podaci, napomena,
+     dionice i letve kao retci s poveznicama. Karta, učitavanje KML-a i brisanje ostaju kao prije. */}}
+{{$w := .Water}}
+<div class="list-stranica list-stranica-ploca obj-stranica">
+<a href="/watercourses" class="povratna-poveznica">← Vodotoci</a>
+<div class="page-header list-glava">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "waves"}} {{.Water.Name}}</h1>
-    <p class="page-desc">
-      {{if ne .Water.OfficialName .Water.Name}}{{.Water.OfficialName}} · {{end}}
-      {{if .Water.Kind}}{{.Water.Kind}} · {{end}}
-      {{if .Water.IsFirstOrder}}<span class="badge badge-active" title="{{.Water.Category}}">{{.Water.CategoryLabel}}</span>{{else}}{{.Water.CategoryLabel}}{{end}}
-      · {{.Water.OriginLabel}}
-    </p>
+    <h1 class="page-title" data-naziv-stranice>{{$w.OfficialName}}</h1>
+    <p class="page-desc">{{if $w.Kind}}{{$w.Kind}} · {{end}}{{$w.CategoryLabel}}{{with $w.FlowsInto}} · ulijeva se u {{.}}{{end}}</p>
   </div>
   {{if .Permissions.IsGlobalAdmin}}
-  <div class="detail-actions">
-    <a href="/watercourses/{{.Water.Code}}/edit" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>
-    {{if eq (add .Water.SectionCount .Water.StationCount) 0}}
+  <div class="page-actions">
+    <a class="btn btn-link karta-uredi-na-karti" href="/karta#uredi=vodotok:{{$w.Code}}">{{if $w.JePovrsina}}Uredi na Karti{{else}}Uredi tok na Karti{{end}}</a>
+    <a href="/watercourses/{{$w.Code}}/edit" class="btn btn-primary">Uredi</a>
+    {{if eq (add $w.SectionCount $w.StationCount) 0}}
     <form method="POST" action="/api/watercourses/delete"
-          onsubmit="return confirm('Obrisati vodno tijelo „{{.Water.Name}}“ iz registra? Zapis ostaje u povijesti.')">
-      <input type="hidden" name="code" value="{{.Water.Code}}">
-      <button type="submit" class="btn btn-sm btn-brisi min-h-40">{{icon "trash"}} Obriši</button>
+          onsubmit="return confirm('Obrisati vodno tijelo „{{$w.Name}}“ iz registra? Zapis ostaje u povijesti.')">
+      <input type="hidden" name="code" value="{{$w.Code}}">
+      <button type="submit" class="btn btn-link btn-opasno">Obriši</button>
     </form>
     {{end}}
   </div>
   {{end}}
 </div>
 
-
-<div class="reg-card p-4">
-  <dl class="reg-facts" style="font-size:0.85rem;">
-    {{if .Water.LengthKm}}<div><dt>Duljina</dt><dd>{{brojHRd .Water.LengthKm 1}} km</dd></div>{{end}}
-    {{if .Water.BasinKm2}}<div><dt>Površina sliva</dt><dd>{{brojHRd .Water.BasinKm2 0}} km²</dd></div>{{end}}
-    {{if .Water.AvgFlowM3S}}<div><dt>Prosječni protok</dt><dd>{{brojHRd .Water.AvgFlowM3S 1}} m³/s</dd></div>{{end}}
-    {{if .Water.Source}}<div><dt>Izvor</dt><dd>{{.Water.Source}}</dd></div>{{end}}
-    {{if .Water.Mouth}}<div><dt>Ušće</dt><dd>{{.Water.Mouth}}</dd></div>{{end}}
-    {{if .Water.FlowsInto}}<div><dt>Ulijeva se u</dt><dd>{{.Water.FlowsInto}}</dd></div>{{end}}
-    {{if and .Water.IsFirstOrder .Water.Subcategory}}<div><dt>Skupina u Odluci</dt><dd>{{.Water.Subcategory}}</dd></div>{{end}}
-    <div><dt>Šifra</dt><dd class="font-mono fw-500">{{.Water.Code}}</dd></div>
-    {{if .Water.WikiURL}}<div><dt>Wikipedija</dt><dd><a href="{{.Water.WikiURL}}" target="_blank" rel="noopener">{{.Water.WikiNaslov}}</a> <span class="reading-meta">· CC BY-SA 4.0</span></dd></div>{{end}}
-  </dl>
-  {{if and (not .Water.LengthKm) (not .Water.Mouth) (not .Water.Source)}}
-  <p class="page-desc mt-2">Za ovu vodu nema opisnih podataka; zapis postoji zato što se na nju veže dionica ili postaja.</p>
-  {{end}}
-</div>
-
+<div class="stupci-stranice list-stupci">
+<div class="dio-lijevo">
 {{if and .Karta.Ima (or .GeometryJSON .CanEdit)}}
-<section class="detail-section" id="karta">
-  <div class="detail-section-head d-flex justify-between items-center flex-wrap gap-2">
-    <h2>{{icon "map"}} {{if .Water.JePovrsina}}Na karti{{else}}Karta vodotoka{{end}}</h2>
-    {{if .CanEdit}}
-    <div class="karta-akcije d-flex gap-2 items-center">
-      <a class="btn btn-sm btn-secondary karta-uredi-na-karti" href="/karta#uredi=vodotok:{{.Water.Code}}">{{icon "pencil"}} {{if .Water.JePovrsina}}Uredi na Karti{{else}}Uredi tok na Karti{{end}}</a>
-      {{template "ucitaj-tok" .}}
-    </div>
-    {{end}}
-  </div>
-  {{if and (not .GeometryJSON) .Water.JePovrsina}}<p class="reg-card-sub">Površina ove vode još nije ucrtana. Nacrtajte je na Karti gumbom „Uredi na Karti” ili učitajte KML ili GeoJSON s površinom (WGS84, EPSG:4326).</p>
-  {{else if not .GeometryJSON}}<p class="reg-card-sub">Tok ove vode još nije ucrtan. Nacrtajte ga na Karti gumbom „Uredi tok na Karti” ili učitajte KML ili GeoJSON (WGS84, EPSG:4326); tok iz OpenStreetMapa nosi navod © OpenStreetMap contributors (ODbL).</p>{{end}}
+<section class="list-kartica dio-veze" id="karta">
+  <h2>Na karti</h2>
+  {{if .CanEdit}}<div class="karta-akcije obj-karta-akcije">{{template "ucitaj-tok" .}}</div>{{end}}
+  {{if and (not .GeometryJSON) $w.JePovrsina}}<p class="form-help">Površina ove vode još nije ucrtana. Nacrtajte je na Karti gumbom „Uredi na Karti” ili učitajte KML ili GeoJSON s površinom (WGS84, EPSG:4326).</p>
+  {{else if not .GeometryJSON}}<p class="form-help">Tok ove vode još nije ucrtan. Nacrtajte ga na Karti gumbom „Uredi tok na Karti” ili učitajte KML ili GeoJSON (WGS84, EPSG:4326); tok iz OpenStreetMapa nosi navod © OpenStreetMap contributors (ODbL).</p>{{end}}
   <div class="karta-vodotoka"
-       data-sifra="{{.Water.Code}}"
-       data-naziv="{{.Water.Name}}"
+       data-sifra="{{$w.Code}}"
+       data-naziv="{{$w.Name}}"
        data-plocice="{{.Karta.Plocice}}"
        data-zasluge="{{.Karta.Zasluge}}"
        data-najvise-z="{{.Karta.NajviseZ}}">
@@ -77,126 +53,79 @@
       nisu dostupne — program radi bez interneta, a za ovo područje još nisu preuzete.
       Prikaz toka rijeke, stacionaža i postaja ucrtan je i vidljiv.</p>
   </div>
+  {{with .NapomenaToka}}<p class="form-help mb-0 vk-stacionaza"><strong>Stacionaža:</strong> {{.}}</p>{{end}}
 </section>
 {{end}}
 
 {{if and .CanEdit (not .GeometryJSON) (not .Karta.Ima)}}
-<section class="detail-section" id="karta">
-  <h2>{{icon "map"}} {{if .Water.JePovrsina}}Na karti{{else}}Karta vodotoka{{end}}</h2>
-  <div class="reg-card p-4">
-    <p class="page-desc mt-0 mb-3">Tok ove vode još nije ucrtan. Učitajte KML ili GeoJSON s crtom toka u WGS84 (EPSG:4326), na primjer izvoz iz QGIS-a, Google Eartha ili OpenStreetMapa; tok iz OSM-a nosi navod © OpenStreetMap contributors (ODbL).</p>
-    <div class="d-flex gap-2 flex-wrap"><a class="btn btn-sm btn-secondary karta-uredi-na-karti" href="/karta#uredi=vodotok:{{.Water.Code}}">{{icon "pencil"}} {{if .Water.JePovrsina}}Uredi na Karti{{else}}Uredi tok na Karti{{end}}</a>{{template "ucitaj-tok" .}}</div>
-  </div>
-</section>
-{{end}}
-
-{{if .Water.Notes}}
-<section class="detail-section">
-  <h2>{{icon "file-text"}} Napomena</h2>
-  <div class="reg-card markdown-body">{{renderMarkdown .Water.Notes}}</div>
+<section class="list-kartica" id="karta">
+  <h2>Na karti</h2>
+  <p class="form-help">Tok ove vode još nije ucrtan. Učitajte KML ili GeoJSON s crtom toka u WGS84 (EPSG:4326), na primjer izvoz iz QGIS-a, Google Eartha ili OpenStreetMapa; tok iz OSM-a nosi navod © OpenStreetMap contributors (ODbL).</p>
+  <div class="obj-karta-akcije"><a class="btn btn-link karta-uredi-na-karti" href="/karta#uredi=vodotok:{{$w.Code}}">{{if $w.JePovrsina}}Uredi na Karti{{else}}Uredi tok na Karti{{end}}</a>{{template "ucitaj-tok" .}}</div>
 </section>
 {{end}}
 
 {{if .Maintenance}}
-<section class="detail-section">
-  <h2>{{icon "wrench"}} Održavanje</h2>
-  <div class="reg-list">
-    {{range .Maintenance}}
-    <article class="reg-card">
-      <a class="reg-card-link" href="/odrzavanje?area={{.AreaID}}">
-        <div class="reg-card-head">
-          <div>
-            <h3 class="reg-card-title">{{.OrderLabel}}</h3>
-            <div class="reg-card-sub">{{.KindLabel}} · BP {{.AreaID}}</div>
-          </div>
-          {{if .PlanPosition}}<span class="badge badge-inactive" title="Pozicija plana A.02">{{.PlanPosition}}</span>{{end}}
-        </div>
-        <div class="reg-card-foot">
-          <span class="reg-chip">{{icon "list"}} u popisu kao „{{.Name}}“ ({{.Seq}})</span>
-          <span class="reg-origin">{{.Source}}</span>
-        </div>
-      </a>
-    </article>
-    {{end}}
-  </div>
+<section class="list-kartica dio-veze">
+  <h2>Održavanje <span class="dio-broj">{{len .Maintenance}}</span></h2>
+  {{range .Maintenance}}
+  <a class="redak" href="/odrzavanje?area={{.AreaID}}">{{icon "wrench"}}<span class="redak-tekst"><span class="redak-glavno">{{.OrderLabel}}{{with .PlanPosition}} · {{.}}{{end}}</span><span class="redak-sporedno">{{.KindLabel}} · BP {{.AreaID}} · u popisu kao „{{.Name}}” ({{.Seq}}) · {{.Source}}</span></span>{{icon "chevron-right"}}</a>
+  {{end}}
+</section>
+{{end}}
+</div>
+
+<aside class="ploca-stranice list-ploca" aria-label="Podaci o vodi">
+<section class="list-kartica">
+  <h2>Podaci</h2>
+  <dl class="vodocuvar-dl">
+    {{if ne $w.OfficialName $w.Name}}<dt>Naziv</dt><dd>{{$w.Name}}</dd>{{end}}
+    {{if $w.Kind}}<dt>Vrsta</dt><dd>{{$w.Kind}}</dd>{{end}}
+    <dt>Kategorija</dt><dd>{{if $w.IsFirstOrder}}<span title="{{$w.Category}}">{{$w.CategoryLabel}}</span>{{else}}{{$w.CategoryLabel}}{{end}}</dd>
+    {{if and $w.IsFirstOrder $w.Subcategory}}<dt>Skupina u Odluci</dt><dd>{{$w.Subcategory}}</dd>{{end}}
+    {{if $w.FlowsInto}}<dt>Ulijeva se u</dt><dd>{{$w.FlowsInto}}</dd>{{end}}
+    {{if $w.Mouth}}<dt>Ušće</dt><dd>{{$w.Mouth}}</dd>{{end}}
+    {{if $w.Source}}<dt>Izvor</dt><dd>{{$w.Source}}</dd>{{end}}
+    {{if $w.LengthKm}}<dt>Duljina</dt><dd>{{brojHRd $w.LengthKm 1}} km</dd>{{end}}
+    {{if $w.BasinKm2}}<dt>Površina sliva</dt><dd>{{brojHRd $w.BasinKm2 0}} km²</dd>{{end}}
+    {{if $w.AvgFlowM3S}}<dt>Prosječni protok</dt><dd>{{brojHRd $w.AvgFlowM3S 1}} m³/s</dd>{{end}}
+    {{if $w.WikiURL}}<dt>Wikipedija</dt><dd><a href="{{$w.WikiURL}}" target="_blank" rel="noopener">{{$w.WikiNaslov}}</a> · CC BY-SA 4.0</dd>{{end}}
+    <dt>Šifra</dt><dd class="mono">{{$w.Code}}</dd>
+    <dt>Zapis</dt><dd>{{$w.OriginLabel}}</dd>
+  </dl>
+  {{if and (not $w.LengthKm) (not $w.Mouth) (not $w.Source)}}<p class="form-help mb-0">Za ovu vodu nema opisnih podataka; zapis postoji zato što se na nju veže dionica ili postaja.</p>{{end}}
+</section>
+
+{{if or $w.Notes .CanEdit}}
+<section class="list-kartica">
+  <h2>Napomena</h2>
+  {{if $w.Notes}}<div class="markdown-body">{{renderMarkdown $w.Notes}}</div>{{else}}<p class="form-help">Napomena nije upisana.</p>{{end}}
+  {{if .CanEdit}}<a class="btn btn-link obj-dodaj" href="/watercourses/{{$w.Code}}/edit">Uredi</a>{{end}}
 </section>
 {{end}}
 
-<section class="detail-section">
-  <h2>{{icon "file-text"}} Štićene dionice <span class="reg-chip">{{len .Sections}}</span></h2>
-  <div class="reg-list">
-    {{range .Sections}}
-    <article class="reg-card">
-      <a class="reg-card-link" href="/sections?q={{.Code}}">
-        <div class="reg-card-head">
-          <div>
-            <h3 class="reg-card-title">{{.Code}}</h3>
-            <div class="reg-card-sub">{{.SectorName}}{{if .AreaName}} · {{.AreaName}}{{end}}</div>
-          </div>
-          {{if .Bank}}<span class="badge badge-inactive">{{bankLabel .Bank}}</span>{{end}}
-        </div>
-        <p style="font-size:0.8rem; margin:0; color:var(--text);">{{.Description}}</p>
-        {{if .RkmFrom}}
-        <div class="reg-card-foot"><span class="reg-chip">rkm {{brojHRd .RkmFrom 3}}{{if .RkmTo}} – {{brojHRd .RkmTo 3}}{{end}}</span></div>
-        {{end}}
-      </a>
-    </article>
-    {{else}}
-    <div class="reg-empty">Nijedna dionica nije vezana na ovu vodu.</div>
-    {{end}}
-  </div>
+<section class="list-kartica dio-veze">
+  <h2>Štićene dionice <span class="dio-broj">{{len .Sections}}</span></h2>
+  {{range .Sections}}
+  <a class="redak" href="/sections/{{.Code}}">{{icon "file-text"}}<span class="redak-tekst"><span class="redak-glavno">{{.Code}}{{if .Bank}} · {{bankLabel .Bank}}{{end}}</span><span class="redak-sporedno">{{.SectorName}}{{if .AreaName}} · {{.AreaName}}{{end}}{{if .RkmFrom}} · rkm {{brojHRd .RkmFrom 3}}{{if .RkmTo}} – {{brojHRd .RkmTo 3}}{{end}}{{end}}</span></span>{{icon "chevron-right"}}</a>
+  {{else}}
+  <p class="form-help mb-0">Nijedna dionica nije vezana na ovu vodu.</p>
+  {{end}}
 </section>
 
-<section class="detail-section">
-  <h2>{{icon "ruler"}} Vodomjerne postaje <span class="reg-chip">{{len .Stations}}{{if .DodatneLetve}} + {{len .DodatneLetve}}{{end}}</span></h2>
-  <div class="reg-list">
-    {{range .Stations}}
-    <article class="reg-card">
-      <a class="reg-card-link" href="/stations?q={{.Name}}">
-        <div class="reg-card-head">
-          <div>
-            <h3 class="reg-card-title">{{.Name}}</h3>
-            <div class="reg-card-sub">{{if .Stationing}}{{.Stationing}}{{else}}{{.WaterArea}}{{end}}{{if .JeInozemna}} · {{.Zemlja}}{{end}}</div>
-          </div>
-          {{if .NeedsReview}}<span class="badge badge-inactive" title="{{.ReviewNote}}">{{icon "triangle-alert"}} pregled</span>{{end}}
-        </div>
-        {{if .HasUsableThresholds}}
-        <dl class="reg-facts">
-          {{if .Prep.Cm}}<div><dt>Pripremno</dt><dd>{{derefInt .Prep.Cm}} cm</dd></div>{{end}}
-          {{if .Regular.Cm}}<div><dt>Redovna</dt><dd>{{derefInt .Regular.Cm}} cm</dd></div>{{end}}
-          {{if .Emergency.Cm}}<div><dt>Izvanredna</dt><dd>{{derefInt .Emergency.Cm}} cm</dd></div>{{end}}
-          {{if .State.Cm}}<div><dt>Izv. stanje</dt><dd>{{derefInt .State.Cm}} cm</dd></div>{{end}}
-        </dl>
-        {{end}}
-      </a>
-    </article>
-    {{end}}
-    {{range .DodatneLetve}}
-    <article class="reg-card">
-      <a class="reg-card-link" href="/stations?q={{.Name}}">
-        <div class="reg-card-head">
-          <div>
-            <h3 class="reg-card-title">{{.Name}}</h3>
-            <div class="reg-card-sub">na drugoj vodi{{if .Watercourse}}: {{.Watercourse}}{{end}}{{if .Stationing}} · {{.Stationing}}{{end}}{{if .JeInozemna}} · {{.Zemlja}}{{end}}</div>
-          </div>
-          <span class="badge badge-inactive" title="Letva stoji na drugoj vodi, a mjerodavna je i za ovu">mjerodavna i ovdje</span>
-        </div>
-        {{if .HasUsableThresholds}}
-        <dl class="reg-facts">
-          {{if .Prep.Cm}}<div><dt>Pripremno</dt><dd>{{derefInt .Prep.Cm}} cm</dd></div>{{end}}
-          {{if .Regular.Cm}}<div><dt>Redovna</dt><dd>{{derefInt .Regular.Cm}} cm</dd></div>{{end}}
-          {{if .Emergency.Cm}}<div><dt>Izvanredna</dt><dd>{{derefInt .Emergency.Cm}} cm</dd></div>{{end}}
-          {{if .State.Cm}}<div><dt>Izv. stanje</dt><dd>{{derefInt .State.Cm}} cm</dd></div>{{end}}
-        </dl>
-        {{end}}
-      </a>
-    </article>
-    {{end}}
-    {{if and (not .Stations) (not .DodatneLetve)}}
-    <div class="reg-empty">Nijedna postaja nije vezana na ovu vodu.</div>
-    {{end}}
-  </div>
+<section class="list-kartica dio-veze">
+  <h2>Letve <span class="dio-broj">{{len .Stations}}{{if .DodatneLetve}} + {{len .DodatneLetve}}{{end}}</span></h2>
+  {{range .Stations}}
+  <a class="redak" href="/stations/{{.ID}}">{{icon "ruler"}}<span class="redak-tekst"><span class="redak-glavno">{{.Name}}{{if .NeedsReview}} <span class="oznaka-stanja" title="{{.ReviewNote}}">za provjeru</span>{{end}}</span>{{$m := or .Stationing .WaterArea}}<span class="redak-sporedno">{{$m}}{{if .JeInozemna}}{{if $m}} · {{end}}{{.Zemlja}}{{end}}{{if .HasUsableThresholds}}{{if or $m .JeInozemna}} · {{end}}P {{.Prep.Label}} · R {{.Regular.Label}} · I {{.Emergency.Label}} · IS {{.State.Label}}{{end}}</span></span>{{icon "chevron-right"}}</a>
+  {{end}}
+  {{range .DodatneLetve}}
+  <a class="redak" href="/stations/{{.ID}}">{{icon "ruler"}}<span class="redak-tekst"><span class="redak-glavno">{{.Name}}</span><span class="redak-sporedno">na drugoj vodi{{if .Watercourse}}: {{.Watercourse}}{{end}}{{if .Stationing}} · {{.Stationing}}{{end}}{{if .JeInozemna}} · {{.Zemlja}}{{end}} · dodatna letva vodotoka</span></span>{{icon "chevron-right"}}</a>
+  {{end}}
+  {{if and (not .Stations) (not .DodatneLetve)}}<p class="form-help mb-0">Nijedna postaja nije vezana na ovu vodu.</p>{{end}}
 </section>
+</aside>
+</div>
+</div>
 {{if .CanEdit}}
 <script>
 // ucitajTokVode upisuje tok vode iz KML ili GeoJSON datoteke; program ga
@@ -226,4 +155,4 @@ async function ucitajTokVode(input) {
 {{end}}
 {{end}}
 
-{{define "ucitaj-tok"}}<label class="btn btn-sm btn-secondary" style="cursor:pointer; display:inline-flex; width:auto;" title="KML iz Google Eartha ili GeoJSON s crtom toka u WGS84 (EPSG:4326), npr. izvoz iz QGIS-a ili OpenStreetMapa">{{icon "upload"}} {{if .GeometryJSON}}Zamijeni iz KML-a ili GeoJSON-a{{else}}Učitaj KML ili GeoJSON{{end}}<input type="file" accept=".geojson,.json,.kml,application/geo+json,application/json,application/vnd.google-earth.kml+xml" hidden data-sifra="{{.Water.Code}}" data-ima="{{if .GeometryJSON}}1{{end}}" onchange="ucitajTokVode(this)"></label>{{end}}
+{{define "ucitaj-tok"}}<label class="btn btn-link obj-datoteka" title="KML iz Google Eartha ili GeoJSON s crtom toka u WGS84 (EPSG:4326), npr. izvoz iz QGIS-a ili OpenStreetMapa">{{if .GeometryJSON}}Zamijeni iz KML-a ili GeoJSON-a{{else}}Učitaj KML ili GeoJSON{{end}}<input type="file" accept=".geojson,.json,.kml,application/geo+json,application/json,application/vnd.google-earth.kml+xml" hidden data-sifra="{{.Water.Code}}" data-ima="{{if .GeometryJSON}}1{{end}}" onchange="ucitajTokVode(this)"></label>{{end}}
