@@ -3,7 +3,8 @@
 {{define "title"}}goCOP — {{if .IsEdit}}Uređivanje: {{.Municipality.Name}}{{else}}Novi grad ili općina{{end}}{{end}}
 
 {{/* Obrazac grada ili općine (goCOP-m3, 17f · 7e): kartica Osnovno, imena polja i obavezna
-     polja kao prije. Naselja se zasad uređuju na kartici grada ili općine. */}}
+     polja kao prije. Naselja se uređuju ovdje, svako svojim obrascem na istim adresama
+     /api/settlements/*, a Obriši općinu je na dnu, uz istu potvrdu. */}}
 {{define "content"}}
 <div class="lob-stranica">
 {{if .IsEdit}}<a href="/territories/municipalities/{{.Municipality.ID}}" class="povratna-poveznica">← {{if eq .Municipality.Type "GRAD"}}Grad{{else}}Općina{{end}} {{.Municipality.Name}}</a>
@@ -80,14 +81,70 @@
     </div>
   </div>
   </section>
-  <section class="list-kartica">
-  <h3>Naselja</h3>
-  <p class="form-help mb-0">{{if .IsEdit}}Naselja se upisuju i mijenjaju na <a href="/territories/municipalities/{{.Municipality.ID}}">kartici grada ili općine</a>.{{else}}Naselja se dodaju na kartici grada ili općine nakon upisa.{{end}}</p>
+  <section class="list-kartica" id="naselja">
+  <h3>Naselja{{if .IsEdit}} ({{len .Settlements}}){{end}}</h3>
+  {{if .IsEdit}}
+  <p class="form-help">Svako naselje sprema se svojim gumbom Spremi; gumb Spremi na dnu sprema samo podatke grada ili općine.</p>
+  <table class="data-table kartice-na-mobitelu dio-tablica opc-naselja">
+    <thead><tr><th>Naselje</th><th>Poštanski broj</th><th>Stanovnika</th><th><span class="sr-only">Radnje</span></th></tr></thead>
+    <tbody>
+    {{range .Settlements}}
+    <tr>
+      <td><input type="text" name="name" value="{{.Name}}" class="form-control" required aria-label="Naziv naselja" form="naselje-{{.ID}}"></td>
+      <td data-stupac="Poštanski broj"><input type="text" name="postal_code" value="{{.PostalCode}}" class="form-control opc-kratko" inputmode="numeric" aria-label="Poštanski broj" form="naselje-{{.ID}}"></td>
+      <td data-stupac="Stanovnika"><input type="text" name="population" value="{{if gt .Population 0}}{{.Population}}{{end}}" class="form-control opc-kratko" inputmode="numeric" aria-label="Broj stanovnika" form="naselje-{{.ID}}"></td>
+      <td class="text-right nowrap">
+        <button type="submit" form="naselje-{{.ID}}" class="btn btn-sm btn-secondary">Spremi</button>
+        <button type="submit" form="obrisi-naselje-{{.ID}}" class="btn btn-sm btn-link btn-opasno">Obriši</button>
+      </td>
+    </tr>
+    {{else}}
+    <tr class="dl-prazno"><td colspan="4"><p>Nema upisanih naselja.</p></td></tr>
+    {{end}}
+    </tbody>
+  </table>
+  <div class="form-row opc-novo">
+    <div class="form-group mb-0"><label class="form-label" for="new-name">Novo naselje</label>
+      <input type="text" id="new-name" name="name" class="form-control" placeholder="npr. Bršadin" required form="novo-naselje"></div>
+    <div class="form-group mb-0"><label class="form-label" for="new-postal">Poštanski broj</label>
+      <input type="text" id="new-postal" name="postal_code" class="form-control" inputmode="numeric" form="novo-naselje"></div>
+    <div class="form-group mb-0"><label class="form-label" for="new-pop">Stanovnika</label>
+      <input type="text" id="new-pop" name="population" class="form-control" inputmode="numeric" form="novo-naselje"></div>
+  </div>
+  <div class="opc-dodaj"><button type="submit" form="novo-naselje" class="btn btn-secondary">Dodaj naselje</button></div>
+  {{else}}
+  <p class="form-help mb-0">Naselja se dodaju u ovom obrascu nakon upisa grada ili općine.</p>
+  {{end}}
   </section>
   <div class="form-actions lob-gumbi">
+    {{if .IsEdit}}<button type="submit" form="obrisi-opcinu" class="btn btn-link btn-opasno obj-obrisi">Obriši {{if eq .Municipality.Type "GRAD"}}grad{{else}}općinu{{end}}</button>{{end}}
     <a href="{{if .IsEdit}}/territories/municipalities/{{.Municipality.ID}}{{else}}/territories?tab=municipalities{{end}}" class="btn btn-link">Odustani</a>
     <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi{{else}}Upiši{{end}}</button>
   </div>
 </form>
+{{if .IsEdit}}
+{{$m := .Municipality}}
+{{/* Obrasci naselja i brisanja stoje izvan glavnog obrasca, jer se obrasci ne gnijezde;
+     polja i gumbi u tablici vežu se na njih atributom form=. */}}
+{{range .Settlements}}
+<form id="naselje-{{.ID}}" method="POST" action="/api/settlements/update" hidden>
+  <input type="hidden" name="id" value="{{.ID}}">
+  <input type="hidden" name="municipality_id" value="{{$m.ID}}">
+</form>
+<form id="obrisi-naselje-{{.ID}}" method="POST" action="/api/settlements/delete" hidden onsubmit="return confirm('Obrisati naselje {{.Name}}?')">
+  <input type="hidden" name="id" value="{{.ID}}">
+  <input type="hidden" name="municipality_id" value="{{$m.ID}}">
+</form>
+{{end}}
+<form id="novo-naselje" method="POST" action="/api/settlements/create" hidden>
+  <input type="hidden" name="municipality_id" value="{{$m.ID}}">
+  <input type="hidden" name="county_id" value="{{$m.CountyID}}">
+</form>
+<form id="obrisi-opcinu" method="POST" action="/territories/municipality/delete" hidden
+      onsubmit="return confirm('Obrisati {{$m.Name}} i sva naselja? Zapis ostaje u povijesti.')">
+  <input type="hidden" name="id" value="{{$m.ID}}">
+  <input type="hidden" name="county_id" value="{{$m.CountyID}}">
+</form>
+{{end}}
 </div>
 {{end}}

@@ -10085,6 +10085,7 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
 .opc-novo .form-actions { margin-top: 12px; }
 .opc-novo { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--md-sys-color-outline-variant); }
 .opc-jos { display: inline-block; margin-top: 8px; }
+.opc-dodaj { margin-top: 12px; }
 @media (max-width: 767px) {
   .opc-naselja .opc-kratko { max-width: none; }
   .opc-novo .form-row { grid-template-columns: 1fr; }

@@ -47,6 +47,8 @@ func TestObrasciTeritorijaCuvajuPolja(t *testing.T) {
 	if !strings.Contains(html, `action="/territories/municipality/update"`) {
 		t.Error("obrazac općine ne šalje na /territories/municipality/update")
 	}
+	// samo glavni obrazac: naselja imaju svoje obrasce
+	html = regexp.MustCompile(`(?s)action="/territories/municipality/update">.*?</form>`).FindString(html)
 	zeli = map[string]string{"id": "302", "county_id": "14", "type": "OPCINA", "name": m.Name, "postal_code": m.PostalCode, "area_sqkm": "61,7",
 		"population": "1446", "head_title": m.HeadTitle, "head_name": m.HeadName, "email": m.Email, "phone": m.Phone, "website": m.Website}
 	if dobio := poljaTeritorija(html); !reflect.DeepEqual(dobio, zeli) {

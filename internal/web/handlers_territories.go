@@ -736,7 +736,8 @@ func (h *TerritoriesHandler) HandleDeleteSettlementAPI(w http.ResponseWriter, r 
 // poslan; bez toga podatka natrag na popis
 func backToMunicipality(r *http.Request) string {
 	if id, _ := strconv.Atoi(r.FormValue("municipality_id")); id > 0 {
-		return fmt.Sprintf("/territories/municipalities/%d", id)
+		// naselja se uređuju u obrascu grada ili općine
+		return fmt.Sprintf("/territories/municipalities/%d/edit#naselja", id)
 	}
 	if p := sigurnaPovratnaAdresa(r, ""); strings.HasPrefix(p, "/territories/municipalities/") {
 		return p

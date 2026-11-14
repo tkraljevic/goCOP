@@ -94,6 +94,7 @@ func (h *TerritoriesHandler) ShowMunicipalityForm(w http.ResponseWriter, r *http
 		}
 		data.Municipality = *m
 		data.IsEdit = true
+		data.Settlements, _ = h.territoryService.ListSettlements(r.Context(), m.ID, 0, "")
 	} else {
 		data.Municipality.Type = "OPCINA"
 		if cid, _ := strconv.Atoi(r.URL.Query().Get("county_id")); cid > 0 {
