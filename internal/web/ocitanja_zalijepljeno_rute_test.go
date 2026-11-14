@@ -4,6 +4,7 @@ import (
 	"context"
 	"html/template"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
@@ -68,7 +69,6 @@ const ispisLetve = "Vodostaj (cm) - satni podaci za razdoblje 07.09.2026. - 07.0
 // ništa se ne upisuje.
 func TestZalijepljenaOcitanjaPregled(t *testing.T) {
 	o := novaOkolinaPrava(t)
-	o.h.SetUvoz(predlozakStranice(t, "uvoz_ocitanja.html"))
 	ctx := context.Background()
 	for sat, cm := range map[int]int{0: -118, 1: -100} {
 		v := cm
@@ -90,18 +90,18 @@ func TestZalijepljenaOcitanjaPregled(t *testing.T) {
 		r      *http.Request
 		greska string
 	}{
-		{"običan obrazac", obicniObrazac(putanja, url.Values{"tekst": {ispisLetve}}.Encode()), "1 nečitljiv"},
-		{"višedijelni obrazac", viseDijelni(t, putanja, map[string]string{"tekst": ispisLetve}), "1 nečitljiv"},
-		{"tekstna datoteka s BOM-om", viseDijelni(t, putanja, nil, datotekaObrasca{"datoteka", "ispis.txt", "\ufeff" + ispisLetve}), "1 nečitljiv"},
-		{"Excel ispis", viseDijelni(t, putanja, map[string]string{"tekst": "zanemaruje se"}, datotekaObrasca{"datoteka", "ispis.xlsx", string(excel)}), "sve čitljivo"},
+		{"običan obrazac", obicniObrazac(putanja, url.Values{"tekst": {ispisLetve}}.Encode()), "<strong>1</strong><span>nečitljiv</span>"},
+		{"višedijelni obrazac", viseDijelni(t, putanja, map[string]string{"tekst": ispisLetve}), "<strong>1</strong><span>nečitljiv</span>"},
+		{"tekstna datoteka s BOM-om", viseDijelni(t, putanja, nil, datotekaObrasca{"datoteka", "ispis.txt", "\ufeff" + ispisLetve}), "<strong>1</strong><span>nečitljiv</span>"},
+		{"Excel ispis", viseDijelni(t, putanja, map[string]string{"tekst": "zanemaruje se"}, datotekaObrasca{"datoteka", "ispis.xlsx", string(excel)}), "<strong>0</strong><span>nečitljivih</span>"},
 	} {
 		t.Run(s.opis, func(t *testing.T) {
 			odg := naLetvi(o.h.HandleZalijepiPregled, s.r, id, o.pero, o.peroOvl)
 			if odg.status != http.StatusOK {
 				t.Fatalf("pregled: %d %s", odg.status, odg.location)
 			}
-			for _, treba := range []string{"Primjerovo · satna očitanja", "novih <strong>1</strong>", "već upisanih <strong>1</strong>",
-				"1 s drugom vrijednošću", s.greska} {
+			for _, treba := range []string{"Primjerovo · satna očitanja", "<strong>1</strong><span>novo</span>", "<strong>1</strong><span>već upisano</span>",
+				"<strong>1</strong><span>s drugom vrijednošću</span>", s.greska} {
 				if !strings.Contains(odg.html, treba) {
 					t.Errorf("pregled nema %q", treba)
 				}
@@ -118,7 +118,6 @@ func TestZalijepljenaOcitanjaPregled(t *testing.T) {
 // bez ijednog retka s datumom vraćaju na letvu s porukom.
 func TestZalijepljenaOcitanjaPregledOdbija(t *testing.T) {
 	o := novaOkolinaPrava(t)
-	o.h.SetUvoz(predlozakStranice(t, "uvoz_ocitanja.html"))
 	id := o.st.ID.String()
 	iva, ivaOvl := bezPrava()
 	if odg := naLetvi(o.h.HandleZalijepiPregled, obicniObrazac("/", "tekst=x"), uuid.NewString(), o.pero, o.peroOvl); odg.status != http.StatusNotFound {
@@ -274,9 +273,21 @@ func TestPreuzimanjeSJavneStraniceOdbija(t *testing.T) {
 // Pregled zalijepljenog koji se ne da iscrtati je greška poslužitelja.
 func TestZalijepljenaOcitanjaPregledBezPredloska(t *testing.T) {
 	o := novaOkolinaPrava(t)
-	o.h.SetUvoz(template.Must(template.New("prazan").Parse("")))
+	o.h.tmplHistory = template.Must(template.New("prazan").Parse(""))
 	odg := naLetvi(o.h.HandleZalijepiPregled, obicniObrazac("/", url.Values{"tekst": {ispisLetve}}.Encode()), o.st.ID.String(), o.pero, o.peroOvl)
 	if odg.status != http.StatusInternalServerError {
 		t.Errorf("pregled bez predloška: %d", odg.status)
+	}
+}
+
+// Pregled letve koje u međuvremenu nema javlja da je nema, a ne praznu karticu.
+func TestPregledUnosaLetveKojeNema(t *testing.T) {
+	o := novaOkolinaPrava(t)
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPost, "/readings/station/x/zalijepi", nil)
+	r.SetPathValue("id", uuid.NewString())
+	o.h.pokaziPregledUnosa(w, r, &PregledUvoza{})
+	if w.Code != http.StatusNotFound {
+		t.Errorf("letva koje nema: %d", w.Code)
 	}
 }

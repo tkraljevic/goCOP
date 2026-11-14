@@ -8129,6 +8129,46 @@ summary.ocitanja-cip { padding-right: 8px; }
 
 /* Kartica Uvoz i izvoz: ploče u dvama stupcima, skupni unos preko cijele
    širine (goCOP-m3, 12 · Očitanja) */
+/* Pregled skupnog unosa u kartici Uvoz i izvoz (goCOP-m3, 12 · pregled unosa) */
+.pun { display: flex; flex-direction: column; gap: 12px; }
+.pun > .povratna-poveznica { margin: 0; }
+.pun-naslov { margin: 0; font-size: 1.375rem; font-weight: 400; line-height: 28px; }
+.pun-opis, .pun-uputa { margin: 0; color: var(--md-sys-color-on-surface-variant, var(--text-secondary)); font-size: 0.875rem; }
+.pun-zbroj { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.pun-broj {
+  display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border: 1px solid var(--md-sys-color-outline-variant, var(--border));
+  border-radius: 12px; background: var(--md-sys-color-surface-container-low, var(--surface));
+}
+.pun-broj strong { font-size: 1.4rem; font-weight: 400; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.pun-broj span { font-size: 0.8rem; color: var(--md-sys-color-on-surface-variant, var(--text-secondary)); }
+.pun-broj-greska strong { color: var(--md-sys-color-error, var(--danger)); }
+.pun-podrijetlo { max-width: 32rem; margin: 0; }
+.pun-tablica {
+  max-height: 32rem; overflow: auto; padding: 4px 12px; border: 1px solid var(--md-sys-color-outline-variant, var(--border));
+  border-radius: 12px; background: var(--md-sys-color-surface-container-low, var(--surface));
+}
+.pun-tablica .data-table { margin: 0; }
+.pun-tablica td { padding-top: 8px; padding-bottom: 8px; }
+.pun-tablica td.mono { white-space: nowrap; }
+.pun-tablica tr.pun-postoji td { color: var(--md-sys-color-on-surface-variant, var(--text-secondary)); }
+/* redak s drugom vrijednošću i nečitljiv redak su uokvireni, kao na crtežu */
+.pun-tablica .data-table { border-collapse: separate; border-spacing: 0; }
+.pun-tablica tr.pun-razlicit, .pun-tablica tr.pun-greska { --pun-rub: var(--md-sys-color-primary, var(--primary)); }
+.pun-tablica tr.pun-greska { --pun-rub: var(--md-sys-color-error, var(--danger)); }
+.pun-tablica tr.pun-razlicit td, .pun-tablica tr.pun-greska td { border-top: 1px solid var(--pun-rub); border-bottom: 1px solid var(--pun-rub); }
+.pun-tablica tr.pun-razlicit td:first-child, .pun-tablica tr.pun-greska td:first-child { border-left: 1px solid var(--pun-rub); border-radius: 8px 0 0 8px; }
+.pun-tablica tr.pun-razlicit td:last-child, .pun-tablica tr.pun-greska td:last-child { border-right: 1px solid var(--pun-rub); border-radius: 0 8px 8px 0; }
+.pun-poruka { color: var(--md-sys-color-error, var(--danger)); }
+.pun-znacka {
+  display: inline-block; padding: 1px 8px; border: 1px solid var(--md-sys-color-outline, var(--border-strong)); border-radius: 6px;
+  font-size: 0.8125rem; white-space: nowrap;
+}
+.pun-novo { border-color: var(--success); color: var(--success); }
+.pun-gumbi { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; }
+@media (max-width: 599px) {
+  .pun-zbroj { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pun-gumbi .btn-primary { flex: 1 1 100%; min-height: 48px; }
+}
 .letva-mreza { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; align-items: start; }
 .letva-ploca {
   display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid var(--md-sys-color-outline-variant, var(--border));

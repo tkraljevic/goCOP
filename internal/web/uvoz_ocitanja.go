@@ -140,21 +140,15 @@ func usporedi(redci []ZalijepljenoOcitanje, postojece map[int64]models.SpojenaVr
 }
 
 // PregledUvoza je ono što se pokaže prije nego što se išta upiše.
+// Pokazuje se u kartici letve „Uvoz i izvoz”, na mjestu obrazaca.
 type PregledUvoza struct {
-	CurrentUser *models.User
-	Permissions *models.UserPermissions
-	Station     *models.Station
-	GaugeName   string
-	Satni       bool
-	Redci       []ZalijepljenoOcitanje
-	Novih       int
-	Istih       int
-	Razlicitih  int
-	Greske      int
-	Od, Do      time.Time
-
-	SuccessMessage string
-	ErrorMessage   string
-	ActiveNav      string
-	ViewAsBanner
+	Station    *models.Station
+	GaugeName  string
+	Satni      bool
+	Redci      []ZalijepljenoOcitanje
+	Novih      int
+	Istih      int
+	Razlicitih int
+	Greske     int
+	Od, Do     time.Time
 }
