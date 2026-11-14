@@ -104,7 +104,7 @@ func TestIzmjenaDuznostiBezUloge(t *testing.T) {
 func TestNazivSektoraVodiNaStranicuSektora(t *testing.T) {
 	html := iscrtaj(t, "organizacija.html", OrgPageData{CurrentUser: &models.User{FullName: "Ana Anić"}, Permissions: &models.UserPermissions{},
 		Terms: models.Terms(), Sectors: []SectorView{{Sector: models.Sector{ID: "P", Name: "Sektor P", Level: 2}}}})
-	if !strings.Contains(html, `<a href="/organizacija/sektori/P" class="c-primary fw-600">Sektor P</a>`) {
+	if !strings.Contains(html, `<a href="/organizacija/sektori/P" class="org-sektor-naziv"><span class="org-slovo">P</span><span class="org-sektor-ime">Sektor P</span>`) {
 		t.Error("naziv sektora ne vodi na stranicu sektora")
 	}
 	if strings.Contains(html, `href="/sections?sector=P"`) {

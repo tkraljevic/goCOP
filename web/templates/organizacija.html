@@ -2,211 +2,151 @@
 
 {{define "title"}}goCOP — Administrativna organizacija{{end}}
 
+{{/* Administrativna organizacija (goCOP-m3, 17a · Registri, 2a): tri razine kao tri kartice.
+     Razina 1 je kartica s podacima, sektori su pločice, a branjena područja tablica koja je
+     na mobitelu kartica. Pod CSV su izvoz i uvoz kao i prije. Broj dionica, stanje žiga za
+     sve, čipovi sektora i pretraga područja su novo ponašanje i dolaze poslije. Uredi i
+     Obriši sektora su na kartici i u obrascu sektora, a Obriši područja u obrascu područja. */}}
 {{define "content"}}
-<div class="breadcrumb"><a href="/registri">Registri</a> › Administrativna organizacija</div>
-
-<div class="page-header">
+{{$admin := and .Permissions .Permissions.IsGlobalAdmin}}
+<a href="/registri" class="povratna-poveznica">← Registri</a>
+<div class="page-header list-glava dio-glava">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "building"}} Administrativna organizacija</h1>
+    <h1 class="page-title" data-naziv-stranice>Administrativna organizacija</h1>
     <p class="page-desc">
-      Četiri razine: krovna jedinica ({{terml "direkcija"}}) i {{terml "gcop"}}; {{terml "vgo"}} ({{term "vgo_k"}}),
-      {{terml "sektor"}} i {{terml "cop"}}; {{terml "vgi"}} ({{term "vgi_k"}}), {{terml "podcentar"}} i
-      {{terml "podrucje"}}. Na njih se vežu ovlasti, dionice i zaduženja, pa se na novom čvoru upisuju prvi.
-      Pregled i izlistanje vidi svatko s registrima; unos je administratorov.
+      {{.Terms.OrgName}} s krovnom jedinicom, {{terml "sektori"}} s odjelima i centrima obrane te {{terml "podrucja"}}
+      s ispostavama i podcentrima. Na njih se vežu ovlasti, dionice i zaduženja.
     </p>
   </div>
-  {{if and .Permissions .Permissions.IsGlobalAdmin}}
-  <div class="detail-actions">
+  <div class="page-actions">
+    {{if $admin}}<a href="/administracija/nazivi" class="btn btn-link">Nazivi</a>{{end}}
+    <details class="ocitanja-izbor org-csv">
+      <summary class="btn btn-link">CSV</summary>
+      <div class="org-csv-ploca">
+        <p class="org-csv-naslov">{{term "sektori"}}</p>
+        <a href="/organizacija/sektori.csv" title="Izvoz u CSV (Excel)">{{icon "download"}} Izvoz</a>
+        {{if $admin}}
+        <form method="POST" action="/organizacija/uvoz" enctype="multipart/form-data">
+          <input type="hidden" name="kind" value="sektori">
+          <input type="file" name="csv" accept=".csv,text/csv" class="form-control" required aria-label="CSV datoteka: {{terml "sektori"}}">
+          <button type="submit" class="btn btn-sm btn-secondary">Uvezi</button>
+        </form>
+        {{end}}
+        <p class="org-csv-naslov">{{term "podrucja"}}</p>
+        <a href="/organizacija/podrucja.csv" title="Izvoz u CSV (Excel)">{{icon "download"}} Izvoz</a>
+        {{if $admin}}
+        <form method="POST" action="/organizacija/uvoz" enctype="multipart/form-data">
+          <input type="hidden" name="kind" value="podrucja">
+          <input type="file" name="csv" accept=".csv,text/csv" class="form-control" required aria-label="CSV datoteka: {{terml "podrucja"}}">
+          <button type="submit" class="btn btn-sm btn-secondary">Uvezi</button>
+        </form>
+        <p class="form-help mb-0">Isti stupci kao u izvozu; postojeći se osvježe po oznaci, novi se dodaju.</p>
+        {{end}}
+      </div>
+    </details>
   </div>
-  {{end}}
 </div>
 
-
-<section class="detail-section">
-  <div class="detail-head items-start">
+<section class="list-kartica org-razina">
+  <div class="org-razina-glava">
+    <h2>Razina 1 · {{term "direkcija"}}</h2>
+    {{if $admin}}
+    <div class="org-razina-gumbi">
+      {{if eq (len .Level1) 1}}{{range .Level1}}<a href="/organizacija/sektori/{{.ID}}/edit">Uredi</a>{{end}}{{end}}
+      <a href="/organizacija/sektori/new?razina=1">Nova jedinica</a>
+    </div>
+    {{end}}
+  </div>
+  <div class="org-ime">{{icon "building"}}
     <div>
-      <h2 style="margin:0; display:flex; align-items:center; gap:0.6rem;"><img src="{{logo}}" alt="" style="max-height:40px; max-width:140px;">{{.Terms.OrgName}}</h2>
+      <p class="org-ime-naziv">{{.Terms.OrgName}}</p>
       {{if or .Terms.OrgLegalForm .Terms.OrgRegistryNo .Terms.OrgTaxID}}
-      <div class="reading-meta mt-1">
-        {{.Terms.OrgLegalForm}}{{if .Terms.OrgRegistryNo}} · Matični broj: <span class="mono">{{.Terms.OrgRegistryNo}}</span>{{end}}{{if .Terms.OrgTaxID}} · OIB: <span class="mono">{{.Terms.OrgTaxID}}</span>{{end}}
-      </div>
+      <p class="org-ime-sitno">{{.Terms.OrgLegalForm}}{{if .Terms.OrgRegistryNo}}{{if .Terms.OrgLegalForm}} · {{end}}matični broj <span class="mono">{{.Terms.OrgRegistryNo}}</span>{{end}}{{if .Terms.OrgTaxID}} · OIB <span class="mono">{{.Terms.OrgTaxID}}</span>{{end}}</p>
       {{end}}
     </div>
-    {{if and .Permissions .Permissions.IsGlobalAdmin}}
-    <div class="detail-actions"><a href="/administracija/nazivi" class="btn btn-sm btn-secondary">{{icon "pencil"}} Nazivi</a></div>
-    {{end}}
   </div>
-</section>
-
-<section class="detail-section">
-  <div class="detail-head">
-    <div>
-      <div class="reading-meta">Razina 1</div>
-      <h2 class="m-0">{{term "direkcija"}}</h2>
-    </div>
-    {{if and .Permissions .Permissions.IsGlobalAdmin}}
-    <div class="detail-actions"><a href="/organizacija/sektori/new?razina=1" class="btn btn-sm btn-primary">{{icon "plus"}} Nova jedinica</a></div>
-    {{end}}
-  </div>
-  {{if .Level1}}
-  <div class="table-card mt-3"><div class="table-responsive">
-    <table class="data-table">
-      <thead><tr><th>Oznaka</th><th>Naziv</th><th>{{term "direkcija"}}</th><th>{{term "gcop"}}</th><th>Adresa</th><th>Kontakt</th>{{if and .Permissions .Permissions.IsGlobalAdmin}}<th></th>{{end}}</tr></thead>
-      <tbody>
-      {{range .Level1}}
-      <tr>
-        <td><a href="/organizacija/sektori/{{.ID}}" class="section-code-badge" title="Podaci jedinice">{{.ID}}</a></td>
-        <td><strong>{{.Name}}</strong></td>
-        <td>{{.VgoName}}{{if .VgoPhone}}<br><span class="reading-meta"><a href="tel:{{.VgoPhone}}">{{.VgoPhone}}</a></span>{{end}}</td>
-        <td>{{.CenterCop}}</td>
-        <td class="reading-meta">{{.Address}}</td>
-        <td class="reading-meta nowrap">{{if .Phone}}<a href="tel:{{.Phone}}">{{.Phone}}</a>{{end}}{{if and .Phone .Email}}<br>{{end}}{{if .Email}}<a href="mailto:{{.Email}}">{{.Email}}</a>{{end}}</td>
-        {{if and $.Permissions $.Permissions.IsGlobalAdmin}}
-        <td class="nowrap text-right">
-          <a href="/organizacija/sektori/{{.ID}}/edit" class="btn btn-sm btn-secondary" title="Uredi">{{icon "pencil"}}</a>
-          <form method="POST" action="/organizacija/sektori/delete" onsubmit="return confirm('Obrisati jedinicu {{.ID}}?')" class="d-inline">
-            <input type="hidden" name="id" value="{{.ID}}"><button type="submit" class="btn btn-sm btn-secondary" title="Obriši">{{icon "trash"}}</button>
-          </form>
-        </td>
-        {{end}}
-      </tr>
-      {{end}}
-      </tbody>
-    </table>
-  </div></div>
+  {{range .Level1}}
+  <dl class="org-podaci">
+    {{if gt (len $.Level1) 1}}<div class="org-podaci-cijelo"><dt>Oznaka</dt><dd><a href="/organizacija/sektori/{{.ID}}">{{.ID}}</a>{{if $admin}} · <a href="/organizacija/sektori/{{.ID}}/edit">Uredi</a>{{end}}</dd></div>{{end}}
+    <div><dt>Jedinica</dt><dd><a href="/organizacija/sektori/{{.ID}}">{{.Name}}</a></dd></div>
+    <div><dt>Adresa</dt><dd>{{if .Address}}{{.Address}}{{else}}<span class="org-prazno">nije upisana</span>{{end}}</dd></div>
+    <div><dt>Centar</dt><dd>{{if .CenterCop}}{{.CenterCop}}{{else}}<span class="org-prazno">nije upisan</span>{{end}}</dd></div>
+    <div><dt>Kontakt centra</dt><dd>{{if .Phone}}<a href="tel:{{.Phone}}">{{.Phone}}</a>{{end}}{{if and .Phone .Email}} · {{end}}{{if .Email}}<a href="mailto:{{.Email}}">{{.Email}}</a>{{end}}{{if not (or .Phone .Email)}}<span class="org-prazno">nije upisan</span>{{end}}</dd></div>
+  </dl>
   {{else}}
-  <div class="reg-empty mt-2">
-    Krovna jedinica još nije upisana. {{if and .Permissions .Permissions.IsGlobalAdmin}}Upišite je s razinom 1: ona nosi {{terml "gcop"}} i kontakte središnjice.{{end}}
-  </div>
+  <p class="reg-empty mb-0">
+    Krovna jedinica još nije upisana. {{if $admin}}Upišite je s razinom 1: ona nosi {{terml "gcop"}} i kontakte središnjice.{{end}}
+  </p>
   {{end}}
 </section>
 
-<section class="detail-section">
-  <div class="detail-head">
-    <div>
-      <div class="reading-meta">Razina 2</div>
-      <h2 class="m-0">{{term "sektori"}} <span class="reg-chip">{{len .Sectors}}</span></h2>
-    </div>
-    <div class="detail-actions" style="display:flex; gap:0.4rem;">
-      {{if .Sectors}}<a href="/organizacija/sektori.csv" class="btn btn-sm btn-secondary" title="Izvoz u CSV (Excel)">{{icon "download"}} CSV</a>{{end}}
-      {{if and .Permissions .Permissions.IsGlobalAdmin}}<a href="/organizacija/sektori/new" class="btn btn-sm btn-primary">{{icon "plus"}} Novi: {{terml "sektor"}}</a>{{end}}
-    </div>
+<section class="list-kartica org-razina org-razina-popis">
+  <div class="org-razina-glava">
+    <h2>Razina 2 · {{term "sektori"}} ({{len .Sectors}})</h2>
+    {{if $admin}}<div class="org-razina-gumbi"><a href="/organizacija/sektori/new">Novi: {{terml "sektor"}}</a></div>{{end}}
   </div>
   {{if .Sectors}}
-  <div class="table-card mt-3"><div class="table-responsive">
-    <table class="data-table">
-      <thead><tr><th>Oznaka</th><th>Naziv</th><th>{{term "vgo"}}</th><th>{{term "cop"}}</th><th>Adresa</th><th>Kontakt</th><th class="text-right">{{term "bp"}}</th>{{if and .Permissions .Permissions.IsGlobalAdmin}}<th></th>{{end}}</tr></thead>
-      <tbody>
-      {{range .Sectors}}
-      <tr>
-        <td><a href="/organizacija/sektori/{{.ID}}" class="section-code-badge" title="Podaci sektora">{{.ID}}</a></td>
-        <td><a href="/organizacija/sektori/{{.ID}}" class="c-primary fw-600">{{.Name}}</a>{{if and $.Permissions ($.Permissions.CanAdminister .ID 0)}} <a href="/organizacija/sektori/{{.ID}}#zig" class="reg-chip" title="Žig centra">{{icon "shield"}} žig</a>{{end}}</td>
-        <td>{{.VgoName}}{{if .VgoPhone}}<br><span class="reading-meta"><a href="tel:{{.VgoPhone}}">{{.VgoPhone}}</a></span>{{end}}</td>
-        <td>{{.CenterCop}}</td>
-        <td class="reading-meta">{{.Address}}</td>
-        <td class="reading-meta nowrap">{{if .Phone}}<a href="tel:{{.Phone}}">{{.Phone}}</a>{{end}}{{if and .Phone .Email}}<br>{{end}}{{if .Email}}<a href="mailto:{{.Email}}">{{.Email}}</a>{{end}}</td>
-        <td class="mono text-right">{{len .Areas}}</td>
-        {{if and $.Permissions $.Permissions.IsGlobalAdmin}}
-        <td class="nowrap text-right">
-          <a href="/organizacija/podrucja/new?sector={{.ID}}" class="btn btn-sm btn-secondary" title="Dodaj: {{terml "podrucje"}}">{{icon "plus"}}</a>
-          <a href="/organizacija/sektori/{{.ID}}/edit" class="btn btn-sm btn-secondary" title="Uredi">{{icon "pencil"}}</a>
-          {{if not .Areas}}
-          <form method="POST" action="/organizacija/sektori/delete" onsubmit="return confirm('Obrisati {{terml "sektor"}} {{.ID}}?')" class="d-inline">
-            <input type="hidden" name="id" value="{{.ID}}"><button type="submit" class="btn btn-sm btn-secondary" title="Obriši">{{icon "trash"}}</button>
-          </form>
-          {{else}}
-          <button type="button" class="btn btn-sm btn-secondary" disabled title="Briše se tek kad nema područja">{{icon "trash"}}</button>
-          {{end}}
-        </td>
-        {{end}}
-      </tr>
-      {{end}}
-      </tbody>
-    </table>
-  </div></div>
-  {{if and .Permissions .Permissions.IsGlobalAdmin}}
-  <details class="mt-2">
-    <summary style="cursor:pointer; font-size:0.85rem; color:var(--text-muted);">{{icon "download"}} Uvoz iz CSV datoteke</summary>
-    <form method="POST" action="/organizacija/uvoz" enctype="multipart/form-data" class="d-flex gap-2 items-center flex-wrap mt-2">
-      <input type="hidden" name="kind" value="sektori">
-      <input type="file" name="csv" accept=".csv,text/csv" class="form-control max-w-20" required>
-      <button type="submit" class="btn btn-sm btn-secondary">Uvezi</button>
-      <span class="form-help m-0">Isti stupci kao u izvozu; postojeći se osvježe po oznaci, novi se dodaju.</span>
-    </form>
-  </details>
-  {{end}}
-  {{else}}
-  <div class="reg-empty mt-2">
-    Još nema nijednog: {{terml "sektor"}}. {{if and .Permissions .Permissions.IsGlobalAdmin}}Počnite prvim, pa mu dodajte {{terml "podrucja"}}.{{else}}Upisuje ih globalni administrator.{{end}}
+  <div class="org-sektori">
+    {{range .Sectors}}
+    <div class="org-sektor">
+      <a href="/organizacija/sektori/{{.ID}}" class="org-sektor-naziv"><span class="org-slovo">{{.ID}}</span><span class="org-sektor-ime">{{.KratkiNaziv}}</span>{{icon "chevron-right"}}</a>
+      {{if .VgoName}}<p class="org-sektor-sitno">{{.VgoName}}</p>{{end}}
+      {{if or .CenterCop .Phone}}<p class="org-sektor-sitno">{{.CenterCop}}{{if and .CenterCop .Phone}} · {{end}}{{.Phone}}</p>{{end}}
+      <p class="org-sektor-oznake">
+        <span class="oznaka-stanja obrub">{{len .Areas}} {{term "bp"}}</span>
+        {{if and $.Permissions ($.Permissions.CanAdminister .ID 0)}}<a href="/organizacija/sektori/{{.ID}}#zig" class="oznaka-stanja obrub" title="Žig centra">žig</a>{{end}}
+      </p>
+    </div>
+    {{end}}
   </div>
+  {{else}}
+  <p class="reg-empty mb-0">
+    Još nema nijednog: {{terml "sektor"}}. {{if $admin}}Počnite prvim, pa mu dodajte {{terml "podrucja"}}.{{else}}Upisuje ih globalni administrator.{{end}}
+  </p>
   {{end}}
 </section>
 
-<section class="detail-section">
-  <div class="detail-head">
-    <div>
-      <div class="reading-meta">Razina 3</div>
-      <h2 class="m-0">{{term "podrucja"}}</h2>
-    </div>
-    <div class="detail-actions" style="display:flex; gap:0.4rem;">
-      <a href="/firme" class="btn btn-sm btn-secondary">{{icon "wrench"}} Firme</a>
-      <a href="/organizacija/podrucja.csv" class="btn btn-sm btn-secondary" title="Izvoz u CSV (Excel)">{{icon "download"}} CSV</a>
-      {{if .Permissions.IsGlobalAdmin}}<form method="POST" action="/organizacija/podrucja/koordinate" class="d-inline" onsubmit="return confirm('Pronaći koordinate svim područjima koja ih nemaju, po mjestu ispostave preko OpenStreetMapa? Treba internet; traje oko sekundu po području.')"><button type="submit" class="btn btn-sm btn-secondary" title="Koordinate za vremenske prilike u vodočuvarskom dnevniku">{{icon "map-pin"}} Koordinate</button></form>{{end}}
-      {{if and .Permissions .Permissions.IsGlobalAdmin .Sectors}}<a href="/organizacija/podrucja/new" class="btn btn-sm btn-primary">{{icon "plus"}} Novo: {{terml "podrucje"}}</a>{{end}}
+<section class="list-kartica org-razina org-razina-popis">
+  <div class="org-razina-glava">
+    <h2>Razina 3 · {{term "podrucja"}} ({{.TotalAreas}})</h2>
+    <div class="org-razina-gumbi">
+      <a href="/firme">Firme</a>
+      {{if $admin}}<form method="POST" action="/organizacija/podrucja/koordinate" class="d-inline" onsubmit="return confirm('Pronaći koordinate svim područjima koja ih nemaju, po mjestu ispostave preko OpenStreetMapa? Treba internet; traje oko sekundu po području.')"><button type="submit" class="btn btn-link" title="Koordinate za vremenske prilike u vodočuvarskom dnevniku">Koordinate</button></form>{{end}}
+      {{if and $admin .Sectors}}<a href="/organizacija/podrucja/new">Novo: {{terml "podrucje"}}</a>{{end}}
     </div>
   </div>
-  <div class="table-card mt-3"><div class="table-responsive">
-    <table class="data-table">
-      <thead><tr><th>{{term "sektor"}}</th><th>{{term "bp"}}</th><th>Naziv</th><th>{{term "vgi"}}</th><th>{{term "podcentar"}}</th><th>Licencirane firme</th>{{if and .Permissions .Permissions.IsGlobalAdmin}}<th></th>{{end}}</tr></thead>
-      <tbody>
-      {{$n := 0}}
-      {{range .Sectors}}{{range .Areas}}{{$n = 1}}
-      <tr>
-        <td><span class="section-code-badge">{{.SectorID}}</span></td>
-        <td class="mono">{{.ID}}</td>
-        <td><a href="/sections?sector={{.SectorID}}&area={{.ID}}" class="c-primary fw-600">{{.Name}}</a></td>
-        <td>{{if .DirectToSector}}<span class="reg-chip" title="Nema vlastite ispostave: pripada izravno razini 2 ({{terml "sektor"}})">bez ispostave, izravno razina 2</span>{{else}}{{.VgiName}}{{if .VgiPhone}}<br><span class="reading-meta"><a href="tel:{{.VgiPhone}}">{{.VgiPhone}}</a></span>{{end}}{{end}}</td>
-        <td>{{.Subcenter}}</td>
-        <td class="reading-meta">{{range $i, $c := .Contractors}}{{if $i}}, {{end}}<a href="/firme" title="{{$c.Name}}">{{$c.Label}}</a>{{end}}</td>
-        {{if and $.Permissions $.Permissions.IsGlobalAdmin}}
-        <td class="nowrap text-right">
-          <a href="/organizacija/podrucja/{{.ID}}/edit" class="btn btn-sm btn-secondary" title="Uredi">{{icon "pencil"}}</a>
-          <form method="POST" action="/organizacija/podrucja/delete" onsubmit="return confirm('Obrisati {{terml "podrucje"}} {{.ID}}: {{.Name}}?')" class="d-inline">
-            <input type="hidden" name="id" value="{{.ID}}"><button type="submit" class="btn btn-sm btn-secondary" title="Obriši">{{icon "trash"}}</button>
-          </form>
-        </td>
-        {{end}}
-      </tr>
-      {{end}}{{end}}
-      {{if not $n}}<tr><td colspan="7" class="reg-empty">Još bez ijednog: {{terml "podrucje"}}.</td></tr>{{end}}
-      </tbody>
-    </table>
-  </div></div>
-  {{if and .Permissions .Permissions.IsGlobalAdmin}}
-  <details class="mt-2">
-    <summary style="cursor:pointer; font-size:0.85rem; color:var(--text-muted);">{{icon "download"}} Uvoz iz CSV datoteke</summary>
-    <form method="POST" action="/organizacija/uvoz" enctype="multipart/form-data" class="d-flex gap-2 items-center flex-wrap mt-2">
-      <input type="hidden" name="kind" value="podrucja">
-      <input type="file" name="csv" accept=".csv,text/csv" class="form-control max-w-20" required>
-      <button type="submit" class="btn btn-sm btn-secondary">Uvezi</button>
-      <span class="form-help m-0">Isti stupci kao u izvozu; postojeći se osvježe po oznaci, novi se dodaju.</span>
-    </form>
-  </details>
-  {{end}}
+  <table class="data-table kartice-na-mobitelu dio-tablica org-tablica">
+    <thead><tr><th>{{term "bp"}}</th><th>Naziv</th><th>{{term "vgi"}} i telefon</th><th>{{term "podcentar"}}</th><th>Licencirane firme</th><th>Točka za vrijeme</th>{{if $admin}}<th><span class="sr-only">Uredi</span></th>{{end}}</tr></thead>
+    <tbody>
+    {{$n := 0}}
+    {{range .Sectors}}{{range .Areas}}{{$n = 1}}
+    <tr>
+      <td class="org-bp"><span class="usluga-samo-usko">{{term "bp"}} </span>{{.ID}} <span class="dl-sitno">{{term "sektor"}} {{.SectorID}}</span></td>
+      <td><a href="/sections?sector={{.SectorID}}&area={{.ID}}" class="dl-poveznica org-naziv">{{.Name}}</a></td>
+      <td data-stupac="{{term "vgi"}}">{{if .DirectToSector}}<span class="oznaka-stanja obrub" title="Nema vlastite ispostave: pripada izravno razini 2 ({{terml "sektor"}})">izravno sektoru</span>{{else}}<span>{{.VgiName}}{{if .VgiPhone}}<span class="dl-sitno"><a href="tel:{{.VgiPhone}}">{{.VgiPhone}}</a></span>{{end}}</span>{{end}}</td>
+      <td data-stupac="{{term "podcentar"}}">{{.Subcenter}}</td>
+      <td data-stupac="Licencirane firme">{{if .Contractors}}<span>{{range $i, $c := .Contractors}}{{if $i}}, {{end}}<a href="/firme" title="{{$c.Name}}">{{$c.Label}}</a>{{end}}</span>{{else}}—{{end}}</td>
+      <td data-stupac="Točka za vrijeme" class="nowrap">{{if .ImaKoordinate}}{{brojHRf .Latitude 3}} · {{brojHRf .Longitude 3}}{{else}}—{{end}}</td>
+      {{if $admin}}<td class="text-right"><a href="/organizacija/podrucja/{{.ID}}/edit" class="btn btn-sm btn-secondary" title="Uredi: {{.Name}}">{{icon "pencil"}}<span class="usluga-samo-usko"> Uredi</span></a></td>{{end}}
+    </tr>
+    {{end}}{{end}}
+    {{if not $n}}<tr class="dl-prazno"><td colspan="7"><p>Još bez ijednog: {{terml "podrucje"}}.</p></td></tr>{{end}}
+    </tbody>
+  </table>
 </section>
 
 {{if .Orphans}}
-<section class="detail-section">
-  <h2>{{icon "triangle-alert"}} {{term "podrucja"}} bez nadređenog: {{terml "sektor"}}</h2>
-  <p class="page-desc">{{term "sektor"}} tih područja ne postoji na ovom čvoru; upišite ga s istom oznakom ili ih premjestite.</p>
-  <ul>{{range .Orphans}}<li>{{term "bp"}} {{.ID}} {{.Name}} ({{terml "sektor"}} {{.SectorID}}) — <a href="/organizacija/podrucja/{{.ID}}/edit">uredi</a></li>{{end}}</ul>
+<section class="list-kartica org-razina">
+  <h2>{{term "podrucja"}} bez nadređenog: {{terml "sektor"}}</h2>
+  <p class="form-help">{{term "sektor"}} tih područja ne postoji na ovom čvoru; upišite ga s istom oznakom ili ih premjestite.</p>
+  <ul class="mb-0">{{range .Orphans}}<li>{{term "bp"}} {{.ID}} {{.Name}} ({{terml "sektor"}} {{.SectorID}}) — <a href="/organizacija/podrucja/{{.ID}}/edit">uredi</a></li>{{end}}</ul>
 </section>
 {{end}}
 
-{{if and .Permissions .Permissions.IsGlobalAdmin}}
-<div class="form-help mt-4">
+{{if $admin}}
+<p class="form-help mt-4">
   Nazive razina, znak organizacije i nazive sudionika obrane uređujete u Administraciji:
   <a href="/administracija/nazivi">Nazivi</a> i <a href="/administracija/sudionici">Sudionici obrane</a>.
-</div>
+</p>
 {{end}}
 {{end}}
