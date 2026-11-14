@@ -2090,7 +2090,7 @@ func TestWatercourseDetailKarta(t *testing.T) {
 	})
 	for _, want := range []string{
 		`class="karta-vodotoka"`,
-		`Karta vodotoka`,
+		`<h2>Na karti</h2>`,
 		`class="karta-geometrija-podaci"`,
 		`class="karta-postaje-podaci"`,
 		`data-naziv="Dunav"`,

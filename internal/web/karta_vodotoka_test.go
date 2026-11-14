@@ -90,11 +90,11 @@ func TestKartaVodotokaBezPrava(t *testing.T) {
 	bezAlata := append(append([]string{`GeoJSON`, `/karta#uredi`}, alatStraniceVode...), skripteNaKarti...)
 
 	sTokom := iscrtajVodotok(t, false, `{"type":"FeatureCollection","features":[]}`)
-	imaSve(t, sTokom, "bez prava, s tokom", []string{`class="karta-vodotoka"`, `Karta vodotoka`})
+	imaSve(t, sTokom, "bez prava, s tokom", []string{`class="karta-vodotoka"`, `<h2>Na karti</h2>`})
 	nemaNista(t, sTokom, "bez prava, s tokom", append(bezAlata, stariUredjivacToka...))
 
 	bezToka := iscrtajVodotok(t, false, "")
-	nemaNista(t, bezToka, "bez prava, bez toka", append([]string{`karta-vodotoka`, `Karta vodotoka`}, bezAlata...))
+	nemaNista(t, bezToka, "bez prava, bez toka", append([]string{`karta-vodotoka`, `<h2>Na karti</h2>`}, bezAlata...))
 }
 
 // Bez pločica karte administrator i dalje može učitati tok iz datoteke ili

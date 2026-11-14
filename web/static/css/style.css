@@ -10006,3 +10006,7 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
 /* Obrazac objekta (17d, 5c): ploče kao obrazac postaje (.lob-stranica), Obriši dolje lijevo. */
 .obj-obrazac .list-kartica > h3 label { font: inherit; color: inherit; }
 .obj-obrazac .obj-obrisi { margin-right: auto; }
+
+/* Kartica vodotoka (17e, 6b): isti raspored kao kartica objekta (.obj-stranica, .dio-veze). */
+.vk-stacionaza { margin-top: 8px; }
+.list-kartica > .markdown-body { padding: 0; border: 0; background: none; }
