@@ -137,8 +137,8 @@
     <a href="#users-kod-prijave">Privremeni kod za prijavu</a>
     <a href="#users-potvrda-adrese">Adresa za PIN izvan domene</a>
     <a class="kazalo-glava" href="#registers">Registri</a>
-    <a class="kazalo-glava" href="#slivovi">Slivovi</a>
-    <a href="#slivovi-kisomjeri">Meteorološke postaje</a>
+    <a class="kazalo-glava" href="#slivovi">Slivovi i kišomjeri</a>
+    <a href="#slivovi-kisomjeri">Kišomjeri i izvedene točke</a>
     <a class="kazalo-glava" href="#admin">Administracija</a>
     <a href="#admin-posta-pin">PIN za prijavu izvana</a>
     <a href="#admin-karta-bez-interneta">Karta bez interneta</a>
@@ -2064,14 +2064,24 @@
         naslov ima uobičajeni znak te vrste. Stranica nasipa i brane ima blok <em>Mjerodavni
         vodomjeri</em>, složen iz dionica (<a href="#dionica-vodomjeri">Mjerodavni
         vodomjeri</a>). Objekt se na karti crta gumbom <em>Uredi na karti</em> (<a href="#karta-uredjivanje">Crtanje na karti</a>).</li>
-      <li id="watercourses"><strong>Vodotoci i vodna tijela</strong> — rijeke i kanali.
-        Oznake rkm na detaljnoj OSM liniji kalibriraju se između susjednih sidara iz ENC-a:
+      <li id="watercourses"><strong>Vodotoci i vodna tijela</strong> — rijeke, potoci, kanali,
+        jezera, akumulacije i retencije. Popis je tablica s kategorijom, utokom, dionicama, letvama i
+        stupcem <em>Na karti</em>, koji kaže je li tok ucrtan; čipovi biraju sve vode ili samo one s
+        dionicom ili postajom, a na mobitelu je svaka voda kartica. Kartica vode ima kartu toka, a
+        dionice i letve su retci koji vode ravno na svoju karticu. Obrazac je složen u ploče: naziv i
+        vrsta, tok, brojke, na karti i letve te napomena.
+        <p>Tok se crta samo na Karti. Globalni administrator to radi gumbom <em>Uredi tok na
+        Karti</em>, i kad toka još nema (<a href="#karta-uredjivanje">Crtanje na karti</a>). Spremaju
+        se samo crte, a točke rkm ostaju iz zapisa. KML ili GeoJSON s tokom učitava se na kartici
+        vode.</p>
+        <p>Akumulacija, retencija i jezero na karti imaju površinu, a ne crtu. Dok površina nije
+        ucrtana, na kartici stoji okvir <em>Površina akumulacije još nije ucrtana</em> s gumbom
+        <em>Ucrtaj na Karti</em>. Zapremina i površina zasad se pišu u napomenu; zaseban registar
+        akumulacija dolazi kasnije.</p>
+        <p>Oznake rkm na detaljnoj OSM liniji kalibriraju se između susjednih sidara iz ENC-a:
         Dunav 1295,600–1432,900 i Drava 0,100–23,200 (izdanja 2018.). Klik na liniju
         pokazuje pokrivenost, a oznake izvan nje označene su kao orijentacijske.
-        Izračun ne mijenja koordinate ni upisani rkm postaja i nije za navigaciju.
-        Globalni administrator tok crta gumbom <em>Uredi tok na karti</em>, i kad toka još nema
-        (<a href="#karta-uredjivanje">Crtanje na karti</a>). Spremaju se samo crte, a točke rkm
-        ostaju iz zapisa.</li>
+        Izračun ne mijenja koordinate ni upisani rkm postaja i nije za navigaciju.</p></li>
       <li id="firme"><strong>Licencirane firme</strong> — izvođači.</li>
       <li id="maintenance"><strong>Održavanje</strong> — lokacije izvršenja usluga i stavke
         radova. Ugovor o održavanju uvozi se iz Excela samo za svoje branjeno područje. Vodu
@@ -2081,18 +2091,24 @@
         detaljno u odjeljku <a href="#sredstva">Sredstva za obranu</a>.</li>
     </ul>
   </div>
-  {{template "pomocPoglavljeNav" (list "Djelatnici" "#users" "Slivovi" "#slivovi")}}
+  {{template "pomocPoglavljeNav" (list "Djelatnici" "#users" "Slivovi i kišomjeri" "#slivovi")}}
 </section>
 
 <section class="detail-section" id="slivovi">
-  <h2>{{icon "cloud-rain"}} Slivovi</h2>
+  <h2>{{icon "cloud-rain"}} Slivovi i kišomjeri</h2>
   <div class="reg-card pomoc-tekst">
     <p>Registar prikazuje <strong>međuslivove između susjednih vodomjernih postaja</strong>: dio
       prostora s kojega voda pritječe između gornje i donje letve. Na karti su zajedno poligoni
       međuslivova, tokovi rijeka, postaje i točke meteoroloških ulaza, pa se može provjeriti što
       pripada kojem dijelu prognostičkog lanca.</p>
+    <p>Na vrhu stranice su brojke i tablica međuslivova: oznaka, naziv, površina, broj stvarnih
+      kišomjera, broj izvedenih točaka sa zbrojem težina i letve za koje međusliv ulazi u
+      prognozu. Zbroj težina koji nije oko 1 je istaknut. Naziv međusliva vodi na njegov odjeljak
+      niže, a na mobitelu je svaki međusliv kartica.</p>
+    <p>Na karti su svi međuslivovi plavi, a oznaka A–O stoji na sredini svakoga. Stvarni kišomjer
+      je puna točka, a izvedena točka prazan prsten u boji visinskog pojasa.</p>
 
-    <h3 id="slivovi-kisomjeri">Meteorološke postaje</h3>
+    <h3 id="slivovi-kisomjeri">Kišomjeri i izvedene točke</h3>
     <p>Registar razlikuje dvije vrste postaja. <strong>Stvarni kišomjeri</strong> mjere (DHMZ,
       Hrvatske vode): imaju izvor, šifru postaje kod izvora i korak mjerenja, a nizovi im stoje u
       hidrološkoj arhivi. Mjere samo svoje mjesto, pa nemaju težinu i model ih ne zbraja u oborinu
@@ -2108,7 +2124,11 @@
       kartica nosi dvije oznake: vrstu (<em>izvedena točka</em> ili <em>pravi kišomjer</em>) i ulazi
       li postaja u dnevnu prognozu. U prognozu ulazi aktivna izvedena točka s težinom, u međuslivu čiju
       kišu dnevni model čita; uz naslov međusliva piše za koje letve. Kad postaja ne ulazi, na kartici
-      piše zašto. Klik na karticu otvara stranicu postaje s očitanjima, prognozom kiše i historijatom.</p>
+      piše zašto. Klik na karticu otvara stranicu kišomjera.</p>
+    <p>Stranica kišomjera počinje podacima o točki: vrsta, izvor i šifra postaje, korak, međusliv,
+      položaj, visina i koliko još točaka ima isti međusliv. Ispod je oborina zadnjih sedam dana po
+      danima, sa zbrojem; dan bez podatka piše „—”, a ne 0,0, da se ne zamijeni sa suhim danom.
+      Dalje su prognoza kiše, graf, popis očitanja i historijat.</p>
     <p>Na vrhu stranice je tablica <strong>Kiša po međuslivovima</strong>: palo u zadnja 24 sata,
       očekivano u idućih 48, koliko je to rijetko i gdje će porasti voda, s jačom kišom na vrhu.
       Ista kiša piše i u zaglavlju svakog međusliva.</p>
@@ -2117,6 +2137,8 @@
       prognoze. Težina govori koliki dio međusliva točka zastupa; zbroj težina aktivnih točaka treba
       biti približno 1. Meteorološki nizovi čuvaju se odvojeno od registra.</p>
     <p>Globalni administrator može dodati i urediti točku ili je premjestiti izravno na karti.
+      U obrascu se ploča <em>Što predstavlja u međuslivu</em> (srednja visina, površina, težina)
+      vidi samo uz izvedenu točku.
       Nakon izmjene treba provjeriti koordinate, visinski pojas, površinu i zbroj težina. Poligoni
       potječu iz HydroBASINS/HydroSHEDS skupa (CC BY 4.0), a tokovi iz OpenStreetMapa (ODbL); izvor
       ostaje naveden uz prikaz.</p>
@@ -2454,7 +2476,7 @@
       što ne može poništiti. Prije stvarnog rada sve testne prekidače treba isključiti i provjeriti
       da u bazi nema probnih izvornika.</p>
   </div>
-  {{template "pomocPoglavljeNav" (list "Slivovi" "#slivovi" "Moj profil" "#profile")}}
+  {{template "pomocPoglavljeNav" (list "Slivovi i kišomjeri" "#slivovi" "Moj profil" "#profile")}}
 </section>
 
 <section class="detail-section" id="profile">

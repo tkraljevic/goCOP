@@ -34,12 +34,26 @@
 
 <div class="stupci-stranice list-stupci">
 <div class="dio-lijevo">
-{{if and .Karta.Ima (or .GeometryJSON .CanEdit)}}
+{{/* Akumulacija, retencija i jezero bez ucrtane površine (17e, 6g): prazno stanje karte s „Ucrtaj na
+     Karti”. Brojke ostaju u napomeni; registra akumulacija još nema (Odluke (10. 11. 2026.), 13). */}}
+{{if and $w.JePovrsina (not .GeometryJSON)}}
+<section class="list-kartica" id="karta">
+  <h2>Na karti</h2>
+  <div class="karta-prazno">
+    {{icon "droplet"}}
+    <p class="karta-prazno-naslov">Površina {{if eq $w.Kind "jezero"}}jezera{{else if eq $w.Kind "akumulacija"}}akumulacije{{else if eq $w.Kind "retencija"}}retencije{{else}}ove vode{{end}} još nije ucrtana</p>
+    <p class="form-help mb-0">Crta se na Karti{{if .CanEdit}}, a može se učitati i KML ili GeoJSON s površinom (WGS84, EPSG:4326){{end}}.</p>
+    {{if or .Permissions.IsGlobalAdmin .CanEdit}}<div class="karta-prazno-gumbi">
+      {{if .Permissions.IsGlobalAdmin}}<a class="btn btn-primary" href="/karta#uredi=vodotok:{{$w.Code}}">Ucrtaj na Karti</a>{{end}}
+      {{if .CanEdit}}{{template "ucitaj-tok" .}}{{end}}
+    </div>{{end}}
+  </div>
+</section>
+{{else if and .Karta.Ima (or .GeometryJSON .CanEdit)}}
 <section class="list-kartica dio-veze" id="karta">
   <h2>Na karti</h2>
   {{if .CanEdit}}<div class="karta-akcije obj-karta-akcije">{{template "ucitaj-tok" .}}</div>{{end}}
-  {{if and (not .GeometryJSON) $w.JePovrsina}}<p class="form-help">Površina ove vode još nije ucrtana. Nacrtajte je na Karti gumbom „Uredi na Karti” ili učitajte KML ili GeoJSON s površinom (WGS84, EPSG:4326).</p>
-  {{else if not .GeometryJSON}}<p class="form-help">Tok ove vode još nije ucrtan. Nacrtajte ga na Karti gumbom „Uredi tok na Karti” ili učitajte KML ili GeoJSON (WGS84, EPSG:4326); tok iz OpenStreetMapa nosi navod © OpenStreetMap contributors (ODbL).</p>{{end}}
+  {{if not .GeometryJSON}}<p class="form-help">Tok ove vode još nije ucrtan. Nacrtajte ga na Karti gumbom „Uredi tok na Karti” ili učitajte KML ili GeoJSON (WGS84, EPSG:4326); tok iz OpenStreetMapa nosi navod © OpenStreetMap contributors (ODbL).</p>{{end}}
   <div class="karta-vodotoka"
        data-sifra="{{$w.Code}}"
        data-naziv="{{$w.Name}}"
@@ -57,11 +71,11 @@
 </section>
 {{end}}
 
-{{if and .CanEdit (not .GeometryJSON) (not .Karta.Ima)}}
+{{if and .CanEdit (not .GeometryJSON) (not .Karta.Ima) (not $w.JePovrsina)}}
 <section class="list-kartica" id="karta">
   <h2>Na karti</h2>
   <p class="form-help">Tok ove vode još nije ucrtan. Učitajte KML ili GeoJSON s crtom toka u WGS84 (EPSG:4326), na primjer izvoz iz QGIS-a, Google Eartha ili OpenStreetMapa; tok iz OSM-a nosi navod © OpenStreetMap contributors (ODbL).</p>
-  <div class="obj-karta-akcije"><a class="btn btn-link karta-uredi-na-karti" href="/karta#uredi=vodotok:{{$w.Code}}">{{if $w.JePovrsina}}Uredi na Karti{{else}}Uredi tok na Karti{{end}}</a>{{template "ucitaj-tok" .}}</div>
+  <div class="obj-karta-akcije"><a class="btn btn-link karta-uredi-na-karti" href="/karta#uredi=vodotok:{{$w.Code}}">Uredi tok na Karti</a>{{template "ucitaj-tok" .}}</div>
 </section>
 {{end}}
 
