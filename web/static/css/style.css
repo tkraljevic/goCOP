@@ -6469,6 +6469,40 @@ h3.kis-podnaslov { margin:1rem 0 0.4rem; display:flex; align-items:center; gap:0
 .kisa-upozorenje.kisa-narancasto { border-left-color:var(--faza-i-crta); background:var(--faza-i-bg); }
 .kisa-upozorenje.kisa-crveno { border-left-color:var(--faza-s-crta); background:var(--tint-orange-bg); }
 .kisa-upozorenje-glava { display:flex; flex-wrap:wrap; gap:0.3rem 0.6rem; align-items:center; }
+/* Jače oborine na Naslovnoj: lanac međuslivova i traka prema pragu (crtež 11a, Odluke 14. 11. 2026.) */
+.kisa-lanac { display: grid; gap: 8px; padding: 0 16px 12px; }
+.kisa-lanac-natpis { margin: 0; font-size: 12px; line-height: 16px; color: var(--text-secondary); }
+.kisa-rijeka { display: grid; gap: 3px; }
+.kisa-rijeka-ime { font-size: 12px; line-height: 16px; font-weight: 500; color: var(--text); }
+.kisa-polja { display: flex; gap: 3px; align-items: flex-start; }
+.kisa-polje { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; text-decoration: none; }
+.kisa-polje-mm { align-self: stretch; height: 34px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-2); font-size: 14px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.kisa-polje-ime { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; line-height: 14px; color: var(--text-secondary); }
+.kisa-polje.kisa-zuto .kisa-polje-mm { background: var(--faza-r-bg); border: 1.5px solid var(--faza-r-crta); color: var(--faza-r-fg); font-weight: 500; }
+.kisa-polje.kisa-narancasto .kisa-polje-mm { background: var(--faza-i-bg); border: 1.5px solid var(--faza-i-crta); color: var(--faza-i-fg); font-weight: 500; }
+.kisa-polje.kisa-crveno .kisa-polje-mm { background: var(--faza-s-bg); border: 1.5px solid var(--faza-s-crta); color: var(--faza-s-fg); font-weight: 500; }
+.kisa-polje:hover .kisa-polje-mm, .kisa-polje:focus-visible .kisa-polje-mm { border-color: var(--primary); }
+.kisa-rijeka.pritok .kisa-polja { gap: 8px; }
+.kisa-rijeka.pritok .kisa-polje { flex: 0 0 calc((100% - 15px) / 6); }
+.kisa-pritok { padding-top: 9px; font-size: 12px; line-height: 16px; color: var(--text-secondary); }
+.kisa-retci { display: grid; gap: 8px; margin: 0; padding: 0 16px; list-style: none; }
+.kisa-redak > a { display: grid; gap: 6px; padding: 10px 12px; border-left: 4px solid var(--faza-r-crta); border-radius: 8px; background: var(--surface-2); color: var(--text); text-decoration: none; }
+.kisa-redak.kisa-narancasto > a { border-left-color: var(--faza-i-crta); }
+.kisa-redak.kisa-crveno > a { border-left-color: var(--faza-s-crta); }
+.kisa-redak > a:hover { background: var(--surface-hover); }
+.kisa-redak-glava { display: flex; align-items: center; gap: 8px; }
+.kisa-redak-ime { flex: 1; font-size: 14px; line-height: 20px; font-weight: 500; }
+.kisa-redak-glava .badge { flex: none; }
+.kisa-traka { position: relative; display: block; height: 22px; }
+.kisa-traka::before { content: ""; position: absolute; left: 0; right: 0; top: 6px; height: 10px; border-radius: 5px; background: var(--border); }
+.kisa-traka-dio { position: absolute; top: 6px; height: 10px; border-right: 1.5px solid var(--surface-2); border-radius: 2px; background: var(--graf-mjereno); }
+.kisa-traka-dio.ocekivano { background: var(--graf-ocekivano); }
+.kisa-traka-crtica { position: absolute; top: 0; width: 2px; height: 22px; margin-left: -1px; background: var(--faza-r-crta); }
+.kisa-traka-crtica.kisa-narancasto { background: var(--faza-i-crta); }
+.kisa-traka-crtica.kisa-crveno { background: var(--faza-s-crta); }
+.kisa-redak-palo { font-size: 13px; line-height: 18px; color: var(--text); }
+.kisa-redak-sporedno { font-size: 13px; line-height: 18px; color: var(--text-secondary); }
+.kisa-retci + .kartica-vise { margin-top: 4px; }
 .badge.kisa-zuto { background:var(--faza-r-bg); color:var(--faza-r-fg); --badge-tocka:var(--faza-r-crta); }
 .badge.kisa-narancasto { background:var(--faza-i-bg); color:var(--faza-i-fg); --badge-tocka:var(--faza-i-crta); }
 .badge.kisa-crveno { background:var(--faza-s-bg); color:var(--faza-s-fg); --badge-tocka:var(--faza-s-fg); }
