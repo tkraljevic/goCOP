@@ -10052,3 +10052,38 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
   table.sli-tablica td.sl-naziv { order: 1; flex: 1 1 0; width: auto; font-size: 1rem; }
   table.sli-tablica td.sl-km2 { display: none; }
 }
+
+/* Kartica sektora (17a, 2b): lijevo žig centra, desno Podaci. Bez žiga samo Podaci. */
+.sek-samo-podaci { max-width: 44rem; }
+.sek-prazno { color: var(--md-sys-color-on-surface-variant); }
+.sek-glava { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; margin-bottom: 12px; }
+.sek-glava h2 { margin: 0; font-size: 1rem; font-weight: 500; line-height: 24px; }
+.sek-drugi { margin: 0; font-size: 0.875rem; }
+.sek-zig-pregled { display: flex; align-items: flex-start; gap: 16px; }
+.sek-zig-pregled p { margin: 0 0 8px; }
+.sek-zig-slika { flex: none; width: 128px; height: 128px; border-radius: 50%; }
+.sek-zig-prazno { display: flex; flex: none; align-items: center; justify-content: center; width: 128px; height: 128px; border: 1px dashed var(--md-sys-color-outline); border-radius: 50%; color: var(--md-sys-color-on-surface-variant); }
+.sek-zig-prazno .icon { width: 32px; height: 32px; }
+.sek-zig-stanje { color: var(--md-sys-color-on-surface); font-size: 0.9375rem; font-weight: 500; }
+.sek-ukloni { min-height: 0; padding: 0; border: 0; }
+.sek-zig form { margin: 0; }
+.sek-zig-sken { margin-top: 12px; }
+.sek-zig-sken > summary { display: inline-flex; color: var(--md-sys-color-primary); font-size: 0.875rem; font-weight: 500; cursor: pointer; list-style: none; }
+.sek-zig-sken > summary::-webkit-details-marker { display: none; }
+.sek-zig-sken[open] > summary { margin-bottom: 8px; }
+.sek-zig-sken .form-group { margin-bottom: 8px; }
+.sek-zastita { margin-top: 12px; border-radius: 8px; background: var(--md-sys-color-surface-container); }
+.sek-zastita > summary { display: flex; align-items: center; gap: 12px; padding: 8px 12px; cursor: pointer; list-style: none; }
+.sek-zastita > summary::-webkit-details-marker { display: none; }
+.sek-zastita > summary > .icon { width: 24px; height: 24px; flex: none; color: var(--md-sys-color-on-surface-variant); }
+.sek-zastita > summary > .icon:last-child { width: 20px; height: 20px; }
+.sek-zastita[open] > summary > .icon:last-child { transform: rotate(90deg); }
+.sek-zastita .redak-glavno { font-size: 0.875rem; line-height: 20px; }
+.sek-zastita .redak-sporedno { font-size: 0.75rem; line-height: 16px; }
+.sek-zastita ul { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0 12px 12px 48px; font-size: 0.8125rem; }
+@media (max-width: 599px) {
+  .sek-zig-pregled { flex-direction: column; }
+}
+@media print {
+  .sek-zig-sken, .sek-ukloni { display: none; }
+}
