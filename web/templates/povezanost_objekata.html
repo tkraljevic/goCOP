@@ -2,42 +2,42 @@
 
 {{define "title"}}goCOP — Povezanost ustava i crpnih stanica{{end}}
 
+{{/* Povezanost ustava i crpnih stanica (goCOP-m3, 17d · Registri, 5f): branjena područja kao čipovi,
+     tablica koja je na mobitelu kartica, a što nedostaje kao oznaka. Čipovi „Nedostaje vodotok” i
+     „Nedostaje letva” su novo ponašanje. */}}
 {{define "content"}}
-<div class="page-header">
+<a href="/crpne-stanice{{if .Podrucje}}?area={{.Podrucje}}{{end}}" class="povratna-poveznica">← Crpne stanice</a>
+<div class="page-header list-glava dio-glava">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "link"}} Povezanost ustava i crpnih stanica</h1>
-    <p class="page-desc">Svaka ustava i crpna stanica s vodotokom i letvom obje strane. Ustava: uzvodno i nizvodno. Crpna stanica: unutarnja strana (kanal) i vanjska (vodotok, dunavac, retencija). Što nedostaje dopunite preko „Uredi”.</p>
+    <h1 class="page-title" data-naziv-stranice>Povezanost ustava i crpnih stanica</h1>
+    <p class="page-desc">Vodotok i letva obje strane: kod ustave uzvodno i nizvodno, kod crpne stanice kanal i vanjska strana. Što nedostaje dopunite preko „Uredi”.</p>
   </div>
 </div>
 
-<form method="GET" action="/registri/povezanost-objekata" class="filter-card d-flex items-center gap-3">
-  <label for="area" class="form-label m-0">Branjeno područje</label>
-  <select id="area" name="area" class="form-control max-w-14" onchange="this.form.submit()">
-    <option value="">sva</option>
-    {{range .Areas}}<option value="{{.ID}}" {{if eq .ID $.Podrucje}}selected{{end}}>{{.ID}} {{.Name}}</option>{{end}}
-  </select>
-  <span class="reading-meta">{{len .Redovi}} objekata · {{.Nepotpunih}} nepotpunih</span>
-</form>
-
-{{if .Redovi}}
-<div class="table-responsive reg-card">
-<table class="data-table">
-  <thead><tr><th>Objekt</th><th>BP</th><th>Prva strana: vodotok · letva</th><th>Druga strana: vodotok · letva</th><th>Veza</th><th></th></tr></thead>
-  <tbody>
-  {{range .Redovi}}
-  <tr>
-    <td><a href="{{.Objekt.Path}}">{{.Objekt.Name}}</a>{{if .Objekt.IsPumpingStation}}<div class="reading-meta">crpna stanica, {{.Objekt.SmjerNaziv}}{{if .Objekt.ImaSifon}}, sa sifonom{{end}}</div>{{else}}<div class="reading-meta">ustava</div>{{end}}</td>
-    <td>{{.Objekt.AreaID}}</td>
-    <td>{{if .Vodotok}}{{.Vodotok}}{{else}}<span class="badge badge-warning">vodotok nedostaje</span>{{end}}<div class="reading-meta">{{if .Letva}}{{.Letva}}{{else}}letva nedostaje{{end}}</div></td>
-    <td>{{if .VodotokDruge}}{{.VodotokDruge}}{{else}}<span class="badge badge-warning">vodotok nedostaje</span>{{end}}<div class="reading-meta">{{if .LetvaDruge}}{{.LetvaDruge}}{{else}}letva nedostaje{{end}}</div></td>
-    <td>{{if .USklopu}}u sklopu: {{.USklopu}}{{else if .Objekt.ImaUstavu}}ugrađena ustava{{else}}<span class="c-muted">—</span>{{end}}</td>
-    <td>{{if .MozeUredjivati}}<a href="{{.Objekt.Path}}/edit" class="btn btn-sm btn-secondary">{{icon "pencil"}} Uredi</a>{{end}}</td>
-  </tr>
-  {{end}}
-  </tbody>
-</table>
+<div class="ocitanja-cipovi cipovi-stranice" role="group" aria-label="{{term "podrucje"}}">
+  {{range .CipoviPodrucja}}<a class="ocitanja-cip" href="{{.URL}}" aria-pressed="{{if .Odabran}}true{{else}}false{{end}}">{{if .Odabran}}{{icon "check"}}{{end}}{{.Naziv}}</a>{{end}}
 </div>
-{{else}}
-<div class="alert alert-info">Na ovom području nema ustava ni crpnih stanica.</div>
-{{end}}
+
+<div class="akti-okvir dio-okvir">
+  <table class="data-table kartice-na-mobitelu dio-tablica pov-tablica">
+    <thead><tr><th>Objekt</th><th>Prva strana: letva · vodotok</th><th>Druga strana: letva · vodotok</th><th>Veza</th><th></th></tr></thead>
+    <tbody>
+    {{range .Redovi}}
+    <tr>
+      <td class="pv-objekt"><a class="dl-poveznica" href="{{.Objekt.Path}}">{{.Objekt.Name}}</a>
+        <span class="dl-sitno">{{if .Objekt.IsPumpingStation}}crpna stanica, {{.Objekt.SmjerNaziv}}{{if .Objekt.ImaSifon}}, sa sifonom{{end}}{{else}}ustava{{end}}{{if not $.Podrucje}} · {{term "bp"}} {{.Objekt.AreaID}}{{end}}</span></td>
+      <td class="pv-strana"><span class="usluga-samo-usko">Prva strana: </span>{{if .Letva}}{{.Letva}}{{else}}<span class="oznaka-stanja pozor">nema letve</span>{{end}}
+        <span class="dl-sitno">{{if .Vodotok}}{{.Vodotok}}{{else}}<span class="oznaka-stanja pozor">nema vodotoka</span>{{end}}</span></td>
+      <td class="pv-strana"><span class="usluga-samo-usko">Druga strana: </span>{{if .LetvaDruge}}{{.LetvaDruge}}{{else}}<span class="oznaka-stanja pozor">nema letve</span>{{end}}
+        <span class="dl-sitno">{{if .VodotokDruge}}{{.VodotokDruge}}{{else}}<span class="oznaka-stanja pozor">nema vodotoka</span>{{end}}</span></td>
+      <td class="pv-veza">{{if .USklopu}}ustava u sklopu: {{.USklopu}}{{else if .Objekt.ImaUstavu}}ugrađena ustava{{else if not .Objekt.IsPumpingStation}}samostalna{{else}}—{{end}}</td>
+      <td class="pv-uredi">{{if .MozeUredjivati}}<a href="{{.Objekt.Path}}/edit" class="btn btn-link">Uredi</a>{{end}}</td>
+    </tr>
+    {{else}}
+    <tr class="dl-prazno"><td colspan="5"><p>Na ovom području nema ustava ni crpnih stanica.</p></td></tr>
+    {{end}}
+    </tbody>
+  </table>
+</div>
+<p class="dio-podnozje">{{len .Redovi}} {{uzBroj (len .Redovi) "objekt" "objekta" "objekata"}}{{if .Podrucje}} u {{term "bp"}} {{.Podrucje}}{{end}} · nepotpunih: {{.Nepotpunih}}</p>
 {{end}}

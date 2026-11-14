@@ -36,7 +36,9 @@ type PovezanostPageData struct {
 	Areas       []models.Area
 	Podrucje    int
 	Nepotpunih  int
-	ActiveNav   string
+	// CipoviPodrucja su „Sva” i branjena područja koja imaju ustavu ili crpnu stanicu
+	CipoviPodrucja []CipPopisa
+	ActiveNav      string
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -56,6 +58,7 @@ func (h *StructuresHandler) ShowPovezanost(w http.ResponseWriter, r *http.Reques
 		data.Areas = a
 	}
 	data.Redovi = h.redoviPovezanosti(ctx, perms, podrucje)
+	data.CipoviPodrucja = cipoviPodrucjaPovezanosti(h.podrucjaSObjektima(ctx), data.Areas, podrucje)
 	for _, red := range data.Redovi {
 		if red.Nepotpun() {
 			data.Nepotpunih++
@@ -117,4 +120,31 @@ func najniziZaSifon(r *http.Request, imaSifon bool) *int {
 		return nil
 	}
 	return parseThresholdInput(r.FormValue("sifon_min_cm")).Cm
+}
+
+// podrucjaSObjektima su branjena područja s barem jednom crpnom stanicom ili ustavom
+func (h *StructuresHandler) podrucjaSObjektima(ctx context.Context) map[int]bool {
+	ima := map[int]bool{}
+	for _, vrsta := range []string{models.StructureKindPumpingStation, models.StructureKindSluice} {
+		if l, err := h.structureService.List(ctx, "", 0, vrsta, ""); err == nil {
+			for _, o := range l {
+				ima[o.AreaID] = true
+			}
+		}
+	}
+	return ima
+}
+
+// cipoviPodrucjaPovezanosti: „Sva” pa područja s objektima, redom popisa područja
+// (goCOP-m3, 17d · Registri, 5f)
+func cipoviPodrucjaPovezanosti(ima map[int]bool, podrucja []models.Area, izabrano int) []CipPopisa {
+	const put = "/registri/povezanost-objekata"
+	out := []CipPopisa{{Naziv: "Sva", URL: put, Odabran: izabrano == 0}}
+	for _, a := range podrucja {
+		if ima[a.ID] {
+			out = append(out, CipPopisa{Naziv: models.Terms().AreaShort + " " + strconv.Itoa(a.ID),
+				URL: put + "?area=" + strconv.Itoa(a.ID), Odabran: a.ID == izabrano})
+		}
+	}
+	return out
 }
