@@ -10069,3 +10069,6 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
 .karta-prazno-naslov { margin: 0; font-weight: 500; }
 .karta-prazno-gumbi { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 8px; }
 @media (max-width: 767px) { .karta-prazno { min-height: 180px; } }
+
+/* Obrasci županije i općine (17f, 7d i 7e). */
+.ter-oznaka-polje { text-transform: uppercase; }

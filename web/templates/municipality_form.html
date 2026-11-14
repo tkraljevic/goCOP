@@ -2,21 +2,36 @@
 
 {{define "title"}}goCOP — {{if .IsEdit}}Uređivanje: {{.Municipality.Name}}{{else}}Novi grad ili općina{{end}}{{end}}
 
+{{/* Obrazac grada ili općine (goCOP-m3, 17f · 7e): kartica Osnovno, imena polja i obavezna
+     polja kao prije. Naselja se zasad uređuju na kartici grada ili općine. */}}
 {{define "content"}}
+<div class="lob-stranica">
 {{if .IsEdit}}<a href="/territories/municipalities/{{.Municipality.ID}}" class="povratna-poveznica">← {{if eq .Municipality.Type "GRAD"}}Grad{{else}}Općina{{end}} {{.Municipality.Name}}</a>
 {{else}}<a href="/territories?tab=municipalities" class="povratna-poveznica">← Teritorij</a>{{end}}
 
-<div class="page-header">
+<div class="page-header list-glava">
   <div>
     <h1 class="page-title" data-naziv-stranice>{{if .IsEdit}}Uredi grad ili općinu{{else}}Novi grad ili općina{{end}}</h1>
-    <p class="page-desc">Naselja se dodaju na stranici grada ili općine nakon upisa.</p>
+    <p class="page-desc">Polja sa zvjezdicom su obavezna.</p>
   </div>
 </div>
 
-
-<form class="form-page" method="POST" action="{{if .IsEdit}}/territories/municipality/update{{else}}/territories/municipality/create{{end}}">
+<form class="form-page form-wide" method="POST" action="{{if .IsEdit}}/territories/municipality/update{{else}}/territories/municipality/create{{end}}">
   {{if .IsEdit}}<input type="hidden" name="id" value="{{.Municipality.ID}}">{{end}}
+  <section class="list-kartica">
+  <h3>Osnovno</h3>
   <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="name">Naziv *</label>
+      <input type="text" id="name" name="name" class="form-control" required value="{{.Municipality.Name}}" placeholder="npr. Popovac">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="type">Vrsta *</label>
+      <select id="type" name="type" class="form-control" required>
+        <option value="GRAD" {{if eq .Municipality.Type "GRAD"}}selected{{end}}>grad</option>
+        <option value="OPCINA" {{if eq .Municipality.Type "OPCINA"}}selected{{end}}>općina</option>
+      </select>
+    </div>
     <div class="form-group">
       <label class="form-label" for="county_id">Županija *</label>
       <select id="county_id" name="county_id" class="form-control" required>
@@ -24,42 +39,29 @@
         {{range .Counties}}<option value="{{.ID}}" {{if eq .ID $.Municipality.CountyID}}selected{{end}}>{{.Name}}</option>{{end}}
       </select>
     </div>
-    <div class="form-group">
-      <label class="form-label" for="type">Vrsta *</label>
-      <select id="type" name="type" class="form-control" required>
-        <option value="GRAD" {{if eq .Municipality.Type "GRAD"}}selected{{end}}>Grad</option>
-        <option value="OPCINA" {{if eq .Municipality.Type "OPCINA"}}selected{{end}}>Općina</option>
-      </select>
-    </div>
   </div>
   <div class="form-row">
-    <div class="form-group">
-      <label class="form-label" for="name">Naziv *</label>
-      <input type="text" id="name" name="name" class="form-control" required value="{{.Municipality.Name}}" placeholder="npr. Popovača">
-    </div>
     <div class="form-group">
       <label class="form-label" for="postal_code">Poštanski broj</label>
-      <input type="text" inputmode="numeric" id="postal_code" name="postal_code" class="form-control" value="{{.Municipality.PostalCode}}" placeholder="npr. 31000">
+      <input type="text" inputmode="numeric" id="postal_code" name="postal_code" class="form-control" value="{{.Municipality.PostalCode}}" placeholder="npr. 31300">
     </div>
-  </div>
-  <div class="form-row">
-    <div class="form-group">
-      <label class="form-label" for="head_title">Funkcija čelnika</label>
-      <input type="text" id="head_title" name="head_title" class="form-control" value="{{.Municipality.HeadTitle}}" placeholder="Gradonačelnik / Općinski načelnik">
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="head_name">Ime čelnika</label>
-      <input type="text" id="head_name" name="head_name" class="form-control" value="{{.Municipality.HeadName}}">
-    </div>
-  </div>
-  <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="area_sqkm">Površina (km²)</label>
       <input type="text" inputmode="decimal" id="area_sqkm" name="area_sqkm" class="form-control" value="{{if gt .Municipality.AreaSqKm 0.0}}{{unos .Municipality.AreaSqKm 1}}{{end}}">
     </div>
     <div class="form-group">
-      <label class="form-label" for="population">Stanovništvo</label>
+      <label class="form-label" for="population">Stanovnika</label>
       <input type="text" inputmode="numeric" id="population" name="population" class="form-control" value="{{if gt .Municipality.Population 0}}{{.Municipality.Population}}{{end}}">
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="head_title">Naslov čelne osobe</label>
+      <input type="text" id="head_title" name="head_title" class="form-control" value="{{.Municipality.HeadTitle}}" placeholder="npr. načelnica, gradonačelnik">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="head_name">Ime i prezime</label>
+      <input type="text" id="head_name" name="head_name" class="form-control" value="{{.Municipality.HeadName}}">
     </div>
   </div>
   <div class="form-row">
@@ -73,14 +75,19 @@
       <input type="tel" id="phone" name="phone" class="form-control" value="{{.Municipality.Phone}}">
     </div>
     <div class="form-group">
-      <label class="form-label" for="website">Web stranica</label>
+      <label class="form-label" for="website">Web</label>
       <input type="text" id="website" name="website" class="form-control" value="{{.Municipality.Website}}" placeholder="npr. www.grad.hr">
     </div>
   </div>
-
-  <div class="form-actions">
-    <a href="{{if .IsEdit}}/territories/municipalities/{{.Municipality.ID}}{{else}}/territories?tab=municipalities{{end}}" class="btn btn-secondary">Odustani</a>
-    <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi izmjene{{else}}Dodaj{{end}}</button>
+  </section>
+  <section class="list-kartica">
+  <h3>Naselja</h3>
+  <p class="form-help mb-0">{{if .IsEdit}}Naselja se upisuju i mijenjaju na <a href="/territories/municipalities/{{.Municipality.ID}}">kartici grada ili općine</a>.{{else}}Naselja se dodaju na kartici grada ili općine nakon upisa.{{end}}</p>
+  </section>
+  <div class="form-actions lob-gumbi">
+    <a href="{{if .IsEdit}}/territories/municipalities/{{.Municipality.ID}}{{else}}/territories?tab=municipalities{{end}}" class="btn btn-link">Odustani</a>
+    <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi{{else}}Upiši{{end}}</button>
   </div>
 </form>
+</div>
 {{end}}
