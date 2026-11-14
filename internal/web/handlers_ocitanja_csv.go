@@ -430,6 +430,7 @@ type PregledOcitanja struct {
 	Structure   *models.Structure
 	GaugeName   string
 	BackURL     string
+	PotvrdaURL  string
 	Redci       []RedakOcitanja
 	Izmjena     int
 	Brisanja    int
@@ -491,7 +492,9 @@ func (h *ReadingsHandler) HandleOcitanjaUvoz(w http.ResponseWriter, r *http.Requ
 	data := PregledOcitanja{
 		CurrentUser: u, Permissions: perms, Station: station, Structure: structure,
 		GaugeName: ime, BackURL: back, Redci: redci, Datoteka: zaglavlje.Filename,
-		ActiveNav: "readings", ViewAsBanner: viewBanner(r),
+		// potvrda ide na letvu ili objekt, ne na povratak: povratak letve je kartica Uvoz i izvoz
+		PotvrdaURL: vezaLetve(station, structure) + "/ocitanja/potvrdi",
+		ActiveNav:  "readings", ViewAsBanner: viewBanner(r),
 	}
 	for _, x := range redci {
 		switch {

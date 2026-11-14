@@ -163,7 +163,8 @@ func TestPregledIspravakaOcitanja(t *testing.T) {
 		CurrentUser: &models.User{FullName: "P"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		Station:     &models.Station{ID: uuid.New(), Name: "Batina", Code: "batina"},
-		GaugeName:   "Batina", BackURL: "/readings/station/x", Datoteka: "batina_ocitanja.csv",
+		GaugeName:   "Batina", BackURL: "/readings/station/x/uvoz-izvoz", Datoteka: "batina_ocitanja.csv",
+		PotvrdaURL: "/readings/station/x/ocitanja/potvrdi",
 		Redci: []RedakOcitanja{
 			{Redak: 2, ID: kriv.ID, Staro: kriv, Novo: novo,
 				Izmjene: []Izmjena{{"vodostaj", "-18 cm", "-118 cm"}}},
@@ -180,7 +181,7 @@ func TestPregledIspravakaOcitanja(t *testing.T) {
 		t.Errorf("na upis se nudi %d redaka, a mijenja se jedan",
 			strings.Count(html, `name="id"`))
 	}
-	if !strings.Contains(html, "/readings/station/x/ocitanja/potvrdi") {
+	if !strings.Contains(html, `action="/readings/station/x/ocitanja/potvrdi"`) {
 		t.Error("obrazac ne vodi na potvrdu")
 	}
 }
