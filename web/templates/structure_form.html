@@ -3,23 +3,27 @@
 {{define "title"}}goCOP — {{if .IsEdit}}Uređivanje objekta{{else}}Novi objekt{{end}}{{end}}
 
 {{define "content"}}
-<div class="breadcrumb">
-  <a href="{{.Register.Path}}">{{.Register.Title}}</a>
-  {{if .IsEdit}} › <a href="{{.Structure.Path}}">{{.Structure.Name}}</a> › Uređivanje{{else}} › {{if .Register.NewLabel}}{{.Register.NewLabel}}{{else}}Novi objekt{{end}}{{end}}
-</div>
-
-<div class="page-header">
+{{/* Obrazac objekta (goCOP-m3, 17d · Registri, 5c): ploče Osnovno, Strane i letve, U sklopu, Pogon,
+     Položaj, Dionice i Opis za sve vrste; polja koja vrsta ne treba ostaju u obrascu. Imena polja,
+     skrivena polja i skripte su isti; Obriši je zaseban obrazac na dnu. */}}
+<div class="lob-stranica obj-obrazac">
+{{if .IsEdit}}<a href="{{.Structure.Path}}" class="povratna-poveznica">← {{.Structure.Name}}</a>
+{{else}}<a href="{{.Register.Path}}" class="povratna-poveznica">← {{.Register.Title}}</a>{{end}}
+<div class="page-header list-glava">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{if .IsEdit}}{{icon "pencil"}} {{.Structure.Name}}{{else}}{{icon "construction"}} Novi objekt{{end}}</h1>
-    <p class="page-desc">Crpna stanica, ustava, sifon ili pregrada s podacima koje traži pogon. Svaka izmjena ostaje u povijesti zapisa.</p>
+    <h1 class="page-title" data-naziv-stranice>{{if .IsEdit}}Uredi objekt{{else if .Register.NewLabel}}{{.Register.NewLabel}}{{else}}Novi objekt{{end}}</h1>
+    <p class="page-desc">Polja sa zvjezdicom su obavezna. Crta objekta crta se na Karti. Svaka izmjena ostaje u povijesti zapisa.</p>
   </div>
 </div>
 
-
-<form class="form-page" method="POST" action="{{if .IsEdit}}/structures/update{{else}}/structures/create{{end}}">
+<form class="form-page form-wide" method="POST" action="{{if .IsEdit}}/structures/update{{else}}/structures/create{{end}}">
   {{if .IsEdit}}<input type="hidden" name="id" value="{{.Structure.ID}}"><input type="hidden" name="code" value="{{.Structure.Code}}">{{end}}
-  <input type="hidden" name="zero_datum_system" value="{{if .Structure.ZeroDatumSystem}}{{.Structure.ZeroDatumSystem}}{{else}}TRST{{end}}">
+  {{/* Sustav kote šalje se kakav jest: za novi objekt rukovatelj već upisuje TRST, a stari zapis bez
+       sustava ne smije ga dobiti samim spremanjem. */}}
+  <input type="hidden" name="zero_datum_system" value="{{.Structure.ZeroDatumSystem}}">
 
+  <section class="list-kartica">
+  <h3>Osnovno</h3>
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="name">Naziv *</label>
@@ -42,6 +46,12 @@
       </select>
       <div class="form-help">{{term "sektor"}} slijedi iz područja.</div>
     </div>
+  </div>
+  </section>
+
+  <section class="list-kartica">
+  <h3>Strane i letve</h3>
+  <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="station_id">Vodomjer na objektu</label>
       <div class="form-help">Ustava: uzvodni. Crpna stanica: unutarnja strana (kanal).</div>
@@ -83,8 +93,10 @@
       <div class="form-help">Ustava: nizvodno. Crpna stanica: vanjska strana (vodotok, dunavac, retencija).</div>
     </div>
   </div>
+  </section>
 
-  <div id="sluice-fields" {{if ne .Structure.Kind "USTAVA"}}hidden{{end}}>
+  <section class="list-kartica" id="sluice-fields" {{if ne .Structure.Kind "USTAVA"}}hidden{{end}}>
+    <h3>U sklopu</h3>
     <div class="form-group">
       <label class="form-label" for="u_sklopu_id">U sklopu crpne stanice</label>
       <select id="u_sklopu_id" name="u_sklopu_id" class="form-control">
@@ -93,10 +105,10 @@
       </select>
       <div class="form-help">Kad je ustava dio crpne stanice, zapornica se upisuje u očitanju stanice.</div>
     </div>
-  </div>
+  </section>
 
-  <div id="pump-fields" {{if not .Structure.IsPumpingStation}}hidden{{end}}>
-    <h3 style="font-size:0.9rem; margin:1rem 0 0.5rem;">Pogon crpne stanice</h3>
+  <section class="list-kartica" id="pump-fields" {{if not .Structure.IsPumpingStation}}hidden{{end}}>
+    <h3>Pogon crpne stanice</h3>
     <div class="form-row">
       <div class="form-group">
         <label class="form-label" for="capacity_text">Kapacitet (m³/s)</label>
@@ -140,8 +152,10 @@
         Ima ugrađenu ustavu (gravitacijsko upuštanje i ispuštanje)</label>
       <div class="form-help">Tada se u očitanju stanice upisuje i zapornica: zatvorena ili otvorena i koliko posto.</div>
     </div>
-  </div>
+  </section>
 
+  <section class="list-kartica">
+  <h3>Položaj</h3>
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="latitude">Zemljopisna širina</label>
@@ -152,9 +166,21 @@
       <input type="text" inputmode="decimal" id="longitude" name="longitude" class="form-control" value="{{if .Structure.Longitude}}{{derefFloat .Structure.Longitude 5}}{{end}}" placeholder="18,6xxxx">
     </div>
   </div>
+  {{if .IsEdit}}<a class="btn btn-link lob-karta" href="/karta#uredi=objekt:{{.Structure.ID}}">Uredi na Karti</a>
+  <p class="form-help mb-0">Crta se na Karti, a KML ili GeoJSON učitava se na kartici objekta. Spremite izmjene prije odlaska na Kartu.</p>{{end}}
+  </section>
 
-  <div class="form-group">
-    <label class="form-label" for="notes-editor">Detaljni opis</label>
+  {{if .IsEdit}}
+  <section class="list-kartica">
+  <h3>Dionice</h3>
+  <div class="lob-cipovi">{{range .Structure.SectionCodes}}<a class="oznaka-stanja obrub" href="/sections/{{.}}">{{.}}</a>{{else}}<span class="form-help">Objekt nije vezan ni na jednu dionicu.</span>{{end}}</div>
+  <p class="form-help mb-0">Objekt se dionici dodaje u obrascu dionice, u poddionici na kojoj stoji.</p>
+  </section>
+  {{end}}
+
+  <section class="list-kartica">
+  <div class="form-group mb-0">
+    <h3><label for="notes-editor">Opis</label></h3>
     <div class="urednik" id="notes-editor">
       <div class="urednik-alat" role="toolbar" aria-label="Oblikovanje detaljnog opisa">
         <select class="urednik-blok" title="Naslov ili odlomak">
@@ -178,12 +204,21 @@
     </div>
     <div class="form-help">Sprema se kao Markdown. Vizualni prikaz podržava naslove, podebljano, kurziv, popise i poveznice; gumb Markdown otvara izvorni tekst.</div>
   </div>
+  </section>
 
-  <div class="form-actions">
-    <a href="{{if .IsEdit}}/structures/{{.Structure.ID}}{{else}}/structures{{end}}" class="btn btn-secondary">Odustani</a>
+  <div class="form-actions lob-gumbi">
+    {{if .IsEdit}}<button type="submit" form="obrisi-objekt" class="btn btn-link btn-opasno obj-obrisi">Obriši objekt</button>{{end}}
+    <a href="{{if .IsEdit}}/structures/{{.Structure.ID}}{{else}}/structures{{end}}" class="btn btn-link">Odustani</a>
     <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi izmjene{{else}}Upiši u registar{{end}}</button>
   </div>
 </form>
+{{if .IsEdit}}
+{{/* Brisanje je zaseban obrazac (ugniježđeni ne rade); gumb je dolje lijevo u glavnom, preko atributa form. */}}
+<form id="obrisi-objekt" method="POST" action="/structures/delete" hidden onsubmit="return confirm('Obrisati objekt „{{.Structure.Name}}“ iz registra? Zapis ostaje u povijesti.')">
+  <input type="hidden" name="id" value="{{.Structure.ID}}">
+</form>
+{{end}}
+</div>
 <script>
   (function () {
     var form = document.querySelector('form.form-page');

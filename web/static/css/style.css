@@ -10003,3 +10003,6 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
   .obj-stranica .page-actions { display: flex; flex-wrap: wrap; gap: 8px; }
   .obj-stranica .page-actions .btn-primary { flex: 1 0 100%; order: -1; min-height: 48px; }
 }
+/* Obrazac objekta (17d, 5c): ploče kao obrazac postaje (.lob-stranica), Obriši dolje lijevo. */
+.obj-obrazac .list-kartica > h3 label { font: inherit; color: inherit; }
+.obj-obrazac .obj-obrisi { margin-right: auto; }
