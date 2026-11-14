@@ -10180,3 +10180,28 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
   table.org-tablica td[data-stupac] .dl-sitno { display: block; }
   .org-razina-popis { padding: 0; border: 0; background: none; }
 }
+
+/* Teritorij: popis županija (17f, 7a). Četiri brojke, čipovi s pretragom i tablica
+   koja je na mobitelu kartica. */
+.ter-brojevi { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 4px 0 16px; }
+.ter-brojka { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px; background: var(--md-sys-color-surface-container-low); }
+.ter-brojka > svg { width: 24px; height: 24px; flex: none; color: var(--md-sys-color-on-surface-variant); }
+.ter-brojka > span { display: flex; flex-direction: column; line-height: 1.2; }
+.ter-brojka strong { font-size: 1.4rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+.ter-brojka strong + span { font-size: 0.8rem; color: var(--md-sys-color-on-surface-variant); }
+.ter-traka-vrh { margin-bottom: 12px; }
+.ter-tablica .text-right { font-variant-numeric: tabular-nums; }
+.ter-oznaka-stupac { color: var(--md-sys-color-on-surface-variant); }
+.ter-tablica td a:not(.btn):not(.dl-poveznica) { color: var(--md-sys-color-primary); text-decoration: none; }
+@media (max-width: 767px) {
+  .ter-brojevi { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .ter-brojka { padding: 10px 12px; }
+  .ter-tablica .text-right { text-align: left; }
+}
+@media (max-width: 599px) {
+  table.ter-tablica.kartice-na-mobitelu td { width: 100%; }
+  table.ter-tablica.kartice-na-mobitelu td:first-child { font-size: 1rem; line-height: 24px; color: var(--md-sys-color-on-surface); }
+  table.ter-tablica.kartice-na-mobitelu td[data-stupac] { display: flex; justify-content: space-between; gap: 12px; }
+  table.ter-tablica.kartice-na-mobitelu td[data-stupac]::before { content: attr(data-stupac); flex: none; color: var(--md-sys-color-on-surface-variant); }
+  table.ter-tablica.kartice-na-mobitelu td:last-child .btn { width: auto; min-height: 40px; margin: 0; }
+}

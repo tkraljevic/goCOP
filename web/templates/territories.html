@@ -2,7 +2,7 @@
 
 <div class="territories-page">
   <a href="/registri" class="povratna-poveznica">← Registri</a>
-  <div class="page-header">
+  <div class="page-header list-glava dio-glava">
     <div>
       <h1 class="page-title" data-naziv-stranice>Teritorij</h1>
       <p class="page-desc">Županije, gradovi, općine i naselja, sa službama za obranu i dionicama koje ih štite.</p>
@@ -13,72 +13,39 @@
         <a href="{{.ListURL}}" class="btn btn-sm {{if ne .ViewMode "map"}}btn-primary{{else}}btn-secondary{{end}}">{{icon "list"}} Popis</a>
         <a href="{{.MapURL}}" class="btn btn-sm {{if eq .ViewMode "map"}}btn-primary{{else}}btn-secondary{{end}}">{{icon "map"}} Karta</a>
       </div>
+      <details class="ocitanja-izbor org-csv">
+        <summary class="btn btn-link">CSV</summary>
+        <div class="org-csv-ploca">
+          <a href="/territories/zupanije.csv" title="Izvoz u CSV (Excel)">{{icon "download"}} Županije</a>
+          <a href="/territories/gradovi-i-opcine.csv" title="Izvoz u CSV (Excel)">{{icon "download"}} Gradovi i općine</a>
+          <a href="/territories/naselja.csv" title="Izvoz u CSV (Excel)">{{icon "download"}} Naselja</a>
+          {{if .Permissions.IsGlobalAdmin}}
+          <p class="org-csv-naslov">Uvoz</p>
+          <form method="POST" action="/territories/uvoz" enctype="multipart/form-data">
+            <select name="kind" class="form-control" aria-label="Što se uvozi">
+              <option value="zupanije">Županije</option>
+              <option value="opcine">Gradovi i općine</option>
+              <option value="naselja">Naselja</option>
+            </select>
+            <input type="file" name="csv" accept=".csv,text/csv" class="form-control" required aria-label="CSV datoteka">
+            <button type="submit" class="btn btn-sm btn-secondary">Uvezi</button>
+          </form>
+          <p class="form-help mb-0">Redak s postojećim brojem se osvježi, redak bez broja se doda; ništa se ne briše.</p>
+          {{end}}
+        </div>
+      </details>
       {{if .Permissions.IsGlobalAdmin}}
-      <a href="/territories/counties/new" class="btn btn-secondary btn-sm">
-        {{icon "plus"}} Nova županija
-      </a>
-      <a href="/territories/municipalities/new{{if .SelectedCountyID}}?county_id={{.SelectedCountyID}}{{end}}" class="btn btn-primary btn-sm">
-        {{icon "plus"}} Novi grad / općina
-      </a>
+      <a href="/territories/counties/new" class="btn btn-link">Nova županija</a>
+      <a href="/territories/municipalities/new{{if .SelectedCountyID}}?county_id={{.SelectedCountyID}}{{end}}" class="btn btn-primary">Novi grad ili općina</a>
       {{end}}
     </div>
   </div>
 
-    
-  <details class="detail-section mb-6">
-    <summary class="cursor-pointer fw-600">{{icon "download"}} Izvoz i uvoz tablica (CSV za Excel)</summary>
-    <p class="page-desc mt-2">
-      Županije, gradovi i općine te naselja mijenjaju se rijetko, pa se najlakše održavaju u tablici: izvezite,
-      uredite i vratite. Redak s postojećim brojem se osvježi, redak bez broja se doda; ništa se ne briše.
-    </p>
-    <div class="d-flex gap-2 flex-wrap mb-3">
-      <a href="/territories/zupanije.csv" class="btn btn-sm btn-secondary">{{icon "download"}} Županije</a>
-      <a href="/territories/gradovi-i-opcine.csv" class="btn btn-sm btn-secondary">{{icon "download"}} Gradovi i općine</a>
-      <a href="/territories/naselja.csv" class="btn btn-sm btn-secondary">{{icon "download"}} Naselja</a>
-    </div>
-    {{if .Permissions.IsGlobalAdmin}}
-    <form method="POST" action="/territories/uvoz" enctype="multipart/form-data" class="d-flex gap-2 items-center flex-wrap">
-      <select name="kind" class="form-control max-w-14">
-        <option value="zupanije">Županije</option>
-        <option value="opcine">Gradovi i općine</option>
-        <option value="naselja">Naselja</option>
-      </select>
-      <input type="file" name="csv" accept=".csv,text/csv" class="form-control max-w-20" required>
-      <button type="submit" class="btn btn-sm btn-secondary">Uvezi</button>
-    </form>
-    {{end}}
-  </details>
-
-  <!-- KPI brojači -->
-  <div class="kpi-grid mb-6">
-    <div class="kpi-card">
-      <div class="kpi-icon-wrap info">{{icon "landmark"}}</div>
-      <div>
-        <div class="kpi-number">{{.TotalCounties}}</div>
-        <div class="kpi-label">Županija (20 + Zagreb)</div>
-      </div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-icon-wrap success">{{icon "building"}}</div>
-      <div>
-        <div class="kpi-number">{{.TotalCities}}</div>
-        <div class="kpi-label">Gradova</div>
-      </div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-icon-wrap warning">{{icon "house"}}</div>
-      <div>
-        <div class="kpi-number">{{.TotalOpcine}}</div>
-        <div class="kpi-label">Općina</div>
-      </div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-icon-wrap purple">{{icon "house"}}</div>
-      <div>
-        <div class="kpi-number">{{brojHR .TotalSettlements}}</div>
-        <div class="kpi-label">Naselja</div>
-      </div>
-    </div>
+  <div class="ter-brojevi">
+    <div class="ter-brojka">{{icon "landmark"}}<span><strong>{{.TotalCounties}}</strong><span>Županije</span></span></div>
+    <div class="ter-brojka">{{icon "building"}}<span><strong>{{.TotalCities}}</strong><span>Gradovi</span></span></div>
+    <div class="ter-brojka">{{icon "house"}}<span><strong>{{.TotalOpcine}}</strong><span>Općine</span></span></div>
+    <div class="ter-brojka">{{icon "map-pin"}}<span><strong>{{brojHR .TotalSettlements}}</strong><span>Naselja</span></span></div>
   </div>
 
   {{if eq .ViewMode "map"}}
@@ -304,18 +271,22 @@
     </div>
   </div>
   {{else}}
-  <!-- Traka s filtrima i tabovima -->
-  <div class="ter-traka">
-    <!-- Tabovi -->
-    <div class="ter-kartice">
-      <a href="/territories?tab=counties" class="btn btn-sm {{if eq .ActiveTab "counties"}}btn-primary{{else}}btn-secondary{{end}}">
-        {{icon "landmark"}} Županije ({{.TotalCounties}})
-      </a>
-      <a href="/territories?tab=municipalities" class="btn btn-sm {{if eq .ActiveTab "municipalities"}}btn-primary{{else}}btn-secondary{{end}}">
-        {{icon "building"}} Gradovi i općine ({{.TotalMunis}})
-      </a>
+  <div class="akti-filtri-vrh ter-traka-vrh">
+    <div class="ocitanja-cipovi cipovi-stranice" role="group" aria-label="Popis">
+      <a class="ocitanja-cip" href="/territories?tab=counties" aria-pressed="{{if eq .ActiveTab "counties"}}true{{else}}false{{end}}">{{if eq .ActiveTab "counties"}}{{icon "check"}}{{end}}Županije ({{.TotalCounties}})</a>
+      <a class="ocitanja-cip" href="/territories?tab=municipalities" aria-pressed="{{if eq .ActiveTab "municipalities"}}true{{else}}false{{end}}">{{if eq .ActiveTab "municipalities"}}{{icon "check"}}{{end}}Gradovi i općine ({{.TotalMunis}})</a>
     </div>
+    {{if eq .ActiveTab "counties"}}
+    <form method="GET" action="/territories" class="akti-trazi">
+      <input type="hidden" name="tab" value="municipalities">
+      <button type="submit" class="akti-trazi-gumb" aria-label="Traži">{{icon "search"}}</button>
+      <input type="text" name="q" value="{{.SearchQuery}}" placeholder="Traži: mjesto ili poštanski broj" aria-label="Traži: mjesto ili poštanski broj">
+    </form>
+    {{end}}
+  </div>
 
+  {{if eq .ActiveTab "municipalities"}}
+  <div class="ter-traka">
     <!-- Filtri (za tab Gradovi i općine) -->
     <form id="territory-filter-form" class="territory-filter-form" method="GET" action="/territories">
       <input type="hidden" name="tab" value="municipalities">
@@ -352,66 +323,28 @@
       </div>
     </form>
   </div>
+  {{end}}
 
   <!-- SADRŽAJ TAB 1: ŽUPANIJE -->
   {{if eq .ActiveTab "counties"}}
-  <div class="counties-grid">
+  <div class="akti-okvir dio-okvir">
+  <table class="data-table kartice-na-mobitelu dio-tablica ter-tablica">
+    <thead><tr><th>Oznaka</th><th>Županija</th><th>Sjedište</th><th class="text-right">km²</th><th class="text-right">Stanovnika</th><th>Gradovi i općine</th><th>Službe</th>{{if .Permissions.IsGlobalAdmin}}<th><span class="sr-only">Uredi</span></th>{{end}}</tr></thead>
+    <tbody>
     {{range .Counties}}
-    <div class="ter-kartica county-card">
-      <div>
-        <div class="d-flex justify-between items-center mb-2">
-          <span class="badge ter-oznaka">{{.Code}}</span>
-          <span class="ter-sjediste">Sjedište: <strong>{{.Seat}}</strong></span>
-        </div>
-
-        <h3 class="ter-naslov">
-          <a href="/territories/counties/{{.ID}}">{{.Name}}</a>
-        </h3>
-
-        <div class="ter-podaci">
-          <div>
-            {{icon "user"}} <strong>Župan/ica:</strong> {{if .Prefect}}{{.Prefect}}{{else}}<span class="c-muted">-</span>{{end}}
-          </div>
-          <div>
-            {{icon "ruler"}} <strong>Površina:</strong> {{if gt .AreaSqKm 0}}{{brojHR .AreaSqKm}} km²{{else}}<span class="c-muted">-</span>{{end}}
-            &nbsp;·&nbsp;
-            {{icon "users"}} <strong>Stanovništvo:</strong> {{if gt .Population 0}}{{brojHR .Population}}{{else}}<span class="c-muted">-</span>{{end}}
-          </div>
-          {{if .Email}}
-          <div class="break-all">
-            {{icon "mail"}} <a href="mailto:{{.Email}}" class="ter-poveznica">{{.Email}}</a>
-          </div>
-          {{end}}
-          {{if .Phone}}
-          <div>
-            {{icon "phone"}} <a href="tel:{{.Phone}}" class="ter-poveznica blijeda">{{.Phone}}</a>
-          </div>
-          {{end}}
-          {{with websiteURL .Website}}
-          <div class="break-all">
-            {{icon "link"}} <a href="{{.}}" target="_blank" rel="noopener noreferrer" class="ter-poveznica">{{websiteLabel .}}</a>
-          </div>
-          {{end}}
-        </div>
-      </div>
-
-      <div class="ter-podnozje">
-        <div>
-          {{if $.Permissions.IsGlobalAdmin}}
-          <a href="/territories/counties/{{.ID}}/edit" class="btn btn-secondary btn-sm">
-            {{icon "pencil"}} Uredi
-          </a>
-          {{end}}
-        </div>
-        <span class="ter-radnje">
-          <a href="/territories/counties/{{.ID}}" class="btn btn-secondary btn-sm" title="civilna zaštita, 112, policija, lučke kapetanije">
-            {{icon "phone"}} Službe{{with index $.BrojSluzbi .ID}} ({{.}}){{end}}</a>
-          <a href="/territories?tab=municipalities&county_id={{.ID}}" class="btn btn-secondary btn-sm">
-            Gradovi i općine {{icon "arrow-right"}}</a>
-        </span>
-      </div>
-    </div>
+    <tr>
+      <td class="ter-oznaka-stupac">{{.Code}}</td>
+      <td><a href="/territories/counties/{{.ID}}" class="dl-poveznica">{{.Name}}</a></td>
+      <td data-stupac="Sjedište">{{if .Seat}}{{.Seat}}{{else}}—{{end}}</td>
+      <td data-stupac="km²" class="text-right">{{if gt .AreaSqKm 0}}{{brojHR .AreaSqKm}}{{else}}—{{end}}</td>
+      <td data-stupac="Stanovnika" class="text-right">{{if gt .Population 0}}{{brojHR .Population}}{{else}}—{{end}}</td>
+      <td data-stupac="Gradovi i općine"><a href="/territories?tab=municipalities&county_id={{.ID}}">Popis</a></td>
+      <td data-stupac="Službe">{{with index $.BrojSluzbi .ID}}{{.}}{{else}}—{{end}}</td>
+      {{if $.Permissions.IsGlobalAdmin}}<td class="text-right"><a href="/territories/counties/{{.ID}}/edit" class="btn btn-sm btn-secondary" title="Uredi: {{.Name}}">{{icon "pencil"}}<span class="usluga-samo-usko"> Uredi</span></a></td>{{end}}
+    </tr>
     {{end}}
+    </tbody>
+  </table>
   </div>
   {{end}}
 
