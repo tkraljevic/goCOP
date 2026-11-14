@@ -353,6 +353,7 @@ type RedakKise struct{ Natpis, Vrijednost, Napomena string }
 type RedakSliva struct {
 	Oznaka                                           string // međusliv, za poveznicu /slivovi#sliv-OZNAKA
 	Naziv, Palo24, Dolazi48, Ukratko, Rijetko, Raste string
+	Palo72                                           string // „—” kad fali jučer ili prekjučer
 	Klasa                                            string // kisa-zuto…; prazno kad je uobičajeno
 }
 
@@ -616,12 +617,15 @@ func slivoviDijela(rg RegijaVremena, kisa *kisaSlivovaPodaci) ([]RedakSliva, *Pr
 
 // redakSliva: palo 24 h, očekivano 48 h, koliko je rijetko i gdje raste voda
 func redakSliva(s SlivUKisi) RedakSliva {
-	r := RedakSliva{Oznaka: s.Sliv, Naziv: s.Naziv, Palo24: "—", Dolazi48: "—", Ukratko: "—", Rijetko: "—", Raste: "—", Klasa: s.Klasa}
+	r := RedakSliva{Oznaka: s.Sliv, Naziv: s.Naziv, Palo24: "—", Palo72: "—", Dolazi48: "—", Ukratko: "—", Rijetko: "—", Raste: "—", Klasa: s.Klasa}
 	if r.Naziv == "" {
 		r.Naziv = s.Sliv
 	}
 	if s.Ima {
 		r.Palo24, r.Dolazi48 = mmSliva(s.Palo24), mmSliva(s.Dolazi48)
+		if s.ImaDan[0] && s.ImaDan[1] {
+			r.Palo72 = mmSliva(s.Palo72)
+		}
 		r.Ukratko = strings.TrimSuffix(r.Palo24, " mm") + " · " + r.Dolazi48
 		r.Rijetko = rijetkostKise(s.Razina, s.Ucestalost, s.Zasto)
 	}

@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"gocop/internal/models"
 	"gocop/internal/prognoza"
@@ -75,17 +76,19 @@ type SlivoviPageData struct {
 	ErrorMessage   string
 	ViewAsBanner
 
-	Skupine   []SkupinaKisomjera
+	Skupine []SkupinaKisomjera
 	// Kiša po međuslivovima, jača prva; KisaGreska kad izvor ne odgovori
 	Kisa       []RedakSliva
 	KisaGreska string
-	Izvedenih  int
-	Stvarnih  int
-	UPrognozi int
-	Ukupno    int
-	Aktivnih  int
-	Pojasi    []string
-	Koraci    []string
+	// KisaGrafovi su zbirne krivulje međuslivova iznad praga
+	KisaGrafovi []GrafKise
+	Izvedenih   int
+	Stvarnih    int
+	UPrognozi   int
+	Ukupno      int
+	Aktivnih    int
+	Pojasi      []string
+	Koraci      []string
 
 	Karta       KartaPostavke
 	TockeJSON   template.JS
@@ -202,7 +205,9 @@ func (h *SlivoviHandler) ShowSlivovi(w http.ResponseWriter, r *http.Request) {
 			s.Tezina += *t.Tezina
 		}
 	}
-	data.Kisa, data.KisaGreska = kisaPoMedjuslivovima(<-kisa, poOznaci)
+	kp := <-kisa
+	data.Kisa, data.KisaGreska = kisaPoMedjuslivovima(kp, poOznaci)
+	data.KisaGrafovi = grafoviKise(kp, time.Now())
 	for _, s := range redom {
 		data.Skupine = append(data.Skupine, *s)
 	}
