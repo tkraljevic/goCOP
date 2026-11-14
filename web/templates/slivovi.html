@@ -78,13 +78,14 @@
 {{if or .Kisa .KisaGreska}}
 <section class="detail-section" id="kisa">
   <h2>Kiša po međuslivovima</h2>
-  <p class="reg-card-sub">Prosjek kiše na dijelu sliva između dvije letve, iz izvedenih točaka (model): palo u zadnja 24 h i očekivano u idućih 48 h, jača kiša na vrhu. Pravi kišomjeri u taj broj ne ulaze; vide se ispod, u svakom međuslivu.</p>
+  <p class="reg-card-sub">Prosjek kiše na dijelu sliva između dvije letve, iz izvedenih točaka (model): palo u zadnja 72 i 24 h i očekivano u idućih 48 h, jača kiša na vrhu. Pravi kišomjeri u taj broj ne ulaze; vide se ispod, u svakom međuslivu.</p>
   {{if .Kisa}}
   <table class="pv-tablica sliv-kisa">
-    <thead><tr><th>Međusliv</th><th class="pv-samo-siroko">Palo 24 h</th><th class="pv-samo-siroko">Očekivano 48 h</th><th class="pv-samo-siroko">Koliko je rijetko</th><th>Gdje raste voda</th></tr></thead>
+    <thead><tr><th>Međusliv</th><th class="pv-samo-siroko">Palo 72 h</th><th class="pv-samo-siroko">Palo 24 h</th><th class="pv-samo-siroko">Očekivano 48 h</th><th class="pv-samo-siroko">Koliko je rijetko</th><th>Gdje raste voda</th></tr></thead>
     <tbody>
     {{range .Kisa}}<tr{{if .Klasa}} class="{{.Klasa}}"{{end}}>
       <td class="pv-sliv-naziv"><a href="#sliv-{{.Oznaka}}">{{.Naziv}}</a><span class="pv-samo-usko pv-sliv-mm">{{.Ukratko}}</span></td>
+      <td class="pv-samo-siroko">{{.Palo72}}</td>
       <td class="pv-samo-siroko">{{.Palo24}}</td>
       <td class="pv-samo-siroko">{{.Dolazi48}}</td>
       <td class="pv-samo-siroko">{{.Rijetko}}</td>
@@ -93,6 +94,27 @@
     {{end}}
     </tbody>
   </table>
+  {{with .KisaGrafovi}}
+  <h3 class="kisa-grafovi-naslov">Kiša kroz pet dana · međuslivovi iznad praga</h3>
+  <div class="kisa-grafovi">
+    {{range $g := .}}
+    <figure class="kisa-graf">
+      <figcaption><a href="{{.URL}}">{{.Naziv}}</a>{{with .Rijetko}} <span class="badge {{$g.Klasa}}">{{.}}</span>{{end}}</figcaption>
+      <svg viewBox="0 0 330 170" role="img" aria-label="{{.Opis}}">
+        <line class="kisa-graf-os" x1="8" y1="{{.OsY}}" x2="330" y2="{{.OsY}}"/>
+        {{range .Pragovi}}<line class="kisa-graf-prag {{.Klasa}}" x1="8" y1="{{.Y}}" x2="{{$g.PragX}}" y2="{{.Y}}"/><text class="kisa-graf-natpis {{.Klasa}}" x="{{$g.PragX}}" dx="4" y="{{.Y}}" dy="4">{{.Natpis}}</text>{{end}}
+        <line class="kisa-graf-sad" x1="{{.SadX}}" y1="6" x2="{{.SadX}}" y2="{{.OsY}}"/>
+        <polyline class="kisa-graf-palo" points="{{.Palo}}"/>
+        <polyline class="kisa-graf-ocekivano" points="{{.Ocekivano}}"/>
+        {{range .Tocke}}<circle class="kisa-graf-tocka{{if .Ocekivano}} ocekivano{{end}}" cx="{{.X}}" cy="{{.Y}}" r="3.5"/>{{end}}
+        {{range .Dani}}<text class="kisa-graf-dan{{if .Danas}} danas{{end}}" x="{{.X}}" y="164" text-anchor="middle">{{.Tekst}}</text>{{end}}
+      </svg>
+      <p class="reg-card-sub">{{.Zbroj}}</p>
+    </figure>
+    {{end}}
+  </div>
+  <p class="reg-card-sub">Crta je zbroj kiše od prekjučer: puna je palo, crtkana očekivano. Vodoravne crte su pragovi za 72 h; kad crta prijeđe prag, međusliv dobiva tu razinu.</p>
+  {{end}}
   {{else}}
   <p class="reg-empty">{{.KisaGreska}}</p>
   {{end}}
@@ -157,7 +179,7 @@
   </h2>
   {{with .Kisa}}
   <p class="sliv-kisa-sad{{if .Klasa}} {{.Klasa}}{{end}}">{{icon "cloud-rain"}}
-    {{if eq .Palo24 "—"}}Kiša sada: nema podataka.{{else}}Kiša sada: {{.Palo24}} palo u 24 h · {{.Dolazi48}} očekivano u 48 h · {{.Rijetko}}{{if ne .Raste "—"}} · raste: {{.Raste}}{{end}}{{end}}</p>
+    {{if eq .Palo24 "—"}}Kiša sada: nema podataka.{{else}}Kiša sada: {{if ne .Palo72 "—"}}{{.Palo72}} palo u 72 h, {{end}}{{.Palo24}} palo u 24 h · {{.Dolazi48}} očekivano u 48 h · {{.Rijetko}}{{if ne .Raste "—"}} · raste: {{.Raste}}{{end}}{{end}}</p>
   {{end}}
   {{if .UPrognozi}}
   <p class="kis-prognoza-sliv kis-u-prognozi">{{icon "check"}} Kiša ovog međusliva ulazi u dnevnu prognozu za:

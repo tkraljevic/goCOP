@@ -138,13 +138,14 @@
 </div>
 
 <section class="pv-kartica pv-slivovi">
-  <div class="pv-glava"><h3 class="pv-naslov">Kiša po slivovima</h3><span class="pv-sitno"><span class="pv-samo-siroko">palo u zadnja 24 h i očekivano u idućih 48 h</span><span class="pv-samo-usko">palo 24 h · očekivano 48 h</span></span></div>
+  <div class="pv-glava"><h3 class="pv-naslov">Kiša po slivovima</h3><span class="pv-sitno"><span class="pv-samo-siroko">palo u zadnja 72 i 24 h i očekivano u idućih 48 h</span><span class="pv-samo-usko">palo 24 h · očekivano 48 h</span></span></div>
   {{if .Slivovi}}
   <table class="pv-tablica">
-    <thead><tr><th>Međusliv</th><th>Palo 24 h</th><th>Očekivano 48 h</th><th>Koliko je rijetko</th><th>Gdje raste voda</th></tr></thead>
+    <thead><tr><th>Međusliv</th><th>Palo 72 h</th><th>Palo 24 h</th><th>Očekivano 48 h</th><th>Koliko je rijetko</th><th>Gdje raste voda</th></tr></thead>
     <tbody>
     {{range .Slivovi}}<tr{{if .Klasa}} class="{{.Klasa}}"{{end}}>
       <td class="pv-sliv-naziv"><a href="/slivovi#sliv-{{.Oznaka}}">{{.Naziv}}</a><span class="pv-samo-usko pv-sliv-mm">{{.Ukratko}}</span></td>
+      <td class="pv-samo-siroko">{{.Palo72}}</td>
       <td class="pv-samo-siroko">{{.Palo24}}</td>
       <td class="pv-samo-siroko">{{.Dolazi48}}</td>
       <td class="pv-samo-siroko">{{.Rijetko}}</td>

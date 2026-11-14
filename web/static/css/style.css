@@ -6469,6 +6469,40 @@ h3.kis-podnaslov { margin:1rem 0 0.4rem; display:flex; align-items:center; gap:0
 .kisa-upozorenje.kisa-narancasto { border-left-color:var(--faza-i-crta); background:var(--faza-i-bg); }
 .kisa-upozorenje.kisa-crveno { border-left-color:var(--faza-s-crta); background:var(--tint-orange-bg); }
 .kisa-upozorenje-glava { display:flex; flex-wrap:wrap; gap:0.3rem 0.6rem; align-items:center; }
+/* Jače oborine na Naslovnoj: lanac međuslivova i traka prema pragu (crtež 11a, Odluke 14. 11. 2026.) */
+.kisa-lanac { display: grid; gap: 8px; padding: 0 16px 12px; }
+.kisa-lanac-natpis { margin: 0; font-size: 12px; line-height: 16px; color: var(--text-secondary); }
+.kisa-rijeka { display: grid; gap: 3px; }
+.kisa-rijeka-ime { font-size: 12px; line-height: 16px; font-weight: 500; color: var(--text); }
+.kisa-polja { display: flex; gap: 3px; align-items: flex-start; }
+.kisa-polje { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; text-decoration: none; }
+.kisa-polje-mm { align-self: stretch; height: 34px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-2); font-size: 14px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.kisa-polje-ime { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; line-height: 14px; color: var(--text-secondary); }
+.kisa-polje.kisa-zuto .kisa-polje-mm { background: var(--faza-r-bg); border: 1.5px solid var(--faza-r-crta); color: var(--faza-r-fg); font-weight: 500; }
+.kisa-polje.kisa-narancasto .kisa-polje-mm { background: var(--faza-i-bg); border: 1.5px solid var(--faza-i-crta); color: var(--faza-i-fg); font-weight: 500; }
+.kisa-polje.kisa-crveno .kisa-polje-mm { background: var(--faza-s-bg); border: 1.5px solid var(--faza-s-crta); color: var(--faza-s-fg); font-weight: 500; }
+.kisa-polje:hover .kisa-polje-mm, .kisa-polje:focus-visible .kisa-polje-mm { border-color: var(--primary); }
+.kisa-rijeka.pritok .kisa-polja { gap: 8px; }
+.kisa-rijeka.pritok .kisa-polje { flex: 0 0 calc((100% - 15px) / 6); }
+.kisa-pritok { padding-top: 9px; font-size: 12px; line-height: 16px; color: var(--text-secondary); }
+.kisa-retci { display: grid; gap: 8px; margin: 0; padding: 0 16px; list-style: none; }
+.kisa-redak > a { display: grid; gap: 6px; padding: 10px 12px; border-left: 4px solid var(--faza-r-crta); border-radius: 8px; background: var(--surface-2); color: var(--text); text-decoration: none; }
+.kisa-redak.kisa-narancasto > a { border-left-color: var(--faza-i-crta); }
+.kisa-redak.kisa-crveno > a { border-left-color: var(--faza-s-crta); }
+.kisa-redak > a:hover { background: var(--surface-hover); }
+.kisa-redak-glava { display: flex; align-items: center; gap: 8px; }
+.kisa-redak-ime { flex: 1; font-size: 14px; line-height: 20px; font-weight: 500; }
+.kisa-redak-glava .badge { flex: none; }
+.kisa-traka { position: relative; display: block; height: 22px; }
+.kisa-traka::before { content: ""; position: absolute; left: 0; right: 0; top: 6px; height: 10px; border-radius: 5px; background: var(--border); }
+.kisa-traka-dio { position: absolute; top: 6px; height: 10px; border-right: 1.5px solid var(--surface-2); border-radius: 2px; background: var(--graf-mjereno); }
+.kisa-traka-dio.ocekivano { background: var(--graf-ocekivano); }
+.kisa-traka-crtica { position: absolute; top: 0; width: 2px; height: 22px; margin-left: -1px; background: var(--faza-r-crta); }
+.kisa-traka-crtica.kisa-narancasto { background: var(--faza-i-crta); }
+.kisa-traka-crtica.kisa-crveno { background: var(--faza-s-crta); }
+.kisa-redak-palo { font-size: 13px; line-height: 18px; color: var(--text); }
+.kisa-redak-sporedno { font-size: 13px; line-height: 18px; color: var(--text-secondary); }
+.kisa-retci + .kartica-vise { margin-top: 4px; }
 .badge.kisa-zuto { background:var(--faza-r-bg); color:var(--faza-r-fg); --badge-tocka:var(--faza-r-crta); }
 .badge.kisa-narancasto { background:var(--faza-i-bg); color:var(--faza-i-fg); --badge-tocka:var(--faza-i-crta); }
 .badge.kisa-crveno { background:var(--faza-s-bg); color:var(--faza-s-fg); --badge-tocka:var(--faza-s-fg); }
@@ -9759,7 +9793,28 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
 /* Slivovi: kiša po međuslivovima na vrhu i redak kiše u svakom međuslivu */
 .pv-tablica .pv-sliv-naziv a { color: var(--md-sys-color-primary); text-decoration: none; }
 .pv-tablica .pv-sliv-naziv a:hover { text-decoration: underline; }
-.sliv-kisa th, .sliv-kisa td:nth-child(2), .sliv-kisa td:nth-child(3) { white-space: nowrap; }
+.sliv-kisa th, .sliv-kisa td:nth-child(2), .sliv-kisa td:nth-child(3), .sliv-kisa td:nth-child(4) { white-space: nowrap; }
+/* Zbirna krivulja kiše na Slivovima (crtež 17e, Odluke 14. 11. 2026.) */
+.kisa-grafovi-naslov { margin: 16px 0 8px; font-size: 1rem; font-weight: 500; }
+.kisa-grafovi { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px 24px; }
+.kisa-graf { margin: 0; }
+.kisa-graf figcaption { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 0.875rem; font-weight: 500; }
+.kisa-graf figcaption a { color: var(--text); text-decoration: none; }
+.kisa-graf svg { display: block; width: 100%; height: auto; margin: 4px 0; overflow: visible; }
+.kisa-graf-os { stroke: var(--border); stroke-width: 1; }
+.kisa-graf-prag { stroke: var(--faza-r-crta); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.kisa-graf-prag.kisa-narancasto { stroke: var(--faza-i-crta); }
+.kisa-graf-prag.kisa-crveno { stroke: var(--faza-s-crta); }
+.kisa-graf-natpis { font-size: 11px; fill: var(--faza-r-fg); }
+.kisa-graf-natpis.kisa-narancasto { fill: var(--faza-i-fg); }
+.kisa-graf-natpis.kisa-crveno { fill: var(--faza-s-crta); }
+.kisa-graf-sad { stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.kisa-graf-palo, .kisa-graf-ocekivano { fill: none; stroke: var(--graf-mjereno); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.kisa-graf-ocekivano { stroke-dasharray: 5 4; }
+.kisa-graf-tocka { fill: var(--graf-mjereno); }
+.kisa-graf-tocka.ocekivano { fill: var(--graf-ocekivano); }
+.kisa-graf-dan { font-size: 11px; fill: var(--text-secondary); }
+.kisa-graf-dan.danas { font-weight: 600; fill: var(--text); }
 .sliv-kisa-sad {
   display: flex; align-items: flex-start; gap: 8px; margin: 0 0 8px; padding: 8px 12px; border-left: 4px solid transparent; border-radius: 8px;
   background: var(--md-sys-color-surface-container-low); font-size: 0.875rem;
@@ -10266,6 +10321,35 @@ td .odr-sitno { margin-top: 2px; }
   table.odr-tablica.kartice-na-mobitelu td[data-stupac] { display: flex; justify-content: space-between; gap: 12px; }
   table.odr-tablica.kartice-na-mobitelu td[data-stupac]::before { content: attr(data-stupac); flex: none; color: var(--md-sys-color-on-surface-variant); }
   table.odr-tablica.kartice-na-mobitelu td:last-child .btn { width: auto; min-height: 40px; margin: 0; }
+}
+
+/* Teritorij: popis gradova i općina (17f, isti uzor kao 7a). Filtri u jednom redu. */
+.ter-filtri { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 12px; }
+.ter-filtri > select.form-control { width: auto; min-width: 12rem; }
+.ter-filtri .akti-trazi { flex: 1 1 16rem; }
+@media (max-width: 767px) {
+  .ter-filtri > select.form-control { flex: 1 1 100%; }
+}
+
+/* Kartica grada ili općine (17f, 7c): naselja kao tablica, za administratora s poljima. */
+.opc-naselja .form-control { min-height: 36px; }
+.opc-naselja .opc-kratko { max-width: 8rem; }
+.opc-naselja td:first-child { width: 40%; }
+.opc-novo .form-row { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; }
+.opc-novo .form-actions { margin-top: 12px; }
+.opc-novo { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--md-sys-color-outline-variant); }
+.opc-jos { display: inline-block; margin-top: 8px; }
+.opc-dodaj { margin-top: 12px; }
+@media (max-width: 767px) {
+  .opc-naselja .opc-kratko { max-width: none; }
+  .opc-novo .form-row { grid-template-columns: 1fr; }
+}
+@media (max-width: 599px) {
+  table.opc-naselja.kartice-na-mobitelu td { width: 100%; }
+  table.opc-naselja.kartice-na-mobitelu td:first-child { font-size: 1rem; line-height: 24px; color: var(--md-sys-color-on-surface); }
+  table.opc-naselja.kartice-na-mobitelu td[data-stupac] { display: flex; justify-content: space-between; gap: 12px; }
+  table.opc-naselja.kartice-na-mobitelu td[data-stupac]::before { content: attr(data-stupac); flex: none; color: var(--md-sys-color-on-surface-variant); }
+  table.opc-naselja.kartice-na-mobitelu td:last-child .btn { width: auto; min-height: 40px; margin: 0; }
 }
 
 /* Obrazac firme (17f, 7g): područja rada kao čipovi po sektoru. */

@@ -58,6 +58,7 @@ func TestNaseljuSeMijenjaBrojStanovnika(t *testing.T) {
 	h.SetPageTemplates(tmpl("county_form.html"), tmpl("municipality_form.html"), tmpl("municipality_detail.html"))
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /territories/municipalities/{id}", h.ShowMunicipality)
+	mux.HandleFunc("GET /territories/municipalities/{id}/edit", h.ShowMunicipalityForm)
 	mux.HandleFunc("POST /api/settlements/update", h.HandleUpdateSettlementAPI)
 	u := &models.User{ID: uuid.New(), FullName: "Uprava"}
 	perms := &models.UserPermissions{IsGlobalAdmin: true, User: *u}
@@ -75,14 +76,16 @@ func TestNaseljuSeMijenjaBrojStanovnika(t *testing.T) {
 		mux.ServeHTTP(w, r.WithContext(c))
 		return w
 	}
-	obrazacIzmjene := regexp.MustCompile(`(?s)<form method="POST" action="/api/settlements/update".*?</form>`)
+	// Redak naselja je svoj obrazac: polja su u ćelijama tablice i vežu se na nj atributom form=.
+	obrazacIzmjene := regexp.MustCompile(`<form id="(naselje-\d+)" method="POST" action="/api/settlements/update"`)
 	poljeStanovnika := func() string {
 		t.Helper()
-		obrazac := obrazacIzmjene.FindString(zovi(http.MethodGet, "/territories/municipalities/302", nil).Body.String())
-		if obrazac == "" {
-			t.Fatal("stranica grada nema obrazac za izmjenu naselja")
+		stranica := zovi(http.MethodGet, "/territories/municipalities/302/edit", nil).Body.String()
+		obrazac := obrazacIzmjene.FindStringSubmatch(stranica)
+		if obrazac == nil {
+			t.Fatal("obrazac grada nema obrazac za izmjenu naselja")
 		}
-		polje := regexp.MustCompile(`<input[^>]*name="population"[^>]*>`).FindString(obrazac)
+		polje := regexp.MustCompile(`<input[^>]*name="population"[^>]*form="` + obrazac[1] + `"[^>]*>`).FindString(stranica)
 		if polje == "" || strings.Contains(polje, `type="hidden"`) || !strings.Contains(polje, `aria-label="Broj stanovnika"`) {
 			t.Fatalf("broj stanovnika nije vidljivo polje: %q", polje)
 		}

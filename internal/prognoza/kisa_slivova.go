@@ -38,6 +38,10 @@ type StanjeSliva struct {
 	Ucestalost               string // koliko je to rijetko, riječima
 	Letve                    []string
 	Pragovi                  PragoviKise
+	// Dani je kiša po danima od prekjučer do prekosutra (ključevi -2…2 niza,
+	// na desetinku), a ImaDan kaže koji dan niz ima
+	Dani   [5]float64
+	ImaDan [5]bool
 }
 
 // PragoviIzNiza računa pragove iz dnevnog niza međusliva. Prag koji se iz
@@ -152,6 +156,10 @@ func kisaSliva(n DnevniNiz) StanjeSliva {
 	f1, okf1 := n[1]
 	f2, okf2 := n[2]
 	st := StanjeSliva{Ima: ok0, Palo24: math.Round(v0*10) / 10}
+	for i := range st.Dani {
+		v, ok := n[int64(i-2)]
+		st.Dani[i], st.ImaDan[i] = math.Round(v*10)/10, ok
+	}
 	if ok0 && ok1 && ok2 {
 		st.Palo72 = math.Round((v0+v1+v2)*10) / 10
 	}
