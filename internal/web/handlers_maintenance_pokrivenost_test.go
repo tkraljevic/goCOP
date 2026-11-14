@@ -129,10 +129,19 @@ func TestOdrzavanjeBiraPodrucjeIPrava(t *testing.T) {
 	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `id="nova-lokacija"`) {
 		t.Errorf("stranica administratora: %d, nema obrasca nove lokacije", w.Code)
 	}
+	for _, mora := range []string{`id="uvoz"`, `id="lokacije"`, `id="stavke"`, `<a href="/registri" class="povratna-poveznica">← Registri</a>`,
+		`data-naziv-stranice>Održavanje</h1>`, `href="#uvoz"`} {
+		if !strings.Contains(w.Body.String(), mora) {
+			t.Errorf("stranica administratora: nema %q", mora)
+		}
+	}
 	marko := o.markOvl.User
 	w = odgovor(o.h.ShowMaintenance, httptest.NewRequest(http.MethodGet, "/odrzavanje?area=1", nil), &marko, o.markOvl)
 	if w.Code != http.StatusOK || strings.Contains(w.Body.String(), `id="nova-lokacija"`) {
 		t.Errorf("stranica bez prava: %d, ili nudi obrazac nove lokacije", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), `id="stavke"`) || strings.Contains(w.Body.String(), `id="uvoz"`) || strings.Contains(w.Body.String(), "Uvezite iz ugovora") {
+		t.Error("stranica bez prava: nema popisa stavki ili nudi uvoz")
 	}
 }
 
