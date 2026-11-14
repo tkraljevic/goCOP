@@ -10117,6 +10117,119 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
 .sfo-oznaka { text-transform: uppercase; }
 .lob-gumbi .obj-obrisi { margin-right: auto; }
 
+/* Administrativna organizacija (17a, 2a): tri razine kao kartice, sektori kao pločice,
+   branjena područja kao tablica koja je na mobitelu kartica. CSV je ploča ispod gumba. */
+.org-razina > h2, .org-razina-glava h2 { margin: 0; font-size: 1rem; font-weight: 500; line-height: 24px; }
+.org-razina-glava { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; margin-bottom: 12px; }
+.org-razina-gumbi { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; font-size: 0.875rem; font-weight: 500; }
+.org-razina-gumbi form { margin: 0; }
+.org-razina-gumbi .btn-link { min-height: 0; padding: 0; border: 0; color: var(--md-sys-color-primary); font-size: inherit; font-weight: inherit; }
+.org-ime { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+.org-ime > .icon { width: 24px; height: 24px; flex: none; color: var(--md-sys-color-on-surface-variant); }
+.org-ime p { margin: 0; }
+.org-ime-naziv { color: var(--md-sys-color-on-surface); font-size: 0.9375rem; }
+.org-ime-sitno { color: var(--md-sys-color-on-surface-variant); font-size: 0.75rem; line-height: 16px; }
+.org-podaci { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 32px; margin: 0; }
+.org-podaci > div { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 12px; }
+.org-podaci-cijelo { grid-column: 1 / -1; }
+.org-podaci dt { color: var(--md-sys-color-on-surface-variant); font-size: 0.8125rem; font-weight: 400; }
+.org-podaci dd { margin: 0; color: var(--md-sys-color-on-surface); font-size: 0.875rem; }
+.org-podaci + .org-podaci { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--md-sys-color-outline-variant); }
+.org-prazno { color: var(--md-sys-color-on-surface-variant); }
+.org-sektori { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.org-sektor { position: relative; padding: 12px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px; background: var(--md-sys-color-surface); }
+.org-sektor:hover { background: var(--surface-hover); }
+.org-sektor .org-sektor-naziv { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; color: var(--md-sys-color-on-surface); text-decoration: none; }
+.org-sektor .org-sektor-naziv::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+.org-sektor-naziv > .icon { width: 20px; height: 20px; flex: none; margin-left: auto; color: var(--md-sys-color-on-surface-variant); }
+.org-slovo { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; flex: none; border-radius: 8px;
+  background: var(--md-sys-color-surface-container-high); font-weight: 500; }
+.org-sektor-ime { font-size: 0.9375rem; }
+.org-sektor-sitno { margin: 0; color: var(--md-sys-color-on-surface-variant); font-size: 0.75rem; line-height: 18px; }
+.org-sektor-oznake { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
+.org-sektor .oznaka-stanja { min-height: 22px; padding: 0 8px; font-size: 0.75rem; }
+.org-sektor-oznake a { position: relative; z-index: 1; text-decoration: none; }
+.org-tablica td.org-bp { white-space: nowrap; }
+.org-tablica .org-bp .dl-sitno { display: block; }
+.org-tablica .dl-poveznica.org-naziv { white-space: normal; }
+.org-tablica .dl-sitno a { color: inherit; }
+.org-csv > summary { list-style: none; cursor: pointer; }
+.org-csv > summary::-webkit-details-marker { display: none; }
+.org-csv-ploca { position: absolute; top: 100%; left: 0; z-index: 30; width: min(320px, calc(100vw - 32px)); margin-top: 4px; padding: 8px 16px 12px;
+  border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px; background: var(--md-sys-color-surface-container); box-shadow: var(--shadow); }
+.org-csv-ploca a { display: inline-flex; align-items: center; gap: 6px; color: var(--md-sys-color-primary); font-size: 0.875rem; text-decoration: none; }
+.org-csv-ploca a:hover { text-decoration: underline; }
+.org-csv-ploca .icon { width: 18px; height: 18px; }
+.org-csv-ploca form { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 0; }
+.org-csv-ploca .form-control { flex: 1 1 160px; min-width: 0; }
+.org-csv-naslov { margin: 8px 0 2px; color: var(--md-sys-color-on-surface-variant); font-size: 0.75rem; font-weight: 500; }
+@media (max-width: 599px) {
+  .org-podaci { grid-template-columns: minmax(0, 1fr); }
+  .org-podaci > div { grid-template-columns: 120px minmax(0, 1fr); }
+  .org-sektori { grid-template-columns: minmax(0, 1fr); }
+  table.org-tablica.kartice-na-mobitelu td.org-bp { order: 1; flex: 1 1 0; color: var(--md-sys-color-on-surface); }
+  table.org-tablica .org-bp .dl-sitno { display: inline; }
+  table.org-tablica.kartice-na-mobitelu td { order: 3; width: 100%; }
+  table.org-tablica.kartice-na-mobitelu td:last-child:not([data-stupac]) { order: 2; width: auto; }
+  table.org-tablica.kartice-na-mobitelu td:last-child .btn { width: auto; min-height: 40px; margin: 0; }
+  table.org-tablica.kartice-na-mobitelu td[data-stupac] { display: flex; justify-content: space-between; gap: 12px; }
+  table.org-tablica.kartice-na-mobitelu td[data-stupac]::before { content: attr(data-stupac); flex: none; color: var(--md-sys-color-on-surface-variant); }
+  table.org-tablica.kartice-na-mobitelu td[data-stupac] > * { text-align: right; }
+  table.org-tablica .dl-poveznica.org-naziv { font-size: 1rem; line-height: 24px; }
+  table.org-tablica .dl-poveznica::after { content: none; }
+  table.org-tablica td[data-stupac] .dl-sitno { display: block; }
+  .org-razina-popis { padding: 0; border: 0; background: none; }
+}
+
+/* Teritorij: popis županija (17f, 7a). Četiri brojke, čipovi s pretragom i tablica
+   koja je na mobitelu kartica. */
+.ter-brojevi { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 4px 0 16px; }
+.ter-brojka { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px; background: var(--md-sys-color-surface-container-low); }
+.ter-brojka > svg { width: 24px; height: 24px; flex: none; color: var(--md-sys-color-on-surface-variant); }
+.ter-brojka > span { display: flex; flex-direction: column; line-height: 1.2; }
+.ter-brojka strong { font-size: 1.4rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+.ter-brojka strong + span { font-size: 0.8rem; color: var(--md-sys-color-on-surface-variant); }
+.ter-traka-vrh { margin-bottom: 12px; }
+.ter-tablica .text-right { font-variant-numeric: tabular-nums; }
+.ter-oznaka-stupac { color: var(--md-sys-color-on-surface-variant); }
+.ter-tablica td a:not(.btn):not(.dl-poveznica) { color: var(--md-sys-color-primary); text-decoration: none; }
+@media (max-width: 767px) {
+  .ter-brojevi { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .ter-brojka { padding: 10px 12px; }
+  .ter-tablica .text-right { text-align: left; }
+}
+@media (max-width: 599px) {
+  table.ter-tablica.kartice-na-mobitelu td { width: 100%; }
+  table.ter-tablica.kartice-na-mobitelu td:first-child { font-size: 1rem; line-height: 24px; color: var(--md-sys-color-on-surface); }
+  table.ter-tablica.kartice-na-mobitelu td[data-stupac] { display: flex; justify-content: space-between; gap: 12px; }
+  table.ter-tablica.kartice-na-mobitelu td[data-stupac]::before { content: attr(data-stupac); flex: none; color: var(--md-sys-color-on-surface-variant); }
+  table.ter-tablica.kartice-na-mobitelu td:last-child .btn { width: auto; min-height: 40px; margin: 0; }
+}
+
+/* Kartica županije (17f, 7b): gradovi i općine kao čipovi. */
+.zup-napomena { margin: 12px 0 0; }
+.zup-cipovi { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; padding: 0; }
+.zup-cipovi a { display: inline-block; padding: 2px 8px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 6px; font-size: 0.85rem; color: var(--text); text-decoration: none; }
+.zup-cipovi a:hover { background: var(--md-sys-color-surface-container-high); }
+.zup-cipovi a span { color: var(--text-secondary); }
+
+/* Obrasci županije i općine (17f, 7d i 7e). */
+.ter-oznaka-polje { text-transform: uppercase; }
+
+/* Licencirane firme (17f, 7f): drugi redak ćelije Firma, mjesta rada kao oznake. */
+table.fir-tablica .fir-firma .dl-sitno { display: block; }
+.fir-tablica td a:not(.btn):not(.dl-poveznica) { color: var(--md-sys-color-primary); text-decoration: none; }
+.fir-prazno { color: var(--text-secondary); }
+.fir-mjesta { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.fir-napomena { margin-top: 16px; }
+@media (max-width: 599px) {
+  table.fir-tablica.kartice-na-mobitelu td { width: 100%; }
+  table.fir-tablica.kartice-na-mobitelu td:first-child { font-size: 1rem; line-height: 24px; color: var(--md-sys-color-on-surface); }
+  table.fir-tablica.kartice-na-mobitelu td[data-stupac] { display: flex; justify-content: space-between; gap: 12px; }
+  table.fir-tablica.kartice-na-mobitelu td[data-stupac]::before { content: attr(data-stupac); flex: none; color: var(--md-sys-color-on-surface-variant); }
+  table.fir-tablica.kartice-na-mobitelu td:last-child .btn { width: auto; min-height: 40px; margin: 0; }
+}
+
 /* Održavanje (17f, 7h): izbor područja s oznakama, lokacije i stavke kao kartice. */
 .odr-traka { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 16px; }
 .odr-traka form { margin: 0; }
