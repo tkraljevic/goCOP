@@ -10041,6 +10041,28 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
 .vk-stacionaza { margin-top: 8px; }
 .list-kartica > .markdown-body { padding: 0; border: 0; background: none; }
 
+/* Slivovi i kišomjeri (17e, 6d): tablica međuslivova iznad karte, kao ostali popisi Registara. */
+.sli-brojevi { margin: 0 0 12px; }
+.sli-okvir { margin-bottom: 24px; }
+.sli-tablica .sl-km2, .sli-tablica .sl-stvarni, .sli-tablica .sl-izvedene { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.sli-tablica .sl-tezina-pozor { color: var(--warning-fg); }
+@media (max-width: 599px) {
+  table.sli-tablica td { order: 2; width: 100%; }
+  table.sli-tablica td.sl-oznaka { order: 1; width: auto; }
+  table.sli-tablica td.sl-naziv { order: 1; flex: 1 1 0; width: auto; font-size: 1rem; }
+  table.sli-tablica td.sl-km2 { display: none; }
+}
+
+/* Kišomjer (17e, 6e): vrh stranice kao kartica, sedam dana u stupcima. */
+.kis-kartice { margin-bottom: 16px; }
+.kis-vrh .list-kartica { margin-bottom: 16px; }
+.kis-dani-sedam { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; margin: 0 0 12px; }
+.kis-dan-sedam { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 8px; text-align: center; }
+.kis-dan-sedam strong { font-size: 1.125rem; font-variant-numeric: tabular-nums; }
+@media (max-width: 599px) {
+  .kis-dani-sedam { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
 /* Površina vode još nije ucrtana (17e, 6g): prazno stanje karte s „Ucrtaj na Karti”. */
 .karta-prazno { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 240px; padding: 24px 16px; border-radius: 12px; background: var(--karta-kopno); color: var(--md-sys-color-on-surface); text-align: center; }
 .karta-prazno > svg { width: 24px; height: 24px; }
