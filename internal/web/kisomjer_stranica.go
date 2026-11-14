@@ -100,6 +100,10 @@ type KisomjerStranica struct {
 	UPrognozi     bool   // dnevni model čita kišu ove točke
 	RazlogVan     string // zašto ne ulazi
 	PrognozaLetve string // letve čija prognoza je čita
+	// Vrh stranice: zadnjih sedam dana i druge točke istog međusliva
+	SedamDana         []DanKise
+	ZbrojSedam        float64
+	DrugihUMedjuslivu int
 
 	// Očitanja
 	Pogled      string // 7, 30, 90
@@ -313,6 +317,9 @@ func (h *KisomjerStranicaHandler) ShowOcitanja(w http.ResponseWriter, r *http.Re
 		do = len(redovi)
 	}
 	p.Redovi = redovi[p.Pager.Odmak():do]
+	p.SedamDana = sedamDana(dnevni, sada)
+	p.ZbrojSedam = zbrojSedam(p.SedamDana)
+	p.DrugihUMedjuslivu = h.drugiUMedjuslivu(r.Context(), p.Tocka)
 
 	if err := h.tmpl("kisomjer.html").ExecuteTemplate(w, "kisomjer.html", p); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
