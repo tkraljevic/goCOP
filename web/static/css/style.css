@@ -10104,3 +10104,17 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
 @media print {
   .sek-zig-sken, .sek-ukloni { display: none; }
 }
+
+/* Licencirane firme (17f, 7f): drugi redak ćelije Firma, mjesta rada kao oznake. */
+table.fir-tablica .fir-firma .dl-sitno { display: block; }
+.fir-tablica td a:not(.btn):not(.dl-poveznica) { color: var(--md-sys-color-primary); text-decoration: none; }
+.fir-prazno { color: var(--text-secondary); }
+.fir-mjesta { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.fir-napomena { margin-top: 16px; }
+@media (max-width: 599px) {
+  table.fir-tablica.kartice-na-mobitelu td { width: 100%; }
+  table.fir-tablica.kartice-na-mobitelu td:first-child { font-size: 1rem; line-height: 24px; color: var(--md-sys-color-on-surface); }
+  table.fir-tablica.kartice-na-mobitelu td[data-stupac] { display: flex; justify-content: space-between; gap: 12px; }
+  table.fir-tablica.kartice-na-mobitelu td[data-stupac]::before { content: attr(data-stupac); flex: none; color: var(--md-sys-color-on-surface-variant); }
+  table.fir-tablica.kartice-na-mobitelu td:last-child .btn { width: auto; min-height: 40px; margin: 0; }
+}
