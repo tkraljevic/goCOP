@@ -286,43 +286,25 @@
   </div>
 
   {{if eq .ActiveTab "municipalities"}}
-  <div class="ter-traka">
-    <!-- Filtri (za tab Gradovi i općine) -->
-    <form id="territory-filter-form" class="territory-filter-form" method="GET" action="/territories">
-      <input type="hidden" name="tab" value="municipalities">
-
-      <div class="form-group mb-0">
-        <label class="form-label" for="filter-county">Županija</label>
-        <select id="filter-county" name="county_id" class="form-control" onchange="this.form.submit()">
-          <option value="">Sve županije (21)</option>
-          {{range .Counties}}
-          <option value="{{.ID}}" {{if eq $.SelectedCountyID .ID}}selected{{end}}>{{.Name}}</option>
-          {{end}}
-        </select>
-      </div>
-
-      <div class="form-group mb-0">
-        <label class="form-label" for="filter-type">Tip jedinice</label>
-        <select id="filter-type" name="type" class="form-control" onchange="this.form.submit()">
-          <option value="">Svi tipovi (Gradovi i Općine)</option>
-          <option value="GRAD" {{if eq .SelectedType "GRAD"}}selected{{end}}>Samo gradovi</option>
-          <option value="OPCINA" {{if eq .SelectedType "OPCINA"}}selected{{end}}>Samo općine</option>
-        </select>
-      </div>
-
-      <div class="form-group mb-0">
-        <label class="form-label" for="search-muni">Pretraga (naziv, čelnik ili poštanski broj)</label>
-        <input type="text" id="search-muni" name="q" class="form-control" placeholder="Upišite grad, općinu, čelnika ili poštanski broj (npr. Penava, Radić, 31000)..." value="{{.SearchQuery}}">
-      </div>
-
-      <div class="d-flex gap-2">
-        <button type="submit" class="btn btn-primary btn-sm">Traži</button>
-        {{if or .SelectedCountyID .SelectedType .SearchQuery}}
-        <a href="/territories?tab={{.ActiveTab}}" class="btn btn-secondary btn-sm" title="Očisti filtre">Poništi</a>
-        {{end}}
-      </div>
-    </form>
-  </div>
+  <form id="territory-filter-form" class="ter-filtri" method="GET" action="/territories">
+    <input type="hidden" name="tab" value="municipalities">
+    <select id="filter-county" name="county_id" class="form-control" onchange="this.form.submit()" aria-label="Županija">
+      <option value="">Sve županije</option>
+      {{range .Counties}}
+      <option value="{{.ID}}" {{if eq $.SelectedCountyID .ID}}selected{{end}}>{{.Name}}</option>
+      {{end}}
+    </select>
+    <select id="filter-type" name="type" class="form-control" onchange="this.form.submit()" aria-label="Grad ili općina">
+      <option value="">Gradovi i općine</option>
+      <option value="GRAD" {{if eq .SelectedType "GRAD"}}selected{{end}}>Samo gradovi</option>
+      <option value="OPCINA" {{if eq .SelectedType "OPCINA"}}selected{{end}}>Samo općine</option>
+    </select>
+    <div class="akti-trazi">
+      <button type="submit" class="akti-trazi-gumb" aria-label="Traži">{{icon "search"}}</button>
+      <input type="text" id="search-muni" name="q" value="{{.SearchQuery}}" placeholder="Traži: mjesto ili poštanski broj" aria-label="Traži: mjesto ili poštanski broj">
+    </div>
+    {{if or .SelectedCountyID .SelectedType .SearchQuery}}<a href="/territories?tab=municipalities" class="btn btn-link">Poništi</a>{{end}}
+  </form>
   {{end}}
 
   <!-- SADRŽAJ TAB 1: ŽUPANIJE -->
@@ -350,111 +332,38 @@
 
   <!-- SADRŽAJ TAB 2: GRADOVI I OPĆINE -->
   {{if eq .ActiveTab "municipalities"}}
-  <div class="mb-5 d-flex justify-between items-center flex-wrap gap-3">
-    <div class="ter-broj">
-      Gradova i općina: <strong>{{.Pager.Total}}</strong>
-    </div>
-
-  </div>
-
-  {{if eq (len .Municipalities) 0}}
-  <div class="ter-prazno">
-    <div class="ter-prazno-ikona">{{icon "search"}}</div>
-    <div class="ter-prazno-naslov">Nema rezultata</div>
-    <div>Nije pronađen niti jedan grad ili općina prema odabranim kriterijima.</div>
-  </div>
-  {{else}}
-
-  <div data-listanje="popis">
+  <div class="akti-okvir dio-okvir" data-listanje="popis">
   {{template "pager" .Pager}}
-  <div id="munis-cards-view" class="munis-cards-grid">
+  <table class="data-table kartice-na-mobitelu dio-tablica ter-tablica">
+    <thead><tr><th>Grad ili općina</th><th>Vrsta</th><th>Županija</th><th>Poštanski broj</th><th class="text-right">km²</th><th class="text-right">Stanovnika</th>{{if .Permissions.IsGlobalAdmin}}<th><span class="sr-only">Radnje</span></th>{{end}}</tr></thead>
+    <tbody>
     {{range .Municipalities}}
-    <div class="muni-card">
-      <div>
-        <div class="ter-kartica-glava">
-          <div class="ter-znacke">
-            {{if eq .Type "GRAD"}}
-            <span class="badge ter-oznaka">{{icon "building"}} GRAD</span>
-            {{else}}
-            <span class="badge ter-oznaka mirno">{{icon "house"}} OPĆINA</span>
-            {{end}}
-            {{if .PostalCode}}
-            <span class="badge ter-oznaka posta">{{icon "mailbox"}} {{.PostalCode}}</span>
-            {{end}}
-          </div>
-          <span class="ter-zupanija">{{icon "landmark"}} {{.CountyName}}</span>
-        </div>
-
-        <h3 class="ter-naslov">{{.Name}}</h3>
-
-        <div class="ter-podaci">
-          <div class="ter-celnik">
-            <span>{{icon "user"}} </span> 
-            <strong>{{.HeadTitle}}:</strong> 
-            {{if .HeadName}}
-            <span class="fw-600 c-secondary">{{.HeadName}}</span>
-            {{else}}
-            <span class="ter-nema">Nije navedeno</span>
-            {{end}}
-          </div>
-          <div class="ter-brojke">
-            <div>
-              {{icon "ruler"}} <strong>Površina:</strong>
-              {{if gt .AreaSqKm 0.0}}
-              <span class="fw-600">{{brojHRf .AreaSqKm 1}} km²</span>
-              {{else}}
-              <span class="c-muted">-</span>
-              {{end}}
-            </div>
-            <div>
-              {{icon "users"}} <strong>Stanovništvo:</strong>
-              {{if gt .Population 0}}
-              <span class="fw-600 c-secondary">{{brojHR .Population}}</span>
-              {{else}}
-              <span class="c-muted">-</span>
-              {{end}}
-            </div>
-          </div>
-          {{if .Email}}
-          <div class="break-all">
-            {{icon "mail"}} <a href="mailto:{{.Email}}" class="ter-poveznica">{{.Email}}</a>
-          </div>
-          {{end}}
-          {{if .Phone}}
-          <div>
-            {{icon "phone"}} <a href="tel:{{.Phone}}" class="ter-poveznica blijeda">{{.Phone}}</a>
-          </div>
-          {{end}}
-          {{with websiteURL .Website}}
-          <div class="break-all">
-            {{icon "link"}} <a href="{{.}}" target="_blank" rel="noopener noreferrer" class="ter-poveznica">{{websiteLabel .}}</a>
-          </div>
-          {{end}}
-        </div>
-      </div>
-
-      <div class="ter-podnozje">
-        <a href="/territories/municipalities/{{.ID}}" class="btn btn-secondary btn-sm">
-          {{icon "house"}} Naselja
-        </a>
-        {{if $.Permissions.IsGlobalAdmin}}
-        <div class="ter-radnje">
-          <a href="/territories/municipalities/{{.ID}}/edit" class="btn btn-secondary btn-sm" title="Uredi grad/općinu" aria-label="Uredi grad/općinu">{{icon "pencil"}}</a>
-          <form action="/territories/municipality/delete" method="POST" onsubmit="return confirm('Jeste li sigurni da želite obrisati jedinicu {{.Name}} i sva njena naselja?');" class="d-inline">
-            <input type="hidden" name="id" value="{{.ID}}">
-            <input type="hidden" name="county_id" value="{{.CountyID}}">
-            <button type="submit" class="btn btn-sm btn-secondary btn-opasno" title="Obriši grad/općinu" aria-label="Obriši grad/općinu">{{icon "trash"}}</button>
-          </form>
-        </div>
-        {{end}}
-      </div>
-    </div>
+    <tr>
+      <td><a href="/territories/municipalities/{{.ID}}" class="dl-poveznica">{{.Name}}</a></td>
+      <td data-stupac="Vrsta">{{if eq .Type "GRAD"}}grad{{else}}općina{{end}}</td>
+      <td data-stupac="Županija">{{if .CountyName}}<a href="/territories/counties/{{.CountyID}}">{{.CountyName}}</a>{{else}}—{{end}}</td>
+      <td data-stupac="Poštanski broj">{{if .PostalCode}}{{.PostalCode}}{{else}}—{{end}}</td>
+      <td data-stupac="km²" class="text-right">{{if gt .AreaSqKm 0.0}}{{brojHRf .AreaSqKm 1}}{{else}}—{{end}}</td>
+      <td data-stupac="Stanovnika" class="text-right">{{if gt .Population 0}}{{brojHR .Population}}{{else}}—{{end}}</td>
+      {{if $.Permissions.IsGlobalAdmin}}
+      <td class="text-right nowrap">
+        <a href="/territories/municipalities/{{.ID}}/edit" class="btn btn-sm btn-secondary" title="Uredi: {{.Name}}">{{icon "pencil"}}<span class="usluga-samo-usko"> Uredi</span></a>
+        <form action="/territories/municipality/delete" method="POST" onsubmit="return confirm('Jeste li sigurni da želite obrisati jedinicu {{.Name}} i sva njena naselja?');" class="d-inline">
+          <input type="hidden" name="id" value="{{.ID}}">
+          <input type="hidden" name="county_id" value="{{.CountyID}}">
+          <button type="submit" class="btn btn-sm btn-secondary btn-opasno" title="Obriši: {{.Name}}">{{icon "trash"}}<span class="usluga-samo-usko"> Obriši</span></button>
+        </form>
+      </td>
+      {{end}}
+    </tr>
+    {{else}}
+    <tr class="dl-prazno"><td colspan="7"><p>Nema rezultata: nijedan grad ni općina ne odgovara odabranim kriterijima.</p><a href="/territories?tab=municipalities" class="btn btn-link">Poništi sve filtre</a></td></tr>
     {{end}}
-  </div>
-
+    </tbody>
+  </table>
   {{template "pager" .Pager}}
   </div>
-  {{end}}
+  <p class="dio-podnozje">{{.Pager.Total}} {{uzBroj .Pager.Total "grad ili općina" "grada ili općine" "gradova i općina"}}</p>
   {{end}}
   {{end}}
 
