@@ -10212,3 +10212,6 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
 .zup-cipovi a { display: inline-block; padding: 2px 8px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 6px; font-size: 0.85rem; color: var(--text); text-decoration: none; }
 .zup-cipovi a:hover { background: var(--md-sys-color-surface-container-high); }
 .zup-cipovi a span { color: var(--text-secondary); }
+
+/* Obrasci županije i općine (17f, 7d i 7e). */
+.ter-oznaka-polje { text-transform: uppercase; }
