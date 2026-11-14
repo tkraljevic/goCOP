@@ -75,14 +75,13 @@ func TestRegistarLetviPiseBrojeveHrvatski(t *testing.T) {
 
 func TestRegistarVodotokaPiseBrojeveHrvatski(t *testing.T) {
 	duljina, porjecje, protok := 1234.5, 96000.0, 620.0
-	html := iscrtaj(t, "watercourses.html", WatercoursesPageData{
+	// Duljina, sliv i protok su na kartici vodotoka; popis ih po crtežu 17e više ne nosi.
+	html := iscrtaj(t, "watercourse_detail.html", WatercoursePageData{
 		CurrentUser: &models.User{FullName: "Provjera"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
-		Watercourses: []models.Watercourse{
-			{Name: "Dunav", LengthKm: &duljina, BasinKm2: &porjecje, AvgFlowM3S: &protok},
-		},
+		Water:       models.Watercourse{Code: "rijeka-dunav", Name: "Dunav", LengthKm: &duljina, BasinKm2: &porjecje, AvgFlowM3S: &protok},
 	})
-	for _, want := range []string{"1.234 km", "96.000 km²", "620 m³/s"} {
+	for _, want := range []string{"1.234,5 km", "96.000 km²", "620,0 m³/s"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("na stranici nema %q", want)
 		}

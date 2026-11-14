@@ -447,6 +447,8 @@ func templateFuncs() template.FuncMap {
 		"brojHRd": brojHRd,
 		// pragovi letve u popisu postaja: „120 · 200 · 250 · —”
 		"pragoviPopisa": pragoviPopisa,
+		// „Nije ucrtano” na popisu vodotoka vodi na Kartu
+		"kartaNeucrtaneVode": kartaNeucrtaneVode,
 		// vrijednost iz pokazivača, za predloške koje zanima broj a ne oblik
 		"deref": func(v *float64) float64 {
 			if v == nil {

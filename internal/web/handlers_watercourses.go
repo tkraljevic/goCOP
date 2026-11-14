@@ -59,6 +59,8 @@ type WatercoursesPageData struct {
 	ActiveNav        string
 	Pager            Pager
 	ViewAsBanner
+	// CipoviUpotrebe su Sve i „S dionicom ili postajom”
+	CipoviUpotrebe []CipPopisa
 }
 
 // ShowWatercourses prikazuje registar vodnih tijela
@@ -95,6 +97,7 @@ func (h *WatercoursesHandler) ShowWatercourses(w http.ResponseWriter, r *http.Re
 	if total, used, us, st, err := h.watercourseService.Counts(ctx); err == nil {
 		data.Total, data.Used, data.UnlinkedSections, data.UnlinkedStations = total, used, us, st
 	}
+	izgledPopisaVoda(&data, r.URL.Query())
 
 	if err := h.tmpl.ExecuteTemplate(w, "watercourses.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
