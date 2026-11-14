@@ -2,61 +2,64 @@
 
 {{define "title"}}goCOP — Licencirane firme{{end}}
 
+{{/* Licencirane firme (goCOP-m3, 17f · 7f): tablica na računalu, kartice na mobitelu.
+     E-pošta i osoba za obranu ostaju u drugom retku ćelije Firma (Odluke (10. 11. 2026.), 16).
+     Čipovi, pretraga, straničenje, oznaka „mogući dvojnik” i Excel su novo ponašanje i
+     dolaze poslije. Obriši ostaje u retku dok ne dođe u obrazac firme. */}}
 {{define "content"}}
-<div class="breadcrumb"><a href="/registri">Registri</a> › Licencirane firme</div>
-
-<div class="page-header">
+{{$smijeNovu := and .Permissions (or .Permissions.IsGlobalAdmin (gt (len .Permissions.AdminSectors) 0) (gt (len .Permissions.AdminAreas) 0))}}
+<a href="/registri" class="povratna-poveznica">← Registri</a>
+<div class="page-header list-glava dio-glava">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "wrench"}} Licencirane firme</h1>
-    <p class="page-desc">
-      Pravne osobe s licencijom koje po ugovoru rade održavanje i obranu; natječaj svake četiri godine. Jedno
-      {{terml "podrucje"}} smije imati više firmi, a udružene se upisuju kao zajednica ili svaka posebno.
-      Pregled vidi svatko s registrima; unos vrši globalni administrator ili ovlaštenik za praćenje ugovora
-      za svoje {{terml "podrucje"}}.
-    </p>
+    <h1 class="page-title" data-naziv-stranice>Licencirane firme</h1>
+    <p class="page-desc">Pravne osobe s licencijom koje po ugovoru rade održavanje i obranu, i gdje koja radi.</p>
   </div>
-  <div class="detail-actions" style="display:flex; gap:0.4rem; align-items:flex-start;">
-    {{if .Contractors}}<a href="/firme.csv" class="btn btn-secondary" title="Izvoz u CSV (Excel)">{{icon "download"}} CSV</a>{{end}}
-    {{if and .Permissions (or .Permissions.IsGlobalAdmin (gt (len .Permissions.AdminSectors) 0) (gt (len .Permissions.AdminAreas) 0)) .Sectors}}<a href="/firme/new" class="btn btn-primary">{{icon "plus"}} Nova firma</a>{{end}}
+  <div class="page-actions">
+    {{if .Contractors}}<a href="/firme.csv" class="btn btn-link" title="Izvoz u CSV (Excel)">CSV</a>{{end}}
+    {{if and $smijeNovu .Sectors}}<a href="/firme/new" class="btn btn-primary">Nova firma</a>{{end}}
   </div>
 </div>
 
-
 {{if .Contractors}}
-<div class="table-card"><div class="table-responsive">
-  <table class="data-table">
-    <thead><tr><th>Naziv</th><th>OIB</th><th>Kontakt</th><th>Osoba za obranu</th><th>Gdje radi</th><th>Stanje</th>{{if $.EditableIDs}}<th></th>{{end}}</tr></thead>
+<div class="akti-okvir dio-okvir">
+  <table class="data-table kartice-na-mobitelu dio-tablica fir-tablica">
+    <thead><tr><th>Firma</th><th>OIB</th><th>Adresa</th><th>Telefon</th><th>Područja</th><th>Stanje</th>{{if $.EditableIDs}}<th><span class="sr-only">Obriši</span></th>{{end}}</tr></thead>
     <tbody>
     {{range .Contractors}}
+    {{$smije := index $.EditableIDs .ID}}
     <tr>
-      <td><strong>{{.Name}}</strong>{{if .Address}}<div class="reading-meta">{{.Address}}</div>{{end}}{{if .Notes}}<div class="form-help" style="margin:0.2rem 0 0;">{{.Notes}}</div>{{end}}</td>
-      <td class="mono">{{.OIB}}</td>
-      <td class="reading-meta nowrap">{{if .Phone}}<a href="tel:{{.Phone}}">{{.Phone}}</a>{{end}}{{if and .Phone .Email}}<br>{{end}}{{if .Email}}<a href="mailto:{{.Email}}">{{.Email}}</a>{{end}}</td>
-      <td>{{.Contact}}</td>
-      <td>{{range .Assignments}}<span class="reg-chip">{{.Where}}</span> {{end}}</td>
-      <td>{{if .Active}}<span class="badge badge-active">aktivan</span>{{else}}<span class="badge badge-inactive">neaktivan</span>{{end}}</td>
-      {{if index $.EditableIDs .ID}}
-      <td class="nowrap text-right">
-        <a href="/firme/{{.ID}}/edit" class="btn btn-sm btn-secondary" title="Uredi">{{icon "pencil"}}</a>
-        <form method="POST" action="/firme/delete" onsubmit="return confirm('Obrisati firmu {{.Name}}? Za povijest je bolje označiti je neaktivnom.')" class="d-inline">
-          <input type="hidden" name="id" value="{{.ID}}"><button type="submit" class="btn btn-sm btn-secondary" title="Obriši">{{icon "trash"}}</button>
-        </form>
+      <td class="fir-firma">
+        {{if $smije}}<a href="/firme/{{.ID}}/edit" class="dl-poveznica">{{.Name}}</a>{{else}}<span class="dl-naziv">{{.Name}}</span>{{end}}
+        {{if or .Email .Contact}}<span class="dl-sitno">{{with .Email}}<a href="mailto:{{.}}">{{.}}</a>{{end}}{{if and .Email .Contact}} · {{end}}{{with .Contact}}osoba za obranu: {{.}}{{end}}</span>{{end}}
+        {{with .Notes}}<span class="dl-sitno">{{.}}</span>{{end}}
       </td>
-      {{else if $.EditableIDs}}
-      <td></td>
+      <td data-stupac="OIB" class="mono">{{if .OIB}}{{.OIB}}{{else}}<span class="fir-prazno">nije upisan</span>{{end}}</td>
+      <td data-stupac="Adresa">{{if .Address}}{{.Address}}{{else}}<span class="fir-prazno">nije upisana</span>{{end}}</td>
+      <td data-stupac="Telefon" class="nowrap">{{with .Phone}}<a href="tel:{{.}}">{{.}}</a>{{else}}—{{end}}</td>
+      <td data-stupac="Područja"><span class="fir-mjesta">{{range .Assignments}}<span class="oznaka-stanja obrub">{{.Where}}</span>{{else}}—{{end}}</span></td>
+      <td data-stupac="Stanje">{{if .Active}}aktivna{{else}}<span class="oznaka-stanja">neaktivna</span>{{end}}</td>
+      {{if $.EditableIDs}}
+      <td class="text-right">{{if $smije}}
+        <form method="POST" action="/firme/delete" onsubmit="return confirm('Obrisati firmu {{.Name}}? Za povijest je bolje označiti je neaktivnom.')" class="d-inline">
+          <input type="hidden" name="id" value="{{.ID}}"><button type="submit" class="btn btn-sm btn-link btn-opasno" title="Obriši: {{.Name}}">{{icon "trash"}}<span class="usluga-samo-usko"> Obriši</span></button>
+        </form>{{end}}
+      </td>
       {{end}}
     </tr>
     {{end}}
     </tbody>
   </table>
-</div></div>
-{{else}}
-<div class="reg-empty" style="padding:2rem;">
-  Još nema nijedne firme. {{if and .Permissions (or .Permissions.IsGlobalAdmin (gt (len .Permissions.AdminSectors) 0) (gt (len .Permissions.AdminAreas) 0))}}{{if .Sectors}}Upišite prvu, pa je vežite na {{terml "podrucja"}} na kojima radi.{{else}}Prvo upišite ustroj: {{terml "sektori"}} i {{terml "podrucja"}}.{{end}}{{else}}Upisuje ih globalni administrator ili ovlaštenik za praćenje ugovora za svoje {{terml "podrucje"}}.{{end}}
 </div>
+<p class="dio-podnozje">{{len .Contractors}} {{uzBroj (len .Contractors) "firma" "firme" "firmi"}}</p>
+{{else}}
+<p class="reg-empty">
+  Još nema nijedne firme. {{if $smijeNovu}}{{if .Sectors}}Upišite prvu, pa je vežite na {{terml "podrucja"}} na kojima radi.{{else}}Prvo upišite ustroj: {{terml "sektori"}} i {{terml "podrucja"}}.{{end}}{{else}}Upisuje ih globalni administrator ili ovlaštenik za praćenje ugovora za svoje {{terml "podrucje"}}.{{end}}
+</p>
 {{end}}
 
-<p style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border); font-size: 0.8125rem; color: var(--text-muted); text-align: center;">
-  {{icon "info"}} Popis treba aktualizirati nakon svakog četverogodišnjeg sporazuma o održavanju.
+<p class="form-help fir-napomena">
+  Natječaj je svake četiri godine, pa popis treba osvježiti nakon svakog sporazuma o održavanju. Jedno {{terml "podrucje"}} smije imati više firmi,
+  a udružene se upisuju kao zajednica ili svaka posebno. Pregled vidi svatko s registrima; unos vrši globalni administrator ili ovlaštenik
+  za praćenje ugovora za svoje {{terml "podrucje"}}.
 </p>
 {{end}}
