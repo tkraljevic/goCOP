@@ -282,7 +282,18 @@ func (h *DashboardHandler) mojeLetve(ctx context.Context, perms *models.UserPerm
 	if err != nil || fo == nil {
 		return nedostupna(kMojeLetve, "Letve trenutačno nisu dostupne.")
 	}
-	return karticaMojihLetava(fo.Mine, sad)
+	k := karticaMojihLetava(fo.Mine, sad)
+	k.URL = ocitanjaPodrucja(fo.Area)
+	return k
+}
+
+// ocitanjaPodrucja su Očitanja sužena na područje terenskog pogleda; stranica
+// Teren je ukinuta (Odluke (14. 11. 2026.))
+func ocitanjaPodrucja(a *models.Area) string {
+	if a == nil {
+		return "/readings"
+	}
+	return fmt.Sprintf("/readings?area=%d", a.ID)
 }
 
 // karticaMojihLetava: očitana letva s vodostajem i vremenom, neočitana s
@@ -305,7 +316,7 @@ func karticaMojihLetava(letve []models.GaugeSummary, sad time.Time) KarticaNaslo
 		k.Redovi = append(k.Redovi, r)
 	}
 	if len(k.Redovi) == 0 {
-		k.Prazno = &PraznaKartica{Vrsta: PraznoCeka, Tekst: "Još nema letava koje redovito očitavaš. Sve letve područja su na stranici Teren."}
+		k.Prazno = &PraznaKartica{Vrsta: PraznoCeka, Tekst: "Još nema letava koje redovito očitavaš. Sve letve područja su u Očitanjima."}
 	}
 	return k
 }

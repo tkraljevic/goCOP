@@ -223,7 +223,7 @@ func precaciZa(perms *models.UserPermissions) []Precac {
 		dodaj("Skladišta i sredstva", "/sredstva", "package")
 	}
 	if perms.User.IsFieldUser() {
-		dodaj("Teren", "/teren", "map-pin")
+		dodaj("Moje letve", "/readings", "ruler")
 	}
 	dodaj("Događanja", "/dogadjanja", "activity")
 	return out

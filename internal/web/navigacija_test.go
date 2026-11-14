@@ -118,7 +118,7 @@ func TestSredstvaSuVlastitaStavkaIzbornika(t *testing.T) {
 func TestNaslovGornjeTrakeIInicijali(t *testing.T) {
 	for nav, zeli := range map[string]string{
 		"": "Naslovna", "dashboard": "Naslovna", "readings": "Očitanja", "prognoze": "Prognoze",
-		"journals": "Dokumenti", "teren": "Teren", "sredstva": "Sredstva",
+		"journals": "Dokumenti", "sredstva": "Sredstva",
 		"sections": "Registri", "firme": "Registri", navObjekta("nasip"): "Registri", navObjekta("crpna-stanica"): "Registri",
 		"sync": "Administracija", "moduli": "Administracija", "users": "Djelatnici i dežurstva",
 		"pomoc": "Pomoć", "profile": "Profil", "posta": "Sandučić", "nepoznato": "goCOP",
@@ -162,8 +162,9 @@ func TestGornjaTraka(t *testing.T) {
 	}
 }
 
-// Donja traka na mobitelu: Naslovna, Očitanja, Prognoze i Dokumenti (ili
-// Teren, kome dokumenti nisu vidljivi), pa „Više” koje otvara izbornik
+// Donja traka na mobitelu: Naslovna, Očitanja, Prognoze i Dokumenti, pa
+// „Više” koje otvara izbornik. Stranica Teren je ukinuta (Odluke
+// (14. 11. 2026.)), pa je nema ni u traci ni u izborniku.
 func TestDonjaTrakaNaMobitelu(t *testing.T) {
 	traka := dio(t, iscrtajSkoljku(t, DashboardViewData{
 		ActiveNav:    "readings",
@@ -174,12 +175,13 @@ func TestDonjaTrakaNaMobitelu(t *testing.T) {
 			t.Errorf("donja traka nema %q:\n%s", zeli, traka)
 		}
 	}
-	if strings.Contains(traka, `href="/teren"`) {
-		t.Error("donja traka ima i Dokumente i Teren, pa je stavki više od pet")
+	vodocuvar := iscrtajSkoljku(t, DashboardViewData{ViewAsBanner: ViewAsBanner{Modules: models.Visibility{models.ModuleField: true, models.ModuleReadings: true}}})
+	traka = dio(t, vodocuvar, `<nav class="donja-traka"`, `</nav>`)
+	if !strings.Contains(traka, `href="/readings"`) || strings.Contains(traka, `href="/dnevnici"`) {
+		t.Errorf("vodočuvaru bez dokumenata donja traka ne vodi na Očitanja:\n%s", traka)
 	}
-	traka = dio(t, iscrtajSkoljku(t, DashboardViewData{ViewAsBanner: ViewAsBanner{Modules: models.Visibility{models.ModuleField: true}}}), `<nav class="donja-traka"`, `</nav>`)
-	if !strings.Contains(traka, `href="/teren"`) || strings.Contains(traka, `href="/dnevnici"`) || strings.Contains(traka, `href="/readings"`) {
-		t.Errorf("vodočuvaru bez dokumenata donja traka ne vodi na Teren:\n%s", traka)
+	if strings.Contains(vodocuvar, `href="/teren"`) {
+		t.Error("izbornik još vodi na ukinutu stranicu Teren")
 	}
 }
 

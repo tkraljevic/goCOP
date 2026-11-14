@@ -1546,7 +1546,7 @@ func TestPomocImaSidroZaSvakuStranicu(t *testing.T) {
 	for _, nav := range []string{
 		"admin", "dashboard", "journals", "maintenance", "moduli", "organizacija",
 		"pomoc", "profile", "readings", "registers", "sections", "settings",
-		"stations", "structures", "sync", "teren", "territories", "users", "watercourses",
+		"stations", "structures", "sync", "territories", "users", "watercourses",
 	} {
 		if !strings.Contains(html, `id="`+nav+`"`) {
 			t.Errorf("pomoć nema sidro %q — znak ? s te stranice vodi u prazno", nav)

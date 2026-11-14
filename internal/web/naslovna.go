@@ -186,7 +186,7 @@ var glaveKartica = map[string]KarticaNaslovne{
 	kVrijeme:     {Naslov: "Vrijeme", Poveznica: "Prognoze", URL: "/prognoze/vrijeme"},
 	kJaceOborine: {Naslov: "Jače oborine", Poveznica: "Slivovi", URL: "/slivovi#kisa"},
 	kSustav:      {Naslov: "Sustav", Poveznica: "Administracija", URL: "/administracija"},
-	kMojeLetve:   {Naslov: "Moje letve", Poveznica: "Sve letve područja", URL: "/teren"},
+	kMojeLetve:   {Naslov: "Moje letve", Poveznica: "Sve letve područja", URL: "/readings"},
 	kDnevniList:  {Naslov: "Dnevni list"},
 	kZadaci:      {Naslov: "Zadaci rukovoditelja"},
 	// rukovoditelj branjenog područja
@@ -208,7 +208,7 @@ var glaveKartica = map[string]KarticaNaslovne{
 	kNaloziOvl:     {Naslov: "Nalozi ovlaštenika"},
 	kLjudiNaTerenu: {Naslov: "Na terenu danas"},
 	// strojar, rukovatelj, voditelj posade
-	kMojiObjekti:   {Naslov: "Moji objekti", Poveznica: "Teren", URL: "/teren"},
+	kMojiObjekti:   {Naslov: "Moji objekti", Poveznica: "Očitanja", URL: "/readings"},
 	kNaloziObjektu: {Naslov: "Nalozi"},
 }
 

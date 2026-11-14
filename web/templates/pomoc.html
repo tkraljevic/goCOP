@@ -64,7 +64,7 @@
     <a href="#dashboard-brojke">Podaci u sustavu</a>
     <a href="#dashboard-razmjena">Razmjena s čvorovima</a>
     <a href="#dashboard-dogadjanja">Zid događanja</a>
-    <a class="kazalo-glava" href="#teren">Teren</a>
+    <a class="kazalo-glava" href="#obilazak">Obilazak letava</a>
     <a class="kazalo-glava" href="#karta">Karta</a>
   </div>
   <div class="kazalo-grupa">
@@ -321,9 +321,7 @@
     <p>Odmah ispod kartice djelatnika nalazi se red modula. <strong>Prikazuju se samo moduli za
       koje vaša uloga ima ovlasti</strong>:</p>
     <ul>
-      <li><strong>Teren</strong> — brzi popis vlastitih vodomjernih postaja i hidrotehničkih
-        objekata, posebno prilagođen radu na mobitelu i upisu očitanja jednom rukom na terenu.</li>
-      <li><strong>Očitanja</strong> — operativni vodostaji: zadnja očitana stanja, stupnjevi
+      <li><strong>Očitanja</strong> — moje letve za obilazak na vrhu, operativni vodostaji: zadnja očitana stanja, stupnjevi
         i pragovi obrane od poplava, grafikoni kretanja vodostaja, praćene postaje i prognoze.</li>
       <li><strong>Dokumenti</strong> — dnevnici, dežurstva, izvješća, događanja, akti i
         vodočuvarska knjiga.</li>
@@ -464,22 +462,21 @@
       <em>Teren</em> za terenske djelatnike te uvijek <em>Događanja</em>. Prečac u modul koji ne
       vidite se ne prikazuje.</p>
   </div>
-  {{template "pomocPoglavljeNav" (list "Kako se program koristi" "#pocetak" "Teren" "#teren")}}
+  {{template "pomocPoglavljeNav" (list "Kako se program koristi" "#pocetak" "Obilazak letava" "#obilazak")}}
 </section>
 
-<section class="detail-section" id="teren">
-  <h2>{{icon "map-pin"}} Teren</h2>
+<section class="detail-section" id="obilazak">
+  <h2>{{icon "ruler"}} Obilazak letava</h2>
   <div class="reg-card pomoc-tekst">
-    <p>Popis letvi i objekata za obilazak, složen za rad na telefonu s jednom rukom.
-      <strong>Moje letve</strong> su one koje ste očitavali u zadnjih 90 dana, poredane po vremenu
-      kad ih obično obilazite; ispod stoje ostale letve i objekti odabranog branjenog područja.
-      Sektor se bira prvi, zatim se nude njegova branjena područja; izbor <em>Svi: sektori</em>
-      nudi sva područja koja smijete birati.</p>
-    <p>Traka napretka pokazuje koliko je vaših letvi danas očitano, a gumb <em>Nastavi
-      obilazak</em> vodi na prvu koja još nije. Letva se otvara pritiskom, a očitanje se upisuje
-      velikim poljem za broj — na terenu se ne pogađa sitna tipka.</p>
-    <p>Vodočuvar ovdje ima i prečace na <em>Današnji list</em> i <em>Svi listovi</em>
-      vodočuvarskog dnevnika te na <em>Nova prijava s terena</em> i <em>Moje prijave</em>.</p>
+    <p>Na vrhu stranice Očitanja su <strong>Moje letve</strong>: letve i objekti koje ste
+      očitavali u zadnjih 90 dana, poredani po vremenu kad ih obično obilazite. Traka pokazuje
+      koliko ih je danas očitano, a gumb <em>Nastavi obilazak</em> vodi na prvu koja još nije.
+      <em>Upiši</em> uz letvu otvara upis, a nakon spremanja program se vraća na isti popis.</p>
+    <p>Letva je danas očitana kad je netko na nju ručno upisao očitanje; uz vrijeme piše i tko.
+      Satno očitanje uređaja i skupni unos se ne broje. Ostale letve su ispod, po vodama; čipom
+      <em>Područje</em> popis se suzi na jedno branjeno područje.</p>
+    <p>Vodočuvar dnevni list, zadatke rukovoditelja i novu prijavu s terena ima na Naslovnoj.
+      Nekadašnja stranica Teren vodi na Očitanja.</p>
   </div>
   {{template "pomocPoglavljeNav" (list "Početna" "#dashboard" "Karta" "#karta")}}
 </section>
@@ -536,7 +533,7 @@
     <p>Adresa stranice pamti gdje je karta i koji su slojevi uključeni, pa se poveznica može
       poslati kolegi. <em>Vrati zadano</em> uključi sve slojeve, kao kad se Karta otvori.</p>
   </div>
-  {{template "pomocPoglavljeNav" (list "Teren" "#teren" "Dionice" "#sections")}}
+  {{template "pomocPoglavljeNav" (list "Obilazak letava" "#obilazak" "Dionice" "#sections")}}
 </section>
 
 <section class="detail-section" id="sections">

@@ -61,7 +61,9 @@ func (h *DashboardHandler) mojiObjekti(ctx context.Context, perms *models.UserPe
 	if len(objekti) == 0 {
 		objekti = objektiOcitanja(fo.Others)
 	}
-	return karticaMojihObjekata(objekti, sad)
+	k := karticaMojihObjekata(objekti, sad)
+	k.URL = ocitanjaPodrucja(fo.Area)
+	return k
 }
 
 // objektiOcitanja su crpne stanice i ustave iz popisa letava

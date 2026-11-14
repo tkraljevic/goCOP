@@ -46,7 +46,6 @@
       <a href="/prognoze" class="nav-link {{if eq .ActiveNav "prognoze"}}active{{end}}">{{icon "chart-column"}}<span>Prognoze</span></a>
       {{end}}
       {{if .Sees "dnevnici"}}<a href="/dnevnici" class="nav-link {{if eq .ActiveNav "journals"}}active{{end}}">{{icon "file-text"}}<span>Dokumenti</span></a>{{end}}
-      {{if .Sees "teren"}}<a href="/teren" class="nav-link {{if eq .ActiveNav "teren"}}active{{end}}">{{icon "map-pin"}}<span>Teren</span></a>{{end}}
       {{if .CurrentUser}}<a href="/karta" class="nav-link {{if eq .ActiveNav "karta"}}active{{end}}">{{icon "map"}}<span>Karta</span></a>{{end}}
       {{if .Sees "registri"}}
       {{/* Sredstva za obranu su vlastita stavka, a ne dio Registara */}}
@@ -143,8 +142,7 @@
     <a href="/readings" class="donja-stavka {{if eq .ActiveNav "readings"}}active{{end}}">{{icon "ruler"}}<span>Očitanja</span></a>
     <a href="/prognoze" class="donja-stavka {{if eq .ActiveNav "prognoze"}}active{{end}}">{{icon "chart-column"}}<span>Prognoze</span></a>
     {{end}}
-    {{if .Sees "dnevnici"}}<a href="/dnevnici" class="donja-stavka {{if eq .ActiveNav "journals"}}active{{end}}">{{icon "file-text"}}<span>Dokumenti</span></a>
-    {{else if .Sees "teren"}}<a href="/teren" class="donja-stavka {{if eq .ActiveNav "teren"}}active{{end}}">{{icon "map-pin"}}<span>Teren</span></a>{{end}}
+    {{if .Sees "dnevnici"}}<a href="/dnevnici" class="donja-stavka {{if eq .ActiveNav "journals"}}active{{end}}">{{icon "file-text"}}<span>Dokumenti</span></a>{{end}}
     <button type="button" class="donja-stavka" onclick="otvoriIzbornik()" aria-label="Više" aria-controls="izbornik" aria-expanded="false">{{icon "layout-grid"}}<span>Više</span></button>
   </nav>
 

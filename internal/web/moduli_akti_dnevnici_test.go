@@ -27,7 +27,7 @@ func TestAktiVodocuvarIDogadjanjaPodDnevnicima(t *testing.T) {
 		"/aktivnosti":                 "",
 		"/vodocuvari":                 "",
 		"/prijave":                    "",
-		"/teren":                      models.ModuleField,
+		"/teren":                      "",
 		"/administracija/akti-uvjeti": models.ModuleAdmin,
 	} {
 		if got := moduleForPath(put); got != modul {
