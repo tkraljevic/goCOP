@@ -1949,7 +1949,6 @@ function dodajKontroleKarte(karta, platno, opcije) {
     for (var i = 0; i < bojePojasa.length; i++) if (bojePojasa[i][0].test(pojas || '')) return bojePojasa[i][1];
     return '#455a64';
   }
-  var bojeSliva = ['#1976d2', '#c62828', '#00897b', '#f9a825', '#8e24aa', '#6d4c41', '#00acc1', '#7cb342', '#d81b60'];
 
   document.addEventListener('DOMContentLoaded', function () {
     if (typeof L === 'undefined') return;
@@ -1985,23 +1984,32 @@ function dodajKontroleKarte(karta, platno, opcije) {
       // slivovi: prozirne plohe, svaka svoje boje
       var slojSlivova = null;
       if (slivovi) {
-        var redni = 0;
+        // međuslivovi su plavi (boja iz tokena --karta-sliv, preko razreda), a oznaka A–O
+        // stoji stalno na sredini poligona (goCOP-m3, 17e · Registri, 6d)
+        var oznakeSlivova = L.layerGroup();
         slojSlivova = L.geoJSON(slivovi, {
           style: function () {
-            var b = bojeSliva[redni++ % bojeSliva.length];
-            return { color: b, weight: 1.5, opacity: 0.8, fillColor: b, fillOpacity: 0.08, className: 'kis-sliv' };
+            return { weight: 1.5, opacity: 0.8, fillOpacity: 0.08, className: 'kis-sliv' };
           },
           onEachFeature: function (feat, layer) {
             var p = feat.properties || {};
+            if (p.oznaka && layer.getBounds && layer.getBounds().isValid()) {
+              oznakeSlivova.addLayer(L.marker(layer.getBounds().getCenter(), {
+                interactive: false, keyboard: false,
+                icon: L.divIcon({ className: 'kis-sliv-oznaka-omotac', html: '<span class="kis-sliv-oznaka">' + escapeHtml(p.oznaka) + '</span>', iconSize: [22, 22], iconAnchor: [11, 11] })
+              }));
+            }
             var tekst = '<strong>' + escapeHtml((p.oznaka ? p.oznaka + ' · ' : '') + (p.naziv || 'Međusliv')) + '</strong>' +
               (p.km2 ? '<br><small>' + Math.round(p.km2).toLocaleString('hr-HR') + ' km²</small>' : '');
             layer.bindTooltip(tekst, { sticky: true });
           }
         }).addTo(karta);
+        oznakeSlivova.addTo(karta);
         if (slojSlivova.getBounds().isValid()) obuhvat.extend(slojSlivova.getBounds());
         var preklopnik = okvir.parentElement.querySelector('.karta-slivovi-preklopnik');
         if (preklopnik) preklopnik.addEventListener('change', function () {
-          if (preklopnik.checked) slojSlivova.addTo(karta); else karta.removeLayer(slojSlivova);
+          if (preklopnik.checked) { slojSlivova.addTo(karta); oznakeSlivova.addTo(karta); }
+          else { karta.removeLayer(slojSlivova); karta.removeLayer(oznakeSlivova); }
         });
       }
 
@@ -2039,7 +2047,8 @@ function dodajKontroleKarte(karta, platno, opcije) {
       var uPremjestanju = false;
       tocke.forEach(function (t) {
         var stvarni = t.vrsta === 'stvarni';
-        var boja = stvarni ? '#fff' : (t.aktivan ? bojaPojasa(t.pojas) : '#9e9e9e');
+        // stvarni kišomjer je puna točka (boja iz tokena), izvedena prazna s rubom boje pojasa
+        var boja = stvarni ? 'var(--karta-kisomjer)' : (t.aktivan ? bojaPojasa(t.pojas) : 'var(--karta-neaktivno)');
         var ikona = L.divIcon({
           className: 'kis-tocka-omotac',
           html: '<div class="kis-tocka' + (stvarni ? ' kis-stvarni' : '') + (t.aktivan ? '' : ' kis-tocka-neaktivna') + '" style="--c:' + boja + '"></div>',
