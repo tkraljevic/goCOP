@@ -305,9 +305,10 @@ type GaugeSummary struct {
 	Count          int
 
 	// Za terenski pogled
-	DoneToday bool // zadnje očitanje je od danas
-	Habit     int  // koliko je puta ova osoba očitala letvu u zadnjih 90 dana
-	UsualMin  int  // uobičajeno vrijeme očitanja, minuta u danu (za redoslijed obilaska)
+	DoneToday bool     // danas ju je očitao čovjek (Danas nije nil)
+	Danas     *Reading // zadnje današnje očitanje koje je upisao čovjek, ne uređaj ni uvoz
+	Habit     int      // koliko je puta ova osoba očitala letvu u zadnjih 90 dana
+	UsualMin  int      // uobičajeno vrijeme očitanja, minuta u danu (za redoslijed obilaska)
 }
 
 // UsualTime je uobičajeno vrijeme očitanja kao "07:25"

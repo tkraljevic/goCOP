@@ -538,3 +538,33 @@ func TestOcitanjaGreskeBaze(t *testing.T) {
 		t.Errorf("krajnosti iz zatvorene baze: %+v", k)
 	}
 }
+
+// Zadnje ručno očitanje od zadanog trenutka: uređaj i uvoz se ne broje,
+// starije od granice ne ulazi, letva i objekt čitaju samo svoje retke.
+func TestZadnjeRucnoOd(t *testing.T) {
+	o := novaOkolinaOcitanja(t)
+	ctx := context.Background()
+	od := u2026(time.March, 10, 0, 0)
+	o.upisi(t, letvaPrimjerovo, "", u2026(time.March, 9, 7, 0), cmVodostaja(10), models.ReadingOriginGoCOP)
+	o.upisi(t, letvaPrimjerovo, "", u2026(time.March, 10, 7, 0), cmVodostaja(20), models.ReadingOriginGoCOP)
+	uredaj := models.Reading{StationID: letvaPrimjerovo, MeasuredAt: u2026(time.March, 10, 9, 0), LevelCm: cmVodostaja(30),
+		Source: models.ReadingSourceAutomatic}
+	if err := o.repo.Create(ctx, &uredaj); err != nil {
+		t.Fatal(err)
+	}
+	o.upisi(t, "", ustavaProbna, u2026(time.March, 10, 8, 0), cmVodostaja(40), models.ReadingOriginGoCOP)
+
+	if rd, err := o.repo.ZadnjeRucnoOd(ctx, letvaPrimjerovo, "", od); err != nil || rd == nil || *rd.LevelCm != 20 || rd.Observer != "Pero Perić" {
+		t.Errorf("letva: %+v %v", rd, err)
+	}
+	if rd, err := o.repo.ZadnjeRucnoOd(ctx, "", ustavaProbna, od); err != nil || rd == nil || *rd.LevelCm != 40 {
+		t.Errorf("ustava: %+v %v", rd, err)
+	}
+	if rd, err := o.repo.ZadnjeRucnoOd(ctx, letvaBezimena, "", od); err != nil || rd != nil {
+		t.Errorf("letva bez očitanja: %+v %v", rd, err)
+	}
+	o.baza.Close()
+	if _, err := o.repo.ZadnjeRucnoOd(ctx, letvaPrimjerovo, "", od); err == nil {
+		t.Error("zatvorena baza bez greške")
+	}
+}
