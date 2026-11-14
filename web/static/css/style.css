@@ -10094,3 +10094,12 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
   table.ter-tablica.kartice-na-mobitelu td[data-stupac]::before { content: attr(data-stupac); flex: none; color: var(--md-sys-color-on-surface-variant); }
   table.ter-tablica.kartice-na-mobitelu td:last-child .btn { width: auto; min-height: 40px; margin: 0; }
 }
+
+
+/* Teritorij: popis gradova i općina (17f, isti uzor kao 7a). Filtri u jednom redu. */
+.ter-filtri { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 12px; }
+.ter-filtri > select.form-control { width: auto; min-width: 12rem; }
+.ter-filtri .akti-trazi { flex: 1 1 16rem; }
+@media (max-width: 767px) {
+  .ter-filtri > select.form-control { flex: 1 1 100%; }
+}
