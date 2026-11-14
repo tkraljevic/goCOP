@@ -10006,3 +10006,18 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
 /* Obrazac objekta (17d, 5c): ploče kao obrazac postaje (.lob-stranica), Obriši dolje lijevo. */
 .obj-obrazac .list-kartica > h3 label { font: inherit; color: inherit; }
 .obj-obrazac .obj-obrisi { margin-right: auto; }
+
+/* Popis vodotoka (17e, 6a): tablica i kartice kao kod dionica, letava i objekata. */
+.vod-tablica .vd-karta, .vod-tablica .vd-dionice, .vod-tablica .vd-letve { white-space: nowrap; }
+.vod-tablica a.oznaka-stanja { text-decoration: none; }
+@media (min-width: 600px) and (max-width: 1023px) {
+  .vod-tablica .vd-kategorija, .vod-tablica .vd-utok { display: none; }
+}
+@media (max-width: 599px) {
+  table.vod-tablica td { order: 2; width: 100%; }
+  table.vod-tablica td.vd-ime { order: 1; flex: 1 1 0; width: auto; font-size: 1rem; }
+  table.vod-tablica .vd-ime .dl-sitno { display: block; font-size: 0.8125rem; }
+  table.vod-tablica td.vd-karta { order: 1; width: auto; position: relative; z-index: 1; }
+  table.vod-tablica td.vd-karta .dl-sitno { display: none; }
+  table.vod-tablica td.vd-kategorija, table.vod-tablica td.vd-utok { display: none; }
+}
