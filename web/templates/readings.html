@@ -44,6 +44,36 @@
     </details>
   </div>
 
+  {{with .Obilazak}}
+  {{/* Moje letve na vrhu: današnji obilazak, prenesen sa stranice Teren (Odluke (14. 11. 2026.)).
+       Danas je očitana samo letva na koju je čovjek upisao očitanje, ne uređaj ni skupni unos. */}}
+  <section class="ocitanja-skupina obilazak" aria-label="Moje letve">
+    <div class="obilazak-glava">
+      <h2 class="ocitanja-voda">Moje letve</h2>
+      <span class="obilazak-broj">{{.Ocitano}} od {{len .Letve}} danas</span>
+    </div>
+    <div class="obilazak-traka" role="progressbar" aria-label="Očitano danas" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{.Postotak}}"><span style="width: {{.Postotak}}%"></span></div>
+    {{if .NastaviURL}}
+    <a class="btn btn-primary obilazak-nastavi" href="{{.NastaviURL}}">{{icon "arrow-right"}}<span>Nastavi obilazak: {{.NastaviIme}}</span></a>
+    {{else}}
+    <p class="obilazak-gotovo">{{icon "check"}}Sve moje letve su danas očitane.</p>
+    {{end}}
+    <ul class="ocitanja-letve">
+      {{range .Letve}}
+      <li class="obilazak-redak">
+        <a class="obilazak-letva" href="{{.G.URL}}">
+          <span class="ocitanja-ime">{{.G.Name}}</span>
+          <span class="ocitanja-opis">{{if .Danas}}danas {{.Danas}}{{else}}danas još nije očitana{{with .Obicno}} · {{.}}{{end}}{{end}}</span>
+        </a>
+        {{if .Danas}}<span class="ocitanja-vrijednost obilazak-ocitano">{{icon "check"}}{{.Vrijed}}</span>
+        {{else}}<a class="btn btn-secondary obilazak-upisi" href="{{.UpisURL}}">{{icon "plus"}}<span>Upiši</span></a>{{end}}
+      </li>
+      {{end}}
+    </ul>
+  </section>
+  {{end}}
+
+  {{if not (and .Moje .Obilazak)}}
   {{range .Skupine}}
   <section class="ocitanja-skupina" aria-label="{{.Voda}}">
     <h2 class="ocitanja-voda">{{.Voda}}</h2>
@@ -70,6 +100,7 @@
   </section>
   {{else}}
   <p class="ocitanja-prazno">{{if .Moje}}Još nemate svojih letvi. Letve koje očitavate pojavit će se ovdje same, po navici.{{else}}Nijedna letva ne odgovara zadanim filtrima.{{end}}</p>
+  {{end}}
   {{end}}
 
   {{if not .Okno}}{{template "pager" .Pager}}{{end}}

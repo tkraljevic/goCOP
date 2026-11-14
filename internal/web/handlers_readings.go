@@ -245,6 +245,7 @@ type ReadingsOverviewData struct {
 	Okno           bool   // popis uz otvorenu letvu na širokom zaslonu, bez okvira stranice
 	Odabrana       string // ključ letve otvorene uz popis
 	Skupine        []SkupinaLetava
+	Obilazak       *Obilazak // moje letve na vrhu popisa, s napretkom današnjeg obilaska
 	IzborSektora   []IzborFiltra
 	IzborPodrucja  []IzborFiltra
 	NazivSektora   string // natpis čipa sektora kad je odabran
@@ -524,6 +525,9 @@ func (h *ReadingsHandler) ShowOverview(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	data.Mjerila = h.znakoviMjerila(ctx, data.Gauges, time.Now())
+	if data.Pager.Page == 1 && !data.Okno && data.SearchQuery == "" {
+		data.Obilazak = slozObilazak(h.readingService.Obilazak(ctx, u, shown), adresaPopisa(q, nil), time.Now())
+	}
 	if n, _, zadnje, err := h.readingService.Stats(ctx); err == nil {
 		data.TotalCount, data.LastAt = n, zadnje
 	}

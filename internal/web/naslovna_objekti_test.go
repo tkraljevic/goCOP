@@ -29,7 +29,7 @@ func TestDuznostNaObjektu(t *testing.T) {
 func TestKarticaMojihObjekata(t *testing.T) {
 	cs, u := models.StructureKindPumpingStation, models.StructureKindSluice
 	ocitan := func(g models.GaugeSummary) models.GaugeSummary {
-		g.DoneToday, g.NewURL = true, "/readings/new?structure="+g.StructureID
+		g.DoneToday, g.Danas, g.NewURL = true, g.Latest, "/readings/new?structure="+g.StructureID
 		return g
 	}
 	objekti := objektiOcitanja([]models.GaugeSummary{

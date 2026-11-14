@@ -92,11 +92,12 @@ func TestKarticeVodocuvara(t *testing.T) {
 	}
 
 	letve := []models.GaugeSummary{
-		{Name: "Batina", URL: "/l/b", DoneToday: true, Latest: &models.Reading{LevelCm: brojNaslovne(312), MeasuredAt: sad.Add(-3 * time.Hour)}},
+		{Name: "Batina", URL: "/l/b", DoneToday: true, Danas: &models.Reading{LevelCm: brojNaslovne(312), MeasuredAt: sad.Add(-3 * time.Hour), Observer: "Ivo Proba"},
+			Latest: &models.Reading{LevelCm: brojNaslovne(315), MeasuredAt: sad.Add(-time.Hour)}},
 		{Name: "Branjin Vrh", URL: "/l/v", NewURL: "/readings/new?station=v"},
 	}
 	k := karticaMojihLetava(letve, sad)
-	if k.Redovi[0].Vrijednost != "312 cm" || k.Redovi[0].Sporedno != "upisano danas 07:00" || k.Redovi[0].Gumb != nil ||
+	if k.Redovi[0].Vrijednost != "312 cm" || k.Redovi[0].Sporedno != "upisano danas 07:00 · Ivo Proba" || k.Redovi[0].Gumb != nil ||
 		k.Redovi[1].Gumb == nil || k.Redovi[1].Gumb.URL != "/readings/new?station=v&back=/" || k.Redovi[1].Sporedno != "danas još nije očitana" {
 		t.Errorf("moje letve: %+v", k.Redovi)
 	}

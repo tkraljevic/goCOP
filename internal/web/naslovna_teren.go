@@ -291,9 +291,14 @@ func karticaMojihLetava(letve []models.GaugeSummary, sad time.Time) KarticaNaslo
 	k := glavaKartice(kMojeLetve)
 	for _, g := range letve {
 		r := RedakKartice{Ikona: "ruler", Glavno: g.Name, URL: g.URL}
-		if g.DoneToday && g.Latest != nil && g.Latest.LevelCm != nil {
-			r.Sporedno = "upisano " + kadNaslovne(g.Latest.MeasuredAt, sad)
-			r.Vrijednost = fmt.Sprintf("%d cm", *g.Latest.LevelCm)
+		if g.Danas != nil {
+			r.Sporedno = "upisano " + kadNaslovne(g.Danas.MeasuredAt, sad)
+			if o := strings.TrimSpace(g.Danas.Observer); o != "" {
+				r.Sporedno += " · " + o
+			}
+			if g.Danas.LevelCm != nil {
+				r.Vrijednost = fmt.Sprintf("%d cm", *g.Danas.LevelCm)
+			}
 		} else {
 			r.Sporedno, r.Gumb = "danas još nije očitana", &GumbNaslovne{Tekst: "Upiši", URL: g.NewURL + "&back=/"}
 		}
