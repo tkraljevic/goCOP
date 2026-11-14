@@ -42,10 +42,13 @@ func TestKarticaOpcinePoCrtezu(t *testing.T) {
 		}
 	}
 	html = iscrtajStranicu(t, "municipality_detail.html", data(true))
-	for _, mora := range []string{`action="/api/settlements/update"`, `action="/api/settlements/create"`, `action="/territories/municipality/delete"`,
-		`href="/territories/municipalities/302/edit"`, `Zapis ostaje u povijesti.`} {
+	for _, mora := range []string{`href="/territories/municipalities/302/edit"`, `href="/territories/municipalities/302/edit#naselja"`} {
 		if !strings.Contains(html, mora) {
 			t.Errorf("administrator: nema %q", mora)
 		}
+	}
+	// naselja i brisanje općine su u obrascu, ne na kartici
+	if strings.Contains(html, "/api/settlements/") || strings.Contains(html, "/territories/municipality/delete") {
+		t.Error("administrator: kartica i dalje uređuje naselja ili briše općinu")
 	}
 }

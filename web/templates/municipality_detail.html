@@ -3,9 +3,8 @@
 {{define "title"}}goCOP — {{.Municipality.Name}}{{end}}
 
 {{/* Kartica grada ili općine (goCOP-m3, 17f · 7c): lijevo naselja, desno Podaci i prve
-     službe županije. Naselja administrator i dalje uređuje ovdje dok ne dođu u obrazac
-     općine; svaki redak je svoj obrazac preko atributa form=. Dionice koje štite općinu i
-     Excel su novo ponašanje i dolaze poslije. */}}
+     službe županije. Naselja se uređuju u obrascu grada ili općine. Dionice koje štite
+     općinu i Excel su novo ponašanje i dolaze poslije. */}}
 {{define "content"}}
 {{$admin := and .Permissions .Permissions.IsGlobalAdmin}}
 {{$m := .Municipality}}
@@ -19,71 +18,29 @@
   </div>
   {{if $admin}}
   <div class="page-actions">
-    <button type="submit" form="obrisi-opcinu" class="btn btn-link btn-opasno">Obriši</button>
     <a href="/territories/municipalities/{{$m.ID}}/edit" class="btn btn-primary">Uredi</a>
   </div>
-  <form id="obrisi-opcinu" method="POST" action="/territories/municipality/delete" hidden
-        onsubmit="return confirm('Obrisati {{$m.Name}} i sva naselja? Zapis ostaje u povijesti.')">
-    <input type="hidden" name="id" value="{{$m.ID}}">
-    <input type="hidden" name="county_id" value="{{$m.CountyID}}">
-  </form>
   {{end}}
 </div>
 
 <div class="stupci-stranice list-stupci">
 <div class="dio-lijevo">
 <section class="list-kartica">
-  <h2>Naselja ({{len .Settlements}}){{if $admin}}<a href="#novo-naselje" class="dio-broj">Dodaj naselje</a>{{end}}</h2>
+  <h2>Naselja ({{len .Settlements}}){{if $admin}}<a href="/territories/municipalities/{{$m.ID}}/edit#naselja" class="dio-broj">Dodaj naselje</a>{{end}}</h2>
   <table class="data-table kartice-na-mobitelu dio-tablica opc-naselja">
-    <thead><tr><th>Naselje</th><th>Poštanski broj</th><th>Stanovnika</th>{{if $admin}}<th><span class="sr-only">Radnje</span></th>{{end}}</tr></thead>
+    <thead><tr><th>Naselje</th><th>Poštanski broj</th><th>Stanovnika</th></tr></thead>
     <tbody>
     {{range .Settlements}}
-    {{if $admin}}
-    <tr>
-      <td><input type="text" name="name" value="{{.Name}}" class="form-control" required aria-label="Naziv naselja" form="naselje-{{.ID}}"></td>
-      <td data-stupac="Poštanski broj"><input type="text" name="postal_code" value="{{.PostalCode}}" class="form-control opc-kratko" inputmode="numeric" aria-label="Poštanski broj" form="naselje-{{.ID}}"></td>
-      <td data-stupac="Stanovnika"><input type="text" name="population" value="{{if gt .Population 0}}{{.Population}}{{end}}" class="form-control opc-kratko" inputmode="numeric" aria-label="Broj stanovnika" form="naselje-{{.ID}}"></td>
-      <td class="text-right nowrap">
-        <form id="naselje-{{.ID}}" method="POST" action="/api/settlements/update" class="d-inline">
-          <input type="hidden" name="id" value="{{.ID}}">
-          <input type="hidden" name="municipality_id" value="{{$m.ID}}">
-          <button type="submit" class="btn btn-sm btn-secondary">Spremi</button>
-        </form>
-        <form method="POST" action="/api/settlements/delete" class="d-inline" onsubmit="return confirm('Obrisati naselje {{.Name}}?')">
-          <input type="hidden" name="id" value="{{.ID}}">
-          <input type="hidden" name="municipality_id" value="{{$m.ID}}">
-          <button type="submit" class="btn btn-sm btn-link btn-opasno">Obriši</button>
-        </form>
-      </td>
-    </tr>
-    {{else}}
     <tr>
       <td>{{.Name}}</td>
       <td data-stupac="Poštanski broj">{{if .PostalCode}}{{.PostalCode}}{{else}}—{{end}}</td>
       <td data-stupac="Stanovnika">{{if gt .Population 0}}{{brojHR .Population}}{{else}}—{{end}}</td>
     </tr>
-    {{end}}
     {{else}}
-    <tr class="dl-prazno"><td colspan="4"><p>Nema upisanih naselja.</p></td></tr>
+    <tr class="dl-prazno"><td colspan="3"><p>Nema upisanih naselja.</p></td></tr>
     {{end}}
     </tbody>
   </table>
-
-  {{if $admin}}
-  <form method="POST" action="/api/settlements/create" class="opc-novo" id="novo-naselje">
-    <input type="hidden" name="municipality_id" value="{{$m.ID}}">
-    <input type="hidden" name="county_id" value="{{$m.CountyID}}">
-    <div class="form-row">
-      <div class="form-group mb-0"><label class="form-label" for="new-name">Novo naselje</label>
-        <input type="text" id="new-name" name="name" class="form-control" required placeholder="npr. Bršadin"></div>
-      <div class="form-group mb-0"><label class="form-label" for="new-postal">Poštanski broj</label>
-        <input type="text" id="new-postal" name="postal_code" class="form-control" inputmode="numeric"></div>
-      <div class="form-group mb-0"><label class="form-label" for="new-pop">Stanovnika</label>
-        <input type="text" id="new-pop" name="population" class="form-control" inputmode="numeric"></div>
-    </div>
-    <div class="form-actions lob-gumbi"><button type="submit" class="btn btn-primary">Dodaj naselje</button></div>
-  </form>
-  {{end}}
 </section>
 </div>
 
