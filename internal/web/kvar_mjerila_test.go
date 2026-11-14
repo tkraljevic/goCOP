@@ -152,7 +152,7 @@ func TestOkvirIZnakKvaraMjerila(t *testing.T) {
 		t.Errorf("znakovi u popisu: kvar %d, skokovi %d", strings.Count(popis, "data-znak-kvara"), strings.Count(popis, "data-znak-skokova"))
 	}
 	// čip Moje letve: osoba koja nije očitavala nema svojih letava
-	if moje := zoviKao(t, mux, "/readings?moje=1&area=999"); !strings.Contains(moje, "Još nemate svojih letvi.") || strings.Contains(moje, "data-znak-kvara") {
+	if moje := zoviKao(t, mux, "/readings?moje=1&area=999"); !strings.Contains(moje, "Još nemate svojih letava.") || strings.Contains(moje, "data-znak-kvara") {
 		t.Error("Moje letve bez navike")
 	}
 	// popis uz otvorenu letvu: samo popis, bez okvira stranice, s letvom istaknutom

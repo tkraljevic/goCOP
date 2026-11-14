@@ -224,7 +224,7 @@ func TestUputaIspravkaUTabliciPoPravu(t *testing.T) {
 		}
 		return w.Body.String()
 	}
-	const brisanje, svoja = "za brisanje upiši", "ispraviti možeš samo svoja očitanja"
+	const brisanje, svoja = "za brisanje upišite", "ispraviti možete samo svoja očitanja"
 	if html := stranica(o.ana, o.anaOvl); strings.Contains(html, brisanje) || !strings.Contains(html, svoja) {
 		t.Error("operaterka ne briše: uputa joj kaže da ispravlja svoja očitanja")
 	}

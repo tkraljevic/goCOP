@@ -524,7 +524,8 @@ func (h *ReadingsHandler) ShowOverview(w http.ResponseWriter, r *http.Request) {
 	}
 	data.Mjerila = h.znakoviMjerila(ctx, data.Gauges, time.Now())
 	if data.Pager.Page == 1 && !data.Okno && data.SearchQuery == "" {
-		data.Obilazak = slozObilazak(h.readingService.Obilazak(ctx, u, shown), adresaPopisa(q, nil), time.Now())
+		data.Obilazak = slozObilazak(h.readingService.Obilazak(ctx, u, shown), adresaPopisa(q, nil), time.Now(),
+			func(g models.GaugeSummary) bool { return h.smijeUpisati(r, perms, g) })
 	}
 	if n, _, zadnje, err := h.readingService.Stats(ctx); err == nil {
 		data.TotalCount, data.LastAt = n, zadnje
@@ -635,6 +636,17 @@ func (h *ReadingsHandler) gauge(r *http.Request, stationID, structureID string) 
 		}
 	}
 	return nil, nil
+}
+
+// smijeUpisati: osoba smije upisati očitanje na letvu ili objekt s popisa,
+// po istom pravilu kao gumb „Upiši očitanje” na stranici letve
+func (h *ReadingsHandler) smijeUpisati(r *http.Request, perms *models.UserPermissions, g models.GaugeSummary) bool {
+	station, structure := h.gauge(r, g.StationID, g.StructureID)
+	if structure != nil {
+		return h.readingService.CanRecordStructure(perms, structure)
+	}
+	p := h.readingService.PravaNaLetvu(perms, station)
+	return p.Upisuje || p.UzIzvor
 }
 
 func gaugeNames(station *models.Station, structure *models.Structure) (name, sub string) {
@@ -1268,7 +1280,7 @@ func (h *ReadingsHandler) HandleFollow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.followRepo == nil {
-		http.Error(w, "Praćenje letvi nije dostupno", http.StatusInternalServerError)
+		http.Error(w, "Praćenje letava nije dostupno", http.StatusInternalServerError)
 		return
 	}
 	key := strings.TrimSpace(r.FormValue("gauge_key"))
@@ -1397,7 +1409,8 @@ func (h *ReadingsHandler) HandleZalijepiPregled(w http.ResponseWriter, r *http.R
 		http.NotFound(w, r)
 		return
 	}
-	back := "/readings/station/" + station.ID.String()
+	// skupni unos se vraća u karticu Uvoz i izvoz, gdje je i obrazac
+	back := "/readings/station/" + station.ID.String() + "/uvoz-izvoz"
 	_, perms := h.base(r)
 	if !h.readingService.CanRecordStation(perms, station) {
 		redirectWith(w, r, back, "error", "Nemate pravo upisivati očitanja na "+station.Name)
@@ -1430,7 +1443,7 @@ func (h *ReadingsHandler) HandleZalijepiPregled(w http.ResponseWriter, r *http.R
 				tekst = t
 			} else if bytes.HasPrefix(b, []byte{0xD0, 0xCF, 0x11, 0xE0}) {
 				redirectWith(w, r, back, "error",
-					"Ovo je stari Excel oblik (.xls). Spremi datoteku kao .xlsx pa je ponovno pošalji.")
+					"Ovo je stari Excel oblik (.xls). Spremite datoteku kao .xlsx pa je ponovno pošaljite.")
 				return
 			} else {
 				tekst = strings.TrimPrefix(string(b), "\ufeff")
@@ -1438,7 +1451,7 @@ func (h *ReadingsHandler) HandleZalijepiPregled(w http.ResponseWriter, r *http.R
 		}
 	}
 	if strings.TrimSpace(tekst) == "" {
-		redirectWith(w, r, back, "error", "Zalijepi očitanja ili odaberi datoteku")
+		redirectWith(w, r, back, "error", "Zalijepite očitanja ili odaberite datoteku")
 		return
 	}
 	redci, satni, err := citajZalijepljeno(tekst)
@@ -1494,7 +1507,8 @@ func (h *ReadingsHandler) HandleZalijepiPotvrda(w http.ResponseWriter, r *http.R
 		http.NotFound(w, r)
 		return
 	}
-	back := "/readings/station/" + station.ID.String()
+	// skupni unos se vraća u karticu Uvoz i izvoz, gdje je i obrazac
+	back := "/readings/station/" + station.ID.String() + "/uvoz-izvoz"
 	_, perms := h.base(r)
 	user, _ := r.Context().Value(contextKeyUser).(*models.User)
 	if err := r.ParseForm(); err != nil || user == nil {

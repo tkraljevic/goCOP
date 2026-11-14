@@ -26,18 +26,22 @@ type RedakObilaska struct {
 	Danas   string // „07:10 · Ivo Proba” kad je danas očitana
 	Vrijed  string // današnji vodostaj
 	Obicno  string // „obično oko 07:25”
-	UpisURL string // upis s povratkom na isti popis
+	UpisURL string // upis s povratkom na isti popis; prazno kad osoba ovdje ne smije upisati
 }
 
 // slozObilazak slaže obilazak iz mojih letava redom obilaska; bez mojih
-// letava nema ni obilaska
-func slozObilazak(letve []models.GaugeSummary, povratak string, sad time.Time) *Obilazak {
+// letava nema ni obilaska. „Upiši” i „Nastavi obilazak” vode samo na letve
+// na koje osoba smije upisati.
+func slozObilazak(letve []models.GaugeSummary, povratak string, sad time.Time, smije func(models.GaugeSummary) bool) *Obilazak {
 	if len(letve) == 0 {
 		return nil
 	}
 	o := &Obilazak{}
 	for _, g := range letve {
-		r := RedakObilaska{G: g, UpisURL: g.NewURL + "&back=" + url.QueryEscape(povratak)}
+		r := RedakObilaska{G: g}
+		if smije(g) {
+			r.UpisURL = g.NewURL + "&back=" + url.QueryEscape(povratak)
+		}
 		if t := g.UsualTime(); t != "" {
 			r.Obicno = "obično oko " + t
 		}
@@ -50,7 +54,7 @@ func slozObilazak(letve []models.GaugeSummary, povratak string, sad time.Time) *
 			if d.LevelCm != nil {
 				r.Vrijed = fmt.Sprintf("%d cm", *d.LevelCm)
 			}
-		} else if o.NastaviURL == "" {
+		} else if o.NastaviURL == "" && r.UpisURL != "" {
 			o.NastaviURL, o.NastaviIme = r.UpisURL, g.Name
 		}
 		o.Letve = append(o.Letve, r)
