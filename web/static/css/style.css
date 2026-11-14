@@ -10111,3 +10111,41 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
 .afo-sklopka .form-help { display: block; margin: 2px 0 0; }
 .afo-geokod { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
 .afo-geokod .btn-link { min-height: 0; padding: 0; border: 0; }
+
+/* Održavanje (17f, 7h): izbor područja s oznakama, lokacije i stavke kao kartice. */
+.odr-traka { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 16px; }
+.odr-traka form { margin: 0; }
+.odr-traka .odr-podrucje { width: auto; min-width: 16rem; max-width: 100%; }
+.odr-tablica td a:not(.btn) { color: var(--md-sys-color-primary); text-decoration: none; }
+#lokacije, #stavke { scroll-margin-top: 80px; }
+#stavke { margin-top: 16px; }
+.odr-skupina th { padding-top: 16px; font-weight: 600; text-align: left; background: transparent; }
+.odr-br { color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.odr-sitno { display: block; font-size: 0.8rem; color: var(--text-secondary); }
+td .odr-sitno { margin-top: 2px; }
+.odr-vezi { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0; }
+.odr-veza-polje { min-width: 12rem; width: auto; }
+.odr-kratko { width: 6rem; }
+.odr-iskljucena td { opacity: 0.6; }
+.odr-dodaj { margin-top: 12px; }
+.odr-dodaj > summary { cursor: pointer; color: var(--md-sys-color-primary); font-weight: 500; padding: 6px 0; }
+.odr-obrazac { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); align-items: end; margin-top: 8px; }
+.odr-obrazac .form-group { margin: 0; }
+.odr-siroko { grid-column: span 2; }
+.odr-uvoz { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.odr-uvoz .form-control { max-width: 24rem; }
+.odr-sklopka { position: relative; width: 52px; height: 32px; border-radius: 16px; border: 2px solid var(--md-sys-color-outline); background: var(--md-sys-color-surface-container-highest); cursor: pointer; padding: 0; }
+.odr-sklopka::before { content: ""; position: absolute; top: 50%; left: 6px; width: 16px; height: 16px; border-radius: 50%; background: var(--md-sys-color-outline); transform: translateY(-50%); transition: left 0.15s; }
+.odr-sklopka[aria-checked="true"] { border-color: var(--md-sys-color-primary); background: var(--md-sys-color-primary); }
+.odr-sklopka[aria-checked="true"]::before { left: 22px; width: 24px; height: 24px; background: var(--md-sys-color-on-primary); }
+@media (max-width: 767px) {
+  .odr-siroko { grid-column: auto; }
+  .odr-kratko, .odr-veza-polje, .odr-traka .odr-podrucje { width: 100%; min-width: 0; }
+}
+@media (max-width: 599px) {
+  table.odr-tablica.kartice-na-mobitelu td { width: 100%; }
+  table.odr-tablica.kartice-na-mobitelu td:first-child { font-size: 1rem; line-height: 24px; color: var(--md-sys-color-on-surface); }
+  table.odr-tablica.kartice-na-mobitelu td[data-stupac] { display: flex; justify-content: space-between; gap: 12px; }
+  table.odr-tablica.kartice-na-mobitelu td[data-stupac]::before { content: attr(data-stupac); flex: none; color: var(--md-sys-color-on-surface-variant); }
+  table.odr-tablica.kartice-na-mobitelu td:last-child .btn { width: auto; min-height: 40px; margin: 0; }
+}
