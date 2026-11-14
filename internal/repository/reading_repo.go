@@ -545,6 +545,26 @@ func (r *ReadingRepository) HabitsFor(ctx context.Context, userID, observer stri
 	return out, rows.Err()
 }
 
+// ZadnjeRucnoOd vraća zadnje očitanje letve ili objekta koje je od zadanog
+// trenutka upisao čovjek (način RUČNO), ili nil. Čita se indeksom letve, pa
+// je brzo i kad je očitanja mnogo.
+func (r *ReadingRepository) ZadnjeRucnoOd(ctx context.Context, stationID, structureID string, od time.Time) (*models.Reading, error) {
+	uvjet, letva := `station_id = ? AND +structure_id = ''`, stationID
+	if structureID != "" {
+		uvjet, letva = `structure_id = ?`, structureID
+	}
+	rd, err := scanReading(r.db.QueryRowContext(ctx, `SELECT `+readingColumns+` FROM readings
+		WHERE `+uvjet+` AND measured_at >= ? AND source = ? ORDER BY measured_at DESC, created_at DESC LIMIT 1`,
+		letva, od.UTC(), models.ReadingSourceManual))
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &rd, nil
+}
+
 // ListForGauges vraća očitanja zadanih letvi u razdoblju. Uvoz tablice time
 // uspoređuje dan po dan: tablica centra nosi fiksnih sedam sati, a očitanja
 // s terena stvarno vrijeme, pa se isti jutarnji vodostaj ne prepoznaje po

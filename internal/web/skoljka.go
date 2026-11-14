@@ -19,7 +19,7 @@ import (
 // naslovi su natpisi stavki izbornika po skupini stranice (navSkupina)
 var naslovi = map[string]string{
 	"dashboard": "Naslovna", "readings": "Očitanja", "prognoze": "Prognoze", "journals": "Dokumenti",
-	"teren": "Teren", "karta": "Karta", "sredstva": "Sredstva", "registri": "Registri", "users": "Djelatnici i dežurstva",
+	"karta": "Karta", "sredstva": "Sredstva", "registri": "Registri", "users": "Djelatnici i dežurstva",
 	"admin": "Administracija", "pomoc": "Pomoć", "profile": "Profil", "posta": "Sandučić",
 }
 

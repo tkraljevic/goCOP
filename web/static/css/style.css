@@ -2295,22 +2295,6 @@ textarea {
 .unos-predznak .predznak-gumb { flex: none; min-width: 3.5rem; padding: 0; font-size: 1.5rem; font-weight: 600; }
 .level-input { font-size: 1.75rem; font-weight: 700; text-align: center; letter-spacing: 0.02em; min-height: 3.5rem; font-variant-numeric: tabular-nums; }
 
-/* Teren: obilazak letvi */
-.field-progress { display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; margin:0 0 1rem; }
-.field-bar { flex:1 1 10rem; height:0.6rem; border-radius:999px; background:var(--bg-subtle); border:1px solid var(--border); overflow:hidden; }
-.field-bar > span { display:block; height:100%; background:var(--success); }
-.field-list { display:grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 24rem), 1fr)); gap:0.5rem; }
-.field-item { display:grid; grid-template-columns: 1fr auto; gap:0.25rem 0.75rem; align-items:center; padding:0.75rem 0.9rem; background:var(--surface); border:1px solid var(--border); border-radius:4px; text-decoration:none; color:inherit; }
-.field-item.done { border-color: var(--success); }
-.field-item .name { font-weight:600; color:var(--text-strong); }
-.field-item .sub { font-size:0.8rem; color:var(--text-secondary); }
-.field-item .last { font-size:0.85rem; color:var(--text-secondary); font-variant-numeric: tabular-nums; }
-.field-item .last strong { color:var(--text-strong); font-size:1.05rem; }
-.field-item .name, .field-item .sub, .field-item .last { grid-column: 1; min-width: 0; }
-.field-item .act { grid-column: 2; grid-row: 1 / span 3; display:inline-flex; align-items:center; justify-content:center; min-width:5.5rem; min-height:48px; padding:0 1rem; border-radius:4px; font-weight:600; white-space:nowrap; }
-.field-item .act.todo { background:var(--primary); color:var(--primary-contrast); }
-.field-item .act.ok { background:var(--success-bg); color:var(--success); }
-
 /* Moduli po ulogama */
 .module-matrix { width:100%; border-collapse:collapse; font-size:0.9rem; }
 .module-matrix th, .module-matrix td { padding:0.6rem 0.75rem; border-bottom:1px solid var(--border); text-align:center; }
@@ -8060,6 +8044,29 @@ summary.ocitanja-cip { padding-right: 8px; }
 .ocitanja-faza { margin-top: 2px; }
 .ocitanja-kvar { font-size: 0.875rem; line-height: 20px; color: var(--md-sys-color-error, #ba1a1a); }
 .ocitanja-vrijednost { flex: none; font-size: 1rem; line-height: 24px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* Moje letve na vrhu popisa: napredak obilaska, Nastavi obilazak i Upiši od 48 px */
+.obilazak { gap: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--md-sys-color-outline-variant, var(--border)); }
+.obilazak-glava { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-right: 16px; }
+.obilazak-broj { color: var(--md-sys-color-on-surface-variant, var(--text-secondary)); font-size: 0.875rem; font-variant-numeric: tabular-nums; }
+.obilazak-traka { height: 4px; margin: 0 16px; border-radius: 2px; background: var(--md-sys-color-surface-container-highest, var(--border)); overflow: hidden; }
+.obilazak-traka > span { display: block; height: 100%; border-radius: 2px; background: var(--md-sys-color-primary, var(--primary)); }
+.obilazak-nastavi { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; margin: 4px 16px; }
+.obilazak-nastavi span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (min-width: 600px) {
+  /* na mobitelu preko cijele širine, za palac; inače gumb uz tekst */
+  .obilazak-nastavi { align-self: flex-start; padding: 0 24px; }
+}
+.obilazak-gotovo { display: flex; align-items: center; gap: 8px; margin: 4px 16px; color: var(--md-sys-color-on-surface-variant, var(--text-secondary)); font-size: 0.875rem; }
+.obilazak-gotovo .icon, .obilazak-ocitano .icon { width: 20px; height: 20px; color: var(--md-sys-color-primary, var(--primary)); }
+.obilazak-redak { display: flex; align-items: center; gap: 12px; min-height: 72px; padding: 0 16px 0 0; }
+.obilazak-letva {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 2px; align-self: stretch;
+  padding: 12px 16px; border-radius: 999px; color: var(--text); text-decoration: none;
+}
+.obilazak-letva:hover { background: var(--surface-hover); text-decoration: none; }
+.obilazak-ocitano { display: inline-flex; align-items: center; gap: 6px; }
+.obilazak-upisi { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 48px; padding: 0 20px; border-radius: 999px; }
+.obilazak-upisi .icon { width: 20px; height: 20px; }
 .ocitanja-prazno { padding: 32px 16px; color: var(--text-secondary); text-align: center; }
 .ocitanja-podnozje { margin: 8px 0 0; padding: 0 16px; color: var(--text-secondary); font-size: 0.8125rem; }
 @media (max-width: 839px) {
