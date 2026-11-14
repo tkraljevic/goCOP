@@ -10062,3 +10062,10 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
 @media (max-width: 599px) {
   .kis-dani-sedam { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
+
+/* Površina vode još nije ucrtana (17e, 6g): prazno stanje karte s „Ucrtaj na Karti”. */
+.karta-prazno { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 240px; padding: 24px 16px; border-radius: 12px; background: var(--karta-kopno); color: var(--md-sys-color-on-surface); text-align: center; }
+.karta-prazno > svg { width: 24px; height: 24px; }
+.karta-prazno-naslov { margin: 0; font-weight: 500; }
+.karta-prazno-gumbi { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 8px; }
+@media (max-width: 767px) { .karta-prazno { min-height: 180px; } }
