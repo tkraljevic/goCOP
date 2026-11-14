@@ -471,7 +471,7 @@ func TestKisomjerDijela(t *testing.T) {
 // imena, porast bez dana dnevne piše redni dan.
 func TestRedakSliva(t *testing.T) {
 	r := redakSliva(SlivUKisi{StanjeSliva: prognoza.StanjeSliva{Sliv: "J"}, Letve: []PorastLetve{{Naziv: "Aljmaš", Cm: 12, Dan: 2, Ima: true}}})
-	if r != (RedakSliva{Oznaka: "J", Naziv: "J", Palo24: "—", Dolazi48: "—", Ukratko: "—", Rijetko: "—", Raste: "Aljmaš +12 cm (2. dan)"}) {
+	if r != (RedakSliva{Oznaka: "J", Naziv: "J", Palo24: "—", Palo72: "—", Dolazi48: "—", Ukratko: "—", Rijetko: "—", Raste: "Aljmaš +12 cm (2. dan)"}) {
 		t.Errorf("bez podataka: %+v", r)
 	}
 	if mmSliva(0.4) != "0,4 mm" || mmSliva(0) != "0 mm" || mmSliva(17.6) != "18 mm" {
@@ -671,5 +671,17 @@ func TestPoveznicaKojuVidi(t *testing.T) {
 	o.mux.ServeHTTP(w, r.WithContext(ctx))
 	if w.Code != http.StatusOK || strings.Contains(w.Body.String(), "/prognoze/vrijeme") {
 		t.Errorf("spora kartica bez modula: %d %s", w.Code, w.Body.String())
+	}
+}
+
+// Palo u 72 h piše se samo kad niz ima i jučer i prekjučer
+func TestRedakSlivaPalo72(t *testing.T) {
+	st := prognoza.StanjeSliva{Sliv: "D", Ima: true, Palo24: 1, Palo72: 52, Dolazi48: 15, ImaDan: [5]bool{true, true, true, true, true}}
+	if r := redakSliva(SlivUKisi{StanjeSliva: st}); r.Palo72 != "52 mm" || r.Palo24 != "1 mm" {
+		t.Errorf("s tri dana: %+v", r)
+	}
+	st.ImaDan[0] = false
+	if r := redakSliva(SlivUKisi{StanjeSliva: st}); r.Palo72 != "—" {
+		t.Errorf("bez prekjučer: %+v", r)
 	}
 }

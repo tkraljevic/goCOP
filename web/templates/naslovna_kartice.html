@@ -43,6 +43,40 @@
 {{if .Gumbi}}<div class="kartica-gumbi">{{range .Gumbi}}{{template "gumbNaslovne" .}}{{end}}</div>{{end}}
 {{end}}
 
-{{define "posebnoTijeloNaslovne"}}{{end}}
+{{define "posebnoTijeloNaslovne"}}{{if eq .Tijelo "kisa"}}{{template "tijeloKiseNaslovne" .Podaci}}{{end}}{{end}}
+
+{{/* Jače oborine (crtež 11a, 14. 11. 2026.): lanac međuslivova niz rijeku
+     s kišom u 72 h, pa svaki međusliv iznad praga s trakom prema pragu.
+     Na mobitelu tri retka, na računalu pet. */}}
+{{define "tijeloKiseNaslovne"}}
+<div class="kisa-lanac">
+  <p class="kisa-lanac-natpis">Kiša u 72 h po međuslivovima, mm, niz tok</p>
+  {{range .Lanac}}
+  <div class="kisa-rijeka{{if .Pritok}} pritok{{end}}">
+    <span class="kisa-rijeka-ime">{{.Rijeka}}</span>
+    <div class="kisa-polja">
+      {{range .Polja}}<a class="kisa-polje {{.Klasa}}" href="{{.URL}}"{{with .Naslov}} title="{{.}}"{{end}}><span class="kisa-polje-mm">{{.Mm}}</span><span class="kisa-polje-ime">{{.Ime}}</span></a>{{end}}
+      {{with .Pritok}}<span class="kisa-pritok">{{.}}</span>{{end}}
+    </div>
+  </div>
+  {{end}}
+  <p class="kisa-lanac-natpis">Žuto: toliko padne tri puta godišnje, narančasto jednom godišnje, crveno jednom u pet godina.</p>
+</div>
+<ul class="kisa-retci">
+  {{range $i, $r := .Retci}}{{if lt $i 5}}
+  <li class="kisa-redak {{$r.Klasa}}{{if ge $i 3}} samo-siroko{{end}}">
+    <a href="{{$r.URL}}">
+      <span class="kisa-redak-glava"><span class="kisa-redak-ime">{{$r.Naziv}}</span>{{with $r.Rijetko}}<span class="badge {{$r.Klasa}}">{{.}}</span>{{end}}</span>
+      {{if $r.Dijelovi}}<span class="kisa-traka" role="img" aria-label="{{$r.Opis}}">{{range $r.Dijelovi}}<span class="kisa-traka-dio{{if .Ocekivano}} ocekivano{{end}}" style="left: {{.Lijevo}}%; width: {{.Sirina}}%" title="{{.Naslov}}"></span>{{end}}{{range $r.Crtice}}<span class="kisa-traka-crtica {{.Klasa}}" style="left: {{.Lijevo}}%" title="{{.Naslov}}"></span>{{end}}</span>{{end}}
+      <span class="kisa-redak-palo">{{$r.Palo}}</span>
+      {{with $r.Ocekivano}}<span class="kisa-redak-sporedno">{{.}}</span>{{end}}
+      {{with $r.Porast}}<span class="kisa-redak-sporedno">{{.}}</span>{{end}}
+    </a>
+  </li>
+  {{end}}{{end}}
+</ul>
+{{with .Vise}}<a class="kartica-vise samo-siroko" href="/slivovi#kisa">{{.}} →</a>{{end}}
+{{with .ViseMobitel}}<a class="kartica-vise samo-mobitel" href="/slivovi#kisa">{{.}} →</a>{{end}}
+{{end}}
 
 {{define "gumbNaslovne"}}<a class="btn {{if .Glavni}}btn-primary{{else}}btn-secondary{{end}}{{if .SamoSiroko}} samo-siroko{{end}}" href="{{.URL}}">{{.Tekst}}</a>{{end}}
