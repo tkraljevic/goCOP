@@ -78,7 +78,7 @@ func TestKarticaJacihOborina(t *testing.T) {
 			Zasto: "palo u zadnja 72 sata", Ucestalost: "toliko padne u prosjeku jednom godišnje"},
 			Naziv: "Drava: Donji Miholjac – Osijek", Letve: []PorastLetve{{Naziv: "Bez", Ima: false}, {Naziv: "Osijek", Cm: 45, Ima: true}}},
 	}}
-	k := karticaJacihOborina(p)
+	k := karticaJacihOborina(p, sadNaslovne)
 	// jača kiša na vrhu, iako je u podacima druga; pokazana su sva tri
 	// razdoblja i razdoblje u kojem je prag prijeđen
 	if len(k.Redovi) != 2 || k.Redovi[0].Glavno != "Drava: Donji Miholjac – Osijek" ||
@@ -92,13 +92,13 @@ func TestKarticaJacihOborina(t *testing.T) {
 		t.Error("kartica ne smije presložiti podatke koje dijeli s ostalima")
 	}
 	// redak vodi na svoj međusliv, „Više” na tablicu kiše; kartica kaže odakle je broj
-	if k.Redovi[0].URL != "/slivovi#sliv-drava-dm" || k.URL != "/slivovi#kisa" || k.Napomena != napomenaKiseSlivova {
+	if k.Redovi[0].URL != "/slivovi#sliv-drava-dm" || k.URL != "/slivovi#kisa" || k.Napomena != napomenaTrakeKise+" "+napomenaKiseSlivova {
 		t.Errorf("poveznice i napomena: %q %q %q", k.Redovi[0].URL, k.URL, k.Napomena)
 	}
-	if g := karticaJacihOborina(kisaSlivovaPodaci{Greska: "nema"}); g.Prazno == nil || g.Prazno.Vrsta != PraznoNedostupno || g.Prazno.Tekst != "nema" {
+	if g := karticaJacihOborina(kisaSlivovaPodaci{Greska: "nema"}, sadNaslovne); g.Prazno == nil || g.Prazno.Vrsta != PraznoNedostupno || g.Prazno.Tekst != "nema" {
 		t.Errorf("greška: %+v", g)
 	}
-	if m := karticaJacihOborina(kisaSlivovaPodaci{}); m.Prazno == nil || m.Prazno.Vrsta != PraznoGotovo {
+	if m := karticaJacihOborina(kisaSlivovaPodaci{}, sadNaslovne); m.Prazno == nil || m.Prazno.Vrsta != PraznoGotovo {
 		t.Errorf("mirno: %+v", m)
 	}
 }
@@ -222,3 +222,59 @@ func TestKarticaZaRijesiti(t *testing.T) {
 		t.Error("dan kratko")
 	}
 }
+
+// Kartica s jakom kišom ima posebno tijelo: lanac sa svim međuslivovima
+// (i Murom kao pritokom), a retci samo za one iznad praga, s trakom, kišom po
+// danima i imenima skrivenih u retku „Više”
+func TestKarticaJacihOborinaLanacITraka(t *testing.T) {
+	izdano := time.Date(2026, 11, 14, 14, 0, 0, 0, models.Zagreb) // subota
+	prag := prognoza.PragoviKise{Dan3: [3]float64{42, 51, 66}}
+	sliv := func(o string, razina int, dani [5]float64) SlivUKisi {
+		st := prognoza.StanjeSliva{Sliv: o, Ima: true, Razina: razina, Pragovi: prag, Dani: dani,
+			ImaDan: [5]bool{true, true, true, true, true}, Palo24: dani[2], Palo72: dani[0] + dani[1] + dani[2], Dolazi48: dani[3] + dani[4]}
+		if razina > 0 {
+			st.Ucestalost = ucestalostIme[razina]
+		}
+		return SlivUKisi{StanjeSliva: st, Naziv: "međusliv " + o, Klasa: razineKise[razina][0]}
+	}
+	d := sliv("D", 2, [5]float64{18, 33, 1, 0, 15})
+	d.Letve = []PorastLetve{{Naziv: "Terezino Polje", Cm: 35, Ima: true}}
+	p := kisaSlivovaPodaci{Izdano: izdano, Slivovi: []SlivUKisi{sliv("A", 0, [5]float64{10, 13, 0, 0, 4}), sliv("B", 0, [5]float64{}), d}}
+	for _, o := range []string{"E", "F", "I", "J", "H"} {
+		p.Upozorenja = append(p.Upozorenja, sliv(o, 1, [5]float64{20, 20, 1, 0, 5}))
+	}
+	p.Upozorenja = append(p.Upozorenja, d)
+	p.Slivovi = append(p.Slivovi, p.Upozorenja...)
+	k := karticaJacihOborina(p, izdano)
+	tijelo, ok := k.Podaci.(KisaNaslovne)
+	if k.Tijelo != "kisa" || !ok {
+		t.Fatalf("tijelo %q, podaci %T", k.Tijelo, k.Podaci)
+	}
+	if len(tijelo.Lanac) != 3 || tijelo.Lanac[1].Rijeka != "Mura" || tijelo.Lanac[1].Pritok == "" {
+		t.Fatalf("lanac %+v", tijelo.Lanac)
+	}
+	drava := tijelo.Lanac[0].Polja
+	if drava[0].Mm != "23" || drava[0].Klasa != "" || drava[2].Mm != "52" || drava[2].Klasa != "kisa-narancasto" ||
+		drava[2].URL != "/slivovi#sliv-D" || drava[5].Mm != "—" {
+		t.Errorf("Drava %+v", drava)
+	}
+	if dunav := tijelo.Lanac[2].Polja; dunav[0].Ime != "uzvodno" || dunav[0].Mm != "—" || dunav[0].URL != "/slivovi#kisa" {
+		t.Errorf("uzvodni Dunav %+v", dunav[0])
+	}
+	r := tijelo.Retci[0]
+	if r.Naziv != "međusliv D" || r.Rijetko != "jednom godišnje" ||
+		r.Palo != "palo 52 mm u 72 h: čet 18 · pet 33 · danas 1" || r.Ocekivano != "očekivano 15 mm u 48 h: ned 0 · pon 15" ||
+		r.Porast != "porast u prognozi: Terezino Polje +35 cm" {
+		t.Errorf("redak %+v", r)
+	}
+	// mjerilo je najviši prag uz 12 % zraka: 66 · 1,12 = 73,92 mm
+	if len(r.Dijelovi) != 4 || r.Dijelovi[0].Lijevo != 0 || r.Dijelovi[3].Ocekivano != true || len(r.Crtice) != 3 ||
+		r.Crtice[1].Lijevo != 69 || r.Crtice[1].Klasa != "kisa-narancasto" {
+		t.Errorf("traka %+v %+v", r.Dijelovi, r.Crtice)
+	}
+	if tijelo.ViseMobitel != "Više: još 3 · međusliv I, međusliv J, međusliv H" || tijelo.Vise != "Više: još 1 · međusliv H" {
+		t.Errorf("više %q / %q", tijelo.Vise, tijelo.ViseMobitel)
+	}
+}
+
+var ucestalostIme = map[int]string{1: "toliko padne u prosjeku tri puta godišnje", 2: "toliko padne u prosjeku jednom godišnje"}

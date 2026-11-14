@@ -220,12 +220,14 @@ func (h *DashboardHandler) jaceOborine(ctx context.Context) KarticaNaslovne {
 	if h.izvori.Kisa == nil {
 		return nedostupna(kJaceOborine, "Podaci o kiši trenutačno nisu dostupni.")
 	}
-	return karticaJacihOborina(h.izvori.Kisa(ctx))
+	return karticaJacihOborina(h.izvori.Kisa(ctx), time.Now())
 }
 
-// karticaJacihOborina: svaki međusliv iznad svog praga kiše je redak s
-// tehničkim upozorenjem (ne bojom faze ni DHMZ-a)
-func karticaJacihOborina(p kisaSlivovaPodaci) KarticaNaslovne {
+// karticaJacihOborina: lanac međuslivova i svaki međusliv iznad svog praga
+// kiše s trakom prema pragu (posebno tijelo „kisa”, crtež 11a od 14. 11.);
+// obični retci ostaju za broj hitnih i ispis bez tijela. Bez kiše iznad
+// praga kartica je prazna i lanca nema (Odluke 14. 11. 2026.).
+func karticaJacihOborina(p kisaSlivovaPodaci, sad time.Time) KarticaNaslovne {
 	k := glavaKartice(kJaceOborine)
 	k.HitnoNaziv = "s jakom kišom"
 	// jača kiša ide na vrh, da ne ostane skrivena pod „Više”; ista razina
@@ -242,7 +244,8 @@ func karticaJacihOborina(p kisaSlivovaPodaci) KarticaNaslovne {
 	}
 	switch {
 	case len(k.Redovi) > 0:
-		k.Napomena = napomenaKiseSlivova
+		k.Tijelo, k.Podaci = "kisa", kisaNaslovne(p, slivovi, sad)
+		k.Napomena = napomenaTrakeKise + " " + napomenaKiseSlivova
 	case p.Greska != "":
 		k.Prazno = &PraznaKartica{Vrsta: PraznoNedostupno, Tekst: p.Greska}
 	default:
@@ -253,6 +256,8 @@ func karticaJacihOborina(p kisaSlivovaPodaci) KarticaNaslovne {
 
 // napomenaKiseSlivova kaže odakle je broj: međusliv je dio sliva između dvije
 // letve, a kiša je prosjek izvedenih točaka, ne mjerenje kišomjera
+const napomenaTrakeKise = "Traka: jača boja je palo, blijeda očekivano; crtice su pragovi za 72 h."
+
 const napomenaKiseSlivova = "Prosjek kiše na međuslivu između dvije letve, iz modela; pravi kišomjeri u njega ne ulaze."
 
 // opisKise: „palo 52 mm u 72 h, 0 mm u 24 h · očekivano 15 mm u 48 h ·

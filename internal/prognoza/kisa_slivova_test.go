@@ -117,3 +117,15 @@ func TestPragoviSlivovaJednomNaDan(t *testing.T) {
 		t.Errorf("zatvorena arhiva bez greške: %+v", p)
 	}
 }
+
+// Kiša po danima: od prekjučer do prekosutra, a dan koji niz nema ostaje
+// označen kao nepoznat (ne kao 0 mm)
+func TestKisaSlivaPoDanima(t *testing.T) {
+	st := kisaSliva(DnevniNiz{-2: 18.04, -1: 33, 0: 0.96, 2: 15})
+	if st.Dani != [5]float64{18, 33, 1, 0, 15} || st.ImaDan != [5]bool{true, true, true, false, true} {
+		t.Errorf("dani %v, ima %v", st.Dani, st.ImaDan)
+	}
+	if st.Palo72 != 52 || st.Dolazi48 != 0 {
+		t.Errorf("bez sutrašnjeg dana očekivano se ne zbraja: 72 h %v, 48 h %v", st.Palo72, st.Dolazi48)
+	}
+}
