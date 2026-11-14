@@ -3,11 +3,11 @@
 {{define "title"}}goCOP — {{.County.Name}}{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/territories">Teritorijalne jedinice</a> › {{.County.Name}}</div>
+<a href="/territories" class="povratna-poveznica">← Teritorij</a>
 
 <div class="detail-head">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "landmark"}} {{.County.Name}}</h1>
+    <h1 class="page-title" data-naziv-stranice>{{.County.Name}}</h1>
     <p class="page-desc">{{if .County.Seat}}Sjedište {{.County.Seat}}{{end}}{{if .County.Prefect}} · župan/ica {{.County.Prefect}}{{end}}{{if .County.Email}} · <a href="mailto:{{.County.Email}}">{{.County.Email}}</a>{{end}}</p>
   </div>
   <div class="detail-actions">

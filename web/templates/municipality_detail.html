@@ -3,14 +3,12 @@
 {{define "title"}}goCOP — {{.Municipality.Name}}{{end}}
 
 {{define "content"}}
-<div class="breadcrumb">
-  <a href="/territories">Teritorijalne jedinice</a> ›
-  <a href="/territories?tab=municipalities&county_id={{.Municipality.CountyID}}">{{if .County.Name}}{{.County.Name}}{{else}}Gradovi i općine{{end}}</a> › {{.Municipality.Name}}
-</div>
+{{if .County.Name}}<a href="/territories/counties/{{.Municipality.CountyID}}" class="povratna-poveznica">← {{.County.Name}}</a>
+{{else}}<a href="/territories?tab=municipalities" class="povratna-poveznica">← Teritorij</a>{{end}}
 
 <div class="detail-head">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{if eq .Municipality.Type "GRAD"}}{{icon "building"}} Grad{{else}}{{icon "house"}} Općina{{end}} {{.Municipality.Name}}</h1>
+    <h1 class="page-title" data-naziv-stranice>{{if eq .Municipality.Type "GRAD"}}Grad{{else}}Općina{{end}} {{.Municipality.Name}}</h1>
     <p class="page-desc">
       {{if .County.Name}}{{.County.Name}}{{end}}
       {{if .Municipality.PostalCode}} · {{.Municipality.PostalCode}}{{end}}
