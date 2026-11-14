@@ -2,28 +2,33 @@
 
 {{define "title"}}goCOP — {{if .IsEdit}}Uređivanje županije{{else}}Nova županija{{end}}{{end}}
 
+{{/* Obrazac županije (goCOP-m3, 17f · 7d): kartica Osnovno, imena polja i obavezna polja
+     kao prije. Službe se i dalje uređuju na kartici županije (Odluke (10. 11. 2026.), 14),
+     a Obriši županiju čeka pravilo. */}}
 {{define "content"}}
+<div class="lob-stranica">
 {{if .IsEdit}}<a href="/territories/counties/{{.County.ID}}" class="povratna-poveznica">← {{.County.Name}}</a>
 {{else}}<a href="/territories" class="povratna-poveznica">← Teritorij</a>{{end}}
 
-<div class="page-header">
+<div class="page-header list-glava">
   <div>
     <h1 class="page-title" data-naziv-stranice>{{if .IsEdit}}Uredi županiju{{else}}Nova županija{{end}}</h1>
-    <p class="page-desc">Županija je okvir za gradove, općine i naselja koja se vežu na dionice kao ugroženo područje.</p>
+    <p class="page-desc">Polja sa zvjezdicom su obavezna.</p>
   </div>
 </div>
 
-
-<form class="form-page" method="POST" action="{{if .IsEdit}}/territories/county/update{{else}}/territories/county/create{{end}}">
+<form class="form-page form-wide" method="POST" action="{{if .IsEdit}}/territories/county/update{{else}}/territories/county/create{{end}}">
   {{if .IsEdit}}<input type="hidden" name="id" value="{{.County.ID}}">{{end}}
+  <section class="list-kartica">
+  <h3>Osnovno</h3>
   <div class="form-row">
-    <div class="form-group">
-      <label class="form-label" for="code">Kratica *</label>
-      <input type="text" id="code" name="code" class="form-control" required value="{{.County.Code}}" placeholder="npr. OBŽ" style="text-transform:uppercase;">
-    </div>
     <div class="form-group">
       <label class="form-label" for="name">Naziv *</label>
       <input type="text" id="name" name="name" class="form-control" required value="{{.County.Name}}" placeholder="npr. Osječko-baranjska županija">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="code">Oznaka *</label>
+      <input type="text" id="code" name="code" class="form-control ter-oznaka-polje" required value="{{.County.Code}}" placeholder="npr. OB">
     </div>
   </div>
   <div class="form-row">
@@ -32,19 +37,17 @@
       <input type="text" id="seat" name="seat" class="form-control" value="{{.County.Seat}}" placeholder="npr. Osijek">
     </div>
     <div class="form-group">
-      <label class="form-label" for="prefect">Župan ili županica</label>
-      <input type="text" id="prefect" name="prefect" class="form-control" value="{{.County.Prefect}}">
-    </div>
-  </div>
-  <div class="form-row">
-    <div class="form-group">
       <label class="form-label" for="area_sqkm">Površina (km²)</label>
       <input type="text" inputmode="numeric" id="area_sqkm" name="area_sqkm" class="form-control" value="{{if gt .County.AreaSqKm 0}}{{.County.AreaSqKm}}{{end}}">
     </div>
     <div class="form-group">
-      <label class="form-label" for="population">Stanovništvo</label>
+      <label class="form-label" for="population">Stanovnika</label>
       <input type="text" inputmode="numeric" id="population" name="population" class="form-control" value="{{if gt .County.Population 0}}{{.County.Population}}{{end}}">
     </div>
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="prefect">Čelna osoba</label>
+    <input type="text" id="prefect" name="prefect" class="form-control" value="{{.County.Prefect}}" placeholder="župan ili županica">
   </div>
   <div class="form-row">
     <div class="form-group">
@@ -56,13 +59,21 @@
       <input type="tel" id="phone" name="phone" class="form-control" value="{{.County.Phone}}">
     </div>
     <div class="form-group">
-      <label class="form-label" for="website">Web stranica</label>
+      <label class="form-label" for="website">Web</label>
       <input type="text" id="website" name="website" class="form-control" value="{{.County.Website}}" placeholder="npr. www.obz.hr">
     </div>
   </div>
-  <div class="form-actions">
-    <a href="/territories" class="btn btn-secondary">Odustani</a>
-    <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi izmjene{{else}}Dodaj županiju{{end}}</button>
+  </section>
+  {{if .IsEdit}}
+  <section class="list-kartica">
+  <h3>Službe za obranu</h3>
+  <p class="form-help mb-0">Službe se upisuju i mijenjaju na <a href="/territories/counties/{{.County.ID}}#sluzbe">kartici županije</a>.</p>
+  </section>
+  {{end}}
+  <div class="form-actions lob-gumbi">
+    <a href="{{if .IsEdit}}/territories/counties/{{.County.ID}}{{else}}/territories{{end}}" class="btn btn-link">Odustani</a>
+    <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi{{else}}Upiši{{end}}</button>
   </div>
 </form>
+</div>
 {{end}}

@@ -10096,3 +10096,7 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
   table.opc-naselja.kartice-na-mobitelu td[data-stupac]::before { content: attr(data-stupac); flex: none; color: var(--md-sys-color-on-surface-variant); }
   table.opc-naselja.kartice-na-mobitelu td:last-child .btn { width: auto; min-height: 40px; margin: 0; }
 }
+
+
+/* Obrasci županije i općine (17f, 7d i 7e). */
+.ter-oznaka-polje { text-transform: uppercase; }
