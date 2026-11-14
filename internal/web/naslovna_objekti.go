@@ -80,12 +80,13 @@ func objektiOcitanja(letve []models.GaugeSummary) []models.GaugeSummary {
 func karticaMojihObjekata(objekti []models.GaugeSummary, sad time.Time) KarticaNaslovne {
 	k := glavaKartice(kMojiObjekti)
 	for _, g := range objekti {
-		if !g.DoneToday || g.Latest == nil {
+		if g.Danas == nil {
 			r := RedakKartice{Ikona: ikonaObjekta(g), Glavno: g.Name, URL: g.URL, Sporedno: "danas još nije očitan",
 				Gumb: &GumbNaslovne{Tekst: "Upiši", URL: g.NewURL + "&back=/"}}
 			k.Redovi = append(k.Redovi, r)
 			continue
 		}
+		g.Latest = g.Danas // redak pokazuje očitanje čovjeka, ne kasnije s uređaja
 		k.Redovi = append(k.Redovi, redakObjekta(g, stanjeObjekta(*g.Latest, g.Kind), sad))
 	}
 	if len(k.Redovi) == 0 {

@@ -789,3 +789,42 @@ func TestMojeLetveBezBaze(t *testing.T) {
 		t.Errorf("MojeLetve bez baze: %v", moje)
 	}
 }
+
+// Obilazak su moje letve redom obilaska. Danas je letva obiđena samo kad je
+// čovjek upisao očitanje; uređaj i uvoz se ne broje (Odluke (14. 11. 2026.)).
+func TestObilazakDanasSamoCovjek(t *testing.T) {
+	o := novaOkolinaCitanja(t)
+	ctx := context.Background()
+	pp, _ := o.pperic(t, "pperic", dionicaDuznost("P.1.1", 1))
+	sad := time.Now().In(models.Zagreb)
+	jucer := func(sat int) time.Time {
+		d := sad.AddDate(0, 0, -1)
+		return time.Date(d.Year(), d.Month(), d.Day(), sat, 0, 0, 0, models.Zagreb)
+	}
+	o.upisi(t, models.Reading{StationID: o.primjerovo.ID.String(), MeasuredAt: jucer(7), LevelCm: cmP(200), UserID: pp.ID.String()})
+	o.upisi(t, models.Reading{StructureID: o.csProbni.ID.String(), MeasuredAt: jucer(6), LevelCm: cmP(100), UserID: pp.ID.String()})
+	o.upisi(t, models.Reading{StructureID: o.csProbni.ID.String(), MeasuredAt: sad, LevelCm: cmP(101), Source: models.ReadingSourceAutomatic})
+	o.upisi(t, models.Reading{StationID: o.primjerovo.ID.String(), MeasuredAt: sad, LevelCm: cmP(205), Observer: "Iva Proba"})
+
+	sve, err := o.rs.Overview(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ob := o.rs.Obilazak(ctx, pp, sve)
+	if len(ob) != 2 || ob[0].Name != "CS Probni" || ob[1].Name != "Primjerovo" {
+		t.Fatalf("obilazak: %+v", ob)
+	}
+	if ob[0].DoneToday || ob[0].Danas != nil {
+		t.Error("očitanje uređaja broji se kao obilazak")
+	}
+	if !ob[1].DoneToday || ob[1].Danas == nil || ob[1].Danas.Observer != "Iva Proba" || *ob[1].Danas.LevelCm != 205 || ob[1].UsualTime() != "07:00" {
+		t.Errorf("Primjerovo: %+v", ob[1])
+	}
+	if o.rs.Obilazak(ctx, nil, sve) != nil || o.rs.Obilazak(ctx, &o.adminOvl.User, sve) != nil {
+		t.Error("obilazak bez osobe ili bez mojih letava")
+	}
+	o.baza.Close()
+	if o.rs.Obilazak(ctx, pp, sve) != nil {
+		t.Error("obilazak bez baze")
+	}
+}

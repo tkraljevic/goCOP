@@ -544,7 +544,7 @@ func (s *ReadingService) FieldOverview(ctx context.Context, perms *models.UserPe
 	if u != nil {
 		habits, _ = s.repo.HabitsFor(ctx, u.ID.String(), u.FullName, time.Now().AddDate(0, 0, -90))
 	}
-	today := time.Now().In(models.Zagreb).Format("2006-01-02")
+	pocetakDana := pocetakDanas(time.Now())
 	for _, g := range all {
 		if g.StructureID != "" && g.AreaID == areaID {
 			inArea[g.Key] = true
@@ -553,9 +553,7 @@ func (s *ReadingService) FieldOverview(ctx context.Context, perms *models.UserPe
 		if !mine && !inArea[g.Key] {
 			continue
 		}
-		if g.Latest != nil && g.Latest.LocalTime().Format("2006-01-02") == today {
-			g.DoneToday = true
-		}
+		s.oznaciDanas(ctx, &g, pocetakDana)
 		if mine {
 			g.Habit, g.UsualMin = h.Count, h.UsualMin
 			fo.Mine = append(fo.Mine, g)
@@ -563,12 +561,7 @@ func (s *ReadingService) FieldOverview(ctx context.Context, perms *models.UserPe
 			fo.Others = append(fo.Others, g)
 		}
 	}
-	sort.SliceStable(fo.Mine, func(i, j int) bool {
-		if fo.Mine[i].UsualMin != fo.Mine[j].UsualMin {
-			return fo.Mine[i].UsualMin < fo.Mine[j].UsualMin
-		}
-		return fo.Mine[i].Name < fo.Mine[j].Name
-	})
+	poObilasku(fo.Mine)
 	sort.SliceStable(fo.Others, func(i, j int) bool {
 		if (fo.Others[i].Count > 0) != (fo.Others[j].Count > 0) {
 			return fo.Others[i].Count > 0
@@ -582,6 +575,56 @@ func (s *ReadingService) FieldOverview(ctx context.Context, perms *models.UserPe
 		}
 	}
 	return fo, nil
+}
+
+// pocetakDanas je ponoć današnjeg dana po hrvatskom vremenu
+func pocetakDanas(sad time.Time) time.Time {
+	t := sad.In(models.Zagreb)
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, models.Zagreb)
+}
+
+// oznaciDanas upisuje današnje očitanje koje je upisao čovjek. Satno
+// očitanje uređaja i skupni unos ne znače da je letva obiđena (Odluke
+// (14. 11. 2026.)).
+func (s *ReadingService) oznaciDanas(ctx context.Context, g *models.GaugeSummary, od time.Time) {
+	rd, err := s.repo.ZadnjeRucnoOd(ctx, g.StationID, g.StructureID, od)
+	if err != nil || rd == nil {
+		return
+	}
+	g.Danas, g.DoneToday = rd, true
+}
+
+// Obilazak su moje letve iz zadanog popisa redom obilaska (po uobičajenom
+// vremenu očitanja), s današnjim očitanjem koje je upisao čovjek
+func (s *ReadingService) Obilazak(ctx context.Context, u *models.User, letve []models.GaugeSummary) []models.GaugeSummary {
+	if u == nil {
+		return nil
+	}
+	navike, err := s.repo.HabitsFor(ctx, u.ID.String(), u.FullName, time.Now().AddDate(0, 0, -90))
+	if err != nil {
+		return nil // popis Očitanja se tada pokaže bez obilaska
+	}
+	od := pocetakDanas(time.Now())
+	var out []models.GaugeSummary
+	for _, g := range letve {
+		if h, moja := navike[g.Key]; moja {
+			g.Habit, g.UsualMin = h.Count, h.UsualMin
+			s.oznaciDanas(ctx, &g, od)
+			out = append(out, g)
+		}
+	}
+	poObilasku(out)
+	return out
+}
+
+// poObilasku slaže letve po uobičajenom vremenu očitanja, a isto vrijeme po nazivu
+func poObilasku(letve []models.GaugeSummary) {
+	sort.SliceStable(letve, func(i, j int) bool {
+		if letve[i].UsualMin != letve[j].UsualMin {
+			return letve[i].UsualMin < letve[j].UsualMin
+		}
+		return letve[i].Name < letve[j].Name
+	})
 }
 
 // MojeLetve su ključevi letava koje je osoba očitala u zadnjih 90 dana, isto
