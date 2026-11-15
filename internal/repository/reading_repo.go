@@ -514,11 +514,13 @@ func kruznaSredina(minute []int) int {
 // HabitsFor vraća letve koje je osoba očitavala od zadanog trenutka: ili je
 // upisala kao korisnik goCOP-a, ili je zapisana kao očitavač u starom
 // zapisu bez korisnika (uvezeni zapisi). Očitanje s tuđim korisnikom ne
-// ulazi ni kad je očitavač istog imena (imenjak).
+// ulazi ni kad je očitavač istog imena (imenjak). Broje se samo ručna
+// očitanja: skupni unos ide na račun onoga tko je ispis zalijepio, a on letvu
+// nije obišao (Odluke (15. 11. 2026.), 2).
 func (r *ReadingRepository) HabitsFor(ctx context.Context, userID, observer string, since time.Time) (map[string]GaugeHabit, error) {
 	rows, err := r.db.QueryContext(ctx, `SELECT station_id, structure_id, measured_at FROM readings
-		WHERE measured_at >= ? AND ((user_id != '' AND user_id = ?) OR (user_id = '' AND observer != '' AND observer = ?))`,
-		since.UTC(), userID, observer)
+		WHERE measured_at >= ? AND source = ? AND ((user_id != '' AND user_id = ?) OR (user_id = '' AND observer != '' AND observer = ?))`,
+		since.UTC(), models.ReadingSourceManual, userID, observer)
 	if err != nil {
 		return nil, err
 	}
