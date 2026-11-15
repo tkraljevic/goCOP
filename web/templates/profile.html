@@ -22,15 +22,15 @@
      kao čipovi, na mobitelu prvo popis pa odjeljak. Bez skripte vide se svi. */}}
 <div class="profil-okvir" id="profil" data-profil-okvir>
   <nav class="profil-odjeljci" aria-label="Odjeljci profila">
-    <a href="#kontakti">{{icon "phone"}}<span>Kontakti</span></a>
-    <a href="#lozinka">{{icon "key-round"}}<span>Lozinka za goCOP</span></a>
-    {{if .PrijavaIzvana}}<a href="#prijava-izvana">{{icon "shield"}}<span>Prijava izvana</span></a>{{end}}
-    <a href="#posta">{{icon "mail"}}<span>E-pošta tvrtke</span></a>
+    <a href="#kontakti">{{icon "phone"}}<span>Kontakti{{with .User.MobilePhone}}<small>mobitel {{.}}</small>{{end}}</span></a>
+    <a href="#lozinka">{{icon "key-round"}}<span>Lozinka za goCOP<small>{{if .User.MustChangePassword}}privremena · postavite svoju{{else}}za ulaz u program{{end}}</small></span></a>
+    {{with .PrijavaIzvana}}<a href="#prijava-izvana">{{icon "shield"}}<span>Prijava izvana{{if not .TudjimOcima}}<small>PIN {{if .Ukljuceno}}uključen{{else}}isključen{{end}} · {{if .RezervniOd}}{{.Rezervnih}} od 10 kodova{{else}}bez rezervnih kodova{{end}}</small>{{end}}</span></a>{{end}}
+    <a href="#posta">{{icon "mail"}}<span>E-pošta tvrtke<small>{{with .DomenaPoste}}samo uz adresu @{{.}}{{else}}{{if .PostaRacun}}povezano{{else}}nije povezano{{end}}{{end}}</small></span></a>
     {{if not .DomenaPoste}}<a href="/posta">{{icon "mailbox"}}<span>Sandučić</span></a>{{end}}
-    <a href="#potpisi">{{icon "pencil"}}<span>Potpisi</span></a>
-    <a href="#dezurstva">{{icon "users"}}<span>Moja dežurstva i sati</span></a>
-    <a href="#moje-prijave">{{icon "bug"}}<span>Moje prijave</span></a>
-    <a href="#racunalo">{{icon "radio-tower"}}<span>Ovo računalo i ured</span></a>
+    <a href="#potpisi">{{icon "pencil"}}<span>Potpisi{{if not .Viewing}}<small>{{.StanjePotpisa}}</small>{{end}}</span></a>
+    <a href="#dezurstva">{{icon "users"}}<span>Moja dežurstva i sati{{with .StanjeDezurstava}}<small>{{.}}</small>{{end}}</span></a>
+    <a href="#moje-prijave">{{icon "bug"}}<span>Moje prijave{{with .StanjePrijava}}<small>{{.}}</small>{{end}}</span></a>
+    <a href="#racunalo">{{icon "radio-tower"}}<span>Ovo računalo i ured{{with .PrijavaIzvana}}{{with .Cvor}}<small>{{.}}</small>{{end}}{{end}}</span></a>
   </nav>
   <div class="profil-sadrzaj">
     <a class="povratna-poveznica profil-natrag" href="#profil">← Profil</a>
