@@ -20,10 +20,15 @@
 {{/* Okvir po crtežu (22 · Profil): lijevo popis odjeljaka, desno jedan
      otvoren (ocitanja po sidru, app.js initProfilOkvir); na tabletu odjeljci
      kao čipovi, na mobitelu prvo popis pa odjeljak. Bez skripte vide se svi. */}}
-<div class="profil-okvir" id="profil" data-profil-okvir>
+<div class="profil-okvir" id="profil" data-profil-okvir{{if .User.MustChangePassword}} data-zadano="lozinka"{{end}}>
   <nav class="profil-odjeljci" aria-label="Odjeljci profila">
     <a href="#kontakti">{{icon "phone"}}<span>Kontakti{{with .User.MobilePhone}}<small>mobitel {{.}}</small>{{end}}</span></a>
     <a href="#lozinka">{{icon "key-round"}}<span>Lozinka za goCOP<small>{{if .User.MustChangePassword}}privremena · postavite svoju{{else}}za ulaz u program{{end}}</small></span></a>
+    {{if .User.MustChangePassword}}
+    {{/* Odluke (15. 11. 2026.), Profil 4: uz privremenu lozinku ostali odjeljci su zaključani i to piše */}}
+    {{range list "Prijava izvana" "E-pošta tvrtke" "Sandučić" "Potpisi" "Moja dežurstva i sati" "Moje prijave" "Ovo računalo i ured"}}<span class="profil-zakljucano" aria-disabled="true">{{icon "lock"}}<span>{{.}}<small>otvara se nakon promjene lozinke</small></span></span>
+    {{end}}
+    {{else}}
     {{with .PrijavaIzvana}}<a href="#prijava-izvana">{{icon "shield"}}<span>Prijava izvana{{if not .TudjimOcima}}<small>PIN {{if .Ukljuceno}}uključen{{else}}isključen{{end}} · {{if .RezervniOd}}{{.Rezervnih}} od 10 kodova{{else}}bez rezervnih kodova{{end}}</small>{{end}}</span></a>{{end}}
     <a href="#posta">{{icon "mail"}}<span>E-pošta tvrtke<small>{{with .DomenaPoste}}samo uz adresu @{{.}}{{else}}{{if .PostaRacun}}povezano{{else}}nije povezano{{end}}{{end}}</small></span></a>
     {{if not .DomenaPoste}}<a href="/posta">{{icon "mailbox"}}<span>Sandučić</span></a>{{end}}
@@ -31,11 +36,13 @@
     <a href="#dezurstva">{{icon "users"}}<span>Moja dežurstva i sati{{with .StanjeDezurstava}}<small>{{.}}</small>{{end}}</span></a>
     <a href="#moje-prijave">{{icon "bug"}}<span>Moje prijave{{with .StanjePrijava}}<small>{{.}}</small>{{end}}</span></a>
     <a href="#racunalo">{{icon "radio-tower"}}<span>Ovo računalo i ured{{with .PrijavaIzvana}}{{with .Cvor}}<small>{{.}}</small>{{end}}{{end}}</span></a>
+    {{end}}
   </nav>
   <div class="profil-sadrzaj">
     <a class="povratna-poveznica profil-natrag" href="#profil">← Profil</a>
     <section class="detail-section profil-kartica profil-odjeljak" id="kontakti">
       <h2>Kontakti</h2>
+      {{if .Viewing}}<div class="alert alert-warning">Gledate tuđim očima: spremanje mijenja kontakte osobe {{.User.FullName}}.</div>{{end}}
       <form class="form-page" method="POST" action="/profile/update" data-zadrzi-upisano>
         <div class="form-row">
           <div class="form-group">
@@ -84,7 +91,7 @@
           <div class="form-help">Nakon tri kriva upisa obrasci s lozinkom zatvaraju se na 15 minuta.</div>
         </div>
         {{end}}
-        <div class="form-help">Mobitel je broj na koji vas kolege zovu s terena; skraćeni brojevi vrijede u zatvorenoj mreži tvrtke. <a href="/users/exchange?trazi={{.User.FullName | urlquery}}">Provjeri u adresaru tvrtke</a>.</div>
+        <div class="form-help">Mobitel je broj na koji vas kolege zovu s terena; skraćeni brojevi vrijede u zatvorenoj mreži tvrtke. {{if .VidiImenik}}<a href="/users/exchange?trazi={{.User.FullName | urlquery}}">Provjeri u adresaru tvrtke</a>.{{end}}</div>
         <div class="form-actions">
           <button type="submit" class="btn btn-primary">{{icon "check"}} Spremi kontakte</button>
         </div>
@@ -93,6 +100,9 @@
 
     <section class="detail-section profil-kartica profil-odjeljak" id="lozinka">
       <h2>Lozinka za goCOP</h2>
+      {{if .Viewing}}
+      <p class="page-desc">Dok gledate tuđim očima, lozinka te osobe ovdje se ne mijenja. Privremenu lozinku daje administrator u Djelatnicima.</p>
+      {{else}}
       <form class="form-page" method="POST" action="/profile/change-password">
         <div class="form-group">
           <label class="form-label" for="current_password">Trenutna lozinka *</label>
@@ -120,8 +130,10 @@
         <li>Potpisni ključ se zaključava novom lozinkom i dalje vrijedi.</li>
         <li>Spremljena lozinka e-pošte tvrtke prestaje vrijediti: upišite je ponovno u odjeljku <a href="#posta">E-pošta tvrtke</a>.</li>
       </ul>
+      {{end}}
     </section>
 
+    {{if not .User.MustChangePassword}}
     {{with .PrijavaIzvana}}
     {{/* Prijava izvana po crtežu (22, odjeljak 3): stanje PIN-a, zapamćena
          računala i rezervni kodovi kao tri ploče jednog odjeljka */}}
@@ -215,7 +227,9 @@
 
     <section class="detail-section profil-kartica profil-odjeljak" id="posta">
       <h2>E-pošta tvrtke</h2>
-      {{with .DomenaPoste}}
+      {{if .Viewing}}
+      <p class="page-desc">Dok gledate tuđim očima, e-pošta te osobe ne vidi se i ne mijenja.</p>
+      {{else}}{{with .DomenaPoste}}
       <p class="page-desc">Sandučić i e-pošta tvrtke rade samo s adresom @{{.}}, pa ih s vašom adresom nema.</p>
       {{else}}
       {{if .PostaRacun}}
@@ -229,9 +243,9 @@
         <li><a href="/profile/posta">{{icon "key-round"}}<span><strong>{{if .PostaRacun}}Lozinka e-pošte{{else}}Upiši lozinku e-pošte{{end}}</strong><small>{{if .PostaRacun}}upis nove lozinke ili brisanje s ovog računala{{else}}bez nje Sandučić i slanje akata ne rade{{end}}</small></span>{{icon "chevron-right"}}</a></li>
         <li><a href="/posta">{{icon "mailbox"}}<span><strong>Sandučić</strong><small>pošta vašeg računa s poslužitelja tvrtke</small></span>{{icon "chevron-right"}}</a></li>
         <li><a href="/profile/potpis">{{icon "pencil"}}<span><strong>Potpis e-pošte</strong><small>tekst koji se ubacuje na kraj svakog pisma</small></span>{{icon "chevron-right"}}</a></li>
-        <li><a href="/users/exchange">{{icon "building"}}<span><strong>Adresar tvrtke</strong><small>adrese i telefoni kako ih vodi informatika</small></span>{{icon "chevron-right"}}</a></li>
+        {{if .VidiImenik}}<li><a href="/users/exchange">{{icon "building"}}<span><strong>Adresar tvrtke</strong><small>adrese i telefoni kako ih vodi informatika</small></span>{{icon "chevron-right"}}</a></li>{{end}}
       </ul>
-      {{end}}
+      {{end}}{{end}}
     </section>
 
     <div class="profil-skupina profil-odjeljak" id="potpisi">
@@ -287,6 +301,9 @@
           <li><strong>Šifrirani zapis putuje knjigom verzija,</strong> pa potpisujete s bilo kojeg čvora; bez lozinke je bezvrijedan.</li>
         </ul>
       </details>
+      {{if .Viewing}}
+      <p class="page-desc">Dok gledate tuđim očima, potpisni ključ te osobe ne vidi se i ne mijenja.</p>
+      {{else}}
       {{if .Kljuc.Ima}}
       <dl class="vodocuvar-dl mt-2">
         <dt>Certifikat</dt><dd>{{.Kljuc.Ime}}{{with .Kljuc.Funkcija}}, {{.}}{{end}}{{with .Kljuc.Sektor}}, Sektor {{.}}{{end}}</dd>
@@ -314,6 +331,7 @@
         <div class="profil-gumbi"><button type="submit" class="btn btn-primary btn-sm">{{icon "lock"}} Napravi potpisni ključ</button></div>
       </form>
       {{end}}
+      {{end}}
     </section>
 
     </div>
@@ -334,10 +352,10 @@
             <span class="reg-chip">{{icon "clock"}} {{.Dezurstava}} {{uzBroj .Dezurstava "dežurstvo" "dežurstva" "dežurstava"}}, {{sati .Sati}} h</span>
             {{if .CekaPotvrdu}}<span class="badge badge-pending">{{.CekaPotvrdu}} {{uzBroj .CekaPotvrdu "čeka" "čekaju" "čeka"}} potvrdu</span>{{end}}
             {{if .ZaProvjeru}}<span class="badge badge-warning" title="Mjesto rada nepoznato: nije u obračunu dok uprava centra ne izabere opis rada s popisa">{{.ZaProvjeru}} za provjeru</span>{{end}}
-            <span class="profil-plan-veze">
+            {{if $.VidiDokumente}}<span class="profil-plan-veze">
               <a href="/dnevnici/{{.JournalID}}/dezurstva" class="btn btn-sm btn-link">Plan</a>
               <a href="/dnevnici/{{.JournalID}}/obracun/{{$.User.ID}}" class="btn btn-sm btn-link">Izvješće o satima</a>
-            </span>
+            </span>{{end}}
           </div>
         </article>
         {{end}}
@@ -390,6 +408,7 @@
         {{if .VidiAdministraciju}}<li><a href="/sinkronizacija">{{icon "refresh-cw"}}<span><strong>Stanje razmjene</strong><small>s kim se ovo računalo razmjenjuje i ručna razmjena</small></span>{{icon "chevron-right"}}</a></li>{{end}}
       </ul>
     </section>
+    {{end}}
   </div>
 </div>
 {{end}}

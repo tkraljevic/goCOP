@@ -906,3 +906,48 @@ func TestEpostaTvrtkeURedcima(t *testing.T) {
 		t.Error("bez upisane lozinke prvi redak poziva na upis")
 	}
 }
+
+// Odluke (15. 11. 2026.), Profil 4–6: uz privremenu lozinku ostali
+// odjeljci su zaključani, tuđim očima obrasci koji ne rade postaju
+// rečenica, a poveznice u module koje osoba nema ne nude se.
+func TestProfilPristupOdjeljcima(t *testing.T) {
+	o := novaOkolinaIzvana(t)
+	ana := o.racun("ana", "anina-lozinka", "ana@voda.hr", false)
+	sef := o.racun("sef", "sefova-lozinka", "sef@voda.hr", true)
+
+	b := o.posalji(zahtjevIzvana{stvarni: sef, vidi: ana}, http.MethodGet, "/profile", nil).Body.String()
+	for _, want := range []string{"Gledate tuđim očima: spremanje mijenja kontakte osobe", "lozinka te osobe ovdje se ne mijenja", "e-pošta te osobe ne vidi se i ne mijenja"} {
+		if !strings.Contains(b, want) {
+			t.Errorf("tuđim očima Profil ne kaže %q", want)
+		}
+	}
+	if strings.Contains(b, `action="/profile/change-password"`) {
+		t.Error("tuđim očima ne nudi se promjena lozinke")
+	}
+
+	x, err := o.repo.GetUserByID(ana.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	x.MustChangePassword = true
+	if err := o.repo.UpdateUser(x); err != nil {
+		t.Fatal(err)
+	}
+	b = o.posalji(zahtjevIzvana{stvarni: x}, http.MethodGet, "/profile", nil).Body.String()
+	if n := strings.Count(b, `class="profil-zakljucano"`); n != 7 {
+		t.Errorf("uz privremenu lozinku treba sedam zaključanih odjeljaka, ima %d", n)
+	}
+	if !strings.Contains(b, `data-zadano="lozinka"`) || strings.Contains(b, `id="prijava-izvana"`) || strings.Contains(b, `id="racunalo"`) {
+		t.Error("uz privremenu lozinku otvara se Lozinka, a zaključani odjeljci se ne šalju")
+	}
+
+	tmpl, err := fs.ReadFile(webassets.Files, "templates/profile.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`{{if .VidiImenik}}<li><a href="/users/exchange">`, `{{if .VidiImenik}}<a href="/users/exchange?trazi=`, `{{if $.VidiDokumente}}<span class="profil-plan-veze">`} {
+		if !strings.Contains(string(tmpl), want) {
+			t.Errorf("poveznica u modul mora ovisiti o modulu: %s", want)
+		}
+	}
+}
