@@ -195,7 +195,7 @@
       {{end}}
 
       {{if or (eq .ID $.CurrentUser.ID) $.Permissions.IsGlobalAdmin (gt (len $.Permissions.AdminSectors) 0) (gt (len $.Permissions.AdminAreas) 0)}}
-      <a href="{{if eq .ID $.CurrentUser.ID}}/profile{{else}}/users/{{.ID}}/edit{{end}}" class="btn btn-secondary btn-sm flex-1 justify-center">{{icon "pencil"}} {{if eq .ID $.CurrentUser.ID}}Moj profil{{else}}Profil{{end}}</a>
+      <a href="{{if eq .ID $.CurrentUser.ID}}/profile{{else}}/users/{{.ID}}/edit{{end}}" class="btn btn-secondary btn-sm flex-1 justify-center">{{icon "pencil"}} Profil</a>
       {{end}}
 
       {{if and (ne .ID $.CurrentUser.ID) $.Permissions.IsGlobalAdmin}}

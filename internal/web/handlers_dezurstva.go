@@ -167,7 +167,7 @@ func (h *JournalsHandler) HandleIspraviOpisDezurstva(w http.ResponseWriter, r *h
 // Poruke kad osoba ne smije vidjeti obračun sati ili tuđi IORS
 // (JournalService.VidiObracun, VidiIORS)
 const (
-	porukaObracuna = "Obračun sati vidi voditelj ili zamjenik centra. Svoje sate vidite na stranici Moj profil."
+	porukaObracuna = "Obračun sati vidi voditelj ili zamjenik centra. Svoje sate vidite na stranici Profil."
 	porukaIORS     = "Izvješće o satima vidi voditelj ili zamjenik centra, i osoba sama."
 )
 
