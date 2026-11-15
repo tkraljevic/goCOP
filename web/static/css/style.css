@@ -4455,7 +4455,9 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .posta-html { width: 100%; min-height: 200px; border: 1px solid var(--border, #d9dee5); border-radius: 8px; background: #fff; }
 .profil-kartica { margin: 0; border: 1px solid var(--border); border-radius: var(--r-kartica); padding: var(--space-16); background: var(--surface); }
 .profil-kartica h2 { font-size: 1rem; font-weight: 600; margin: 0 0 0.75rem; }
-.profil-kartica .form-page { max-width: none; }
+/* Obrasci u odjeljcima Profila bez unutarnje kartice (crtež 22): odjeljak je već ploča */
+.profil-kartica .form-page { max-width: none; padding: 0; overflow: visible; border: 0; background: none; box-shadow: none; }
+.profil-kartica .form-page::before { display: none; }
 .profil-kartica .form-actions { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border, #d9dee5); display: flex; justify-content: flex-end; }
 .profil-kartica .page-desc { margin: 0 0 0.6rem; font-size: 0.9rem; }
 .profil-stanje { margin: 0 0 0.5rem; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; font-size: 0.92rem; }

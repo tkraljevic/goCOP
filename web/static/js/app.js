@@ -139,6 +139,14 @@ function initProfilOkvir() {
   window.addEventListener("hashchange", prikazi);
   mobitel.addEventListener("change", prikazi);
   prikazi();
+  // poruka nakon spremanja stoji u odjeljku na koji se odnosi, ispod naslova
+  const otvoren = odjeljci.find((o) => !o.hidden);
+  if (otvoren && window.location.hash) {
+    const naslov = otvoren.querySelector("h2");
+    document.querySelectorAll("main.main-content > .alert-success, main.main-content > .alert-danger").forEach((p) => {
+      if (naslov) naslov.after(p); else otvoren.prepend(p);
+    });
+  }
 }
 
 // Obrazac s data-zadrzi-upisano pamti upisano dok se šalje. Kad se stranica

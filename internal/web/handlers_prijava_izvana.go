@@ -144,6 +144,15 @@ func povratnaAdresaProfila(r *http.Request, zadano string) string {
 	return "/profile"
 }
 
+// odjeljakProfila: povratak na Profil otvara odjeljak obrasca, pa poruka
+// stoji uz njega; povratak na drugu stranicu ostaje kakav jest
+func odjeljakProfila(povratak, odjeljak string) string {
+	if povratak == "/profile" {
+		return povratak + "#" + odjeljak
+	}
+	return povratak
+}
+
 // noviRezervniKodovi provjeri lozinku (uz ograničenje krivih upisa kao pri
 // promjeni lozinke) i napravi novi niz rezervnih kodova
 func (h *UsersHandler) noviRezervniKodovi(r *http.Request) (*models.User, []string, error) {
