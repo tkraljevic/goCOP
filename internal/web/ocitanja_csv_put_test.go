@@ -59,7 +59,7 @@ func TestIspravakIzDatotekeOdDatotekeDoUpisa(t *testing.T) {
 		ocitanje           models.Reading
 	}{
 		{"letva", "/readings/station/" + p.letva.ID.String(), "/readings/station/" + p.letva.ID.String() + "/uvoz-izvoz", naLetvi},
-		{"objekt", "/readings/structure/" + cs.ID.String(), "/readings/structure/" + cs.ID.String(), uObjektu},
+		{"objekt", "/readings/structure/" + cs.ID.String(), "/readings/structure/" + cs.ID.String() + "/uvoz-izvoz", uObjektu},
 	} {
 		datoteka := "id;vrijeme;vodostaj_cm;nizvodni_cm\n" + s.ocitanje.ID.String() + ";2014-03-02 07:00;-118;\n"
 		w := p.datoteka(t, "dežurni", s.put+"/ocitanja/uvoz", "ispravak.csv", datoteka, nil)
@@ -104,5 +104,29 @@ func TestPregledIspravakaPokazujeRaspon(t *testing.T) {
 	_, polja := poslaniObrazac(t, w.Body.String())
 	if ids := polja["id"]; len(ids) != 1 || ids[0] != dobar.ID.String() {
 		t.Errorf("na potvrdu idu %v, a treba samo dobar ispravak", ids)
+	}
+}
+
+// Objekt ima karticu Uvoz i izvoz s izvozom u CSV i ispravcima iz datoteke,
+// bez skupnog unosa i Excel izvješća letve (Odluke (15. 11. 2026.), 6).
+func TestObjektImaUvozIIzvoz(t *testing.T) {
+	p := noviPosluziteljOcitanja(t)
+	cs := &models.Structure{Code: "cs-primjerovo", Name: "CS Primjerovo", Kind: models.StructureKindPumpingStation, SectorID: "P", AreaID: 1}
+	if err := p.structures.Create(context.Background(), &models.UserPermissions{IsGlobalAdmin: true}, cs); err != nil {
+		t.Fatal(err)
+	}
+	put := "/readings/structure/" + cs.ID.String()
+	if w := p.posalji("dežurni", http.MethodGet, put, nil, ""); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `href="`+put+`/uvoz-izvoz"`) {
+		t.Fatalf("očitanja objekta bez poveznice na Uvoz i izvoz: %d", w.Code)
+	}
+	w := p.posalji("dežurni", http.MethodGet, put+"/uvoz-izvoz", nil, "")
+	s := html.UnescapeString(w.Body.String())
+	if w.Code != http.StatusOK || !strings.Contains(s, "Vrati s ispravcima") || !strings.Contains(s, put+"/ocitanja.csv") {
+		t.Fatalf("kartica objekta: %d", w.Code)
+	}
+	for _, nema := range []string{"Unesi više očitanja odjednom", "Excel izvješće", `href="`+put+`/uvoz-izvoz"`} {
+		if strings.Contains(s, nema) {
+			t.Errorf("kartica objekta ima %q", nema)
+		}
 	}
 }
