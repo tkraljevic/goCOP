@@ -70,6 +70,8 @@ type UserPageData struct {
 
 	// VidiAdministraciju: ima modul „Administracija” (Stanje razmjene je u njemu)
 	VidiAdministraciju bool
+	// VidiDokumente: ima modul „Dokumenti” (plan dežurstava i izvješće o satima)
+	VidiDokumente bool
 
 	// SmijeUparivati: profil nudi Uparivanje onome koga stranica pušta
 	// (uprava organizacije vlastitim očima, s promijenjenom lozinkom)
@@ -203,6 +205,7 @@ func (h *UsersHandler) pageData(r *http.Request) UserPageData {
 		Izvana:         dolaziIzvana(r),
 	}
 	d.VidiAdministraciju = mods.Sees(models.ModuleAdmin)
+	d.VidiDokumente = mods.Sees(models.ModuleJournals)
 	return d
 }
 

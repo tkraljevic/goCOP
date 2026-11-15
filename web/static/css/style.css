@@ -4477,6 +4477,12 @@ table.akt-poveznice { margin-top: 0.75rem; }
 }
 .profil-odjeljci a .icon { flex: none; width: 22px; height: 22px; color: var(--md-sys-color-on-surface-variant, var(--text-secondary)); }
 .profil-odjeljci a:hover { background: var(--surface-hover); text-decoration: none; }
+.profil-zakljucano {
+  display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 8px 12px; border-radius: 12px;
+  color: var(--md-sys-color-on-surface-variant, var(--text-secondary)); font-size: 0.95rem; cursor: not-allowed;
+}
+.profil-zakljucano .icon { flex: none; width: 22px; height: 22px; }
+.profil-zakljucano > span { display: flex; flex-direction: column; }
 .profil-odjeljci a > span { display: flex; flex-direction: column; min-width: 0; }
 .profil-odjeljci small { color: var(--md-sys-color-on-surface-variant, var(--text-secondary)); font-size: 0.75rem; line-height: 1.3; }
 .profil-odjeljci a.je-odabran { background: var(--md-sys-color-ploha-odabrano); color: var(--md-sys-color-primary, var(--primary)); }

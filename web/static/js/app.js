@@ -125,7 +125,9 @@ function initProfilOkvir() {
     const id = decodeURIComponent(window.location.hash.slice(1));
     const cilj = id ? document.getElementById(id) : null;
     let otvoren = cilj ? cilj.closest(".profil-odjeljak") : null;
-    if (!otvoren && !mobitel.matches) otvoren = odjeljci[0];
+    // uz privremenu lozinku otvara se Lozinka za goCOP (data-zadano)
+    const zadano = okvir.dataset.zadano ? document.getElementById(okvir.dataset.zadano) : null;
+    if (!otvoren && !mobitel.matches) otvoren = zadano || odjeljci[0];
     okvir.classList.toggle("ima-odjeljak", Boolean(otvoren));
     odjeljci.forEach((o) => { o.hidden = o !== otvoren; });
     poveznice.forEach((a) => {
