@@ -23,3 +23,14 @@ func TestDefaultModulesAlwaysIncludeField(t *testing.T) {
 		}
 	}
 }
+
+// Poslovođa izvođača vidi Očitanja: Teren je ukinut, a bez njih ne bi imao
+// puta do letava (Odluke (15. 11. 2026.), 1).
+func TestPoslovodjaVidiOcitanja(t *testing.T) {
+	for _, m := range DefaultModules(RoleServiceLeaderForeman) {
+		if m == ModuleReadings {
+			return
+		}
+	}
+	t.Error("poslovođa nema zadani modul Očitanja")
+}

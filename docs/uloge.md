@@ -100,7 +100,7 @@ vlasništvo Republike Hrvatske, a kanali III. i IV. reda županije.
 
 | Uloga | Doseg | Što radi u programu |
 |---|---|---|
-| Voditelj usluga / Poslovođa | branjeno područje | Vodi radove ugovornog izvođača. Vidi teren i vodi dnevnike usluga svoje firme na području na kojem ima dužnost. Dnevnike drugih firmi, listove vodočuvara i prijave s terena ne vidi. Ne vidi dnevnik COP-a ni plan dežurstava, ni na zidu događanja. Izvođača plaća njegova firma, pa ne ulazi u plan dežurstava ni u obračun sati i nema izvješće o satima (IORS). Ne upravlja računima. |
+| Voditelj usluga / Poslovođa | branjeno područje | Vodi radove ugovornog izvođača. Vidi letve i vodostaje u Očitanjima i vodi dnevnike usluga svoje firme na području na kojem ima dužnost. Dnevnike drugih firmi, listove vodočuvara i prijave s terena ne vidi. Ne vidi dnevnik COP-a ni plan dežurstava, ni na zidu događanja. Izvođača plaća njegova firma, pa ne ulazi u plan dežurstava ni u obračun sati i nema izvješće o satima (IORS). Ne upravlja računima. |
 
 ### Gost
 
