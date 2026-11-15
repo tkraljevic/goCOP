@@ -432,7 +432,7 @@ func (h *UsersHandler) dodajMojePrijave(ctx context.Context, data *UserPageData)
 	data.MojePrijave, data.MojePrijaveGreska = prijave, err != nil
 }
 
-// IzvodjacZaCOP: izvođača plaća njegova firma, pa on na Profilu nema
+// IzvodjacZaCOP: izvođač je vanjski suradnik koga plaća njegova tvrtka, pa na Profilu nema
 // dežurstava ni sati (Odluke (30. 10. 2026.)) i Profil mu to tako i kaže
 func (d UserPageData) IzvodjacZaCOP() bool {
 	return d.User != nil && service.JeIzvodjacZaCOP(d.User)
