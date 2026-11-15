@@ -48,6 +48,9 @@ type SanducicData struct {
 	Nacin           string            // odgovori, svima, proslijedi ili prazno
 	Izvorno         *posta.Pismo      // pismo na koje se odgovara
 	Potpis          string            // korisnikov potpis e-pošte, za novo pismo
+	// PrivitciPonovo su privitci pisma koje nije poslano: datoteke se ne
+	// mogu vratiti u obrazac, pa se samo imenuju da se odaberu ponovno
+	PrivitciPonovo []string
 	TrebaLozinku    bool
 	NijeUkljuceno   bool
 	LozinkaOdbijena bool
@@ -279,6 +282,32 @@ func pripremiOdgovor(izv *posta.Pismo, nacin string, u *models.User) service.Nov
 	return n
 }
 
+// vratiNovoPismo pokaže obrazac pisma koje nije poslano, s greškom i svim
+// napisanim: primatelji, kopija, predmet, oblikovani tekst, veza s izvornim
+// pismom i privitci koji se prosljeđuju. Preusmjeravanje bi izgubilo tekst.
+func (h *AktiHandler) vratiNovoPismo(w http.ResponseWriter, r *http.Request, s *service.AktService, n service.NovoPismo, privitci []string, err error) {
+	_, d := h.sanducicData(r)
+	d.Nacin = r.FormValue("nacin")
+	d.Potpis = s.Potpis(r.Context(), d.CurrentUser.ID.String())
+	n.Privitci = nil
+	d.Novo = n
+	d.PrivitciPonovo = privitci
+	d.greska(err)
+	w.WriteHeader(http.StatusUnprocessableEntity)
+	if err := h.tmplNovoPismo.ExecuteTemplate(w, "posta_novo.html", d); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// imenaPrivitaka su imena datoteka priloženih pismu
+func imenaPrivitaka(privitci []posta.Privitak) []string {
+	var imena []string
+	for _, p := range privitci {
+		imena = append(imena, p.Ime)
+	}
+	return imena
+}
+
 // HandlePosaljiPismo šalje pismo iz obrasca
 func (h *AktiHandler) HandlePosaljiPismo(w http.ResponseWriter, r *http.Request) {
 	u, _, _ := h.base(r)
@@ -305,7 +334,7 @@ func (h *AktiHandler) HandlePosaljiPismo(w http.ResponseWriter, r *http.Request)
 			f.Close()
 			if err != nil {
 				// odrezan privitak bi otišao primatelju kao da je cijeli
-				redirectWith(w, r, "/posta/novo", "error", "Privitak "+fh.Filename+" nije poslan: "+err.Error())
+				h.vratiNovoPismo(w, r, s, n, nil, errors.New("Privitak "+fh.Filename+" nije poslan: "+err.Error()))
 				return
 			}
 			if len(podaci) > 0 {
@@ -314,8 +343,7 @@ func (h *AktiHandler) HandlePosaljiPismo(w http.ResponseWriter, r *http.Request)
 		}
 	}
 	if err := s.PosaljiPismo(r.Context(), u, n); err != nil {
-		natrag := "/posta/novo?" + url.Values{"za": {n.Za}, "predmet": {n.Predmet}, "tekst": {n.Tekst}}.Encode()
-		redirectWith(w, r, natrag, "error", err.Error())
+		h.vratiNovoPismo(w, r, s, n, imenaPrivitaka(n.Privitci), err)
 		return
 	}
 	redirectWith(w, r, "/posta?mapa=sentitems", "success", "Pismo je poslano.")
