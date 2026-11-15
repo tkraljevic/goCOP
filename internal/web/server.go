@@ -431,6 +431,7 @@ func templateFuncs() template.FuncMap {
 		"imaVektorskuKartu": imaVektorskuKartu,
 		"roleOptions":       roleOptions,
 		"humanBytes":        humanBytes,
+		"velicinaDatoteke":  func(n int) string { return velicinaDatoteke(int64(n)) },
 		"km":                models.FormatKm,
 		"navNaslov":         navNaslov,
 		"navSkupina":        navSkupina,

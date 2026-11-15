@@ -628,7 +628,7 @@ func (s *AktService) RacunPosteOtkljucan(ctx context.Context, u *models.User) (k
 }
 
 // ErrNemaLozinkePoste: korisnik još nije upisao lozinku e-pošte
-var ErrNemaLozinkePoste = errors.New("upišite lozinku e-pošte u profilu (Profil › E-pošta za slanje akata)")
+var ErrNemaLozinkePoste = errors.New("upišite lozinku e-pošte u profilu (Profil › Lozinka e-pošte)")
 
 // Sanducic vraća stranicu korisnikove pošte iz mape, najnovije prvo
 func (s *AktService) Sanducic(ctx context.Context, u *models.User, mapa, trazi string, stranica, poStranici int) ([]posta.Pismo, int, error) {

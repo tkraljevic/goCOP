@@ -60,7 +60,7 @@
         <a href="/pomoc{{if .ActiveNav}}#{{.ActiveNav}}{{end}}" class="nav-link {{if eq .ActiveNav "pomoc"}}active{{end}}">{{icon "circle-question-mark"}}<span>Pomoć</span></a>
         {{if .CurrentUser}}
         <a href="/profile" class="nav-link {{if eq .ActiveNav "profile"}}active{{end}}">{{icon "user"}}<span>Profil</span></a>
-        <a href="/posta" class="nav-link {{if eq .ActiveNav "posta"}}active{{end}}" title="Ulazna pošta iz Exchangea">{{icon "mailbox"}}<span>Sandučić</span></a>
+        <a href="/posta" class="nav-link {{if eq .ActiveNav "posta"}}active{{end}}" title="Ulazna pošta s poslužitelja tvrtke">{{icon "mailbox"}}<span>Sandučić</span></a>
         <button type="button" class="nav-link pg-tema-izbornik" onclick="toggleTheme()">{{icon "sun-moon"}}<span>Svijetla ili tamna tema</span></button>
         <form action="/logout" method="POST"><button type="submit" class="nav-link">{{icon "log-out"}}<span>Odjava</span></button></form>
         {{end}}
