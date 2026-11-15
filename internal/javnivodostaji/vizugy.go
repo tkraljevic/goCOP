@@ -132,6 +132,13 @@ func (v Vizugy) Ocitanja(ctx context.Context, adresa string) ([]Redak, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Obavijest o preseljenju slijedi se jednom, samo unutar vizugy.hu, pa
+	// letve rade i dok su na staroj adresi i kad se služba vrati na nju.
+	if nova := preseljenaVizugy(string(b)); nova != "" && nova != posluzitelj && v.Base == "" {
+		if b, err = v.dohvati(ctx, stranicaVizugy(nova, oznaka)); err != nil {
+			return nil, err
+		}
+	}
 	return CitajVizugy(string(b))
 }
 
@@ -261,19 +268,24 @@ func poljeNiza(html, ime string) []string {
 // bezPoljaVizugy: greška kad stranica nema polja s vodostajima
 func bezPoljaVizugy(html string) error {
 	if nova := preseljenaVizugy(html); nova != "" {
-		return fmt.Errorf("mađarska stranica preselila se na %s; u adresi letve zamijeni poslužitelj tom adresom", nova)
+		return fmt.Errorf("mađarska stranica preselila se na %s, a ni ondje nema vodostaja", nova)
 	}
 	return fmt.Errorf("na stranici nema polja s vodostajima — je li se stranica promijenila?")
 }
 
 // reVizugySeli je preusmjeravanje stranice na novu adresu
-var reVizugySeli = regexp.MustCompile(`(?i)<meta[^>]+http-equiv="refresh"[^>]+url=(https://[a-z0-9.-]*vizugy\.hu/?)`)
+var reVizugySeli = regexp.MustCompile(`(?i)<meta[^>]+http-equiv="refresh"[^>]+url=([^"'\s>]+)`)
 
-// preseljenaVizugy: kad je stranica samo obavijest o preseljenju, nova
-// adresa; inače prazno
+// preseljenaVizugy: kad je stranica samo obavijest o preseljenju na drugi
+// poslužitelj vizugy.hu, taj poslužitelj („https://paks.vizugy.hu/”);
+// inače, i za preseljenje izvan vizugy.hu, prazno
 func preseljenaVizugy(html string) string {
-	if m := reVizugySeli.FindStringSubmatch(html); m != nil {
-		return m[1]
+	m := reVizugySeli.FindStringSubmatch(html)
+	if m == nil {
+		return ""
 	}
-	return ""
+	if _, ok := adresaIzvora(m[1], "vizugy.hu"); !ok {
+		return ""
+	}
+	return posluziteljVizugy(m[1])
 }
