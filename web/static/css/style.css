@@ -4499,6 +4499,11 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .profil-opasno:hover { color: var(--md-sys-color-error, #ba1a1a); background: var(--md-sys-color-error-container, #ffdad6); }
 .profil-kodovi-obrazac { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-top: 12px; }
 .profil-kodovi-obrazac .form-group { flex: 1 1 16rem; margin: 0; }
+/* Vlastoručni potpis: pregled skena lijevo, obrazac za novi sken desno */
+.profil-sken { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 1fr); gap: 16px; align-items: start; margin-top: 12px; }
+.profil-sken .form-group { margin-bottom: 8px; }
+.profil-sken .profil-gumbi { justify-content: flex-end; }
+@media (max-width: 599px) { .profil-sken { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 767px) {
   .profil-racunala thead { display: none; }
   .profil-racunala, .profil-racunala tbody, .profil-racunala tr, .profil-racunala td { display: block; width: 100%; }

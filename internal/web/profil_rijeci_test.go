@@ -25,3 +25,27 @@ func TestProfilLozinkaZaGoCOP(t *testing.T) {
 		t.Errorf("polja lozinke za ulaz trebaju se zvati „Lozinka za goCOP”, nađeno %d", n)
 	}
 }
+
+// Plan Profila, korak 14: uz postojeći potpisni ključ jedno polje lozinke
+// služi i za uklanjanje i za novi ključ; radnju nosi gumb.
+func TestPotpisniKljucJednoPoljeLozinke(t *testing.T) {
+	b, err := fs.ReadFile(webassets.Files, "templates/profile.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(b)
+	i := strings.Index(s, `<form method="POST" action="/profile/potpisni-kljuc" class="form-page profil-kodovi-obrazac">`)
+	if i < 0 {
+		t.Fatal("nema zajedničkog obrasca ključa")
+	}
+	obrazac := s[i : i+strings.Index(s[i:], "</form>")]
+	if strings.Count(obrazac, `name="lozinka"`) != 1 || !strings.Contains(obrazac, `name="radnja" value="obrisi"`) || !strings.Contains(obrazac, `name="radnja" value="novi"`) {
+		t.Errorf("obrazac ključa treba jedno polje lozinke i oba gumba:\n%s", obrazac)
+	}
+	if strings.Contains(s, `id="kljuc-lozinka2"`) {
+		t.Error("drugo polje lozinke uz ključ više ne postoji")
+	}
+	if !strings.Contains(s, `<label class="form-label" for="potpis-sken">Novi sken potpisa</label>`) {
+		t.Error("polje za sken potpisa treba natpis")
+	}
+}
