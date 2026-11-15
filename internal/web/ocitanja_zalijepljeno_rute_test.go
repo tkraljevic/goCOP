@@ -90,10 +90,10 @@ func TestZalijepljenaOcitanjaPregled(t *testing.T) {
 		r      *http.Request
 		greska string
 	}{
-		{"običan obrazac", obicniObrazac(putanja, url.Values{"tekst": {ispisLetve}}.Encode()), "<strong>1</strong><span>nečitljiv</span>"},
-		{"višedijelni obrazac", viseDijelni(t, putanja, map[string]string{"tekst": ispisLetve}), "<strong>1</strong><span>nečitljiv</span>"},
-		{"tekstna datoteka s BOM-om", viseDijelni(t, putanja, nil, datotekaObrasca{"datoteka", "ispis.txt", "\ufeff" + ispisLetve}), "<strong>1</strong><span>nečitljiv</span>"},
-		{"Excel ispis", viseDijelni(t, putanja, map[string]string{"tekst": "zanemaruje se"}, datotekaObrasca{"datoteka", "ispis.xlsx", string(excel)}), "<strong>0</strong><span>nečitljivih</span>"},
+		{"običan obrazac", obicniObrazac(putanja, url.Values{"tekst": {ispisLetve}}.Encode()), "<strong>1</strong><span>ne upisuje se</span>"},
+		{"višedijelni obrazac", viseDijelni(t, putanja, map[string]string{"tekst": ispisLetve}), "<strong>1</strong><span>ne upisuje se</span>"},
+		{"tekstna datoteka s BOM-om", viseDijelni(t, putanja, nil, datotekaObrasca{"datoteka", "ispis.txt", "\ufeff" + ispisLetve}), "<strong>1</strong><span>ne upisuje se</span>"},
+		{"Excel ispis", viseDijelni(t, putanja, map[string]string{"tekst": "zanemaruje se"}, datotekaObrasca{"datoteka", "ispis.xlsx", string(excel)}), "<strong>0</strong><span>ne upisuje se</span>"},
 	} {
 		t.Run(s.opis, func(t *testing.T) {
 			odg := naLetvi(o.h.HandleZalijepiPregled, s.r, id, o.pero, o.peroOvl)
@@ -310,5 +310,28 @@ func TestPregledIspravakaBezLetveIPredloska(t *testing.T) {
 	o.h.tmplHistory = template.Must(template.New("prazan").Parse(""))
 	if k := pregled(o.st.ID.String()); k != http.StatusInternalServerError {
 		t.Errorf("bez predloška: %d", k)
+	}
+}
+
+// Redak s vremenom u budućnosti ili vodostajem izvan raspona vidi se u
+// pregledu s razlogom i ne šalje se na upis, a ostali se upisuju (Odluke
+// (15. 11. 2026.), 4). Prije je jedan takav redak nakon potvrde odbio sve.
+func TestPregledUnosaPreskaceLoseRetke(t *testing.T) {
+	o := novaOkolinaPrava(t)
+	id := o.st.ID.String()
+	sutra := time.Now().In(models.Zagreb).AddDate(0, 0, 2).Format("02.01.2006.")
+	ispis := "07.09.2026. 00 h  -118\n07.09.2026. 01 h  9999\n" + sutra + " 07 h  -117\n"
+	odg := naLetvi(o.h.HandleZalijepiPregled, obicniObrazac("/readings/station/"+id+"/zalijepi", url.Values{"tekst": {ispis}}.Encode()), id, o.pero, o.peroOvl)
+	if odg.status != http.StatusOK {
+		t.Fatalf("pregled: %d %s", odg.status, odg.location)
+	}
+	for _, treba := range []string{"<strong>1</strong><span>novo</span>", "<strong>2</strong><span>ne upisuje se</span>",
+		"vodostaj je izvan razumnog raspona, od -500 do 3000 cm", "<strong>9.999</strong> cm", "vrijeme očitanja ne može biti u budućnosti", "Upiši 1 očitanje"} {
+		if !strings.Contains(odg.html, treba) {
+			t.Errorf("pregled nema %q", treba)
+		}
+	}
+	if n := strings.Count(odg.html, `name="kad"`); n != 1 {
+		t.Errorf("na upis ide %d redaka, a treba 1", n)
 	}
 }

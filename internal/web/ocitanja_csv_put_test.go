@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -74,5 +75,34 @@ func TestIspravakIzDatotekeOdDatotekeDoUpisa(t *testing.T) {
 		if err != nil || nakon == nil || *nakon.LevelCm != -118 {
 			t.Errorf("%s: ispravak nije upisan: %+v %v", s.ime, nakon, err)
 		}
+	}
+}
+
+// Ispravak s vodostajem ili temperaturom izvan raspona vidi se u pregledu s
+// razlogom i ne nudi se na potvrdu; ostali ispravci iz iste datoteke ostaju
+// (Odluke (15. 11. 2026.), 4).
+func TestPregledIspravakaPokazujeRaspon(t *testing.T) {
+	p := noviPosluziteljOcitanja(t)
+	kad := time.Date(2014, 3, 2, 7, 0, 0, 0, models.Zagreb)
+	dobar := p.upisi(t, "dežurni", kad, -18, nil)
+	los := p.upisi(t, "dežurni", kad.Add(time.Hour), -19, nil)
+	topao := p.upisi(t, "dežurni", kad.Add(2*time.Hour), -20, nil)
+	datoteka := "id;vrijeme;vodostaj_cm;nizvodni_cm;temperatura_c\n" +
+		dobar.ID.String() + ";2014-03-02 07:00;-118;;\n" +
+		los.ID.String() + ";2014-03-02 08:00;9999;;\n" +
+		topao.ID.String() + ";2014-03-02 09:00;-20;;99\n"
+	w := p.datoteka(t, "dežurni", "/readings/station/"+p.letva.ID.String()+"/ocitanja/uvoz", "ispravak.csv", datoteka, nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("pregled %d", w.Code)
+	}
+	s := html.UnescapeString(w.Body.String())
+	for _, treba := range []string{"vodostaj 9999 cm je izvan razumnog raspona", "temperatura"} {
+		if !strings.Contains(s, treba) {
+			t.Errorf("pregled nema %q", treba)
+		}
+	}
+	_, polja := poslaniObrazac(t, w.Body.String())
+	if ids := polja["id"]; len(ids) != 1 || ids[0] != dobar.ID.String() {
+		t.Errorf("na potvrdu idu %v, a treba samo dobar ispravak", ids)
 	}
 }

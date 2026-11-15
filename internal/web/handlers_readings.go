@@ -1460,6 +1460,7 @@ func (h *ReadingsHandler) HandleZalijepiPregled(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	oznaciIzvanRasponaUnosa(redci, station.KotaNM, time.Now())
 	data := PregledUvoza{Station: station, GaugeName: station.Name, Satni: satni, Redci: redci}
 	// usporedba s onim što već imamo u očitanjima
 	postojece := map[int64]models.SpojenaVrijednost{}
