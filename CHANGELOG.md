@@ -4,6 +4,51 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.58-alfa — 15. 11. 2026.
+
+Mađarske letve opet se čitaju. Stranica Teren je ukinuta, a obilazak letava
+je na vrhu Očitanja. Registri, teritorij i dnevnici usluga su u novom
+izgledu. Baza i razmjena se ne mijenjaju. Računalo koje preuzima vodostaje i
+izdaje prognozu nadograđuje se prvo, a ostala kad odgovara.
+
+- **Mađarske letve.** Od 13. 11. u 7 h s vizugy.hu nije stiglo nijedno
+  očitanje, pa je prognoza za Dunav i Dravu Szentborbás i Dunaszekcső
+  procjenjivala iz susjednih letava. Mađarska služba preselila je stranicu
+  na novu adresu. goCOP sad uzima poslužitelj iz adrese letve i sam prati
+  preseljenje, pa adrese letava ne treba mijenjati.
+- **Obilazak u Očitanjima.** Na vrhu Očitanja su Moje letve: koliko je danas
+  očitano, gumb „Nastavi obilazak” i „Upiši” uz svaku letvu. Letva je danas
+  očitana samo kad je čovjek na nju ručno upisao očitanje, i tada piše tko.
+  Moje letve broje samo ono što je osoba sama očitala, ne i ispis koji je
+  zalijepila. „Upiši” i „Nastavi obilazak” vidi samo onaj tko na letvi smije
+  upisivati. Stranica Teren je ukinuta, a stare poveznice vode na Očitanja.
+  Poslovođa izvođača sad zadano vidi i Očitanja. Kome je administrator sam
+  namjestio module, ostaje kako je namjestio.
+- **Uvoz i izvoz.** Pregledi skupnog unosa i ispravaka iz datoteke su u
+  kartici letve „Uvoz i izvoz”, a nakon upisa program se vraća u nju.
+  Ispravci iz CSV-a na letvi opet se upisuju. Redak s vodostajem izvan
+  raspona ili vremenom u budućnosti vidi se u pregledu s razlogom i ne
+  upisuje se, a ostali se upisuju. Prije je jedan takav redak odbio cijeli
+  unos. Pregled piše kad zaokružuje vrijeme na puni sat („07:25 → upisuje
+  se 07:00”). Duga datoteka lista se po 50 redaka, a nepromijenjeni ispravci
+  samo se broje. Crpna stanica i ustava imaju svoju karticu Uvoz i izvoz s
+  izvozom u CSV i ispravcima.
+- **Jače oborine i slivovi.** Kartica na Naslovnoj pokazuje lanac
+  međuslivova niz Dravu i Dunav, s kišom u 72 sata i trakom prema pragu, a
+  svaki redak vodi na svoj međusliv. Stranica Slivova ima tablicu kiše po
+  međuslivovima kroz pet dana, oznake na karti i kišomjere. Kartica kišomjera
+  ima oborine zadnjih sedam dana.
+- **Registri u novom izgledu.** Dionice, letve, objekti, vode, kišomjeri,
+  administrativna organizacija, teritorij, licencirane firme i održavanje
+  složeni su po crtežu: popisi kao tablice s čipovima, kartice u dva stupca,
+  obrasci u pločama. Imena polja i adrese su ista. Usput: spremanje objekta
+  bez izmjena više ne mijenja nasip, kota nule letve objekta i koordinate
+  branjenog područja više se ne zaokružuju, CSV branjenih područja ne gubi
+  koordinate, a brojevi općina i naselja dolaze iz baze.
+- **Dokumenti.** Događanja, špranca i primatelji akata te dnevnik usluge
+  (naslovnica, list, upisi i potvrđen list) su u novom izgledu. Sažetak
+  prognoze u Excelu ima prave datume.
+
 ## 0.0.57-alfa — 12. 11. 2026.
 
 Manje izdanje s ispravkom prognoze i popisom upozorenja DHMZ-a. Baza i
