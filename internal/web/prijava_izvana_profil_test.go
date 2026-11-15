@@ -794,3 +794,39 @@ func TestProfilMaliPopravci(t *testing.T) {
 		t.Errorf("uz privremenu lozinku Profil treba jedno upozorenje, ima %d", n)
 	}
 }
+
+// Okvir Profila (plan, korak 8): svaka poveznica u popisu odjeljaka vodi na
+// odjeljak koji postoji, Sandučić je stavka popisa umjesto gumba u
+// zaglavlju (Odluke (15. 11. 2026.)), a skripta okvira se pokreće.
+func TestProfilOkvirOdjeljaka(t *testing.T) {
+	o := novaOkolinaIzvana(t)
+	ana := o.racun("ana", "anina-lozinka", "ana@voda.hr", false)
+	b := o.posalji(zahtjevIzvana{stvarni: ana}, http.MethodGet, "/profile", nil).Body.String()
+	i := strings.Index(b, `<nav class="profil-odjeljci"`)
+	if i < 0 {
+		t.Fatal("Profil nema popis odjeljaka")
+	}
+	nav := b[i : i+strings.Index(b[i:], "</nav>")]
+	sidra := regexp.MustCompile(`href="#([a-z-]+)"`).FindAllStringSubmatch(nav, -1)
+	if len(sidra) < 8 {
+		t.Fatalf("popis ima %d odjeljaka", len(sidra))
+	}
+	for _, s := range sidra {
+		if !regexp.MustCompile(`class="[^"]*profil-odjeljak[^"]*" id="` + s[1] + `"`).MatchString(b) {
+			t.Errorf("poveznica #%s ne vodi na odjeljak", s[1])
+		}
+	}
+	if !strings.Contains(nav, `href="/posta"`) {
+		t.Error("Sandučić mora biti u popisu odjeljaka")
+	}
+	if strings.Contains(b[strings.Index(b, `<div class="page-header">`):i], `href="/posta"`) {
+		t.Error("gumb Sandučić u zaglavlju Profila više ne stoji")
+	}
+	js, err := fs.ReadFile(webassets.Files, "static/js/app.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(js), "  initProfilOkvir();\n") || !strings.Contains(string(js), `.closest(".profil-odjeljak")`) {
+		t.Error("app.js mora otvarati odjeljak po sidru")
+	}
+}
