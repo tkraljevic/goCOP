@@ -57,8 +57,8 @@ type oporavakLozinke struct {
 }
 
 // racun nalazi račun kao prijava: bez obzira na velika i mala slova. Stupac
-// username razlikuje slova, pa imenu može odgovarati više računa (tkraljevic
-// i TKraljevic); tada vrijedi samo točno upisano ime, a inače je greška s
+// username razlikuje slova, pa imenu može odgovarati više računa (aprimjer
+// i APrimjer); tada vrijedi samo točno upisano ime, a inače je greška s
 // popisom, da se ne poništi lozinka tuđeg računa.
 func (o *oporavakLozinke) racun(ime string) (*models.User, error) {
 	racuni, err := o.users.RacuniPoImenu(ime)
