@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -130,15 +131,19 @@ func (s *ReadingService) CanRecordStructure(perms *models.UserPermissions, st *m
 // postaje po PravaLetve.MozeIspraviti (Odluke (8. 10. 2026.), pitanje 9);
 // na objektu kao dosad: tko ga je upisao, ili tko smije upisivati na objekt.
 func (s *ReadingService) CanEdit(ctx context.Context, perms *models.UserPermissions, rd *models.Reading) bool {
-	return s.smijeDirati(ctx, perms, rd, func(p PravaLetve) bool { return p.MozeIspraviti(rd, time.Now()) })
+	return !jeOdraz(rd) && s.smijeDirati(ctx, perms, rd, func(p PravaLetve) bool { return p.MozeIspraviti(rd, time.Now()) })
 }
 
 // CanDelete javlja smije li korisnik obrisati očitanje. Na letvi postaje
 // samo tko za nju odgovara, pa ni autor ne briše svoje ako za letvu ne
 // odgovara (PravaLetve.MozeObrisati); na objektu kao dosad, isto kao izmjena.
 func (s *ReadingService) CanDelete(ctx context.Context, perms *models.UserPermissions, rd *models.Reading) bool {
-	return s.smijeDirati(ctx, perms, rd, PravaLetve.MozeObrisati)
+	return !jeOdraz(rd) && s.smijeDirati(ctx, perms, rd, PravaLetve.MozeObrisati)
 }
+
+// jeOdraz: očitanje letve upisano s objekta ispravlja se i briše samo s
+// očitanjem objekta, pa ga na letvi ne dira nitko, ni administrator
+func jeOdraz(rd *models.Reading) bool { return rd != nil && rd.JeOdrazObjekta() }
 
 // smijeDirati je zajednički put izmjene i brisanja: administrator sve,
 // objekt po dosadašnjem pravilu, letva postaje po pravilu sud
@@ -320,6 +325,9 @@ func (s *ReadingService) Create(ctx context.Context, perms *models.UserPermissio
 	return s.repo.Create(ctx, rd)
 }
 
+// ErrOdrazObjekta: očitanje letve upisano je na objektu, pa se ispravlja ondje
+var ErrOdrazObjekta = errors.New("ovo očitanje je upisano na objektu, pa se ispravlja i briše na objektu")
+
 // Update mijenja postojeće očitanje; letva se ne mijenja
 func (s *ReadingService) Update(ctx context.Context, perms *models.UserPermissions, rd *models.Reading) error {
 	existing, err := s.repo.Get(ctx, rd.ID)
@@ -328,6 +336,9 @@ func (s *ReadingService) Update(ctx context.Context, perms *models.UserPermissio
 	}
 	if existing == nil {
 		return fmt.Errorf("očitanje ne postoji")
+	}
+	if existing.JeOdrazObjekta() {
+		return ErrOdrazObjekta
 	}
 	if !s.CanEdit(ctx, perms, existing) {
 		return fmt.Errorf("nemate pravo mijenjati ovo očitanje")
@@ -347,6 +358,9 @@ func (s *ReadingService) Delete(ctx context.Context, perms *models.UserPermissio
 	}
 	if existing == nil {
 		return nil, fmt.Errorf("očitanje ne postoji")
+	}
+	if existing.JeOdrazObjekta() {
+		return nil, ErrOdrazObjekta
 	}
 	if !s.CanDelete(ctx, perms, existing) {
 		return nil, fmt.Errorf("nemate pravo brisati ovo očitanje")

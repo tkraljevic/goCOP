@@ -621,6 +621,8 @@ func oznaciRetkeBezPrava(redci []RedakOcitanja, smijeObrisati, smijeIspraviti fu
 		red := &redci[i]
 		switch {
 		case !red.Mijenja():
+		case red.Staro.JeOdrazObjekta():
+			red.Greska = "upisano na objektu, pa se ondje i ispravlja"
 		case red.Brisati && !smijeObrisati(&red.Staro):
 			red.Greska = "nemate pravo brisati ovo očitanje"
 		case !red.Brisati && !smijeIspraviti(&red.Staro):

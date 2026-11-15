@@ -1574,7 +1574,8 @@ func (h *ReadingsHandler) ispravljiva(perms *models.UserPermissions, station *mo
 	}
 	prava, sad := h.readingService.PravaNaLetvu(perms, station), time.Now()
 	for i := range ocitanja {
-		out[ocitanja[i].ID] = prava.MozeIspraviti(&ocitanja[i], sad)
+		// vodostaj upisan s objekta ispravlja se na objektu
+		out[ocitanja[i].ID] = !ocitanja[i].JeOdrazObjekta() && prava.MozeIspraviti(&ocitanja[i], sad)
 	}
 	return out
 }

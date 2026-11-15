@@ -297,3 +297,14 @@ func TestRetciBezPravaUPregledu(t *testing.T) {
 		t.Errorf("bez prava: %+v", redci)
 	}
 }
+
+// Vodostaj koji je na letvu upisan s objekta ne ispravlja se iz datoteke
+// letve, nego na objektu, i poruka to kaže (Odluke (15. 11. 2026.)).
+func TestIspravakOdrazaUPregledu(t *testing.T) {
+	odraz := RedakOcitanja{Staro: models.Reading{SourceRef: models.IzvorOdrazaObjekta + "x"}, Izmjene: []Izmjena{{Polje: "vodostaj"}}}
+	redci := []RedakOcitanja{odraz}
+	oznaciRetkeBezPrava(redci, func(*models.Reading) bool { return true }, func(*models.Reading) bool { return true })
+	if redci[0].Greska != "upisano na objektu, pa se ondje i ispravlja" {
+		t.Errorf("odraz: %q", redci[0].Greska)
+	}
+}

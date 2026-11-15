@@ -500,8 +500,10 @@ func TestPregledSvihLetvi(t *testing.T) {
 	if strings.Join(redom, ",") != ocekivano {
 		t.Errorf("poredak %s, očekivano %s", strings.Join(redom, ","), ocekivano)
 	}
+	// vodostaj s CS Probni (320) upisan je i na njezinu letvu Primjerovo
+	// (Odluke (15. 11. 2026.)), pa je on prethodno očitanje letve
 	p := po["Primjerovo"]
-	if p.Count != 2 || p.Latest == nil || *p.Latest.LevelCm != 510 || p.Previous == nil || *p.Previous.LevelCm != 480 || p.Phase != models.PhaseRegular {
+	if p.Count != 3 || p.Latest == nil || *p.Latest.LevelCm != 510 || p.Previous == nil || *p.Previous.LevelCm != 320 || p.Phase != models.PhaseRegular {
 		t.Errorf("Primjerovo: broj %d, zadnje %v, prethodno %v, stupanj %s", p.Count, p.Latest, p.Previous, p.Phase)
 	}
 	if p.Sub != "Primjerica · rkm 12+300" || p.Kind != "POSTAJA" || p.URL != "/readings/station/"+o.primjerovo.ID.String() ||

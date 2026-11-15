@@ -130,3 +130,29 @@ func TestObjektImaUvozIIzvoz(t *testing.T) {
 		}
 	}
 }
+
+// Vodostaj upisan na crpnoj stanici vidi se na njezinoj letvi s napomenom
+// odakle je, bez olovke za ispravak (Odluke (15. 11. 2026.))
+func TestOdrazNaStraniciLetve(t *testing.T) {
+	p := noviPosluziteljOcitanja(t)
+	ctx := context.Background()
+	cs := &models.Structure{Code: "cs-primjerovo", Name: "CS Primjerovo", Kind: models.StructureKindPumpingStation, SectorID: "P", AreaID: 1,
+		StationID: p.letva.ID.String()}
+	if err := p.structures.Create(ctx, &models.UserPermissions{IsGlobalAdmin: true}, cs); err != nil {
+		t.Fatal(err)
+	}
+	v := 210
+	rd := models.Reading{StructureID: cs.ID.String(), MeasuredAt: time.Now().Add(-time.Hour), LevelCm: &v,
+		Source: models.ReadingSourceManual, UserID: p.osobe["dežurni"].ID.String(), Observer: "Ivo Ivić"}
+	if err := p.ocitanja.Create(ctx, &rd); err != nil {
+		t.Fatal(err)
+	}
+	w := p.posalji("dežurni", http.MethodGet, "/readings/station/"+p.letva.ID.String(), nil, "")
+	s := html.UnescapeString(w.Body.String())
+	if w.Code != http.StatusOK || !strings.Contains(s, "210 cm") || !strings.Contains(s, "upisano na objektu, ondje se i ispravlja") {
+		t.Fatalf("letva ne pokazuje vodostaj s objekta: %d", w.Code)
+	}
+	if strings.Contains(s, "/readings/edit/") {
+		t.Error("vodostaj s objekta ima olovku na letvi")
+	}
+}
