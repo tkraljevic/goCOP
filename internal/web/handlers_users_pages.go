@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"gocop/internal/models"
@@ -430,6 +431,30 @@ func (h *UsersHandler) dodajMojePrijave(ctx context.Context, data *UserPageData)
 		log.Printf("moje prijave: %v", err)
 	}
 	data.MojePrijave, data.MojePrijaveGreska = prijave, err != nil
+}
+
+// DomenaPoste je domena tvrtke kad je vlastita adresa izvan nje, inače
+// prazno. Sandučić i e-pošta tvrtke rade samo s Exchangeom tvrtke, pa ih
+// osoba s drugom adresom (npr. izvođač) nema (Odluke (15. 11. 2026.)).
+// Osoba bez upisane adrese i dalje ih ima: račun u tvrtki ne ovisi o tome.
+func (d UserPageData) DomenaPoste() string {
+	dom := service.ZadanaDomenaPIN
+	if d.PrijavaIzvana != nil && d.PrijavaIzvana.Domena != "" {
+		dom = d.PrijavaIzvana.Domena
+	}
+	adresa := strings.ToLower(strings.TrimSpace(userEmail(d.User)))
+	if adresa == "" || strings.HasSuffix(adresa, "@"+strings.ToLower(dom)) {
+		return ""
+	}
+	return dom
+}
+
+// userEmail je adresa računa; prazno bez računa
+func userEmail(u *models.User) string {
+	if u == nil {
+		return ""
+	}
+	return u.Email
 }
 
 // smijeUparivatiSProfila: isto pravilo kao stranica Uparivanje
