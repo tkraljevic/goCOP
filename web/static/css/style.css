@@ -4460,7 +4460,8 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .profil-kartica .form-page::before { display: none; }
 .profil-kartica .form-actions { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border, #d9dee5); display: flex; justify-content: flex-end; }
 .profil-kartica .page-desc { margin: 0 0 0.6rem; font-size: 0.9rem; }
-.profil-stanje { margin: 0 0 0.5rem; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; font-size: 0.92rem; }
+.profil-stanje { margin: 0 0 0.5rem; font-size: 0.92rem; line-height: 1.7; }
+.profil-stanje .badge { margin-right: 0.4rem; vertical-align: 1px; }
 .profil-gumbi { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 .imenik-usporedba td { vertical-align: top; }
 .imenik-nema td { color: var(--muted, #6b7280); }
@@ -4478,7 +4479,36 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .profil-odjeljci a:hover { background: var(--surface-hover); text-decoration: none; }
 .profil-odjeljci a.je-odabran { background: var(--md-sys-color-ploha-odabrano); color: var(--md-sys-color-primary, var(--primary)); }
 .profil-sadrzaj { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-.profil-potpisi { display: flex; flex-direction: column; gap: 16px; }
+.profil-skupina { display: flex; flex-direction: column; gap: 16px; }
+/* Odredišta u odjeljku (E-pošta tvrtke): redak s ikonom, nazivom, opisom i strelicom */
+.profil-redci { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
+.profil-redci a {
+  display: flex; align-items: center; gap: 16px; min-height: 56px; padding: 8px 16px; border-radius: 12px;
+  border: 1px solid var(--border); color: var(--text); text-decoration: none;
+}
+.profil-redci a:hover { background: var(--surface-hover); text-decoration: none; }
+.profil-redci a > .icon { flex: none; width: 22px; height: 22px; color: var(--md-sys-color-on-surface-variant, var(--text-secondary)); }
+.profil-redci a > span { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.profil-redci strong { font-weight: 500; }
+.profil-redci small { color: var(--md-sys-color-on-surface-variant, var(--text-secondary)); font-size: 0.8rem; }
+/* Prijava izvana: računala kao tablica (na mobitelu kartice), kodovi s lozinkom u istom redu */
+.profil-racunala .radnje { text-align: right; white-space: nowrap; }
+.profil-racunala-dno { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-top: 8px; }
+.profil-racunala-dno .form-help { margin: 0; }
+.profil-opasno { color: var(--md-sys-color-error, #ba1a1a); }
+.profil-opasno:hover { color: var(--md-sys-color-error, #ba1a1a); background: var(--md-sys-color-error-container, #ffdad6); }
+.profil-kodovi-obrazac { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-top: 12px; }
+.profil-kodovi-obrazac .form-group { flex: 1 1 16rem; margin: 0; }
+@media (max-width: 767px) {
+  .profil-racunala thead { display: none; }
+  .profil-racunala, .profil-racunala tbody, .profil-racunala tr, .profil-racunala td { display: block; width: 100%; }
+  .profil-racunala tr { padding: 12px; margin-bottom: 8px; border: 1px solid var(--border); border-radius: 12px; }
+  .profil-racunala td { padding: 4px 0; border: 0; }
+  .profil-racunala td[data-label]::before {
+    content: attr(data-label); display: block; color: var(--md-sys-color-on-surface-variant, var(--text-secondary)); font-size: 0.75rem;
+  }
+  .profil-racunala .radnje { text-align: left; }
+}
 .profil-odjeljak[hidden] { display: none; }
 .profil-sadrzaj > .profil-natrag { display: none; }
 @media (max-width: 1023px) {

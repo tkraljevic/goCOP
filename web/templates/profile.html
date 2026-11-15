@@ -115,20 +115,9 @@
     </section>
 
     {{with .PrijavaIzvana}}
-    <section class="detail-section profil-kartica profil-odjeljak" id="prijava-izvana">
-      <h2>Prijava izvana</h2>
-      {{if .TudjimOcima}}
-      <p class="page-desc">Dok gledate tuđim očima, zapamćena računala i kodovi te osobe ne vide se i ne mijenjaju. Vratite se svojim očima.</p>
-      {{else}}
-      <p class="page-desc">Izvan ureda (kroz tunel ili s javne adrese) goCOP nakon lozinke {{if .Ukljuceno}}traži{{else}}može tražiti, kad ga administrator uključi,{{end}} i PIN poslan na vašu službenu e-poštu. Iz lokalne mreže PIN se nikad ne traži.</p>
-      <p class="profil-stanje">
-        {{if .Ukljuceno}}<span class="badge badge-active">{{icon "check"}} PIN uključen</span>{{else}}<span class="badge badge-pending">PIN isključen</span>{{end}}
-        {{if .Adresa}}{{if .Ukljuceno}}PIN stiže na{{else}}Kad administrator uključi PIN, stizat će na{{end}} <span class="mono">{{.Adresa}}</span>.{{with .StanjeAdrese}}{{if eq .Vrsta "potvrdena"}} Adresu izvan @{{.Domena}} potvrdio je administrator {{.Potvrdio}}{{if .PotvrdenoTekst}}, {{.PotvrdenoTekst}}{{else}}.{{end}}{{end}}{{end}}
-        {{else if and .StanjeAdrese (eq .StanjeAdrese.Vrsta "nepotvrdena")}}<strong>PIN nema kamo stići:</strong> vaša adresa nije @{{.Domena}}, a administrator je nije potvrdio. Ako vam je to službena adresa (npr. u tvrtki izvođača), zamolite administratora da je potvrdi; inače upišite adresu @{{.Domena}}. Izvana se dotad ulazi rezervnim kodom ili privremenim kodom od administratora.
-        {{else}}<strong>PIN nema kamo stići:</strong> {{.Razlog}}. Izvana se tada ulazi rezervnim kodom ili privremenim kodom od administratora.{{end}}
-      </p>
-      {{if .Greska}}<div class="alert alert-error">{{.Greska}}</div>{{end}}
-
+    {{/* Prijava izvana po crtežu (22, odjeljak 3): stanje PIN-a, zapamćena
+         računala i rezervni kodovi kao tri ploče jednog odjeljka */}}
+    <div class="profil-skupina profil-odjeljak" id="prijava-izvana">
       {{if .Kodovi}}
       <div class="alert alert-success d-block" id="rezervni-kodovi">
         <strong>{{icon "key-round"}} Vaši novi rezervni kodovi</strong>
@@ -143,22 +132,40 @@
            napravilo novi niz, a obrasci s ove stranice vraćali bi se na nju */}}
       <script>try { history.replaceState(null, '', '/profile#prijava-izvana'); } catch (e) {}</script>
       {{end}}
+    <section class="detail-section profil-kartica">
+      <h2>Prijava izvana</h2>
+      {{if .TudjimOcima}}
+      <p class="page-desc">Dok gledate tuđim očima, zapamćena računala i kodovi te osobe ne vide se i ne mijenjaju. Vratite se svojim očima.</p>
+      {{else}}
+      <p class="page-desc">Izvan ureda (kroz tunel ili s javne adrese) goCOP nakon lozinke {{if .Ukljuceno}}traži{{else}}može tražiti, kad ga administrator uključi,{{end}} i PIN poslan na vašu službenu e-poštu. Iz lokalne mreže PIN se nikad ne traži.</p>
+      <p class="profil-stanje">
+        {{if .Ukljuceno}}<span class="badge badge-active">{{icon "check"}} PIN uključen</span>{{else}}<span class="badge badge-pending">PIN isključen</span>{{end}}
+        {{if .Adresa}}{{if .Ukljuceno}}PIN stiže na{{else}}Kad administrator uključi PIN, stizat će na{{end}} <span class="mono">{{.Adresa}}</span>.{{with .StanjeAdrese}}{{if eq .Vrsta "potvrdena"}} Adresu izvan @{{.Domena}} potvrdio je administrator {{.Potvrdio}}{{if .PotvrdenoTekst}}, {{.PotvrdenoTekst}}{{else}}.{{end}}{{end}}{{end}}
+        {{else if and .StanjeAdrese (eq .StanjeAdrese.Vrsta "nepotvrdena")}}<strong>PIN nema kamo stići:</strong> vaša adresa nije @{{.Domena}}, a administrator je nije potvrdio. Ako vam je to službena adresa (npr. u tvrtki izvođača), zamolite administratora da je potvrdi; inače upišite adresu @{{.Domena}}. Izvana se dotad ulazi rezervnim kodom ili privremenim kodom od administratora.
+        {{else}}<strong>PIN nema kamo stići:</strong> {{.Razlog}}. Izvana se tada ulazi rezervnim kodom ili privremenim kodom od administratora.{{end}}
+      </p>
+      {{if .Greska}}<div class="alert alert-error">{{.Greska}}</div>{{end}}
+      {{end}}
+    </section>
+    {{if not .TudjimOcima}}
 
-      <h3 class="obrazac-podnaslov">Zapamćena računala</h3>
+
+    <section class="detail-section profil-kartica">
+      <h2>Zapamćena računala</h2>
       {{if .Racunala}}
       <div class="table-responsive">
-        <table class="data-table">
+        <table class="data-table profil-racunala">
           <thead><tr><th>Preglednik</th><th>Adresa</th><th>Zapamćeno</th><th>Vrijedi do</th><th class="radnje"></th></tr></thead>
           <tbody>
           {{range .Racunala}}
           <tr>
-            <td class="wrap-anywhere">{{if .UserAgent}}{{.UserAgent}}{{else}}<span class="text-muted">nepoznat</span>{{end}}{{if .OvoRacunalo}} <span class="reg-chip">ovo računalo</span>{{end}}</td>
-            <td class="mono">{{.IPZadnji}}{{if ne .IPPrvi .IPZadnji}}<div class="form-help">prvi put {{.IPPrvi}}</div>{{end}}</td>
-            <td>{{vrijemeHR .Zapamceno}}{{if .Koristeno}}<div class="form-help">zadnji put {{vrijemeHR (derefTime .Koristeno)}}</div>{{end}}</td>
-            <td>{{vrijemeHR .Istjece}}</td>
+            <td data-label="Preglednik" class="wrap-anywhere">{{if .UserAgent}}{{.UserAgent}}{{else}}<span class="text-muted">nepoznat</span>{{end}}{{if .OvoRacunalo}} <span class="reg-chip">ovo računalo</span>{{end}}</td>
+            <td data-label="Adresa" class="mono">{{.IPZadnji}}{{if ne .IPPrvi .IPZadnji}}<div class="form-help">prvi put {{.IPPrvi}}</div>{{end}}</td>
+            <td data-label="Zapamćeno">{{vrijemeHR .Zapamceno}}{{if .Koristeno}}<div class="form-help">zadnji put {{vrijemeHR (derefTime .Koristeno)}}</div>{{end}}</td>
+            <td data-label="Vrijedi do">{{vrijemeHR .Istjece}}</td>
             <td class="radnje">
               <form method="POST" action="/profile/racunala/{{.ID}}/zaboravi" class="m-0">
-                <button type="submit" class="btn btn-sm btn-secondary">{{icon "x"}} Zaboravi</button>
+                <button type="submit" class="btn btn-sm btn-link">Zaboravi</button>
               </form>
             </td>
           </tr>
@@ -166,19 +173,23 @@
           </tbody>
         </table>
       </div>
-      <form method="POST" action="/profile/racunala/zaboravi-sva" class="mt-2" onsubmit="return confirm('Zaboraviti sva zapamćena računala? Izvana će se sa svakog opet tražiti PIN.')">
-        <div class="profil-gumbi"><button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Zaboravi sva</button></div>
+      <form method="POST" action="/profile/racunala/zaboravi-sva" class="profil-racunala-dno" onsubmit="return confirm('Zaboraviti sva zapamćena računala? Izvana će se sa svakog opet tražiti PIN.')">
+        <p class="form-help">Zapamćeno računalo 30 dana izvana traži samo lozinku. Promjena lozinke zaboravlja sva računala.</p>
+        <button type="submit" class="btn btn-sm btn-link profil-opasno">Zaboravi sva</button>
       </form>
       {{else}}
       <p class="form-help">Nema zapamćenih računala. Pri prijavi s PIN-om možete označiti „Zapamti ovo računalo”: tada se s tog preglednika 30 dana traži samo lozinka. Promjena lozinke zaboravlja sva računala.</p>
       {{end}}
 
-      <h3 class="obrazac-podnaslov">Rezervni kodovi</h3>
+    </section>
+
+    <section class="detail-section profil-kartica">
+      <h2>Rezervni kodovi</h2>
       <p class="form-help">{{if .RezervniOd}}Neiskorištenih kodova: <strong>{{.Rezervnih}}</strong> od 10, napravljeni {{vrijemeHR (derefTime .RezervniOd)}}.{{else}}Još niste napravili rezervne kodove.{{end}}
         Rezervni kod zamjenjuje PIN kad e-pošta ne stigne ili je nemate. Napravite ih prije nego što krenete na teren; novi niz poništava stari.</p>
       <p class="form-help" id="kodovi-cvor"><strong>Kodovi vrijede samo na čvoru {{if .Cvor}}<span class="mono">{{.Cvor}}</span>{{else}}na kojem ih napravite{{end}}</strong>; na drugom čvoru broje se kao krivi kod.
         {{if .Izvana}}Ovaj profil otvorili ste izvana, pa kodovi napravljeni ovdje vrijede za prijavu izvana kroz ovaj čvor.{{else}}Za prijavu izvana napravite ih na javnom čvoru, kroz koji se prijavljujete izvana, a ne iz lokalne mreže na drugom računalu.{{end}}</p>
-      <form method="POST" action="/profile/rezervni-kodovi" class="form-page" autocomplete="off">
+      <form method="POST" action="/profile/rezervni-kodovi" class="form-page profil-kodovi-obrazac" autocomplete="off">
         <div class="form-group">
           <label class="form-label" for="rezervni-lozinka">Lozinka za goCOP</label>
           <input type="password" class="form-control" id="rezervni-lozinka" name="lozinka" autocomplete="current-password" required>
@@ -188,8 +199,9 @@
           {{if not .Kodovi}}<button type="submit" class="btn btn-secondary btn-sm" formaction="/profile/rezervni-kodovi.txt" title="Napravi novi niz i preuzmi ga kao datoteku za ispis"{{if .RezervniOd}} onclick="return confirm('Napraviti novi niz za preuzimanje? Stari kodovi prestaju vrijediti.')"{{end}}>{{icon "download"}} Napravi i preuzmi .txt</button>{{end}}
         </div>
       </form>
-      {{end}}
     </section>
+    {{end}}
+    </div>
     {{end}}
 
     <section class="detail-section profil-kartica profil-odjeljak" id="posta">
@@ -204,16 +216,16 @@
       <p class="profil-stanje"><span class="badge badge-pending">nije povezano</span> Lozinka e-pošte nije upisana. Briše se i kad se promijeni ili poništi lozinka za goCOP, pa je tada upišite ponovno.</p>
       <p class="page-desc">S njom goCOP čita vaš sandučić, šalje ovjerene akte s vaše adrese i provjerava kontakte u adresaru tvrtke. Čuva se samo na ovom računalu, šifrirana.</p>
       {{end}}
-      <div class="profil-gumbi">
-        <a href="/profile/posta" class="btn btn-secondary btn-sm">{{icon "key-round"}} {{if .PostaRacun}}Lozinka e-pošte{{else}}Upiši lozinku e-pošte{{end}}</a>
-        <a href="/posta" class="btn btn-secondary btn-sm">{{icon "mailbox"}} Sandučić</a>
-        <a href="/profile/potpis" class="btn btn-secondary btn-sm">{{icon "pencil"}} Potpis e-pošte</a>
-        <a href="/users/exchange" class="btn btn-secondary btn-sm">{{icon "building"}} Adresar tvrtke</a>
-      </div>
+      <ul class="profil-redci">
+        <li><a href="/profile/posta">{{icon "key-round"}}<span><strong>{{if .PostaRacun}}Lozinka e-pošte{{else}}Upiši lozinku e-pošte{{end}}</strong><small>{{if .PostaRacun}}upis nove lozinke ili brisanje s ovog računala{{else}}bez nje Sandučić i slanje akata ne rade{{end}}</small></span>{{icon "chevron-right"}}</a></li>
+        <li><a href="/posta">{{icon "mailbox"}}<span><strong>Sandučić</strong><small>pošta vašeg računa s poslužitelja tvrtke</small></span>{{icon "chevron-right"}}</a></li>
+        <li><a href="/profile/potpis">{{icon "pencil"}}<span><strong>Potpis e-pošte</strong><small>tekst koji se ubacuje na kraj svakog pisma</small></span>{{icon "chevron-right"}}</a></li>
+        <li><a href="/users/exchange">{{icon "building"}}<span><strong>Adresar tvrtke</strong><small>adrese i telefoni kako ih vodi informatika</small></span>{{icon "chevron-right"}}</a></li>
+      </ul>
       {{end}}
     </section>
 
-    <div class="profil-potpisi profil-odjeljak" id="potpisi">
+    <div class="profil-skupina profil-odjeljak" id="potpisi">
     <section class="detail-section profil-kartica" id="vlastorucni">
       <h2>Vlastoručni potpis</h2>
       <p class="page-desc">Sken vašeg potpisa stoji na PDF-u svakog akta koji ovjerite u goCOP-u, iznad crte za potpis, uz blok elektroničke ovjere i žig centra.</p>
