@@ -118,41 +118,45 @@ function initSSE() {
     if (statusText) statusText.textContent = "Sinkronizirano (Online)";
   };
 
-  evtSource.addEventListener("users_updated", (e) => {
-    const data = JSON.parse(e.data);
-    showToast(data.message || "Ažurirani podaci djelatnika");
-    setTimeout(() => {
-      window.location.reload();
-    }, 1200);
-  });
-
-  evtSource.addEventListener("user_deleted", (e) => {
-    const data = JSON.parse(e.data);
-    showToast(data.message || "Profil djelatnika obrisan");
-    setTimeout(() => {
-      window.location.reload();
-    }, 1200);
-  });
-
-  evtSource.addEventListener("duty_added", (e) => {
-    const data = JSON.parse(e.data);
-    showToast(data.message || "Dodijeljena nova funkcija / zaduženje");
-    setTimeout(() => {
-      window.location.reload();
-    }, 1200);
-  });
-
-  evtSource.addEventListener("duty_revoked", (e) => {
-    const data = JSON.parse(e.data);
-    showToast(data.message || "Opozvano zaduženje");
-    setTimeout(() => {
-      window.location.reload();
-    }, 1200);
+  // promjene djelatnika i zaduženja osvježe stranicu, osim kad bi to
+  // izbrisalo nešto: upisano u obrazac ili kodove koji se vide samo jednom
+  [
+    ["users_updated", "Ažurirani podaci djelatnika"],
+    ["user_deleted", "Profil djelatnika obrisan"],
+    ["duty_added", "Dodijeljena nova funkcija / zaduženje"],
+    ["duty_revoked", "Opozvano zaduženje"],
+  ].forEach(([vrsta, zadano]) => {
+    evtSource.addEventListener(vrsta, (e) => {
+      const data = JSON.parse(e.data);
+      osvjeziAkoSmije(data.message || zadano);
+    });
   });
 
   evtSource.onerror = () => {
     if (statusText) statusText.textContent = "Povezivanje...";
   };
+}
+
+// Je li čovjek nešto upisao u obrazac na ovoj stranici: tada se stranica
+// sama ne osvježava, jer bi upisano nestalo
+let upisanoUObrazac = false;
+["input", "change"].forEach((vrsta) => {
+  document.addEventListener(vrsta, (e) => {
+    if (e.target instanceof Element && e.target.closest("form")) upisanoUObrazac = true;
+  }, true);
+});
+
+// osvjeziAkoSmije javi promjenu i osvježi stranicu nakon 1,2 s, osim kad je
+// nešto upisano ili su na stranici rezervni kodovi koji se vide samo jednom
+function osvjeziAkoSmije(poruka) {
+  if (upisanoUObrazac || document.getElementById("rezervni-kodovi")) {
+    showToast(poruka + ". Stranica se nije osvježila da ne izgubite upisano; osvježite je kad završite.");
+    return;
+  }
+  showToast(poruka);
+  setTimeout(() => {
+    window.location.reload();
+  }, 1200);
 }
 
 // Prikaz plutajuće toast obavijesti
