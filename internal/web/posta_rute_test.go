@@ -166,6 +166,10 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		return mustUnescape(zovi(r).Header().Get("Location"))
 	}
+	// prije upisa lozinke novo pismo odmah kaže da neće otići (plan, novo ponašanje 3)
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/posta/novo", nil)); !strings.Contains(w.Body.String(), "Prije slanja upišite lozinku e-pošte") {
+		t.Error("novo pismo bez lozinke e-pošte mora upozoriti prije pisanja")
+	}
 	if w := zovi(httptest.NewRequest(http.MethodGet, "/administracija/posta", nil)); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Ispitaj poslužitelj") {
 		t.Fatalf("stranica postavki: %d", w.Code)
 	}
@@ -382,20 +386,40 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	if !strings.Contains(zadnje, "To: <signator@voda.hr>, <kolega@voda.hr>") || !strings.Contains(zadnje, "In-Reply-To: <sig-1@voda.hr>") || !strings.Contains(zadnje, `filename="biljeska.txt"`) {
 		t.Errorf("poslani odgovor:\n%.800s", zadnje)
 	}
+	// novo pismo: Odustani vraća na pismo, prosljeđeni privitci su popis s
+	// uklanjanjem, a neispravna adresa se javlja umjesto da se preskoči
+	odg := zovi(httptest.NewRequest(http.MethodGet, "/posta/novo?"+url.Values{"nacin": {"odgovori"}, "id": {"AAMk/1+="}, "mapa": {"inbox"}}.Encode(), nil)).Body.String()
+	if !strings.Contains(odg, `href="/posta/pismo?id=AAMk%2F1%2B%3D&amp;mapa=inbox"`) {
+		t.Errorf("Odustani mora vratiti na pismo:\n%.1200s", odg)
+	}
+	if fw := zovi(httptest.NewRequest(http.MethodGet, "/posta/novo?"+url.Values{"nacin": {"proslijedi"}, "id": {"AAMk/1+="}}.Encode(), nil)).Body.String(); !strings.Contains(fw, `class="posta-privitak-cip"><input type="hidden" name="proslijedi" value="AAMk/priv&#43;1=">obavijest.pdf`) {
+		t.Errorf("prosljeđeni privitak mora biti u popisu s uklanjanjem:\n%.2000s", fw)
+	}
+	var tijeloK bytes.Buffer
+	mwK := multipart.NewWriter(&tijeloK)
+	_ = mwK.WriteField("za", "kolega@voda.hr, ivo@@voda.hr") // pisanje u memoriju ne vraća grešku
+	_ = mwK.WriteField("predmet", "Provjera")                // pisanje u memoriju ne vraća grešku
+	_ = mwK.Close()                                          // pisanje u memoriju ne vraća grešku
+	rK := httptest.NewRequest(http.MethodPost, "/posta/novo", &tijeloK)
+	rK.Header.Set("Content-Type", mwK.FormDataContentType())
+	if w := zovi(rK); w.Code != http.StatusUnprocessableEntity || !strings.Contains(w.Body.String(), "ove adrese nisu ispravne: ivo@@voda.hr") {
+		t.Errorf("neispravna adresa mora se javiti: %d", w.Code)
+	}
+
 	// pismo koje poslužitelj odbije vraća se sa svim napisanim: kopija,
 	// oblikovani tekst, veza s izvornim pismom; privitci se samo imenuju
 	srv.Odbij = []string{"odbija@voda.hr"}
 	var tijeloO bytes.Buffer
 	mwO := multipart.NewWriter(&tijeloO)
-	_ = mwO.WriteField("za", "odbija@voda.hr") // pisanje u memoriju ne vraća grešku
-	_ = mwO.WriteField("kopija", "kolega@voda.hr") // pisanje u memoriju ne vraća grešku
-	_ = mwO.WriteField("predmet", "RE: Obavijest") // pisanje u memoriju ne vraća grešku
+	_ = mwO.WriteField("za", "odbija@voda.hr")                       // pisanje u memoriju ne vraća grešku
+	_ = mwO.WriteField("kopija", "kolega@voda.hr")                   // pisanje u memoriju ne vraća grešku
+	_ = mwO.WriteField("predmet", "RE: Obavijest")                   // pisanje u memoriju ne vraća grešku
 	_ = mwO.WriteField("html", `<p>Dugo pisani <b>odgovor</b>.</p>`) // pisanje u memoriju ne vraća grešku
-	_ = mwO.WriteField("odgovor_na", "<sig-1@voda.hr>") // pisanje u memoriju ne vraća grešku
-	_ = mwO.WriteField("nacin", "odgovori") // pisanje u memoriju ne vraća grešku
-	fwO, _ := mwO.CreateFormFile("privitak", "zapisnik.pdf") // pisanje u memoriju ne vraća grešku
-	_, _ = fwO.Write([]byte("%PDF")) // pisanje u memoriju ne vraća grešku
-	_ = mwO.Close() // pisanje u memoriju ne vraća grešku
+	_ = mwO.WriteField("odgovor_na", "<sig-1@voda.hr>")              // pisanje u memoriju ne vraća grešku
+	_ = mwO.WriteField("nacin", "odgovori")                          // pisanje u memoriju ne vraća grešku
+	fwO, _ := mwO.CreateFormFile("privitak", "zapisnik.pdf")         // pisanje u memoriju ne vraća grešku
+	_, _ = fwO.Write([]byte("%PDF"))                                 // pisanje u memoriju ne vraća grešku
+	_ = mwO.Close()                                                  // pisanje u memoriju ne vraća grešku
 	rO := httptest.NewRequest(http.MethodPost, "/posta/novo", &tijeloO)
 	rO.Header.Set("Content-Type", mwO.FormDataContentType())
 	wO := zovi(rO)

@@ -457,6 +457,23 @@ func Adrese(s string) []string {
 	return out
 }
 
+// NeispravneAdrese vraća dijelove polja adresa koji izgledaju kao adresa
+// (imaju @), a nisu ispravni; Adrese ih preskače, pa bi pismo bez riječi
+// otišlo bez tog primatelja. Ime uz adresu („Ana Anić <ana@voda.hr>”) nije
+// adresa i ne javlja se.
+func NeispravneAdrese(s string) []string {
+	var out []string
+	for _, dio := range strings.FieldsFunc(s, func(r rune) bool { return r == ',' || r == ';' || r == ' ' || r == '\n' || r == '\t' }) {
+		if !strings.Contains(dio, "@") {
+			continue
+		}
+		if _, err := mail.ParseAddress(strings.Trim(dio, "<>")); err != nil {
+			out = append(out, dio)
+		}
+	}
+	return out
+}
+
 // Ispitaj provjeri poslužitelj bez lozinke: je li dostupan, nudi li prijavu
 // i koju domenu objavljuje. Vraća opis za administratora.
 func Ispitaj(ctx context.Context, p Postavke) (string, error) {
