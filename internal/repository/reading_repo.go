@@ -266,11 +266,8 @@ func procitajBrojeve(rows *sql.Rows) (map[string]int, error) {
 // Create upisuje novo očitanje i bilježi verziju
 func (r *ReadingRepository) Create(ctx context.Context, rd *models.Reading) error {
 	if rd.ID == uuid.Nil {
-		id, err := uuid.NewV7()
-		if err != nil {
-			return err
-		}
-		rd.ID = id
+		// NewV7 pada samo kad zakaže izvor slučajnih brojeva, kao i uuid.New
+		rd.ID = uuid.Must(uuid.NewV7())
 	}
 	now := time.Now().UTC()
 	rd.CreatedAt, rd.UpdatedAt = now, now
@@ -284,15 +281,10 @@ func (r *ReadingRepository) Create(ctx context.Context, rd *models.Reading) erro
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, readingArgs(rd)...); err != nil {
 		return fmt.Errorf("greška pri upisu očitanja: %w", err)
 	}
-	channel := readingChannel(ctx, tx, rd)
-	if _, err := tx.ExecContext(ctx, `UPDATE readings SET channel = ? WHERE id = ?`, channel, rd.ID.String()); err != nil {
+	if _, err := r.zabiljeziUTx(ctx, tx, rd.ID.String()); err != nil {
 		return err
 	}
-	saved, err := getReadingTx(ctx, tx, rd.ID.String())
-	if err != nil {
-		return err
-	}
-	if _, err := r.rec.RecordIn(ctx, tx, channel, EntityReadings, rd.ID.String(), saved); err != nil {
+	if err := r.odrazi(ctx, tx, rd); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -318,15 +310,11 @@ func (r *ReadingRepository) Update(ctx context.Context, rd *models.Reading) erro
 	if n, _ := res.RowsAffected(); n == 0 {
 		return fmt.Errorf("očitanje ne postoji")
 	}
-	saved, err := getReadingTx(ctx, tx, rd.ID.String())
+	saved, err := r.zabiljeziUTx(ctx, tx, rd.ID.String())
 	if err != nil {
 		return err
 	}
-	channel := readingChannel(ctx, tx, saved)
-	if _, err := tx.ExecContext(ctx, `UPDATE readings SET channel = ? WHERE id = ?`, channel, rd.ID.String()); err != nil {
-		return err
-	}
-	if _, err := r.rec.RecordIn(ctx, tx, channel, EntityReadings, rd.ID.String(), saved); err != nil {
+	if err := r.odrazi(ctx, tx, saved); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -346,11 +334,10 @@ func (r *ReadingRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	if existing == nil {
 		return fmt.Errorf("očitanje ne postoji")
 	}
-	channel := readingChannel(ctx, tx, existing)
-	if _, err := tx.ExecContext(ctx, `DELETE FROM readings WHERE id = ?`, id.String()); err != nil {
+	if err := r.obrisiUTx(ctx, tx, existing); err != nil {
 		return err
 	}
-	if _, err := r.rec.ArchiveIn(ctx, tx, channel, EntityReadings, id.String(), existing); err != nil {
+	if err := r.obrisiOdraze(ctx, tx, existing); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -519,7 +506,7 @@ func kruznaSredina(minute []int) int {
 // nije obišao (Odluke (15. 11. 2026.), 2).
 func (r *ReadingRepository) HabitsFor(ctx context.Context, userID, observer string, since time.Time) (map[string]GaugeHabit, error) {
 	rows, err := r.db.QueryContext(ctx, `SELECT station_id, structure_id, measured_at FROM readings
-		WHERE measured_at >= ? AND source = ? AND ((user_id != '' AND user_id = ?) OR (user_id = '' AND observer != '' AND observer = ?))`,
+		WHERE measured_at >= ? AND source = ? AND source_ref NOT LIKE 'objekt:%' AND ((user_id != '' AND user_id = ?) OR (user_id = '' AND observer != '' AND observer = ?))`,
 		since.UTC(), models.ReadingSourceManual, userID, observer)
 	if err != nil {
 		return nil, err

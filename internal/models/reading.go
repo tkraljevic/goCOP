@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -208,6 +209,15 @@ func (r Reading) HasFlow() bool { return r.FlowM3s != nil }
 
 // HasAnyValue javlja nosi li očitanje bar jednu izmjerenu veličinu
 func (r Reading) HasAnyValue() bool { return r.HasLevel() || r.HasTemp() || r.HasFlow() }
+
+// IzvorOdrazaObjekta je početak SourceRef odraza: očitanja letve koje je
+// program upisao iz očitanja objekta, iza njega je identifikator očitanja
+// objekta (Odluke (15. 11. 2026.)).
+const IzvorOdrazaObjekta = "objekt:"
+
+// JeOdrazObjekta javlja je li očitanje letve odraz očitanja objekta; takvo
+// se ispravlja i briše samo na objektu
+func (r Reading) JeOdrazObjekta() bool { return strings.HasPrefix(r.SourceRef, IzvorOdrazaObjekta) }
 
 func (r Reading) SourceLabel() string { return ReadingSourceLabel(r.Source) }
 

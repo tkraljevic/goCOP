@@ -313,3 +313,10 @@ func TestJeLetvaAkumulacijeHEP(t *testing.T) {
 		}
 	}
 }
+
+// Odraz očitanja objekta prepoznaje se po početku SourceRef
+func TestJeOdrazObjekta(t *testing.T) {
+	if !(Reading{SourceRef: IzvorOdrazaObjekta + "abc"}).JeOdrazObjekta() || (Reading{SourceRef: "directus:1"}).JeOdrazObjekta() {
+		t.Error("odraz se ne prepoznaje")
+	}
+}
