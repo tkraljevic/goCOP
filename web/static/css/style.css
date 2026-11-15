@@ -8159,6 +8159,7 @@ summary.ocitanja-cip { padding-right: 8px; }
 .pun-tablica tr.pun-razlicit td, .pun-tablica tr.pun-greska td { border-top: 1px solid var(--pun-rub); border-bottom: 1px solid var(--pun-rub); }
 .pun-tablica tr.pun-razlicit td:first-child, .pun-tablica tr.pun-greska td:first-child { border-left: 1px solid var(--pun-rub); border-radius: 8px 0 0 8px; }
 .pun-tablica tr.pun-razlicit td:last-child, .pun-tablica tr.pun-greska td:last-child { border-right: 1px solid var(--pun-rub); border-radius: 0 8px 8px 0; }
+.pun-sat { display: block; margin-top: 2px; font-size: 0.8rem; color: var(--md-sys-color-on-surface-variant, var(--text-secondary)); font-variant-numeric: tabular-nums; }
 .pun-poruka { color: var(--md-sys-color-error, var(--danger)); }
 .pun-znacka {
   display: inline-block; padding: 1px 8px; border: 1px solid var(--md-sys-color-outline, var(--border-strong)); border-radius: 6px;
