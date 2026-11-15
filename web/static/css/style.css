@@ -4480,6 +4480,17 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .profil-odjeljci a.je-odabran { background: var(--md-sys-color-ploha-odabrano); color: var(--md-sys-color-primary, var(--primary)); }
 .profil-sadrzaj { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .profil-skupina { display: flex; flex-direction: column; gap: 16px; }
+/* Odredišta u odjeljku (E-pošta tvrtke): redak s ikonom, nazivom, opisom i strelicom */
+.profil-redci { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
+.profil-redci a {
+  display: flex; align-items: center; gap: 16px; min-height: 56px; padding: 8px 16px; border-radius: 12px;
+  border: 1px solid var(--border); color: var(--text); text-decoration: none;
+}
+.profil-redci a:hover { background: var(--surface-hover); text-decoration: none; }
+.profil-redci a > .icon { flex: none; width: 22px; height: 22px; color: var(--md-sys-color-on-surface-variant, var(--text-secondary)); }
+.profil-redci a > span { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.profil-redci strong { font-weight: 500; }
+.profil-redci small { color: var(--md-sys-color-on-surface-variant, var(--text-secondary)); font-size: 0.8rem; }
 /* Prijava izvana: računala kao tablica (na mobitelu kartice), kodovi s lozinkom u istom redu */
 .profil-racunala .radnje { text-align: right; white-space: nowrap; }
 .profil-racunala-dno { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-top: 8px; }

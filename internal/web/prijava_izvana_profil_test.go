@@ -885,3 +885,24 @@ func TestPrijavaIzvanaUTriPloce(t *testing.T) {
 		}
 	}
 }
+
+// Plan Profila, korak 13: E-pošta tvrtke pokazuje stanje i četiri
+// odredišta kao retke s opisom, a ne kao niz gumba.
+func TestEpostaTvrtkeURedcima(t *testing.T) {
+	o := novaOkolinaIzvana(t)
+	ana := o.racun("ana", "anina-lozinka", "ana@voda.hr", false)
+	b := o.posalji(zahtjevIzvana{stvarni: ana}, http.MethodGet, "/profile", nil).Body.String()
+	i := strings.Index(b, `<ul class="profil-redci">`)
+	if i < 0 {
+		t.Fatal("E-pošta tvrtke nema redaka")
+	}
+	redci := b[i : i+strings.Index(b[i:], "</ul>")]
+	for _, href := range []string{`href="/profile/posta"`, `href="/posta"`, `href="/profile/potpis"`, `href="/users/exchange"`} {
+		if !strings.Contains(redci, href) {
+			t.Errorf("E-pošta tvrtke nema retka %s", href)
+		}
+	}
+	if !strings.Contains(redci, "Upiši lozinku e-pošte") {
+		t.Error("bez upisane lozinke prvi redak poziva na upis")
+	}
+}
