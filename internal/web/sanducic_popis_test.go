@@ -35,3 +35,23 @@ func TestPopisPisamaMapeIRaspon(t *testing.T) {
 		t.Errorf("raspon druge stranice: %q", g)
 	}
 }
+
+// Plan Sandučića, novo ponašanje 10: Odustani u novom pismu vraća na
+// pismo na koje se odgovaralo, inače u mapu ili u Sandučić.
+func TestOdustaniOdNovogPisma(t *testing.T) {
+	for _, c := range []struct {
+		id      string
+		izvorno *posta.Pismo
+		mapa    string
+		want    string
+	}{
+		{"AAMk/1+=", &posta.Pismo{}, "inbox", "/posta/pismo?id=AAMk%2F1%2B%3D&mapa=inbox"},
+		{"", nil, "sentitems", "/posta?mapa=sentitems"},
+		{"", nil, "", "/posta"},
+		{"AAMk/1+=", nil, "", "/posta"},
+	} {
+		if g := odustaniOd(c.id, c.izvorno, c.mapa); g != c.want {
+			t.Errorf("odustaniOd(%q, %v, %q) = %q, a treba %q", c.id, c.izvorno != nil, c.mapa, g, c.want)
+		}
+	}
+}

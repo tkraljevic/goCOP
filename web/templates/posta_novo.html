@@ -3,29 +3,34 @@
 {{define "title"}}goCOP — Novo pismo{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/posta">Sandučić</a> › {{if eq .Nacin "proslijedi"}}Proslijedi{{else if .Nacin}}Odgovor{{else}}Novo pismo{{end}}</div>
+{{/* Novo pismo po crtežu (21, odjeljak 3): povratak na pismo na koje se
+     odgovara, polja i uređivač u jednoj kartici, privitci kao popis s
+     uklanjanjem, Odustani i Pošalji dolje desno */}}
+<a class="povratna-poveznica" href="{{.Odustani}}">← {{with .Izvorno}}{{if .Predmet}}{{.Predmet}}{{else}}Pismo{{end}}{{else}}Sandučić{{end}}</a>
 
 <div class="page-header">
   <div>
-    <h1 class="page-title" data-naziv-stranice="{{if eq .Nacin "proslijedi"}}Proslijedi pismo{{else if .Nacin}}Odgovor na pismo{{else}}Novo pismo{{end}}">{{icon "pencil"}} {{if eq .Nacin "proslijedi"}}Proslijedi pismo{{else if .Nacin}}Odgovor{{else}}Novo pismo{{end}}</h1>
+    <h1 class="page-title" data-naziv-stranice="{{if eq .Nacin "proslijedi"}}Proslijedi pismo{{else if .Nacin}}Odgovor na pismo{{else}}Novo pismo{{end}}">{{if eq .Nacin "proslijedi"}}Proslijedi pismo{{else if .Nacin}}Odgovor{{else}}Novo pismo{{end}}</h1>
     <p class="page-desc">Šalje se s vaše adrese <strong>{{.CurrentUser.Email}}</strong> preko poslužitelja tvrtke i ostaje u mapi Poslano.</p>
   </div>
 </div>
 
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
-{{if .TrebaLozinku}}<div class="alert alert-warning">Upišite lozinku e-pošte: <a href="/profile/posta">Profil › Lozinka e-pošte</a>.</div>{{end}}
+{{if .NijeUkljuceno}}<div class="alert alert-warning">E-pošta nije uključena: administrator upisuje poslužitelj u <a href="/administracija/posta">Administraciji › E-pošta</a>. Pismo se dotad ne može poslati.</div>{{end}}
+{{if .TrebaLozinku}}<div class="alert alert-warning">Prije slanja upišite lozinku e-pošte: <a href="/profile/posta">Profil › Lozinka e-pošte</a>.</div>{{end}}
 {{if .LozinkaOdbijena}}<div class="alert alert-error">Poslužitelj je odbio vašu lozinku e-pošte; <a href="/profile/posta">upišite novu</a>.</div>{{end}}
 
-<section class="detail-section" style="margin-top:0; max-width:52rem;">
-  <form method="POST" action="/posta/novo" enctype="multipart/form-data">
+<form method="POST" action="/posta/novo" enctype="multipart/form-data" class="posta-novo">
+  <section class="detail-section posta-novo-kartica">
     <input type="hidden" name="odgovor_na" value="{{.Novo.OdgovorNa}}">
     <input type="hidden" name="nacin" value="{{.Nacin}}">
-    {{range .Novo.Proslijedi}}<input type="hidden" name="proslijedi" value="{{.}}">{{end}}
+    <input type="hidden" name="mapa" value="{{.Mapa}}">
+    {{if not .Izvorno}}{{range .Novo.Proslijedi}}<input type="hidden" name="proslijedi" value="{{.}}">{{end}}{{end}}
     <div class="form-group adresa-polje">
       <label class="form-label" for="za">Za</label>
       <div class="adresa-red">
         <input class="form-control" id="za" name="za" value="{{.Novo.Za}}" required placeholder="počnite tipkati ime ili adresu; više adresa odvojite zarezom" autocapitalize="off" autocomplete="off" spellcheck="false">
-        <button type="button" class="btn btn-secondary btn-sm adresa-imenik" data-za="za" title="Odaberi iz imenika">{{icon "book-open"}} Imenik</button>
+        <button type="button" class="btn btn-link btn-sm adresa-imenik" data-za="za" title="Odaberi iz imenika">Imenik</button>
       </div>
       <ul class="adresa-prijedlozi" hidden></ul>
     </div>
@@ -33,7 +38,7 @@
       <label class="form-label" for="kopija">Kopija</label>
       <div class="adresa-red">
         <input class="form-control" id="kopija" name="kopija" value="{{.Novo.Kopija}}" placeholder="neobvezno" autocapitalize="off" autocomplete="off" spellcheck="false">
-        <button type="button" class="btn btn-secondary btn-sm adresa-imenik" data-za="kopija" title="Odaberi iz imenika">{{icon "book-open"}} Imenik</button>
+        <button type="button" class="btn btn-link btn-sm adresa-imenik" data-za="kopija" title="Odaberi iz imenika">Imenik</button>
       </div>
       <ul class="adresa-prijedlozi" hidden></ul>
     </div>
@@ -70,21 +75,24 @@
       <input type="hidden" id="potpis-html" value="{{.Potpis}}">
       <div class="form-help">{{if .Potpis}}Potpis se ubacuje sam; <a href="/profile/potpis">uredi potpis</a>.{{else}}Potpis još niste postavili: <a href="/profile/potpis">postavite ga u profilu</a> pa se ubacuje u svako pismo.{{end}}</div>
     </div>
-    {{with .Izvorno}}{{if and .Privitci (eq $.Nacin "proslijedi")}}
-    <p class="form-help">Prosljeđuju se i privitci: {{range $i, $p := .Privitci}}{{if $i}}, {{end}}{{$p.Ime}}{{end}}.</p>
-    {{end}}{{end}}
     <div class="form-group">
-      <label class="form-label" for="privitak">Privitci</label>
+      <span class="form-label">Privitci</span>
       {{with .PrivitciPonovo}}<div class="alert alert-warning">Pismo nije poslano, pa privitke odaberite ponovno: {{range $i, $p := .}}{{if $i}}, {{end}}{{$p}}{{end}}.</div>{{end}}
-      <input type="file" class="form-control" id="privitak" name="privitak" multiple>
+      {{/* popis privitaka s uklanjanjem (plan Sandučića, novo ponašanje 4);
+           prosljeđeni privitak izvornog pisma može se izostaviti */}}
+      <div class="posta-privitci-novi" id="privitci-novi">
+        <label class="btn btn-secondary btn-sm posta-dodaj-datoteke" for="privitak">Dodaj datoteke</label>
+        <input type="file" id="privitak" name="privitak" multiple class="posta-skriveni-unos">
+        {{with .Izvorno}}{{if eq $.Nacin "proslijedi"}}{{range .Privitci}}{{if .Ugradjen}}<input type="hidden" name="proslijedi" value="{{.ID}}">{{else}}<span class="posta-privitak-cip"><input type="hidden" name="proslijedi" value="{{.ID}}">{{.Ime}} · {{velicinaDatoteke .Velicina}}<button type="button" class="posta-makni" aria-label="Makni privitak {{.Ime}}">{{icon "x"}}</button></span>{{end}}{{end}}{{end}}{{end}}
+      </div>
       <div class="form-help">Svaka datoteka do 32 MB.</div>
     </div>
-    <div class="form-actions d-flex gap-2">
-      <button type="submit" class="btn btn-primary">{{icon "mail"}} Pošalji</button>
-      <a href="/posta" class="btn btn-secondary">Odustani</a>
-    </div>
-  </form>
-</section>
+  </section>
+  <div class="posta-novo-gumbi">
+    <a href="{{.Odustani}}" class="btn btn-link">Odustani</a>
+    <button type="submit" class="btn btn-primary">Pošalji</button>
+  </div>
+</form>
 <div class="adresar-okno" id="adresar-okno" hidden>
   <div class="adresar-okvir">
     <div class="adresar-glava">
@@ -92,7 +100,7 @@
       <button type="button" class="btn btn-secondary btn-sm" id="adresar-zatvori">{{icon "x"}} Zatvori</button>
     </div>
     <input type="search" class="form-control" id="adresar-trazi" placeholder="ime, prezime, služba ili adresa" autocomplete="off">
-    <div class="form-help">Djelatnici, registar primatelja i službi te adresar tvrtke.</div>
+    <div class="form-help">Djelatnici, registar primatelja i službi, adresar tvrtke.</div>
     <ul class="adresar-popis" id="adresar-popis"></ul>
   </div>
 </div>
@@ -224,6 +232,41 @@
       tekst.value = polje.innerText;
     });
     polje.focus();
+  })();
+  (function () {
+    // Privitci: odabrane datoteke kao popis, svaka s uklanjanjem. Preglednik
+    // ne da mijenjati odabir, pa se drži vlastiti popis (DataTransfer).
+    var unos = document.getElementById('privitak');
+    var popis = document.getElementById('privitci-novi');
+    if (!unos || !popis || typeof DataTransfer === 'undefined') return;
+    var odabrano = new DataTransfer();
+    function velicina(b) { return b >= 1048576 ? (b / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(b / 1024)) + ' kB'; }
+    function prikazi() {
+      popis.querySelectorAll('.posta-privitak-cip.nova').forEach(function (c) { c.remove(); });
+      Array.from(odabrano.files).forEach(function (f, i) {
+        var c = document.createElement('span');
+        c.className = 'posta-privitak-cip nova';
+        c.textContent = f.name + ' · ' + velicina(f.size);
+        var x = document.createElement('button');
+        x.type = 'button'; x.className = 'posta-makni'; x.setAttribute('aria-label', 'Makni privitak ' + f.name); x.textContent = '×';
+        x.addEventListener('click', function () {
+          var novo = new DataTransfer();
+          Array.from(odabrano.files).forEach(function (g, j) { if (j !== i) novo.items.add(g); });
+          odabrano = novo; unos.files = odabrano.files; prikazi();
+        });
+        c.appendChild(x);
+        popis.appendChild(c);
+      });
+    }
+    unos.addEventListener('change', function () {
+      Array.from(unos.files).forEach(function (f) { odabrano.items.add(f); });
+      unos.files = odabrano.files;
+      prikazi();
+    });
+    // privitak izvornog pisma: uklanjanje miče i njegovo polje proslijedi
+    popis.querySelectorAll('.posta-privitak-cip:not(.nova) .posta-makni').forEach(function (x) {
+      x.addEventListener('click', function () { x.closest('.posta-privitak-cip').remove(); });
+    });
   })();
 </script>
 {{end}}
