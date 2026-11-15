@@ -87,3 +87,25 @@ func TestNavikeVrijemeOkoPonoci(t *testing.T) {
 		t.Error("jedno vrijeme je samo sebi sredina")
 	}
 }
+
+// Skupni unos ide na račun onoga tko je ispis zalijepio, ali letvu nije
+// obišao, pa ne ulazi u navike (Odluke (15. 11. 2026.), 2).
+func TestNavikeSamoRucnoOcitanje(t *testing.T) {
+	repo, upisi := noveNavike(t)
+	pero := uuid.NewString()
+	kad := time.Now().AddDate(0, 0, -1)
+	upisi("primjerovo", pero, "", kad)
+	cm := 120
+	zalijepljeno := models.Reading{ID: uuid.New(), StationID: "probno", MeasuredAt: kad, LevelCm: &cm,
+		Source: models.ReadingSourceImport, Origin: "letva.voda.hr — zalijepljeno", UserID: pero}
+	if _, err := repo.ImportBatch(context.Background(), []models.Reading{zalijepljeno}); err != nil {
+		t.Fatal(err)
+	}
+	navike, err := repo.HabitsFor(context.Background(), pero, "Pero Perić", time.Now().AddDate(0, 0, -90))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ima := navike["station:probno"]; ima || len(navike) != 1 {
+		t.Errorf("skupni unos ušao je u navike: %+v", navike)
+	}
+}

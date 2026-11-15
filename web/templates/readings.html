@@ -52,6 +52,7 @@
       <h2 class="ocitanja-voda">Moje letve</h2>
       <span class="obilazak-broj">{{.Ocitano}} od {{len .Letve}} danas</span>
     </div>
+    <p class="obilazak-opis">Letve koje ste u zadnjih 90 dana sami očitali, redom kojim ih obično obilazite.</p>
     <div class="obilazak-traka" role="progressbar" aria-label="Očitano danas" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{.Postotak}}"><span style="width: {{.Postotak}}%"></span></div>
     {{if .NastaviURL}}
     <a class="btn btn-primary obilazak-nastavi" href="{{.NastaviURL}}">{{icon "arrow-right"}}<span>Nastavi obilazak: {{.NastaviIme}}</span></a>
@@ -99,7 +100,7 @@
     </ul>
   </section>
   {{else}}
-  <p class="ocitanja-prazno">{{if .Moje}}Još nemate svojih letava. Letve koje očitavate pojavit će se ovdje same, po navici.{{else}}Nijedna letva ne odgovara zadanim filtrima.{{end}}</p>
+  <p class="ocitanja-prazno">{{if .Moje}}Još nemate svojih letava. Letve koje sami očitate pojavit će se ovdje, redom kojim ih obično obilazite.{{else}}Nijedna letva ne odgovara zadanim filtrima.{{end}}</p>
   {{end}}
   {{end}}
 
