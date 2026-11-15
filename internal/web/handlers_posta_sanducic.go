@@ -33,24 +33,23 @@ type SanducicData struct {
 	SuccessMessage string
 	ErrorMessage   string
 
-	Pisma           []posta.Pismo
-	Mapa            string
-	Mape            []posta.Mapa
-	Trazi           string
-	NazivMape       string
-	Ukupno          int
-	Stranica        int
-	Stranica_       int // sljedeća, 0 kad je nema
-	Prethodna       int
-	Pismo           *posta.Pismo
-	OdabraniAkt     string
-	Novo            service.NovoPismo // obrazac novog pisma
-	Nacin           string            // odgovori, svima, proslijedi ili prazno
-	Izvorno         *posta.Pismo      // pismo na koje se odgovara
-	Potpis          string            // korisnikov potpis e-pošte, za novo pismo
+	Pisma     []posta.Pismo
+	Mapa      string
+	Mape      []posta.Mapa
+	Trazi     string
+	NazivMape string
+	Ukupno    int
+	Stranica  int
+	Stranica_ int // sljedeća, 0 kad je nema
+	Prethodna int
+	Pismo     *posta.Pismo
+	Novo      service.NovoPismo // obrazac novog pisma
+	Nacin     string            // odgovori, svima, proslijedi ili prazno
+	Izvorno   *posta.Pismo      // pismo na koje se odgovara
+	Potpis    string            // korisnikov potpis e-pošte, za novo pismo
 	// PrivitciPonovo su privitci pisma koje nije poslano: datoteke se ne
 	// mogu vratiti u obrazac, pa se samo imenuju da se odaberu ponovno
-	PrivitciPonovo []string
+	PrivitciPonovo  []string
 	TrebaLozinku    bool
 	NijeUkljuceno   bool
 	LozinkaOdbijena bool
@@ -60,7 +59,7 @@ func (h *AktiHandler) sanducicData(r *http.Request) (*service.AktService, Sanduc
 	u, perms, _ := h.base(r)
 	q := r.URL.Query()
 	return h.akti(), SanducicData{CurrentUser: u, Permissions: perms, ActiveNav: "posta", ViewAsBanner: viewBanner(r),
-		SuccessMessage: q.Get("success"), ErrorMessage: q.Get("error"), OdabraniAkt: q.Get("akt")}
+		SuccessMessage: q.Get("success"), ErrorMessage: q.Get("error")}
 }
 
 // greskaSanducica pretvori grešku u stanje stranice
@@ -185,6 +184,14 @@ func pathExt(ime string) string {
 	return "." + ext
 }
 
+// mapaPovratka je popis mape iz koje se pismo otvorilo; bez nje Ulazna pošta
+func mapaPovratka(r *http.Request) string {
+	if m := r.FormValue("mapa"); m != "" {
+		return "/posta?" + url.Values{"mapa": {m}}.Encode()
+	}
+	return "/posta"
+}
+
 // HandlePismoRadnja: označi nepročitano ili obriši
 func (h *AktiHandler) HandlePismoRadnja(w http.ResponseWriter, r *http.Request) {
 	u, _, _ := h.base(r)
@@ -200,7 +207,7 @@ func (h *AktiHandler) HandlePismoRadnja(w http.ResponseWriter, r *http.Request) 
 			redirectWith(w, r, natrag, "error", err.Error())
 			return
 		}
-		redirectWith(w, r, "/posta", "success", "Pismo je označeno kao nepročitano.")
+		redirectWith(w, r, mapaPovratka(r), "success", "Pismo je označeno kao nepročitano.")
 	case "obrisi":
 		if r.FormValue("mapa") == "deleteditems" {
 			if err := s.ObrisiTrajno(r.Context(), u, []string{id}); err != nil {
@@ -214,7 +221,7 @@ func (h *AktiHandler) HandlePismoRadnja(w http.ResponseWriter, r *http.Request) 
 			redirectWith(w, r, natrag, "error", err.Error())
 			return
 		}
-		redirectWith(w, r, "/posta", "success", "Pismo je premješteno u Obrisano.")
+		redirectWith(w, r, mapaPovratka(r), "success", "Pismo je premješteno u Obrisano.")
 	default:
 		redirectWith(w, r, natrag, "error", "Nepoznata radnja")
 	}

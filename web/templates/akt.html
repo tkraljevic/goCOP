@@ -139,9 +139,9 @@
        neuspjeli na vrhu, pet primatelja pa „Još N” u istom obrascu, broj označenih na gumbu. Ništa nije označeno unaprijed. */}}
   <section class="list-kartica akt-slanje" id="slanje">
     <div class="akt-slanje-glava"><h2>Slanje na znanje</h2>{{if .Adresati}}<span class="akt-slanje-broj">{{.BrojPoslanih}} od {{len .Adresati}}</span>{{end}}</div>
-    {{if not .Podesena}}<div class="alert alert-warning">Slanje e-poštom nije uključeno na ovom računalu (<span class="mono">gocop.toml</span>, odjeljak <span class="mono">[posta]</span>).</div>
+    {{if not .Podesena}}<div class="alert alert-warning">E-pošta nije uključena: administrator upisuje poslužitelj u <a href="/administracija/posta">Administraciji › E-pošta</a>.</div>
     {{else if not .Posiljatelj}}<div class="alert alert-warning">U vašem profilu nema adrese e-pošte; s nje se akt šalje.</div>
-    {{else if not .Racun}}<div class="alert alert-warning">Za slanje upišite lozinku e-pošte: <a href="/profile/posta">Profil › E-pošta za slanje akata</a>.</div>{{end}}
+    {{else if not .Racun}}<div class="alert alert-warning">Za slanje upišite lozinku e-pošte: <a href="/profile/posta">Profil › Lozinka e-pošte</a>.</div>{{end}}
     {{if .Adresati}}
     {{if not .ImaPokusaja}}<p class="form-help mt-0">Primatelji još nisu označeni.{{if $.JosNeVrijedi}} Akt se smije poslati i prije nego što stupi na snagu.{{end}}</p>{{end}}
     {{if $.UpozoriNaOznaku}}<div class="alert alert-info akt-slanje-sukob">{{icon "triangle-alert"}} <span>Akt ima istu oznaku kao drugi akt. Možete ga poslati, ali primatelje upozorite na to.</span></div>{{end}}
@@ -192,7 +192,7 @@
         <ul class="adresa-prijedlozi" hidden></ul>
         <div class="form-help">Adrese koje nisu na popisu „na znanje”. Prijedlozi iz imenika dolaze dok tipkate.</div>
       </div>
-      {{if .SpremaPoslano}}<p class="form-help">Poruke se šalju preko Exchangea kao iz Outlooka i ostaju u vašoj mapi Poslano.</p>
+      {{if .SpremaPoslano}}<p class="form-help">Pisma se šalju preko poslužitelja tvrtke kao iz Outlooka i ostaju u vašoj mapi Poslano.</p>
       {{else}}<label class="checkbox-label"><input type="checkbox" name="kopija" value="1" checked> Pošalji kopiju i meni (poslužitelj ne sprema poslanu poštu u Outlookovu mapu Poslano)</label>{{end}}
       <div class="mt-2 d-flex gap-2 flex-wrap items-center">
         <button type="submit" class="btn btn-primary" id="akt-posalji" {{if or (not .Podesena) (not .Racun) (not .Posiljatelj) .Zabrana}}disabled{{end}}>{{icon "mail"}} Pošalji odabranima<span class="akt-posalji-broj"></span></button>

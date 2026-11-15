@@ -94,6 +94,7 @@ type AdminPostaData struct {
 	ViewAsBanner
 	SuccessMessage string
 	ErrorMessage   string
+	Upozorenje     string // lozinka je spremljena, ali prijava nije provjerena
 
 	Postavke   posta.Postavke
 	Spremljene bool // spremljene u programu, ne samo u gocop.toml
@@ -291,6 +292,7 @@ type PostaPageData struct {
 	ViewAsBanner
 	SuccessMessage string
 	ErrorMessage   string
+	Upozorenje     string // lozinka je spremljena, ali prijava nije provjerena
 
 	Podesena    bool
 	Posluzitelj string
@@ -308,7 +310,7 @@ func (h *AktiHandler) ShowPosta(w http.ResponseWriter, r *http.Request) {
 	}
 	q := r.URL.Query()
 	d := PostaPageData{CurrentUser: u, Permissions: perms, ActiveNav: "profile", ViewAsBanner: viewBanner(r),
-		SuccessMessage: q.Get("success"), ErrorMessage: q.Get("error"), Podesena: s.PostaPodesena(r.Context()), Posluzitelj: s.PostaPosluzitelj(r.Context()), Domena: s.PostaDomena(r.Context())}
+		SuccessMessage: q.Get("success"), ErrorMessage: q.Get("error"), Upozorenje: q.Get("upozorenje"), Podesena: s.PostaPodesena(r.Context()), Posluzitelj: s.PostaPosluzitelj(r.Context()), Domena: s.PostaDomena(r.Context())}
 	d.Racun, d.RacunAt = s.RacunPoste(r.Context(), u.ID.String())
 	if err := h.tmplPosta.ExecuteTemplate(w, "posta_racun.html", d); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -391,7 +393,7 @@ func (h *AktiHandler) HandlePosta(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if upozorenje != "" {
-		redirectWith(w, r, "/profile/posta", "error", upozorenje)
+		redirectWith(w, r, "/profile/posta", "upozorenje", upozorenje)
 		return
 	}
 	redirectWith(w, r, "/profile/posta", "success", "Lozinka je provjerena i spremljena. Kad je u tvrtki promijenite, upišite novu ovdje.")

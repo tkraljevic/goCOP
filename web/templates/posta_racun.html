@@ -1,20 +1,21 @@
 {{template "base.html" .}}
 
-{{define "title"}}goCOP — E-pošta za slanje akata{{end}}
+{{define "title"}}goCOP — Lozinka e-pošte{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/profile">Profil</a> › E-pošta za slanje akata</div>
+<div class="breadcrumb"><a href="/profile">Profil</a> › Lozinka e-pošte</div>
 
 <div class="page-header">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "mail"}} E-pošta za slanje akata</h1>
+    <h1 class="page-title" data-naziv-stranice>{{icon "mail"}} Lozinka e-pošte</h1>
     <p class="page-desc">Ovjerena rješenja i obavijesti šalju se s vaše adrese <strong>{{with .CurrentUser.Email}}{{.}}{{else}}(nije upisana u profilu){{end}}</strong>{{if .Podesena}} preko poslužitelja <span class="mono">{{.Posluzitelj}}</span>{{end}}.</p>
   </div>
 </div>
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
-{{if not .Podesena}}<div class="alert alert-warning">Slanje e-poštom na ovom računalu nije uključeno: administrator upisuje poslužitelj u {{if and .Permissions .Permissions.IsGlobalAdmin}}<a href="/administracija/posta">Administraciji › E-pošta</a>{{else}}Administraciji › E-pošta{{end}}. Lozinku možete upisati i sada.</div>{{end}}
+{{with .Upozorenje}}<div class="alert alert-warning">{{.}}</div>{{end}}
+{{if not .Podesena}}<div class="alert alert-warning">E-pošta nije uključena: administrator upisuje poslužitelj u <a href="/administracija/posta">Administraciji › E-pošta</a>.</div>{{end}}
 
 <section class="detail-section" style="max-width:36rem;">
   {{if .Racun}}<p>{{icon "check"}} Lozinka je upisana za <span class="mono">{{.Racun}}</span>, {{formatDate (localTime .RacunAt)}}.</p>{{else}}<p>Lozinka nije upisana. Ako ste je već upisivali, a otada se lozinka vašeg računa u goCOP-u promijenila ili je poništena, spremljena je obrisana: upišite je ponovno.</p>{{end}}
