@@ -273,3 +273,24 @@ func TestPoddioniceNasipaSamoPoVezi(t *testing.T) {
 		t.Error("bez servisa letvi nema letava dionice")
 	}
 }
+
+// Natpisi letava u obrascu objekta ovise o vrsti: crpna stanica ima
+// unutarnju i vanjsku letvu, ustava uzvodnu i nizvodnu (Odluke (15. 11. 2026.))
+func TestNatpisiLetavaUObrascuObjekta(t *testing.T) {
+	for _, s := range []struct{ vrsta, prva, druga string }{
+		{models.StructureKindPumpingStation, "Unutarnja letva (kanal)", "Vanjska letva"},
+		{models.StructureKindSluice, "Uzvodna letva", "Nizvodna letva"},
+		{models.StructureKindEmbankment, "Letva na objektu", "Druga letva"},
+	} {
+		html := iscrtaj(t, "structure_form.html", StructurePageData{
+			CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+			Structure: &models.Structure{Kind: s.vrsta}, IsEdit: true,
+		})
+		for _, natpis := range []string{s.prva, s.druga} {
+			i := strings.Index(html, ">"+natpis+"<")
+			if i < 0 || strings.Contains(html[strings.LastIndex(html[:i], "<span"):i], "hidden") {
+				t.Errorf("%s: natpis %q se ne vidi", s.vrsta, natpis)
+			}
+		}
+	}
+}
