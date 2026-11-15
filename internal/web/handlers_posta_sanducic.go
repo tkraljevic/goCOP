@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -119,6 +120,27 @@ func (h *AktiHandler) ShowSanducic(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// mapeUzPismo puni mape za „Premjesti u…” i „Arhiviraj” na pismu i naziv
+// mape u koju se vraća; bez mapa (poslužitelj ne odgovara) nudi se samo
+// povratak u Sandučić
+func mapeUzPismo(ctx context.Context, s *service.AktService, d *SanducicData) {
+	if d.Mapa == "" {
+		d.Mapa = "inbox"
+	}
+	d.NazivMape = "Sandučić"
+	if d.Pismo == nil {
+		return
+	}
+	if mape, err := s.MapeSanducica(ctx, d.CurrentUser); err == nil {
+		d.Mape = bezSkica(mape)
+	}
+	for _, m := range d.Mape {
+		if m.ID == d.Mapa {
+			d.NazivMape = m.Naziv
+		}
+	}
+}
+
 // bezSkica izbacuje mapu Skice: goCOP skicu ne zna ni spremiti ni nastaviti,
 // pa je ne nudi (Odluke (15. 11. 2026.), Sandučić 5)
 func bezSkica(mape []posta.Mapa) []posta.Mapa {
@@ -163,6 +185,7 @@ func (h *AktiHandler) ShowPismo(w http.ResponseWriter, r *http.Request) {
 	}
 	d.Pismo = pismo
 	d.Mapa = r.URL.Query().Get("mapa")
+	mapeUzPismo(r.Context(), s, &d)
 	if pismo != nil {
 		pismo.UgradiSlike(func(id string) string { return "/posta/privitak?" + url.Values{"id": {id}, "u": {"1"}}.Encode() })
 		if !pismo.Procitano {

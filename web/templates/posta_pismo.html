@@ -3,7 +3,7 @@
 {{define "title"}}goCOP — Pismo{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/posta{{with .Mapa}}?mapa={{.}}{{end}}">Sandučić</a> › Pismo</div>
+<a class="povratna-poveznica" href="/posta?mapa={{.Mapa | urlquery}}">← {{.NazivMape}}</a>
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
@@ -11,36 +11,53 @@
 {{if .LozinkaOdbijena}}<div class="alert alert-error">Poslužitelj je odbio vašu lozinku e-pošte; <a href="/profile/posta">upišite novu</a>.</div>{{end}}
 
 {{with .Pismo}}
-<div class="page-header">
-  <div>
-    <h1 class="page-title" data-naziv-stranice="Pismo">{{if .Predmet}}{{.Predmet}}{{else}}(bez predmeta){{end}}</h1>
-    <p class="page-desc"><strong>Od:</strong> {{.Od}}{{if and .OdAdresa (ne .OdAdresa .Od)}} &lt;{{.OdAdresa}}&gt;{{end}} · {{formatDate (localTime .Kad)}}<br>
-    {{with .Za}}<strong>Za:</strong> {{range $i, $x := .}}{{if $i}}, {{end}}{{$x}}{{end}}{{end}}
-    {{with .Kopija}}<br><strong>Kopija:</strong> {{range $i, $x := .}}{{if $i}}, {{end}}{{$x}}{{end}}{{end}}</p>
+{{/* Pismo po crtežu (21, odjeljak 2): naslov i radnje nad pismom gore,
+     odgovori ispod adresa, privitci kao redci, tijelo u kartici */}}
+<div class="posta-pismo-glava">
+  <h1 class="page-title" data-naziv-stranice="Pismo">{{if .Predmet}}{{.Predmet}}{{else}}(bez predmeta){{end}}</h1>
+  <div class="posta-pismo-gore">
+    <form method="POST" action="/posta/pismo"><input type="hidden" name="id" value="{{.ID}}"><input type="hidden" name="ck" value="{{.ChangeKey}}"><input type="hidden" name="mapa" value="{{$.Mapa}}"><input type="hidden" name="radnja" value="neprocitano"><button type="submit" class="btn btn-link btn-sm">Nepročitano</button></form>
+    {{if eq $.Mapa "deleteditems"}}
+    <form method="POST" action="/posta/pismo" onsubmit="return confirm('Trajno obrisati pismo? Poslužitelj tvrtke ga još neko vrijeme čuva u oporavljivim stavkama.')"><input type="hidden" name="id" value="{{.ID}}"><input type="hidden" name="mapa" value="deleteditems"><input type="hidden" name="radnja" value="obrisi"><button type="submit" class="btn btn-link btn-sm profil-opasno">Obriši trajno</button></form>
+    {{else}}
+    <form method="POST" action="/posta/pismo" onsubmit="return confirm('Premjestiti pismo u Obrisano?')"><input type="hidden" name="id" value="{{.ID}}"><input type="hidden" name="mapa" value="{{$.Mapa}}"><input type="hidden" name="radnja" value="obrisi"><button type="submit" class="btn btn-link btn-sm">Obriši</button></form>
+    {{end}}
   </div>
 </div>
+<dl class="posta-adrese">
+  <dt>Od:</dt><dd>{{.Od}}{{if and .OdAdresa (ne .OdAdresa .Od)}} &lt;{{.OdAdresa}}&gt;{{end}} · {{formatDate (localTime .Kad)}}</dd>
+  {{with .Za}}<dt>Za:</dt><dd>{{range $i, $x := .}}{{if $i}}, {{end}}{{$x}}{{end}}</dd>{{end}}
+  {{with .Kopija}}<dt>Kopija:</dt><dd>{{range $i, $x := .}}{{if $i}}, {{end}}{{$x}}{{end}}</dd>{{end}}
+</dl>
 
 <div class="posta-radnje">
-  <a href="/posta/novo?nacin=odgovori&amp;id={{.ID | urlquery}}" class="btn btn-secondary btn-sm">{{icon "arrow-left"}} Odgovori</a>
-  <a href="/posta/novo?nacin=svima&amp;id={{.ID | urlquery}}" class="btn btn-secondary btn-sm">{{icon "users"}} Odgovori svima</a>
-  <a href="/posta/novo?nacin=proslijedi&amp;id={{.ID | urlquery}}" class="btn btn-secondary btn-sm">{{icon "arrow-right"}} Proslijedi</a>
-  <form method="POST" action="/posta/pismo"><input type="hidden" name="id" value="{{.ID}}"><input type="hidden" name="ck" value="{{.ChangeKey}}"><input type="hidden" name="mapa" value="{{$.Mapa}}"><input type="hidden" name="radnja" value="neprocitano"><button type="submit" class="btn btn-secondary btn-sm">{{icon "eye-off"}} Nepročitano</button></form>
-  {{if eq $.Mapa "deleteditems"}}
-  <form method="POST" action="/posta/pismo" onsubmit="return confirm('Trajno obrisati pismo? Exchange ga još neko vrijeme čuva u oporavljivim stavkama.')"><input type="hidden" name="id" value="{{.ID}}"><input type="hidden" name="mapa" value="deleteditems"><input type="hidden" name="radnja" value="obrisi"><button type="submit" class="btn btn-secondary btn-sm btn-opasno">{{icon "trash"}} Obriši trajno</button></form>
-  {{else}}
-  <form method="POST" action="/posta/pismo" onsubmit="return confirm('Premjestiti pismo u Obrisano?')"><input type="hidden" name="id" value="{{.ID}}"><input type="hidden" name="mapa" value="{{$.Mapa}}"><input type="hidden" name="radnja" value="obrisi"><button type="submit" class="btn btn-secondary btn-sm">{{icon "trash"}} Obriši</button></form>
+  <div class="posta-odgovori">
+    <a href="/posta/novo?nacin=odgovori&amp;id={{.ID | urlquery}}&amp;mapa={{$.Mapa | urlquery}}" class="btn btn-primary btn-sm">Odgovori</a>
+    <a href="/posta/novo?nacin=svima&amp;id={{.ID | urlquery}}&amp;mapa={{$.Mapa | urlquery}}" class="btn btn-secondary btn-sm">Odgovori svima</a>
+    <a href="/posta/novo?nacin=proslijedi&amp;id={{.ID | urlquery}}&amp;mapa={{$.Mapa | urlquery}}" class="btn btn-link btn-sm">Proslijedi</a>
+  </div>
+  {{if $.Mape}}
+  {{/* Arhiviraj i Premjesti u… na pismu (plan Sandučića, novo ponašanje 5) */}}
+  <form method="POST" action="/posta/radnja" class="posta-premjesti">
+    <input type="hidden" name="p" value="{{.ID}}|{{.ChangeKey}}">
+    <input type="hidden" name="mapa" value="{{$.Mapa}}">
+    {{if and $.ImaArhivu (ne $.Mapa "archive")}}<button type="submit" name="radnja" value="arhiviraj" class="btn btn-link btn-sm">Arhiviraj</button>{{end}}
+    <select name="mapa_u" class="form-control" aria-label="Premjesti u mapu">
+      <option value="">Premjesti u…</option>
+      {{range $.Mape}}{{if ne .ID $.Mapa}}<option value="{{.ID}}">{{.Naziv}}</option>{{end}}{{end}}
+    </select>
+    <button type="submit" name="radnja" value="premjesti" class="btn btn-secondary btn-sm">Premjesti</button>
+  </form>
   {{end}}
 </div>
 
 {{$obicni := 0}}{{range .Privitci}}{{if not .Ugradjen}}{{$obicni = 1}}{{end}}{{end}}
 {{if $obicni}}
-<section class="detail-section mt-0">
-  <h2>{{icon "package"}} Privitci</h2>
+<section class="detail-section posta-privitci-kartica">
+  <h2>Privitci</h2>
   <ul class="posta-privitci">
   {{range .Privitci}}{{if not .Ugradjen}}
-    <li>
-      <a href="/posta/privitak?id={{.ID | urlquery}}" data-preuzimanje>{{icon "download"}} {{.Ime}}</a> <span class="form-help">{{velicinaDatoteke .Velicina}}</span>
-    </li>
+    <li><a href="/posta/privitak?id={{.ID | urlquery}}" data-preuzimanje>{{icon "download"}}<span>{{.Ime}}</span></a><span class="posta-velicina">{{velicinaDatoteke .Velicina}}</span></li>
   {{end}}{{end}}
   </ul>
 </section>
