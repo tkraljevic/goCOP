@@ -106,7 +106,8 @@
   {{end}}
 
   <main class="main-content{{if .Viewing}} main-content-viewing{{end}}">
-    {{if and .CurrentUser .CurrentUser.MustChangePassword}}
+    {{/* Profil ima svoje upozorenje uz odjeljak lozinke, pa se ovo ondje ne ponavlja */}}
+    {{if and .CurrentUser .CurrentUser.MustChangePassword (ne .ActiveNav "profile")}}
     <div class="lozinka-upozorenje">
       <div class="d-flex items-center gap-3">
         <span class="lozinka-upozorenje-ikona">{{icon "triangle-alert"}}</span>

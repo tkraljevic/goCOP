@@ -109,7 +109,7 @@
       <p class="page-desc">Izvan ureda (kroz tunel ili s javne adrese) goCOP nakon lozinke {{if .Ukljuceno}}traži{{else}}može tražiti, kad ga administrator uključi,{{end}} i PIN poslan na vašu službenu e-poštu. Iz lokalne mreže PIN se nikad ne traži.</p>
       <p class="profil-stanje">
         {{if .Ukljuceno}}<span class="badge badge-active">{{icon "check"}} PIN uključen</span>{{else}}<span class="badge badge-pending">PIN isključen</span>{{end}}
-        {{if .Adresa}}PIN stiže na <span class="mono">{{.Adresa}}</span>.{{with .StanjeAdrese}}{{if eq .Vrsta "potvrdena"}} Adresu izvan @{{.Domena}} potvrdio je administrator {{.Potvrdio}}{{if .PotvrdenoTekst}}, {{.PotvrdenoTekst}}{{else}}.{{end}}{{end}}{{end}}
+        {{if .Adresa}}{{if .Ukljuceno}}PIN stiže na{{else}}Kad administrator uključi PIN, stizat će na{{end}} <span class="mono">{{.Adresa}}</span>.{{with .StanjeAdrese}}{{if eq .Vrsta "potvrdena"}} Adresu izvan @{{.Domena}} potvrdio je administrator {{.Potvrdio}}{{if .PotvrdenoTekst}}, {{.PotvrdenoTekst}}{{else}}.{{end}}{{end}}{{end}}
         {{else if and .StanjeAdrese (eq .StanjeAdrese.Vrsta "nepotvrdena")}}<strong>PIN nema kamo stići:</strong> vaša adresa nije @{{.Domena}}, a administrator je nije potvrdio. Ako vam je to službena adresa (npr. u tvrtki izvođača), zamolite administratora da je potvrdi; inače upišite adresu @{{.Domena}}. Izvana se dotad ulazi rezervnim kodom ili privremenim kodom od administratora.
         {{else}}<strong>PIN nema kamo stići:</strong> {{.Razlog}}. Izvana se tada ulazi rezervnim kodom ili privremenim kodom od administratora.{{end}}
       </p>
@@ -341,7 +341,7 @@
       <h2>{{icon "radio-tower"}} Ovo računalo i ured</h2>
       <p class="page-desc">Svako računalo s programom je vlastita kopija koja se usklađuje s ostalima. Novo računalo ili mobitel uparite s uredom; ručna razmjena je na stranici Stanje razmjene.</p>
       <div class="profil-gumbi">
-        {{if .User.IsGlobalAdmin}}<a href="/uparivanje" class="btn btn-secondary btn-sm">{{icon "link"}} Uparivanje</a>{{end}}
+        {{if .SmijeUparivati}}<a href="/uparivanje" class="btn btn-secondary btn-sm">{{icon "link"}} Uparivanje</a>{{end}}
         <a href="/pretplate" class="btn btn-secondary btn-sm">{{icon "download"}} Što ovo računalo prati</a>
       </div>
     </section>
