@@ -7,7 +7,6 @@ import (
 	"html/template"
 	"log"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -292,7 +291,7 @@ func (h *UsersHandler) HandleUpdateProfile(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	returnURL := povratnaAdresaProfila(r, "/")
+	returnURL := odjeljakProfila(povratnaAdresaProfila(r, "/"), "kontakti")
 
 	req := service.UpdateUserRequest{
 		ID:            perms.User.ID,
@@ -316,14 +315,14 @@ func (h *UsersHandler) HandleUpdateProfile(w http.ResponseWriter, r *http.Reques
 
 	updated, err := h.azurirajUzLozinku(r.Context(), perms, req)
 	if err != nil {
-		http.Redirect(w, r, returnURL+"?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
+		redirectWith(w, r, returnURL, "error", err.Error())
 		return
 	}
 
 	if updated != nil {
 		perms.User = *updated
 	}
-	http.Redirect(w, r, returnURL+"?success="+url.QueryEscape("Vaš profil je uspješno ažuriran"), http.StatusSeeOther)
+	redirectWith(w, r, returnURL, "success", "Vaš profil je uspješno ažuriran")
 }
 
 // azurirajUzLozinku sprema izmjenu računa; kad je upisana trenutna lozinka

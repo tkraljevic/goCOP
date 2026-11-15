@@ -7,7 +7,6 @@ import (
 	"html/template"
 	"log"
 	"net/http"
-	"net/url"
 	"strings"
 
 	"gocop/internal/models"
@@ -280,10 +279,10 @@ func (h *AuthHandler) HandleChangePassword(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	returnURL := povratnaAdresaProfila(r, "/")
+	returnURL := odjeljakProfila(povratnaAdresaProfila(r, "/"), "lozinka")
 
 	if err := r.ParseForm(); err != nil {
-		http.Redirect(w, r, returnURL+"?error=Neispravan+zahtjev", http.StatusSeeOther)
+		redirectWith(w, r, returnURL, "error", "Neispravan zahtjev")
 		return
 	}
 
@@ -292,7 +291,7 @@ func (h *AuthHandler) HandleChangePassword(w http.ResponseWriter, r *http.Reques
 	confirmPassword := r.FormValue("confirm_password")
 
 	if newPassword != confirmPassword {
-		http.Redirect(w, r, returnURL+"?error="+url.QueryEscape("Nova lozinka i potvrda lozinke se ne podudaraju"), http.StatusSeeOther)
+		redirectWith(w, r, returnURL, "error", "Nova lozinka i potvrda lozinke se ne podudaraju")
 		return
 	}
 
@@ -300,7 +299,7 @@ func (h *AuthHandler) HandleChangePassword(w http.ResponseWriter, r *http.Reques
 	// sesija ne smije biti proročište za pogađanje lozinke
 	err := uzGranicuPonovne(kljuceviLozinkeRacuna(ctx, currUser.ID.String()), func() error { return h.authService.ProvjeriLozinku(currUser.ID, currentPassword) })
 	if err != nil {
-		http.Redirect(w, r, returnURL+"?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
+		redirectWith(w, r, returnURL, "error", err.Error())
 		return
 	}
 
@@ -309,23 +308,23 @@ func (h *AuthHandler) HandleChangePassword(w http.ResponseWriter, r *http.Reques
 	// nove lozinke provjeravaju se prije, da ključ ne ostane zaključan
 	// lozinkom koju račun odbije.
 	if err := service.ProvjeriNovuLozinku(currentPassword, newPassword); err != nil {
-		http.Redirect(w, r, returnURL+"?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
+		redirectWith(w, r, returnURL, "error", err.Error())
 		return
 	}
 	if h.prekljucaj != nil {
 		if err := h.prekljucaj(ctx, currUser.ID.String(), currentPassword, newPassword); err != nil {
-			http.Redirect(w, r, returnURL+"?error="+url.QueryEscape("potpisni ključ se ne da prekljucati: "+err.Error()), http.StatusSeeOther)
+			redirectWith(w, r, returnURL, "error", "potpisni ključ se ne da prekljucati: "+err.Error())
 			return
 		}
 	}
 	// ostale prijave se gase, ova ostaje
 	sessionID, _ := ctx.Value(contextKeySession).(uuid.UUID)
 	if err := h.authService.ChangePassword(currUser.ID, currentPassword, newPassword, sessionID); err != nil {
-		http.Redirect(w, r, returnURL+"?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
+		redirectWith(w, r, returnURL, "error", err.Error())
 		return
 	}
 
-	http.Redirect(w, r, returnURL+"?success="+url.QueryEscape("Lozinka je uspješno promijenjena! Ako ste ovdje spremili lozinku e-pošte tvrtke, upišite je ponovno (Profil › E-pošta tvrtke)."), http.StatusSeeOther)
+	redirectWith(w, r, returnURL, "success", "Lozinka je uspješno promijenjena! Ako ste ovdje spremili lozinku e-pošte tvrtke, upišite je ponovno (Profil › E-pošta tvrtke).")
 }
 
 // HandleViewAs pokreće pregled programa očima odabranog djelatnika

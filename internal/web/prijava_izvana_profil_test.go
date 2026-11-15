@@ -830,3 +830,29 @@ func TestProfilOkvirOdjeljaka(t *testing.T) {
 		t.Error("app.js mora otvarati odjeljak po sidru")
 	}
 }
+
+// Plan Profila, korak 9: poruka nakon spremanja stoji u odjeljku obrasca.
+// Povratak na Profil nosi sidro odjeljka, a skripta poruku premjesti ispod
+// njegova naslova; povratak na drugu stranicu ostaje bez sidra.
+func TestPorukaProfilaUOdjeljku(t *testing.T) {
+	if g := odjeljakProfila("/profile", "lozinka"); g != "/profile#lozinka" {
+		t.Errorf("povratak na Profil: %q", g)
+	}
+	if g := odjeljakProfila("/users/1", "kontakti"); g != "/users/1" {
+		t.Errorf("povratak na drugu stranicu: %q", g)
+	}
+	o := novaOkolinaIzvana(t)
+	ana := o.racun("ana", "anina-lozinka", "ana@voda.hr", false)
+	saProfila := zahtjevIzvana{stvarni: ana, referer: "http://" + adresaCvoraTesta + "/profile"}
+	loc := o.posalji(saProfila, http.MethodPost, "/profile/update", url.Values{"full_name": {"Ana"}, "email": {"ana@voda.hr"}}).Header().Get("Location")
+	if !strings.HasPrefix(loc, "/profile?success=") || !strings.HasSuffix(loc, "#kontakti") {
+		t.Errorf("spremanje kontakata vraća se na %q", loc)
+	}
+	js, err := fs.ReadFile(webassets.Files, "static/js/app.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(js), "main.main-content > .alert-success, main.main-content > .alert-danger") {
+		t.Error("skripta mora premjestiti poruke o uspjehu i grešci u odjeljak")
+	}
+}
