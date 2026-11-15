@@ -222,3 +222,20 @@ func TestAktivirajSKonzoleJavljaZauzetuAdresu(t *testing.T) {
 		t.Errorf("uključenje uz slobodnu adresu: aktiviran %v, adresa %q", ishod.Aktiviran, ishod.AdresaZauzeta)
 	}
 }
+
+// Ime i prezime ne smije se izbrisati ni zahtjevom mimo obrasca: ni sam
+// sebi ni administrator drugome.
+func TestIzmjenaNeBriseIme(t *testing.T) {
+	o := novaOkolinaOvlasti(t)
+	vod := o.osoba(t, "vod", service.AddDutyRequest{Role: models.RoleWaterGuard, AreaID: podrucjeP(5)})
+	req := service.UpdateUserRequest{ID: vod.ID, Username: vod.Username, FullName: "  ", OrgType: vod.OrgType, Email: vod.Email, IsActive: true}
+	if _, err := o.users.UpdateUser(o.ovlasti(t, vod.ID), req); !errors.Is(err, service.ErrInvalidUserData) {
+		t.Errorf("osoba je sebi izbrisala ime: %v", err)
+	}
+	if _, err := o.users.UpdateUser(o.admin, req); !errors.Is(err, service.ErrInvalidUserData) {
+		t.Errorf("administrator je izbrisao ime: %v", err)
+	}
+	if u, err := o.users.GetUserByID(vod.ID); err != nil || u.FullName != vod.FullName {
+		t.Errorf("ime se promijenilo: %+v %v", u, err)
+	}
+}
