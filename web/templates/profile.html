@@ -10,7 +10,7 @@
   </div>
   <div class="detail-actions">
     <a href="/users/{{.User.ID}}" class="btn btn-secondary">{{icon "shield"}} Moja zaduženja</a>
-    <a href="/posta" class="btn btn-secondary">{{icon "mailbox"}} Sandučić</a>
+    {{if not .DomenaPoste}}<a href="/posta" class="btn btn-secondary">{{icon "mailbox"}} Sandučić</a>{{end}}
   </div>
 </div>
 
@@ -182,6 +182,9 @@
   <div class="profil-stupac">
     <section class="detail-section profil-kartica" id="posta">
       <h2>{{icon "mail"}} E-pošta tvrtke</h2>
+      {{with .DomenaPoste}}
+      <p class="page-desc">Sandučić i e-pošta tvrtke rade samo s adresom @{{.}}, pa ih s vašom adresom nema.</p>
+      {{else}}
       {{if .PostaRacun}}
       <p class="profil-stanje"><span class="badge badge-active">{{icon "check"}} povezano</span> Račun <span class="mono">{{.PostaRacun}}</span>, lozinka upisana {{formatDate (localTime .PostaKad)}}.</p>
       <p class="page-desc">Sandučić, slanje ovjerenih akata primateljima i adresar tvrtke rade s vašeg računa. Kad u tvrtki promijenite lozinku, upišite novu.</p>
@@ -195,6 +198,7 @@
         <a href="/profile/potpis" class="btn btn-secondary btn-sm">{{icon "pencil"}} Potpis e-pošte</a>
         <a href="/users/exchange" class="btn btn-secondary btn-sm">{{icon "building"}} Adresar tvrtke</a>
       </div>
+      {{end}}
     </section>
 
     <section class="detail-section profil-kartica" id="vlastorucni">
