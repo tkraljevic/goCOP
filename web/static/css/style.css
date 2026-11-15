@@ -4477,6 +4477,8 @@ table.akt-poveznice { margin-top: 0.75rem; }
 }
 .profil-odjeljci a .icon { flex: none; width: 22px; height: 22px; color: var(--md-sys-color-on-surface-variant, var(--text-secondary)); }
 .profil-odjeljci a:hover { background: var(--surface-hover); text-decoration: none; }
+.profil-odjeljci a > span { display: flex; flex-direction: column; min-width: 0; }
+.profil-odjeljci small { color: var(--md-sys-color-on-surface-variant, var(--text-secondary)); font-size: 0.75rem; line-height: 1.3; }
 .profil-odjeljci a.je-odabran { background: var(--md-sys-color-ploha-odabrano); color: var(--md-sys-color-primary, var(--primary)); }
 .profil-sadrzaj { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .profil-skupina { display: flex; flex-direction: column; gap: 16px; }
@@ -4530,12 +4532,14 @@ table.akt-poveznice { margin-top: 0.75rem; }
     font-size: 0.875rem; font-weight: 500;
   }
   .profil-odjeljci a .icon { display: none; }
+  .profil-odjeljci small { display: none; }
   .profil-odjeljci a.je-odabran { border-color: transparent; color: var(--text); }
 }
 @media (max-width: 767px) {
   .profil-odjeljci { flex-direction: column; gap: 4px; padding: 8px; border: 1px solid var(--border); border-radius: var(--r-kartica); background: var(--surface); }
   .profil-odjeljci a { min-height: 56px; padding: 8px 12px; border: 0; border-radius: 12px; font-size: 0.95rem; font-weight: 400; }
   .profil-odjeljci a .icon { display: inline-flex; }
+  .profil-odjeljci small { display: block; }
   .profil-okvir.ima-odjeljak .profil-odjeljci { display: none; }
   .profil-okvir.ima-odjeljak .profil-sadrzaj > .profil-natrag { display: inline-flex; align-self: flex-start; }
 }
