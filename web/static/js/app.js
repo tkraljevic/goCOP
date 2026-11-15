@@ -108,7 +108,38 @@ document.addEventListener("DOMContentLoaded", () => {
   initSectorAreaChangers();
   initLiveSearch();
   initZadrziUpisano();
+  initProfilOkvir();
 });
+
+// Profil: lijevo popis odjeljaka, desno jedan otvoren, po sidru u adresi.
+// Sidro može biti i nešto unutar odjeljka (#rezervni-kodovi, #zig): tada se
+// otvori odjeljak u kojem je i stranica skoči na njega. Na mobitelu bez
+// sidra stoji samo popis; „← Profil” vodi na #profil, pa opet na popis.
+function initProfilOkvir() {
+  const okvir = document.querySelector("[data-profil-okvir]");
+  if (!okvir) return;
+  const odjeljci = Array.from(okvir.querySelectorAll(".profil-odjeljak"));
+  const poveznice = Array.from(okvir.querySelectorAll('.profil-odjeljci a[href^="#"]'));
+  const mobitel = window.matchMedia("(max-width: 767px)");
+  const prikazi = () => {
+    const id = decodeURIComponent(window.location.hash.slice(1));
+    const cilj = id ? document.getElementById(id) : null;
+    let otvoren = cilj ? cilj.closest(".profil-odjeljak") : null;
+    if (!otvoren && !mobitel.matches) otvoren = odjeljci[0];
+    okvir.classList.toggle("ima-odjeljak", Boolean(otvoren));
+    odjeljci.forEach((o) => { o.hidden = o !== otvoren; });
+    poveznice.forEach((a) => {
+      const odabran = Boolean(otvoren) && a.getAttribute("href") === "#" + otvoren.id;
+      a.classList.toggle("je-odabran", odabran);
+      if (odabran) a.setAttribute("aria-current", "true"); else a.removeAttribute("aria-current");
+    });
+    if (cilj && otvoren && cilj !== otvoren) cilj.scrollIntoView({ block: "start" });
+    else if (cilj) window.scrollTo(0, 0);
+  };
+  window.addEventListener("hashchange", prikazi);
+  mobitel.addEventListener("change", prikazi);
+  prikazi();
+}
 
 // Obrazac s data-zadrzi-upisano pamti upisano dok se šalje. Kad se stranica
 // vrati s greškom (?error=), upisano se vrati u polja, da čovjek ne mora sve
