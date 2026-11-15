@@ -4475,8 +4475,22 @@ table.akt-poveznice { margin-top: 0.75rem; }
   .posta-mapa.active { border-color: transparent; color: var(--text); }
   .posta-mapa:not(.korisnikova) + .posta-mapa.korisnikova { margin-top: 0; padding-top: 0; border-top: 1px solid var(--md-sys-color-outline, var(--border-strong)); border-radius: 8px; }
 }
-.posta-radnje { display: flex; gap: 0.35rem; flex-wrap: wrap; margin: 0 0 0.75rem; }
+/* Pismo (crtež 21, odjeljak 2): naslov s radnjama, adrese, odgovori, privitci kao redci */
+.posta-pismo-glava { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap; margin: 4px 0 8px; }
+.posta-pismo-glava .page-title { margin: 0; }
+.posta-pismo-gore { display: flex; gap: 4px; flex-wrap: wrap; }
+.posta-pismo-gore form { margin: 0; }
+.posta-adrese { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 16px; margin: 0 0 16px; font-size: 0.875rem; }
+.posta-adrese dt { color: var(--md-sys-color-on-surface-variant, var(--text-secondary)); }
+.posta-adrese dd { margin: 0; overflow-wrap: anywhere; }
+.posta-radnje { display: flex; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; align-items: center; margin: 0 0 16px; }
+.posta-odgovori { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.posta-privitci-kartica h2 { margin: 0 0 8px; font-size: 1rem; }
+.posta-privitci li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; }
+.posta-privitci li a { display: inline-flex; gap: 10px; align-items: center; min-width: 0; overflow-wrap: anywhere; }
+.posta-velicina { flex: none; font-size: 0.8rem; color: var(--md-sys-color-on-surface-variant, var(--text-secondary)); }
 .posta-radnje form { margin: 0; }
+.posta-radnje .posta-premjesti select { max-width: 12rem; }
 .posta-html { width: 100%; min-height: 200px; border: 1px solid var(--border, #d9dee5); border-radius: 8px; background: #fff; }
 .profil-kartica { margin: 0; border: 1px solid var(--border); border-radius: var(--r-kartica); padding: var(--space-16); background: var(--surface); }
 .profil-kartica h2 { font-size: 1rem; font-weight: 600; margin: 0 0 0.75rem; }

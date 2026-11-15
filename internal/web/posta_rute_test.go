@@ -464,7 +464,15 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	if loc := post("/posta/radnja", url.Values{"p": {"AAMk/1+=|ck1"}, "radnja": {"arhiviraj"}}); !strings.Contains(loc, "nema mape Arhiva") {
 		t.Errorf("arhiva bez mape: %s", loc)
 	}
+	// pismo bez mape Arhiva ne nudi Arhiviraj, ali nudi Premjesti u…
+	bezArhive := zovi(httptest.NewRequest(http.MethodGet, "/posta/pismo?"+url.Values{"id": {"AAMk/1+="}}.Encode(), nil)).Body.String()
+	if strings.Contains(bezArhive, `value="arhiviraj"`) || !strings.Contains(bezArhive, `name="mapa_u"`) || !strings.Contains(bezArhive, "← Ulazna pošta") {
+		t.Errorf("pismo bez mape Arhiva:\n%.1200s", bezArhive)
+	}
 	srv.ImaArhivu = true
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/posta/pismo?"+url.Values{"id": {"AAMk/1+="}, "mapa": {"inbox"}}.Encode(), nil)); !strings.Contains(w.Body.String(), `value="arhiviraj"`) || !strings.Contains(w.Body.String(), "nacin=odgovori&amp;id=AAMk%2F1%2B%3D&amp;mapa=inbox") {
+		t.Errorf("pismo s mapom Arhiva nudi Arhiviraj, a odgovor pamti mapu:\n%.1500s", w.Body.String())
+	}
 	if loc := post("/posta/radnja", url.Values{"p": {"AAMk/1+=|ck1"}, "radnja": {"arhiviraj"}}); !strings.Contains(loc, "1 pismo je premješteno u Arhivu.") {
 		t.Errorf("arhiviranje: %s", loc)
 	}
