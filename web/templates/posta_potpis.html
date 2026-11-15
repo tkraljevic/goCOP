@@ -3,19 +3,20 @@
 {{define "title"}}goCOP — Potpis e-pošte{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/profile">Profil</a> › Potpis e-pošte</div>
+<a class="povratna-poveznica" href="/profile#posta">← Profil</a>
 
 <div class="page-header">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "pencil"}} Potpis e-pošte</h1>
+    <h1 class="page-title" data-naziv-stranice>Potpis e-pošte</h1>
     <p class="page-desc">Ubacuje se na kraj svakog novog pisma, odgovora i prosljeđivanja iz sandučića. Vrijedi na svim vašim računalima.</p>
   </div>
 </div>
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+{{if not .Potpis}}<div class="alert alert-info">{{icon "info"}} Ovo je prijedlog složen iz profila; potpis još nije spremljen.</div>{{end}}
 
-<section class="detail-section" style="margin-top:0; max-width:52rem;">
+<section class="detail-section posta-novo-kartica">
   <form method="POST" action="/profile/potpis" id="potpis-obrazac">
     <div class="urednik" id="urednik">
       <div class="urednik-alat" role="toolbar">
@@ -33,10 +34,10 @@
     <input type="hidden" name="html" id="html">
     <input type="hidden" id="potpis-spremljeni" value="{{.Potpis}}">
     <input type="hidden" id="potpis-zadani" value="{{.Zadani}}">
-    <div class="form-help">Podaci za prijedlog uzimaju se iz <a href="/profile">profila</a>: ime, titula, funkcija, telefoni i adresa. Prazan potpis znači bez potpisa.</div>
-    <div class="form-actions d-flex gap-2">
-      <button type="submit" class="btn btn-primary">{{icon "check"}} Spremi potpis</button>
-      <a href="/profile" class="btn btn-secondary">Natrag na profil</a>
+    <div class="form-help">Podaci za prijedlog uzimaju se iz <a href="/profile">profila</a>: ime, titula, zaduženje, telefoni i adresa. Prazan potpis znači bez potpisa.</div>
+    <div class="posta-novo-gumbi">
+      <a href="/profile#posta" class="btn btn-link">Natrag na profil</a>
+      <button type="submit" class="btn btn-primary">Spremi potpis</button>
     </div>
   </form>
 </section>

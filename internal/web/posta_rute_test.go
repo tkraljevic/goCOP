@@ -452,8 +452,18 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	if w := zovi(httptest.NewRequest(http.MethodGet, "/profile/potpis", nil)); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Voditelj COP-a") || !strings.Contains(w.Body.String(), "voditelj@voda.hr") || !strings.Contains(w.Body.String(), "HRVATSKE VODE") {
 		t.Fatalf("stranica potpisa: %d\n%.800s", w.Code, w.Body.String())
 	}
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/profile/potpis", nil)); !strings.Contains(w.Body.String(), "Ovo je prijedlog složen iz profila; potpis još nije spremljen.") {
+		t.Error("nespremljeni potpis mora reći da je prijedlog (plan, novo ponašanje 9)")
+	}
 	if loc := post("/profile/potpis", url.Values{"html": {`<p><b>Voditelj</b> COP-a<script>x()</script></p>`}}); !strings.Contains(loc, "success") {
 		t.Fatalf("spremanje potpisa: %s", loc)
+	}
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/profile/potpis", nil)); strings.Contains(w.Body.String(), "Ovo je prijedlog složen iz profila") {
+		t.Error("spremljeni potpis nije prijedlog")
+	}
+	// lozinka e-pošte: savjet o domeni, tri krive prijave i potvrda brisanja (plan, novo ponašanje 8)
+	if b := zovi(httptest.NewRequest(http.MethodGet, "/profile/posta", nil)).Body.String(); !strings.Contains(b, "Nakon tri krive prijave obrazac se zatvara na pola sata") || !strings.Contains(b, `voda.int\ime`) || !strings.Contains(b, "Obrisati lozinku e-pošte s ovog računala?") {
+		t.Errorf("stranica lozinke e-pošte:\n%.2500s", b)
 	}
 	if w := zovi(httptest.NewRequest(http.MethodGet, "/posta/novo", nil)); !strings.Contains(w.Body.String(), `id="potpis-html" value="&lt;p&gt;&lt;b&gt;Voditelj&lt;/b&gt; COP-a&lt;/p&gt;"`) {
 		t.Errorf("potpis nije u obrascu novog pisma:\n%.800s", w.Body.String())

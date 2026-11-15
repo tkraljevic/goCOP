@@ -4499,6 +4499,9 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .posta-makni { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: none; color: inherit; cursor: pointer; }
 .posta-makni:hover { background: var(--surface-hover); }
 .posta-makni .icon { width: 16px; height: 16px; }
+.posta-lozinka-stanje { display: flex; gap: 8px; align-items: center; margin: 0 0 12px; }
+.posta-lozinka-gumbi { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.posta-lozinka-desno { display: inline-flex; gap: 8px; margin-left: auto; }
 .posta-radnje form { margin: 0; }
 .posta-radnje .posta-premjesti select { max-width: 12rem; }
 .posta-html { width: 100%; min-height: 200px; border: 1px solid var(--border, #d9dee5); border-radius: 8px; background: #fff; }
