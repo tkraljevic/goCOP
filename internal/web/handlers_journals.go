@@ -232,7 +232,7 @@ func (h *JournalsHandler) loadJournal(w http.ResponseWriter, r *http.Request) (*
 }
 
 // porukaIzvodjacuCOP: izvođač ne čita dnevnik COP-a ni plan dežurstava
-const porukaIzvodjacuCOP = "Dnevnik COP-a i plan dežurstava vode Hrvatske vode; izvođač ih ne otvara. Svoje sate vidite na stranici Moj profil."
+const porukaIzvodjacuCOP = "Dnevnik COP-a i plan dežurstava vode Hrvatske vode; izvođač ih ne otvara. Svoje sate vidite na stranici Profil."
 
 // copZatvoren javlja da osoba ne smije otvoriti dnevnik COP-a ni plan uz
 // njega (JournalService.CitaDnevnikeCOP). Izvješće o vlastitim satima

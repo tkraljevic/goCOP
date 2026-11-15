@@ -4,9 +4,9 @@
 
 {{define "content"}}
 {{/* Crtež 5h. Uprava centra se vraća na obračun; osoba koja gleda svoje
-     sate nema obračun, pa se vraća na Moj profil, odakle je i došla. */}}
+     sate nema obračun, pa se vraća na Profil, odakle je i došla. */}}
 {{if .UpravaCentra}}<a href="/dnevnici/{{.Journal.ID}}/obracun?od={{.From}}&amp;do={{.To}}" class="povratna-poveznica">← Obračun sati</a>
-{{else}}<a href="/profile#dezurstva" class="povratna-poveznica">← Moj profil</a>{{end}}
+{{else}}<a href="/profile#dezurstva" class="povratna-poveznica">← Profil</a>{{end}}
 <div class="page-header list-glava iors-glava">
   <div>
     <h1 class="page-title" data-naziv-stranice>Izvješće o radnim satima pri obrani od poplava</h1>

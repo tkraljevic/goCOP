@@ -609,8 +609,12 @@ func lozinkaIUkljucenostStalnih(actor *models.UserPermissions, target *models.Us
 }
 
 // provjereRacuna su provjere izmjene računa koje ne ovise o tome tko ga
-// uređuje: potvrda adrese, izmjena tuđim očima i stalna uprava organizacije
+// uređuje: ime, potvrda adrese, izmjena tuđim očima i stalna uprava organizacije
 func provjereRacuna(actor *models.UserPermissions, target *models.User, req UpdateUserRequest) error {
+	// prazno ime obrazac odbija sam, ali zahtjev mimo obrasca prošao bi
+	if strings.TrimSpace(req.FullName) == "" {
+		return fmt.Errorf("%w: ime i prezime je obavezno", ErrInvalidUserData)
+	}
 	if req.PotvrdaAdrese != nil {
 		if err := dopustenaPotvrda(actor, target.ID, req.TudjimOcima); err != nil {
 			return err
