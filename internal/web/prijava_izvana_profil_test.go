@@ -856,3 +856,32 @@ func TestPorukaProfilaUOdjeljku(t *testing.T) {
 		t.Error("skripta mora premjestiti poruke o uspjehu i grešci u odjeljak")
 	}
 }
+
+// Plan Profila, korak 12: Prijava izvana su tri ploče jednog odjeljka
+// (stanje, zapamćena računala, rezervni kodovi); računala su tablica koja
+// se na mobitelu slaže u kartice po natpisima stupaca.
+func TestPrijavaIzvanaUTriPloce(t *testing.T) {
+	o := novaOkolinaIzvana(t)
+	ana := o.racun("ana", "anina-lozinka", "ana@voda.hr", false)
+	x, err := o.repo.GetUserByID(ana.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := o.dk.ZapamtiRacunalo(context.Background(), x, "", "198.51.100.7", "Safari na iPhoneu"); err != nil {
+		t.Fatal(err)
+	}
+	b := o.posalji(zahtjevIzvana{stvarni: ana}, http.MethodGet, "/profile", nil).Body.String()
+	i := strings.Index(b, `id="prijava-izvana"`)
+	if i < 0 {
+		t.Fatal("nema odjeljka Prijava izvana")
+	}
+	odjeljak := b[i : i+strings.Index(b[i:], "\n    </div>\n")]
+	if n := strings.Count(odjeljak, `<section class="detail-section profil-kartica">`); n != 3 {
+		t.Errorf("Prijava izvana treba tri ploče, ima %d", n)
+	}
+	for _, want := range []string{`class="data-table profil-racunala"`, `data-label="Preglednik"`, `data-label="Vrijedi do"`, "Zaboravi sva", `class="form-page profil-kodovi-obrazac"`} {
+		if !strings.Contains(odjeljak, want) {
+			t.Errorf("Prijava izvana nema %s", want)
+		}
+	}
+}
