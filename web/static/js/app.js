@@ -107,7 +107,34 @@ document.addEventListener("DOMContentLoaded", () => {
   initSSE();
   initSectorAreaChangers();
   initLiveSearch();
+  initZadrziUpisano();
 });
+
+// Obrazac s data-zadrzi-upisano pamti upisano dok se šalje. Kad se stranica
+// vrati s greškom (?error=), upisano se vrati u polja, da čovjek ne mora sve
+// ispočetka; lozinke i skrivena polja se ne pamte.
+function initZadrziUpisano() {
+  const greska = new URLSearchParams(window.location.search).has("error");
+  const pamti = (p) => p.name && !["password", "hidden", "submit", "button", "file"].includes(p.type);
+  document.querySelectorAll("form[data-zadrzi-upisano]").forEach((f) => {
+    const kljuc = "upisano:" + f.getAttribute("action");
+    let spremljeno = null;
+    try {
+      spremljeno = JSON.parse(sessionStorage.getItem(kljuc));
+      sessionStorage.removeItem(kljuc);
+    } catch (e) { /* bez sessionStoragea obrazac radi kao prije */ }
+    if (greska && spremljeno) {
+      Array.from(f.elements).filter(pamti).forEach((p) => {
+        if (p.name in spremljeno) p.value = spremljeno[p.name];
+      });
+    }
+    f.addEventListener("submit", () => {
+      const upisano = {};
+      Array.from(f.elements).filter(pamti).forEach((p) => { upisano[p.name] = p.value; });
+      try { sessionStorage.setItem(kljuc, JSON.stringify(upisano)); } catch (e) { /* ništa */ }
+    });
+  });
+}
 
 // Real-time SSE sinkronizacija
 function initSSE() {
