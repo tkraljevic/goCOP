@@ -432,6 +432,12 @@ func (h *UsersHandler) dodajMojePrijave(ctx context.Context, data *UserPageData)
 	data.MojePrijave, data.MojePrijaveGreska = prijave, err != nil
 }
 
+// IzvodjacZaCOP: izvođača plaća njegova firma, pa on na Profilu nema
+// dežurstava ni sati (Odluke (30. 10. 2026.)) i Profil mu to tako i kaže
+func (d UserPageData) IzvodjacZaCOP() bool {
+	return d.User != nil && service.JeIzvodjacZaCOP(d.User)
+}
+
 // smijeUparivatiSProfila: isto pravilo kao stranica Uparivanje
 // (smijeUparivati), da Profil ne nudi gumb koji vodi na odbijenicu
 func smijeUparivatiSProfila(r *http.Request, data UserPageData) bool {
