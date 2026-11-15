@@ -31,7 +31,7 @@
     </div>
     <div class="form-group">
       <label class="form-label" for="kind">Vrsta *</label>
-      <select id="kind" name="kind" class="form-control" required onchange="document.getElementById('pump-fields').hidden = this.value !== 'CRPNA_STANICA'; document.getElementById('sluice-fields').hidden = this.value !== 'USTAVA'">
+      <select id="kind" name="kind" class="form-control" required onchange="document.getElementById('pump-fields').hidden = this.value !== 'CRPNA_STANICA'; document.getElementById('sluice-fields').hidden = this.value !== 'USTAVA'; var v = this.value === 'USTAVA' || this.value === 'CRPNA_STANICA' ? this.value : ''; document.querySelectorAll('[data-za]').forEach(function (e) { e.hidden = e.dataset.za !== v; })">
         {{range .Kinds}}<option value="{{.}}" {{if eq . $.Structure.Kind}}selected{{end}}>{{structureKind .}}</option>{{end}}
       </select>
     </div>
@@ -51,18 +51,22 @@
 
   <section class="list-kartica">
   <h3>Strane i letve</h3>
+  {{/* Natpis letve ovisi o vrsti objekta i mijenja se s izborom vrste. Vodostaj
+       upisan na objektu zapisuje se i na ove letve (Odluke (15. 11. 2026.)). */}}
+  {{$vrsta := .Structure.Kind}}
+  <p class="form-help mb-4">Vodostaj upisan na objektu zapisuje se i na ove letve. Ista letva može biti i na drugom objektu, npr. crpna stanica i ustava uz isti kanal.</p>
   <div class="form-row">
     <div class="form-group">
-      <label class="form-label" for="station_id">Vodomjer na objektu</label>
-      <div class="form-help">Ustava: uzvodni. Crpna stanica: unutarnja strana (kanal).</div>
+      <label class="form-label" for="station_id"><span data-za="USTAVA" {{if ne $vrsta "USTAVA"}}hidden{{end}}>Uzvodna letva</span><span data-za="CRPNA_STANICA" {{if ne $vrsta "CRPNA_STANICA"}}hidden{{end}}>Unutarnja letva (kanal)</span><span data-za="" {{if or (eq $vrsta "USTAVA") (eq $vrsta "CRPNA_STANICA")}}hidden{{end}}>Letva na objektu</span></label>
+      <div class="form-help"><span data-za="USTAVA" {{if ne $vrsta "USTAVA"}}hidden{{end}}>Ide joj prvi vodostaj, uzvodni.</span><span data-za="CRPNA_STANICA" {{if ne $vrsta "CRPNA_STANICA"}}hidden{{end}}>Ide joj vodostaj koji strojar očitava na kanalu.</span></div>
       <select id="station_id" name="station_id" class="form-control">
         <option value="">— nema —</option>
         {{range .Stations}}<option value="{{.ID}}" {{if eq .ID.String $.Structure.StationID}}selected{{end}}>{{.Name}}{{if .HasWatercourse}} · {{.Watercourse}}{{end}}</option>{{end}}
       </select>
     </div>
     <div class="form-group">
-      <label class="form-label" for="station_down_id">Drugi vodomjer</label>
-      <div class="form-help">Ustava: nizvodni. Crpna stanica: vanjska strana (vodotok, dunavac, retencija).</div>
+      <label class="form-label" for="station_down_id"><span data-za="USTAVA" {{if ne $vrsta "USTAVA"}}hidden{{end}}>Nizvodna letva</span><span data-za="CRPNA_STANICA" {{if ne $vrsta "CRPNA_STANICA"}}hidden{{end}}>Vanjska letva</span><span data-za="" {{if or (eq $vrsta "USTAVA") (eq $vrsta "CRPNA_STANICA")}}hidden{{end}}>Druga letva</span></label>
+      <div class="form-help"><span data-za="USTAVA" {{if ne $vrsta "USTAVA"}}hidden{{end}}>Ide joj drugi vodostaj, nizvodni.</span><span data-za="CRPNA_STANICA" {{if ne $vrsta "CRPNA_STANICA"}}hidden{{end}}>Vodotok, dunavac ili retencija u koju stanica crpi; ide joj drugi vodostaj.</span></div>
       <select id="station_down_id" name="station_down_id" class="form-control">
         <option value="">— nema —</option>
         {{range .Stations}}<option value="{{.ID}}" {{if eq .ID.String $.Structure.StationDownID}}selected{{end}}>{{.Name}}{{if .HasWatercourse}} · {{.Watercourse}}{{end}}</option>{{end}}
