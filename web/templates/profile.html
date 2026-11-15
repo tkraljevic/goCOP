@@ -325,8 +325,10 @@
             <span class="reg-chip">{{icon "clock"}} {{.Dezurstava}} {{uzBroj .Dezurstava "dežurstvo" "dežurstva" "dežurstava"}}, {{sati .Sati}} h</span>
             {{if .CekaPotvrdu}}<span class="badge badge-pending">{{.CekaPotvrdu}} {{uzBroj .CekaPotvrdu "čeka" "čekaju" "čeka"}} potvrdu</span>{{end}}
             {{if .ZaProvjeru}}<span class="badge badge-warning" title="Mjesto rada nepoznato: nije u obračunu dok uprava centra ne izabere opis rada s popisa">{{.ZaProvjeru}} za provjeru</span>{{end}}
-            <a href="/dnevnici/{{.JournalID}}/dezurstva" class="btn btn-sm btn-secondary">{{icon "users"}} Plan</a>
-            <a href="/dnevnici/{{.JournalID}}/obracun/{{$.User.ID}}" class="btn btn-sm btn-secondary">{{icon "calculator"}} Izvješće o satima</a>
+            <span class="profil-plan-veze">
+              <a href="/dnevnici/{{.JournalID}}/dezurstva" class="btn btn-sm btn-link">Plan</a>
+              <a href="/dnevnici/{{.JournalID}}/obracun/{{$.User.ID}}" class="btn btn-sm btn-link">Izvješće o satima</a>
+            </span>
           </div>
         </article>
         {{end}}
@@ -338,9 +340,9 @@
 
     <section class="detail-section profil-kartica profil-odjeljak" id="moje-prijave">
       <h2>Moje prijave</h2>
-      <p class="page-desc">Ovdje su tvoje prijave i odgovori administratora. Novu prijavu šalješ kukcem u gornjoj traci.</p>
+      <p class="page-desc">Ovdje su vaše prijave i odgovori administratora. Novu prijavu šaljete kukcem u gornjoj traci.</p>
       {{if .MojePrijaveGreska}}
-      <p class="page-desc">Prijave se trenutno ne mogu pročitati. Pokušaj ponovno za koji trenutak.</p>
+      <p class="page-desc">Prijave se trenutno ne mogu pročitati. Pokušajte ponovno za koji trenutak.</p>
       {{else if .MojePrijave}}
       <ul class="pg-moje">
         {{range .MojePrijave}}
@@ -373,10 +375,10 @@
     <section class="detail-section profil-kartica profil-odjeljak" id="racunalo">
       <h2>Ovo računalo i ured</h2>
       <p class="page-desc">Svako računalo s programom je vlastita kopija koja se usklađuje s ostalima. Novo računalo ili mobitel uparite s uredom; ručna razmjena je na stranici Stanje razmjene.</p>
-      <div class="profil-gumbi">
-        {{if .SmijeUparivati}}<a href="/uparivanje" class="btn btn-secondary btn-sm">{{icon "link"}} Uparivanje</a>{{end}}
-        <a href="/pretplate" class="btn btn-secondary btn-sm">{{icon "download"}} Što ovo računalo prati</a>
-      </div>
+      <ul class="profil-redci">
+        {{if .SmijeUparivati}}<li><a href="/uparivanje">{{icon "link"}}<span><strong>Uparivanje</strong><small>novo računalo ili mobitel</small></span>{{icon "chevron-right"}}</a></li>{{end}}
+        <li><a href="/pretplate">{{icon "download"}}<span><strong>Što ovo računalo prati</strong><small>područja i godine čija očitanja i dnevnike ovo računalo prima</small></span>{{icon "chevron-right"}}</a></li>
+      </ul>
     </section>
   </div>
 </div>

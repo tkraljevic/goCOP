@@ -49,3 +49,26 @@ func TestPotpisniKljucJednoPoljeLozinke(t *testing.T) {
 		t.Error("polje za sken potpisa treba natpis")
 	}
 }
+
+// Plan Profila, koraci 15 i 16: Ovo računalo i ured nudi odredišta kao
+// retke, dežurstva imaju poveznice Plan i Izvješće o satima, a Moje
+// prijave se obraćaju s „vi”.
+func TestProfilOstaliOdjeljci(t *testing.T) {
+	b, err := fs.ReadFile(webassets.Files, "templates/profile.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(b)
+	i := strings.Index(s, `id="racunalo"`)
+	if i < 0 || !strings.Contains(s[i:], `<ul class="profil-redci">`) || !strings.Contains(s[i:], `href="/pretplate"`) {
+		t.Error("Ovo računalo i ured mora imati odredišta kao retke")
+	}
+	if !strings.Contains(s, `<span class="profil-plan-veze">`) {
+		t.Error("kartica plana mora imati poveznice Plan i Izvješće o satima")
+	}
+	for _, staro := range []string{"tvoje prijave", "šalješ", "Pokušaj ponovno"} {
+		if strings.Contains(s, staro) {
+			t.Errorf("Profil se mora obraćati s „vi”, a piše %q", staro)
+		}
+	}
+}
