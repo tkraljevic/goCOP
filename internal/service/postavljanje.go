@@ -52,7 +52,7 @@ func (s *UserService) PrviAdministrator(z PrviAdministratorZahtjev) (*models.Use
 
 	switch {
 	case !oblikKorisnickogImena.MatchString(z.Korisnik):
-		return nil, fmt.Errorf("%w: korisničko ime ima 2–40 znakova: mala slova, brojke, točku, crticu ili podvlaku (npr. tkraljevic)", ErrInvalidUserData)
+		return nil, fmt.Errorf("%w: korisničko ime ima 2–40 znakova: mala slova, brojke, točku, crticu ili podvlaku (npr. aprimjer)", ErrInvalidUserData)
 	case z.Korisnik == "admin":
 		return nil, fmt.Errorf("%w: izaberite osobno korisničko ime, ne admin", ErrInvalidUserData)
 	case z.Ime == "":

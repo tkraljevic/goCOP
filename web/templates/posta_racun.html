@@ -21,7 +21,7 @@
   <form method="POST" action="/profile/posta" autocomplete="off">
     <div class="form-group">
       <label class="form-label" for="korisnik">Korisničko ime</label>
-      <input class="form-control" id="korisnik" name="korisnik" value="{{.Racun}}" placeholder="npr. tkraljevic@voda.hr" required autocapitalize="off" spellcheck="false">
+      <input class="form-control" id="korisnik" name="korisnik" value="{{.Racun}}" placeholder="npr. aprimjer@voda.hr" required autocapitalize="off" spellcheck="false">
       <div class="form-help">Korisničko ime kao u postavkama računa na mobitelu ili za prijavu na računalo. Često nije isto kao adresa e-pošte. {{if .Domena}}Ako prijava ne prođe, goCOP pokuša i <span class="mono">{{.Domena}}\korisnik</span>.{{end}} Lozinka je ona od računala i e-pošte tvrtke.</div>
     </div>
     <div class="form-group">

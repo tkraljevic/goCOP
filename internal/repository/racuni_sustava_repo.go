@@ -19,7 +19,7 @@ type RacunSustava struct {
 	Korisnik string
 	Lozinka  []byte // šifrirana
 	// Adresa pošiljatelja, za račun koji šalje e-poštu; ime za prijavu
-	// (tkraljevic) nije adresa, a Exchange ne šalje s tuđe adrese
+	// (aprimjer) nije adresa, a Exchange ne šalje s tuđe adrese
 	Adresa string
 	// NeispravanOd je trenutak kad je poslužitelj odbio lozinku; nil dok
 	// je račun ispravan. Spremi ga upisuje kako je zadan (nova lozinka ga

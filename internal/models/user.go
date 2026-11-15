@@ -146,7 +146,7 @@ type User struct {
 	Phone              string     `json:"phone"`        // Telefon u uredu, s pozivnim brojem (npr. N/A)
 	MobilePhone        string     `json:"mobile_phone"` // Broj mobitela (npr. 099-000-0000)
 	ShortPhone         string     `json:"short_phone"`  // Lokal: skraćeni broj uredskog telefona u mreži (npr. N/A)
-	ShortMobile        string     `json:"short_mobile"` // Skraćeni broj mobitela u zatvorenoj mreži (npr. 5163)
+	ShortMobile        string     `json:"short_mobile"` // Skraćeni broj mobitela u zatvorenoj mreži (npr. 1234)
 	Email              string     `json:"email"`
 	IsActive           bool       `json:"is_active"`               // Smije li se osoba prijaviti — odluka administratora, a ne trag korištenja
 	LastLoginAt        *time.Time `json:"last_login_at,omitempty"` // Zadnja prijava, bilježi se s točnošću na dan

@@ -364,7 +364,7 @@ func rezervirajPonovnuLozinku(kljucevi ...string) error {
 const najviseKrivihAD = 3
 
 // imeAD je ime računa u domeni bez domene i bez @dijela, malim slovima
-// (tkraljevic, VODA\tkraljevic i tkraljevic@voda.hr su isti račun)
+// (aprimjer, VODA\aprimjer i aprimjer@voda.hr su isti račun)
 func imeAD(korisnik string) string {
 	ime := strings.TrimSpace(korisnik)
 	if i := strings.LastIndex(ime, `\`); i >= 0 {
