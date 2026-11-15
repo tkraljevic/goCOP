@@ -1,6 +1,6 @@
 {{template "base.html" .}}
 
-{{define "title"}}goCOP — Moj profil{{end}}
+{{define "title"}}goCOP — Profil{{end}}
 
 {{define "content"}}
 <div class="page-header">
@@ -15,7 +15,7 @@
 </div>
 
 {{if .User.MustChangePassword}}
-<div class="alert alert-warning">Prijavljeni ste s privremenom lozinkom. Dok je ne promijenite, ostatak programa je zatvoren: postavite vlastitu lozinku u odjeljku Lozinka.</div>
+<div class="alert alert-warning">Prijavljeni ste s privremenom lozinkom. Dok je ne promijenite, ostatak programa je zatvoren: postavite vlastitu lozinku u odjeljku Lozinka za goCOP.</div>
 {{end}}
 
 <div class="profil-grid">
@@ -50,7 +50,7 @@
           </div>
           <div class="form-group">
             <label class="form-label" for="short_phone">Lokal</label>
-            <input type="text" id="short_phone" name="short_phone" class="form-control" inputmode="numeric" value="{{.User.ShortPhone}}" placeholder="N/A">
+            <input type="text" id="short_phone" name="short_phone" class="form-control" inputmode="numeric" value="{{.User.ShortPhone}}" placeholder="npr. 123">
           </div>
         </div>
         <div class="form-group">
@@ -60,12 +60,12 @@
           <div class="form-help" id="email-pomoc">{{if .User.MustChangePassword}}Adresu e-pošte možete promijeniti tek nakon što postavite novu lozinku.{{else}}Adresu e-pošte ne možete mijenjati izvana: na nju stiže PIN za prijavu izvana. Promijenite je iz ureda (lokalna mreža) ili zamolite administratora.{{end}}</div>
           {{else}}
           <input type="email" id="email" name="email" class="form-control" value="{{.User.Email}}" placeholder="ime.prezime@{{if .PrijavaIzvana}}{{.PrijavaIzvana.Domena}}{{else}}voda.hr{{end}}" aria-describedby="email-pomoc">
-          <div class="form-help" id="email-pomoc">Na ovu adresu stiže PIN za prijavu izvana, pa se mijenja samo uz trenutnu lozinku{{if .PrijavaIzvana}} i samo na adresu @{{.PrijavaIzvana.Domena}}; adresu izvan nje upisuje i potvrđuje administrator{{end}}. Stara adresa dobije obavijest.{{if .User.PotvrdaAdreseVrijedi}} Vašu adresu potvrdio je administrator; promijenite li je, potvrda prestaje.{{end}}</div>
+          <div class="form-help" id="email-pomoc">Na ovu adresu stiže PIN za prijavu izvana, pa se mijenja samo uz lozinku za goCOP{{if .PrijavaIzvana}} i samo na adresu @{{.PrijavaIzvana.Domena}}; adresu izvan nje upisuje i potvrđuje administrator{{end}}. Stara adresa dobije obavijest.{{if .User.PotvrdaAdreseVrijedi}} Vašu adresu potvrdio je administrator; promijenite li je, potvrda prestaje.{{end}}</div>
           {{end}}
         </div>
         {{if not (or .Izvana .User.MustChangePassword)}}
         <div class="form-group">
-          <label class="form-label" for="email_lozinka">Trenutna lozinka (samo za promjenu e-pošte)</label>
+          <label class="form-label" for="email_lozinka">Lozinka za goCOP (samo za promjenu e-pošte)</label>
           <input type="password" id="email_lozinka" name="trenutna_lozinka" class="form-control" autocomplete="current-password">
         </div>
         {{end}}
@@ -165,7 +165,7 @@
         {{if .Izvana}}Ovaj profil otvorili ste izvana, pa kodovi napravljeni ovdje vrijede za prijavu izvana kroz ovaj čvor.{{else}}Za prijavu izvana napravite ih na javnom čvoru, kroz koji se prijavljujete izvana, a ne iz lokalne mreže na drugom računalu.{{end}}</p>
       <form method="POST" action="/profile/rezervni-kodovi" class="form-page" autocomplete="off">
         <div class="form-group">
-          <label class="form-label" for="rezervni-lozinka">Lozinka računa</label>
+          <label class="form-label" for="rezervni-lozinka">Lozinka za goCOP</label>
           <input type="password" class="form-control" id="rezervni-lozinka" name="lozinka" autocomplete="current-password" required>
         </div>
         <div class="profil-gumbi">
@@ -189,9 +189,9 @@
       <p class="page-desc">S njom goCOP čita vaš sandučić, šalje ovjerene akte s vaše adrese i provjerava kontakte u adresaru tvrtke. Čuva se samo na ovom računalu, šifrirana.</p>
       {{end}}
       <div class="profil-gumbi">
-        <a href="/profile/posta" class="btn btn-secondary btn-sm">{{icon "key-round"}} {{if .PostaRacun}}Nova lozinka e-pošte{{else}}Upiši lozinku e-pošte{{end}}</a>
+        <a href="/profile/posta" class="btn btn-secondary btn-sm">{{icon "key-round"}} {{if .PostaRacun}}Lozinka e-pošte{{else}}Upiši lozinku e-pošte{{end}}</a>
         <a href="/posta" class="btn btn-secondary btn-sm">{{icon "mailbox"}} Sandučić</a>
-        <a href="/profile/potpis" class="btn btn-secondary btn-sm">{{icon "pencil"}} Potpis</a>
+        <a href="/profile/potpis" class="btn btn-secondary btn-sm">{{icon "pencil"}} Potpis e-pošte</a>
         <a href="/users/exchange" class="btn btn-secondary btn-sm">{{icon "building"}} Adresar tvrtke</a>
       </div>
     </section>
@@ -254,19 +254,19 @@
       </dl>
       <form method="POST" action="/profile/potpisni-kljuc" class="form-page mt-3" onsubmit="return confirm('Ukloniti potpisni ključ? Već potpisani dokumenti ostaju.')">
         <input type="hidden" name="radnja" value="obrisi">
-        <div class="form-group"><label class="form-label" for="kljuc-lozinka-ukloni">Lozinka računa</label><input type="password" class="form-control" id="kljuc-lozinka-ukloni" name="lozinka" autocomplete="current-password" required><div class="form-help">Ključ se uklanja samo uz lozinku računa, kao što se i pravi.</div></div>
+        <div class="form-group"><label class="form-label" for="kljuc-lozinka-ukloni">Lozinka za goCOP</label><input type="password" class="form-control" id="kljuc-lozinka-ukloni" name="lozinka" autocomplete="current-password" required><div class="form-help">Ključ se uklanja samo uz lozinku računa, kao što se i pravi.</div></div>
         <div class="profil-gumbi"><button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Ukloni ključ</button></div>
       </form>
       <form method="POST" action="/profile/potpisni-kljuc" class="form-page mt-2" onsubmit="return confirm('Napraviti novi ključ umjesto postojećeg?')">
         <input type="hidden" name="radnja" value="novi">
-        <div class="form-group"><label class="form-label" for="kljuc-lozinka2">Lozinka računa</label><input type="password" class="form-control" id="kljuc-lozinka2" name="lozinka" autocomplete="current-password" required></div>
+        <div class="form-group"><label class="form-label" for="kljuc-lozinka2">Lozinka za goCOP</label><input type="password" class="form-control" id="kljuc-lozinka2" name="lozinka" autocomplete="current-password" required></div>
         <div class="profil-gumbi"><button type="submit" class="btn btn-sm btn-secondary">{{icon "refresh-cw"}} Novi ključ</button></div>
       </form>
       {{else}}
       <form method="POST" action="/profile/potpisni-kljuc" class="form-page mt-3">
         <input type="hidden" name="radnja" value="novi">
         <div class="form-group">
-          <label class="form-label" for="kljuc-lozinka">Lozinka računa</label>
+          <label class="form-label" for="kljuc-lozinka">Lozinka za goCOP</label>
           <input type="password" class="form-control" id="kljuc-lozinka" name="lozinka" autocomplete="current-password" required>
           <div class="form-help">Ključ se zaključava ovom lozinkom; program je provjerava prije izrade.</div>
         </div>
