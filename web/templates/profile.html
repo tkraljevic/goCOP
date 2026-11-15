@@ -81,6 +81,7 @@
         <div class="form-group">
           <label class="form-label" for="email_lozinka">Lozinka za goCOP (samo za promjenu e-pošte)</label>
           <input type="password" id="email_lozinka" name="trenutna_lozinka" class="form-control" autocomplete="current-password">
+          <div class="form-help">Nakon tri kriva upisa obrasci s lozinkom zatvaraju se na 15 minuta.</div>
         </div>
         {{end}}
         <div class="form-help">Mobitel je broj na koji vas kolege zovu s terena; skraćeni brojevi vrijede u zatvorenoj mreži tvrtke. <a href="/users/exchange?trazi={{.User.FullName | urlquery}}">Provjeri u adresaru tvrtke</a>.</div>
@@ -107,11 +108,18 @@
             <input type="password" id="confirm_password" name="confirm_password" class="form-control" required minlength="10" autocomplete="new-password">
           </div>
         </div>
-        <div class="form-help">Najmanje 10 znakova. Ovo nije lozinka e-pošte tvrtke; ako ste je upisali (<a href="#posta">E-pošta tvrtke</a>), nakon promjene upišite je ponovno, jer vrijedi samo uz lozinku s kojom je spremljena.</div>
+        <div class="form-help">Najmanje 10 znakova. Nakon tri kriva upisa obrasci s lozinkom zatvaraju se na 15 minuta. Ovo nije lozinka e-pošte tvrtke.</div>
         <div class="form-actions">
           <button type="submit" class="btn btn-primary">{{icon "check"}} Promijeni lozinku</button>
         </div>
       </form>
+      <h3 class="obrazac-podnaslov">Što promjena povuče</h3>
+      <ul class="profil-posljedice">
+        <li>Ostale prijave s ovim računom na ovom računalu se gase; ova ostaje.</li>
+        <li>Zapamćena računala se zaboravljaju, pa se izvana opet traži PIN.</li>
+        <li>Potpisni ključ se zaključava novom lozinkom i dalje vrijedi.</li>
+        <li>Spremljena lozinka e-pošte tvrtke prestaje vrijediti: upišite je ponovno u odjeljku <a href="#posta">E-pošta tvrtke</a>.</li>
+      </ul>
     </section>
 
     {{with .PrijavaIzvana}}
@@ -159,13 +167,13 @@
           <tbody>
           {{range .Racunala}}
           <tr>
-            <td data-label="Preglednik" class="wrap-anywhere">{{if .UserAgent}}{{.UserAgent}}{{else}}<span class="text-muted">nepoznat</span>{{end}}{{if .OvoRacunalo}} <span class="reg-chip">ovo računalo</span>{{end}}</td>
+            <td data-label="Preglednik" class="wrap-anywhere">{{if .Naziv}}<span title="{{.UserAgent}}">{{.Naziv}}</span>{{else}}<span class="text-muted">nepoznat</span>{{end}}{{if .OvoRacunalo}} <span class="reg-chip">ovo računalo</span>{{end}}</td>
             <td data-label="Adresa" class="mono">{{.IPZadnji}}{{if ne .IPPrvi .IPZadnji}}<div class="form-help">prvi put {{.IPPrvi}}</div>{{end}}</td>
             <td data-label="Zapamćeno">{{vrijemeHR .Zapamceno}}{{if .Koristeno}}<div class="form-help">zadnji put {{vrijemeHR (derefTime .Koristeno)}}</div>{{end}}</td>
             <td data-label="Vrijedi do">{{vrijemeHR .Istjece}}</td>
             <td class="radnje">
               <form method="POST" action="/profile/racunala/{{.ID}}/zaboravi" class="m-0">
-                <button type="submit" class="btn btn-sm btn-link">Zaboravi</button>
+                <button type="submit" class="btn btn-sm btn-link"{{if .OvoRacunalo}} onclick="return confirm('Zaboraviti ovo računalo? Idući put izvana opet će se tražiti PIN.')"{{end}}>Zaboravi</button>
               </form>
             </td>
           </tr>
@@ -193,6 +201,7 @@
         <div class="form-group">
           <label class="form-label" for="rezervni-lozinka">Lozinka za goCOP</label>
           <input type="password" class="form-control" id="rezervni-lozinka" name="lozinka" autocomplete="current-password" required>
+          <div class="form-help">Nakon tri kriva upisa obrasci s lozinkom zatvaraju se na 15 minuta.</div>
         </div>
         <div class="profil-gumbi">
           <button type="submit" class="btn btn-secondary btn-sm"{{if .RezervniOd}} onclick="return confirm('Napraviti novi niz? Stari kodovi prestaju vrijediti.')"{{end}}>{{icon "key-round"}} Napravi rezervne kodove</button>
@@ -293,14 +302,14 @@
           <button type="submit" name="radnja" value="novi" class="btn btn-sm btn-secondary" onclick="return confirm('Napraviti novi ključ umjesto postojećeg?')">{{icon "refresh-cw"}} Novi ključ</button>
         </div>
       </form>
-      <p class="form-help">Ključ se pravi i uklanja samo uz lozinku za goCOP. Već potpisani dokumenti ostaju provjerljivi.</p>
+      <p class="form-help">Ključ se pravi i uklanja samo uz lozinku za goCOP. Već potpisani dokumenti ostaju provjerljivi. Nakon tri kriva upisa obrasci s lozinkom zatvaraju se na 15 minuta.</p>
       {{else}}
       <form method="POST" action="/profile/potpisni-kljuc" class="form-page mt-3">
         <input type="hidden" name="radnja" value="novi">
         <div class="form-group">
           <label class="form-label" for="kljuc-lozinka">Lozinka za goCOP</label>
           <input type="password" class="form-control" id="kljuc-lozinka" name="lozinka" autocomplete="current-password" required>
-          <div class="form-help">Ključ se zaključava ovom lozinkom; program je provjerava prije izrade.</div>
+          <div class="form-help">Ključ se zaključava ovom lozinkom; program je provjerava prije izrade. Nakon tri kriva upisa obrasci s lozinkom zatvaraju se na 15 minuta.</div>
         </div>
         <div class="profil-gumbi"><button type="submit" class="btn btn-primary btn-sm">{{icon "lock"}} Napravi potpisni ključ</button></div>
       </form>
@@ -378,6 +387,7 @@
       <ul class="profil-redci">
         {{if .SmijeUparivati}}<li><a href="/uparivanje">{{icon "link"}}<span><strong>Uparivanje</strong><small>novo računalo ili mobitel</small></span>{{icon "chevron-right"}}</a></li>{{end}}
         <li><a href="/pretplate">{{icon "download"}}<span><strong>Što ovo računalo prati</strong><small>područja i godine čija očitanja i dnevnike ovo računalo prima</small></span>{{icon "chevron-right"}}</a></li>
+        {{if .VidiAdministraciju}}<li><a href="/sinkronizacija">{{icon "refresh-cw"}}<span><strong>Stanje razmjene</strong><small>s kim se ovo računalo razmjenjuje i ručna razmjena</small></span>{{icon "chevron-right"}}</a></li>{{end}}
       </ul>
     </section>
   </div>

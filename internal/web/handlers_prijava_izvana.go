@@ -60,6 +60,31 @@ func (h *UsersHandler) dk() *service.DrugiKorak {
 	return h.drugiKorak()
 }
 
+// RacunaloProfila je zapamćeno računalo s kratkim nazivom preglednika
+// („Safari 17 · iOS”); cijelo zaglavlje ostaje u oblačiću
+type RacunaloProfila struct {
+	service.Racunalo
+	Naziv string
+}
+
+// naziviRacunala svakom zapamćenom računalu dodaje kratak naziv preglednika,
+// istim pravilom kao prijave grešaka (prepoznajPreglednik)
+func naziviRacunala(racunala []service.Racunalo) []RacunaloProfila {
+	out := make([]RacunaloProfila, 0, len(racunala))
+	for _, r := range racunala {
+		naziv := ""
+		if r.UserAgent != "" {
+			preglednik, sustav := prepoznajPreglednik(r.UserAgent)
+			naziv = preglednik
+			if sustav != "" {
+				naziv += " · " + sustav
+			}
+		}
+		out = append(out, RacunaloProfila{Racunalo: r, Naziv: naziv})
+	}
+	return out
+}
+
 // ProfilPrijaveIzvana je odjeljak „Prijava izvana” na vlastitom profilu.
 type ProfilPrijaveIzvana struct {
 	TudjimOcima bool   // gleda se tuđim očima: ništa se ne pokazuje ni ne mijenja
@@ -71,7 +96,7 @@ type ProfilPrijaveIzvana struct {
 	// zajednička ili nema je; nil kad se ne da pročitati
 	StanjeAdrese *service.StanjeAdresePIN
 
-	Racunala   []service.Racunalo
+	Racunala   []RacunaloProfila
 	Rezervnih  int        // neiskorištenih rezervnih kodova
 	RezervniOd *time.Time // kad je niz napravljen; nil = nikad
 	Kodovi     []string   // upravo napravljeni rezervni kodovi, samo na ovoj stranici
@@ -120,7 +145,7 @@ func (h *UsersHandler) profilPrijaveIzvana(r *http.Request, u *models.User, kodo
 	if err != nil {
 		greske = append(greske, err.Error())
 	}
-	p.Racunala = racunala
+	p.Racunala = naziviRacunala(racunala)
 	if p.Rezervnih, p.RezervniOd, err = d.StanjeRezervnih(ctx, u.ID); err != nil {
 		greske = append(greske, err.Error())
 	}

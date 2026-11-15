@@ -68,6 +68,9 @@ type UserPageData struct {
 	IsEdit      bool
 	CanDelete   bool // račun se nitko nije prijavio, pa se smije obrisati
 
+	// VidiAdministraciju: ima modul „Administracija” (Stanje razmjene je u njemu)
+	VidiAdministraciju bool
+
 	// SmijeUparivati: profil nudi Uparivanje onome koga stranica pušta
 	// (uprava organizacije vlastitim očima, s promijenjenom lozinkom)
 	SmijeUparivati bool
@@ -186,7 +189,7 @@ func (h *UsersHandler) pageData(r *http.Request) UserPageData {
 	currUser, _ := ctx.Value(contextKeyUser).(*models.User)
 	perms, _ := ctx.Value(contextKeyPerms).(*models.UserPermissions)
 	mods, _ := ctx.Value(contextKeyModules).(models.Visibility)
-	return UserPageData{
+	d := UserPageData{
 		CurrentUser:    currUser,
 		Permissions:    perms,
 		CanManage:      canManageUsers(perms),
@@ -199,6 +202,8 @@ func (h *UsersHandler) pageData(r *http.Request) UserPageData {
 		ViewAsBanner:   viewBanner(r),
 		Izvana:         dolaziIzvana(r),
 	}
+	d.VidiAdministraciju = mods.Sees(models.ModuleAdmin)
+	return d
 }
 
 func (h *UsersHandler) loadUser(r *http.Request) (*models.User, bool) {
