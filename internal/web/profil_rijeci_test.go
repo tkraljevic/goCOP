@@ -25,3 +25,50 @@ func TestProfilLozinkaZaGoCOP(t *testing.T) {
 		t.Errorf("polja lozinke za ulaz trebaju se zvati „Lozinka za goCOP”, nađeno %d", n)
 	}
 }
+
+// Plan Profila, korak 14: uz postojeći potpisni ključ jedno polje lozinke
+// služi i za uklanjanje i za novi ključ; radnju nosi gumb.
+func TestPotpisniKljucJednoPoljeLozinke(t *testing.T) {
+	b, err := fs.ReadFile(webassets.Files, "templates/profile.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(b)
+	i := strings.Index(s, `<form method="POST" action="/profile/potpisni-kljuc" class="form-page profil-kodovi-obrazac">`)
+	if i < 0 {
+		t.Fatal("nema zajedničkog obrasca ključa")
+	}
+	obrazac := s[i : i+strings.Index(s[i:], "</form>")]
+	if strings.Count(obrazac, `name="lozinka"`) != 1 || !strings.Contains(obrazac, `name="radnja" value="obrisi"`) || !strings.Contains(obrazac, `name="radnja" value="novi"`) {
+		t.Errorf("obrazac ključa treba jedno polje lozinke i oba gumba:\n%s", obrazac)
+	}
+	if strings.Contains(s, `id="kljuc-lozinka2"`) {
+		t.Error("drugo polje lozinke uz ključ više ne postoji")
+	}
+	if !strings.Contains(s, `<label class="form-label" for="potpis-sken">Novi sken potpisa</label>`) {
+		t.Error("polje za sken potpisa treba natpis")
+	}
+}
+
+// Plan Profila, koraci 15 i 16: Ovo računalo i ured nudi odredišta kao
+// retke, dežurstva imaju poveznice Plan i Izvješće o satima, a Moje
+// prijave se obraćaju s „vi”.
+func TestProfilOstaliOdjeljci(t *testing.T) {
+	b, err := fs.ReadFile(webassets.Files, "templates/profile.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(b)
+	i := strings.Index(s, `id="racunalo"`)
+	if i < 0 || !strings.Contains(s[i:], `<ul class="profil-redci">`) || !strings.Contains(s[i:], `href="/pretplate"`) {
+		t.Error("Ovo računalo i ured mora imati odredišta kao retke")
+	}
+	if !strings.Contains(s, `<span class="profil-plan-veze">`) {
+		t.Error("kartica plana mora imati poveznice Plan i Izvješće o satima")
+	}
+	for _, staro := range []string{"tvoje prijave", "šalješ", "Pokušaj ponovno"} {
+		if strings.Contains(s, staro) {
+			t.Errorf("Profil se mora obraćati s „vi”, a piše %q", staro)
+		}
+	}
+}

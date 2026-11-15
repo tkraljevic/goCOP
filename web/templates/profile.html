@@ -242,22 +242,25 @@
       {{if .Viewing}}
       <p class="form-help">Tuđim očima se sken potpisa ne prikazuje, ne sprema ni ne uklanja.</p>
       {{else}}
+      <div class="profil-sken">
       <div class="zig-pregled">
         {{if .ImaPotpisSliku}}<img src="/profile/potpis-slika?t={{.User.UpdatedAt.Unix}}" alt="Potpis" class="potpis-slika">{{else}}<div class="zig-prazno">Potpis još nije skeniran.</div>{{end}}
       </div>
-      <form method="POST" action="/profile/potpis-slika" enctype="multipart/form-data" class="form-page mt-3">
+      <form method="POST" action="/profile/potpis-slika" enctype="multipart/form-data" class="form-page">
         <div class="form-group">
-          <input type="file" class="form-control" name="slika" accept="image/png,image/jpeg" required>
+          <label class="form-label" for="potpis-sken">Novi sken potpisa</label>
+          <input type="file" class="form-control" id="potpis-sken" name="slika" accept="image/png,image/jpeg" required>
           <div class="form-help">Potpišite se crnom olovkom na bijeli papir, skenirajte s 300 dpi i izrežite na sam potpis. PNG ili JPEG, do 1 MB.</div>
         </div>
         <div class="profil-gumbi">
-          <button type="submit" class="btn btn-secondary btn-sm">{{icon "upload"}} {{if .ImaPotpisSliku}}Novi sken{{else}}Spremi sken potpisa{{end}}</button>
+          <button type="submit" class="btn btn-primary btn-sm">{{icon "upload"}} {{if .ImaPotpisSliku}}Spremi novi sken{{else}}Spremi sken potpisa{{end}}</button>
         </div>
       </form>
+      </div>
       {{if .ImaPotpisSliku}}
       <form method="POST" action="/profile/potpis-slika" enctype="multipart/form-data" class="mt-2" onsubmit="return confirm('Ukloniti sken potpisa?')">
         <input type="hidden" name="obrisi" value="1">
-        <button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Ukloni</button>
+        <button type="submit" class="btn btn-sm btn-link profil-opasno">Ukloni sken</button>
       </form>
       {{end}}
       {{end}}
@@ -282,16 +285,15 @@
         <dt>Vrijedi</dt><dd>{{formatDate (localTime .Kljuc.Od)}} – {{formatDate (localTime .Kljuc.Do)}}{{if .Kljuc.Istekao}} <strong>(istekao)</strong>{{end}}</dd>
         <dt>Otisak</dt><dd class="mono">{{.Kljuc.Otisak}}</dd>
       </dl>
-      <form method="POST" action="/profile/potpisni-kljuc" class="form-page mt-3" onsubmit="return confirm('Ukloniti potpisni ključ? Već potpisani dokumenti ostaju.')">
-        <input type="hidden" name="radnja" value="obrisi">
-        <div class="form-group"><label class="form-label" for="kljuc-lozinka-ukloni">Lozinka za goCOP</label><input type="password" class="form-control" id="kljuc-lozinka-ukloni" name="lozinka" autocomplete="current-password" required><div class="form-help">Ključ se uklanja samo uz lozinku računa, kao što se i pravi.</div></div>
-        <div class="profil-gumbi"><button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Ukloni ključ</button></div>
+      {{/* jedno polje lozinke za obje radnje: radnju nosi gumb (Plan Profila, korak 14) */}}
+      <form method="POST" action="/profile/potpisni-kljuc" class="form-page profil-kodovi-obrazac">
+        <div class="form-group"><label class="form-label" for="kljuc-lozinka-ukloni">Lozinka za goCOP</label><input type="password" class="form-control" id="kljuc-lozinka-ukloni" name="lozinka" autocomplete="current-password" required></div>
+        <div class="profil-gumbi">
+          <button type="submit" name="radnja" value="obrisi" class="btn btn-sm btn-link profil-opasno" onclick="return confirm('Ukloniti potpisni ključ? Već potpisani dokumenti ostaju.')">Ukloni ključ</button>
+          <button type="submit" name="radnja" value="novi" class="btn btn-sm btn-secondary" onclick="return confirm('Napraviti novi ključ umjesto postojećeg?')">{{icon "refresh-cw"}} Novi ključ</button>
+        </div>
       </form>
-      <form method="POST" action="/profile/potpisni-kljuc" class="form-page mt-2" onsubmit="return confirm('Napraviti novi ključ umjesto postojećeg?')">
-        <input type="hidden" name="radnja" value="novi">
-        <div class="form-group"><label class="form-label" for="kljuc-lozinka2">Lozinka za goCOP</label><input type="password" class="form-control" id="kljuc-lozinka2" name="lozinka" autocomplete="current-password" required></div>
-        <div class="profil-gumbi"><button type="submit" class="btn btn-sm btn-secondary">{{icon "refresh-cw"}} Novi ključ</button></div>
-      </form>
+      <p class="form-help">Ključ se pravi i uklanja samo uz lozinku za goCOP. Već potpisani dokumenti ostaju provjerljivi.</p>
       {{else}}
       <form method="POST" action="/profile/potpisni-kljuc" class="form-page mt-3">
         <input type="hidden" name="radnja" value="novi">
@@ -323,8 +325,10 @@
             <span class="reg-chip">{{icon "clock"}} {{.Dezurstava}} {{uzBroj .Dezurstava "dežurstvo" "dežurstva" "dežurstava"}}, {{sati .Sati}} h</span>
             {{if .CekaPotvrdu}}<span class="badge badge-pending">{{.CekaPotvrdu}} {{uzBroj .CekaPotvrdu "čeka" "čekaju" "čeka"}} potvrdu</span>{{end}}
             {{if .ZaProvjeru}}<span class="badge badge-warning" title="Mjesto rada nepoznato: nije u obračunu dok uprava centra ne izabere opis rada s popisa">{{.ZaProvjeru}} za provjeru</span>{{end}}
-            <a href="/dnevnici/{{.JournalID}}/dezurstva" class="btn btn-sm btn-secondary">{{icon "users"}} Plan</a>
-            <a href="/dnevnici/{{.JournalID}}/obracun/{{$.User.ID}}" class="btn btn-sm btn-secondary">{{icon "calculator"}} Izvješće o satima</a>
+            <span class="profil-plan-veze">
+              <a href="/dnevnici/{{.JournalID}}/dezurstva" class="btn btn-sm btn-link">Plan</a>
+              <a href="/dnevnici/{{.JournalID}}/obracun/{{$.User.ID}}" class="btn btn-sm btn-link">Izvješće o satima</a>
+            </span>
           </div>
         </article>
         {{end}}
@@ -336,9 +340,9 @@
 
     <section class="detail-section profil-kartica profil-odjeljak" id="moje-prijave">
       <h2>Moje prijave</h2>
-      <p class="page-desc">Ovdje su tvoje prijave i odgovori administratora. Novu prijavu šalješ kukcem u gornjoj traci.</p>
+      <p class="page-desc">Ovdje su vaše prijave i odgovori administratora. Novu prijavu šaljete kukcem u gornjoj traci.</p>
       {{if .MojePrijaveGreska}}
-      <p class="page-desc">Prijave se trenutno ne mogu pročitati. Pokušaj ponovno za koji trenutak.</p>
+      <p class="page-desc">Prijave se trenutno ne mogu pročitati. Pokušajte ponovno za koji trenutak.</p>
       {{else if .MojePrijave}}
       <ul class="pg-moje">
         {{range .MojePrijave}}
@@ -371,10 +375,10 @@
     <section class="detail-section profil-kartica profil-odjeljak" id="racunalo">
       <h2>Ovo računalo i ured</h2>
       <p class="page-desc">Svako računalo s programom je vlastita kopija koja se usklađuje s ostalima. Novo računalo ili mobitel uparite s uredom; ručna razmjena je na stranici Stanje razmjene.</p>
-      <div class="profil-gumbi">
-        {{if .SmijeUparivati}}<a href="/uparivanje" class="btn btn-secondary btn-sm">{{icon "link"}} Uparivanje</a>{{end}}
-        <a href="/pretplate" class="btn btn-secondary btn-sm">{{icon "download"}} Što ovo računalo prati</a>
-      </div>
+      <ul class="profil-redci">
+        {{if .SmijeUparivati}}<li><a href="/uparivanje">{{icon "link"}}<span><strong>Uparivanje</strong><small>novo računalo ili mobitel</small></span>{{icon "chevron-right"}}</a></li>{{end}}
+        <li><a href="/pretplate">{{icon "download"}}<span><strong>Što ovo računalo prati</strong><small>područja i godine čija očitanja i dnevnike ovo računalo prima</small></span>{{icon "chevron-right"}}</a></li>
+      </ul>
     </section>
   </div>
 </div>

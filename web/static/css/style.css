@@ -4491,6 +4491,12 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .profil-redci a > span { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .profil-redci strong { font-weight: 500; }
 .profil-redci small { color: var(--md-sys-color-on-surface-variant, var(--text-secondary)); font-size: 0.8rem; }
+.profil-plan-veze { margin-left: auto; display: inline-flex; gap: 4px; }
+/* Moja dežurstva: kartica plana jedna ispod druge, s razmakom unutra (crtež 22, odjeljak 6) */
+#dezurstva .reg-list { grid-template-columns: minmax(0, 1fr); gap: 8px; margin: 0; }
+#dezurstva .reg-card { padding: 12px 16px; box-shadow: none; }
+#dezurstva .reg-card-head { padding-bottom: 4px; border-bottom: 0; }
+#dezurstva .reg-card-foot { padding-top: 8px; font-size: 0.85rem; }
 /* Prijava izvana: računala kao tablica (na mobitelu kartice), kodovi s lozinkom u istom redu */
 .profil-racunala .radnje { text-align: right; white-space: nowrap; }
 .profil-racunala-dno { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-top: 8px; }
@@ -4499,6 +4505,11 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .profil-opasno:hover { color: var(--md-sys-color-error, #ba1a1a); background: var(--md-sys-color-error-container, #ffdad6); }
 .profil-kodovi-obrazac { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-top: 12px; }
 .profil-kodovi-obrazac .form-group { flex: 1 1 16rem; margin: 0; }
+/* Vlastoručni potpis: pregled skena lijevo, obrazac za novi sken desno */
+.profil-sken { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 1fr); gap: 16px; align-items: start; margin-top: 12px; }
+.profil-sken .form-group { margin-bottom: 8px; }
+.profil-sken .profil-gumbi { justify-content: flex-end; }
+@media (max-width: 599px) { .profil-sken { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 767px) {
   .profil-racunala thead { display: none; }
   .profil-racunala, .profil-racunala tbody, .profil-racunala tr, .profil-racunala td { display: block; width: 100%; }
