@@ -303,7 +303,7 @@
         {{end}}
       </div>
       {{else}}
-      <p class="page-desc">Još niste ni u jednom planu dežurstava. Kad vas uprava centra upiše, ili se upišete sami, ovdje su plan i izvješće o satima.</p>
+      <p class="page-desc">{{if .IzvodjacZaCOP}}Izvođač je vanjski suradnik: njegova dežurstva i sate vodi njegova tvrtka, pa ih na Profilu nema.{{else}}Još niste ni u jednom planu dežurstava. Kad vas uprava centra upiše, ili se upišete sami, ovdje su plan i izvješće o satima.{{end}}</p>
       {{end}}
     </section>
 

@@ -433,6 +433,12 @@ func (h *UsersHandler) dodajMojePrijave(ctx context.Context, data *UserPageData)
 	data.MojePrijave, data.MojePrijaveGreska = prijave, err != nil
 }
 
+// IzvodjacZaCOP: izvođač je vanjski suradnik koga plaća njegova tvrtka, pa na Profilu nema
+// dežurstava ni sati (Odluke (30. 10. 2026.)) i Profil mu to tako i kaže
+func (d UserPageData) IzvodjacZaCOP() bool {
+	return d.User != nil && service.JeIzvodjacZaCOP(d.User)
+}
+
 // DomenaPoste je domena tvrtke kad je vlastita adresa izvan nje, inače
 // prazno. Sandučić i e-pošta tvrtke rade samo s Exchangeom tvrtke, pa ih
 // osoba s drugom adresom (npr. izvođač) nema (Odluke (15. 11. 2026.)).
