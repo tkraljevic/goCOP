@@ -49,6 +49,9 @@ type ZalijepljenoOcitanje struct {
 	// Ispis je vrijeme iz ispisa kad ima minute („07:25”); upisuje se puni sat,
 	// pa pregled to kaže u retku (Odluke (15. 11. 2026.), 3).
 	Ispis string
+	// IzvanRaspona je redak koji je pročitan, ali mu je vrijeme ili vodostaj
+	// izvan raspona: pregled pokazuje i vrijeme i vrijednost, a ne upisuje ga.
+	IzvanRaspona bool
 
 	// Usporedba s onim što već imamo
 	Postoji  bool

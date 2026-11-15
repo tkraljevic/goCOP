@@ -476,6 +476,7 @@ func (h *ReadingsHandler) HandleOcitanjaUvoz(w http.ResponseWriter, r *http.Requ
 		redirectWith(w, r, back, "error", err.Error())
 		return
 	}
+	oznaciIzvanRasponaIspravaka(redci, station, time.Now())
 	ctx := r.Context()
 	oznaciRetkeBezPrava(redci,
 		func(rd *models.Reading) bool { return h.readingService.CanDelete(ctx, perms, rd) },
