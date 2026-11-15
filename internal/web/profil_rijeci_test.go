@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"gocop/internal/service"
 	webassets "gocop/web"
 )
 
@@ -69,6 +70,35 @@ func TestProfilOstaliOdjeljci(t *testing.T) {
 	for _, staro := range []string{"tvoje prijave", "šalješ", "Pokušaj ponovno"} {
 		if strings.Contains(s, staro) {
 			t.Errorf("Profil se mora obraćati s „vi”, a piše %q", staro)
+		}
+	}
+}
+
+// Odluke (15. 11. 2026.), Profil 7a–7d: rečenica o tri kriva upisa i
+// posljedice promjene lozinke, kratak naziv preglednika, potvrda prije
+// zaboravljanja ovog računala i Stanje razmjene kao redak.
+func TestProfilSitnice(t *testing.T) {
+	r := naziviRacunala([]service.Racunalo{
+		{UserAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"},
+		{UserAgent: ""},
+	})
+	if len(r) != 2 || r[0].Naziv != "Safari 17 · iOS" || r[1].Naziv != "" {
+		t.Errorf("nazivi računala: %+v", r)
+	}
+	b, err := fs.ReadFile(webassets.Files, "templates/profile.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(b)
+	for _, want := range []string{
+		"Nakon tri kriva upisa obrasci s lozinkom zatvaraju se na 15 minuta.",
+		`<h3 class="obrazac-podnaslov">Što promjena povuče</h3>`,
+		`<span title="{{.UserAgent}}">{{.Naziv}}</span>`,
+		`{{if .OvoRacunalo}} onclick="return confirm('Zaboraviti ovo računalo?`,
+		`<a href="/sinkronizacija">`,
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("Profil nema %q", want)
 		}
 	}
 }

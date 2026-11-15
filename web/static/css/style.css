@@ -4482,6 +4482,8 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .profil-odjeljci a.je-odabran { background: var(--md-sys-color-ploha-odabrano); color: var(--md-sys-color-primary, var(--primary)); }
 .profil-sadrzaj { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .profil-skupina { display: flex; flex-direction: column; gap: 16px; }
+.profil-posljedice { margin: 0; padding-left: 1.2rem; font-size: 0.9rem; }
+.profil-posljedice li { margin-bottom: 4px; }
 /* Odredišta u odjeljku (E-pošta tvrtke): redak s ikonom, nazivom, opisom i strelicom */
 .profil-redci { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
 .profil-redci a {
