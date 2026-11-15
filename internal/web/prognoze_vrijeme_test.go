@@ -645,13 +645,10 @@ func TestKisomjerBlizuSeNeJavlja(t *testing.T) {
 	}
 }
 
-// Poveznica kartice Naslovne u modul koji račun ne vidi se skida: voditelj
-// usluga ima karticu Vrijeme, a Prognoze su u modulu Očitanja.
+// Poveznica kartice Naslovne u modul koji račun ne vidi se skida: račun bez
+// Očitanja ima karticu Vrijeme, a Prognoze su u modulu Očitanja.
 func TestPoveznicaKojuVidi(t *testing.T) {
-	usluga := models.Visibility{}
-	for _, m := range models.DefaultModules(models.RoleServiceLeaderForeman) {
-		usluga[m] = true
-	}
+	usluga := models.Visibility{models.ModuleField: true, models.ModuleJournals: true}
 	if k := poveznicaKojuVidi(glaveKartica[kVrijeme], usluga); k.Poveznica != "" || k.URL != "" || k.Naslov != "Vrijeme" {
 		t.Errorf("usluga: %+v", k)
 	}

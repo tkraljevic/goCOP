@@ -65,8 +65,10 @@ func DefaultModules(r Role) []string {
 	case r == RoleGlobalAdmin:
 		return []string{ModuleField, ModuleReadings, ModuleJournals, ModuleRegisters, ModuleUsers, ModuleAdmin}
 	case r == RoleServiceLeaderForeman:
-		// izvođač: početni pregled terena i vlastiti dnevnici
-		return []string{ModuleField, ModuleJournals}
+		// izvođač: prijave, letve i vodostaji u Očitanjima te vlastiti dnevnici.
+		// Do 15. 11. 2026. letve je vidio samo na Terenu, koji je ukinut (Odluke
+		// (15. 11. 2026.), 1); upisuje samo gdje mu to daju prava na letvi.
+		return []string{ModuleField, ModuleReadings, ModuleJournals}
 	case r == RoleWarehouseKeeper:
 		// skladištar: sredstva su u registrima
 		return []string{ModuleField, ModuleReadings, ModuleRegisters}
