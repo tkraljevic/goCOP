@@ -424,24 +424,17 @@ func neobavezanCm(s string) (*int, error) {
 
 // PregledOcitanja je ono što se pokaže prije nego što se išta upiše.
 type PregledOcitanja struct {
-	CurrentUser *models.User
-	Permissions *models.UserPermissions
-	Station     *models.Station
-	Structure   *models.Structure
-	GaugeName   string
-	BackURL     string
-	PotvrdaURL  string
-	Redci       []RedakOcitanja
-	Izmjena     int
-	Brisanja    int
-	Greske      int
-	Netaknuto   int
-	Datoteka    string
-
-	SuccessMessage string
-	ErrorMessage   string
-	ActiveNav      string
-	ViewAsBanner
+	GaugeName string
+	BackURL   string
+	// NazivPovratka: „Uvoz i izvoz” na letvi, ime objekta na objektu
+	NazivPovratka string
+	PotvrdaURL    string
+	Redci         []RedakOcitanja
+	Izmjena       int
+	Brisanja      int
+	Greske        int
+	Netaknuto     int
+	Datoteka      string
 }
 
 // HandleOcitanjaUvoz prima vraćenu datoteku i pokazuje što bi se promijenilo.
@@ -452,7 +445,7 @@ func (h *ReadingsHandler) HandleOcitanjaUvoz(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	back := povratakIspravaka(station, structure)
-	u, perms := h.base(r)
+	_, perms := h.base(r)
 	if !h.smijeMijenjati(perms, station, structure) {
 		redirectWith(w, r, back, "error", "Nemate pravo mijenjati očitanja ove letve")
 		return
@@ -490,11 +483,12 @@ func (h *ReadingsHandler) HandleOcitanjaUvoz(w http.ResponseWriter, r *http.Requ
 
 	ime, _ := gaugeNames(station, structure)
 	data := PregledOcitanja{
-		CurrentUser: u, Permissions: perms, Station: station, Structure: structure,
-		GaugeName: ime, BackURL: back, Redci: redci, Datoteka: zaglavlje.Filename,
+		GaugeName: ime, BackURL: back, NazivPovratka: ime, Redci: redci, Datoteka: zaglavlje.Filename,
 		// potvrda ide na letvu ili objekt, ne na povratak: povratak letve je kartica Uvoz i izvoz
 		PotvrdaURL: vezaLetve(station, structure) + "/ocitanja/potvrdi",
-		ActiveNav:  "readings", ViewAsBanner: viewBanner(r),
+	}
+	if station != nil {
+		data.NazivPovratka = "Uvoz i izvoz"
 	}
 	for _, x := range redci {
 		switch {
@@ -508,7 +502,19 @@ func (h *ReadingsHandler) HandleOcitanjaUvoz(w http.ResponseWriter, r *http.Requ
 			data.Netaknuto++
 		}
 	}
-	if err := h.tmplOcitanjaCSV.ExecuteTemplate(w, "ocitanja_ispravci.html", data); err != nil {
+	h.pokaziPregledIspravaka(w, r, &data)
+}
+
+// pokaziPregledIspravaka iscrtava pregled na stranici letve ili objekta, na
+// mjestu kartice „Uvoz i izvoz”, istim rasporedom kao pregled unosa
+// (goCOP-m3, 12 · Letva Batina · pregled ispravaka)
+func (h *ReadingsHandler) pokaziPregledIspravaka(w http.ResponseWriter, r *http.Request, p *PregledOcitanja) {
+	data, _, ok := h.podaciOcitanja(w, r)
+	if !ok {
+		return
+	}
+	data.LetvaStranica, data.PregledIspravaka = "uvoz", p
+	if err := h.tmplHistory.ExecuteTemplate(w, "reading_history.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

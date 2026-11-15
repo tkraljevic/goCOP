@@ -245,6 +245,7 @@
 {{/* Skupni unos vrijedi samo za letvu: ispis s letva.voda.hr i putanja uvoza
      idu po letvi. Vodna građevina nema takav izvor, a bez ove zaštite bi
      stranica na njoj pucala. */}}
+{{with .PregledIspravaka}}{{template "pregledIspravaka" .}}{{else}}
 {{if and .Station (eq .LetvaStranica "uvoz")}}
 {{/* Kartica Uvoz i izvoz (goCOP-m3, 12 · Očitanja): izvoz za svakoga, a
      ispravci u tablici i skupni unos za onoga tko smije upisivati. Nakon
@@ -306,6 +307,7 @@
   </section>
   {{end}}
 </div>
+{{end}}
 {{end}}
 {{end}}
 
@@ -380,6 +382,73 @@
       <a href="/readings/station/{{.Station.ID}}/uvoz-izvoz" class="btn btn-link">Odustani</a>
       <button type="submit" class="btn btn-primary" {{if not .Novih}}disabled{{end}}>Upiši {{brojHR .Novih}} {{uzBroj .Novih "očitanje" "očitanja" "očitanja"}}</button>
     </div>
+  </form>
+</section>
+{{end}}
+
+{{/* Pregled ispravaka iz datoteke (goCOP-m3, 12 · Letva Batina · pregled
+     ispravaka): isti raspored kao pregled unosa. Upisuje se samo ono što je
+     na zaslonu, redak po redak. */}}
+{{define "pregledIspravaka"}}
+<section class="pun" aria-labelledby="pis-naslov">
+  <a class="povratna-poveznica" href="{{.BackURL}}">← {{.NazivPovratka}}</a>
+  <h2 id="pis-naslov" class="pun-naslov">Što bi se promijenilo</h2>
+  <p class="pun-opis">Iz datoteke <strong>{{.Datoteka}}</strong>. Ništa još nije upisano. Pogledajte popis pa potvrdite.</p>
+
+  <div class="pis-cipovi">
+    <span class="pis-cip">{{icon "pencil"}}{{brojHR .Izmjena}} za ispravak</span>
+    {{if .Brisanja}}<span class="pis-cip">{{icon "trash"}}{{brojHR .Brisanja}} za brisanje</span>{{end}}
+    {{if .Netaknuto}}<span class="pis-cip">{{brojHR .Netaknuto}} {{uzBroj .Netaknuto "nepromijenjeno" "nepromijenjena" "nepromijenjeno"}}</span>{{end}}
+    {{if .Greske}}<span class="pis-cip pis-cip-greska">{{icon "triangle-alert"}}{{brojHR .Greske}} s greškom</span>{{end}}
+  </div>
+  {{if .Greske}}<p class="pis-napomena">{{icon "triangle-alert"}}Redci s greškom se preskaču. Ostali se mogu upisati.</p>{{end}}
+
+  <form method="POST" action="{{.PotvrdaURL}}">
+  <div class="pun-tablica">
+    <table class="data-table">
+      <thead><tr><th>Redak</th><th>Očitanje</th><th>Što se mijenja</th></tr></thead>
+      <tbody>
+      {{range .Redci}}
+      <tr class="{{if .Greska}}pun-greska{{else if .Brisati}}pun-razlicit{{else if not .Izmjene}}pun-postoji{{end}}">
+        <td class="mono">{{.Redak}}.</td>
+        <td class="mono">{{if .Staro.MeasuredAt.IsZero}}—{{else}}{{formatDate .Staro.LocalTime}} · <strong>{{if .Staro.LevelCm}}{{intOf .Staro.LevelCm}} cm{{else}}—{{end}}</strong>{{end}}</td>
+        <td>
+          {{if .Greska}}<span class="pun-poruka">{{.Greska}}</span>
+          {{else if .Brisati}}<span class="pun-znacka">briše se</span>
+          {{else if .Izmjene}}
+            {{range .Izmjene}}<div>{{.Polje}}: <s>{{if .Staro}}{{.Staro}}{{else}}prazno{{end}}</s> → <strong>{{if .Novo}}{{.Novo}}{{else}}prazno{{end}}</strong></div>{{end}}
+          {{else}}nepromijenjeno{{end}}
+        </td>
+      </tr>
+      {{if .Mijenja}}
+      <input type="hidden" name="id" value="{{.ID}}">
+      <input type="hidden" name="obrisi" value="{{if .Brisati}}da{{end}}">
+      <input type="hidden" name="vrijeme" value="{{.Novo.MeasuredAt.Format "2006-01-02T15:04:05Z07:00"}}">
+      <input type="hidden" name="vodostaj" value="{{if .Novo.LevelCm}}{{intOf .Novo.LevelCm}}{{end}}">
+      <input type="hidden" name="nizvodni" value="{{if .Novo.Level2Cm}}{{intOf .Novo.Level2Cm}}{{end}}">
+      <input type="hidden" name="temperatura" value="{{if .Novo.TempC}}{{deref .Novo.TempC}}{{end}}">
+      <input type="hidden" name="protok" value="{{if .Novo.FlowM3s}}{{deref .Novo.FlowM3s}}{{end}}">
+      <input type="hidden" name="ocitao" value="{{.Novo.Observer}}">
+      <input type="hidden" name="napomena" value="{{.Novo.Note}}">
+      {{end}}
+      {{else}}
+      <tr><td colspan="3">Datoteka ne mijenja nijedno očitanje.</td></tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div>
+
+  <p class="pun-uputa">Svaka izmjena ulazi u knjigu verzija s vašim imenom, kao i izmjena pojedinog očitanja.
+    Obrisano očitanje nestaje s popisa, ali zapis o njemu ostaje.</p>
+  <div class="pun-gumbi">
+    <a href="{{.BackURL}}" class="btn btn-link">Odustani</a>
+    {{if or .Izmjena .Brisanja}}
+    <button type="submit" class="btn btn-primary">Upiši
+      {{if .Izmjena}}{{brojHR .Izmjena}} {{uzBroj .Izmjena "ispravak" "ispravka" "ispravaka"}}{{end}}
+      {{if and .Izmjena .Brisanja}}i{{end}}
+      {{if .Brisanja}}{{brojHR .Brisanja}} {{uzBroj .Brisanja "brisanje" "brisanja" "brisanja"}}{{end}}</button>
+    {{end}}
+  </div>
   </form>
 </section>
 {{end}}
