@@ -351,12 +351,21 @@
       <p class="form-help">Ostaje uz svako očitanje, da se poslije zna odakle je došlo.</p>
     </div>
 
-    <div class="pun-tablica">
+    {{/* Izbor redaka i listanje po 50 (Odluke (15. 11. 2026.), 5) rade u pregledniku:
+         svi redci su u obrascu, pa se upisuje sve što je novo, bez obzira na to što se vidi.
+         Bez JavaScripta vide se svi redci. */}}
+    <div class="ocitanja-cipovi pun-izbor" role="group" aria-label="Koji se redci vide" hidden>
+      <button type="button" class="ocitanja-cip" data-vrsta="" aria-pressed="true">Svi · {{brojHR (len .Redci)}}</button>
+      <button type="button" class="ocitanja-cip" data-vrsta="novo" aria-pressed="false">Novi · {{brojHR .Novih}}</button>
+      <button type="button" class="ocitanja-cip" data-vrsta="razlicit" aria-pressed="false">S drugom vrijednošću · {{brojHR .Razlicitih}}</button>
+      <button type="button" class="ocitanja-cip" data-vrsta="greska" aria-pressed="false">Ne upisuje se · {{brojHR .Greske}}</button>
+    </div>
+    <div class="pun-tablica" data-listanje>
       <table class="data-table">
         <thead><tr><th>Redak</th><th>Kad</th><th class="text-right">Vodostaj</th><th>Stanje</th></tr></thead>
         <tbody>
         {{range .Redci}}
-        <tr class="{{if .Greska}}pun-greska{{else if .Razlicit}}pun-razlicit{{else if .Postoji}}pun-postoji{{end}}">
+        <tr data-vrsta="{{if .Greska}}greska{{else if .Razlicit}}razlicit{{else if .Postoji}}postoji{{else}}novo{{end}}" class="{{if .Greska}}pun-greska{{else if .Razlicit}}pun-razlicit{{else if .Postoji}}pun-postoji{{end}}">
           <td class="mono">{{.Redak}}</td>
           <td class="mono">{{if or (not .Greska) .IzvanRaspona}}{{formatDate (localTime .Kad)}}{{else}}—{{end}}</td>
           <td class="mono text-right">{{if or (not .Greska) .IzvanRaspona}}<strong>{{brojHRf .Vrijedi 0}}</strong> cm{{else}}—{{end}}</td>
@@ -373,9 +382,15 @@
           </td>
         </tr>
         {{end}}
+        <tr class="pun-nema" hidden><td colspan="4">Nema takvih redaka.</td></tr>
         </tbody>
       </table>
     </div>
+    <nav class="pun-listanje" aria-label="Listanje redaka" hidden>
+      <button type="button" class="btn btn-link" data-smjer="-1">{{icon "chevron-left"}}Prethodnih 50</button>
+      <span class="pun-listanje-opis" aria-live="polite"></span>
+      <button type="button" class="btn btn-link" data-smjer="1">Sljedećih 50{{icon "chevron-right"}}</button>
+    </nav>
 
     {{if .Razlicitih}}
     <p class="pun-uputa">Očitanja koja već postoje s drugom vrijednošću se ne mijenjaju. Postojeće očitanje ispravlja se
@@ -386,6 +401,39 @@
       <button type="submit" class="btn btn-primary" {{if not .Novih}}disabled{{end}}>Upiši {{brojHR .Novih}} {{uzBroj .Novih "očitanje" "očitanja" "očitanja"}}</button>
     </div>
   </form>
+  <script>
+    (function () {
+      var tablica = document.querySelector('.pun-tablica[data-listanje]'); if (!tablica) return;
+      var izbor = document.querySelector('.pun-izbor'), listanje = document.querySelector('.pun-listanje');
+      var redci = [].slice.call(tablica.querySelectorAll('tbody tr[data-vrsta]')), nema = tablica.querySelector('.pun-nema');
+      var opis = listanje.querySelector('.pun-listanje-opis'), PO = 50, vrsta = '', stranica = 0;
+      function broj(n) { return n.toLocaleString('hr-HR'); }
+      function iscrtaj() {
+        var vidljivi = redci.filter(function (r) { return !vrsta || r.dataset.vrsta === vrsta; });
+        var od = stranica * PO, n = vidljivi.length;
+        redci.forEach(function (r) { r.hidden = true; });
+        vidljivi.slice(od, od + PO).forEach(function (r) { r.hidden = false; });
+        nema.hidden = n > 0;
+        listanje.hidden = n <= PO;
+        opis.textContent = 'Redci ' + broj(od + 1) + '–' + broj(Math.min(od + PO, n)) + ' od ' + broj(n);
+        listanje.querySelector('[data-smjer="-1"]').disabled = stranica === 0;
+        listanje.querySelector('[data-smjer="1"]').disabled = od + PO >= n;
+      }
+      izbor.hidden = false;
+      izbor.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-vrsta]'); if (!b) return;
+        vrsta = b.dataset.vrsta; stranica = 0;
+        izbor.querySelectorAll('[data-vrsta]').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+        iscrtaj();
+      });
+      listanje.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-smjer]'); if (!b) return;
+        stranica += Number(b.dataset.smjer); iscrtaj();
+        tablica.scrollIntoView({ block: 'nearest' });
+      });
+      iscrtaj();
+    })();
+  </script>
 </section>
 {{end}}
 
@@ -406,13 +454,18 @@
   </div>
   {{if .Greske}}<p class="pis-napomena">{{icon "triangle-alert"}}Redci s greškom se preskaču. Ostali se mogu upisati.</p>{{end}}
 
+  {{/* Nepromijenjeni redci se ne nabrajaju, samo broje (Odluke (15. 11. 2026.), 5). */}}
+  {{if .Netaknuto}}
+  <p class="pis-netaknuti">{{brojHR .Netaknuto}} {{uzBroj .Netaknuto "redak se ne mijenja i nije na popisu" "retka se ne mijenjaju i nisu na popisu" "redaka se ne mijenja i nije na popisu"}}.
+    <button type="button" class="btn btn-link" onclick="document.querySelectorAll('.pis-netaknut').forEach(function (r) { r.hidden = false; }); this.parentNode.hidden = true;">Prikaži</button></p>
+  {{end}}
   <form method="POST" action="{{.PotvrdaURL}}">
   <div class="pun-tablica">
     <table class="data-table">
       <thead><tr><th>Redak</th><th>Očitanje</th><th>Što se mijenja</th></tr></thead>
       <tbody>
       {{range .Redci}}
-      <tr class="{{if .Greska}}pun-greska{{else if .Brisati}}pun-razlicit{{else if not .Izmjene}}pun-postoji{{end}}">
+      <tr class="{{if .Greska}}pun-greska{{else if .Brisati}}pun-razlicit{{else if not .Izmjene}}pun-postoji pis-netaknut{{end}}"{{if and (not .Greska) (not .Brisati) (not .Izmjene)}} hidden{{end}}>
         <td class="mono">{{.Redak}}.</td>
         <td class="mono">{{if .Staro.MeasuredAt.IsZero}}—{{else}}{{formatDate .Staro.LocalTime}} · <strong>{{if .Staro.LevelCm}}{{intOf .Staro.LevelCm}} cm{{else}}—{{end}}</strong>{{end}}</td>
         <td>
@@ -434,7 +487,8 @@
       <input type="hidden" name="ocitao" value="{{.Novo.Observer}}">
       <input type="hidden" name="napomena" value="{{.Novo.Note}}">
       {{end}}
-      {{else}}
+      {{end}}
+      {{if not (or .Izmjena .Brisanja .Greske)}}
       <tr><td colspan="3">Datoteka ne mijenja nijedno očitanje.</td></tr>
       {{end}}
       </tbody>
