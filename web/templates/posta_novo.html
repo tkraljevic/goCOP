@@ -19,6 +19,7 @@
 <section class="detail-section" style="margin-top:0; max-width:52rem;">
   <form method="POST" action="/posta/novo" enctype="multipart/form-data">
     <input type="hidden" name="odgovor_na" value="{{.Novo.OdgovorNa}}">
+    <input type="hidden" name="nacin" value="{{.Nacin}}">
     {{range .Novo.Proslijedi}}<input type="hidden" name="proslijedi" value="{{.}}">{{end}}
     <div class="form-group adresa-polje">
       <label class="form-label" for="za">Za</label>
@@ -65,7 +66,7 @@
         <div class="urednik-polje form-control" id="urednik-polje" contenteditable="true" spellcheck="true"></div>
       </div>
       <textarea class="form-control" id="tekst" name="tekst" rows="14">{{.Novo.Tekst}}</textarea>
-      <input type="hidden" name="html" id="html">
+      <input type="hidden" name="html" id="html" value="{{.Novo.HTML}}">
       <input type="hidden" id="potpis-html" value="{{.Potpis}}">
       <div class="form-help">{{if .Potpis}}Potpis se ubacuje sam; <a href="/profile/potpis">uredi potpis</a>.{{else}}Potpis još niste postavili: <a href="/profile/potpis">postavite ga u profilu</a> pa se ubacuje u svako pismo.{{end}}</div>
     </div>
@@ -74,6 +75,7 @@
     {{end}}{{end}}
     <div class="form-group">
       <label class="form-label" for="privitak">Privitci</label>
+      {{with .PrivitciPonovo}}<div class="alert alert-warning">Pismo nije poslano, pa privitke odaberite ponovno: {{range $i, $p := .}}{{if $i}}, {{end}}{{$p}}{{end}}.</div>{{end}}
       <input type="file" class="form-control" id="privitak" name="privitak" multiple>
       <div class="form-help">Ukupno do 32 MB.</div>
     </div>
@@ -179,13 +181,16 @@
     // tekst iz obrasca (odgovor, prosljeđivanje) postaje oblikovani sadržaj:
     // navod izvornog pisma ide u blockquote
     function escape(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    // pismo koje nije poslano vraća se s oblikovanim tekstom kakav je bio,
+    // s potpisom i navodom; tada se ne slaže iznova
+    var vraceno = html.value;
     var dijelovi = tekst.value.split(/\n\n-{40}\n/);
     var uvod = escape(dijelovi[0] || '').replace(/\n/g, '<br>');
     var sadrzaj = '<p>' + (uvod || '<br>') + '</p>';
     var potpis = document.getElementById('potpis-html');
     if (potpis && potpis.value) sadrzaj += '<p><br></p><div class="potpis">' + potpis.value + '</div>';
     if (dijelovi.length > 1) sadrzaj += '<blockquote>' + escape(dijelovi.slice(1).join('\n')).replace(/\n/g, '<br>') + '</blockquote>';
-    polje.innerHTML = sadrzaj;
+    polje.innerHTML = vraceno || sadrzaj;
     urednik.hidden = false;
     tekst.hidden = true;
     tekst.required = false;

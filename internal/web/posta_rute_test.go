@@ -382,6 +382,34 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	if !strings.Contains(zadnje, "To: <signator@voda.hr>, <kolega@voda.hr>") || !strings.Contains(zadnje, "In-Reply-To: <sig-1@voda.hr>") || !strings.Contains(zadnje, `filename="biljeska.txt"`) {
 		t.Errorf("poslani odgovor:\n%.800s", zadnje)
 	}
+	// pismo koje poslužitelj odbije vraća se sa svim napisanim: kopija,
+	// oblikovani tekst, veza s izvornim pismom; privitci se samo imenuju
+	srv.Odbij = []string{"odbija@voda.hr"}
+	var tijeloO bytes.Buffer
+	mwO := multipart.NewWriter(&tijeloO)
+	_ = mwO.WriteField("za", "odbija@voda.hr") // pisanje u memoriju ne vraća grešku
+	_ = mwO.WriteField("kopija", "kolega@voda.hr") // pisanje u memoriju ne vraća grešku
+	_ = mwO.WriteField("predmet", "RE: Obavijest") // pisanje u memoriju ne vraća grešku
+	_ = mwO.WriteField("html", `<p>Dugo pisani <b>odgovor</b>.</p>`) // pisanje u memoriju ne vraća grešku
+	_ = mwO.WriteField("odgovor_na", "<sig-1@voda.hr>") // pisanje u memoriju ne vraća grešku
+	_ = mwO.WriteField("nacin", "odgovori") // pisanje u memoriju ne vraća grešku
+	fwO, _ := mwO.CreateFormFile("privitak", "zapisnik.pdf") // pisanje u memoriju ne vraća grešku
+	_, _ = fwO.Write([]byte("%PDF")) // pisanje u memoriju ne vraća grešku
+	_ = mwO.Close() // pisanje u memoriju ne vraća grešku
+	rO := httptest.NewRequest(http.MethodPost, "/posta/novo", &tijeloO)
+	rO.Header.Set("Content-Type", mwO.FormDataContentType())
+	wO := zovi(rO)
+	vraceno := wO.Body.String()
+	if wO.Code != http.StatusUnprocessableEntity || wO.Header().Get("Location") != "" {
+		t.Fatalf("odbijeno pismo mora ostati na obrascu: %d %s", wO.Code, wO.Header().Get("Location"))
+	}
+	for _, want := range []string{`value="kolega@voda.hr"`, `value="RE: Obavijest"`, `value="&lt;p&gt;Dugo pisani &lt;b&gt;odgovor&lt;/b&gt;.&lt;/p&gt;"`, `value="&lt;sig-1@voda.hr&gt;"`, `name="nacin" value="odgovori"`, "privitke odaberite ponovno: zapisnik.pdf"} {
+		if !strings.Contains(vraceno, want) {
+			t.Errorf("odbijeno pismo izgubilo je %s", want)
+		}
+	}
+	srv.Odbij = nil
+
 	// prijedlozi adresa: djelatnici, registar, adresar tvrtke
 	srv.Adresar = []posta.Kontakt{{Ime: "Ana Anić", Email: "ana.anic@voda.hr"}}
 	wa := zovi(httptest.NewRequest(http.MethodGet, "/posta/adrese.json?q=ana", nil))
