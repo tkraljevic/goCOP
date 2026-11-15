@@ -135,9 +135,9 @@ func TestZalijepljenaOcitanjaPregledOdbija(t *testing.T) {
 	}{
 		{"bez prava", iva, ivaOvl, obicniObrazac("/", "tekst="+url.QueryEscape(ispisLetve)), "Nemate pravo upisivati očitanja na Primjerovo"},
 		{"prazno", o.pero, o.peroOvl, viseDijelni(t, "/", map[string]string{"tekst": "  "}, datotekaObrasca{"datoteka", "prazno.txt", ""}),
-			"Zalijepi očitanja ili odaberi datoteku"},
+			"Zalijepite očitanja ili odaberite datoteku"},
 		{"stari Excel", o.pero, o.peroOvl, datoteka("ispis.xls", "\xd0\xcf\x11\xe0ostatak"),
-			"Ovo je stari Excel oblik (.xls). Spremi datoteku kao .xlsx pa je ponovno pošalji."},
+			"Ovo je stari Excel oblik (.xls). Spremite datoteku kao .xlsx pa je ponovno pošaljite."},
 		{"Excel koji to nije", o.pero, o.peroOvl, datoteka("ispis.xlsx", "PK nije zip"), "zip"},
 		{"Excel koji nije ispis s letve", o.pero, o.peroOvl, datoteka("ispis.xlsx", string(napraviXLSX(t, [][]string{{"nešto"}, {"1", "2"}}))),
 			"u tablici nema stupca „Vrijeme očitanja“"},
@@ -147,7 +147,7 @@ func TestZalijepljenaOcitanjaPregledOdbija(t *testing.T) {
 		t.Run(s.opis, func(t *testing.T) {
 			odg := naLetvi(o.h.HandleZalijepiPregled, s.r, id, s.u, s.p)
 			putanja, poruka := odg.poruka(t, "error")
-			if putanja != "/readings/station/"+id || !strings.Contains(poruka, s.poruka) {
+			if putanja != "/readings/station/"+id+"/uvoz-izvoz" || !strings.Contains(poruka, s.poruka) {
 				t.Errorf("%s: %s %q", s.opis, putanja, poruka)
 			}
 		})
@@ -167,8 +167,9 @@ func TestZalijepljenaOcitanjaPotvrda(t *testing.T) {
 	potvrdi := func(f url.Values) *httpOdgovor {
 		return naLetvi(o.h.HandleZalijepiPotvrda, obicniObrazac("/", f.Encode()), id, o.pero, o.peroOvl)
 	}
-	if _, p := potvrdi(forma).poruka(t, "success"); p != "Upisano 2 od 2 očitanja." {
-		t.Errorf("prva potvrda: %q", p)
+	// nakon upisa natrag u karticu Uvoz i izvoz, gdje je i obrazac
+	if put, p := potvrdi(forma).poruka(t, "success"); p != "Upisano 2 od 2 očitanja." || put != "/readings/station/"+id+"/uvoz-izvoz" {
+		t.Errorf("prva potvrda: %s %q", put, p)
 	}
 	if _, p := potvrdi(forma).poruka(t, "success"); p != "Upisano 0 od 2 očitanja. Ostala su već bila upisana." {
 		t.Errorf("ponovljena potvrda: %q", p)
@@ -228,7 +229,7 @@ func TestZalijepljenaOcitanjaPotvrdaOdbija(t *testing.T) {
 	} {
 		t.Run(s.opis, func(t *testing.T) {
 			putanja, poruka := naLetvi(o.h.HandleZalijepiPotvrda, obicniObrazac("/", s.tijelo), id, s.u, s.p).poruka(t, "error")
-			if putanja != "/readings/station/"+id || poruka != s.poruka {
+			if putanja != "/readings/station/"+id+"/uvoz-izvoz" || poruka != s.poruka {
 				t.Errorf("%s %q", putanja, poruka)
 			}
 		})

@@ -288,7 +288,7 @@ func TestUvozOcitanjaOdbijeniSlucajevi(t *testing.T) {
 		}, "Nemate pravo mijenjati očitanja ove letve"},
 		"bez datoteke": {func() *httptest.ResponseRecorder {
 			return p.datoteka(t, "dežurni", put, "", "", map[string]string{"x": "1"})
-		}, "Odaberi datoteku"},
+		}, "Odaberite datoteku"},
 		"nije obrazac s datotekom": {func() *httptest.ResponseRecorder {
 			return p.obrazac("dežurni", put, url.Values{"x": {"1"}})
 		}, "Datoteka nije primljena: "},
@@ -484,7 +484,7 @@ func TestCitanjeOcitanjaGreskePoStupcu(t *testing.T) {
 		"%s;2014-03-02 07:00;-118;12,5;;":                              "nizvodni vodostaj: vodostaj se vodi u punim centimetrima: 12,5",
 		"%s;2014-03-02 07:00;-118;;topla;":                             "temperatura: ",
 		"%s;2014-03-02 07:00;-118;;;mnogo":                             "protok: ",
-		"%s;2014-03-02 07:00;;;;":                                      "očitanje bez vodostaja, temperature i protoka — za brisanje upiši „da“ u stupac obrisi",
+		"%s;2014-03-02 07:00;;;;":                                      "očitanje bez vodostaja, temperature i protoka — za brisanje upišite „da“ u stupac obrisi",
 		"%s;2014-03-02 07:00;-118;3;7,25;231,5":                        "-",
 		"%s;2014-03-02 07:00;-118;;;":                                  "=",
 		"%s;2014-03-02 07:00;-118":                                     "=", // kratak redak: ostali stupci su prazni

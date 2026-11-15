@@ -55,7 +55,7 @@
     <div class="obilazak-traka" role="progressbar" aria-label="Očitano danas" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{.Postotak}}"><span style="width: {{.Postotak}}%"></span></div>
     {{if .NastaviURL}}
     <a class="btn btn-primary obilazak-nastavi" href="{{.NastaviURL}}">{{icon "arrow-right"}}<span>Nastavi obilazak: {{.NastaviIme}}</span></a>
-    {{else}}
+    {{else if eq .Ocitano (len .Letve)}}
     <p class="obilazak-gotovo">{{icon "check"}}Sve moje letve su danas očitane.</p>
     {{end}}
     <ul class="ocitanja-letve">
@@ -66,7 +66,7 @@
           <span class="ocitanja-opis">{{if .Danas}}danas {{.Danas}}{{else}}danas još nije očitana{{with .Obicno}} · {{.}}{{end}}{{end}}</span>
         </a>
         {{if .Danas}}<span class="ocitanja-vrijednost obilazak-ocitano">{{icon "check"}}{{.Vrijed}}</span>
-        {{else}}<a class="btn btn-secondary obilazak-upisi" href="{{.UpisURL}}">{{icon "plus"}}<span>Upiši</span></a>{{end}}
+        {{else if .UpisURL}}<a class="btn btn-secondary obilazak-upisi" href="{{.UpisURL}}">{{icon "plus"}}<span>Upiši</span></a>{{end}}
       </li>
       {{end}}
     </ul>
@@ -99,14 +99,14 @@
     </ul>
   </section>
   {{else}}
-  <p class="ocitanja-prazno">{{if .Moje}}Još nemate svojih letvi. Letve koje očitavate pojavit će se ovdje same, po navici.{{else}}Nijedna letva ne odgovara zadanim filtrima.{{end}}</p>
+  <p class="ocitanja-prazno">{{if .Moje}}Još nemate svojih letava. Letve koje očitavate pojavit će se ovdje same, po navici.{{else}}Nijedna letva ne odgovara zadanim filtrima.{{end}}</p>
   {{end}}
   {{end}}
 
   {{if not .Okno}}{{template "pager" .Pager}}{{end}}
 
   <p class="ocitanja-podnozje">
-    {{brojHR .WithReadings}} {{uzBroj .WithReadings "letva" "letve" "letvi"}} s očitanjima, ukupno {{brojHR .TotalCount}} {{uzBroj .TotalCount "očitanje" "očitanja" "očitanja"}}{{if not .LastAt.IsZero}}, zadnje {{ago .LastAt}}{{end}}.
+    {{brojHR .WithReadings}} {{uzBroj .WithReadings "letva" "letve" "letava"}} s očitanjima, ukupno {{brojHR .TotalCount}} {{uzBroj .TotalCount "očitanje" "očitanja" "očitanja"}}{{if not .LastAt.IsZero}}, zadnje {{ago .LastAt}}{{end}}.
     <a href="{{.URLSve}}">{{if .ShowAll}}Samo letve s očitanjima{{else}}Sve letve iz registara ({{brojHR .TotalGauges}}){{end}}</a>
   </p>
 </div>

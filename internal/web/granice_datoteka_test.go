@@ -313,7 +313,7 @@ func TestZalijepljeniExcelSPreviseTeksta(t *testing.T) {
 	los := xlsxSTablicom(t, sst, `<row>`+strings.Repeat(`<c t="s"><v>0</v></c>`, najviseTekstaXLSX/najviseZnakovaCelije+1)+`</row>`)
 	r := viseDijelni(t, "/", nil, datotekaObrasca{"datoteka", "ispis.xlsx", string(los)})
 	putanja, poruka := naLetvi(o.h.HandleZalijepiPregled, r, id, o.pero, o.peroOvl).poruka(t, "error")
-	if putanja != "/readings/station/"+id || !strings.Contains(poruka, "previše teksta") {
+	if putanja != "/readings/station/"+id+"/uvoz-izvoz" || !strings.Contains(poruka, "previše teksta") {
 		t.Errorf("previše teksta: %s %q", putanja, poruka)
 	}
 

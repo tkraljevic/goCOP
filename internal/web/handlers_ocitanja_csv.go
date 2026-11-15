@@ -316,7 +316,7 @@ func citajOcitanja(sadrzaj []byte, postojeca map[uuid.UUID]models.Reading) ([]Re
 			novo.Note = polje(r, iNapomena)
 		}
 		if !novo.HasAnyValue() {
-			red.Greska = "očitanje bez vodostaja, temperature i protoka — za brisanje upiši „da“ u stupac obrisi"
+			red.Greska = "očitanje bez vodostaja, temperature i protoka — za brisanje upišite „da“ u stupac obrisi"
 			out = append(out, red)
 			continue
 		}
@@ -456,7 +456,7 @@ func (h *ReadingsHandler) HandleOcitanjaUvoz(w http.ResponseWriter, r *http.Requ
 	}
 	f, zaglavlje, err := r.FormFile("datoteka")
 	if err != nil {
-		redirectWith(w, r, back, "error", "Odaberi datoteku")
+		redirectWith(w, r, back, "error", "Odaberite datoteku")
 		return
 	}
 	defer f.Close()
