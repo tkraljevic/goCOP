@@ -95,7 +95,7 @@ func TestProfilSitnice(t *testing.T) {
 		`<h3 class="obrazac-podnaslov">Što promjena povuče</h3>`,
 		`<span title="{{.UserAgent}}">{{.Naziv}}</span>`,
 		`{{if .OvoRacunalo}} onclick="return confirm('Zaboraviti ovo računalo?`,
-		`<a href="/sinkronizacija">`,
+		`{{if .VidiAdministraciju}}<li><a href="/sinkronizacija">`,
 	} {
 		if !strings.Contains(s, want) {
 			t.Errorf("Profil nema %q", want)

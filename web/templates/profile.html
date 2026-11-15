@@ -387,7 +387,7 @@
       <ul class="profil-redci">
         {{if .SmijeUparivati}}<li><a href="/uparivanje">{{icon "link"}}<span><strong>Uparivanje</strong><small>novo računalo ili mobitel</small></span>{{icon "chevron-right"}}</a></li>{{end}}
         <li><a href="/pretplate">{{icon "download"}}<span><strong>Što ovo računalo prati</strong><small>područja i godine čija očitanja i dnevnike ovo računalo prima</small></span>{{icon "chevron-right"}}</a></li>
-        <li><a href="/sinkronizacija">{{icon "refresh-cw"}}<span><strong>Stanje razmjene</strong><small>s kim se ovo računalo razmjenjuje i ručna razmjena</small></span>{{icon "chevron-right"}}</a></li>
+        {{if .VidiAdministraciju}}<li><a href="/sinkronizacija">{{icon "refresh-cw"}}<span><strong>Stanje razmjene</strong><small>s kim se ovo računalo razmjenjuje i ručna razmjena</small></span>{{icon "chevron-right"}}</a></li>{{end}}
       </ul>
     </section>
   </div>
