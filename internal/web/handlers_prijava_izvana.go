@@ -2,8 +2,10 @@ package web
 
 import (
 	"bytes"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"html/template"
 	"net/http"
 	"strings"
 	"time"
@@ -75,6 +77,11 @@ type ProfilPrijaveIzvana struct {
 	Kodovi     []string   // upravo napravljeni rezervni kodovi, samo na ovoj stranici
 	Greska     string     // stanje se nije dalo pročitati
 
+	// KodoviTxt je ista lista kao datoteka za preuzimanje (data: adresa), da
+	// se kodovi sa zaslona preuzmu bez novog niza; KodoviIme je ime datoteke
+	KodoviTxt template.URL
+	KodoviIme string
+
 	// Cvor je ime ovog čvora: rezervni kodovi vrijede samo na njemu
 	Cvor string
 	// Izvana: profil je otvoren izvana (kroz tunel), pa kodovi napravljeni
@@ -91,6 +98,7 @@ func (h *UsersHandler) profilPrijaveIzvana(r *http.Request, u *models.User, kodo
 	ctx := r.Context()
 	o := d.Opcije(ctx)
 	p := &ProfilPrijaveIzvana{Ukljuceno: o.PIN, Domena: o.Domena, Kodovi: kodovi, Cvor: h.imeCvora(), Izvana: dolaziIzvana(r)}
+	p.KodoviTxt, p.KodoviIme = h.datotekaKodova(r, u, kodovi)
 	if _, viewing := stvarnaOsoba(r); viewing {
 		p.TudjimOcima = true
 		return p
@@ -176,6 +184,30 @@ func (h *UsersHandler) HandleRezervniKodoviTxt(w http.ResponseWriter, r *http.Re
 		redirectWith(w, r, natragPrijavaIzvana, "error", err.Error())
 		return
 	}
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+imeDatotekeKodova(u)+`"`)
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	_, _ = w.Write([]byte(h.tekstRezervnihKodova(r, u, kodovi)))
+}
+
+// datotekaKodova je upravo napravljeni niz kao datoteka za preuzimanje sa
+// stranice (data: adresa) i njezino ime; prazno kad kodova nema
+func (h *UsersHandler) datotekaKodova(r *http.Request, u *models.User, kodovi []string) (template.URL, string) {
+	if len(kodovi) == 0 {
+		return "", ""
+	}
+	txt := base64.StdEncoding.EncodeToString([]byte(h.tekstRezervnihKodova(r, u, kodovi)))
+	return template.URL("data:text/plain;charset=utf-8;base64," + txt), imeDatotekeKodova(u)
+}
+
+// imeDatotekeKodova je ime datoteke s rezervnim kodovima osobe
+func imeDatotekeKodova(u *models.User) string {
+	return "gocop-rezervni-kodovi-" + sigurnoIme(u.Username) + ".txt"
+}
+
+// tekstRezervnihKodova je sadržaj datoteke s rezervnim kodovima za ispis
+func (h *UsersHandler) tekstRezervnihKodova(r *http.Request, u *models.User, kodovi []string) string {
 	var b bytes.Buffer
 	fmt.Fprintf(&b, "goCOP: rezervni kodovi za prijavu izvana\r\n")
 	fmt.Fprintf(&b, "Račun: %s (%s)\r\n", u.Username, u.FullName)
@@ -194,11 +226,7 @@ func (h *UsersHandler) HandleRezervniKodoviTxt(w http.ResponseWriter, r *http.Re
 		"kroz koji se prijavljujete izvana.\r\n" +
 		"Iskorišteni kod prekrižite. Novi niz poništava ovaj.\r\n" +
 		"Čuvajte ih kao lozinku: zajedno s lozinkom otvaraju vaš račun izvana.\r\n")
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.Header().Set("Content-Disposition", `attachment; filename="gocop-rezervni-kodovi-`+sigurnoIme(u.Username)+`.txt"`)
-	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-	_, _ = w.Write(b.Bytes())
+	return b.String()
 }
 
 // HandleZaboraviRacunalo zaboravlja jedno zapamćeno računalo stvarne osobe

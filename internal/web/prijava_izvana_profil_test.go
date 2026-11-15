@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/tls"
 	"database/sql"
+	"encoding/base64"
+	"html"
 	"html/template"
 	"io/fs"
 	"net/http"
@@ -248,6 +250,15 @@ func TestRezervniKodoviJednomIBezSpremanja(t *testing.T) {
 	// profilom, da osvježavanje ne napravi novi niz
 	if !strings.Contains(w.Body.String(), `history.replaceState(null, '', '/profile#prijava-izvana')`) {
 		t.Error("stranica s kodovima mora zamijeniti adresu profilom")
+	}
+	// isti kodovi preuzimaju se sa stranice, bez novog niza; gumb koji pravi
+	// novi niz tada se ne nudi
+	txt := preuzetiKodovi(t, w.Body.String())
+	if got := uzorakRezervnog.FindAllString(txt, -1); strings.Join(got, " ") != strings.Join(prvi, " ") {
+		t.Fatalf("preuzeta datoteka mora imati iste kodove: %v, na zaslonu %v", got, prvi)
+	}
+	if strings.Contains(w.Body.String(), "Napravi i preuzmi .txt") {
+		t.Error("dok su kodovi na zaslonu, ne nudi se novi niz za preuzimanje")
 	}
 	// obrasci profila poslani sa stranice kodova vraćaju se na profil, ne na
 	// POST-adresu (405)
@@ -735,4 +746,18 @@ func TestPosiljateljPINaBezEPoste(t *testing.T) {
 	if w := o.posalji(ja, http.MethodPost, "/profile/posta", url.Values{"lozinka": {"x"}}); w.Code != http.StatusServiceUnavailable {
 		t.Errorf("lozinka e-pošte bez e-pošte: %d", w.Code)
 	}
+}
+
+// preuzetiKodovi pročita datoteku iz gumba „Preuzmi ove kodove” na stranici
+func preuzetiKodovi(t *testing.T, stranica string) string {
+	t.Helper()
+	m := regexp.MustCompile(`href="data:text/plain;charset=utf-8;base64,([^"]+)" download="gocop-rezervni-kodovi-ana.txt"`).FindStringSubmatch(stranica)
+	if m == nil {
+		t.Fatal("na stranici s kodovima nema gumba za preuzimanje tih kodova")
+	}
+	b, err := base64.StdEncoding.DecodeString(html.UnescapeString(m[1]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
 }

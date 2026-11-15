@@ -123,6 +123,7 @@
         </ol>
         Prepišite ih ili ispišite i čuvajte kao lozinku. Prikazuju se samo sada; program pamti samo njihove sažetke. Svaki vrijedi za jednu prijavu izvana kad PIN ne stigne, a stari niz više ne vrijedi.
         Vrijede samo na čvoru {{if .Cvor}}<span class="mono">{{.Cvor}}</span>{{else}}na kojem su napravljeni{{end}}.
+        {{if .KodoviTxt}}<div class="profil-gumbi mt-2"><a class="btn btn-secondary btn-sm" href="{{.KodoviTxt}}" download="{{.KodoviIme}}">{{icon "download"}} Preuzmi ove kodove (.txt)</a></div>{{end}}
       </div>
       {{/* adresa je /profile/rezervni-kodovi (odgovor na POST): osvježavanje bi
            napravilo novi niz, a obrasci s ove stranice vraćali bi se na nju */}}
@@ -170,7 +171,7 @@
         </div>
         <div class="profil-gumbi">
           <button type="submit" class="btn btn-secondary btn-sm"{{if .RezervniOd}} onclick="return confirm('Napraviti novi niz? Stari kodovi prestaju vrijediti.')"{{end}}>{{icon "key-round"}} Napravi rezervne kodove</button>
-          <button type="submit" class="btn btn-secondary btn-sm" formaction="/profile/rezervni-kodovi.txt" title="Napravi novi niz i preuzmi ga kao datoteku za ispis"{{if .RezervniOd}} onclick="return confirm('Napraviti novi niz za preuzimanje? Stari kodovi prestaju vrijediti.')"{{end}}>{{icon "download"}} Napravi i preuzmi .txt</button>
+          {{if not .Kodovi}}<button type="submit" class="btn btn-secondary btn-sm" formaction="/profile/rezervni-kodovi.txt" title="Napravi novi niz i preuzmi ga kao datoteku za ispis"{{if .RezervniOd}} onclick="return confirm('Napraviti novi niz za preuzimanje? Stari kodovi prestaju vrijediti.')"{{end}}>{{icon "download"}} Napravi i preuzmi .txt</button>{{end}}
         </div>
       </form>
       {{end}}
