@@ -3,7 +3,7 @@
 {{define "title"}}goCOP — {{.User.FullName}}{{end}}
 
 {{define "content"}}
-<div class="breadcrumb">{{if .VidiImenik}}<a href="/users">Djelatnici</a>{{else}}<a href="/profile">Moj profil</a>{{end}} › {{.User.FullName}}</div>
+<div class="breadcrumb">{{if .VidiImenik}}<a href="/users">Djelatnici</a>{{else}}<a href="/profile">Profil</a>{{end}} › {{.User.FullName}}</div>
 
 <div class="detail-head">
   <div>
@@ -18,7 +18,7 @@
   </div>
   <div class="detail-actions">
     {{if .IsSelf}}
-    <a href="/profile" class="btn btn-secondary">{{icon "pencil"}} Moj profil</a>
+    <a href="/profile" class="btn btn-secondary">{{icon "pencil"}} Profil</a>
     {{else if .CanManage}}
     <a href="/users/{{.User.ID}}/edit" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>
     {{end}}

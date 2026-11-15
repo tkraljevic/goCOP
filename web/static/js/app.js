@@ -244,7 +244,7 @@ function openEditUserModal(user) {
 
   const modalTitle = document.querySelector("#modal-edit-user .modal-title");
   if (modalTitle) {
-    modalTitle.textContent = isMe ? "👤 Moj profil" : "✏️ Uređivanje profila djelatnika";
+    modalTitle.textContent = isMe ? "👤 Profil" : "✏️ Uređivanje profila djelatnika";
   }
 
   const hintEl = document.getElementById("edit-user-hint");

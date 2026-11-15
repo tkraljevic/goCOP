@@ -205,7 +205,7 @@ func TestPomocOpisujeDnevnikCOPDezurstvaIObracun(t *testing.T) {
 	for _, want := range []string{
 		`id="dnevnik-cop"`, `id="dnevnik-dezurstva"`, `id="dnevnik-obracun"`,
 		"tko je javio", "čeka potvrdu uprave centra", "Nedjelja se obračunava kao",
-		"Moj profil", `BP_&lt;broj&gt;`,
+		"Profil", `BP_&lt;broj&gt;`,
 	} {
 		if !strings.Contains(h, want) {
 			t.Errorf("pomoć ne opisuje %q", want)
