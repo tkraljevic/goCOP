@@ -1,6 +1,10 @@
 package javnivodostaji
 
 import (
+	"context"
+	"io"
+	"net/http"
+	"strings"
 	"testing"
 	"time"
 )
@@ -73,5 +77,85 @@ func TestVizugyPrepoznajeSvojeAdrese(t *testing.T) {
 	}
 	if (Hidmet{}).Prepoznaje(hu) || (&Client{}).Prepoznaje(hu) {
 		t.Errorf("tuđi čitač prepoznaje mađarsku adresu")
+	}
+}
+
+// 13. 11. 2026. stranica je preseljena na paks.vizugy.hu. Poslužitelj se
+// uzima iz adrese letve, ali samo s vizugy.hu; put i upit sastavlja program.
+func TestVizugyPosluziteljIzAdreseLetve(t *testing.T) {
+	const oznaka = "16496286-97AB-11D4-BB62-00508BA24287"
+	slucajevi := map[string]string{
+		"https://paks.vizugy.hu/?mapModule=OpGrafikon&AllomasVOA=" + oznaka: "https://paks.vizugy.hu/",
+		"http://PAKS.vizugy.hu/drugo?AllomasVOA=" + oznaka:                  "https://paks.vizugy.hu/",
+		AdresaVizugy(oznaka): "https://www.vizugy.hu/",
+		"https://vizugy.hu.primjer.hr/?AllomasVOA=" + oznaka: AdresaVizugyPostaje,
+	}
+	for adresa, ocekuj := range slucajevi {
+		if p := posluziteljVizugy(adresa); p != ocekuj {
+			t.Errorf("%s: poslužitelj %q, očekivano %q", adresa, p, ocekuj)
+		}
+	}
+	if a := stranicaVizugy("https://paks.vizugy.hu/", strings.ToLower(oznaka)); a !=
+		"https://paks.vizugy.hu/?mapModule=OpGrafikon&AllomasVOA="+oznaka+"&mapData=OrasIdosor" {
+		t.Errorf("stranica postaje: %s", a)
+	}
+}
+
+// Stara adresa vraća samo obavijest o preseljenju; greška kaže kamo.
+// Zakomentirani stariji redak na istoj stranici se ne čita.
+func TestVizugyPreseljenaStranica(t *testing.T) {
+	const obavijest = `<!DOCTYPE html><html lang="hu"><head>
+    <!--meta http-equiv="refresh" content="0; url=https://www.vizugy.hu/?mapModule=OpVizallas_Paks"-->
+    <meta http-equiv="refresh" content="0; url=https://paks.vizugy.hu/">
+</head><body><a href="https://paks.vizugy.hu/">tovább az új oldalra</a></body></html>`
+	_, err := CitajVizugy(obavijest)
+	if err == nil || !strings.Contains(err.Error(), "https://paks.vizugy.hu/") {
+		t.Errorf("greška ne kaže novu adresu: %v", err)
+	}
+	if _, err := CitajVizugy("<html></html>"); err == nil || strings.Contains(err.Error(), "preselila") {
+		t.Errorf("prazna stranica nije preseljenje: %v", err)
+	}
+}
+
+// poHostu vraća stranicu prema poslužitelju zahtjeva i pamti adrese
+type poHostu struct {
+	stranice map[string]string
+	adrese   []string
+}
+
+func (p *poHostu) RoundTrip(r *http.Request) (*http.Response, error) {
+	p.adrese = append(p.adrese, r.URL.String())
+	return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(p.stranice[r.URL.Host])),
+		Header: http.Header{}, Request: r}, nil
+}
+
+func obavijestVizugy(kamo string) string {
+	return `<meta http-equiv="refresh" content="0; url=` + kamo + `">`
+}
+
+// Letva sa starom adresom čita se s nove: obavijest o preseljenju slijedi se
+// jednom i samo unutar vizugy.hu.
+func TestVizugySlijediPreseljenje(t *testing.T) {
+	const oznaka = "16496286-97AB-11D4-BB62-00508BA24287"
+	slucajevi := []struct {
+		naziv   string
+		kamo    string
+		zahtjev int
+		radi    bool
+	}{
+		{"na poddomenu", "https://paks.vizugy.hu/", 2, true},
+		{"izvan vizugy.hu", "https://paks.vizugy.hu.primjer.hr/", 1, false},
+		{"na isti poslužitelj", "https://www.vizugy.hu/", 1, false},
+	}
+	for _, s := range slucajevi {
+		p := &poHostu{stranice: map[string]string{
+			"www.vizugy.hu":             obavijestVizugy(s.kamo),
+			"paks.vizugy.hu":            ispisVizugy,
+			"paks.vizugy.hu.primjer.hr": ispisVizugy,
+		}}
+		r, err := Vizugy{Client: &Client{HTTP: &http.Client{Transport: p}}}.Ocitanja(context.Background(), AdresaVizugy(oznaka))
+		if len(p.adrese) != s.zahtjev || (err == nil) != s.radi || (s.radi && len(r) != 5) {
+			t.Errorf("%s: zahtjevi %v, greška %v, redaka %d", s.naziv, p.adrese, err, len(r))
+		}
 	}
 }

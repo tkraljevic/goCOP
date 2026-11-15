@@ -97,24 +97,47 @@ func PostajaVizugyIzAdrese(adresa string) string {
 
 // AdresaVizugy je adresa stranice zadane postaje
 func AdresaVizugy(oznaka string) string {
-	return AdresaVizugyPostaje + "?mapModule=OpGrafikon&AllomasVOA=" +
-		strings.ToUpper(oznaka) + "&mapData=OrasIdosor"
+	return stranicaVizugy(AdresaVizugyPostaje, oznaka)
+}
+
+// stranicaVizugy je stranica grafa postaje na zadanom poslužitelju
+func stranicaVizugy(posluzitelj, oznaka string) string {
+	return posluzitelj + "?mapModule=OpGrafikon&AllomasVOA=" + strings.ToUpper(oznaka) + "&mapData=OrasIdosor"
+}
+
+// posluziteljVizugy je poslužitelj iz adrese letve. Mađarska služba seli
+// stranicu (13. 11. 2026. s www na paks.vizugy.hu), pa se poštuje poddomena
+// upisana uz letvu, uvijek preko https.
+func posluziteljVizugy(adresa string) string {
+	u, ok := adresaIzvora(adresa, "vizugy.hu")
+	if !ok {
+		return AdresaVizugyPostaje
+	}
+	return "https://" + strings.ToLower(strings.TrimSuffix(u.Hostname(), ".")) + "/"
 }
 
 // Ocitanja čita satne vrijednosti postaje s adrese, najstarije prvo. Iz
-// adrese se uzima samo oznaka postaje; stranica se čita s vizugy.hu.
+// adrese se uzimaju poslužitelj (samo vizugy.hu i poddomene) i oznaka
+// postaje, a put i ostatak upita sastavlja program.
 func (v Vizugy) Ocitanja(ctx context.Context, adresa string) ([]Redak, error) {
 	oznaka := PostajaVizugyIzAdrese(adresa)
 	if oznaka == "" {
 		return nil, fmt.Errorf("adresa nema oznaku postaje (AllomasVOA=…)")
 	}
-	adresa = AdresaVizugy(oznaka)
+	posluzitelj := posluziteljVizugy(adresa)
 	if v.Base != "" {
-		adresa = v.Base + "?mapModule=OpGrafikon&AllomasVOA=" + oznaka + "&mapData=OrasIdosor"
+		posluzitelj = v.Base
 	}
-	b, err := v.dohvati(ctx, adresa)
+	b, err := v.dohvati(ctx, stranicaVizugy(posluzitelj, oznaka))
 	if err != nil {
 		return nil, err
+	}
+	// Obavijest o preseljenju slijedi se jednom, samo unutar vizugy.hu, pa
+	// letve rade i dok su na staroj adresi i kad se služba vrati na nju.
+	if nova := preseljenaVizugy(string(b)); nova != "" && nova != posluzitelj && v.Base == "" {
+		if b, err = v.dohvati(ctx, stranicaVizugy(nova, oznaka)); err != nil {
+			return nil, err
+		}
 	}
 	return CitajVizugy(string(b))
 }
@@ -151,7 +174,7 @@ func CitajVizugy(html string) ([]Redak, error) {
 	vremena := poljeNiza(html, "Idopont")
 	protoci := poljeNavodnika(html, "Vizhozam")
 	if len(vrijednosti) == 0 || len(vremena) == 0 {
-		return nil, fmt.Errorf("na stranici nema polja s vodostajima — je li se stranica promijenila?")
+		return nil, bezPoljaVizugy(html)
 	}
 	n := len(vrijednosti)
 	if len(vremena) < n {
@@ -240,4 +263,29 @@ func poljeNiza(html, ime string) []string {
 		return nil
 	}
 	return strings.Split(m[1], ",")
+}
+
+// bezPoljaVizugy: greška kad stranica nema polja s vodostajima
+func bezPoljaVizugy(html string) error {
+	if nova := preseljenaVizugy(html); nova != "" {
+		return fmt.Errorf("mađarska stranica preselila se na %s, a ni ondje nema vodostaja", nova)
+	}
+	return fmt.Errorf("na stranici nema polja s vodostajima — je li se stranica promijenila?")
+}
+
+// reVizugySeli je preusmjeravanje stranice na novu adresu
+var reVizugySeli = regexp.MustCompile(`(?i)<meta[^>]+http-equiv="refresh"[^>]+url=([^"'\s>]+)`)
+
+// preseljenaVizugy: kad je stranica samo obavijest o preseljenju na drugi
+// poslužitelj vizugy.hu, taj poslužitelj („https://paks.vizugy.hu/”);
+// inače, i za preseljenje izvan vizugy.hu, prazno
+func preseljenaVizugy(html string) string {
+	m := reVizugySeli.FindStringSubmatch(html)
+	if m == nil {
+		return ""
+	}
+	if _, ok := adresaIzvora(m[1], "vizugy.hu"); !ok {
+		return ""
+	}
+	return posluziteljVizugy(m[1])
 }

@@ -109,7 +109,7 @@ func TestStranicaSeCitaSPoznateAdrese(t *testing.T) {
 		{"vizugy", func(c *Client) error {
 			_, err := Vizugy{Client: c}.Ocitanja(ctx, "http://vizugy.hu/drugo?AllomasVOA=16496059-97AB-11D4-BB62-00508BA24287")
 			return err
-		}, AdresaVizugy("16496059-97AB-11D4-BB62-00508BA24287")},
+		}, "https://vizugy.hu/?mapModule=OpGrafikon&AllomasVOA=16496059-97AB-11D4-BB62-00508BA24287&mapData=OrasIdosor"},
 		{"danubehis", func(c *Client) error {
 			_, err := DanubeHIS{Client: c}.Ocitanja(ctx, "http://danubehis.org/results/HU442522_HYDRO/drugo")
 			return err
