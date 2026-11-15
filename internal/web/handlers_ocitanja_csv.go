@@ -68,13 +68,10 @@ func vezaLetve(station *models.Station, structure *models.Structure) string {
 	return "/readings"
 }
 
-// povratakIspravaka: ispravci očitanja letve vraćaju se na karticu Uvoz i
-// izvoz, a objekta na njegova očitanja
+// povratakIspravaka: ispravci očitanja vraćaju se na karticu Uvoz i izvoz
+// letve ili objekta (objekt je dobio karticu Odlukama (15. 11. 2026.), 6)
 func povratakIspravaka(station *models.Station, structure *models.Structure) string {
-	if station != nil && structure == nil {
-		return vezaLetve(station, nil) + "/uvoz-izvoz"
-	}
-	return vezaLetve(station, structure)
+	return vezaLetve(station, structure) + "/uvoz-izvoz"
 }
 
 // HandleOcitanjaIzvoz šalje očitanja letve kao CSV, za pregled i ispravak.
@@ -426,8 +423,6 @@ func neobavezanCm(s string) (*int, error) {
 type PregledOcitanja struct {
 	GaugeName string
 	BackURL   string
-	// NazivPovratka: „Uvoz i izvoz” na letvi, ime objekta na objektu
-	NazivPovratka string
 	PotvrdaURL    string
 	Redci         []RedakOcitanja
 	Izmjena       int
@@ -484,12 +479,9 @@ func (h *ReadingsHandler) HandleOcitanjaUvoz(w http.ResponseWriter, r *http.Requ
 
 	ime, _ := gaugeNames(station, structure)
 	data := PregledOcitanja{
-		GaugeName: ime, BackURL: back, NazivPovratka: ime, Redci: redci, Datoteka: zaglavlje.Filename,
-		// potvrda ide na letvu ili objekt, ne na povratak: povratak letve je kartica Uvoz i izvoz
+		GaugeName: ime, BackURL: back, Redci: redci, Datoteka: zaglavlje.Filename,
+		// potvrda ide na letvu ili objekt, ne na povratak: povratak je kartica Uvoz i izvoz
 		PotvrdaURL: vezaLetve(station, structure) + "/ocitanja/potvrdi",
-	}
-	if station != nil {
-		data.NazivPovratka = "Uvoz i izvoz"
 	}
 	for _, x := range redci {
 		switch {

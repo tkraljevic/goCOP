@@ -1234,6 +1234,7 @@ func (s *Server) setupRoutes() {
 		s.mux.Handle("POST /readings/"+vrsta+"/{id}/ocitanja/potvrdi", s.authMiddleware(http.HandlerFunc(readingsH.HandleOcitanjaPotvrda)))
 	}
 	s.mux.Handle("GET /readings/structure/{id}", s.authMiddleware(http.HandlerFunc(readingsH.ShowHistory)))
+	s.mux.Handle("GET /readings/structure/{id}/uvoz-izvoz", s.authMiddleware(http.HandlerFunc(readingsH.ShowUvozIzvoz)))
 	s.mux.Handle("POST /readings/create", s.authMiddleware(http.HandlerFunc(readingsH.HandleCreate)))
 	s.mux.Handle("POST /readings/update", s.authMiddleware(http.HandlerFunc(readingsH.HandleUpdate)))
 	s.mux.Handle("POST /readings/delete", s.authMiddleware(http.HandlerFunc(readingsH.HandleDelete)))

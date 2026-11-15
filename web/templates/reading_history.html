@@ -20,6 +20,9 @@
   </div>
   {{if .Station}}{{template "letvaIzbornik" .}}{{else}}
   <div class="detail-actions">
+    {{/* Objekt nema kartice letve; Uvoz i izvoz (izvoz u CSV i ispravci iz
+         datoteke) otvara se odavde (Odluke (15. 11. 2026.), 6). */}}
+    {{if and .CanRecord (ne .LetvaStranica "uvoz")}}<a href="{{.GaugeURL}}/uvoz-izvoz" class="btn btn-link">Uvoz i izvoz</a>{{end}}
     {{if or .CanRecord .UpisUzIzvor}}<a href="{{.NewURL}}" class="btn btn-primary">{{icon "plus"}} Upiši očitanje</a>{{end}}
   </div>
   {{end}}
@@ -242,11 +245,11 @@
 
 {{end}}{{/* kraj kartice Očitanja */}}
 
-{{/* Skupni unos vrijedi samo za letvu: ispis s letva.voda.hr i putanja uvoza
-     idu po letvi. Vodna građevina nema takav izvor, a bez ove zaštite bi
-     stranica na njoj pucala. */}}
+{{/* Skupni unos i Excel izvješće vrijede samo za letvu: ispis s letva.voda.hr
+     i putanja uvoza idu po letvi. Objekt ima izvoz u CSV i ispravke. */}}
 {{with .PregledIspravaka}}{{template "pregledIspravaka" .}}{{else}}
-{{if and .Station (eq .LetvaStranica "uvoz")}}
+{{if eq .LetvaStranica "uvoz"}}
+{{if .Structure}}<a class="povratna-poveznica" href="{{.GaugeURL}}">← Očitanja</a>{{end}}
 {{/* Kartica Uvoz i izvoz (goCOP-m3, 12 · Očitanja): izvoz za svakoga, a
      ispravci u tablici i skupni unos za onoga tko smije upisivati. Nakon
      „Pogledaj što bi se upisalo” na mjestu obrazaca stoji pregled. */}}
@@ -265,8 +268,8 @@
       </select>
     </form>
     <div class="letva-gumbi">
-      <a href="/readings/station/{{.Station.ID}}/izvjesce.xlsx?pogled={{.Pogled}}" class="btn btn-primary"
-         title="Očitanja iz odabranog razdoblja kao oblikovana Excelova datoteka">Excel izvješće</a>
+      {{if .Station}}<a href="/readings/station/{{.Station.ID}}/izvjesce.xlsx?pogled={{.Pogled}}" class="btn btn-primary"
+         title="Očitanja iz odabranog razdoblja kao oblikovana Excelova datoteka">Excel izvješće</a>{{end}}
       {{if .CanRecord}}
       <a class="btn btn-link" href="{{.GaugeURL}}/ocitanja.csv?pogled={{.Pogled}}" title="Očitanja: {{.PogledOpis}}">CSV</a>
       <a class="btn btn-link" href="{{.GaugeURL}}/ocitanja.csv?pogled=sve">Sve u CSV</a>
@@ -286,11 +289,12 @@
     <p class="form-help">Stupac <strong>id</strong> govori koji je
       redak koji — ne dirajte ga i ne dodajte retke. Mijenja se vrijeme, vodostaj, nizvodni, temperatura, protok, tko je
       očitao i napomena;
-      {{if .BriseNaLetvi}}za brisanje upišite <strong>da</strong> u stupac <strong>obrisi</strong>.
+      {{if or .BriseNaLetvi .Structure}}za brisanje upišite <strong>da</strong> u stupac <strong>obrisi</strong>.
       {{else}}ispraviti možete samo svoja očitanja, a tuđa ispravlja i briše onaj tko odgovara za letvu.
       {{end}}</p>
   </section>
 
+  {{if .Station}}
   <section class="letva-ploca letva-ploca-siroka">
     <h2>Unesi više očitanja odjednom</h2>
     <p class="letva-uputa">Zalijepite ispis s letva.voda.hr ili stupce iz Excela (datum, vrijeme i vodostaj u cm), ili odaberite
@@ -305,6 +309,7 @@
       </div>
     </form>
   </section>
+  {{end}}
   {{end}}
 </div>
 {{end}}
@@ -442,7 +447,7 @@
      na zaslonu, redak po redak. */}}
 {{define "pregledIspravaka"}}
 <section class="pun" aria-labelledby="pis-naslov">
-  <a class="povratna-poveznica" href="{{.BackURL}}">← {{.NazivPovratka}}</a>
+  <a class="povratna-poveznica" href="{{.BackURL}}">← Uvoz i izvoz</a>
   <h2 id="pis-naslov" class="pun-naslov">Što bi se promijenilo</h2>
   <p class="pun-opis">Iz datoteke <strong>{{.Datoteka}}</strong>. Ništa još nije upisano. Pogledajte popis pa potvrdite.</p>
 

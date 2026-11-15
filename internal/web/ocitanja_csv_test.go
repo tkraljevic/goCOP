@@ -160,7 +160,7 @@ func TestPregledIspravakaOcitanja(t *testing.T) {
 	novo.LevelCm = cmP(-118)
 
 	html := iscrtajPregledIspravaka(t, &models.Station{ID: uuid.New(), Name: "Batina", Code: "batina"}, PregledOcitanja{
-		GaugeName: "Batina", BackURL: "/readings/station/x/uvoz-izvoz", NazivPovratka: "Uvoz i izvoz", Datoteka: "batina_ocitanja.csv",
+		GaugeName: "Batina", BackURL: "/readings/station/x/uvoz-izvoz", Datoteka: "batina_ocitanja.csv",
 		PotvrdaURL: "/readings/station/x/ocitanja/potvrdi",
 		Redci: []RedakOcitanja{
 			{Redak: 2, ID: kriv.ID, Staro: kriv, Novo: novo,
