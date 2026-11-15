@@ -761,3 +761,36 @@ func preuzetiKodovi(t *testing.T, stranica string) string {
 	}
 	return string(b)
 }
+
+// Plan Profila, koraci 3, 4 i 7: uz privremenu lozinku Profil ima jedno
+// upozorenje, uz isključen PIN ne piše „PIN stiže na”, a Uparivanje nudi
+// samo onome koga ta stranica pušta.
+func TestProfilMaliPopravci(t *testing.T) {
+	o := novaOkolinaIzvana(t)
+	ana := o.racun("ana", "anina-lozinka", "ana@voda.hr", false)
+	sef := o.racun("sef", "sefova-lozinka", "sef@voda.hr", true)
+
+	b := o.posalji(zahtjevIzvana{stvarni: ana}, http.MethodGet, "/profile", nil).Body.String()
+	if strings.Contains(b, "PIN stiže na") || !strings.Contains(b, "Kad administrator uključi PIN, stizat će na") {
+		t.Error("uz isključen PIN profil ne smije reći da PIN stiže")
+	}
+	if strings.Contains(b, `href="/uparivanje"`) {
+		t.Error("Uparivanje se nudi onome koga stranica ne pušta")
+	}
+	if b := o.posalji(zahtjevIzvana{stvarni: sef}, http.MethodGet, "/profile", nil).Body.String(); !strings.Contains(b, `href="/uparivanje"`) {
+		t.Error("upravi organizacije Profil mora nuditi Uparivanje")
+	}
+
+	x, err := o.repo.GetUserByID(ana.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	x.MustChangePassword = true
+	if err := o.repo.UpdateUser(x); err != nil {
+		t.Fatal(err)
+	}
+	b = o.posalji(zahtjevIzvana{stvarni: x}, http.MethodGet, "/profile", nil).Body.String()
+	if n := strings.Count(b, "privremenom lozinkom"); n != 1 {
+		t.Errorf("uz privremenu lozinku Profil treba jedno upozorenje, ima %d", n)
+	}
+}

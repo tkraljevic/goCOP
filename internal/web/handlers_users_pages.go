@@ -67,6 +67,10 @@ type UserPageData struct {
 	IsEdit      bool
 	CanDelete   bool // račun se nitko nije prijavio, pa se smije obrisati
 
+	// SmijeUparivati: profil nudi Uparivanje onome koga stranica pušta
+	// (uprava organizacije vlastitim očima, s promijenjenom lozinkom)
+	SmijeUparivati bool
+
 	Roles   []option
 	Orgs    []option
 	Sectors []models.Sector
@@ -428,6 +432,13 @@ func (h *UsersHandler) dodajMojePrijave(ctx context.Context, data *UserPageData)
 	data.MojePrijave, data.MojePrijaveGreska = prijave, err != nil
 }
 
+// smijeUparivatiSProfila: isto pravilo kao stranica Uparivanje
+// (smijeUparivati), da Profil ne nudi gumb koji vodi na odbijenicu
+func smijeUparivatiSProfila(r *http.Request, data UserPageData) bool {
+	_, viewing := stvarnaOsoba(r)
+	return data.Permissions != nil && data.Permissions.IsGlobalAdmin && !viewing && !data.User.MustChangePassword
+}
+
 // prikaziProfil slaže profil; kodovi su upravo napravljeni rezervni kodovi,
 // koji se pokazuju samo na ovoj stranici
 func (h *UsersHandler) prikaziProfil(w http.ResponseWriter, r *http.Request, kodovi []string) {
@@ -443,6 +454,7 @@ func (h *UsersHandler) prikaziProfil(w http.ResponseWriter, r *http.Request, kod
 	}
 	data.IsSelf = true
 	data.ActiveNav = "profile"
+	data.SmijeUparivati = smijeUparivatiSProfila(r, data)
 	data.Izvana = dolaziIzvana(r)
 	data.Planovi = h.planoviProfila(r.Context(), data.User)
 	if h.postaRacun != nil {
