@@ -3,6 +3,7 @@ package web
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"html/template"
 	"net/http"
 	"net/url"
@@ -96,9 +97,11 @@ func (h *AktiHandler) ShowSanducic(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		d.greska(err)
 	} else {
-		if d.Mape, err = s.MapeSanducica(r.Context(), d.CurrentUser); err != nil {
-			d.Mape = posta.Mape
+		mape, err := s.MapeSanducica(r.Context(), d.CurrentUser)
+		if err != nil {
+			mape = posta.Mape
 		}
+		d.Mape = bezSkica(mape)
 	}
 	d.NazivMape = d.Mapa
 	for _, m := range d.Mape {
@@ -114,6 +117,37 @@ func (h *AktiHandler) ShowSanducic(w http.ResponseWriter, r *http.Request) {
 	if err := h.tmplSanducic.ExecuteTemplate(w, "posta_sanducic.html", d); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// bezSkica izbacuje mapu Skice: goCOP skicu ne zna ni spremiti ni nastaviti,
+// pa je ne nudi (Odluke (15. 11. 2026.), Sandučić 5)
+func bezSkica(mape []posta.Mapa) []posta.Mapa {
+	out := make([]posta.Mapa, 0, len(mape))
+	for _, m := range mape {
+		if m.ID != "drafts" {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+// ImaArhivu javlja ima li sandučić mapu Arhiva; bez nje se Arhiviraj ne nudi
+func (d SanducicData) ImaArhivu() bool {
+	for _, m := range d.Mape {
+		if m.ID == "archive" {
+			return true
+		}
+	}
+	return false
+}
+
+// Raspon kaže koja su pisma na ovoj stranici popisa („1–50”)
+func (d SanducicData) Raspon() string {
+	if len(d.Pisma) == 0 {
+		return ""
+	}
+	od := (d.Stranica-1)*pisamaPoStranici + 1
+	return fmt.Sprintf("%d–%d", od, od+len(d.Pisma)-1)
 }
 
 // ShowPismo prikazuje jedno pismo
