@@ -8167,6 +8167,15 @@ summary.ocitanja-cip { padding-right: 8px; }
   font-size: 0.8125rem; white-space: nowrap;
 }
 .pun-novo { border-color: var(--success); color: var(--success); }
+.pun-izbor { padding: 0; }
+.pun-izbor .ocitanja-cip[aria-pressed="true"] { padding-left: 16px; }
+.pun-listanje { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 16px; }
+.pun-listanje[hidden], .pun-izbor[hidden] { display: none; }
+.pun-listanje .btn { display: inline-flex; align-items: center; gap: 4px; min-height: 40px; }
+.pun-listanje .icon { width: 18px; height: 18px; }
+.pun-listanje-opis { color: var(--md-sys-color-on-surface-variant, var(--text-secondary)); font-size: 0.875rem; font-variant-numeric: tabular-nums; }
+.pis-netaknuti { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0; color: var(--md-sys-color-on-surface-variant, var(--text-secondary)); font-size: 0.875rem; }
+.pis-netaknuti[hidden] { display: none; }
 .pis-cipovi { display: flex; flex-wrap: wrap; gap: 8px; }
 .pis-cip {
   display: inline-flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 12px; border-radius: 8px;
