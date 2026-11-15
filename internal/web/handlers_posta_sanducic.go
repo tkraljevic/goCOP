@@ -52,6 +52,7 @@ type SanducicData struct {
 	// PrivitciPonovo su privitci pisma koje nije poslano: datoteke se ne
 	// mogu vratiti u obrazac, pa se samo imenuju da se odaberu ponovno
 	PrivitciPonovo  []string
+	Odustani        string // kamo vodi Odustani u novom pismu: na pismo ili u mapu
 	TrebaLozinku    bool
 	NijeUkljuceno   bool
 	LozinkaOdbijena bool
@@ -292,8 +293,9 @@ func (h *AktiHandler) ShowNovoPismo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q := r.URL.Query()
-	d.Nacin = q.Get("nacin")
+	d.Nacin, d.Mapa = q.Get("nacin"), q.Get("mapa")
 	d.Potpis = s.Potpis(r.Context(), d.CurrentUser.ID.String())
+	upozoriPrijePisanja(r.Context(), s, &d)
 	d.Novo = service.NovoPismo{Za: q.Get("za"), Predmet: q.Get("predmet"), Tekst: q.Get("tekst")}
 	if id := q.Get("id"); id != "" {
 		izv, err := s.Pismo(r.Context(), d.CurrentUser, id)
@@ -304,9 +306,30 @@ func (h *AktiHandler) ShowNovoPismo(w http.ResponseWriter, r *http.Request) {
 			d.Novo = pripremiOdgovor(izv, d.Nacin, d.CurrentUser)
 		}
 	}
+	d.Odustani = odustaniOd(q.Get("id"), d.Izvorno, d.Mapa)
 	if err := h.tmplNovoPismo.ExecuteTemplate(w, "posta_novo.html", d); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// upozoriPrijePisanja javlja prije pisanja da pismo neće otići: pošta nije
+// uključena ili lozinka e-pošte nije upisana (plan Sandučića, novo ponašanje 3)
+func upozoriPrijePisanja(ctx context.Context, s *service.AktService, d *SanducicData) {
+	d.NijeUkljuceno = !s.PostaPodesena(ctx)
+	racun, _ := s.RacunPoste(ctx, d.CurrentUser.ID.String())
+	d.TrebaLozinku = !d.NijeUkljuceno && racun == ""
+}
+
+// odustaniOd: Odustani vraća na pismo na koje se odgovaralo, inače u mapu
+// (plan Sandučića, novo ponašanje 10)
+func odustaniOd(id string, izvorno *posta.Pismo, mapa string) string {
+	if izvorno != nil && id != "" {
+		return "/posta/pismo?" + url.Values{"id": {id}, "mapa": {mapa}}.Encode()
+	}
+	if mapa == "" {
+		return "/posta"
+	}
+	return "/posta?" + url.Values{"mapa": {mapa}}.Encode()
 }
 
 // pripremiOdgovor puni obrazac za odgovor, odgovor svima ili prosljeđivanje
@@ -351,8 +374,9 @@ func pripremiOdgovor(izv *posta.Pismo, nacin string, u *models.User) service.Nov
 // pismom i privitci koji se prosljeđuju. Preusmjeravanje bi izgubilo tekst.
 func (h *AktiHandler) vratiNovoPismo(w http.ResponseWriter, r *http.Request, s *service.AktService, n service.NovoPismo, privitci []string, err error) {
 	_, d := h.sanducicData(r)
-	d.Nacin = r.FormValue("nacin")
+	d.Nacin, d.Mapa = r.FormValue("nacin"), r.FormValue("mapa")
 	d.Potpis = s.Potpis(r.Context(), d.CurrentUser.ID.String())
+	d.Odustani = odustaniOd("", nil, d.Mapa)
 	n.Privitci = nil
 	d.Novo = n
 	d.PrivitciPonovo = privitci

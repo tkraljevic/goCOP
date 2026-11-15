@@ -711,6 +711,24 @@ type NovoPismo struct {
 	Proslijedi []string // ID-ovi privitaka iz pisma koje se prosljeđuje
 }
 
+// primateljiPisma su adrese iz polja Za i Kopija. Neispravna adresa se javlja,
+// a ne preskače bez riječi (plan Sandučića, novo ponašanje 2).
+func primateljiPisma(n NovoPismo) (za, kopija []mail.Address, err error) {
+	if krive := posta.NeispravneAdrese(n.Za + "," + n.Kopija); len(krive) > 0 {
+		return nil, nil, fmt.Errorf("pismo nije poslano, jer ove adrese nisu ispravne: %s; ispravite ih ili maknite", strings.Join(krive, ", "))
+	}
+	for _, a := range posta.Adrese(n.Za) {
+		za = append(za, mail.Address{Address: a})
+	}
+	for _, a := range posta.Adrese(n.Kopija) {
+		kopija = append(kopija, mail.Address{Address: a})
+	}
+	if len(za) == 0 {
+		return nil, nil, fmt.Errorf("upišite barem jednu ispravnu adresu primatelja")
+	}
+	return za, kopija, nil
+}
+
 // PosaljiPismo šalje pismo s korisnikova računa
 func (s *AktService) PosaljiPismo(ctx context.Context, u *models.User, n NovoPismo) error {
 	pp := s.Posta(ctx)
@@ -732,14 +750,8 @@ func (s *AktService) PosaljiPismo(ctx context.Context, u *models.User, n NovoPis
 		}
 		ugradiSlike(&m)
 	}
-	for _, a := range posta.Adrese(n.Za) {
-		m.Primatelji = append(m.Primatelji, mail.Address{Address: a})
-	}
-	for _, a := range posta.Adrese(n.Kopija) {
-		m.Kopija = append(m.Kopija, mail.Address{Address: a})
-	}
-	if len(m.Primatelji) == 0 {
-		return fmt.Errorf("upišite barem jednu ispravnu adresu primatelja")
+	if m.Primatelji, m.Kopija, err = primateljiPisma(n); err != nil {
+		return err
 	}
 	if m.Predmet == "" {
 		return fmt.Errorf("upišite predmet")

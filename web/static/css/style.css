@@ -4489,6 +4489,16 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .posta-privitci li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; }
 .posta-privitci li a { display: inline-flex; gap: 10px; align-items: center; min-width: 0; overflow-wrap: anywhere; }
 .posta-velicina { flex: none; font-size: 0.8rem; color: var(--md-sys-color-on-surface-variant, var(--text-secondary)); }
+/* Novo pismo (crtež 21, odjeljak 3): polja i uređivač u jednoj kartici, privitci kao popis, gumbi dolje desno */
+.posta-novo-kartica { margin-top: 0; padding: 16px; border: 1px solid var(--border); border-radius: var(--r-kartica); background: var(--surface); }
+.posta-novo-gumbi { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.posta-skriveni-unos { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.posta-privitci-novi { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.posta-dodaj-datoteke { cursor: pointer; margin: 0; }
+.posta-privitak-cip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 4px 4px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.85rem; }
+.posta-makni { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: none; color: inherit; cursor: pointer; }
+.posta-makni:hover { background: var(--surface-hover); }
+.posta-makni .icon { width: 16px; height: 16px; }
 .posta-radnje form { margin: 0; }
 .posta-radnje .posta-premjesti select { max-width: 12rem; }
 .posta-html { width: 100%; min-height: 200px; border: 1px solid var(--border, #d9dee5); border-radius: 8px; background: #fff; }
