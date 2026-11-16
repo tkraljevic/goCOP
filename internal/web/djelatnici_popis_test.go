@@ -217,6 +217,22 @@ func TestPravaAdresara(t *testing.T) {
 	}
 }
 
+// Odluke (16. 11. 2026.), Djelatnici 7: uprava u dosegu u obrascu vidi
+// prekidač „Smije se prijaviti”, ali ne i globalnog administratora; sebi ga
+// nitko ne isključuje.
+func TestUpravaIskljucujeRacunUObrascu(t *testing.T) {
+	osoba := &models.User{ID: uuid.New(), FullName: "Ivo Primjer", Username: "iprimjer", IsActive: true}
+	uprava := &models.UserPermissions{AdminSectors: map[string]bool{"B": true}}
+	html := iscrtaj(t, "user_form.html", UserPageData{CurrentUser: &models.User{ID: uuid.New(), FullName: "Uprava"}, Permissions: uprava, User: osoba, IsEdit: true, CanManage: true})
+	if !strings.Contains(html, `id="is_active" name="is_active" value="1" checked`) || strings.Contains(html, `name="is_global_admin"`) {
+		t.Error("uprava u obrascu nema prekidač prijave ili ima zastavicu administratora")
+	}
+	sebi := iscrtaj(t, "user_form.html", UserPageData{CurrentUser: osoba, Permissions: uprava, User: osoba, IsEdit: true, CanManage: true, IsSelf: true})
+	if strings.Contains(sebi, `id="is_active"`) || !strings.Contains(sebi, `<input type="hidden" name="is_active" value="1">`) {
+		t.Error("vlastiti račun: prekidač prijave se ne smije nuditi")
+	}
+}
+
 // Odluke (16. 11. 2026.), Djelatnici 6: svaka uloga u obrascima nosi svoj
 // doseg, a polja sektora, područja i dionica označena su, da skripta pokaže
 // samo ona koja uloga traži.
