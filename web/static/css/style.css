@@ -8759,6 +8759,10 @@ summary.ocitanja-cip { padding-right: 8px; }
 .form-page.ob-obrazac::before { display: none; }
 .form-page.ob-obrazac .form-actions { margin-top: 0; padding-top: 0; border-top: 0; }
 .ob-radnje { justify-content: flex-end; align-items: center; gap: 8px; }
+.ob-crta { margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--border); }
+.ob-postojece { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1.4fr) auto; gap: 12px; align-items: center;
+  margin-top: 6px; padding: 10px 12px; border-radius: 8px; background: var(--bg); font-size: 0.875rem; }
+@media (max-width: 599px) { .ob-postojece { grid-template-columns: 1fr; gap: 4px; } }
 .form-page > .os-kartica .form-row:last-child, .form-page > .os-kartica > .form-group:last-child { margin-bottom: 0; }
 .os-brisanje { border-color: var(--danger-border); }
 .os-brisanje h2 { color: var(--danger); }
