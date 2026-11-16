@@ -31,18 +31,24 @@ func TestIskljucenjeRacunaUDosegu(t *testing.T) {
 	if err := iskljuci(uprava16, vodocuvar, false); err != nil {
 		t.Fatalf("uprava područja ne isključuje vodočuvara: %v", err)
 	}
-	if x, _ := o.repo.GetUserByID(vodocuvar.ID); x.IsActive {
+	procitaj := func(u *models.User) *models.User {
+		t.Helper()
+		x, err := o.repo.GetUserByID(u.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return x
+	}
+	if procitaj(vodocuvar).IsActive {
 		t.Error("račun nije isključen")
 	}
-	x, _ := o.repo.GetUserByID(vodocuvar.ID)
-	if err := iskljuci(upravaB, x, true); err != nil {
+	if err := iskljuci(upravaB, procitaj(vodocuvar), true); err != nil {
 		t.Fatalf("uprava sektora ne uključuje: %v", err)
 	}
-	if x, _ := o.repo.GetUserByID(vodocuvar.ID); !x.IsActive {
+	if !procitaj(vodocuvar).IsActive {
 		t.Error("račun nije ponovno uključen")
 	}
-	sef, _ := o.repo.GetUserByID(upravaB.User.ID)
-	if err := iskljuci(uprava16, sef, false); !errors.Is(err, service.ErrUnauthorized) {
+	if err := iskljuci(uprava16, procitaj(&upravaB.User), false); !errors.Is(err, service.ErrUnauthorized) {
 		t.Errorf("uprava područja isključuje upravu sektora: %v", err)
 	}
 }
