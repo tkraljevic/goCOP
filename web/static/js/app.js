@@ -108,6 +108,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initSectorAreaChangers();
   initLiveSearch();
   initZadrziUpisano();
+  initDosegPoUlozi();
   initProfilOkvir();
 });
 
@@ -179,6 +180,30 @@ function initZadrziUpisano() {
       Array.from(f.elements).filter(pamti).forEach((p) => { upisano[ime(p)] = kvacica(p) ? p.checked : p.value; });
       try { sessionStorage.setItem(kljuc, JSON.stringify(upisano)); } catch (e) { /* ništa */ }
     });
+  });
+}
+
+// Obrazac zaduženja pokazuje samo polja dosega koja odabrana uloga traži
+// (Odluke (16. 11. 2026.), Djelatnici 6): uloga sektora sektor, uloga
+// područja i područje, uloga dionice i dionice, a uloga cijele organizacije
+// ništa. Skrivena polja se ne šalju, pa doseg izvodi program iz uloge.
+const DOSEG_POLJA = { ALL: [], SECTOR: ["sektor"], AREA: ["sektor", "podrucje"], SECTION: ["sektor", "podrucje", "dionice"] };
+function initDosegPoUlozi() {
+  document.querySelectorAll("form").forEach((f) => {
+    const uloga = f.querySelector("select[name=role]");
+    const polja = f.querySelectorAll("[data-doseg-polje]");
+    if (!uloga || !polja.length) return;
+    const primijeni = () => {
+      const o = uloga.selectedOptions[0];
+      const vidi = (o && DOSEG_POLJA[o.dataset.doseg]) || [];
+      polja.forEach((p) => {
+        const da = vidi.includes(p.dataset.dosegPolje);
+        p.hidden = !da;
+        p.querySelectorAll("input, select").forEach((e) => { e.disabled = !da; });
+      });
+    };
+    uloga.addEventListener("change", primijeni);
+    primijeni();
   });
 }
 
