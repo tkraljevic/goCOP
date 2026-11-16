@@ -2,6 +2,9 @@
 
 {{define "title"}}goCOP — Prijava s terena{{end}}
 
+{{/* Znak „?” vodi na odjeljak Pomoći o ovoj stranici */}}
+{{define "sidroPomoci"}}#prijave{{end}}
+
 {{define "content"}}
 {{$p := .Prijava}}
 {{/* Vrijeme objave stoji uz potpis. Kad valjanog potpisa nema, ima ga redak „Objavljeno”, da se ne izgubi. */}}

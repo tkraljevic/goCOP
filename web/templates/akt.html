@@ -2,6 +2,9 @@
 
 {{define "title"}}goCOP — {{.Akt.Naslov}} {{.Akt.Oznaka}}{{end}}
 
+{{/* Znak „?” vodi na odjeljak Pomoći o ovoj stranici */}}
+{{define "sidroPomoci"}}#akti{{end}}
+
 {{define "content"}}
 {{$a := .Akt}}
 {{/* Stranica akta (goCOP-m3, 15 · Dokumenti, 4): zaglavlje, trake na vrhu, papir lijevo i ploča desno.

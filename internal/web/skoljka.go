@@ -51,6 +51,16 @@ func navSkupina(activeNav string) string {
 	return activeNav
 }
 
+// sidroPomoci je odjeljak Pomoći na koji vodi znak „?” stranice: oznaka
+// stranice u izborniku, a za registre objekata zajednički odjeljak Objekti.
+// Stranica s užim odjeljkom zadaje ga sama (define "sidroPomoci").
+func sidroPomoci(activeNav string) string {
+	if jeNavObjekta(activeNav) {
+		return "structures"
+	}
+	return activeNav
+}
+
 // inicijali su slova za krug osobe u gornjoj traci: prvo slovo prvog i
 // zadnjeg imena, najviše dva
 func inicijali(ime string) string {

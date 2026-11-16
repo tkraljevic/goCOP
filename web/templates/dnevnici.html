@@ -2,6 +2,9 @@
 
 {{define "title"}}goCOP — Dnevnici{{end}}
 
+{{/* Znak „?” vodi na odjeljak Pomoći o vrsti dnevnika na popisu */}}
+{{define "sidroPomoci"}}{{if .StranicaCOP}}#dnevnik-cop{{else if or (eq .Vrsta "ODRZAVANJE_A02") (eq .Vrsta "ODRZAVANJE_A03")}}#dnevnik-usluge{{else if eq .Vrsta "DEZURSTVA"}}#dnevnik-dezurstva{{else}}#journals{{end}}{{end}}
+
 {{define "content"}}
 {{if .StranicaCOP}}{{template "dnevnici_cop" .}}{{else if or (eq .Vrsta "ODRZAVANJE_A02") (eq .Vrsta "ODRZAVANJE_A03")}}{{template "dnevnici_usluge" .}}{{else}}{{template "dnevnici_popis" .}}{{end}}
 {{end}}

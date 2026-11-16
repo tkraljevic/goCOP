@@ -2,6 +2,9 @@
 
 {{define "title"}}goCOP — {{if .IsEdit}}Zaglavlje dnevnika COP-a{{else}}Otvori dnevnik COP-a{{end}}{{end}}
 
+{{/* Znak „?” vodi na odjeljak Pomoći o ovoj stranici */}}
+{{define "sidroPomoci"}}#dnevnik-cop{{end}}
+
 {{define "content"}}
 {{if .IsEdit}}<a href="/dnevnici/{{.Journal.ID}}" class="povratna-poveznica">← {{.Journal.DisplayTitle}}</a>
 {{else}}<a href="/dnevnici/popis?vrsta=OBRANA" class="povratna-poveznica">← Dnevnik COP-a</a>{{end}}

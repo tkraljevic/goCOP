@@ -2185,7 +2185,7 @@
     <ul>
       <li id="moduli"><strong>Moduli i ovlasti</strong> — tablica uloga i modula: tko što vidi.
         Iznimke za pojedinog čovjeka postavljaju se na njegovoj stranici.</li>
-      <li><strong>Sudionici obrane</strong> — uloge koje program poznaje i nazivi kojima ih
+      <li id="admin-sudionici"><strong>Sudionici obrane</strong> — uloge koje program poznaje i nazivi kojima ih
         organizacija zove; ovlasti se time ne mijenjaju.</li>
       <li id="settings"><strong>Ovo računalo i mreža</strong> — kako se ovo računalo
         zove, njegov ključ, u kojoj je mreži i s kim je upareno. Ručna razmjena, pretraga lokalne
@@ -2331,7 +2331,7 @@
         <br>Računalo s ključem mreže nadogradite prvo: dok ono radi starijim programom, promjene prava
         s drugih računala čekaju i nitko ih ne može potvrditi.
         <br>Računalo koje još nije u mreži odlučuje samo za sebe, na isti način.</li>
-      <li><strong>Održavanje baze</strong> — zauzeće operativne baze, sažimanje knjige verzija,
+      <li id="admin-baza"><strong>Održavanje baze</strong> — zauzeće operativne baze, sažimanje knjige verzija,
         izvoz i obnova. Potpisani <code>.cop</code> paket ugrađuje se i izvana, a stara
         <code>.db</code> arhiva nema potpis, pa se uvozi samo s ovog računala ili iz lokalne mreže, i
         to tek kad je računalo u mreži. Dok računalo još nije u mreži, ne zna čiji je potpis na
@@ -2357,16 +2357,16 @@
         niže (<a href="#admin-karta-bez-interneta">Karta bez interneta</a>). Mijenja globalni
         administrator. Izgled i podloge vrijede na svim čvorovima, a izvor obične karte samo na
         ovom i vrijedi nakon ponovnog pokretanja.</li>
-      <li><strong>Opcije</strong> — osjetljive mogućnosti za čišćenje i testiranje. Njihovo značenje
+      <li id="admin-opcije"><strong>Opcije</strong> — osjetljive mogućnosti za čišćenje i testiranje. Njihovo značenje
         opisano je niže; operativno se drže isključenima.</li>
-      <li><strong>Žig centra</strong> — slika žiga sektora i njezin trag promjena; vidi je samo
+      <li id="admin-zig"><strong>Žig centra</strong> — slika žiga sektora i njezin trag promjena; vidi je samo
         uprava sektora. Kartica vodi na stranicu sektora, pod Registri › Administrativna
         organizacija. Ondje žig mijenja i uprava sektora, koja Administraciju zadano ne vidi.</li>
-      <li><strong>Elektronički potpisi</strong> — izdavatelj ovog čvora, izdavatelji uparenih
+      <li id="admin-potpisi"><strong>Elektronički potpisi</strong> — izdavatelj ovog čvora, izdavatelji uparenih
         čvorova i pregled osobnih certifikata. Ovdje je i adresa za QR kod na dokumentima
         (<code>javna_adresa</code> u <code>gocop.toml</code>): s njom QR kod na PDF-u prijave s
         terena vodi na dokument u goCOP-u. Vrijedi samo na ovom računalu.</li>
-      <li><strong>E-pošta</strong> — zajedničke postavke Exchange/EWS ili SMTP poslužitelja te
+      <li id="admin-eposta"><strong>E-pošta</strong> — zajedničke postavke Exchange/EWS ili SMTP poslužitelja te
         račun koji šalje PIN za prijavu izvana i sklopku te prijave; opisano niže,
         <a href="#admin-posta-pin">PIN za prijavu izvana</a>.</li>
       <li id="telemetrija"><strong>Telemetrija letava</strong> — račun za HydroView i mobilnu
@@ -2376,14 +2376,14 @@
         e-pošte; pojedina postaja zatim uključuje izvor.
         Račun čvora upisuje samo globalni administrator. Prijava za HydroView uvijek se
         provjerava na sustavu Hrvatskih voda (hdv.voda.hr).</li>
-      <li><strong>Uvozi podataka</strong> — jednokratni uvozi iz vanjskih evidencija. Dok ustroj nije
+      <li id="admin-uvozi"><strong>Uvozi podataka</strong> — jednokratni uvozi iz vanjskih evidencija. Dok ustroj nije
         gotov, stoje u Prvim koracima, a poslije kao poveznica u skupini Ustroj i ljudi.</li>
       <li><strong>Postavke prognoze</strong> — satni lanac ili dnevni model u prikazu, izdavanje
         prognoze odmah i priprema modela. Kartica stoji u skupini Vodostaji, arhiva i prognoza, za
         dežurnog operatera, voditelja centra, upravu sektora i globalnog administratora; način prikaza mijenja samo globalni administrator.</li>
       <li><strong>Djelatnici</strong> — aktivacija računa i postavljanje početne lozinke;
         korisnik je pri prvoj prijavi mora zamijeniti.</li>
-      <li><strong>Nazivi</strong> — kako se kuća i centar zovu na ispisima.</li>
+      <li id="admin-nazivi"><strong>Nazivi</strong> — kako se kuća i centar zovu na ispisima.</li>
       <li id="admin-tema"><strong>Tema</strong> — boje programa, posebno za svijetlu i tamnu
         temu: glavna boja, naglasak i glavni gumb; ostale nijanse program izvodi sam. Pregled i
         provjera čitljivosti rade dok se bira, a tema s kontrastom ispod 3:1 ne sprema se.

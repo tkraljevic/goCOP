@@ -2,6 +2,9 @@
 
 {{define "title"}}goCOP — Vodočuvarski dnevnik{{end}}
 
+{{/* Znak „?” vodi na odjeljak Pomoći o ovoj stranici */}}
+{{define "sidroPomoci"}}#vodocuvar{{end}}
+
 {{define "content"}}
 {{if .SamoMoj}}{{template "moja-knjiga" .}}{{else}}
 {{/* Knjige vodočuvara: osoba koja čita tuđe knjige (goCOP-m3, 15 · Dokumenti, 7c). Tko list

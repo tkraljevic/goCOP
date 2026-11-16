@@ -2,6 +2,9 @@
 
 {{define "title"}}goCOP — {{.Prijava.Naslov}}{{end}}
 
+{{/* Znak „?” vodi na odjeljak Pomoći o ovoj stranici */}}
+{{define "sidroPomoci"}}#prijava-greske-pomoc{{end}}
+
 {{define "content"}}
 {{with .Prijava}}
 <a class="pg-natrag" href="/administracija/prijave-gresaka">{{icon "arrow-left"}} Prijave grešaka i prijedlozi</a>

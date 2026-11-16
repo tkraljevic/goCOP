@@ -2,6 +2,9 @@
 
 {{define "title"}}goCOP — Rješenja i obavijesti{{end}}
 
+{{/* Znak „?” vodi na odjeljak Pomoći o ovoj stranici */}}
+{{define "sidroPomoci"}}#akti{{end}}
+
 {{define "content"}}
 {{/* Stupac sektora treba samo kad su na popisu akti svih sektora. */}}
 {{$svi := not .Filtar.Sektor}}

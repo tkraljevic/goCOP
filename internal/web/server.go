@@ -435,6 +435,7 @@ func templateFuncs() template.FuncMap {
 		"km":                models.FormatKm,
 		"navNaslov":         navNaslov,
 		"navSkupina":        navSkupina,
+		"sidroPomoci":       sidroPomoci,
 		"inicijali":         inicijali,
 		"derefTime": func(t *time.Time) time.Time {
 			if t == nil {
