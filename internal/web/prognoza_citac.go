@@ -184,6 +184,19 @@ func (c *CitacPrognoza) DnevnoZa(izdano time.Time) (map[string][]prognoza.Dnevna
 	return prognoza.DnevneIzdanja(c.db, izdano.Unix()/3600)
 }
 
+// PolazistaZa čita vodostaj letava u satu izdanja; bez baze ili izdanja
+// prazno, pa se porast broji od dana 0 dnevne prognoze.
+func (c *CitacPrognoza) PolazistaZa(izdano time.Time) map[string]float64 {
+	if c == nil || c.db == nil || izdano.IsZero() {
+		return nil
+	}
+	p, err := prognoza.PolazistaIzdanja(c.db, izdano.Unix()/3600)
+	if err != nil {
+		return nil
+	}
+	return p
+}
+
 // Upozorenja čita upozorenja koja je izdavač zapisao uz izdanje. zapisano
 // je false kad ih izdavač nije bilježio (starija inačica) ili se ne daju
 // pročitati: tada se ne zna radi li sve, pa se ne smije reći da radi.

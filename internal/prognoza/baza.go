@@ -824,6 +824,27 @@ func DnevneIzdanja(db *sql.DB, izdano int64) (map[string][]DnevnaIzdana, error) 
 	return out, r.Err()
 }
 
+// PolazistaIzdanja vraća vodostaj svake letve u satu izdanja, točku iz koje
+// kreće satna prognoza. Letve kojima se vodostaj ne računa nema.
+func PolazistaIzdanja(db *sql.DB, izdano int64) (map[string]float64, error) {
+	r, err := db.Query(`SELECT letva, vrijednost FROM izdane
+		WHERE izdano = ? AND ciljni = ? AND velicina = 'vodostaj'`, izdano, izdano)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	out := map[string]float64{}
+	for r.Next() {
+		var letva string
+		var v float64
+		if err := r.Scan(&letva, &v); err != nil {
+			return nil, err
+		}
+		out[letva] = v
+	}
+	return out, r.Err()
+}
+
 // bezStranihZnakova svodi mađarska i srpska slova na osnovna, da šifra strane
 // postaje bude čitljiva: „Gönyű” → „Gonyu”, „Bačka Palanka” → „Backa Palanka”.
 var straniZnakovi = strings.NewReplacer(

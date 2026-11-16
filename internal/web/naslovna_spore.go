@@ -280,11 +280,8 @@ func opisKise(s SlivUKisi) string {
 		}
 		dijelovi = append(dijelovi, u)
 	}
-	for _, l := range s.Letve {
-		if l.Ima && l.Cm >= 1 {
-			dijelovi = append(dijelovi, fmt.Sprintf("porast u prognozi: %s +%s cm", l.Naziv, brojHRf(l.Cm, 0)))
-			break
-		}
+	if p := porastRetka(s.Letve); p != "" {
+		dijelovi = append(dijelovi, p)
 	}
 	return strings.Join(dijelovi, " · ")
 }
