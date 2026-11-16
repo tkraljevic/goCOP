@@ -93,3 +93,16 @@ func TestPomocImaUlazIJednoPoglavlje(t *testing.T) {
 		t.Error("gumb „Na vrh” u poglavlju mora ostati u poglavlju")
 	}
 }
+
+// Odluke (16. 11. 2026.): pretraga nabraja mjesta s rečenicom; popis je
+// odmah ispod polja, a napomena kaže da se traži točno upisana riječ.
+func TestPretragaPomociImaPopisMjesta(t *testing.T) {
+	h := pomocHTML(t)
+	polje := strings.Index(h, `id="pomoc-pretraga"`)
+	popis := strings.Index(h, `<div id="pomoc-rezultati" class="pomoc-rezultati"`)
+	napomena := strings.Index(h, `<p class="pomoc-pretraga-napomena">`)
+	brzi := strings.Index(h, `<div class="pomoc-brzi"`)
+	if polje < 0 || popis < polje || napomena < popis || brzi < napomena {
+		t.Errorf("redoslijed: polje %d, popis %d, napomena %d, česti zadaci %d", polje, popis, napomena, brzi)
+	}
+}

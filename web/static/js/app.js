@@ -618,14 +618,90 @@ function renderMarkdown(md) {
   });
 })();
 
-// Pomoć je jedna duga stranica jer znak "?" sa svake stranice mora moći
-// otvoriti točan odjeljak. Pretraga zato ne šalje ništa poslužitelju: samo
-// skriva odjeljke koji ne sadrže tražene riječi. Dijakritika se zanemaruje da
+// Pomoć je jedna stranica jer znak "?" sa svake stranice mora moći otvoriti
+// točan odjeljak. Pretraga zato ne šalje ništa poslužitelju: nabraja mjesta
+// (odlomke, stavke, pojmove) u kojima su sve tražene riječi, s rečenicom.
+// Dijakritika se zanemaruje da
 // "ocitanje" nađe "očitanje", što je važno na tipkovnicama bez hrvatskih slova.
 (function () {
   'use strict';
 
   var stanjePomoci = {};
+
+  function svedi(s) {
+    return (s || '').toLocaleLowerCase('hr').normalize('NFD')
+      .replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+  }
+
+  // svediSMapom svodi tekst kao svedi (bez sažimanja razmaka) i pamti za
+  // svaki znak svedenog teksta njegovo mjesto u izvornom, da se pogodak
+  // istakne u tekstu s kvačicama
+  function svediSMapom(s) {
+    var out = '', mapa = [];
+    for (var i = 0; i < s.length; i++) {
+      var z = s.charAt(i).toLocaleLowerCase('hr').normalize('NFD').replace(/[̀-ͯ]/g, '');
+      for (var k = 0; k < z.length; k++) { out += z.charAt(k); mapa.push(i); }
+    }
+    return { tekst: out, mapa: mapa };
+  }
+
+  // mjestaPomoci su odlomci, stavke popisa i pojmovi svakog poglavlja, s
+  // poglavljem, podnaslovom i najbližim sidrom na koje vodi pogodak
+  function mjestaPomoci() {
+    var mjesta = [];
+    document.querySelectorAll('.detail-section[id]').forEach(function (o) {
+      var h2 = o.querySelector('h2');
+      var poglavlje = h2 ? h2.textContent.trim() : '';
+      var podnaslov = '', sidro = o.id;
+      o.querySelectorAll('.pomoc-tekst h3, .pomoc-tekst p, .pomoc-tekst li, .pomoc-tekst dd').forEach(function (el) {
+        if (el.tagName === 'H3') {
+          podnaslov = el.textContent.trim();
+          if (el.id) { sidro = el.id; }
+          return;
+        }
+        if (el.querySelector('p, li')) { return; }
+        var tekst = el.textContent.replace(/\s+/g, ' ').trim();
+        if (!tekst) { return; }
+        var s = el.closest('li[id]');
+        mjesta.push({ el: el, poglavlje: poglavlje, podnaslov: podnaslov, sidro: s ? s.id : sidro, tekst: tekst, svedeno: svedi(tekst) });
+      });
+    });
+    return mjesta;
+  }
+
+  // recenicaS je rečenica mjesta u kojoj je prva tražena riječ. Rečenica
+  // završava točkom, uskličnikom ili upitnikom ispred velikog slova, pa
+  // „npr. 1385 cm” i „(Dunav, Drava…)” ostaju u istoj rečenici.
+  function recenicaS(tekst, rijeci) {
+    var recenice = tekst.split(/(?<=[.!?])\s+(?=[A-ZČĆĐŠŽ„“])/);
+    for (var i = 0; i < recenice.length; i++) {
+      if (svedi(recenice[i]).indexOf(rijeci[0]) !== -1) { return recenice[i].trim(); }
+    }
+    return recenice[0].trim();
+  }
+
+  // istaknuto upisuje rečenicu u el, a tražene riječi podebljane
+  function istaknuto(el, recenica, rijeci) {
+    var m = svediSMapom(recenica), oznake = [];
+    rijeci.forEach(function (r) {
+      for (var i = m.tekst.indexOf(r); i !== -1; i = m.tekst.indexOf(r, i + r.length)) {
+        oznake.push([m.mapa[i], m.mapa[i + r.length - 1] + 1]);
+      }
+    });
+    oznake.sort(function (a, b) { return a[0] - b[0]; });
+    var pos = 0;
+    oznake.forEach(function (o) {
+      if (o[0] < pos) { return; }
+      el.appendChild(document.createTextNode(recenica.slice(pos, o[0])));
+      var b = document.createElement('strong');
+      b.textContent = recenica.slice(o[0], o[1]);
+      el.appendChild(b);
+      pos = o[1];
+    });
+    el.appendChild(document.createTextNode(recenica.slice(pos)));
+  }
+
+  var NAJVISE_POGODAKA = 30;
 
   function pripremiPomoc() {
     var unos = document.getElementById('pomoc-pretraga');
@@ -633,46 +709,53 @@ function renderMarkdown(md) {
     var obrisi = document.getElementById('pomoc-pretraga-obrisi');
     var stanje = document.getElementById('pomoc-pretraga-stanje');
     var nema = document.getElementById('pomoc-nema-rezultata');
-    var kazalo = document.querySelector('.pomoc-kazalo');
-    var brzi = document.querySelector('.pomoc-brzi');
-    var odjeljci = Array.prototype.slice.call(document.querySelectorAll('.detail-section[id]'));
+    var popis = document.getElementById('pomoc-rezultati');
+    var mjesta = null;
 
-    function svedi(s) {
-      return (s || '').toLocaleLowerCase('hr').normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+    function pogodak(m, rijeci) {
+      var a = document.createElement('a');
+      a.className = 'pomoc-pogodak';
+      a.href = '#' + m.sidro;
+      var gdje = document.createElement('span');
+      gdje.className = 'pomoc-pogodak-gdje';
+      gdje.textContent = m.podnaslov ? m.poglavlje + ' › ' + m.podnaslov : m.poglavlje;
+      var r = document.createElement('span');
+      r.className = 'pomoc-pogodak-recenica';
+      istaknuto(r, recenicaS(m.tekst, rijeci), rijeci);
+      a.appendChild(gdje);
+      a.appendChild(r);
+      a.addEventListener('click', function () { stanjePomoci.cilj = m.el; unos.value = ''; filtriraj(); });
+      return a;
     }
-    var tekstovi = odjeljci.map(function (o) { return svedi(o.textContent); });
 
     function filtriraj() {
       var upit = svedi(unos.value);
       var rijeci = upit.split(' ').filter(Boolean);
-      var broj = 0;
-      odjeljci.forEach(function (o, i) {
-        var prolazi = !rijeci.length || rijeci.every(function (r) { return tekstovi[i].indexOf(r) !== -1; });
-        o.classList.toggle('pomoc-skriveno', !prolazi);
-        if (prolazi) { broj++; }
-      });
-
-      if (kazalo) {
-        kazalo.querySelectorAll('a[href^="#"]').forEach(function (a) {
-          var cilj = document.getElementById(a.getAttribute('href').slice(1));
-          var odjeljak = cilj && cilj.closest('.detail-section');
-          a.classList.toggle('pomoc-skriveno', !!upit && (!odjeljak || odjeljak.classList.contains('pomoc-skriveno')));
-        });
-        kazalo.querySelectorAll('.pomoc-skupina').forEach(function (g) {
-          g.classList.toggle('pomoc-skriveno', !!upit && !g.querySelector('a:not(.pomoc-skriveno)'));
-        });
-      }
-      if (brzi) {
-        brzi.classList.toggle('pomoc-skriveno', !!upit);
-        var naslov = brzi.previousElementSibling;
-        if (naslov && naslov.classList.contains('pomoc-ulaz-naslov')) { naslov.classList.toggle('pomoc-skriveno', !!upit); }
-      }
       if (obrisi) { obrisi.hidden = !upit; }
+      if (popis) { popis.textContent = ''; popis.hidden = !upit; }
+      var broj = 0, poglavlja = {};
+      if (rijeci.length) {
+        mjesta = mjesta || mjestaPomoci();
+        mjesta.forEach(function (m) {
+          if (!rijeci.every(function (r) { return m.svedeno.indexOf(r) !== -1; })) { return; }
+          broj++;
+          poglavlja[m.poglavlje] = true;
+          if (popis && broj <= NAJVISE_POGODAKA) { popis.appendChild(pogodak(m, rijeci)); }
+        });
+      }
+      var uPoglavlja = Object.keys(poglavlja).length;
+      if (popis && broj > NAJVISE_POGODAKA) {
+        var jos = document.createElement('p');
+        jos.className = 'pomoc-pogodak-jos';
+        jos.textContent = 'I još ' + (broj - NAJVISE_POGODAKA) + ' ' + uzBroj(broj - NAJVISE_POGODAKA, 'mjesto', 'mjesta', 'mjesta') + '. Dodajte riječ da suzite pretragu.';
+        popis.appendChild(jos);
+      }
+      if (popis && !broj) { popis.hidden = true; }
       if (nema) { nema.hidden = !upit || broj !== 0; }
       if (stanje) {
-        stanje.textContent = upit ? (broj ? 'Broj pronađenih odjeljaka: ' + broj : 'Nema rezultata')
-          : 'Pretražuje naslove i tekst cijele pomoći.';
+        stanje.textContent = !upit ? 'Pretražuje naslove i tekst cijele pomoći.'
+          : broj ? 'Pronađeno na ' + broj + ' ' + uzBroj(broj, 'mjestu', 'mjesta', 'mjesta') + ' u ' + uPoglavlja + ' ' + uzBroj(uPoglavlja, 'poglavlju', 'poglavlja', 'poglavlja') + '.'
+          : 'Nema rezultata.';
       }
       if (stanjePomoci.prikazi) { stanjePomoci.prikazi(false); }
     }
@@ -742,7 +825,13 @@ function renderMarkdown(md) {
       odjeljci.forEach(function (o) { o.classList.toggle('pomoc-otvoreno', o === poglavlje); });
       okvir.setAttribute('data-prikaz', unos && unos.value.trim() ? 'pretraga' : poglavlje ? 'poglavlje' : 'ulaz');
       if (!pomakni) { return; }
-      if (cilj && cilj !== poglavlje) { cilj.scrollIntoView(); } else { window.scrollTo(0, 0); }
+      var tocno = stanjePomoci.cilj;
+      stanjePomoci.cilj = null;
+      if (tocno && poglavlje && poglavlje.contains(tocno)) {
+        tocno.scrollIntoView({ block: 'center' });
+        tocno.classList.add('pomoc-istaknuto');
+        window.setTimeout(function () { tocno.classList.remove('pomoc-istaknuto'); }, 2500);
+      } else if (cilj && cilj !== poglavlje) { cilj.scrollIntoView(); } else { window.scrollTo(0, 0); }
     }
 
     stanjePomoci.prikazi = prikazi;
