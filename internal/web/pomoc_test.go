@@ -149,6 +149,7 @@ func TestKazaloPomociVodiNaPostojecaSidra(t *testing.T) {
 	for _, m := range regexp.MustCompile(`id="([a-z0-9-]+)"`).FindAllStringSubmatch(h, -1) {
 		sidra[m[1]] = true
 	}
+	sidra["top"] = true // po HTML-u vrh stranice, bez elementa
 	for _, m := range regexp.MustCompile(`href="#([a-z0-9-]+)"`).FindAllStringSubmatch(h, -1) {
 		if !sidra[m[1]] {
 			t.Errorf("kazalo pomoći vodi na #%s, a tog odjeljka nema", m[1])
@@ -222,7 +223,7 @@ func TestPomocImaPretraguICesteZadatke(t *testing.T) {
 		`id="pomoc-pretraga"`, `id="pomoc-pretraga-stanje"`,
 		"Upisati vodostaj", "Voditi dnevnik COP-a", "Upisati dežurstvo",
 		"Izvesti obračun", "Uvesti hidrološki niz", "Povezati računalo",
-		`class="pomoc-na-vrh"`,
+		`class="pomoc-na-vrh" href="#top"`,
 	} {
 		if !strings.Contains(h, want) {
 			t.Errorf("pomoć nema tražilicu ili česti zadatak %q", want)
