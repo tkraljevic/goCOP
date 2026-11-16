@@ -308,6 +308,14 @@
 <div class="alert alert-warning nepredani-listovi" role="alert">{{icon "triangle-alert"}} Niste potpisali i predali {{if gt .Ukupno 1}}dnevne listove{{else}}dnevni list{{end}} za {{range .Dani}}{{.Prije}}<a href="/vodocuvar/{{.ID}}">{{.Dan}}</a>{{end}}{{with .Jos}} i još <a href="/vodocuvar">{{.}} {{uzBroj . "dan" "dana" "dana"}}</a>.{{end}} Otvorite list, provjerite ga i predajte.</div>
 {{end}}{{end}}
 
+{{/* Kartice modula Djelatnici (crtež 20); argument je kartica na kojoj se stoji */}}
+{{define "djelatniciKartice"}}
+<nav class="kartice-stranice djelatnici-kartice" aria-label="Djelatnici">
+  {{if eq . "djelatnici"}}<span class="kartica-stranice" aria-current="page">Djelatnici</span>{{else}}<a class="kartica-stranice" href="/users">Djelatnici</a>{{end}}
+  {{if eq . "adresar"}}<span class="kartica-stranice" aria-current="page">Adresar tvrtke</span>{{else}}<a class="kartica-stranice" href="/users/exchange">Adresar tvrtke</a>{{end}}
+</nav>
+{{end}}
+
 {{define "pager"}}
 {{if gt .Total 0}}
 <nav class="pager" aria-label="Listanje">

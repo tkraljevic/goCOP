@@ -3,11 +3,11 @@
 {{define "title"}}goCOP — {{if .Duty}}Izmjena zaduženja{{else}}Novo zaduženje{{end}}{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/users">Djelatnici</a> › <a href="/users/{{.User.ID}}">{{.User.FullName}}</a> › {{if .Duty}}Izmjena zaduženja{{else}}Novo zaduženje{{end}}</div>
+<a class="povratna-poveznica" href="/users/{{.User.ID}}">{{icon "arrow-left"}} {{.User.FullName}}</a>
 
 <div class="page-header">
   <div>
-    <h1 class="page-title" data-naziv-stranice="Zaduženje djelatnika">{{icon "shield"}} {{if .Duty}}Izmjena zaduženja{{else}}Zaduženje{{end}} za {{.User.FullName}}</h1>
+    <h1 class="page-title" data-naziv-stranice="Zaduženje djelatnika">{{if .Duty}}Izmjena zaduženja{{else}}Zaduženje{{end}} za {{.User.FullName}}</h1>
     <p class="page-desc">Stalna funkcija ili privremena ispomoć. Iz zaduženja se izvodi što osoba vidi i što smije.{{if .Duty}} Izmjena vrijedi od spremanja; prijašnje stanje ostaje u knjizi verzija.{{end}}</p>
   </div>
 </div>
