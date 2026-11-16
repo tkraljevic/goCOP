@@ -625,6 +625,8 @@ function renderMarkdown(md) {
 (function () {
   'use strict';
 
+  var stanjePomoci = {};
+
   function pripremiPomoc() {
     var unos = document.getElementById('pomoc-pretraga');
     if (!unos) { return; }
@@ -672,6 +674,7 @@ function renderMarkdown(md) {
         stanje.textContent = upit ? (broj ? 'Broj pronađenih odjeljaka: ' + broj : 'Nema rezultata')
           : 'Pretražuje naslove i tekst cijele pomoći.';
       }
+      if (stanjePomoci.prikazi) { stanjePomoci.prikazi(false); }
     }
 
     unos.addEventListener('input', filtriraj);
@@ -721,7 +724,40 @@ function renderMarkdown(md) {
     istakni();
   }
 
-  function pripremi() { pripremiPomoc(); pripremiPodnaslove(); }
+  // Jedno poglavlje na zaslonu (Odluke (16. 11. 2026.), Pomoć 1): sidro u
+  // adresi bira što se vidi. Sidro unutar poglavlja otvara to poglavlje i
+  // pomakne se na mjesto; bez sidra, ili #top i #pomoc, vidi se ulaz. Dok
+  // pretraga nešto traži, vide se ulaz i poglavlja s pogotkom.
+  function pripremiPoglavlja() {
+    var okvir = document.querySelector('[data-pomoc]');
+    if (!okvir) { return; }
+    var odjeljci = Array.prototype.slice.call(okvir.querySelectorAll('.detail-section[id]'));
+    var unos = document.getElementById('pomoc-pretraga');
+
+    function prikazi(pomakni) {
+      var id = decodeURIComponent(location.hash.slice(1));
+      var cilj = id && id !== 'top' && id !== 'pomoc' ? document.getElementById(id) : null;
+      var poglavlje = cilj && cilj.closest('.detail-section');
+      if (unos && unos.value.trim()) { poglavlje = null; }
+      odjeljci.forEach(function (o) { o.classList.toggle('pomoc-otvoreno', o === poglavlje); });
+      okvir.setAttribute('data-prikaz', unos && unos.value.trim() ? 'pretraga' : poglavlje ? 'poglavlje' : 'ulaz');
+      if (!pomakni) { return; }
+      if (cilj && cilj !== poglavlje) { cilj.scrollIntoView(); } else { window.scrollTo(0, 0); }
+    }
+
+    stanjePomoci.prikazi = prikazi;
+    window.addEventListener('hashchange', function () { prikazi(true); });
+    prikazi(true);
+
+    var naVrh = okvir.querySelector('[data-pomoc-na-vrh]');
+    if (naVrh) {
+      naVrh.addEventListener('click', function (e) {
+        if (okvir.getAttribute('data-prikaz') === 'poglavlje') { e.preventDefault(); window.scrollTo(0, 0); }
+      });
+    }
+  }
+
+  function pripremi() { pripremiPomoc(); pripremiPodnaslove(); pripremiPoglavlja(); }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', pripremi);
   } else {
