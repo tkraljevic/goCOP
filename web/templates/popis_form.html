@@ -29,7 +29,7 @@
       {{range .Stavke}}
       {{$k := printf "%s:%s" .VrstaID .Oblik}}
       <tr>
-        <td class="mono"></td>
+        <td class="mono">{{if .RedniBroj}}{{.RedniBroj}}.{{end}}</td>
         <td>{{.VrstaNaziv}}</td>
         <td>{{.Jedinica}}</td>
         <td>{{if .Oblik}}{{oblik .Oblik}}{{end}}</td>

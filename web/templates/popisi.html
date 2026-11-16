@@ -53,7 +53,7 @@
     <tr>
       <td data-stupac="Na dan"><a href="/sredstva/popisi/{{.ID}}"><strong>{{.Dan.Format "2.1.2006."}}</strong></a></td>
       <td data-stupac="Skladište">{{.SkladisteNaziv}}{{if .AreaID}} <span class="reg-card-sub">BP {{.AreaID}}</span>{{end}}</td>
-      <td data-stupac="Stanje">{{if .Zakljucen}}<span class="badge">zaključen {{.ZakljucenoAt.Format "2.1.2006."}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{end}}</td>
+      <td data-stupac="Stanje">{{if .Zakljucen}}<span class="badge">zaključena {{.ZakljucenoAt.Format "2.1.2006."}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{end}}</td>
       <td data-stupac="Razlika" class="mono br">{{.Razlika}}</td>
       <td data-stupac="Izradio">{{.Izradio}} <span class="reg-card-sub">{{.IzradenoAt.Format "2.1.2006."}}</span></td>
     </tr>

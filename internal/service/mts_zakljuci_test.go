@@ -46,8 +46,8 @@ func TestMtsZakljucivanjeOdbija(t *testing.T) {
 	}
 
 	mora("nepoznata", s.ZakljuciPopis(ctx, u, uprava, "nema-je"), "nije pronađen")
-	mora("bez prijave", s.ZakljuciPopis(ctx, nil, uprava, p.ID), "uprava branjenog područja ili sektora")
-	mora("bez ovlasti", s.ZakljuciPopis(ctx, u, nil, p.ID), "uprava branjenog područja ili sektora")
+	mora("bez prijave", s.ZakljuciPopis(ctx, nil, uprava, p.ID), "skladištar ili uprava branjenog područja i sektora")
+	mora("bez ovlasti", s.ZakljuciPopis(ctx, u, nil, p.ID), "skladištar ili uprava branjenog područja i sektora")
 
 	// knjižno stanje se ne da pročitati
 	exec(`ALTER TABLE mts_vrste RENAME COLUMN napomena TO napomena_drugo`)
@@ -89,7 +89,7 @@ func TestMtsZakljucivanjeOdbija(t *testing.T) {
 	if err := s.SpremiPopis(ctx, u, uprava, q); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.ZakljuciPopis(ctx, u, uprava, q.ID); err == nil || !strings.Contains(err.Error(), "prazan popis") {
+	if err := s.ZakljuciPopis(ctx, u, uprava, q.ID); err == nil || !strings.Contains(err.Error(), "Prazna inventura") {
 		t.Errorf("prazan popis: %v", err)
 	}
 }

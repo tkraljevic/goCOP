@@ -599,7 +599,7 @@ func (h *MtsHandler) HandleSavePopis(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.FormValue("zakljuci") == "1" {
 		if err := h.svc().ZakljuciPopis(r.Context(), data.CurrentUser, data.Permissions, p.ID); err != nil {
-			redirectWith(w, r, "/sredstva/popisi/"+p.ID, "error", "Popis je spremljen, ali nije zaključen: "+err.Error())
+			redirectWith(w, r, "/sredstva/popisi/"+p.ID, "error", "Inventura je spremljena, ali nije zaključena: "+err.Error())
 			return
 		}
 		redirectWith(w, r, "/sredstva/popisi/"+p.ID, "success", "Inventura je zaključena; razlike su proknjižene.")

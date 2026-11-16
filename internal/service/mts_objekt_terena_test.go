@@ -28,11 +28,11 @@ func TestMjestoTerenaObjekt(t *testing.T) {
 	izdaj := func(objekt string, podrucje int) ([]models.Promet, error) {
 		return s.Provedi(ctx, pero, uprava, Zahvat{Vrsta: models.PrometIzdano, SkladisteID: sk.ID, VrstaID: mpLopata, Kolicina: 1, AreaID: podrucje, StructureID: objekt})
 	}
-	if _, err := izdaj("nije-uuid", 34); err == nil || !strings.Contains(err.Error(), "neispravan objekt „nije-uuid”") {
+	if _, err := izdaj("nije-uuid", 34); err == nil || !strings.Contains(err.Error(), "Neispravan objekt „nije-uuid”") {
 		t.Errorf("neispravan objekt: %v", err)
 	}
 	nema := uuid.NewString()
-	if _, err := izdaj(nema, 34); err == nil || !strings.Contains(err.Error(), "objekt "+nema+" nije u registru") {
+	if _, err := izdaj(nema, 34); err == nil || !strings.Contains(err.Error(), "Objekt "+nema+" nije u registru") {
 		t.Errorf("nepostojeći objekt: %v", err)
 	}
 	// objekt iz registra daje područje kad nije upisano

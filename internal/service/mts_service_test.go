@@ -249,7 +249,7 @@ func TestMtsGodisnjiPopisUsklađuje(t *testing.T) {
 		t.Error("usklađenje nije proknjiženo")
 	}
 	// zaključeni se ne prepravlja, i drugi popis na isti dan ne prolazi
-	if err := s.SpremiPopis(ctx, u, uprava, zatvoren); err == nil || !strings.Contains(err.Error(), "zaključeni") {
+	if err := s.SpremiPopis(ctx, u, uprava, zatvoren); err == nil || !strings.Contains(err.Error(), "Zaključena inventura") {
 		t.Errorf("izmjena zaključenog: %v", err)
 	}
 	drugi := &models.Popis{SkladisteID: sk.ID, Dan: dan}
