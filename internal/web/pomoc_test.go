@@ -221,7 +221,7 @@ func TestPomocImaPretraguICesteZadatke(t *testing.T) {
 	h := pomocHTML(t)
 	for _, want := range []string{
 		`id="pomoc-pretraga"`, `id="pomoc-pretraga-stanje"`,
-		"Upisati vodostaj", "Voditi dnevnik COP-a", "Upisati dežurstvo",
+		"Upisati vodostaj", "Voditi dnevnik COP&#8209;a", "Upisati dežurstvo",
 		"Izvesti obračun", "Uvesti hidrološki niz", "Povezati računalo",
 		`class="pomoc-na-vrh" href="#top"`,
 	} {

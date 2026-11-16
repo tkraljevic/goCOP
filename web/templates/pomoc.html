@@ -25,13 +25,11 @@
 {{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/">Naslovna</a> › Pomoć</div>
-
-<div class="detail-head">
+<div class="detail-head pomoc-glava">
   <div>
-    <h1 class="page-title">{{icon "circle-question-mark"}} Pomoć</h1>
+    <h1 class="page-title">Pomoć</h1>
     <p class="page-desc">Što koja stranica radi i zašto je napravljena tako.
-      Znak <strong>?</strong> u zaglavlju svake stranice vodi ravno na njezin odjeljak ovdje.</p>
+      Znak <strong>?</strong> u gornjoj traci svake stranice vodi ravno na njezin odjeljak ovdje.</p>
   </div>
 </div>
 
@@ -46,119 +44,58 @@
   <p id="pomoc-pretraga-stanje" class="reading-meta" role="status" aria-live="polite">Pretražuje naslove i tekst cijele pomoći.</p>
 </div>
 
+<h2 class="pomoc-ulaz-naslov">Česti zadaci</h2>
 <div class="pomoc-brzi" aria-label="Česti zadaci">
   <a href="#ocitanja-popis">{{icon "waves"}} <span><strong>Upisati vodostaj</strong><small>Jedno očitanje na terenu</small></span></a>
   <a href="#tok-obrane">{{icon "shield"}} <span><strong>Pokrenuti obranu</strong><small>Dnevnik COP-a, akti i dežurstva</small></span></a>
   <a href="#vodocuvar">{{icon "notebook-pen"}} <span><strong>Voditi dnevni list</strong><small>Zadaci, predaja i ovjera</small></span></a>
   <a href="#akti">{{icon "file-text"}} <span><strong>Ovjeriti akt</strong><small>Potpis, žig i slanje na znanje</small></span></a>
   <a href="#sredstva">{{icon "package"}} <span><strong>Evidentirati sredstva</strong><small>Promet, inventura i potrebe</small></span></a>
-  <a href="#posta">{{icon "mail"}} <span><strong>Otvoriti poštu</strong><small>Exchange, adresar i privitci</small></span></a>
-  <a href="#dnevnik-cop">{{icon "activity"}} <span><strong>Voditi dnevnik COP-a</strong><small>Nova dojava, storno i zaključivanje</small></span></a>
+  <a href="#posta">{{icon "mail"}} <span><strong>Otvoriti poštu</strong><small>Sandučić, adresar i privitci</small></span></a>
+  <a href="#dnevnik-cop">{{icon "activity"}} <span><strong>Voditi dnevnik COP&#8209;a</strong><small>Nova dojava, storno i zaključivanje</small></span></a>
   <a href="#dnevnik-dezurstva">{{icon "users"}} <span><strong>Upisati dežurstvo</strong><small>Plan i potvrda uprave centra</small></span></a>
   <a href="#dnevnik-obracun">{{icon "calculator"}} <span><strong>Izvesti obračun</strong><small>IORS i Excel za računovodstvo</small></span></a>
-  <a href="#arhiva-unos">{{icon "package"}} <span><strong>Uvesti hidrološki niz</strong><small>CSV, Excel i zatečeni podaci</small></span></a>
+  <a href="#arhiva-unos">{{icon "upload"}} <span><strong>Uvesti hidrološki niz</strong><small>CSV, Excel i zatečeni podaci</small></span></a>
   <a href="#prognoze">{{icon "trending-up"}} <span><strong>Provjeriti prognozu</strong><small>Rasponi, pouzdanost i put vala</small></span></a>
   <a href="#settings">{{icon "radio-tower"}} <span><strong>Povezati računalo</strong><small>Ovo računalo i mreža</small></span></a>
 </div>
 
-<nav class="pomoc-kazalo" id="pomoc-kazalo" aria-label="Sadržaj">
-  <div class="kazalo-grupa">
-    <a class="kazalo-glava" href="#pocetak">Kako se program koristi</a>
-    <a href="#karte">Karte</a>
-    <a href="#karta-uredjivanje">Crtanje na karti</a>
-    <a class="kazalo-glava" href="#dashboard">Naslovna</a>
-    <a href="#dashboard-hero">Prijavljeni djelatnik i profil</a>
-    <a href="#dashboard-kartice">Moduli</a>
-    <a href="#dashboard-vrijeme">Vrijeme i vode</a>
-    <a href="#dashboard-kisa">Kiša po slivovima</a>
-    <a href="#dashboard-stanje">Stanje obrane</a>
-    <a href="#dashboard-brojke">Podaci u sustavu</a>
-    <a href="#dashboard-razmjena">Razmjena s čvorovima</a>
-    <a href="#dashboard-dogadjanja">Zid događanja</a>
-    <a class="kazalo-glava" href="#obilazak">Obilazak letava</a>
-    <a class="kazalo-glava" href="#karta">Karta</a>
+<h2 class="pomoc-ulaz-naslov">Sve teme</h2>
+<nav class="pomoc-kazalo" id="pomoc-kazalo" aria-label="Sve teme">
+  <div class="pomoc-skupina">
+    <h3>Početak</h3>
+    <a class="pomoc-tema" href="#pocetak">{{icon "info"}}<span>Kako se program koristi</span><small>2 podnaslova</small>{{icon "chevron-right"}}</a>
+    <a class="pomoc-tema" href="#pojmovi">{{icon "book-open"}}<span>Pojmovnik</span>{{icon "chevron-right"}}</a>
+    <a class="pomoc-tema" href="#o-programu">{{icon "info"}}<span>O programu</span>{{icon "chevron-right"}}</a>
   </div>
-  <div class="kazalo-grupa">
-    <a class="kazalo-glava" href="#sections">Dionice</a>
-    <a href="#dionica-poddionice">Poddionice</a>
-    <a href="#dionica-nasipi">Nasipi, objekti i ugroženo područje</a>
-    <a href="#dionica-vodomjeri">Mjerodavni vodomjeri</a>
-    <a href="#dionica-obrana">Proglašavanje obrane</a>
-    <a href="#dionica-ljudi">Tko je zadužen</a>
+  <div class="pomoc-skupina">
+    <h3>Svaki dan</h3>
+    <a class="pomoc-tema" href="#dashboard">{{icon "house"}}<span>Naslovna</span><small>8 podnaslova</small>{{icon "chevron-right"}}</a>
+    <a class="pomoc-tema" href="#readings">{{icon "ruler"}}<span>Očitanja</span><small>7 podnaslova</small>{{icon "chevron-right"}}</a>
+    <a class="pomoc-tema" href="#prognoze">{{icon "chart-column"}}<span>Prognoze</span><small>5 podnaslova</small>{{icon "chevron-right"}}</a>
+    <a class="pomoc-tema" href="#karta">{{icon "map"}}<span>Karta</span>{{icon "chevron-right"}}</a>
+    <a class="pomoc-tema" href="#obilazak">{{icon "ruler"}}<span>Obilazak letava</span>{{icon "chevron-right"}}</a>
   </div>
-  <div class="kazalo-grupa">
-    <a class="kazalo-glava" href="#stations">Letve</a>
-    <a href="#letva-kota">Kota nule i visinski sustavi</a>
-    <a href="#letva-pragovi">Pragovi i stupanj obrane</a>
-    <a href="#letva-ekstremi">Zabilježeni ekstremi</a>
-    <a href="#letva-povratni">Povratni vodostaji</a>
-    <a href="#letva-valovi">Valovi obrane u nizu</a>
-    <a href="#letva-korito">Korito i voda u njemu</a>
-    <a href="#letva-karta">Karta položaja</a>
-    <a href="#letva-historijat">Historijat letve</a>
-    <a href="#letva-izvjesce">Izvoz u Excel</a>
+  <div class="pomoc-skupina">
+    <h3>Obrana i dokumenti</h3>
+    <a class="pomoc-tema" href="#journals">{{icon "file-text"}}<span>Dokumenti</span><small>10 podnaslova</small>{{icon "chevron-right"}}</a>
+    <a class="pomoc-tema" href="#potpisi">{{icon "lock"}}<span>Potpisi, žigovi i izvornici</span>{{icon "chevron-right"}}</a>
+    <a class="pomoc-tema" href="#sredstva">{{icon "package"}}<span>Sredstva</span>{{icon "chevron-right"}}</a>
+    <a class="pomoc-tema" href="#posta">{{icon "mailbox"}}<span>Sandučić i adresar tvrtke</span>{{icon "chevron-right"}}</a>
   </div>
-  <div class="kazalo-grupa">
-    <a class="kazalo-glava" href="#readings">Očitanja</a>
-    <a href="#ocitanja-zadnje">Zadnje očitanje</a>
-    <a href="#ocitanja-graf">Kretanje vodostaja</a>
-    <a href="#ocitanja-popis">Upis i popis očitanja</a>
-    <a href="#ocitanja-raspon">Vrijednosti izvan raspona</a>
-    <a href="#ocitanja-kvar">Kvar mjernog uređaja</a>
-    <a href="#ocitanja-skupno">Unos više odjednom</a>
-    <a href="#ocitanja-ispravak">Provjera i ispravak u tablici</a>
+  <div class="pomoc-skupina">
+    <h3>Ljudi i postavke</h3>
+    <a class="pomoc-tema" href="#users">{{icon "users"}}<span>Djelatnici i dežurstva</span><small>3 podnaslova</small>{{icon "chevron-right"}}</a>
+    <a class="pomoc-tema" href="#profile">{{icon "user"}}<span>Profil</span><small>1 podnaslov</small>{{icon "chevron-right"}}</a>
+    <a class="pomoc-tema" href="#admin">{{icon "settings"}}<span>Administracija</span><small>4 podnaslova</small>{{icon "chevron-right"}}</a>
   </div>
-  <div class="kazalo-grupa">
-    <a class="kazalo-glava" href="#arhiva">Arhiva vodostaja</a>
-    <a href="#arhiva-karakteristike">Karakteristične vrijednosti</a>
-    <a href="#arhiva-izvori">Spojeni niz i izvori</a>
-    <a href="#arhiva-rekonstrukcija">Rekonstruirani nizovi</a>
-    <a href="#arhiva-ispravci">Izvoz i ispravci</a>
-    <a href="#arhiva-unos">Unos i ulaganje kroz sučelje</a>
-    <a href="#arhiva-postupak">Gradnja iz izvornih datoteka</a>
-    <a href="#arhiva-selidba">Prebacivanje u arhivu i pospremanje</a>
-  </div>
-  <div class="kazalo-grupa">
-    <a class="kazalo-glava" href="#prognoze">Prognoze</a>
-    <a href="#prognoze-citanje">Kako čitati prognozu</a>
-    <a href="#prognoze-ranija">Ranija prognoza</a>
-    <a href="#prognoze-profil">Uzdužni profil</a>
-    <a href="#prognoze-metoda">Kako nastaje</a>
-    <a href="#prognoze-ogranicenja">Ograničenja i provjera</a>
-  </div>
-  <div class="kazalo-grupa">
-    <a class="kazalo-glava" href="#journals">Dokumenti</a>
-    <a href="#tok-obrane">Tok aktivne obrane</a>
-    <a href="#dnevnik-cop">Dnevnik COP-a</a>
-    <a href="#dnevnik-dezurstva">Plan dežurstava</a>
-    <a href="#dnevnik-obracun">Obračun sati i IORS</a>
-    <a href="#izvjesca">Dnevna izvješća</a>
-    <a href="#dogadjanja">Događanja</a>
-    <a href="#vodocuvar">Vodočuvarski dnevnik</a>
-    <a href="#prijave">Prijave s terena</a>
-    <a href="#akti">Rješenja i obavijesti</a>
-    <a href="#dnevnik-usluge">Dnevnici usluga A.02 i A.03</a>
-  </div>
-  <div class="kazalo-grupa">
-    <a class="kazalo-glava" href="#sredstva">Sredstva</a>
-    <a class="kazalo-glava" href="#posta">Sandučić i adresar tvrtke</a>
-    <a class="kazalo-glava" href="#potpisi">Potpisi i izvornici</a>
-    <a class="kazalo-glava" href="#users">Djelatnici i dežurstva</a>
-    <a href="#users-privremeno-imenovanje">Privremeno imenovanje</a>
-    <a href="#users-kod-prijave">Privremeni kod za prijavu</a>
-    <a href="#users-potvrda-adrese">Adresa za PIN izvan domene</a>
-    <a class="kazalo-glava" href="#registers">Registri</a>
-    <a class="kazalo-glava" href="#slivovi">Slivovi i kišomjeri</a>
-    <a href="#slivovi-kisomjeri">Kišomjeri i izvedene točke</a>
-    <a class="kazalo-glava" href="#admin">Administracija</a>
-    <a href="#admin-posta-pin">PIN za prijavu izvana</a>
-    <a href="#admin-karta-bez-interneta">Karta bez interneta</a>
-    <a href="#telemetrija">Telemetrija letava</a>
-    <a href="#admin-test">Testne opcije</a>
-    <a class="kazalo-glava" href="#profile">Profil</a>
-    <a href="#profil-prijava-izvana">Prijava izvana i PIN</a>
-    <a class="kazalo-glava" href="#pojmovi">Pojmovnik</a>
-    <a class="kazalo-glava" href="#o-programu">O programu</a>
+  <div class="pomoc-skupina">
+    <h3>Registri i arhiva</h3>
+    <a class="pomoc-tema" href="#registers">{{icon "layers"}}<span>Registri</span>{{icon "chevron-right"}}</a>
+    <a class="pomoc-tema" href="#sections">{{icon "file-text"}}<span>Dionice</span><small>5 podnaslova</small>{{icon "chevron-right"}}</a>
+    <a class="pomoc-tema" href="#stations">{{icon "gauge"}}<span>Letve</span><small>9 podnaslova</small>{{icon "chevron-right"}}</a>
+    <a class="pomoc-tema" href="#arhiva">{{icon "history"}}<span>Arhiva vodostaja</span><small>7 podnaslova</small>{{icon "chevron-right"}}</a>
+    <a class="pomoc-tema" href="#slivovi">{{icon "cloud-rain"}}<span>Slivovi i kišomjeri</span><small>1 podnaslov</small>{{icon "chevron-right"}}</a>
   </div>
 </nav>
 

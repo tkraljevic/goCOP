@@ -657,11 +657,15 @@ function renderMarkdown(md) {
           var odjeljak = cilj && cilj.closest('.detail-section');
           a.classList.toggle('pomoc-skriveno', !!upit && (!odjeljak || odjeljak.classList.contains('pomoc-skriveno')));
         });
-        kazalo.querySelectorAll('.kazalo-grupa').forEach(function (g) {
+        kazalo.querySelectorAll('.pomoc-skupina').forEach(function (g) {
           g.classList.toggle('pomoc-skriveno', !!upit && !g.querySelector('a:not(.pomoc-skriveno)'));
         });
       }
-      if (brzi) { brzi.classList.toggle('pomoc-skriveno', !!upit); }
+      if (brzi) {
+        brzi.classList.toggle('pomoc-skriveno', !!upit);
+        var naslov = brzi.previousElementSibling;
+        if (naslov && naslov.classList.contains('pomoc-ulaz-naslov')) { naslov.classList.toggle('pomoc-skriveno', !!upit); }
+      }
       if (obrisi) { obrisi.hidden = !upit; }
       if (nema) { nema.hidden = !upit || broj !== 0; }
       if (stanje) {
