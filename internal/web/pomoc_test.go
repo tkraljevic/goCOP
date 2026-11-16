@@ -400,3 +400,17 @@ func TestPomocPredanoSektorskoINoveBrojke(t *testing.T) {
 		}
 	}
 }
+
+// Na mobitelu izbornik otvara „Više” u donjoj traci, a znak „?” u gornjoj
+// traci se skriva; Pomoć mora reći kako se onda do nje dolazi.
+func TestPomocOpisujeIzbornikNaMobitelu(t *testing.T) {
+	h := pomocHTML(t)
+	for _, want := range []string{
+		`<strong>Na mobitelu</strong> izbornik otvara <em>Više</em>`,
+		`pa se Pomoć otvara iz izbornika`,
+	} {
+		if !strings.Contains(h, want) {
+			t.Errorf("Pomoć ne kaže %q", want)
+		}
+	}
+}
