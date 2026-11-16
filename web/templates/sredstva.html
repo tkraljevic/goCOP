@@ -1,36 +1,24 @@
 {{template "base.html" .}}
 
-{{define "title"}}goCOP — Sredstva za obranu{{end}}
+{{define "title"}}goCOP — Sredstva{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/registri">Registri</a> › Sredstva za obranu</div>
-
 <div class="page-header">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "package"}} Sredstva za obranu od poplava</h1>
+    <h1 class="page-title" data-naziv-stranice>Sredstva</h1>
     <p class="page-desc">Što stoji po skladištima sektora, zbrojeno po vrstama iz propisanog popisa. Stanje se ne upisuje nego
       zbraja iz prometa: svaka primka, izdavanje i utrošak ostaju u knjizi.</p>
   </div>
   <div class="page-actions">
-    <a href="/sredstva/promet?sektor={{.Sektor}}" class="btn btn-secondary">{{icon "notebook"}} Knjiga prometa</a>
-    <a href="/sredstva/na-terenu?sektor={{.Sektor}}" class="btn btn-secondary">{{icon "map-pin"}} Na terenu</a>
-    <a href="/sredstva/popisi?sektor={{.Sektor}}" class="btn btn-secondary">{{icon "list"}} Inventura</a>
-    <a href="/sredstva/potrebe?sektor={{.Sektor}}" class="btn btn-secondary">{{icon "notebook-pen"}} Potrebe za nabavom</a>
-    <a href="/sredstva/katalog" class="btn btn-secondary" title="vrste sredstava: dodavanje i gašenje">{{icon "book-open"}} Katalog vrsta</a>
     {{if .SmijeUrediti}}<a href="/sredstva/skladista/novo?sektor={{.Sektor}}" class="btn btn-primary">{{icon "plus"}} Novo skladište</a>{{end}}
   </div>
 </div>
 
+{{template "sredstvaTraka" .}}
+
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 
-<form method="GET" action="/sredstva" class="obracun-filtar">
-  <label for="f-sektor">{{term "sektor"}}</label>
-  <select id="f-sektor" name="sektor" class="form-control" onchange="this.form.submit()">
-    <option value=""{{if not .Sektor}} selected{{end}}>svi sektori</option>
-    {{range .Sektori}}{{if ne .ID "DIREKCIJA"}}<option value="{{.ID}}"{{if eq .ID $.Sektor}} selected{{end}}>{{.Name}}</option>{{end}}{{end}}
-  </select>
-</form>
 {{if .Sektor}}
 <form method="GET" action="/sredstva/mts.xlsx" class="obracun-filtar">
   <input type="hidden" name="sektor" value="{{.Sektor}}">

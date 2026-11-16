@@ -4,7 +4,7 @@
 
 {{define "content"}}
 {{$p := .Popis}}{{$sk := .Skladiste}}
-<div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/sredstva?sektor={{$sk.Sektor}}">Sredstva za obranu</a> › <a href="/sredstva/skladista/{{$sk.ID}}">{{$sk.Naziv}}</a> › Inventura na dan {{$p.Dan.Format "2.1.2006."}}</div>
+<a href="/sredstva/skladista/{{$sk.ID}}" class="povratna-poveznica">← {{$sk.Naziv}}</a>
 
 <div class="page-header">
   <div>

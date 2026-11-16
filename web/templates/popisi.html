@@ -1,17 +1,17 @@
 {{template "base.html" .}}
 
-{{define "title"}}goCOP — Inventura sredstava{{end}}
+{{define "title"}}goCOP — Inventura · Sredstva{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/sredstva?sektor={{.Sektor}}">Sredstva za obranu</a> › Inventura</div>
-
 <div class="page-header">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "list"}} Inventura sredstava</h1>
+    <h1 class="page-title" data-naziv-stranice>Inventura</h1>
     <p class="page-desc">Inventura po skladištu na dan, obično 31. prosinca: prebrojano na polici, knjižno iz prometa i razlika.
       Zaključenjem se razlika proknjiži, a iz zaključenih inventura i evidencije potreba slaže se tablica za Glavni centar.</p>
   </div>
 </div>
+
+{{template "sredstvaTraka" .}}
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}

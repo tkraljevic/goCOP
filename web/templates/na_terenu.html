@@ -1,17 +1,17 @@
 {{template "base.html" .}}
 
-{{define "title"}}goCOP — Sredstva na terenu{{end}}
+{{define "title"}}goCOP — Na terenu · Sredstva{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/sredstva?sektor={{.Sektor}}">Sredstva za obranu</a> › Na terenu</div>
-
 <div class="page-header">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "map-pin"}} Sredstva na terenu</h1>
+    <h1 class="page-title" data-naziv-stranice>Na terenu</h1>
     <p class="page-desc">Što je izdano na dionice a nije ni vraćeno ni ugrađeno. Ugradnja i povrat upisuju se iz skladišta koje je
       izdalo.</p>
   </div>
 </div>
+
+{{template "sredstvaTraka" .}}
 
 <form method="GET" action="/sredstva/na-terenu" class="obracun-filtar">
   <input type="hidden" name="sektor" value="{{.Sektor}}">

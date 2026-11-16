@@ -317,6 +317,25 @@
 </nav>
 {{end}}
 
+{{/* Traka modula Sredstva (crtež 19a): sektor iznad šest kartica. Na mobitelu
+     je sektor polje s izbornikom, kao na Rješenjima i obavijestima. */}}
+{{define "sredstvaTraka"}}
+{{with .CipoviSektora}}
+<div class="ocitanja-cipovi cipovi-stranice akti-sektori" role="group" aria-label="{{term "sektor"}}">
+  {{range .}}<a class="ocitanja-cip" href="{{.URL}}" aria-pressed="{{if .Odabran}}true{{else}}false{{end}}">{{.Naziv}}</a>{{end}}
+</div>
+<details class="ocitanja-izbor akti-sektor-polje">
+  <summary><span class="akti-sektor-natpis">{{term "sektor"}}</span><span class="akti-sektor-izbor">{{range .}}{{if .Odabran}}{{.Naziv}}{{end}}{{end}}</span>{{icon "chevron-down"}}</summary>
+  <div class="ocitanja-izbornik" role="menu">
+    {{range .}}<a role="menuitemradio" aria-checked="{{if .Odabran}}true{{else}}false{{end}}" href="{{.URL}}">{{.Naziv}}</a>{{end}}
+  </div>
+</details>
+{{end}}
+<nav class="kartice-stranice sredstva-kartice" aria-label="Sredstva">
+  {{range .KarticeModula}}{{if .Odabrana}}<span class="kartica-stranice" aria-current="page">{{.Naziv}}</span>{{else}}<a class="kartica-stranice" href="{{.URL}}">{{.Naziv}}</a>{{end}}{{end}}
+</nav>
+{{end}}
+
 {{define "pager"}}
 {{if gt .Total 0}}
 <nav class="pager" aria-label="Listanje">

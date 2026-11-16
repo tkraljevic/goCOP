@@ -81,6 +81,8 @@ type MtsPageData struct {
 	Od, Do          string
 	VrstaID         string
 
+	Kartica string // kartica modula na kojoj se stoji (sredstva_traka.go)
+
 	SuccessMessage string
 	ErrorMessage   string
 	ActiveNav      string
@@ -220,6 +222,7 @@ func (h *MtsHandler) ShowPregled(w http.ResponseWriter, r *http.Request) {
 	}
 	data.SmijeUrediti = svc.SmijeUrediti(data.Permissions, data.Sektor, 0)
 	data.Podrucja, _ = h.users.ListAreas(data.Sektor)
+	data.Kartica = "pregled"
 	h.render(w, "sredstva.html", data)
 }
 
@@ -427,6 +430,7 @@ func (h *MtsHandler) ShowPromet(w http.ResponseWriter, r *http.Request) {
 	}
 	data.Skladista, _ = h.svc().Skladista(r.Context(), data.Sektor, 0, true)
 	data.Vrste, _ = h.svc().Vrste(r.Context())
+	data.Kartica = "promet"
 	h.render(w, "promet.html", data)
 }
 
@@ -469,6 +473,7 @@ func (h *MtsHandler) ShowNaTerenu(w http.ResponseWriter, r *http.Request) {
 		data.Promet, _ = h.svc().Promet(r.Context(), repository.FiltarPrometa{JournalID: journalID, Limit: 500})
 	}
 	data.VrstaID = journalID
+	data.Kartica = "teren"
 	h.render(w, "na_terenu.html", data)
 }
 
@@ -484,6 +489,7 @@ func (h *MtsHandler) ShowPopisi(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data.Skladista, _ = h.svc().Skladista(r.Context(), data.Sektor, 0, false)
+	data.Kartica = "inventura"
 	h.render(w, "popisi.html", data)
 }
 
@@ -712,6 +718,7 @@ func (h *MtsHandler) ShowKatalog(w http.ResponseWriter, r *http.Request) {
 	if id := r.URL.Query().Get("uredi"); id != "" && data.SmijeUrediti {
 		data.Vrsta, _ = h.svc().Vrsta(r.Context(), id)
 	}
+	data.Kartica = "katalog"
 	h.render(w, "katalog.html", data)
 }
 
@@ -836,6 +843,7 @@ func (h *MtsHandler) ShowPotrebeSektora(w http.ResponseWriter, r *http.Request) 
 	data.Skladista, _ = h.svc().Skladista(r.Context(), data.Sektor, 0, false)
 	data.Vrste, _ = h.svc().Vrste(r.Context())
 	data.GodinePotreba = h.svc().GodinePotreba(r.Context(), data.Sektor)
+	data.Kartica = "potrebe"
 	h.render(w, "potrebe.html", data)
 }
 

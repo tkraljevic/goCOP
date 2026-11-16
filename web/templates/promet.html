@@ -1,17 +1,17 @@
 {{template "base.html" .}}
 
-{{define "title"}}goCOP — Knjiga prometa sredstava{{end}}
+{{define "title"}}goCOP — Knjiga prometa · Sredstva{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/sredstva?sektor={{.Sektor}}">Sredstva za obranu</a> › Knjiga prometa</div>
-
 <div class="page-header">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "notebook"}} Knjiga prometa sredstava</h1>
+    <h1 class="page-title" data-naziv-stranice>Knjiga prometa</h1>
     <p class="page-desc">Svaki ulaz i izlaz{{if .Skladiste}} skladišta {{.Skladiste.Naziv}}{{else if .Sektor}} u sektoru {{.Sektor}}{{end}}, najnoviji prvi. Redci s
       istim potezom (prijenos, punjenje, izdavanje) idu u paru: iz jednog mjesta odlazi, u drugo dolazi.</p>
   </div>
 </div>
+
+{{template "sredstvaTraka" .}}
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
