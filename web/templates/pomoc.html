@@ -14,7 +14,7 @@
 {{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/">Početna</a> › Pomoć</div>
+<div class="breadcrumb"><a href="/">Naslovna</a> › Pomoć</div>
 
 <div class="detail-head">
   <div>
@@ -55,7 +55,7 @@
     <a class="kazalo-glava" href="#pocetak">Kako se program koristi</a>
     <a href="#karte">Karte</a>
     <a href="#karta-uredjivanje">Crtanje na karti</a>
-    <a class="kazalo-glava" href="#dashboard">Početna</a>
+    <a class="kazalo-glava" href="#dashboard">Naslovna</a>
     <a href="#dashboard-hero">Prijavljeni djelatnik i profil</a>
     <a href="#dashboard-kartice">Moduli</a>
     <a href="#dashboard-vrijeme">Vrijeme i vode</a>
@@ -76,7 +76,7 @@
     <a href="#dionica-ljudi">Tko je zadužen</a>
   </div>
   <div class="kazalo-grupa">
-    <a class="kazalo-glava" href="#stations">Vodomjerne postaje</a>
+    <a class="kazalo-glava" href="#stations">Letve</a>
     <a href="#letva-kota">Kota nule i visinski sustavi</a>
     <a href="#letva-pragovi">Pragovi i stupanj obrane</a>
     <a href="#letva-ekstremi">Zabilježeni ekstremi</a>
@@ -88,7 +88,7 @@
     <a href="#letva-izvjesce">Izvoz u Excel</a>
   </div>
   <div class="kazalo-grupa">
-    <a class="kazalo-glava" href="#readings">Operativni vodostaji</a>
+    <a class="kazalo-glava" href="#readings">Očitanja</a>
     <a href="#ocitanja-zadnje">Zadnje očitanje</a>
     <a href="#ocitanja-graf">Kretanje vodostaja</a>
     <a href="#ocitanja-popis">Upis i popis očitanja</a>
@@ -129,10 +129,10 @@
     <a href="#dnevnik-usluge">Dnevnici usluga A.02 i A.03</a>
   </div>
   <div class="kazalo-grupa">
-    <a class="kazalo-glava" href="#sredstva">Sredstva za obranu</a>
-    <a class="kazalo-glava" href="#posta">E-pošta i adresar</a>
+    <a class="kazalo-glava" href="#sredstva">Sredstva</a>
+    <a class="kazalo-glava" href="#posta">Sandučić i adresar tvrtke</a>
     <a class="kazalo-glava" href="#potpisi">Potpisi i izvornici</a>
-    <a class="kazalo-glava" href="#users">Djelatnici</a>
+    <a class="kazalo-glava" href="#users">Djelatnici i dežurstva</a>
     <a href="#users-privremeno-imenovanje">Privremeno imenovanje</a>
     <a href="#users-kod-prijave">Privremeni kod za prijavu</a>
     <a href="#users-potvrda-adrese">Adresa za PIN izvan domene</a>
@@ -293,11 +293,11 @@
       letvu onaj tko smije mijenjati letvu. Tok vodotoka crta samo globalni administrator. Ostali
       kartu samo gledaju.</p>
   </div>
-  {{template "pomocPoglavljeNav" (list "" "" "Početna" "#dashboard")}}
+  {{template "pomocPoglavljeNav" (list "" "" "Naslovna" "#dashboard")}}
 </section>
 
 <section class="detail-section" id="dashboard">
-  <h2>{{icon "house"}} Početna</h2>
+  <h2>{{icon "house"}} Naslovna</h2>
   <div class="reg-card pomoc-tekst">
     <p>Početna stranica je operativna ploča. Odozgo redom pokazuje module za koje imate ovlasti,
       vrijeme i vode za vaše područje, kišu po slivovima, način rada svakog sektora, podatke u
@@ -479,7 +479,7 @@
     <p>Vodočuvar dnevni list, zadatke rukovoditelja i novu prijavu s terena ima na Naslovnoj.
       Nekadašnja stranica Teren vodi na Očitanja.</p>
   </div>
-  {{template "pomocPoglavljeNav" (list "Početna" "#dashboard" "Karta" "#karta")}}
+  {{template "pomocPoglavljeNav" (list "Naslovna" "#dashboard" "Karta" "#karta")}}
 </section>
 
 <section class="detail-section" id="karta">
@@ -658,11 +658,11 @@
     <p>Gumb <strong>Excel</strong> na kartici dionice daje karticu za ispis na A4; isti gumb na
       popisu dionica izvozi popis po odabranom sektoru, području i pretrazi.</p>
   </div>
-  {{template "pomocPoglavljeNav" (list "Karta" "#karta" "Vodomjerne postaje" "#stations")}}
+  {{template "pomocPoglavljeNav" (list "Karta" "#karta" "Letve" "#stations")}}
 </section>
 
 <section class="detail-section" id="stations">
-  <h2>{{icon "ruler"}} Vodomjerne postaje</h2>
+  <h2>{{icon "gauge"}} Letve</h2>
   <div class="reg-card pomoc-tekst">
     <p>Letva je mjesto na kojem se mjeri vodostaj. Kartica letve skuplja sve što se o njoj zna i
       sve što se iz njezina niza da izračunati — od kote nule do stogodišnje vode.</p>
@@ -802,11 +802,11 @@
     <p>Na stranici očitanja Excel prati odabrano razdoblje. CSV ostaje za sirovu obradu i povrat
       ispravaka, a <code>.cop</code> za prijenos cijelog historijata među čvorovima.</p>
   </div>
-  {{template "pomocPoglavljeNav" (list "Dionice" "#sections" "Operativni vodostaji" "#readings")}}
+  {{template "pomocPoglavljeNav" (list "Dionice" "#sections" "Očitanja" "#readings")}}
 </section>
 
 <section class="detail-section" id="readings">
-  <h2>{{icon "activity"}} Operativni vodostaji</h2>
+  <h2>{{icon "ruler"}} Očitanja</h2>
   <div class="reg-card pomoc-tekst">
     <p>Očitanja koja ovaj program sam vodi: ono što vodočuvar upiše, što se uveze s letva.voda.hr
       ili što stigne telemetrijom. Za razliku od arhive, ovi se zapisi <strong>uređuju</strong> i
@@ -861,7 +861,7 @@
       velikim poljem za broj — na terenu se ne pogađa sitna tipka.</p>
     <p>Očitanje na letvu upisuje svatko s dužnošću u sektoru koji letvu prati, i Dežurni operater
       u COP-u; Gost i Preglednik ne upisuju. Sektor letve dolazi preko njezinih dionica, a stranoj
-      letvi upisuje se u obrascu letve (<a href="#stations">Vodomjerne postaje</a>). Letvu bez ijednog
+      letvi upisuje se u obrascu letve (<a href="#stations">Letve</a>). Letvu bez ijednog
       sektora upisuje svatko tko igdje upisuje, dok joj se sektor ne upiše.</p>
     <p>Svoje očitanje ispravljate dok imate dužnost u sektoru letve, a kad je izgubite, još 72 sata
       od upisa. Brisati, i ispravljati tuđe, smije samo onaj tko odgovara za letvu: dužnost na
@@ -927,7 +927,7 @@
       u tu vrijednost skočilo, ili je ona daleko izvan uobičajenog raspona letve. Isto se javlja kad
       mjerni uređaj odskoči daleko od prave razine i ondje se drži, npr. 1385 cm umjesto oko −120 cm.
       Tada je na vrhu stranice letve okvir <em>Mjerni uređaj je vjerojatno u kvaru</em>, a u popisu
-      Operativni vodostaji uz letvu znak <em>kvar uređaja</em>. Okvir nestane sam kad mjerni uređaj opet radi.</p>
+      Očitanja uz letvu znak <em>kvar uređaja</em>. Okvir nestane sam kad mjerni uređaj opet radi.</p>
     <p>Očitanja se zbog toga ne brišu. Kad kvar potvrđuje susjedna letva, prognoza ta očitanja ne uzima i
       računa kao da mjerenja nema; inače ih uzima, a uz izdanje stoji napomena.</p>
     <p>Niska vrijednost koja stoji dok se susjedne letve samo spuštaju vjerojatno nije kvar: voda je
@@ -958,7 +958,7 @@
       se stvarno mijenja, kroz istu knjigu verzija kao izmjena jednog po jednog. Poslije se zna
       tko je i kad što promijenio.</p>
   </div>
-  {{template "pomocPoglavljeNav" (list "Vodomjerne postaje" "#stations" "Arhiva vodostaja" "#arhiva")}}
+  {{template "pomocPoglavljeNav" (list "Letve" "#stations" "Arhiva vodostaja" "#arhiva")}}
 </section>
 
 <section class="detail-section" id="arhiva">
@@ -1129,11 +1129,11 @@
       pregled i provjeru. Administrator poslužitelja ima za izravan rad i alat <code>selidba-arhive</code>,
       koji nije dio isporuke.</p>
   </div>
-  {{template "pomocPoglavljeNav" (list "Operativni vodostaji" "#readings" "Prognoze" "#prognoze")}}
+  {{template "pomocPoglavljeNav" (list "Očitanja" "#readings" "Prognoze" "#prognoze")}}
 </section>
 
 <section class="detail-section" id="prognoze">
-  <h2>{{icon "trending-up"}} Prognoze</h2>
+  <h2>{{icon "chart-column"}} Prognoze</h2>
   <div class="reg-card pomoc-tekst">
     <p>Prognoza povezuje zadnja mjerenja s povijesnim ponašanjem postaja i procjenjuje kako bi se
       vodni val mogao kretati. Prikazuje sadašnje stanje, satne dosege <strong>+6 i +12 sati</strong>
@@ -1329,7 +1329,7 @@
 </section>
 
 <section class="detail-section" id="journals">
-  <h2>{{icon "notebook"}} Dokumentacija obrane</h2>
+  <h2>{{icon "file-text"}} Dokumenti</h2>
   <div class="reg-card pomoc-tekst">
     <p>Ulaz u Dokumente razdvaja povezane, ali različite poslove u četiri skupine. Pod Obranom su
       rješenja i obavijesti, dnevnici COP-a, plan dežurstava i dnevna izvješća, pod Terenom
@@ -1776,11 +1776,11 @@
       <span class="reg-chip">Briše: uprava sektora</span></p>
     <p><a class="btn btn-secondary btn-sm" href="/dnevnici">{{icon "notebook"}} Otvori Dnevnike</a></p>
   </div>
-  {{template "pomocPoglavljeNav" (list "Prognoze" "#prognoze" "Sredstva za obranu" "#sredstva")}}
+  {{template "pomocPoglavljeNav" (list "Prognoze" "#prognoze" "Sredstva" "#sredstva")}}
 </section>
 
 <section class="detail-section" id="sredstva">
-  <h2>{{icon "package"}} Sredstva za obranu</h2>
+  <h2>{{icon "package"}} Sredstva</h2>
   <div class="reg-card pomoc-tekst">
     <p>Sredstva se vode po skladištima branjenih područja. Stanje se ne prepisuje ručno nego se
       računa iz knjige prometa: početno stanje i primka povećavaju zalihu, a izdavanje, utrošak i
@@ -1809,11 +1809,11 @@
     <p>Skladištar piše za svoje područje, a uprava područja i sektora za svoj doseg. Excel za
       Glavni centar daje stanje svih skladišta na odabrani dan.</p>
   </div>
-  {{template "pomocPoglavljeNav" (list "Dokumenti" "#journals" "E-pošta i adresar" "#posta")}}
+  {{template "pomocPoglavljeNav" (list "Dokumenti" "#journals" "Sandučić i adresar" "#posta")}}
 </section>
 
 <section class="detail-section" id="posta">
-  <h2>{{icon "mail"}} E-pošta i adresar tvrtke</h2>
+  <h2>{{icon "mailbox"}} Sandučić i adresar tvrtke</h2>
   <div class="reg-card pomoc-tekst">
     <p>Administrator pod <em>Administracija → E-pošta</em> postavlja Exchange/EWS ili SMTP
       poslužitelj. Svaki korisnik zatim na profilu sprema vlastitu lozinku e-pošte. Lozinka se
@@ -1849,7 +1849,7 @@
       doznati da je pismo otvoreno i kada. Ako je poslužitelj tvrtke nedostupan ili je lozinka
       pogrešna, to ne blokira rad ostalih dijelova programa.</p>
   </div>
-  {{template "pomocPoglavljeNav" (list "Sredstva za obranu" "#sredstva" "Potpisi i izvornici" "#potpisi")}}
+  {{template "pomocPoglavljeNav" (list "Sredstva" "#sredstva" "Potpisi i izvornici" "#potpisi")}}
 </section>
 
 <section class="detail-section" id="potpisi">
@@ -1887,11 +1887,11 @@
       provjeru. Brisanje ovjerenog izvornika dostupno je samo posebnom testnom opcijom i ne smije
       biti uključeno u operativnom radu.</p>
   </div>
-  {{template "pomocPoglavljeNav" (list "E-pošta i adresar" "#posta" "Djelatnici" "#users")}}
+  {{template "pomocPoglavljeNav" (list "Sandučić i adresar" "#posta" "Djelatnici i dežurstva" "#users")}}
 </section>
 
 <section class="detail-section" id="users">
-  <h2>{{icon "users"}} Djelatnici</h2>
+  <h2>{{icon "users"}} Djelatnici i dežurstva</h2>
   <div class="reg-card pomoc-tekst">
     <p>Imenik ljudi u obrani s njihovim ulogama i operativnim funkcijama. Uloga određuje što
       tko vidi i smije mijenjati; dužnost određuje za koje je dionice zadužen. Djelatnici imaju
@@ -2051,7 +2051,7 @@
 </section>
 
 <section class="detail-section" id="registers">
-  <h2>{{icon "book-open"}} Registri</h2>
+  <h2>{{icon "layers"}} Registri</h2>
   <div class="reg-card pomoc-tekst">
     <p>Podloga na koju se sve ostalo veže. Rijetko se mijenja, ali kad je kriva, krivo je i sve
       što se iz nje računa.</p>
@@ -2071,7 +2071,7 @@
       <li><strong>Službe</strong> — stožeri, civilna zaštita, 112, policija, vatrogasci, Crveni
         križ i druge službene adrese koje se mogu birati kao primatelji akata.</li>
       <li><strong>Vodomjerne postaje</strong> — letve: šifra, vodotok, stacionaža, kota nule i
-        pragovi obrane. Razrađeno gore, <a href="#stations">Vodomjerne postaje</a>.</li>
+        pragovi obrane. Razrađeno gore, <a href="#stations">Letve</a>.</li>
       <li id="structures"><strong>Objekti</strong> — crpke, ustave, propusti i ostalo što ima
         svoje stanje i zapornice. Naslov stranice objekta nosi ikonu njegove vrste, istu kao na
         karti (Administracija › Karte). Kad je na karti krug, posebna letva ili vlastita ikona,
@@ -2101,11 +2101,11 @@
         radova. Ugovor o održavanju uvozi se iz Excela samo za svoje branjeno područje. Vodu
         koje nema u registru ugovor dodaje samo kad ga upisuje uprava tog područja ili
         sektora. Ostali je vežu na vodu iz registra.</li>
-      <li><strong>Sredstva za obranu</strong> — katalog, skladišta, promet, inventure i potrebe;
-        detaljno u odjeljku <a href="#sredstva">Sredstva za obranu</a>.</li>
+      <li><strong>Sredstva</strong> — katalog, skladišta, promet, inventure i potrebe;
+        detaljno u odjeljku <a href="#sredstva">Sredstva</a>.</li>
     </ul>
   </div>
-  {{template "pomocPoglavljeNav" (list "Djelatnici" "#users" "Slivovi i kišomjeri" "#slivovi")}}
+  {{template "pomocPoglavljeNav" (list "Djelatnici i dežurstva" "#users" "Slivovi i kišomjeri" "#slivovi")}}
 </section>
 
 <section class="detail-section" id="slivovi">
