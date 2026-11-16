@@ -171,7 +171,7 @@ func (h *AuthHandler) prijavaPrekinuta(w http.ResponseWriter, r *http.Request, e
 		}
 		h.prikaziPrijavu(w, r, http.StatusOK, upperFirst(err.Error())+".")
 	case errors.Is(err, service.ErrAccountInactive):
-		h.prikaziPrijavu(w, r, http.StatusOK, "Korisnički račun je privremeno deaktiviran")
+		h.prikaziPrijavu(w, r, http.StatusOK, "Korisnički račun je isključen")
 	default:
 		log.Printf("prijava izvana: %v", err)
 		h.prikaziPrijavu(w, r, http.StatusInternalServerError, "Prijava nije uspjela. Pokušajte ponovno ili se prijavite iz ureda.")
