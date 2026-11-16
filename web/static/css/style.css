@@ -8747,6 +8747,10 @@ summary.ocitanja-cip { padding-right: 8px; }
 .os-izbori input:checked + span { border-color: transparent; background: var(--md-sys-color-ploha-odabrano); font-weight: 600; }
 .os-izbori input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
 .os-spremi { display: flex; justify-content: flex-end; margin-top: 12px; }
+.os-tajna { margin: 0 0 1rem; padding: 14px 16px 16px; border-radius: 12px; background: var(--md-sys-color-ploha-odabrano); color: var(--text); }
+.os-tajna h2 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 1rem; font-weight: 400; }
+.os-tajna-vrijednost { margin: 8px 0; font-size: 1.75rem; letter-spacing: 0.02em; user-select: all; overflow-wrap: anywhere; }
+.os-tajna p:last-child { margin: 0; font-size: 0.8125rem; }
 .os-brisanje { border-color: var(--danger-border); }
 .os-brisanje h2 { color: var(--danger); }
 .os-brisanje p { margin: 0 0 0.75rem; font-size: 0.875rem; }

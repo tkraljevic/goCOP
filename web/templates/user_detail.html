@@ -31,25 +31,27 @@
   </div>
 </div>
 
+{{/* Privremena lozinka i kod vide se samo u odgovoru na radnju (crtež 20, 2a):
+     okviri u boji odabranog, a ne zeleni, jer to nije poruka o uspjehu nego tajna */}}
 {{if .TempPassword}}
-<div class="alert alert-success d-block">
-  <strong>{{icon "key-round"}} Privremena lozinka za {{.User.FullName}}</strong>
-  <div style="font-family:ui-monospace, monospace; font-size:1.35rem; font-weight:700; letter-spacing:0.02em; margin:0.5rem 0; user-select:all;">{{.TempPassword}}</div>
-  Pročitajte je toj osobi. Prikazuje se samo sada; program je više ne zna, pamti samo njezin sažetak.
+<section class="os-tajna" aria-labelledby="os-tajna-lozinka">
+  <h2 id="os-tajna-lozinka">{{icon "key-round"}} Privremena lozinka za {{.User.FullName}}</h2>
+  <p class="os-tajna-vrijednost">{{.TempPassword}}</p>
+  <p>Pročitajte je toj osobi. Prikazuje se samo sada; program je više ne zna, pamti samo njezin sažetak.
   Pri prijavi mora postaviti svoju lozinku, a dotadašnje prijave te osobe su ugašene.
-  Njezin osobni potpisni ključ, ako ga je imala, uklonjen je: novi napravi na profilu nakon promjene lozinke.
-</div>
+  Njezin osobni potpisni ključ, ako ga je imala, uklonjen je: novi napravi na profilu nakon promjene lozinke.</p>
+</section>
 {{end}}
 
 {{if .TempKod}}
-<div class="alert alert-success d-block">
-  <strong>{{icon "shield"}} Kod za prijavu izvana za {{.User.FullName}}</strong>
-  <div style="font-family:ui-monospace, monospace; font-size:1.35rem; font-weight:700; letter-spacing:0.02em; margin:0.5rem 0; user-select:all;">{{.TempKod}}</div>
-  Upisuje se umjesto PIN-a, nakon lozinke, kad se prijavljuje izvana. Vrijedi za jednu prijavu, do {{vrijemeHR .TempKodIstjece}}.
+<section class="os-tajna" aria-labelledby="os-tajna-kod">
+  <h2 id="os-tajna-kod">{{icon "shield"}} Kod za prijavu izvana za {{.User.FullName}}</h2>
+  <p class="os-tajna-vrijednost">{{.TempKod}}</p>
+  <p>Upisuje se umjesto PIN-a, nakon lozinke, kad se prijavljuje izvana. Vrijedi za jednu prijavu, do {{vrijemeHR .TempKodIstjece}}.
   Prikazuje se samo sada; program pamti samo njegov sažetak.
   <strong>Kod vrijedi samo na ovom čvoru{{if .TempKodCvor}} (<span class="mono">{{.TempKodCvor}}</span>){{end}}</strong>: za prijavu izvana izdajte ga na javnom čvoru,
-  kroz koji se osoba prijavljuje izvana.
-</div>
+  kroz koji se osoba prijavljuje izvana.</p>
+</section>
 {{end}}
 
 <div class="os-gore{{if and (not .IsSelf) .CanManage}} s-prijavom{{end}}">
