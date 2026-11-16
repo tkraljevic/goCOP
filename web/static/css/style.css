@@ -2699,7 +2699,32 @@ textarea {
 /* Jedno poglavlje na zaslonu (Odluke (16. 11. 2026.), Pomoć 1): data-prikaz
    postavlja skripta prema sidru u adresi; „sve” je stranica bez skripte */
 .pomoc-natrag { display: none; }
-.pomoc[data-prikaz="ulaz"] .detail-section { display: none; }
+.pomoc[data-prikaz="ulaz"] .detail-section,
+.pomoc[data-prikaz="pretraga"] .detail-section,
+.pomoc[data-prikaz="pretraga"] .pomoc-brzi,
+.pomoc[data-prikaz="pretraga"] .pomoc-kazalo,
+.pomoc[data-prikaz="pretraga"] .pomoc-ulaz-naslov { display: none; }
+/* Pogoci pretrage (crtež 23, 3) */
+.pomoc-rezultati {
+  display: flex; flex-direction: column; gap: 6px; margin-bottom: 0.75rem; padding: 0.9rem;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--surface);
+}
+.pomoc-rezultati[hidden] { display: none; }
+.pomoc-pogodak {
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.2rem; padding: 0.7rem 2.5rem 0.7rem 0.9rem;
+  position: relative; border-radius: 8px; background: var(--bg); color: var(--text); text-decoration: none;
+}
+.pomoc-pogodak::after {
+  content: "›"; position: absolute; right: 0.9rem; top: 50%; transform: translateY(-50%);
+  font-size: 1.4rem; color: var(--text-muted);
+}
+.pomoc-pogodak:hover { background: var(--surface-hover); }
+.pomoc-pogodak-gdje { color: var(--accent); font-size: 0.9rem; }
+.pomoc-pogodak-recenica { font-size: 0.85rem; line-height: 1.5; }
+.pomoc-pogodak-jos { margin: 0.25rem 0.25rem 0; color: var(--text-muted); font-size: 0.8rem; }
+.pomoc-pretraga-napomena { display: none; align-items: center; gap: 0.45rem; margin: 0 0 1rem; color: var(--text-muted); font-size: 0.78rem; }
+.pomoc[data-prikaz="pretraga"] .pomoc-pretraga-napomena { display: flex; }
+.pomoc-istaknuto { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 4px; transition: outline-color 0.6s; }
 .pomoc[data-prikaz="poglavlje"] .pomoc-ulaz,
 .pomoc[data-prikaz="poglavlje"] .detail-section:not(.pomoc-otvoreno) { display: none; }
 .pomoc[data-prikaz="poglavlje"] .pomoc-natrag {
