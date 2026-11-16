@@ -53,6 +53,9 @@ type MtsPageData struct {
 	Vrste     []models.VrstaSredstva
 	Vrsta     *models.VrstaSredstva
 
+	// ZaInventuru su skladišta u kojima osoba smije otvoriti inventuru
+	ZaInventuru []models.Skladiste
+
 	Promet       []models.Promet
 	Zahvat       service.Zahvat
 	VrstePrometa []struct{ ID, Naziv, Opis string }
@@ -227,8 +230,8 @@ func (h *MtsHandler) ShowPregled(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	data.SmijeUrediti = svc.SmijeUrediti(data.Permissions, data.Sektor, 0)
-	data.Podrucja, _ = h.users.ListAreas(data.Sektor)
+	data.Podrucja, _ = h.users.ListAreas(data.Sektor) // bez područja gumb vidi samo uprava sektora
+	data.SmijeUrediti = svc.SmijeDodatiSkladiste(data.Permissions, data.Sektor, data.Podrucja)
 	data.Kartica = "pregled"
 	h.render(w, "sredstva.html", data)
 }
@@ -271,23 +274,36 @@ func (h *MtsHandler) ShowSkladiste(w http.ResponseWriter, r *http.Request) {
 // ShowSkladisteForm prikazuje obrazac za novo skladište ili izmjenu
 func (h *MtsHandler) ShowSkladisteForm(w http.ResponseWriter, r *http.Request) {
 	data := h.pageData(r)
-	if id := r.PathValue("id"); id != "" {
-		if _, ok := h.ucitajSkladiste(w, r, &data); !ok {
-			return
-		}
-		if !data.SmijeUrediti {
-			http.Error(w, "Skladišta uređuje uprava branjenog područja ili sektora", http.StatusForbidden)
-			return
-		}
-		data.IsEdit = true
-	} else {
-		data.Skladiste = &models.Skladiste{Sektor: data.Sektor, Aktivno: true}
-		if a, err := strconv.Atoi(r.URL.Query().Get("area")); err == nil {
-			data.Skladiste.AreaID = a
-		}
-		data.SmijeUrediti = h.svc().SmijeUrediti(data.Permissions, data.Sektor, 0)
+	if r.PathValue("id") == "" {
+		h.obrazacNovogSkladista(w, r, data)
+		return
 	}
-	data.Podrucja, _ = h.users.ListAreas(data.Sektor)
+	if _, ok := h.ucitajSkladiste(w, r, &data); !ok {
+		return
+	}
+	if !data.SmijeUrediti {
+		http.Error(w, "Skladišta uređuje uprava branjenog područja ili sektora", http.StatusForbidden)
+		return
+	}
+	data.IsEdit = true
+	data.Podrucja, _ = h.users.ListAreas(data.Sektor) // bez popisa područja ostaje upisano područje skladišta
+	h.render(w, "skladiste_form.html", data)
+}
+
+// obrazacNovogSkladista nudi samo područja u koja osoba smije upisati
+// skladište; tko ne smije ni u jedno, obrazac ne dobiva
+func (h *MtsHandler) obrazacNovogSkladista(w http.ResponseWriter, r *http.Request, data MtsPageData) {
+	data.Skladiste = &models.Skladiste{Sektor: data.Sektor, Aktivno: true}
+	if a, err := strconv.Atoi(r.URL.Query().Get("area")); err == nil {
+		data.Skladiste.AreaID = a
+	}
+	sva, _ := h.users.ListAreas(data.Sektor) // bez popisa područja obrazac nudi samo ono što smije uprava sektora
+	data.Podrucja = h.svc().PodrucjaZaSkladista(data.Permissions, data.Sektor, sva)
+	data.SmijeUrediti = len(data.Podrucja) > 0 || h.svc().SmijeUrediti(data.Permissions, data.Sektor, 0)
+	if !data.SmijeUrediti {
+		http.Error(w, "Skladišta upisuje uprava branjenog područja ili sektora.", http.StatusForbidden)
+		return
+	}
 	h.render(w, "skladiste_form.html", data)
 }
 
@@ -496,6 +512,11 @@ func (h *MtsHandler) ShowPopisi(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data.Skladista, _ = h.svc().Skladista(r.Context(), data.Sektor, 0, false)
+	for _, sk := range data.Skladista {
+		if h.svc().SmijePisati(data.Permissions, &sk) {
+			data.ZaInventuru = append(data.ZaInventuru, sk)
+		}
+	}
 	data.Kartica = "inventura"
 	h.render(w, "popisi.html", data)
 }

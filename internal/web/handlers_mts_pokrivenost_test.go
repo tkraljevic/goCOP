@@ -44,7 +44,8 @@ const probniIspis = `Sektor={{.Sektor}};IsEdit={{.IsEdit}};SmijePisati={{.SmijeP
 	`Od={{.Od}};Do={{.Do}};VrstaID={{.VrstaID}};Godina={{.Godina}};` +
 	`Popis={{if .Popis}}{{.Popis.ID}}|{{len .Popis.Stavke}}{{end}};Uredi={{if .Vrsta}}{{.Vrsta.ID}}{{end}};` +
 	`GdjeIma={{len .GdjeIma}};PotrebeSektora={{len .PotrebeSektora}};Stanje={{len .Stanje}};` +
-	`VratiUpisano={{.VratiUpisano}};Greska={{.ErrorMessage}};`
+	`VratiUpisano={{.VratiUpisano}};Greska={{.ErrorMessage}};` +
+	`Podrucja={{len .Podrucja}};ZaInventuru={{len .ZaInventuru}};`
 
 func probniPredlozakSredstava(stranica string) *template.Template {
 	return template.Must(template.New(stranica).Parse(`{{define "` + stranica + `"}}` + probniIspis + `{{end}}`))
