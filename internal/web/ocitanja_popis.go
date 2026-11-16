@@ -33,7 +33,7 @@ type SkupinaLetava struct {
 	Letve []RedakLetve
 }
 
-// IzborFiltra je stavka izbornika čipa (sektor ili područje)
+// IzborFiltra je stavka izbornika čipa (Očitanja i Djelatnici)
 type IzborFiltra struct {
 	Naziv   string
 	URL     string

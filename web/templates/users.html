@@ -25,188 +25,55 @@
 </div>
 {{end}}
 
-<!-- Filteri i Pretraga -->
-<section class="filter-card">
-  <form action="/users" method="GET" id="filter-form">
-    <!-- Gornji red: Široka traka za pretragu + gumbi za akciju -->
-    <div class="search-bar-row">
-      <div class="search-input-wrapper">
-        <span class="search-icon">{{icon "search"}} </span>
-        <input type="text" id="filter-search" name="q" class="search-input" 
-               placeholder="Pretraži po imenu, prezimenu, dionici, mobitelu, telefonu, e-pošti, zaduženju…" 
-               value="{{.SearchQuery}}">
-        {{if .SearchQuery}}
-        <a href="/users?sector={{$.SelectedSector}}&area={{$.SelectedArea}}&role={{$.SelectedRole}}&status={{$.SelectedStatus}}" class="search-clear-btn" title="Očisti unos pretrage">&times;</a>
-        {{end}}
+{{/* Popis po crtežu 20: pretraga i čipovi filtara, pa tablica (na mobitelu
+     kartice); cijeli redak vodi na stranicu osobe, a mobitel je poziv */}}
+<form class="dj-alati" action="/users" method="GET" role="search">
+  {{if .SelectedSector}}<input type="hidden" name="sector" value="{{.SelectedSector}}">{{end}}
+  {{if gt .SelectedArea 0}}<input type="hidden" name="area" value="{{.SelectedArea}}">{{end}}
+  {{if .SelectedRole}}<input type="hidden" name="role" value="{{.SelectedRole}}">{{end}}
+  {{if .SelectedStatus}}<input type="hidden" name="status" value="{{.SelectedStatus}}">{{end}}
+  <label class="dj-trazi">{{icon "search"}}<input type="search" name="q" value="{{.SearchQuery}}" placeholder="Traži: ime, dionica, mobitel, e-pošta, zaduženje" aria-label="Traži djelatnika"></label>
+  <div class="ocitanja-cipovi dj-cipovi" role="group" aria-label="Filtri">
+    {{range .Cipovi}}
+    <details class="ocitanja-izbor">
+      <summary class="ocitanja-cip" {{if .Odabran}}data-odabran{{end}}>{{.Natpis}}{{icon "chevron-down"}}</summary>
+      <div class="ocitanja-izbornik" role="menu">
+        {{range .Izbor}}<a role="menuitemradio" aria-checked="{{if .Odabran}}true{{else}}false{{end}}" href="{{.URL}}">{{.Naziv}}</a>{{end}}
       </div>
-      <button type="submit" class="btn btn-primary search-submit-btn">
-        Pretraži
-      </button>
-      {{if or .SearchQuery .SelectedSector (gt .SelectedArea 0) .SelectedRole .SelectedStatus}}
-      <a href="/users" class="filter-reset-btn" title="Poništi sve filtre i prikaži sve djelatnike">
-        {{icon "x"}} Poništi filtre
-      </a>
-      {{end}}
-    </div>
-
-    <!-- Donji red: 3 pregledna stupca filtara po hijerarhiji -->
-    <div class="filters-row">
-      <div class="filter-group">
-        <label class="filter-label" for="filter-sector">
-          <span>{{icon "building-2"}} </span> {{term "sektor"}}
-        </label>
-        <select id="filter-sector" name="sector" class="filter-select {{if .SelectedSector}}filter-active{{end}}" onchange="this.form.submit()">
-          <option value="">-- Svi: {{terml "sektori"}} --</option>
-          {{range .Sectors}}
-          <option value="{{.ID}}" {{if eq $.SelectedSector .ID}}selected{{end}}>{{.Name}}</option>
-          {{end}}
-        </select>
-      </div>
-
-      <div class="filter-group">
-        <label class="filter-label" for="filter-area">
-          <span>{{icon "waves"}} </span> {{term "podrucje"}}
-        </label>
-        <select id="filter-area" name="area" class="filter-select {{if gt .SelectedArea 0}}filter-active{{end}}" onchange="this.form.submit()">
-          <option value="">-- Sva {{terml "podrucja"}} --</option>
-          {{range .Areas}}
-          <option value="{{.ID}}" {{if eq $.SelectedArea .ID}}selected{{end}}>Područje {{.ID}}: {{.Name}}</option>
-          {{end}}
-        </select>
-      </div>
-
-      <div class="filter-group">
-        <label class="filter-label" for="filter-role">
-          <span>{{icon "shield"}} </span> Uloga
-        </label>
-        <select id="filter-role" name="role" class="filter-select {{if .SelectedRole}}filter-active{{end}}" onchange="this.form.submit()">
-          <option value="">-- Sve uloge --</option>
-          <option value="GLOBAL_ADMIN" {{if eq $.SelectedRole "GLOBAL_ADMIN"}}selected{{end}}>{{roleLabel "GLOBAL_ADMIN"}}</option>
-          {{range roleOptions}}{{if ne .Value "VIEWER"}}<option value="{{.Value}}" {{if or (eq $.SelectedRole .Value) (and (eq .Value "WATER_GUARD") (eq $.SelectedRole "FIELD_WORKER"))}}selected{{end}}>{{.Label}}</option>{{end}}{{end}}
-        </select>
-      </div>
-
-      <div class="filter-group">
-        <label class="filter-label" for="filter-status">
-          <span>{{icon "key-round"}} </span> Stanje računa
-        </label>
-        <select id="filter-status" name="status" class="filter-select {{if .SelectedStatus}}filter-active{{end}}" onchange="this.form.submit()">
-          <option value="">-- Sva stanja računa --</option>
-          <option value="ACTIVE" {{if eq $.SelectedStatus "ACTIVE"}}selected{{end}}>Aktivan (prijavljivao se)</option>
-          <option value="PENDING" {{if eq $.SelectedStatus "PENDING"}}selected{{end}}>Nije se prijavio</option>
-          <option value="DISABLED" {{if eq $.SelectedStatus "DISABLED"}}selected{{end}}>Isključen</option>
-          <option value="BEZ_EPOSTE" {{if eq $.SelectedStatus "BEZ_EPOSTE"}}selected{{end}}>Bez adrese za PIN (prazna, tuđa domena bez potvrde ili zajednička)</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Aktivni filtri s brzim uklanjanjem i brojač rezultata -->
-    {{if or .SearchQuery .SelectedSector (gt .SelectedArea 0) .SelectedRole .SelectedStatus}}
-    <div class="active-filters-bar">
-      <span class="active-filters-title">Aktivno:</span>
-      {{if .SearchQuery}}
-      <span class="filter-pill">
-        {{icon "search"}} "{{.SearchQuery}}"
-        <a href="/users?sector={{$.SelectedSector}}&area={{$.SelectedArea}}&role={{$.SelectedRole}}&status={{$.SelectedStatus}}" class="pill-remove" title="Ukloni pretragu">&times;</a>
-      </span>
-      {{end}}
-      {{if .SelectedSector}}
-      <span class="filter-pill">
-        {{icon "building-2"}} {{if eq .SelectedSector "DIREKCIJA"}}Direkcija Zagreb{{else}}{{term "sektor"}} {{.SelectedSector}}{{end}}
-        <a href="/users?q={{$.SearchQuery}}&area={{$.SelectedArea}}&role={{$.SelectedRole}}&status={{$.SelectedStatus}}" class="pill-remove" title="Ukloni filtar sektora">&times;</a>
-      </span>
-      {{end}}
-      {{if gt .SelectedArea 0}}
-      <span class="filter-pill">
-        {{icon "waves"}} Područje {{.SelectedArea}}
-        <a href="/users?q={{$.SearchQuery}}&sector={{$.SelectedSector}}&role={{$.SelectedRole}}&status={{$.SelectedStatus}}" class="pill-remove" title="Ukloni filtar područja">&times;</a>
-      </span>
-      {{end}}
-      {{if .SelectedRole}}
-      <span class="filter-pill">
-        {{icon "shield"}} Uloga: {{roleLabel .SelectedRole}}
-        <a href="/users?q={{$.SearchQuery}}&sector={{$.SelectedSector}}&area={{$.SelectedArea}}&status={{$.SelectedStatus}}" class="pill-remove" title="Ukloni filtar uloge">&times;</a>
-      </span>
-      {{end}}
-      {{if .SelectedStatus}}
-      <span class="filter-pill">
-        {{icon "key-round"}} {{if eq .SelectedStatus "PENDING"}}Nije se prijavio{{else if eq .SelectedStatus "DISABLED"}}Isključen{{else if eq .SelectedStatus "BEZ_EPOSTE"}}Bez adrese za PIN{{else}}Aktivan{{end}}
-        <a href="/users?q={{$.SearchQuery}}&sector={{$.SelectedSector}}&area={{$.SelectedArea}}&role={{$.SelectedRole}}" class="pill-remove" title="Ukloni filtar stanja računa">&times;</a>
-      </span>
-      {{end}}
-      <span class="filter-count">Djelatnika: <strong>{{.Pager.Total}}</strong></span>
-    </div>
+    </details>
     {{end}}
-  </form>
-</section>
+    {{with .URLPonisti}}<a class="dj-ponisti" href="{{.}}">Poništi filtre</a>{{end}}
+  </div>
+</form>
 
 <div data-listanje="popis">
-{{template "pager" .Pager}}
+<div class="dj-brojevi"><span>Djelatnika: {{.Pager.Total}}</span>{{template "pager" .Pager}}</div>
 
-<!-- Kartični prikaz — jedini prikaz, na telefonu jedan stupac, na širem ekranu više -->
-<div class="user-cards-grid reg-list">
+<div class="dj-tablica" role="table" aria-label="Djelatnici">
+  <div class="dj-glava" role="row">
+    <span role="columnheader">Ime i prezime</span><span role="columnheader">Zaduženja</span><span role="columnheader">Mobitel</span>
+    <span role="columnheader" class="dj-fiksni">Fiksni · lokal</span><span role="columnheader">Stanje računa</span><span></span>
+  </div>
   {{range .Users}}
-  <div class="user-card">
-    <div class="user-card-header">
-      <div>
-        <div class="user-card-title"><a href="/users/{{.ID}}" style="color:inherit; text-decoration:none;">{{.FullName}}</a> {{if .Title}}<small>({{.Title}})</small>{{end}}</div>
-        <div class="user-card-subtitle">@{{.Username}} · {{.OrgName}}</div>
-      </div>
-      {{$state := .AccountState}}
-      <span class="badge {{$state.BadgeClass}}" {{if .LastLoginAt}}title="Zadnja prijava {{.LastLoginAt.Format "02.01.2006"}}"{{end}}>{{$state.Label}}</span>
+  {{$stanje := .AccountState}}
+  <div class="dj-redak" role="row">
+    <div class="dj-ime" role="cell"><a href="/users/{{.ID}}">{{.FullName}}</a>{{with .Title}}<small>{{.}}</small>{{end}}</div>
+    <div class="dj-stanje" role="cell">
+      <span class="oznaka-stanja{{if eq (print $stanje) "ACTIVE"}} obrub{{else if eq (print $stanje) "DISABLED"}} dj-iskljucen{{end}}">{{$stanje.Label}}</span>
+      {{if .MustChangePassword}}<span class="oznaka-stanja obrub">čeka promjenu lozinke</span>{{end}}
     </div>
-
-    <!-- Funkcije -->
-    <div style="display:flex; flex-direction:column; gap:0.375rem;">
+    <div class="dj-zaduzenja" role="cell">
       {{range .Duties}}
-      <div style="background:var(--bg-subtle); border:1px solid var(--border); border-radius:6px; padding:0.5rem; font-size:0.75rem;">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:0.375rem;">
-          <strong>{{.Title}}</strong>
-          <span class="badge {{if .IsTemporary}}badge-ispomoc{{else}}badge-area-admin{{end}}">
-            {{if .IsTemporary}}{{icon "zap"}} Privremeno{{else}}{{roleLabel .Role}}{{end}}
-          </span>
-        </div>
-        <div class="c-muted mt-1">
-          {{if .SectorID}}{{term "sektor"}}: {{derefString .SectorID}}{{end}}
-          {{if .AreaID}} · {{term "podrucje"}}: {{derefInt .AreaID}}{{if not .SectionCodes}} <em>(sve dionice)</em>{{end}}{{end}}
-          {{if .SectionCodes}}<br>Dionice: <strong>{{.SectionCodes}}</strong>{{end}}
-        </div>
+      <div class="dj-zaduzenje">
+        <span>{{.Title}}</span>
+        {{if .IsTemporary}}<span class="oznaka-stanja obrub dj-privremeno">Privremeno</span>{{end}}
+        <small>{{if .AreaID}}BP {{derefInt .AreaID}}{{if .SectionCodes}} · {{.SectionCodes}}{{else if eq (print .ScopeType) "SECTION"}} · sve dionice{{end}}{{else if .SectorID}}{{term "sektor"}} {{derefString .SectorID}}{{else}}cijela organizacija{{end}}</small>
       </div>
-      {{end}}
+      {{else}}<small class="c-muted">bez zaduženja</small>{{end}}
     </div>
-
-    <!-- Kontakti za mobitel (jedan dodir za poziv) -->
-    <div class="user-card-meta">
-      <div>
-        <strong>Mobitel:</strong><br>
-        {{if .MobilePhone}}<a href="tel:{{.MobilePhone}}" class="c-primary fw-600">{{icon "smartphone"}} {{.MobilePhone}}</a>{{else}}-{{end}}
-        {{if .ShortMobile}} (skr. {{.ShortMobile}}){{end}}
-      </div>
-      <div>
-        <strong>Fiksni / Lokal:</strong><br>
-        {{if .Phone}}<a href="tel:{{.Phone}}" style="color:var(--text);">{{.Phone}}</a>{{end}}
-        {{if .ShortPhone}} (skr. {{.ShortPhone}}){{end}}
-      </div>
-    </div>
-
-    <div class="user-card-actions">
-      {{if or $.Permissions.IsGlobalAdmin (gt (len $.Permissions.AdminSectors) 0) (gt (len $.Permissions.AdminAreas) 0)}}
-      <a href="/users/{{.ID}}/duties/new" class="btn btn-secondary btn-sm flex-1 justify-center">{{icon "plus"}} Zaduženja</a>
-      {{end}}
-
-      {{if or (eq .ID $.CurrentUser.ID) $.Permissions.IsGlobalAdmin (gt (len $.Permissions.AdminSectors) 0) (gt (len $.Permissions.AdminAreas) 0)}}
-      <a href="{{if eq .ID $.CurrentUser.ID}}/profile{{else}}/users/{{.ID}}/edit{{end}}" class="btn btn-secondary btn-sm flex-1 justify-center">{{icon "pencil"}} Profil</a>
-      {{end}}
-
-      {{if and (ne .ID $.CurrentUser.ID) $.Permissions.IsGlobalAdmin}}
-      <form method="POST" action="/view-as/{{.ID}}" class="m-0 flex-1">
-        <button type="submit" class="btn btn-secondary btn-sm w-full"
-                title="Vidi program očima djelatnika {{.FullName}}">
-          {{icon "eye"}} Pregled
-        </button>
-      </form>
-      {{end}}
-    </div>
+    <div class="dj-mobitel" role="cell">{{if .MobilePhone}}<a href="tel:{{.MobilePhone}}">{{icon "phone"}}<span>{{.MobilePhone}}</span></a>{{else}}<span class="c-muted">—</span>{{end}}{{with .ShortMobile}}<small>skr. {{.}}</small>{{end}}</div>
+    <div class="dj-fiksni" role="cell">{{if .Phone}}<a href="tel:{{.Phone}}">{{.Phone}}</a>{{else}}<span class="c-muted">—</span>{{end}}{{with .ShortPhone}}<small>lokal {{.}}</small>{{end}}</div>
+    <span class="dj-dalje" aria-hidden="true">{{icon "chevron-right"}}</span>
   </div>
   {{else}}
   <div class="reg-empty">Nijedan djelatnik ne odgovara zadanim filtrima.</div>
