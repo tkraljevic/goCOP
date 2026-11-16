@@ -234,7 +234,7 @@ func TestPonistenjeIKodIzvanaUzLozinku(t *testing.T) {
 		}
 	}
 	// bez drugog koraka kod se ne izdaje, ali tek iza provjere lozinke
-	if g := greska(t, o.salji(izravno, kod, url.Values{})); !strings.Contains(g, "drugi korak") {
+	if g := greska(t, o.salji(izravno, kod, url.Values{})); !strings.Contains(strings.ToLower(g), "drugi korak") {
 		t.Errorf("kod bez drugog koraka: %q", g)
 	}
 	if sad, err := o.repo.GetUserByID(sef.ID); err != nil || !sad.MustChangePassword {

@@ -14,8 +14,6 @@
 </div>
 {{template "djelatniciKartice" "adresar"}}
 
-{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
-{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 {{if .TrebaLozinku}}<div class="alert alert-warning">Za čitanje adresara treba važeća lozinka e-pošte. Upišite je u <a href="/profile/posta">Profil › Lozinka e-pošte</a> pa pokušajte ponovno.</div>{{end}}
 
 <div class="posta-alat">

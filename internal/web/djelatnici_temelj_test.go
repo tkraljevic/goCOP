@@ -2,11 +2,14 @@ package web
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"html/template"
 	"io/fs"
 	"strings"
 	"testing"
 
+	"gocop/internal/service"
 	webassets "gocop/web"
 )
 
@@ -68,6 +71,23 @@ func TestDjelatniciRijeci(t *testing.T) {
 			if strings.Contains(tekst, staro) {
 				t.Errorf("%s još piše %q", stranica, staro)
 			}
+		}
+	}
+}
+
+// Plan Djelatnika, B.5: poruka greške je rečenica bez tehničkog uvoda.
+func TestPorukaDjelatnika(t *testing.T) {
+	for _, c := range []struct {
+		err  error
+		want string
+	}{
+		{fmt.Errorf("%w: osoba nema zaduženja u vašem dosegu", service.ErrUnauthorized), "Osoba nema zaduženja u vašem dosegu."},
+		{fmt.Errorf("%w: ime i prezime su obavezni", service.ErrInvalidUserData), "Ime i prezime su obavezni."},
+		{service.ErrUnauthorized, "Nemate ovlasti za ovu radnju."},
+		{errors.New("čvor nije dostupan."), "Čvor nije dostupan."},
+	} {
+		if got := porukaDjelatnika(c.err); got != c.want {
+			t.Errorf("porukaDjelatnika(%q) = %q, želim %q", c.err, got, c.want)
 		}
 	}
 }

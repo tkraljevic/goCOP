@@ -13,7 +13,6 @@
 </div>
 
 
-{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 
 <form class="form-page" method="POST" action="{{if .Duty}}/users/duties/{{.Duty.ID}}/update{{else}}/users/duty/add{{end}}">
   <input type="hidden" name="user_id" value="{{.User.ID}}">

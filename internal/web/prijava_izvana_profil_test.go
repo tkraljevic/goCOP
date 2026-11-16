@@ -508,7 +508,7 @@ func TestPromjenaVlastiteAdreseNaProfilu(t *testing.T) {
 	}
 
 	w := o.posalji(zahtjevIzvana{stvarni: ana, izvana: true}, http.MethodPost, "/profile/update", polja("napadac@voda.hr", "anina-lozinka"))
-	if !strings.Contains(w.Header().Get("Location"), url.QueryEscape(service.ErrPromjenaAdreseIzvana.Error())) || adresa() != "ana@voda.hr" {
+	if !strings.Contains(w.Header().Get("Location"), url.QueryEscape(porukaDjelatnika(service.ErrPromjenaAdreseIzvana))) || adresa() != "ana@voda.hr" {
 		t.Fatalf("izvana: %s, adresa %s", w.Header().Get("Location"), adresa())
 	}
 	w = o.posalji(zahtjevIzvana{stvarni: ana, izvana: true}, http.MethodGet, "/profile", nil)

@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"gocop/internal/models"
 	"gocop/internal/service"
@@ -315,7 +317,7 @@ func (h *UsersHandler) HandleUpdateProfile(w http.ResponseWriter, r *http.Reques
 
 	updated, err := h.azurirajUzLozinku(r.Context(), perms, req)
 	if err != nil {
-		redirectWith(w, r, returnURL, "error", err.Error())
+		redirectWith(w, r, returnURL, "error", porukaDjelatnika(err))
 		return
 	}
 
@@ -379,7 +381,7 @@ func (h *UsersHandler) HandleAddDuty(w http.ResponseWriter, r *http.Request) {
 
 	err = h.userService.AddDuty(perms, req)
 	if err != nil {
-		redirectWith(w, r, "/users/"+userID.String()+"/duties/new", "error", err.Error())
+		redirectWith(w, r, "/users/"+userID.String()+"/duties/new", "error", porukaDjelatnika(err))
 		return
 	}
 
@@ -444,7 +446,7 @@ func (h *UsersHandler) HandleUpdateDuty(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if err := h.userService.UpdateDuty(perms, dutyID, req); err != nil {
-		redirectWith(w, r, "/users/duties/"+dutyID.String()+"/edit", "error", err.Error())
+		redirectWith(w, r, "/users/duties/"+dutyID.String()+"/edit", "error", porukaDjelatnika(err))
 		return
 	}
 	redirectWith(w, r, "/users/"+userID.String(), "success", "Zaduženje je izmijenjeno.")
@@ -474,7 +476,7 @@ func (h *UsersHandler) HandleRevokeDuty(w http.ResponseWriter, r *http.Request) 
 	}
 	err = h.userService.RevokeDuty(perms, dutyID, viewBanner(r).Viewing)
 	if err != nil {
-		redirectWith(w, r, back, "error", err.Error())
+		redirectWith(w, r, back, "error", porukaDjelatnika(err))
 		return
 	}
 
@@ -517,7 +519,7 @@ func (h *UsersHandler) HandleDeleteUser(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if err := h.userService.DeleteUser(perms, userID); err != nil {
-		redirectWith(w, r, "/users/"+userID.String(), "error", err.Error())
+		redirectWith(w, r, "/users/"+userID.String(), "error", porukaDjelatnika(err))
 		return
 	}
 
@@ -531,5 +533,30 @@ func porukaRacuna(err error) string {
 	if errors.Is(err, service.ErrKratkaLozinka) {
 		return service.ErrKratkaLozinka.Error()
 	}
-	return err.Error()
+	return porukaDjelatnika(err)
+}
+
+// uvodiGresaka su tehnički uvodi grešaka servisa koje osoba ne treba čitati
+// ispred razloga
+var uvodiGresaka = []string{
+	service.ErrUnauthorized.Error() + ": ",
+	service.ErrInvalidUserData.Error() + ": ",
+}
+
+// porukaDjelatnika je greška servisa kao rečenica za osobu: bez uvoda
+// „nemate ovlasti za ovu radnju:”, velikim slovom i s točkom
+func porukaDjelatnika(err error) string {
+	poruka := err.Error()
+	for _, uvod := range uvodiGresaka {
+		poruka = strings.TrimPrefix(poruka, uvod)
+	}
+	if poruka == "" {
+		return poruka
+	}
+	r, n := utf8.DecodeRuneInString(poruka)
+	poruka = string(unicode.ToUpper(r)) + poruka[n:]
+	if !strings.HasSuffix(poruka, ".") && !strings.HasSuffix(poruka, "!") && !strings.HasSuffix(poruka, "?") {
+		poruka += "."
+	}
+	return poruka
 }

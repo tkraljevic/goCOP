@@ -240,7 +240,7 @@ func (h *UsersHandler) HandleResetPassword(w http.ResponseWriter, r *http.Reques
 	}
 	updated, temp, err := h.userService.ResetPassword(perms, u.ID, viewBanner(r).Viewing)
 	if err != nil {
-		redirectWith(w, r, "/users/"+u.ID.String(), "error", err.Error())
+		redirectWith(w, r, "/users/"+u.ID.String(), "error", porukaDjelatnika(err))
 		return
 	}
 	tajne := jednokratno{lozinka: temp}
@@ -266,7 +266,7 @@ func (h *UsersHandler) HandleKodPrijave(w http.ResponseWriter, r *http.Request) 
 	}
 	kod, istjece, err := h.izdajKod(r, perms, u.ID)
 	if err != nil {
-		redirectWith(w, r, "/users/"+u.ID.String(), "error", err.Error())
+		redirectWith(w, r, "/users/"+u.ID.String(), "error", porukaDjelatnika(err))
 		return
 	}
 	h.showUser(w, r, u, jednokratno{kod: kod, kodIstjece: istjece})
@@ -582,7 +582,7 @@ func (h *UsersHandler) HandleUserModules(w http.ResponseWriter, r *http.Request)
 		}
 	}
 	if err := h.moduleService.SetUserOverride(r.Context(), perms, u.ID.String(), shown, hidden); err != nil {
-		redirectWith(w, r, "/users/"+u.ID.String(), "error", err.Error())
+		redirectWith(w, r, "/users/"+u.ID.String(), "error", porukaDjelatnika(err))
 		return
 	}
 	redirectWith(w, r, "/users/"+u.ID.String(), "success", "Vidljivost modula za ovaj račun je spremljena.")
