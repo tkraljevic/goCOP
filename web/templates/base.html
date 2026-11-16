@@ -57,7 +57,7 @@
       {{if .Sees "djelatnici"}}<a href="/users" class="nav-link {{if eq .ActiveNav "users"}}active{{end}}">{{icon "users"}}<span>Djelatnici i dežurstva</span></a>{{end}}
       {{if .Sees "administracija"}}<a href="/administracija" class="nav-link {{if eq (navSkupina .ActiveNav) "admin"}}active{{end}}">{{icon "settings"}}<span>Administracija</span></a>{{end}}
       <div class="nav-dno">
-        <a href="/pomoc{{if .ActiveNav}}#{{.ActiveNav}}{{end}}" class="nav-link {{if eq .ActiveNav "pomoc"}}active{{end}}">{{icon "circle-question-mark"}}<span>Pomoć</span></a>
+        <a href="/pomoc{{block "sidroPomoci" .}}{{with .ActiveNav}}#{{sidroPomoci .}}{{end}}{{end}}" class="nav-link {{if eq .ActiveNav "pomoc"}}active{{end}}">{{icon "circle-question-mark"}}<span>Pomoć</span></a>
         {{if .CurrentUser}}
         <a href="/profile" class="nav-link {{if eq .ActiveNav "profile"}}active{{end}}">{{icon "user"}}<span>Profil</span></a>
         <a href="/posta" class="nav-link {{if eq .ActiveNav "posta"}}active{{end}}" title="Ulazna pošta s poslužitelja tvrtke">{{icon "mailbox"}}<span>Sandučić</span></a>
@@ -79,7 +79,7 @@
       {{/* S privremenom lozinkom radi samo promjena lozinke, pa ni prijava ne bi prošla */}}
       {{if not .CurrentUser.MustChangePassword}}<button type="button" class="vrh-gumb" id="vrh-prijava-greske" title="Prijavi grešku ili predloži poboljšanje" aria-label="Prijavi grešku ili predloži poboljšanje" aria-haspopup="dialog">{{icon "bug"}}</button>{{end}}
       {{end}}
-      <a href="/pomoc{{if .ActiveNav}}#{{.ActiveNav}}{{end}}" class="vrh-gumb pomoc-znak" title="Pomoć za ovu stranicu" aria-label="Pomoć za ovu stranicu">{{icon "circle-question-mark"}}</a>
+      <a href="/pomoc{{template "sidroPomoci" .}}" class="vrh-gumb pomoc-znak" title="Pomoć za ovu stranicu" aria-label="Pomoć za ovu stranicu">{{icon "circle-question-mark"}}</a>
       <button type="button" class="vrh-gumb theme-toggle" onclick="toggleTheme()" title="Svijetla ili tamna tema" aria-label="Svijetla ili tamna tema">
         <svg class="icon icon-sun" aria-hidden="true"><use href="{{statika "img/icons.svg"}}#sun"/></svg>
         <svg class="icon icon-moon" aria-hidden="true"><use href="{{statika "img/icons.svg"}}#moon"/></svg>

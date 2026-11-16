@@ -2,6 +2,9 @@
 
 {{define "title"}}goCOP — Dnevno izvješće rukovoditelja dionice{{end}}
 
+{{/* Znak „?” vodi na odjeljak Pomoći o ovoj stranici */}}
+{{define "sidroPomoci"}}#izvjesca{{end}}
+
 {{define "content"}}
 {{if .IsEdit}}<a href="/izvjesca/{{.Izvjesce.ID}}" class="povratna-poveznica">← Izvješće dionice {{.Dionica.Code}}</a>
 {{else}}<a href="/izvjesca" class="povratna-poveznica">← Dnevna izvješća</a>{{end}}

@@ -2,6 +2,9 @@
 
 {{define "title"}}goCOP — Dnevno izvješće {{.Dionica.Code}} {{.Izvjesce.Dan.Format "2.1.2006."}}{{end}}
 
+{{/* Znak „?” vodi na odjeljak Pomoći o ovoj stranici */}}
+{{define "sidroPomoci"}}#izvjesca{{end}}
+
 {{define "content"}}
 <a href="/izvjesca" class="povratna-poveznica">← Dnevna izvješća</a>
 {{$iz := .Izvjesce}}{{$s := $iz.Sadrzaj}}

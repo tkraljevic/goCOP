@@ -2,6 +2,9 @@
 
 {{define "title"}}goCOP — Dnevni list {{.List.Datum.Format "02.01.2006."}}{{end}}
 
+{{/* Znak „?” vodi na odjeljak Pomoći o ovoj stranici */}}
+{{define "sidroPomoci"}}#vodocuvar{{end}}
+
 {{define "content"}}
 {{$l := .List}}
 {{/* Obrazac je list koji osoba sama još piše; ostali čitaju list u istoj glavi, a redovi su ispod. */}}

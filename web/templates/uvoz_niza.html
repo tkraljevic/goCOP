@@ -2,6 +2,9 @@
 
 {{define "title"}}goCOP — Unos podataka u arhivu{{end}}
 
+{{/* Znak „?” vodi na odjeljak Pomoći o ovoj stranici */}}
+{{define "sidroPomoci"}}#arhiva-unos{{end}}
+
 {{define "content"}}
 <div class="breadcrumb">{{if .Administrator}}<a href="/administracija">Administracija</a>{{else}}<a href="/stations">Vodomjerne postaje</a>{{with .Odabrana}}{{if .Kartica}} › <a href="{{.Kartica}}">{{.Naziv}}</a>{{end}}{{end}}{{end}} › Unos u arhivu</div>
 
