@@ -2761,5 +2761,6 @@
   </div>
   {{template "pomocPoglavljeNav" (list "Pojmovnik" "#pojmovi" "" "")}}
 </section>
-<a class="pomoc-na-vrh" href="#pomoc" aria-label="Na vrh pomoći" title="Na vrh">↑</a>
+{{/* #top je po HTML-u vrh stranice: iznad pretrage i kazala, ne sidro #pomoc ispod njih */}}
+<a class="pomoc-na-vrh" href="#top" aria-label="Na vrh pomoći" title="Na vrh">↑</a>
 {{end}}
