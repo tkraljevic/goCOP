@@ -4,7 +4,7 @@
 
 {{define "content"}}
 {{$v := .Vrsta}}
-<div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/sredstva?sektor={{.Sektor}}">Sredstva za obranu</a> › {{$v.Naziv}}</div>
+<a href="/sredstva?sektor={{.Sektor}}" class="povratna-poveznica">← Sredstva</a>
 
 <div class="page-header">
   <div>

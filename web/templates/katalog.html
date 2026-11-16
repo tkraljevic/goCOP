@@ -1,17 +1,17 @@
 {{template "base.html" .}}
 
-{{define "title"}}goCOP — Katalog sredstava{{end}}
+{{define "title"}}goCOP — Katalog vrsta · Sredstva{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/sredstva?sektor={{.Sektor}}">Sredstva za obranu</a> › Katalog vrsta</div>
-
 <div class="page-header">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "list"}} Katalog vrsta sredstava</h1>
+    <h1 class="page-title" data-naziv-stranice>Katalog vrsta</h1>
     <p class="page-desc">Propisani popis kako ga traži obrazac za Glavni centar, isti za sve sektore. Vrsta koju nitko nije koristio može se ukloniti;
       korištena se gasi, jer promet i popisi na nju pokazuju. Nova vrsta ide na kraj svoje skupine.</p>
   </div>
 </div>
+
+{{template "sredstvaTraka" .}}
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}

@@ -4,7 +4,7 @@
 
 {{define "content"}}
 {{$sk := .Skladiste}}
-<div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/sredstva?sektor={{$sk.Sektor}}">Sredstva za obranu</a> › {{$sk.Naziv}}</div>
+<a href="/sredstva?sektor={{$sk.Sektor}}" class="povratna-poveznica">← Sredstva</a>
 
 <div class="detail-head">
   <div>

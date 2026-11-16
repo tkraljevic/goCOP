@@ -4,7 +4,7 @@
 
 {{define "content"}}
 {{$sk := .Skladiste}}
-<div class="breadcrumb"><a href="/registri">Registri</a> › <a href="/sredstva?sektor={{$sk.Sektor}}">Sredstva za obranu</a> › {{if .IsEdit}}<a href="/sredstva/skladista/{{$sk.ID}}">{{$sk.Naziv}}</a> › Uredi{{else}}Novo skladište{{end}}</div>
+{{if .IsEdit}}<a href="/sredstva/skladista/{{$sk.ID}}" class="povratna-poveznica">← {{$sk.Naziv}}</a>{{else}}<a href="/sredstva?sektor={{$sk.Sektor}}" class="povratna-poveznica">← Sredstva</a>{{end}}
 
 <div class="page-header">
   <div>

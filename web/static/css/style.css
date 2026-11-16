@@ -8815,6 +8815,8 @@ summary.ocitanja-cip { padding-right: 8px; }
 }
 /* Djelatnici: kartice modula lijevo, ne preko cijele širine (crtež 20) */
 .djelatnici-kartice { margin: 0 0 1rem; }
+.sredstva-kartice { margin: 0 0 1rem; }
+.sredstva-kartice .kartica-stranice { flex: 0 0 auto; }
 .djelatnici-kartice .kartica-stranice { flex: 0 0 auto; }
 .kartica-stranice:hover { background: var(--surface-hover); color: var(--text); text-decoration: none; }
 .kartica-stranice[aria-current="page"] { color: var(--md-sys-color-primary, var(--primary)); }
