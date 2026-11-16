@@ -24,6 +24,10 @@ type option struct{ Value, Label string }
 // obrazac izvana tada traži lozinku računa
 func (o option) Uprava() bool { return upravaOrganizacije(models.Role(o.Value)) }
 
+// Doseg je prirodni doseg uloge iz popisa (ALL, SECTOR, AREA, SECTION):
+// obrazac zaduženja po njemu pokazuje samo polja koja uloga traži
+func (o option) Doseg() string { return string(models.Role(o.Value).NaturalScope()) }
+
 // roleOptions su uloge koje obrazac nudi, redom od najviše prema terenu, s
 // nazivima kako ih zove organizacija
 func roleOptions() []option {
