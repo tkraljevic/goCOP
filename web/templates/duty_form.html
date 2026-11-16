@@ -46,20 +46,20 @@
       {{/* Bez unaprijed odabrane uloge (Odluke (30. 10. 2026.), 18); pri
            izmjeni stoji dosadašnja, bez prazne */}}
       {{if not .Duty}}<option value="">— odaberi ulogu —</option>{{end}}
-      {{$uloga := ""}}{{if .Duty}}{{$uloga = print .Duty.Role}}{{end}}{{range .Roles}}<option value="{{.Value}}"{{if eq .Value $uloga}} selected{{end}}{{if .Uprava}} data-uprava="1"{{end}}>{{.Label}}</option>{{end}}
+      {{$uloga := ""}}{{if .Duty}}{{$uloga = print .Duty.Role}}{{end}}{{range .Roles}}<option value="{{.Value}}"{{if eq .Value $uloga}} selected{{end}}{{if .Uprava}} data-uprava="1"{{end}} data-doseg="{{.Doseg}}">{{.Label}}</option>{{end}}
     </select>
   </div>
   <div class="form-help mb-2">Doseg određuje uloga. Uloga razine 1 vrijedi za cijelu organizaciju; za ostale popunite polje koje uloga traži: „{{term "sektor"}}”, „{{term "podrucje"}}” ili „Dionice”. Uprava sektora i uprava branjenog područja dodjeljuju uloge samo u svom dosegu: uprava sektora uloge svoje razine ili niže, a uprava područja samo niže od svoje, npr. rukovoditelja dionice ili vodočuvara.</div>
 
   <div class="form-row">
-    <div class="form-group">
+    <div class="form-group" data-doseg-polje="sektor">
       <label class="form-label" for="sector_id">{{term "sektor"}}</label>
       <select id="sector_id" name="sector_id" class="form-control" onchange="filterAreas(this.value)">
         <option value="">— odaberi sektor —</option>
         {{range .Sectors}}<option value="{{.ID}}"{{if eq .ID $.DutySector}} selected{{end}}>{{.Name}}</option>{{end}}
       </select>
     </div>
-    <div class="form-group">
+    <div class="form-group" data-doseg-polje="podrucje">
       <label class="form-label" for="area_id">{{term "podrucje"}}</label>
       <select id="area_id" name="area_id" class="form-control">
         <option value="">— odaberi područje —</option>
@@ -68,7 +68,7 @@
     </div>
   </div>
 
-  <div class="form-group">
+  <div class="form-group" data-doseg-polje="dionice">
     <label class="form-label" for="section_codes">Dionice</label>
     <input type="text" id="section_codes" name="section_codes" class="form-control" value="{{if .Duty}}{{.Duty.SectionCodes}}{{end}}" placeholder="npr. A.19.8, A.19.9, A.19.10">
     <div class="form-help">Za uloge dionice i terena: šifre odvojene zarezom. Bez dionica terenska uloga pokriva cijelo {{terml "podrucje"}}.</div>

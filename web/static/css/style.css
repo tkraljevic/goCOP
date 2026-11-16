@@ -8780,6 +8780,7 @@ summary.ocitanja-cip { padding-right: 8px; }
   .dez-glava { display: none; }
   .dez-redak { grid-template-columns: 1fr 1fr; }
 }
+[data-doseg-polje][hidden] { display: none; }
 .ob-crta { margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--border); }
 .ob-postojece { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1.4fr) auto; gap: 12px; align-items: center;
   margin-top: 6px; padding: 10px 12px; border-radius: 8px; background: var(--bg); font-size: 0.875rem; }
