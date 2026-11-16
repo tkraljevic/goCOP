@@ -35,6 +35,21 @@ type PorastLetve struct {
 	Kad   time.Time // kraj dana najvećeg porasta (dnevna u 7 h); nula kad se ne zna
 }
 
+// Kada kaže kad je porast najveći: „u ned. 22. 11.”, a bez sata završetka
+// dana „(6. dan)”.
+func (l PorastLetve) Kada() string {
+	if l.Kad.IsZero() {
+		return "(" + strconv.Itoa(l.Dan) + ". dan)"
+	}
+	k := l.Kad.In(models.Zagreb)
+	return "u " + daniUTjednu[k.Weekday()] + ". " + k.Format("2. 1.")
+}
+
+// Opis: „Batina +64 cm u ned. 22. 11.”
+func (l PorastLetve) Opis() string {
+	return l.Naziv + " +" + brojHRf(l.Cm, 0) + " cm " + l.Kada()
+}
+
 // SlivUKisi je međusliv na pločici
 type SlivUKisi struct {
 	prognoza.StanjeSliva
@@ -108,8 +123,9 @@ func (s *Server) podaciKiseSlivova(ctx context.Context) kisaSlivovaPodaci {
 		p.Greska = "Podaci o kiši po slivovima trenutačno nisu dostupni."
 	}
 	nazivSliva, nazivLetve := s.naziviSlivova(ctx), s.naziviLetava(ctx)
+	polazista := s.prognoze.PolazistaZa(izdanjeDnevne(dnevne))
 	for _, st := range stanja {
-		x := slivUKisi(st, nazivSliva[st.Sliv], nazivLetve, dnevne, &p.Izdano)
+		x := slivUKisi(st, nazivSliva[st.Sliv], nazivLetve, dnevne, polazista, &p.Izdano)
 		p.Slivovi = append(p.Slivovi, x)
 		if st.Razina > 0 {
 			p.Upozorenja = append(p.Upozorenja, x)
@@ -151,16 +167,30 @@ var razineKise = map[int][2]string{
 	3: {"kisa-crveno", "izvanredna kiša"},
 }
 
+// izdanjeDnevne je sat izdanja dnevne prognoze; nula kad je nema
+func izdanjeDnevne(dnevne map[string][]prognoza.DnevnaIzdana) time.Time {
+	for _, d := range dnevne {
+		if len(d) > 0 {
+			return time.Unix(d[0].Izdano*3600, 0) // izdanje je isto za sve letve
+		}
+	}
+	return time.Time{}
+}
+
 // slivUKisi slaže međusliv za pločicu: ime, najveći porast svake letve u
-// dnevnoj prognozi i razinu kiše; izdano dobije sat izdanja prognoze
-func slivUKisi(st prognoza.StanjeSliva, naziv string, nazivLetve map[string]string, dnevne map[string][]prognoza.DnevnaIzdana, izdano *time.Time) SlivUKisi {
+// dnevnoj prognozi i razinu kiše; izdano dobije sat izdanja prognoze.
+// Porast se broji od vodostaja u satu izdanja (polazista), a bez njega od
+// dana 0, prosjeka zadnja 24 sata.
+func slivUKisi(st prognoza.StanjeSliva, naziv string, nazivLetve map[string]string, dnevne map[string][]prognoza.DnevnaIzdana,
+	polazista map[string]float64, izdano *time.Time) SlivUKisi {
 	x := SlivUKisi{StanjeSliva: st, Naziv: naziv}
 	for _, l := range st.Letve {
 		pl := PorastLetve{Naziv: nazivLetve[l]}
 		if pl.Naziv == "" {
 			pl.Naziv = l
 		}
-		pl.Cm, pl.Dan, pl.Ima = najveciPorast(dnevne[l])
+		polaziste, imaPolaziste := polazista[l]
+		pl.Cm, pl.Dan, pl.Ima = najveciPorast(dnevne[l], polaziste, imaPolaziste)
 		pl.Kad = krajDana(dnevne[l], pl.Dan)
 		if izdano.IsZero() && len(dnevne[l]) > 0 {
 			*izdano = time.Unix(dnevne[l][0].Izdano*3600, 0) // izdanje je isto za sve letve
@@ -181,9 +211,11 @@ func krajDana(d []prognoza.DnevnaIzdana, dan int) time.Time {
 	return time.Time{}
 }
 
-// najveciPorast vraća najveći porast prema današnjoj vrijednosti u dnevnoj
-// prognozi i dan na koji pada
-func najveciPorast(d []prognoza.DnevnaIzdana) (float64, int, bool) {
+// najveciPorast vraća najveći porast u dnevnoj prognozi i dan na koji pada.
+// Broji se od vodostaja u satu izdanja kad ga ima (imaPolaziste), jer
+// dežurni uspoređuje s vodostajem koji upravo vidi; dan 0 je prosjek zadnja
+// 24 sata i uz vodu koja raste ili pada razlikuje se od njega za desetke cm.
+func najveciPorast(d []prognoza.DnevnaIzdana, polaziste float64, imaPolaziste bool) (float64, int, bool) {
 	var danas float64
 	ima := false
 	for _, x := range d {
@@ -193,6 +225,9 @@ func najveciPorast(d []prognoza.DnevnaIzdana) (float64, int, bool) {
 	}
 	if !ima {
 		return 0, 0, false
+	}
+	if imaPolaziste {
+		danas = polaziste
 	}
 	najv, dan := 0.0, 0
 	for _, x := range d {
@@ -226,7 +261,7 @@ var kisaSlivovaTmpl = template.Must(template.New("kisa").Funcs(template.FuncMap{
     </div>
     <div class="kisa-brojke">palo 24 h <strong>{{mm .Palo24}} mm</strong> · 72 h <strong>{{mm .Palo72}} mm</strong> · očekuje se 48 h <strong>{{mm .Dolazi48}} mm</strong></div>
     <div class="kisa-letve">{{icon "trending-up"}} Voda će rasti na:
-      {{range $i, $l := .Letve}}{{if $i}}, {{end}}<strong>{{$l.Naziv}}</strong>{{if $l.Ima}}{{if ge $l.Cm 5.0}} <span class="kisa-porast">+{{cm $l.Cm}} cm ({{$l.Dan}}. dan)</span>{{end}}{{end}}{{end}}
+      {{range $i, $l := .Letve}}{{if $i}}, {{end}}<strong>{{$l.Naziv}}</strong>{{if $l.Ima}}{{if ge $l.Cm 5.0}} <span class="kisa-porast">+{{cm $l.Cm}} cm {{$l.Kada}}</span>{{end}}{{end}}{{end}}
       {{with .BezDnevne}}<span class="reg-card-sub">({{.}})</span>{{end}}
     </div>
   </div>

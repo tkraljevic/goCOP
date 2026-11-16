@@ -6607,6 +6607,7 @@ h3.kis-podnaslov { margin:1rem 0 0.4rem; display:flex; align-items:center; gap:0
 .kisa-polja { display: flex; gap: 3px; align-items: flex-start; }
 .kisa-polje { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; text-decoration: none; }
 .kisa-polje-mm { align-self: stretch; height: 34px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-2); font-size: 14px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.kisa-polje-ocekivano { margin-left: 2px; font-size: 11px; font-weight: 400; opacity: 0.8; }
 .kisa-polje-ime { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; line-height: 14px; color: var(--text-secondary); }
 .kisa-polje.kisa-zuto .kisa-polje-mm { background: var(--faza-r-bg); border: 1.5px solid var(--faza-r-crta); color: var(--faza-r-fg); font-weight: 500; }
 .kisa-polje.kisa-narancasto .kisa-polje-mm { background: var(--faza-i-bg); border: 1.5px solid var(--faza-i-crta); color: var(--faza-i-fg); font-weight: 500; }

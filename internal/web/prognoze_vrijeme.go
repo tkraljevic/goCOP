@@ -664,11 +664,7 @@ func porastiSliva(letve []PorastLetve) string {
 		if !l.Ima || l.Cm < 5 {
 			continue
 		}
-		kad := " (" + strconv.Itoa(l.Dan) + ". dan)"
-		if !l.Kad.IsZero() {
-			kad = " u " + daniUTjednu[l.Kad.In(models.Zagreb).Weekday()] + "."
-		}
-		out = append(out, l.Naziv+" +"+brojHRf(l.Cm, 0)+" cm"+kad)
+		out = append(out, l.Opis())
 	}
 	return strings.Join(out, ", ")
 }

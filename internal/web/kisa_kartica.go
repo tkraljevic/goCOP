@@ -38,10 +38,16 @@ var lanciKise = []rijekaLanca{
 		{[]string{"I"}, "Mohács"}, {[]string{"J"}, "Aljmaš"}}},
 }
 
-// PoljeKise je polje lanca na kartici
+// PoljeKise je polje lanca na kartici. Ocekivano („+36”) je kiša u
+// sljedećih 48 h kad je tek ona podigla razinu polja: boja tada ne dolazi od
+// pale kiše, pa broj uz nju mora reći zašto je polje obojeno.
 type PoljeKise struct {
-	Ime, Mm, Klasa, URL, Naslov string
+	Ime, Mm, Ocekivano, Klasa, URL, Naslov string
 }
+
+// zastoOcekivano je razlog razine kad prag prijeđe pala kiša zajedno s
+// očekivanom (prognoza.razinaKise)
+const zastoOcekivano = "palo i očekuje se u 72 sata"
 
 // RijekaKise je red lanca na kartici
 type RijekaKise struct {
@@ -113,21 +119,49 @@ func poljeKise(p poljeLanca, po map[string]SlivUKisi) PoljeKise {
 	}
 	najvise, razina, ima := 0.0, 0, false
 	var nazivi []string
+	var podigla *SlivUKisi // međusliv koji je dao razinu polja
 	for _, o := range p.slivovi {
 		s, ok := po[o]
 		if !ok || !s.Ima || !s.ImaDan[0] || !s.ImaDan[1] {
 			continue
 		}
 		ima = true
-		najvise, razina = math.Max(najvise, s.Palo72), max(razina, s.Razina)
+		najvise = math.Max(najvise, s.Palo72)
+		if s.Razina > razina {
+			razina, podigla = s.Razina, &s
+		}
 		nazivi = append(nazivi, imeSliva(s))
 	}
 	if ima {
 		f.Mm = brojHRf(najvise, 0)
 		f.Klasa = razineKise[razina][0]
 		f.Naslov = strings.Join(nazivi, ", ") + ": " + f.Mm + " mm u 72 h"
+		dodajOcekivano(&f, podigla)
 	}
 	return f
+}
+
+// dodajOcekivano: kad je razinu polja podigla tek očekivana kiša, polje uz
+// palu pokazuje i nju
+func dodajOcekivano(f *PoljeKise, podigla *SlivUKisi) {
+	if podigla == nil || podigla.Zasto != zastoOcekivano {
+		return
+	}
+	f.Ocekivano = "+" + brojHRf(podigla.Dolazi48, 0)
+	f.Naslov += ", očekivano " + brojHRf(podigla.Dolazi48, 0) + " mm u 48 h"
+}
+
+// ImaOcekivano kaže ima li u lancu polje obojeno zbog očekivane kiše, da
+// natpis ispod lanca objasni broj s plusom
+func (k KisaNaslovne) ImaOcekivano() bool {
+	for _, r := range k.Lanac {
+		for _, p := range r.Polja {
+			if p.Ocekivano != "" {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // imeSliva: naziv iz registra, a bez njega oznaka
@@ -179,7 +213,7 @@ func daniKise(s SlivUKisi, od, do int, izdano time.Time) string {
 func porastRetka(letve []PorastLetve) string {
 	for _, l := range letve {
 		if l.Ima && l.Cm >= 1 {
-			return fmt.Sprintf("porast u prognozi: %s +%s cm", l.Naziv, brojHRf(l.Cm, 0))
+			return "porast u prognozi: " + l.Opis()
 		}
 	}
 	return ""

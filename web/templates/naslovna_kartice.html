@@ -55,12 +55,12 @@
   <div class="kisa-rijeka{{if .Pritok}} pritok{{end}}">
     <span class="kisa-rijeka-ime">{{.Rijeka}}</span>
     <div class="kisa-polja">
-      {{range .Polja}}<a class="kisa-polje {{.Klasa}}" href="{{.URL}}"{{with .Naslov}} title="{{.}}"{{end}}><span class="kisa-polje-mm">{{.Mm}}</span><span class="kisa-polje-ime">{{.Ime}}</span></a>{{end}}
+      {{range .Polja}}<a class="kisa-polje {{.Klasa}}" href="{{.URL}}"{{with .Naslov}} title="{{.}}"{{end}}><span class="kisa-polje-mm">{{.Mm}}{{with .Ocekivano}}<span class="kisa-polje-ocekivano">{{.}}</span>{{end}}</span><span class="kisa-polje-ime">{{.Ime}}</span></a>{{end}}
       {{with .Pritok}}<span class="kisa-pritok">{{.}}</span>{{end}}
     </div>
   </div>
   {{end}}
-  <p class="kisa-lanac-natpis">Žuto: toliko padne tri puta godišnje, narančasto jednom godišnje, crveno jednom u pet godina.</p>
+  <p class="kisa-lanac-natpis">Žuto: toliko padne tri puta godišnje, narančasto jednom godišnje, crveno jednom u pet godina.{{if .ImaOcekivano}} Broj s plusom je kiša očekivana u 48 h; boja je od pale i očekivane zajedno.{{end}}</p>
 </div>
 <ul class="kisa-retci">
   {{range $i, $r := .Retci}}{{if lt $i 5}}

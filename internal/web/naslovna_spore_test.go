@@ -76,14 +76,15 @@ func TestKarticaJacihOborina(t *testing.T) {
 		{StanjeSliva: prognoza.StanjeSliva{Sliv: "vuka", Palo24: 12, Razina: 1}},
 		{StanjeSliva: prognoza.StanjeSliva{Sliv: "drava-dm", Palo24: 0, Palo72: 52, Dolazi48: 15, Razina: 2,
 			Zasto: "palo u zadnja 72 sata", Ucestalost: "toliko padne u prosjeku jednom godišnje"},
-			Naziv: "Drava: Donji Miholjac – Osijek", Letve: []PorastLetve{{Naziv: "Bez", Ima: false}, {Naziv: "Osijek", Cm: 45, Ima: true}}},
+			Naziv: "Drava: Donji Miholjac – Osijek", Letve: []PorastLetve{{Naziv: "Bez", Ima: false}, {Naziv: "Osijek", Cm: 45, Dan: 2, Ima: true,
+				Kad: time.Date(2026, 11, 16, 12, 0, 0, 0, models.Zagreb)}}},
 	}}
 	k := karticaJacihOborina(p, sadNaslovne)
 	// jača kiša na vrhu, iako je u podacima druga; pokazana su sva tri
 	// razdoblja i razdoblje u kojem je prag prijeđen
 	if len(k.Redovi) != 2 || k.Redovi[0].Glavno != "Drava: Donji Miholjac – Osijek" ||
 		k.Redovi[0].Sporedno != "palo 52 mm u 72 h, 0 mm u 24 h · očekivano 15 mm u 48 h · "+
-			"toliko padne u prosjeku jednom godišnje (palo u 72 h) · porast u prognozi: Osijek +45 cm" ||
+			"toliko padne u prosjeku jednom godišnje (palo u 72 h) · porast u prognozi: Osijek +45 cm u pon. 16. 11." ||
 		!k.Redovi[0].Hitno || k.Redovi[0].Istaknuto != "kisa" || k.Redovi[1].Glavno != "vuka" || k.Redovi[1].Hitno ||
 		k.Redovi[1].Sporedno != "palo 12 mm u 24 h" {
 		t.Errorf("redovi: %+v", k.Redovi)
@@ -238,11 +239,14 @@ func TestKarticaJacihOborinaLanacITraka(t *testing.T) {
 		return SlivUKisi{StanjeSliva: st, Naziv: "međusliv " + o, Klasa: razineKise[razina][0]}
 	}
 	d := sliv("D", 2, [5]float64{18, 33, 1, 0, 15})
-	d.Letve = []PorastLetve{{Naziv: "Terezino Polje", Cm: 35, Ima: true}}
+	d.Letve = []PorastLetve{{Naziv: "Terezino Polje", Cm: 35, Dan: 3, Ima: true}}
 	p := kisaSlivovaPodaci{Izdano: izdano, Slivovi: []SlivUKisi{sliv("A", 0, [5]float64{10, 13, 0, 0, 4}), sliv("B", 0, [5]float64{}), d}}
 	for _, o := range []string{"E", "F", "I", "J", "H"} {
 		p.Upozorenja = append(p.Upozorenja, sliv(o, 1, [5]float64{20, 20, 1, 0, 5}))
 	}
+	// Aljmaš je žut tek s očekivanom kišom: polje pokazuje i nju
+	p.Upozorenja[3].Dani, p.Upozorenja[3].Palo72, p.Upozorenja[3].Palo24 = [5]float64{0, 0, 3, 16, 20}, 3, 3
+	p.Upozorenja[3].Dolazi48, p.Upozorenja[3].Zasto = 36, zastoOcekivano
 	p.Upozorenja = append(p.Upozorenja, d)
 	p.Slivovi = append(p.Slivovi, p.Upozorenja...)
 	k := karticaJacihOborina(p, izdano)
@@ -261,10 +265,17 @@ func TestKarticaJacihOborinaLanacITraka(t *testing.T) {
 	if dunav := tijelo.Lanac[2].Polja; dunav[0].Ime != "uzvodno" || dunav[0].Mm != "—" || dunav[0].URL != "/slivovi#kisa" {
 		t.Errorf("uzvodni Dunav %+v", dunav[0])
 	}
+	if a := tijelo.Lanac[2].Polja[3]; a.Mm != "3" || a.Ocekivano != "+36" || a.Klasa != "kisa-zuto" ||
+		a.Naslov != "međusliv J: 3 mm u 72 h, očekivano 36 mm u 48 h" || !tijelo.ImaOcekivano() {
+		t.Errorf("Aljmaš s očekivanom kišom %+v", a)
+	}
+	if drava[2].Ocekivano != "" {
+		t.Errorf("polje obojeno palom kišom ne pokazuje očekivanu: %+v", drava[2])
+	}
 	r := tijelo.Retci[0]
 	if r.Naziv != "međusliv D" || r.Rijetko != "jednom godišnje" ||
 		r.Palo != "palo 52 mm u 72 h: čet 18 · pet 33 · danas 1" || r.Ocekivano != "očekivano 15 mm u 48 h: ned 0 · pon 15" ||
-		r.Porast != "porast u prognozi: Terezino Polje +35 cm" {
+		r.Porast != "porast u prognozi: Terezino Polje +35 cm (3. dan)" {
 		t.Errorf("redak %+v", r)
 	}
 	// mjerilo je najviši prag uz 12 % zraka: 66 · 1,12 = 73,92 mm
@@ -303,5 +314,21 @@ func TestGrafoviKise(t *testing.T) {
 	}
 	if grafoviKise(nil, izdano) != nil {
 		t.Error("bez podataka nema grafova")
+	}
+}
+
+// Porast se broji od vodostaja u satu izdanja, a ne od prosjeka zadnja 24
+// sata: Batina je 16. 11. 2026. bila −53 cm, prosjek dana −67, a prognoza za
+// 22. 11. +11, pa je porast 64 cm, ne 78. Bez vodostaja ostaje dan 0.
+func TestPorastOdVodostajaUSatuIzdanja(t *testing.T) {
+	d := []prognoza.DnevnaIzdana{{Dan: 0, Vrijednost: -67}, {Dan: 1, Vrijednost: -45}, {Dan: 6, Vrijednost: 11}}
+	if cm, dan, ok := najveciPorast(d, -53, true); cm != 64 || dan != 6 || !ok {
+		t.Errorf("od vodostaja u satu izdanja: %v cm, %d. dan, %v", cm, dan, ok)
+	}
+	if cm, _, _ := najveciPorast(d, 0, false); cm != 78 {
+		t.Errorf("bez vodostaja od dana 0: %v cm", cm)
+	}
+	if cm, dan, _ := najveciPorast(d, 20, true); cm != 0 || dan != 0 {
+		t.Errorf("voda iznad cijele prognoze nema porasta: %v cm, %d. dan", cm, dan)
 	}
 }
