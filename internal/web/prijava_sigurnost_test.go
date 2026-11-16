@@ -276,7 +276,7 @@ func TestDeaktiviranRacunNaStraniciPrijave(t *testing.T) {
 	if w := o.prijava(izravno, "umirovljen", "kriva"); !strings.Contains(w.Body.String(), "Neispravno korisničko ime ili lozinka") {
 		t.Errorf("kriva lozinka na deaktiviranom računu: %q", w.Body.String())
 	}
-	if w := o.prijava(izravno, "umirovljen", "stara-lozinka"); !strings.Contains(w.Body.String(), "deaktiviran") {
+	if w := o.prijava(izravno, "umirovljen", "stara-lozinka"); !strings.Contains(w.Body.String(), "isključen") {
 		t.Errorf("točna lozinka na deaktiviranom računu: %q", w.Body.String())
 	}
 }

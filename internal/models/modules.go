@@ -35,7 +35,7 @@ var Modules = []Module{
 	{ModuleReadings, "Očitanja", "zadnja očitanja svih letvi, povijest i graf, prognoze"},
 	{ModuleJournals, "Dokumenti", "dnevnik COP-a, plan dežurstava i obračun sati, dnevna izvješća, dnevnici usluga A.02 i A.03"},
 	{ModuleRegisters, "Registri", "dionice, područja, postaje, objekti, vodotoci, održavanje, licencirane firme, sredstva za obranu"},
-	{ModuleUsers, "Djelatnici", "imenik, dužnosti i ovlasti"},
+	{ModuleUsers, "Djelatnici", "imenik, zaduženja i ovlasti"},
 	{ModuleAdmin, "Administracija", "ustroj obrane, ovlasti, čvor i mreža, uvozi — sve što radi samo administrator"},
 }
 

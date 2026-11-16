@@ -59,7 +59,7 @@ func TestNoviRacunOdbijanja(t *testing.T) {
 		{"promatrač ne upravlja", promatrac, korZahtjev("pperic-2"), service.ErrUnauthorized, ""},
 		{"zastavica od uprave sektora", upravaB, globalni, service.ErrUnauthorized, "stalna uprava"},
 		{"zastavica od privremene uprave države", privremenaDrzavna, globalni, service.ErrUnauthorized, "stalna uprava"},
-		{"račun bez dužnosti od uprave sektora", upravaB, bezUloge, service.ErrUnauthorized, "bez dužnosti"},
+		{"račun bez dužnosti od uprave sektora", upravaB, bezUloge, service.ErrUnauthorized, "bez zaduženja"},
 		{"dužnost u tuđem sektoru", upravaA, tudjiSektor, service.ErrUnauthorized, ""},
 		{"bez lozinke", upravaB, bezLozinke, service.ErrInvalidUserData, "obavezni"},
 		{"ime od razmaka", upravaB, bezImena, service.ErrInvalidUserData, "obavezni"},

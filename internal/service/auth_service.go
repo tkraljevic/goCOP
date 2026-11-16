@@ -18,7 +18,7 @@ import (
 
 var (
 	ErrInvalidCredentials = errors.New("neispravno korisničko ime ili lozinka")
-	ErrAccountInactive    = errors.New("korisnički račun je deaktiviran")
+	ErrAccountInactive    = errors.New("korisnički račun je isključen")
 	// ErrStaraLozinka: lozinka je točna, ali je to stara zajednička početna
 	// lozinka, pa se račun ne prijavljuje dok mu administrator ne poništi
 	// lozinku (Odluke (30. 10. 2026.))

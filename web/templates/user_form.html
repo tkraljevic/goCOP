@@ -8,7 +8,7 @@
 <div class="page-header">
   <div>
     <h1 class="page-title" data-naziv-stranice="Uređivanje djelatnika">{{if .IsEdit}}{{.User.FullName}}{{else}}Novi djelatnik{{end}}</h1>
-    <p class="page-desc">{{if .IsEdit}}Izmjene profila stižu na sve čvorove i ostaju u povijesti zapisa.{{else}}Račun s početnom funkcijom. Lozinku koju upišete osoba mijenja pri prvoj prijavi.{{end}}</p>
+    <p class="page-desc">{{if .IsEdit}}Izmjene profila stižu na sve čvorove i ostaju u povijesti zapisa.{{else}}Račun s početnim zaduženjem. Lozinku koju upišete osoba mijenja pri prvoj prijavi.{{end}}</p>
   </div>
 </div>
 
@@ -121,9 +121,9 @@
   {{end}}
 
   {{if not .IsEdit}}
-  <h3 style="font-size:0.95rem; margin:1.25rem 0 0.5rem;">Početna funkcija ili zaduženje</h3>
+  <h3 style="font-size:0.95rem; margin:1.25rem 0 0.5rem;">Početno zaduženje</h3>
   <div class="form-group">
-    <label class="form-label" for="duty_title">Naziv funkcije</label>
+    <label class="form-label" for="duty_title">Naziv zaduženja</label>
     <input type="text" id="duty_title" name="duty_title" class="form-control" placeholder="npr. Voditelj COP Osijek ili Rukovoditelj dionica A.19.1 – A.19.4">
   </div>
   <div class="form-group">

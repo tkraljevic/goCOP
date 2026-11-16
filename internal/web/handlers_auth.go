@@ -196,7 +196,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		errMsg := "Neispravno korisničko ime ili lozinka"
 		if errors.Is(err, service.ErrAccountInactive) {
-			errMsg = "Korisnički račun je privremeno deaktiviran"
+			errMsg = "Korisnički račun je isključen"
 		}
 		h.prikaziPrijavu(w, r, http.StatusOK, errMsg)
 		return

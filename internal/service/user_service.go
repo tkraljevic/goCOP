@@ -184,7 +184,7 @@ func (s *UserService) CreateUser(actor *models.UserPermissions, req CreateUserRe
 			return nil, err
 		}
 	} else if !actor.IsGlobalAdmin {
-		return nil, fmt.Errorf("%w: račun bez dužnosti otvara samo uprava organizacije", ErrUnauthorized)
+		return nil, fmt.Errorf("%w: račun bez zaduženja otvara samo uprava organizacije", ErrUnauthorized)
 	}
 
 	req.Username = strings.TrimSpace(req.Username)
@@ -690,7 +690,7 @@ func (s *UserService) smijeOpozvati(actor *models.UserPermissions, dutyID uuid.U
 		return err
 	}
 	if !actor.IsGlobalAdmin && duty.UserID == actor.User.ID {
-		return fmt.Errorf("%w: vlastitu dužnost opoziva nadređena razina", ErrUnauthorized)
+		return fmt.Errorf("%w: vlastito zaduženje opoziva nadređena razina", ErrUnauthorized)
 	}
 	if err := mayAssign(actor, duty.Role, duty.SectorID, duty.AreaID, s.areaSectors()); err != nil {
 		return err
@@ -786,7 +786,7 @@ func (s *UserService) AddDuty(actor *models.UserPermissions, req AddDutyRequest)
 		return err
 	}
 
-	s.sse.Broadcast("duty_added", fmt.Sprintf("Dodijeljena nova funkcija/ispomoć: %s", req.Title), duty.ID.String())
+	s.sse.Broadcast("duty_added", fmt.Sprintf("Dodijeljeno novo zaduženje: %s", req.Title), duty.ID.String())
 	return nil
 }
 
@@ -841,10 +841,10 @@ func (s *UserService) UpdateDuty(actor *models.UserPermissions, dutyID uuid.UUID
 			// ne zamjenjuje tiho nazivom uloge.
 			t := strings.TrimSpace(req.Title)
 			if req.IsPrimary && !duty.IsPrimary {
-				return fmt.Errorf("%w: primarnu funkciju daje onaj tko uređuje cijeli račun osobe (viša razina ili globalni administrator)", ErrUnauthorized)
+				return fmt.Errorf("%w: primarno zaduženje daje onaj tko uređuje cijeli račun osobe (viša razina ili globalni administrator)", ErrUnauthorized)
 			}
 			if t != "" && t != duty.Title && t != req.Role.Label() {
-				return fmt.Errorf("%w: vlastiti naziv dužnosti mijenja onaj tko uređuje cijeli račun osobe (viša razina ili globalni administrator); ostavite naziv „%s” ili upišite naziv uloge", ErrUnauthorized, duty.Title)
+				return fmt.Errorf("%w: vlastiti naziv zaduženja mijenja onaj tko uređuje cijeli račun osobe (viša razina ili globalni administrator); ostavite naziv „%s” ili upišite naziv uloge", ErrUnauthorized, duty.Title)
 			}
 			// naziv koji je bio samo naziv uloge prati novu ulogu
 			if t == duty.Title && duty.Title == duty.Role.Label() {
@@ -927,7 +927,7 @@ func (s *UserService) RevokeDuty(actor *models.UserPermissions, dutyID uuid.UUID
 	}
 	s.uskladiPoOpozivu(dutyID)
 
-	s.sse.Broadcast("duty_revoked", "Opozvana funkcija / ovlast", dutyID.String())
+	s.sse.Broadcast("duty_revoked", "Opozvano zaduženje", dutyID.String())
 	return nil
 }
 
