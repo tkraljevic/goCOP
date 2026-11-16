@@ -945,7 +945,8 @@ func TestProfilPristupOdjeljcima(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{`{{if .VidiImenik}}<li><a href="/users/exchange">`, `{{if .VidiImenik}}<a href="/users/exchange?trazi=`, `{{if $.VidiDokumente}}<span class="profil-plan-veze">`} {
+	// Adresar tvrtke traži svatko s računom (Odluke (16. 11. 2026.), Djelatnici 8)
+	for _, want := range []string{`<li><a href="/users/exchange">`, `<a href="/users/exchange?trazi=`, `{{if $.VidiDokumente}}<span class="profil-plan-veze">`} {
 		if !strings.Contains(string(tmpl), want) {
 			t.Errorf("poveznica u modul mora ovisiti o modulu: %s", want)
 		}

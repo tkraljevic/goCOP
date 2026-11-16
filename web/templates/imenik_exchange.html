@@ -6,13 +6,14 @@
 {{define "sidroPomoci"}}#posta{{end}}
 
 {{define "content"}}
+{{if not .VidiModul}}<a class="povratna-poveznica" href="/profile">{{icon "arrow-left"}} Profil</a>{{end}}
 <div class="page-header">
   <div>
     <h1 class="page-title">Adresar tvrtke</h1>
-    <p class="page-desc">Osobe, adrese i telefoni iz adresara tvrtke (Exchange), kako ih vodi informatika. Čita se vašim računom e-pošte. Imenik goCOP-a može se usporediti s adresarom i uskladiti.</p>
+    <p class="page-desc">Osobe, adrese i telefoni iz adresara tvrtke (Exchange), kako ih vodi informatika. Čita se vašim računom e-pošte.{{if .VidiModul}} Imenik goCOP-a može se usporediti s adresarom i uskladiti.{{end}}</p>
   </div>
 </div>
-{{template "djelatniciKartice" "adresar"}}
+{{if .VidiModul}}{{template "djelatniciKartice" "adresar"}}{{end}}
 
 {{if .TrebaLozinku}}<div class="alert alert-warning">Za čitanje adresara treba važeća lozinka e-pošte. Upišite je u <a href="/profile/posta">Profil › Lozinka e-pošte</a> pa pokušajte ponovno.</div>{{end}}
 

@@ -46,8 +46,21 @@ type ImenikData struct {
 	NemaIh         []service.UsporedbaKontakta
 	TrebaLozinku   bool
 	SmijeUskladiti bool
+	// VidiModul: osoba ima modul Djelatnici (kartice modula, usporedba);
+	// bez njega Adresar samo traži (Odluke (16. 11. 2026.), Djelatnici 8)
+	VidiModul bool
 
 	PosaoID, PosaoNaziv string // usporedba u tijeku: traka napretka
+}
+
+// pravaAdresara: bez modula Djelatnici Adresar se otvara s Profila i samo
+// traži; usporedbu pokreće uprava sektora ili globalni administrator
+func (d *ImenikData) pravaAdresara(perms *models.UserPermissions) {
+	d.VidiModul = d.Sees(models.ModuleUsers)
+	d.SmijeUskladiti = d.VidiModul && perms != nil && (perms.IsGlobalAdmin || len(perms.AdminSectors) > 0)
+	if !d.VidiModul {
+		d.ActiveNav = "profile"
+	}
 }
 
 // ShowImenik traži u adresaru i pokazuje tijek i ishod usporedbe imenika.
@@ -62,8 +75,8 @@ func (h *AktiHandler) ShowImenik(w http.ResponseWriter, r *http.Request) {
 	}
 	q := r.URL.Query()
 	d := ImenikData{CurrentUser: u, Permissions: perms, ActiveNav: "users", ViewAsBanner: viewBanner(r), SuccessMessage: base.SuccessMessage, ErrorMessage: base.ErrorMessage,
-		Upit: strings.TrimSpace(q.Get("trazi")), Sektor: q.Get("sektor"), Sektori: base.Sektori,
-		SmijeUskladiti: perms != nil && (perms.IsGlobalAdmin || len(perms.AdminSectors) > 0)}
+		Upit: strings.TrimSpace(q.Get("trazi")), Sektor: q.Get("sektor"), Sektori: base.Sektori}
+	d.pravaAdresara(perms)
 	if _, kad := s.RacunPoste(r.Context(), u.ID.String()); kad.IsZero() {
 		d.TrebaLozinku = true
 	}
