@@ -98,3 +98,22 @@ func TestStranicaOsobePoCrtezu(t *testing.T) {
 		}
 	}
 }
+
+// Crtež 20, 2a: privremena lozinka i kod su okviri u boji odabranog, ne
+// zelena poruka o uspjehu, a vrijednost se označi jednim dodirom.
+func TestOkviriPrivremeneLozinkeIKoda(t *testing.T) {
+	ivan := &models.User{ID: uuid.New(), FullName: "Ivan Primjer", Username: "iprimjer", IsActive: true}
+	html := iscrtaj(t, "user_detail.html", UserPageData{CurrentUser: &models.User{FullName: "Uprava"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		User: ivan, CanManage: true, TempPassword: "vrba-nasip-camac-274", TempKod: "P-7K2M-Q4XD"})
+	for _, want := range []string{
+		`<h2 id="os-tajna-lozinka">`, `<p class="os-tajna-vrijednost">vrba-nasip-camac-274</p>`,
+		`<h2 id="os-tajna-kod">`, `<p class="os-tajna-vrijednost">P-7K2M-Q4XD</p>`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("stranica osobe nema %s", want)
+		}
+	}
+	if strings.Contains(html, "alert-success d-block") {
+		t.Error("lozinka je još u zelenoj poruci")
+	}
+}
