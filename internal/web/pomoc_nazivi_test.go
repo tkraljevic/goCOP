@@ -7,7 +7,7 @@ import (
 )
 
 // Odluke (16. 11. 2026.), Pomoć 2: poglavlje se zove kao stavka izbornika
-// i ima njezinu ikonu, u naslovu i u kazalu; sidro ostaje staro.
+// i ima njezinu ikonu, u naslovu i u Svim temama na ulazu; sidro ostaje staro.
 func TestPoglavljaPomociKaoIzbornik(t *testing.T) {
 	h := pomocHTML(t)
 	ikone := map[string]string{
@@ -37,7 +37,7 @@ func provjeriPoglavlje(t *testing.T, h, sidro, ikona, naziv string) {
 	if naslov[1] != ikona || naslov[2] != naziv {
 		t.Errorf("poglavlje #%s: %s %q, želim %s %q", sidro, naslov[1], naslov[2], ikona, naziv)
 	}
-	if !strings.Contains(h, `<a class="kazalo-glava" href="#`+sidro+`">`+naziv+`</a>`) {
-		t.Errorf("u kazalu #%s nije %q", sidro, naziv)
+	if !strings.Contains(h, `<a class="pomoc-tema" href="#`+sidro+`">{{icon "`+ikona+`"}}<span>`+naziv+`</span>`) {
+		t.Errorf("u Svim temama #%s nije %s %q", sidro, ikona, naziv)
 	}
 }
