@@ -312,6 +312,7 @@
 {{define "djelatniciKartice"}}
 <nav class="kartice-stranice djelatnici-kartice" aria-label="Djelatnici">
   {{if eq . "djelatnici"}}<span class="kartica-stranice" aria-current="page">Djelatnici</span>{{else}}<a class="kartica-stranice" href="/users">Djelatnici</a>{{end}}
+  {{if eq . "dezurstva"}}<span class="kartica-stranice" aria-current="page">Dežurstva</span>{{else}}<a class="kartica-stranice" href="/users/dezurstva">Dežurstva</a>{{end}}
   {{if eq . "adresar"}}<span class="kartica-stranice" aria-current="page">Adresar tvrtke</span>{{else}}<a class="kartica-stranice" href="/users/exchange">Adresar tvrtke</a>{{end}}
 </nav>
 {{end}}
