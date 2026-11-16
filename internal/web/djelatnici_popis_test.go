@@ -145,3 +145,22 @@ func TestObrazacDjelatnikaUKarticama(t *testing.T) {
 		}
 	}
 }
+
+// Crtež 20, 4: obrazac zaduženja pokazuje zaduženja koja osoba već ima, a
+// primarno i privremena ispomoć su prekidači istih polja.
+func TestObrazacZaduzenjaPoCrtezu(t *testing.T) {
+	sektor := "B"
+	ivan := &models.User{ID: uuid.New(), FullName: "Ivan Primjer", Username: "iprimjer", IsActive: true,
+		Duties: []models.Duty{{ID: uuid.New(), Title: "Rukovoditelj dionice", Role: models.RoleSectionLeader, ScopeType: models.ScopeSection, SectorID: &sektor, IsPrimary: true}}}
+	html := iscrtaj(t, "duty_form.html", UserPageData{CurrentUser: &models.User{FullName: "Uprava"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true}, User: ivan, CanManage: true})
+	for _, want := range []string{
+		`<h2 id="ob-postojeca">Zaduženja koja već ima</h2>`, `<strong>Rukovoditelj dionice</strong>`,
+		`<h2 id="ob-zaduzenje">Zaduženje</h2>`, `<h2 id="ob-privremeno">Privremena ispomoć</h2>`,
+		`class="prekidac" role="switch" name="is_primary"`, `class="prekidac" role="switch" name="is_temporary"`,
+		`name="istece_s_obranom"`, `name="reason"`, `name="expires_at"`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("obrazac zaduženja nema %s", want)
+		}
+	}
+}
