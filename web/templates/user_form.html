@@ -13,9 +13,11 @@
 </div>
 
 
-<form class="form-page" method="POST" action="{{if .IsEdit}}/users/update{{else}}/users/create{{end}}" autocomplete="off" data-zadrzi-upisano>
+<form class="form-page ob-obrazac" method="POST" action="{{if .IsEdit}}/users/update{{else}}/users/create{{end}}" autocomplete="off" data-zadrzi-upisano>
   {{if .IsEdit}}<input type="hidden" name="id" value="{{.User.ID}}">{{end}}
 
+  <section class="os-kartica" aria-labelledby="ob-racun">
+  <h2 id="ob-racun">Račun</h2>
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="username">Korisničko ime *</label>
@@ -39,6 +41,10 @@
     {{end}}
   </div>
 
+  </section>
+
+  <section class="os-kartica" aria-labelledby="ob-osoba">
+  <h2 id="ob-osoba">Osoba</h2>
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="full_name">Ime i prezime *</label>
@@ -64,6 +70,10 @@
     </div>
   </div>
 
+  </section>
+
+  <section class="os-kartica" aria-labelledby="ob-kontakti">
+  <h2 id="ob-kontakti">Kontakti</h2>
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="mobile_phone">Mobitel</label>
@@ -121,8 +131,11 @@
   </script>
   {{end}}
 
+  </section>
+
   {{if not .IsEdit}}
-  <h3 style="font-size:0.95rem; margin:1.25rem 0 0.5rem;">Početno zaduženje</h3>
+  <section class="os-kartica" aria-labelledby="ob-zaduzenje">
+  <h2 id="ob-zaduzenje">Početno zaduženje</h2>
   <div class="form-group">
     <label class="form-label" for="duty_title">Naziv zaduženja</label>
     <input type="text" id="duty_title" name="duty_title" class="form-control" placeholder="npr. Voditelj COP Osijek ili Rukovoditelj dionica A.19.1 – A.19.4">
@@ -159,22 +172,23 @@
     <input type="text" id="section_codes" name="section_codes" class="form-control" placeholder="npr. A.19.1, A.19.2, A.19.3">
     <div class="form-help">Za uloge dionice i terena: šifre odvojene zarezom. Bez dionica terenska uloga pokriva cijelo {{terml "podrucje"}}.</div>
   </div>
+  </section>
   {{end}}
 
   {{if .Permissions.IsGlobalAdmin}}
-  <div class="form-group d-flex flex-col gap-2 mt-2">
+  <section class="os-kartica" aria-labelledby="ob-prava">
+  <h2 id="ob-prava">Prava</h2>
     {{if .IsEdit}}
-    <label class="oznaka-kvacica">
-      <input type="checkbox" id="is_active" name="is_active" value="1" {{if .User.IsActive}}checked{{end}} {{if .IsSelf}}disabled{{end}}>
-      Smije se prijaviti
+    <label class="ob-prekidac">
+      <span>Smije se prijaviti<small>Isključen račun ostaje na popisu i u upisima, ali se ne može prijaviti.</small></span>
+      <input type="checkbox" class="prekidac" role="switch" id="is_active" name="is_active" value="1" {{if .User.IsActive}}checked{{end}} {{if .IsSelf}}disabled{{end}}>
       {{if .IsSelf}}<input type="hidden" name="is_active" value="1">{{end}}
     </label>
     {{end}}
-    <label class="oznaka-kvacica">
-      <input type="checkbox" id="is_global_admin" name="is_global_admin" value="1" {{if .User.IsGlobalAdmin}}checked{{end}}>
-      Globalni administrator
+    <label class="ob-prekidac">
+      <span>Globalni administrator<small>Smije sve u cijeloj organizaciji.</small></span>
+      <input type="checkbox" class="prekidac" role="switch" id="is_global_admin" name="is_global_admin" value="1" {{if .User.IsGlobalAdmin}}checked{{end}}>
     </label>
-  </div>
   {{if .Izvana}}
   <div class="form-group">
     <label class="form-label" for="lozinka_racuna">Lozinka vašeg računa</label>
@@ -203,12 +217,13 @@
   })();
   </script>
   {{end}}
+  </section>
   {{else if .IsEdit}}
   <input type="hidden" name="is_active" value="{{if .User.IsActive}}1{{else}}0{{end}}">
   {{end}}
 
-  <div class="form-actions">
-    <a href="{{if .IsEdit}}/users/{{.User.ID}}{{else}}/users{{end}}" class="btn btn-secondary">Odustani</a>
+  <div class="form-actions ob-radnje">
+    <a href="{{if .IsEdit}}/users/{{.User.ID}}{{else}}/users{{end}}" class="os-tekst-gumb">Odustani</a>
     <button type="submit" class="btn btn-primary">{{if .IsEdit}}Spremi izmjene{{else}}Dodaj djelatnika{{end}}</button>
   </div>
 </form>

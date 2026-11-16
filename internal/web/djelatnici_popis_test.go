@@ -117,3 +117,31 @@ func TestOkviriPrivremeneLozinkeIKoda(t *testing.T) {
 		t.Error("lozinka je još u zelenoj poruci")
 	}
 }
+
+// Crtež 20, 3: obrazac djelatnika u karticama Račun, Osoba, Kontakti,
+// Početno zaduženje i Prava, s pravima kao prekidačima; polja su ista.
+func TestObrazacDjelatnikaUKarticama(t *testing.T) {
+	templatesFS, err := fs.Sub(webassets.Files, "templates")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := fs.ReadFile(templatesFS, "user_form.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := string(b)
+	prije := -1
+	for _, kartica := range []string{">Račun</h2>", ">Osoba</h2>", ">Kontakti</h2>", ">Početno zaduženje</h2>", ">Prava</h2>"} {
+		i := strings.Index(h, kartica)
+		if i < prije {
+			t.Errorf("kartica %s nije na mjestu (%d)", kartica, i)
+		}
+		prije = i
+	}
+	for _, polje := range []string{`name="username"`, `name="password"`, `name="full_name"`, `name="org_type"`, `name="mobile_phone"`, `name="email"`, `name="duty_title"`, `name="role"`, `name="section_codes"`,
+		`class="prekidac" role="switch" id="is_active" name="is_active"`, `class="prekidac" role="switch" id="is_global_admin" name="is_global_admin"`} {
+		if !strings.Contains(h, polje) {
+			t.Errorf("obrazac nema %s", polje)
+		}
+	}
+}

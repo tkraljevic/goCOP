@@ -8751,6 +8751,15 @@ summary.ocitanja-cip { padding-right: 8px; }
 .os-tajna h2 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 1rem; font-weight: 400; }
 .os-tajna-vrijednost { margin: 8px 0; font-size: 1.75rem; letter-spacing: 0.02em; user-select: all; overflow-wrap: anywhere; }
 .os-tajna p:last-child { margin: 0; font-size: 0.8125rem; }
+.ob-prekidac { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 6px 0; cursor: pointer; }
+.ob-prekidac > span { display: flex; flex-direction: column; font-size: 0.9rem; }
+.ob-prekidac small { color: var(--text-muted); font-size: 0.75rem; }
+/* obrasci Djelatnika: kartice stoje na stranici, ne u okviru obrasca */
+.form-page.ob-obrazac { max-width: none; padding: 0; overflow: visible; border: 0; border-radius: 0; background: none; box-shadow: none; }
+.form-page.ob-obrazac::before { display: none; }
+.form-page.ob-obrazac .form-actions { margin-top: 0; padding-top: 0; border-top: 0; }
+.ob-radnje { justify-content: flex-end; align-items: center; gap: 8px; }
+.form-page > .os-kartica .form-row:last-child, .form-page > .os-kartica > .form-group:last-child { margin-bottom: 0; }
 .os-brisanje { border-color: var(--danger-border); }
 .os-brisanje h2 { color: var(--danger); }
 .os-brisanje p { margin: 0 0 0.75rem; font-size: 0.875rem; }
