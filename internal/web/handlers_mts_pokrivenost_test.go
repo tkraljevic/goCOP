@@ -43,7 +43,8 @@ const probniIspis = `Sektor={{.Sektor}};IsEdit={{.IsEdit}};SmijePisati={{.SmijeP
 	`Dionica={{len .Dionice}};Obrane={{len .Obrane}};Skladista={{len .Skladista}};Promet={{len .Promet}};` +
 	`Od={{.Od}};Do={{.Do}};VrstaID={{.VrstaID}};Godina={{.Godina}};` +
 	`Popis={{if .Popis}}{{.Popis.ID}}|{{len .Popis.Stavke}}{{end}};Uredi={{if .Vrsta}}{{.Vrsta.ID}}{{end}};` +
-	`GdjeIma={{len .GdjeIma}};PotrebeSektora={{len .PotrebeSektora}};Stanje={{len .Stanje}};`
+	`GdjeIma={{len .GdjeIma}};PotrebeSektora={{len .PotrebeSektora}};Stanje={{len .Stanje}};` +
+	`VratiUpisano={{.VratiUpisano}};Greska={{.ErrorMessage}};`
 
 func probniPredlozakSredstava(stranica string) *template.Template {
 	return template.Must(template.New(stranica).Parse(`{{define "` + stranica + `"}}` + probniIspis + `{{end}}`))
@@ -708,12 +709,12 @@ func TestPotrebeZaNabavom(t *testing.T) {
 		t.Errorf("bez godine u upitu godina je 0: %s", ispis)
 	}
 
-	p, poruka := preusmjerenjeSredstava(t, o.zovi(t, promatracSredstava(), http.MethodPost, osnova,
-		url.Values{"godina": {"2027"}, "pt:lopata": {"20"}}), "error")
-	if p != osnova || poruka == "" {
-		t.Errorf("promatrač upisuje potrebe: %s %q", p, poruka)
+	// odbijeni upis vraća obrazac s upisanim, bez spremanja
+	if w := o.zovi(t, promatracSredstava(), http.MethodPost, osnova,
+		url.Values{"godina": {"2027"}, "pt:lopata": {"20"}}); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "SmijePisati=false;") {
+		t.Errorf("promatrač upisuje potrebe: %d %s", w.Code, w.Body.String())
 	}
-	_, poruka = preusmjerenjeSredstava(t, o.zovi(t, upravaSredstava(), http.MethodPost, osnova,
+	_, poruka := preusmjerenjeSredstava(t, o.zovi(t, upravaSredstava(), http.MethodPost, osnova,
 		url.Values{"godina": {"2027"}, "pt:lopata": {"20"}, "pn:lopata": {"za novi nasip"}}), "success")
 	if poruka != "Potrebe za nabavom u 2027. su upisane." {
 		t.Errorf("upis potreba: %q", poruka)

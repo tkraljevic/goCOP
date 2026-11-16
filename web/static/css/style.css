@@ -10765,3 +10765,6 @@ td .odr-sitno { margin-top: 2px; }
 .fir-cip { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 12px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 8px; font-size: 0.875rem; cursor: pointer; }
 .fir-cip:has(input:checked) { background: var(--md-sys-color-secondary-container); border-color: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
 .fir-cip input { margin: 0; accent-color: var(--md-sys-color-primary); }
+
+/* Polje koje program nije mogao pročitati (Sredstva: krivo upisan broj) */
+.form-control[aria-invalid="true"] { border-color: var(--md-sys-color-error); box-shadow: inset 0 0 0 1px var(--md-sys-color-error); }

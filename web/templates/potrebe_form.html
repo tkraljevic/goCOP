@@ -40,8 +40,8 @@
         <td>{{.Vrsta.Naziv}}</td>
         <td>{{.Vrsta.Jedinica}}</td>
         <td class="mono br">{{if .Ukupno}}{{kolicina .Ukupno}}{{end}}</td>
-        <td class="br"><input type="text" name="pt:{{.Vrsta.ID}}" class="form-control mono mts-broj" inputmode="decimal" value="{{if $p.Kolicina}}{{kolicinaPlain $p.Kolicina}}{{end}}"></td>
-        <td><input type="text" name="pn:{{.Vrsta.ID}}" class="form-control" value="{{$p.Napomena}}" placeholder="zašto, kada"></td>
+        <td class="br"><input type="text" name="pt:{{.Vrsta.ID}}" class="form-control mono mts-broj" inputmode="decimal"{{if index $.Neispravno (printf "pt:%s" .Vrsta.ID)}} aria-invalid="true"{{end}} value="{{if $.VratiUpisano}}{{index $.Upisano (printf "pt:%s" .Vrsta.ID)}}{{else if $p.Kolicina}}{{kolicinaPlain $p.Kolicina}}{{end}}"></td>
+        <td><input type="text" name="pn:{{.Vrsta.ID}}" class="form-control" value="{{if $.VratiUpisano}}{{index $.Upisano (printf "pn:%s" .Vrsta.ID)}}{{else}}{{$p.Napomena}}{{end}}" placeholder="zašto, kada"></td>
       </tr>
       {{end}}
       {{end}}
