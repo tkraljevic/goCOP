@@ -55,6 +55,27 @@ func (s *MtsService) SmijeUrediti(perms *models.UserPermissions, sektor string, 
 	return perms != nil && perms.CanAdminister(sektor, areaID)
 }
 
+// PodrucjaZaSkladista su branjena područja sektora u kojima osoba smije
+// upisati skladište: uprava sektora sva, rukovoditelj područja samo svoje.
+func (s *MtsService) PodrucjaZaSkladista(perms *models.UserPermissions, sektor string, podrucja []models.Area) []models.Area {
+	if s.SmijeUrediti(perms, sektor, 0) {
+		return podrucja
+	}
+	var out []models.Area
+	for _, a := range podrucja {
+		if s.SmijeUrediti(perms, sektor, a.ID) {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
+// SmijeDodatiSkladiste: novo skladište u sektoru upisuje uprava sektora ili
+// uprava barem jednog njegovog branjenog područja
+func (s *MtsService) SmijeDodatiSkladiste(perms *models.UserPermissions, sektor string, podrucja []models.Area) bool {
+	return s.SmijeUrediti(perms, sektor, 0) || len(s.PodrucjaZaSkladista(perms, sektor, podrucja)) > 0
+}
+
 // ---- katalog i skladišta
 
 func (s *MtsService) Vrste(ctx context.Context) ([]models.VrstaSredstva, error) {
