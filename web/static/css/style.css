@@ -2696,6 +2696,20 @@ textarea {
 }
 .pomoc-na-vrh:hover { background: var(--gumb); color: var(--gumb-tekst); }
 .pomoc-skriveno { display: none !important; }
+/* Jedno poglavlje na zaslonu (Odluke (16. 11. 2026.), Pomoć 1): data-prikaz
+   postavlja skripta prema sidru u adresi; „sve” je stranica bez skripte */
+.pomoc-natrag { display: none; }
+.pomoc[data-prikaz="ulaz"] .detail-section { display: none; }
+.pomoc[data-prikaz="poglavlje"] .pomoc-ulaz,
+.pomoc[data-prikaz="poglavlje"] .detail-section:not(.pomoc-otvoreno) { display: none; }
+.pomoc[data-prikaz="poglavlje"] .pomoc-natrag {
+  display: inline-flex; align-items: center; gap: 0.35rem; margin: 0 0 0.35rem;
+  color: var(--accent); font-size: 0.875rem; text-decoration: none;
+}
+.pomoc[data-prikaz="poglavlje"] .pomoc-natrag .icon { width: 1rem; height: 1rem; }
+.pomoc[data-prikaz="poglavlje"] .pomoc-otvoreno { margin-top: 0; }
+.pomoc[data-prikaz="poglavlje"] .pomoc-otvoreno > h2 { margin: 0 0 1rem; font-size: 1.75rem; font-weight: 400; }
+.pomoc[data-prikaz="poglavlje"] .pomoc-otvoreno > h2 > .icon:first-child { display: none; }
 /* sidro ne smije završiti ispod gornje trake */
 /* Poglavlje Pomoći (Odluke (16. 11. 2026.), Pomoć 1): popis podnaslova
    lijevo uz tekst, prati čitanje; do 839 px izbornik iznad teksta */

@@ -73,3 +73,23 @@ func TestUlazPomociImaSveTemeUPetSkupina(t *testing.T) {
 		t.Errorf("na ulazu je %d tema, a poglavlja %d", len(vidjeno), n)
 	}
 }
+
+// Odluke (16. 11. 2026.), Pomoć 1, drugi korak: skripta pokazuje ulaz ili
+// jedno poglavlje, pa ulaz mora biti u svom okviru, a „← Pomoć” ispred
+// poglavlja. Bez skripte (data-prikaz="sve") ostaje sve na jednoj stranici.
+func TestPomocImaUlazIJednoPoglavlje(t *testing.T) {
+	h := pomocHTML(t)
+	okvir := strings.Index(h, `<div class="pomoc" data-pomoc data-prikaz="sve">`)
+	ulaz := strings.Index(h, `<div class="pomoc-ulaz">`)
+	pretraga := strings.Index(h, `id="pomoc-pretraga"`)
+	teme := strings.Index(h, `id="pomoc-kazalo"`)
+	natrag := strings.Index(h, `<a class="pomoc-natrag" href="#top">`)
+	prvo := strings.Index(h, `<section class="detail-section"`)
+	if okvir < 0 || ulaz < okvir || pretraga < ulaz || teme < pretraga || natrag < teme || prvo < natrag {
+		t.Errorf("redoslijed okvira: pomoc %d, ulaz %d, pretraga %d, teme %d, natrag %d, prvo poglavlje %d",
+			okvir, ulaz, pretraga, teme, natrag, prvo)
+	}
+	if !strings.Contains(h, `data-pomoc-na-vrh>`) {
+		t.Error("gumb „Na vrh” u poglavlju mora ostati u poglavlju")
+	}
+}

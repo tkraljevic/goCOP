@@ -25,6 +25,11 @@
 {{end}}
 
 {{define "content"}}
+{{/* Odluke (16. 11. 2026.), Pomoć 1, drugi korak: skripta pokazuje ulaz ili
+     jedno poglavlje prema sidru u adresi (data-prikaz); bez skripte sve je
+     na jednoj stranici kao prije */}}
+<div class="pomoc" data-pomoc data-prikaz="sve">
+<div class="pomoc-ulaz">
 <div class="detail-head pomoc-glava">
   <div>
     <h1 class="page-title">Pomoć</h1>
@@ -103,6 +108,9 @@
   Nema odjeljka s tim izrazom. Pokušajte kraće, primjerice „vodostaj“, „dnevnik“, „storno“ ili „arhiva“.
 </div>
 
+</div>
+
+<a class="pomoc-natrag" href="#top">{{icon "arrow-left"}} Pomoć</a>
 <span id="pomoc" aria-hidden="true"></span>
 <section class="detail-section" id="pocetak">
   <h2>{{icon "info"}} Kako se program koristi</h2>
@@ -2861,5 +2869,6 @@
   {{template "pomocPoglavljeNav" (list "Pojmovnik" "#pojmovi" "" "")}}
 </section>
 {{/* #top je po HTML-u vrh stranice: iznad pretrage i kazala, ne sidro #pomoc ispod njih */}}
-<a class="pomoc-na-vrh" href="#top" aria-label="Na vrh pomoći" title="Na vrh">↑</a>
+<a class="pomoc-na-vrh" href="#top" aria-label="Na vrh pomoći" title="Na vrh" data-pomoc-na-vrh>↑</a>
+</div>
 {{end}}
