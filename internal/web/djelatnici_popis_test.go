@@ -164,3 +164,18 @@ func TestObrazacZaduzenjaPoCrtezu(t *testing.T) {
 		}
 	}
 }
+
+// Crtež 20, 5: Adresar tvrtke ima pretragu, karticu usporedbe po sektoru i
+// rezultat s naslovom sektora i gumbom „Preuzmi označeno”; polja su ista.
+func TestAdresarTvrtkePoCrtezu(t *testing.T) {
+	html := iscrtaj(t, "imenik_exchange.html", ImenikData{CurrentUser: &models.User{FullName: "Uprava"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		SmijeUskladiti: true, Usporedio: true, Sektor: "B", SRazlikom: 0, Sektori: []models.Sector{{ID: "B", Name: "Sektor B"}}})
+	for _, want := range []string{
+		`<input type="search" name="trazi"`, `<h2 id="ad-usporedba">Usporedba imenika s adresarom</h2>`,
+		`action="/users/exchange/usporedi"`, `name="sektor"`, `<h2 id="ad-rezultat">Sektor B · usporedba</h2>`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("Adresar nema %s", want)
+		}
+	}
+}

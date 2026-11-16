@@ -16,26 +16,31 @@
 
 {{if .TrebaLozinku}}<div class="alert alert-warning">Za čitanje adresara treba važeća lozinka e-pošte. Upišite je u <a href="/profile/posta">Profil › Lozinka e-pošte</a> pa pokušajte ponovno.</div>{{end}}
 
-<div class="posta-alat">
-  <form method="GET" action="/users/exchange" class="posta-trazi">
-    <input type="search" name="trazi" class="form-control" value="{{.Upit}}" placeholder="ime, prezime ili adresa" autofocus>
-    <button type="submit" class="btn btn-secondary btn-sm">{{icon "search"}} Traži</button>
+<form method="GET" action="/users/exchange" class="dj-alati" role="search">
+  <label class="dj-trazi ad-trazi">{{icon "search"}}<input type="search" name="trazi" value="{{.Upit}}" placeholder="ime, prezime ili adresa" aria-label="Traži u adresaru" autofocus></label>
+  <button type="submit" class="os-tekst-gumb">Traži</button>
+</form>
+
+{{if .SmijeUskladiti}}
+<section class="os-kartica" aria-labelledby="ad-usporedba">
+  <h2 id="ad-usporedba">Usporedba imenika s adresarom</h2>
+  <form method="POST" action="/users/exchange/usporedi" class="ad-usporedi">
+    <label class="form-label" for="ad-sektor">{{term "sektor"}}</label>
+    <div class="ad-usporedi-red">
+      <select id="ad-sektor" name="sektor" class="form-control" required>
+        <option value="">— odaberite {{terml "sektor"}} —</option>
+        {{range .Sektori}}<option value="{{.ID}}" {{if eq .ID $.Sektor}}selected{{end}}>{{.Name}}</option>{{end}}
+      </select>
+      <button type="submit" class="btn btn-primary">Usporedi imenik s adresarom</button>
+    </div>
+    <p class="form-help">Uspoređuje se samo ono što odaberete u izborniku. Sve odjednom značilo bi stotine prijava na poslužitelj e-pošte, a on bi ih odbio i zaključao račun.</p>
   </form>
-  {{if .SmijeUskladiti}}
-  <form method="POST" action="/users/exchange/usporedi" class="posta-trazi">
-    <select name="sektor" class="form-control" required>
-      <option value="">— odaberite {{terml "sektor"}} —</option>
-      {{range .Sektori}}<option value="{{.ID}}" {{if eq .ID $.Sektor}}selected{{end}}>{{.Name}}</option>{{end}}
-    </select>
-    <button type="submit" class="btn btn-secondary btn-sm">{{icon "refresh-cw"}} Usporedi imenik s adresarom</button>
-    <span class="form-help">Uspoređuje se samo ono što odaberete u izborniku. Sve odjednom značilo bi stotine prijava na poslužitelj e-pošte, a on bi ih odbio i zaključao račun.</span>
-  </form>
-  {{end}}
-</div>
+</section>
+{{end}}
 
 {{if .Kontakti}}
-<section class="detail-section mt-0">
-  <table class="table">
+<section class="os-kartica" aria-label="Pronađeno u adresaru">
+  <table class="table ad-tablica">
     <thead><tr><th>Ime</th><th>E-pošta</th><th>Mobitel</th><th>Telefon</th><th>Funkcija</th><th>Odjel</th></tr></thead>
     <tbody>
     {{range .Kontakti}}<tr><td data-stupac="Ime">{{.Ime}}</td><td data-stupac="E-pošta"><a href="/posta/novo?za={{.Email | urlquery}}">{{.Email}}</a></td><td data-stupac="Mobitel">{{.Mobitel}}</td><td data-stupac="Telefon">{{.Telefon}}</td><td data-stupac="Funkcija">{{.Funkcija}}</td><td data-stupac="Odjel">{{.Odjel}}{{with .Ured}} · {{.}}{{end}}</td></tr>{{end}}
@@ -57,7 +62,8 @@
 {{end}}
 
 {{if .Usporedio}}
-<section class="detail-section mt-0">
+<section class="os-kartica" aria-labelledby="ad-rezultat">
+  <h2 id="ad-rezultat">{{with .Sektor}}{{term "sektor"}} {{.}} · {{end}}usporedba</h2>
   <div class="imenik-sazetak">
     <span class="imenik-cip">Djelatnika: <strong>{{len .Usporedba}}</strong></span>
     <span class="imenik-cip isto">{{icon "check"}} Slažu se: <strong>{{len .SlazuSe}}</strong></span>
@@ -69,7 +75,7 @@
   {{if .SRazlikom}}
   <form method="POST" action="/users/exchange">
     <input type="hidden" name="sektor" value="{{.Sektor}}">
-    <table class="table imenik-usporedba">
+    <table class="table ad-tablica imenik-usporedba">
       <thead><tr><th>Djelatnik</th><th>E-pošta</th><th>Mobitel</th><th>Fiksni telefon</th></tr></thead>
       <tbody>
       {{range .Usporedba}}{{if .Razlike}}
@@ -94,7 +100,7 @@
       {{end}}{{end}}
       </tbody>
     </table>
-    <button type="submit" class="btn btn-primary">{{icon "check"}} Preuzmi označeno</button>
+    <div class="ob-radnje ad-preuzmi"><button type="submit" class="btn btn-primary">Preuzmi označeno</button></div>
   </form>
   {{else}}
   <p class="form-help">Svi pronađeni djelatnici slažu se s adresarom.</p>
