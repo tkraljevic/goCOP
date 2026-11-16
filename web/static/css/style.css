@@ -8629,6 +8629,59 @@ summary.ocitanja-cip { padding-right: 8px; }
   position: relative; flex: 1 0 auto; display: flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 16px;
   color: var(--md-sys-color-on-surface-variant, var(--text-secondary)); font-size: 0.875rem; font-weight: 500; text-decoration: none; white-space: nowrap;
 }
+/* Popis djelatnika (crtež 20, 1): pretraga i čipovi, tablica s recima koji
+   vode na osobu; tablet bez fiksnog telefona, mobitel kartice */
+.dj-alati { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 8px; }
+.dj-trazi {
+  flex: 1 1 18rem; display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px;
+  border: 1px solid var(--border-strong); border-radius: 8px; background: var(--bg); color: var(--text-muted);
+}
+.dj-trazi:focus-within { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.dj-trazi input { flex: 1; min-width: 0; min-height: 40px; border: 0; background: none; color: var(--text); font: inherit; outline: none; }
+.dj-cipovi { padding: 0; }
+.dj-ponisti { align-self: center; color: var(--md-sys-color-primary, var(--primary)); font-size: 0.875rem; text-decoration: none; }
+.dj-brojevi { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; margin: 4px 0 8px; color: var(--text-muted); font-size: 0.8125rem; }
+.dj-tablica { padding: 4px 16px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.dj-glava, .dj-redak {
+  display: grid; align-items: start; column-gap: 16px;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 2fr) minmax(0, 0.9fr) minmax(0, 0.8fr) minmax(0, 1fr) 24px;
+  grid-template-areas: "ime zad mob fiks stanje dalje";
+}
+.dj-glava { padding: 14px 12px 8px; color: var(--text-muted); font-size: 0.8125rem; }
+.dj-redak { position: relative; margin-top: 6px; padding: 12px; border-radius: 8px; background: var(--bg); }
+.dj-redak:hover { background: var(--surface-hover); }
+.dj-ime { grid-area: ime; display: flex; flex-direction: column; min-width: 0; }
+.dj-ime a { color: var(--md-sys-color-primary, var(--primary)); text-decoration: none; }
+.dj-ime a::after { content: ""; position: absolute; inset: 0; border-radius: 8px; }
+.dj-ime small, .dj-redak small { color: var(--text-muted); font-size: 0.75rem; }
+.dj-zaduzenja { grid-area: zad; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.dj-zaduzenje { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.dj-privremeno { min-height: 20px; font-size: 0.75rem; }
+.dj-mobitel { grid-area: mob; display: flex; flex-direction: column; }
+.dj-mobitel a, .dj-fiksni a { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 6px; color: var(--md-sys-color-primary, var(--primary)); text-decoration: none; }
+.dj-mobitel a .icon { display: none; width: 18px; height: 18px; }
+.dj-fiksni { grid-area: fiks; display: flex; flex-direction: column; }
+.dj-glava .dj-fiksni { display: block; }
+.dj-stanje { grid-area: stanje; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.dj-iskljucen { opacity: 0.7; box-shadow: inset 0 0 0 1px var(--border); background: transparent; }
+.dj-dalje { grid-area: dalje; align-self: center; color: var(--text-muted); }
+.dj-glava > span:nth-child(1) { grid-area: ime; } .dj-glava > span:nth-child(2) { grid-area: zad; }
+.dj-glava > span:nth-child(3) { grid-area: mob; } .dj-glava > span:nth-child(5) { grid-area: stanje; }
+@media (max-width: 1023px) {
+  .dj-glava, .dj-redak { grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr) 24px;
+    grid-template-areas: "ime zad mob stanje dalje"; }
+  .dj-fiksni, .dj-glava .dj-fiksni { display: none; }
+}
+@media (max-width: 599px) {
+  .dj-tablica { padding: 0; border: 0; background: none; }
+  .dj-glava { display: none; }
+  .dj-redak { grid-template-columns: 1fr auto; grid-template-areas: "ime stanje" "zad zad" "mob mob"; row-gap: 8px;
+    padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+  .dj-dalje { display: none; }
+  .dj-stanje { align-items: flex-end; }
+  .dj-mobitel { flex-direction: row; align-items: center; gap: 6px; }
+  .dj-mobitel a .icon { display: inline-block; }
+}
 /* Djelatnici: kartice modula lijevo, ne preko cijele širine (crtež 20) */
 .djelatnici-kartice { margin: 0 0 1rem; }
 .djelatnici-kartice .kartica-stranice { flex: 0 0 auto; }

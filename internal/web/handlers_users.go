@@ -81,6 +81,10 @@ type UsersPageData struct {
 	// StareLozinke su računi zaključani zbog stare zajedničke lozinke, samo
 	// za globalnog administratora
 	StareLozinke []models.User
+	// Cipovi su filtri kao čipovi s izbornikom, a URLPonisti adresa bez
+	// filtara kad je išta odabrano (prazna inače)
+	Cipovi     []CipFiltra
+	URLPonisti string
 	ViewAsBanner
 }
 
@@ -123,7 +127,9 @@ func (h *UsersHandler) ShowUsers(w http.ResponseWriter, r *http.Request) {
 	areas, _ := h.userService.ListAreas(sectorFilter)
 
 	page, pager := paginate(users, r, registryPerPage)
+	filtri := filtriDjelatnika{Sektor: sectorFilter, Podrucje: areaFilter, Uloga: roleFilter, Stanje: statusFilter, Trazi: searchQuery}
 	data := UsersPageData{
+		Cipovi: cipoviDjelatnika(filtri, sectors, areas), URLPonisti: filtri.urlPonisti(),
 		CurrentUser:    currUser,
 		Permissions:    perms,
 		Users:          page,
