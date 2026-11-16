@@ -1,0 +1,77 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Dežurstva{{end}}
+
+{{/* Znak „?” vodi na odjeljak Pomoći o planu dežurstava */}}
+{{define "sidroPomoci"}}#dnevnik-dezurstva{{end}}
+
+{{define "content"}}
+{{/* Kartica Dežurstva (crtež 20, 6; Odluke (16. 11. 2026.), Djelatnici 2): samo
+     za čitanje, upis i potvrda su u Dokumentima uz dnevnik COP-a */}}
+<div class="page-header">
+  <div>
+    <h1 class="page-title" data-naziv-stranice>Dežurstva</h1>
+    <p class="page-desc">Tko je dežuran u centru obrane od poplava i na terenu, iz planova dežurstava uz dnevnike COP-a. Dežurstva se upisuju i potvrđuju u Dokumentima; ovdje se samo vide.</p>
+  </div>
+</div>
+{{template "djelatniciKartice" "dezurstva"}}
+
+<div class="ocitanja-cipovi dj-cipovi" role="group" aria-label="Sektor">
+  <details class="ocitanja-izbor">
+    <summary class="ocitanja-cip" data-odabran>{{.Cip.Natpis}}{{icon "chevron-down"}}</summary>
+    <div class="ocitanja-izbornik" role="menu">
+      {{range .Cip.Izbor}}<a role="menuitemradio" aria-checked="{{if .Odabran}}true{{else}}false{{end}}" href="{{.URL}}">{{.Naziv}}</a>{{end}}
+    </div>
+  </details>
+</div>
+
+{{if not .Planovi}}
+<section class="os-kartica"><p class="m-0">{{if .Skriveno}}Za ovaj {{terml "sektor"}} nema plana dežurstava koji smijete vidjeti. Plan vide djelatnici sektora centra, njegova uprava i globalni administrator.{{else}}Za ovaj {{terml "sektor"}} još nema dnevnika COP-a, pa ni plana dežurstava.{{end}}</p></section>
+{{else}}
+<section class="os-kartica" aria-labelledby="dez-sada">
+  <h2 id="dez-sada">Dežura sada</h2>
+  {{range .Sada}}
+  <div class="dez-sada">
+    {{icon "phone"}}
+    <span><strong>{{.Osoba}}</strong> · {{.Opis}}<small>{{.Za}} · od {{.OdTekst}} do {{.DoTekst}}</small></span>
+  </div>
+  {{else}}<p class="os-opis m-0">Prema planu sada nitko ne dežura.</p>{{end}}
+</section>
+
+<section class="os-kartica" aria-labelledby="dez-danas">
+  <div class="os-kartica-glava">
+    <h2 id="dez-danas">Danas i jučer</h2>
+    {{with .URLPlana}}<a class="os-tekst-gumb" href="{{.}}">Plan dežurstava</a>{{end}}
+  </div>
+  {{if .DanasJucer}}
+  <div class="dez-tablica" role="table" aria-label="Dežurstva danas i jučer">
+    <div class="dez-glava" role="row"><span role="columnheader">Od i do</span><span role="columnheader">Tko i za</span><span role="columnheader">Opis rada i mjesto</span><span role="columnheader">Potvrda</span></div>
+    {{range .DanasJucer}}
+    <div class="dez-redak" role="row">
+      <span role="cell">{{.OdTekst}}<small>do {{.DoTekst}}</small></span>
+      <span role="cell">{{.Osoba}}<small>{{.Za}}</small></span>
+      <span role="cell">{{.Opis}}<small>{{if .Teren}}teren{{else}}ured{{end}}</small></span>
+      <span role="cell">{{if .Potvrdio}}potvrdio {{.Potvrdio}}{{else if .Sad}}<span class="oznaka-stanja os-mala">dežura sad</span>{{else}}<span class="oznaka-stanja obrub os-mala">čeka potvrdu</span>{{end}}</span>
+    </div>
+    {{end}}
+  </div>
+  <p class="os-opis">U obračun sati ulazi samo potvrđeno.</p>
+  {{else}}<p class="os-opis m-0">Danas i jučer nema upisanih dežurstava.</p>{{end}}
+</section>
+
+<section class="os-kartica" aria-labelledby="dez-planovi">
+  <h2 id="dez-planovi">Planovi dežurstava</h2>
+  {{range .Planovi}}
+  <a class="dez-plan" href="{{.URL}}">{{icon "notebook"}}<span>{{.Naslov}}<small>{{.Razdoblje}} · {{.Dezurstava}} {{uzBroj .Dezurstava "dežurstvo" "dežurstva" "dežurstava"}}</small></span><span class="c-muted">{{.Stanje}}</span>{{icon "chevron-right"}}</a>
+  {{end}}
+</section>
+{{end}}
+
+<section class="os-kartica" aria-labelledby="dez-moja">
+  <div class="os-kartica-glava">
+    <h2 id="dez-moja">Moja dežurstva i sati</h2>
+    <a class="os-tekst-gumb" href="/profile#dezurstva">Profil</a>
+  </div>
+  <p class="os-opis m-0">Vaša dežurstva po mjesecima i sati za obračun su na Profilu.</p>
+</section>
+{{end}}

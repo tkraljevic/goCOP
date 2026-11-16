@@ -8766,6 +8766,20 @@ summary.ocitanja-cip { padding-right: 8px; }
 .ad-tablica { margin: 0; }
 .ad-preuzmi { display: flex; margin-top: 12px; }
 .os-kartica .imenik-detalji { margin-top: 8px; padding: 10px 12px; border-radius: 8px; background: var(--bg); }
+/* Kartica Dežurstva (crtež 20, 6), samo za čitanje */
+.dez-sada { display: flex; align-items: center; gap: 12px; margin-top: 6px; padding: 10px 12px; border-radius: 8px; background: var(--bg); font-size: 0.875rem; }
+.dez-sada > span, .dez-redak > span, .dez-plan > span:first-of-type { display: flex; flex-direction: column; }
+.dez-sada small, .dez-redak small, .dez-plan small { color: var(--text-muted); font-size: 0.75rem; }
+.dez-glava, .dez-redak { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1.6fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+.dez-glava { padding: 6px 12px; color: var(--text-muted); font-size: 0.8125rem; }
+.dez-redak { margin-top: 6px; padding: 10px 12px; border-radius: 8px; background: var(--bg); font-size: 0.875rem; }
+.dez-plan { display: flex; align-items: center; gap: 12px; margin-top: 6px; padding: 10px 12px; border-radius: 8px; background: var(--bg); color: var(--text); text-decoration: none; font-size: 0.875rem; }
+.dez-plan > span:first-of-type { flex: 1; }
+.dez-plan:hover { background: var(--surface-hover); }
+@media (max-width: 599px) {
+  .dez-glava { display: none; }
+  .dez-redak { grid-template-columns: 1fr 1fr; }
+}
 .ob-crta { margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--border); }
 .ob-postojece { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1.4fr) auto; gap: 12px; align-items: center;
   margin-top: 6px; padding: 10px 12px; border-radius: 8px; background: var(--bg); font-size: 0.875rem; }
