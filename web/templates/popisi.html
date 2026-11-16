@@ -31,12 +31,12 @@
 </form>
 {{end}}
 
-{{if .Skladista}}
+{{if .ZaInventuru}}
 <div class="sektorsko-ploca">
   <div class="sektorsko-ploca-glava">
     <h2>{{icon "plus"}} Nova inventura</h2>
     <form method="GET" action="" class="obracun-filtar m-0" onsubmit="this.action='/sredstva/skladista/'+this.skladiste.value+'/popis';">
-      <select name="skladiste" class="form-control">{{range .Skladista}}<option value="{{.ID}}">{{.Naziv}}</option>{{end}}</select>
+      <select name="skladiste" class="form-control">{{range .ZaInventuru}}<option value="{{.ID}}">{{.Naziv}}</option>{{end}}</select>
       <input type="date" name="dan" class="form-control" value="{{.Danas}}" max="{{.Danas}}">
       <button type="submit" class="btn btn-primary">{{icon "list"}} Otvori inventuru na dan</button>
     </form>
