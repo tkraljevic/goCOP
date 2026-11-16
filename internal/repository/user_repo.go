@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -13,6 +14,8 @@ import (
 	"gocop/internal/models"
 
 	"github.com/google/uuid"
+	"golang.org/x/text/collate"
+	"golang.org/x/text/language"
 )
 
 // EntityUsers i EntityDuties su nazivi entiteta u knjizi verzija
@@ -296,6 +299,10 @@ func (r *UserRepository) PodrucjeDuznosti(ctx context.Context, userID string) in
 // (ListUsersDomena) ili s adresom koju ima još jedan aktivni račun
 const StanjeBezEposte models.AccountState = "BEZ_EPOSTE"
 
+// StanjeUkljucen je filtar svih računa koji se smiju prijaviti, i onih koji
+// se još nisu prijavili: sve osim isključenih (AccountDisabled)
+const StanjeUkljucen models.AccountState = "UKLJUCEN"
+
 // ListUsers vraća korisnike, opcionalno filtrirane po sektoru, području,
 // ulozi, stanju računa (ili StanjeBezEposte) ili tekstu pretrage. Uz
 // StanjeBezEposte domena se ne provjerava; za to je ListUsersDomena.
@@ -335,26 +342,9 @@ func (r *UserRepository) ListUsersDomena(sectorID string, areaID int, role, sear
 			args = append(args, role)
 		}
 	}
-	// Stanje računa: isti izraz kao models.User.AccountState, samo u SQL-u
-	switch models.AccountState(status) {
-	case models.AccountDisabled:
-		query += " AND u.is_active = 0"
-	case models.AccountPending:
-		query += " AND u.is_active = 1 AND u.last_login_at IS NULL"
-	case models.AccountActive:
-		query += " AND u.is_active = 1 AND u.last_login_at IS NOT NULL"
-	case StanjeBezEposte:
-		// isti uvjeti kao DrugiKorak.adresaZaPIN: prazna, tuđa domena bez
-		// potvrde administratora, zajednička s drugim aktivnim računom
-		query += ` AND u.is_active = 1 AND (
-			TRIM(COALESCE(u.email, '')) = ''
-			OR (? <> '' AND substr(lower(trim(u.email)), -(length(?) + 1)) <> '@' || ?
-				AND lower(trim(u.pin_adresa_potvrdena)) <> lower(trim(u.email)))
-			OR EXISTS (SELECT 1 FROM users o WHERE o.id <> u.id AND o.is_active = 1
-				AND lower(trim(o.email)) = lower(trim(u.email))))`
-		dom := strings.ToLower(strings.TrimSpace(domena))
-		args = append(args, dom, dom, dom)
-	}
+	uvjet, argumenti := uvjetStanja(models.AccountState(status), domena)
+	query += uvjet
+	args = append(args, argumenti...)
 	if s := strings.TrimSpace(search); s != "" {
 		searchLike := "%" + s + "%"
 		query += ` AND (
@@ -395,8 +385,41 @@ func (r *UserRepository) ListUsersDomena(sectorID string, areaID int, role, sear
 
 		users = append(users, u)
 	}
+	poAbecedi(users)
+	return users, rows.Err()
+}
 
-	return users, nil
+// uvjetStanja je uvjet SQL-a za filtar stanja računa: isti izraz kao
+// models.User.AccountState, uz StanjeBezEposte i StanjeUkljucen
+func uvjetStanja(status models.AccountState, domena string) (string, []any) {
+	switch status {
+	case models.AccountDisabled:
+		return " AND u.is_active = 0", nil
+	case StanjeUkljucen:
+		return " AND u.is_active = 1", nil
+	case models.AccountPending:
+		return " AND u.is_active = 1 AND u.last_login_at IS NULL", nil
+	case models.AccountActive:
+		return " AND u.is_active = 1 AND u.last_login_at IS NOT NULL", nil
+	case StanjeBezEposte:
+		// isti uvjeti kao DrugiKorak.adresaZaPIN: prazna, tuđa domena bez
+		// potvrde administratora, zajednička s drugim aktivnim računom
+		dom := strings.ToLower(strings.TrimSpace(domena))
+		return ` AND u.is_active = 1 AND (
+			TRIM(COALESCE(u.email, '')) = ''
+			OR (? <> '' AND substr(lower(trim(u.email)), -(length(?) + 1)) <> '@' || ?
+				AND lower(trim(u.pin_adresa_potvrdena)) <> lower(trim(u.email)))
+			OR EXISTS (SELECT 1 FROM users o WHERE o.id <> u.id AND o.is_active = 1
+				AND lower(trim(o.email)) = lower(trim(u.email))))`, []any{dom, dom, dom}
+	}
+	return "", nil
+}
+
+// poAbecedi slaže osobe po hrvatskoj abecedi: SQLite slaže po bajtovima, pa
+// bi Čačić, Šimić i Živković došli iza Zorića
+func poAbecedi(users []models.User) {
+	c := collate.New(language.Croatian)
+	sort.SliceStable(users, func(i, j int) bool { return c.CompareString(users[i].FullName, users[j].FullName) < 0 })
 }
 
 // stalniIdentitetKorisnika daje novom korisniku isti identifikator koji bi

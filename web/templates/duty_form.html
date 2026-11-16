@@ -14,7 +14,7 @@
 
 
 
-<form class="form-page" method="POST" action="{{if .Duty}}/users/duties/{{.Duty.ID}}/update{{else}}/users/duty/add{{end}}">
+<form class="form-page" method="POST" action="{{if .Duty}}/users/duties/{{.Duty.ID}}/update{{else}}/users/duty/add{{end}}" data-zadrzi-upisano>
   <input type="hidden" name="user_id" value="{{.User.ID}}">
 
   <div class="form-group">

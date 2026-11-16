@@ -13,7 +13,7 @@
 </div>
 
 
-<form class="form-page" method="POST" action="{{if .IsEdit}}/users/update{{else}}/users/create{{end}}" autocomplete="off">
+<form class="form-page" method="POST" action="{{if .IsEdit}}/users/update{{else}}/users/create{{end}}" autocomplete="off" data-zadrzi-upisano>
   {{if .IsEdit}}<input type="hidden" name="id" value="{{.User.ID}}">{{end}}
 
   <div class="form-row">
@@ -54,6 +54,7 @@
     <div class="form-group">
       <label class="form-label" for="org_type">Vrsta organizacije *</label>
       <select id="org_type" name="org_type" class="form-control" required>
+        {{if and .IsEdit (not .User.OrgType)}}<option value="" selected>— nije upisano —</option>{{end}}
         {{range .Orgs}}<option value="{{.Value}}" {{if eq .Value (print $.User.OrgType)}}selected{{end}}>{{.Label}}</option>{{end}}
       </select>
     </div>

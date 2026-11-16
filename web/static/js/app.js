@@ -153,7 +153,8 @@ function initProfilOkvir() {
 
 // Obrazac s data-zadrzi-upisano pamti upisano dok se šalje. Kad se stranica
 // vrati s greškom (?error=), upisano se vrati u polja, da čovjek ne mora sve
-// ispočetka; lozinke i skrivena polja se ne pamte.
+// ispočetka; lozinke i skrivena polja se ne pamte. Kvačica pamti je li
+// uključena, a polje javi promjenu, da se otvori ono što o njoj ovisi.
 function initZadrziUpisano() {
   const greska = new URLSearchParams(window.location.search).has("error");
   const pamti = (p) => p.name && !["password", "hidden", "submit", "button", "file"].includes(p.type);
@@ -164,14 +165,18 @@ function initZadrziUpisano() {
       spremljeno = JSON.parse(sessionStorage.getItem(kljuc));
       sessionStorage.removeItem(kljuc);
     } catch (e) { /* bez sessionStoragea obrazac radi kao prije */ }
+    const kvacica = (p) => p.type === "checkbox" || p.type === "radio";
+    const ime = (p) => (kvacica(p) ? "☑" + p.name + "=" + p.value : p.name);
     if (greska && spremljeno) {
       Array.from(f.elements).filter(pamti).forEach((p) => {
-        if (p.name in spremljeno) p.value = spremljeno[p.name];
+        if (!(ime(p) in spremljeno)) return;
+        if (kvacica(p)) p.checked = spremljeno[ime(p)]; else p.value = spremljeno[ime(p)];
+        p.dispatchEvent(new Event("change"));
       });
     }
     f.addEventListener("submit", () => {
       const upisano = {};
-      Array.from(f.elements).filter(pamti).forEach((p) => { upisano[p.name] = p.value; });
+      Array.from(f.elements).filter(pamti).forEach((p) => { upisano[ime(p)] = kvacica(p) ? p.checked : p.value; });
       try { sessionStorage.setItem(kljuc, JSON.stringify(upisano)); } catch (e) { /* ništa */ }
     });
   });
@@ -191,7 +196,7 @@ function initSSE() {
   [
     ["users_updated", "Ažurirani podaci djelatnika"],
     ["user_deleted", "Profil djelatnika obrisan"],
-    ["duty_added", "Dodijeljena nova funkcija / zaduženje"],
+    ["duty_added", "Dodijeljeno novo zaduženje"],
     ["duty_revoked", "Opozvano zaduženje"],
   ].forEach(([vrsta, zadano]) => {
     evtSource.addEventListener(vrsta, (e) => {
