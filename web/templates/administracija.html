@@ -70,7 +70,7 @@
       <div class="dash-card-body">
         <h2 class="dash-card-title">Djelatnici</h2>
         <p class="dash-card-desc">{{if .Locked}}{{.Locked}} {{uzBroj .Locked "račun čeka" "računa čekaju" "računa čeka"}} promjenu lozinke pri prvoj prijavi.{{else}}Nijedan račun ne čeka promjenu lozinke.{{end}}
-          {{if .Inactive}} {{.Inactive}} {{uzBroj .Inactive "je deaktiviran" "su deaktivirana" "je deaktivirano"}}.{{end}}
+          {{if .Inactive}} {{.Inactive}} {{uzBroj .Inactive "je isključen" "su isključena" "je isključeno"}}.{{end}}
           Lozinku poništavate na stranici te osobe.</p>
       </div>
       <div class="dash-card-footer"><a href="/users" class="btn btn-secondary dash-btn"><span>Otvori djelatnike</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>

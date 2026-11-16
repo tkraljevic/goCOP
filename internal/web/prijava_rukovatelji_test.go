@@ -267,7 +267,7 @@ func TestStranicaPINaNakonNovogSlanja(t *testing.T) {
 }
 
 // Prekinuta prijava izvana briše prijavu na čekanju i vraća na prijavu:
-// upis bez nje kaže da je istekla, isključen račun kaže da je deaktiviran, a
+// upis bez nje kaže da je istekla, isključen račun kaže da je isključen, a
 // kvar je greška poslužitelja bez pojedinosti.
 func TestPrekinutaPrijavaIzvana(t *testing.T) {
 	o := okolinaPINPrimjer(t)
@@ -283,7 +283,7 @@ func TestPrekinutaPrijavaIzvana(t *testing.T) {
 		t.Fatal(err)
 	}
 	w = o.upisi(tunel, cek, o.posta.pin(t), false)
-	if !strings.HasPrefix(w.Body.String(), "Korisnički račun je privremeno deaktiviran|") || kolacicSesije(w) != nil {
+	if !strings.HasPrefix(w.Body.String(), "Korisnički račun je isključen|") || kolacicSesije(w) != nil {
 		t.Errorf("račun isključen nakon lozinke: %d %q", w.Code, w.Body.String())
 	}
 	if c := kolacic(w, imeKolacicaPrijave); c == nil || c.MaxAge >= 0 {
