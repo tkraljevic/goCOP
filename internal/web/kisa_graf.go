@@ -87,7 +87,7 @@ func grafKise(s SlivUKisi, izdano time.Time) GrafKise {
 	}
 	krivuljaGrafa(&g, s, izdano, y)
 	g.Zbroj = "palo " + brojHRf(palo, 0) + " mm, s očekivanim " + brojHRf(zbroj, 0) + " mm"
-	if p := porastRetka(s.Letve); p != "" {
+	if p := porastRetka(s); p != "" {
 		g.Zbroj += " · " + p
 	}
 	g.Opis = g.Naziv + ": " + g.Zbroj

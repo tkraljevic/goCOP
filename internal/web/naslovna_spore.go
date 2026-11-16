@@ -245,7 +245,6 @@ func karticaJacihOborina(p kisaSlivovaPodaci, sad time.Time) KarticaNaslovne {
 	switch {
 	case len(k.Redovi) > 0:
 		k.Tijelo, k.Podaci = "kisa", kisaNaslovne(p, slivovi, sad)
-		k.Napomena = napomenaTrakeKise + " " + napomenaKiseSlivova
 	case p.Greska != "":
 		k.Prazno = &PraznaKartica{Vrsta: PraznoNedostupno, Tekst: p.Greska}
 	default:
@@ -253,12 +252,6 @@ func karticaJacihOborina(p kisaSlivovaPodaci, sad time.Time) KarticaNaslovne {
 	}
 	return k
 }
-
-// napomenaKiseSlivova kaže odakle je broj: međusliv je dio sliva između dvije
-// letve, a kiša je prosjek izvedenih točaka, ne mjerenje kišomjera
-const napomenaTrakeKise = "Traka: jača boja je palo, blijeda očekivano; crtice su pragovi za 72 h."
-
-const napomenaKiseSlivova = "Prosjek kiše na međuslivu između dvije letve, iz modela; pravi kišomjeri u njega ne ulaze."
 
 // opisKise: „palo 52 mm u 72 h, 0 mm u 24 h · očekivano 15 mm u 48 h ·
 // toliko padne u prosjeku jednom godišnje (palo u 72 h) · porast u prognozi:
@@ -280,7 +273,7 @@ func opisKise(s SlivUKisi) string {
 		}
 		dijelovi = append(dijelovi, u)
 	}
-	if p := porastRetka(s.Letve); p != "" {
+	if p := porastRetka(s); p != "" {
 		dijelovi = append(dijelovi, p)
 	}
 	return strings.Join(dijelovi, " · ")
