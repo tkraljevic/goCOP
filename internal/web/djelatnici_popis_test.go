@@ -2,6 +2,8 @@ package web
 
 import (
 	"io/fs"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -177,6 +179,41 @@ func TestAdresarTvrtkePoCrtezu(t *testing.T) {
 		if !strings.Contains(html, want) {
 			t.Errorf("Adresar nema %s", want)
 		}
+	}
+}
+
+// Odluke (16. 11. 2026.), Djelatnici 8: u Adresaru tvrtke traži svatko s
+// računom, a usporedba, preuzimanje i rezultat usporedbe ostaju modulu.
+func TestTrazenjeUAdresaruSvima(t *testing.T) {
+	zahtjev := func(metoda, put string) *http.Request { return httptest.NewRequest(metoda, put, nil) }
+	if !trazenjeUAdresaru(zahtjev(http.MethodGet, "/users/exchange?trazi=ana")) || !trazenjeUAdresaru(zahtjev(http.MethodGet, "/users/exchange")) {
+		t.Error("traženje u adresaru nije otvoreno")
+	}
+	for _, r := range []*http.Request{
+		zahtjev(http.MethodGet, "/users/exchange?rezultat=x"), zahtjev(http.MethodPost, "/users/exchange"),
+		zahtjev(http.MethodPost, "/users/exchange/usporedi"), zahtjev(http.MethodGet, "/users"),
+	} {
+		if trazenjeUAdresaru(r) {
+			t.Errorf("%s %s je otvoren bez modula", r.Method, r.URL)
+		}
+	}
+	bez := iscrtaj(t, "imenik_exchange.html", ImenikData{CurrentUser: &models.User{FullName: "Vodočuvar"}, Permissions: &models.UserPermissions{},
+		ViewAsBanner: ViewAsBanner{Modules: models.Visibility{models.ModuleReadings: true}}})
+	if strings.Contains(bez, "djelatnici-kartice") || !strings.Contains(bez, `href="/profile">`) || strings.Contains(bez, "/users/exchange/usporedi") {
+		t.Error("Adresar bez modula: kartice modula, usporedba ili nema povratka na Profil")
+	}
+}
+
+func TestPravaAdresara(t *testing.T) {
+	bez := ImenikData{ActiveNav: "users", ViewAsBanner: ViewAsBanner{Modules: models.Visibility{models.ModuleReadings: true}}}
+	bez.pravaAdresara(&models.UserPermissions{IsGlobalAdmin: true})
+	if bez.VidiModul || bez.SmijeUskladiti || bez.ActiveNav != "profile" {
+		t.Errorf("bez modula: %+v", bez)
+	}
+	s := ImenikData{ActiveNav: "users", ViewAsBanner: ViewAsBanner{Modules: models.Visibility{models.ModuleUsers: true}}}
+	s.pravaAdresara(&models.UserPermissions{AdminSectors: map[string]bool{"B": true}})
+	if !s.VidiModul || !s.SmijeUskladiti || s.ActiveNav != "users" {
+		t.Errorf("uprava sektora s modulom: %+v", s)
 	}
 }
 

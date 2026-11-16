@@ -1919,10 +1919,17 @@ func vlastitiKarton(r *http.Request, u *models.User) bool {
 // kad se stranica otvara (svoj karton, svoj vodočuvarski dnevnik)
 func (s *Server) zatvorenModul(r *http.Request, u *models.User, visible models.Visibility) string {
 	mod := moduleForPath(r.URL.Path)
-	if mod == "" || visible.Sees(mod) || vlastitiKarton(r, u) || s.vlastitaKnjiga(r, u) {
+	if mod == "" || visible.Sees(mod) || vlastitiKarton(r, u) || s.vlastitaKnjiga(r, u) || trazenjeUAdresaru(r) {
 		return ""
 	}
 	return mod
+}
+
+// trazenjeUAdresaru javlja traži li se kontakt u Adresaru tvrtke: to smije
+// svatko s računom (Odluke (16. 11. 2026.), Djelatnici 8), a usporedba i
+// preuzimanje u imenik ostaju modulu Djelatnici
+func trazenjeUAdresaru(r *http.Request) bool {
+	return readOnlyRequest(r) && r.URL.Path == "/users/exchange" && r.URL.Query().Get("rezultat") == ""
 }
 
 // vlastitaKnjiga javlja otvara li vodočuvar svoj vodočuvarski dnevnik.

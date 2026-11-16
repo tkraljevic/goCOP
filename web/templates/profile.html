@@ -91,7 +91,7 @@
           <div class="form-help">Nakon tri kriva upisa obrasci s lozinkom zatvaraju se na 15 minuta.</div>
         </div>
         {{end}}
-        <div class="form-help">Mobitel je broj na koji vas kolege zovu s terena; skraćeni brojevi vrijede u zatvorenoj mreži tvrtke. {{if .VidiImenik}}<a href="/users/exchange?trazi={{.User.FullName | urlquery}}">Provjeri u adresaru tvrtke</a>.{{end}}</div>
+        <div class="form-help">Mobitel je broj na koji vas kolege zovu s terena; skraćeni brojevi vrijede u zatvorenoj mreži tvrtke. <a href="/users/exchange?trazi={{.User.FullName | urlquery}}">Provjeri u adresaru tvrtke</a>.</div>
         <div class="form-actions">
           <button type="submit" class="btn btn-primary">{{icon "check"}} Spremi kontakte</button>
         </div>
@@ -243,7 +243,8 @@
         <li><a href="/profile/posta">{{icon "key-round"}}<span><strong>{{if .PostaRacun}}Lozinka e-pošte{{else}}Upiši lozinku e-pošte{{end}}</strong><small>{{if .PostaRacun}}upis nove lozinke ili brisanje s ovog računala{{else}}bez nje Sandučić i slanje akata ne rade{{end}}</small></span>{{icon "chevron-right"}}</a></li>
         <li><a href="/posta">{{icon "mailbox"}}<span><strong>Sandučić</strong><small>pošta vašeg računa s poslužitelja tvrtke</small></span>{{icon "chevron-right"}}</a></li>
         <li><a href="/profile/potpis">{{icon "pencil"}}<span><strong>Potpis e-pošte</strong><small>tekst koji se ubacuje na kraj svakog pisma</small></span>{{icon "chevron-right"}}</a></li>
-        {{if .VidiImenik}}<li><a href="/users/exchange">{{icon "building"}}<span><strong>Adresar tvrtke</strong><small>adrese i telefoni kako ih vodi informatika</small></span>{{icon "chevron-right"}}</a></li>{{end}}
+        {{/* Adresar tvrtke traži svatko s računom (Odluke (16. 11. 2026.), Djelatnici 8) */}}
+        <li><a href="/users/exchange">{{icon "building"}}<span><strong>Adresar tvrtke</strong><small>adrese i telefoni kako ih vodi informatika</small></span>{{icon "chevron-right"}}</a></li>
       </ul>
       {{end}}{{end}}
     </section>
