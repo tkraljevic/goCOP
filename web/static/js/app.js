@@ -679,10 +679,49 @@ function renderMarkdown(md) {
     }
   }
 
+  // Popis podnaslova uz poglavlje: na širokom zaslonu uvijek otvoren i
+  // ističe podnaslov koji se upravo čita; do 839 px izbornik koji se zatvori
+  // čim se odabere podnaslov
+  function pripremiPodnaslove() {
+    var popisi = Array.prototype.slice.call(document.querySelectorAll('[data-pomoc-podnaslovi]'));
+    if (!popisi.length) { return; }
+    var usko = window.matchMedia('(max-width: 839px)');
+    function prilagodi() { popisi.forEach(function (d) { d.open = !usko.matches; }); }
+    prilagodi();
+    usko.addEventListener('change', prilagodi);
+    popisi.forEach(function (d) {
+      d.addEventListener('click', function (e) {
+        if (usko.matches && e.target.closest('a')) { d.open = false; }
+      });
+    });
+
+    var ceka = false;
+    function istakni() {
+      ceka = false;
+      var vrh = 120;
+      popisi.forEach(function (d) {
+        var poveznice = Array.prototype.slice.call(d.querySelectorAll('a[href^="#"]'));
+        var tren = null;
+        poveznice.forEach(function (a) {
+          var cilj = document.getElementById(a.getAttribute('href').slice(1));
+          if (cilj && cilj.getBoundingClientRect().top <= vrh) { tren = a; }
+        });
+        poveznice.forEach(function (a) {
+          if (a === tren) { a.setAttribute('aria-current', 'true'); } else { a.removeAttribute('aria-current'); }
+        });
+      });
+    }
+    window.addEventListener('scroll', function () {
+      if (!ceka) { ceka = true; window.requestAnimationFrame(istakni); }
+    }, { passive: true });
+    istakni();
+  }
+
+  function pripremi() { pripremiPomoc(); pripremiPodnaslove(); }
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', pripremiPomoc);
+    document.addEventListener('DOMContentLoaded', pripremi);
   } else {
-    pripremiPomoc();
+    pripremi();
   }
 })();
 
