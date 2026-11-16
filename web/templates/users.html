@@ -124,7 +124,7 @@
       {{end}}
       {{if .SelectedRole}}
       <span class="filter-pill">
-        {{icon "shield"}} Uloga: {{.SelectedRole}}
+        {{icon "shield"}} Uloga: {{roleLabel .SelectedRole}}
         <a href="/users?q={{$.SearchQuery}}&sector={{$.SelectedSector}}&area={{$.SelectedArea}}&status={{$.SelectedStatus}}" class="pill-remove" title="Ukloni filtar uloge">&times;</a>
       </span>
       {{end}}

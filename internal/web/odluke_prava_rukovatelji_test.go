@@ -127,13 +127,13 @@ func TestZaglavljePrognozeSmijeGenerirati(t *testing.T) {
 }
 
 // Novi račun ili nova lozinka s prekratkom lozinkom: osoba čita jednu
-// rečenicu bez tehničkog uvoda, a ostale greške računa ostaju kakve jesu.
+// rečenicu bez tehničkog uvoda; ostale greške računa velikim slovom i s točkom.
 func TestPorukaRacunaZaKratkuLozinku(t *testing.T) {
 	kratka := fmt.Errorf("%w: %w", service.ErrInvalidUserData, service.ErrKratkaLozinka)
 	if got := porukaRacuna(kratka); got != "Lozinka je prekratka: upišite najmanje 10 znakova." {
 		t.Errorf("prekratka lozinka: %q", got)
 	}
-	if got := porukaRacuna(service.ErrUsernameExists); got != service.ErrUsernameExists.Error() {
+	if got := porukaRacuna(service.ErrUsernameExists); got != "Korisničko ime već postoji." {
 		t.Errorf("druga greška: %q", got)
 	}
 }
