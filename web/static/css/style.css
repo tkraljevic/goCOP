@@ -8614,7 +8614,7 @@ summary.ocitanja-cip { padding-right: 8px; }
    stoje na jednom mjestu. */
 
 /* Povratna poveznica iznad naslova, na primjer „← Prognoze”. */
-.povratna-poveznica { display: inline-flex; align-items: center; min-height: 32px; font-size: 0.875rem;
+.povratna-poveznica { display: inline-flex; align-items: center; gap: 0.25rem; min-height: 32px; font-size: 0.875rem;
   color: var(--md-sys-color-primary, var(--primary)); text-decoration: none; }
 .povratna-poveznica:hover { text-decoration: underline; }
 @media (max-width: 599px) { .povratna-poveznica { min-height: 48px; } }
@@ -8629,6 +8629,9 @@ summary.ocitanja-cip { padding-right: 8px; }
   position: relative; flex: 1 0 auto; display: flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 16px;
   color: var(--md-sys-color-on-surface-variant, var(--text-secondary)); font-size: 0.875rem; font-weight: 500; text-decoration: none; white-space: nowrap;
 }
+/* Djelatnici: kartice modula lijevo, ne preko cijele širine (crtež 20) */
+.djelatnici-kartice { margin: 0 0 1rem; }
+.djelatnici-kartice .kartica-stranice { flex: 0 0 auto; }
 .kartica-stranice:hover { background: var(--surface-hover); color: var(--text); text-decoration: none; }
 .kartica-stranice[aria-current="page"] { color: var(--md-sys-color-primary, var(--primary)); }
 .kartica-stranice[aria-current="page"]::after {

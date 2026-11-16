@@ -3,11 +3,11 @@
 {{define "title"}}goCOP — {{.User.FullName}}{{end}}
 
 {{define "content"}}
-<div class="breadcrumb">{{if .VidiImenik}}<a href="/users">Djelatnici</a>{{else}}<a href="/profile">Profil</a>{{end}} › {{.User.FullName}}</div>
+{{if .VidiImenik}}<a class="povratna-poveznica" href="/users">{{icon "arrow-left"}} Djelatnici</a>{{else}}<a class="povratna-poveznica" href="/profile">{{icon "arrow-left"}} Profil</a>{{end}}
 
 <div class="detail-head">
   <div>
-    <h1 class="page-title" data-naziv-stranice="Djelatnik">{{icon "user"}} {{.User.FullName}}{{if .User.Title}} <small style="font-size:0.6em; color:var(--text-muted);">{{.User.Title}}</small>{{end}}</h1>
+    <h1 class="page-title" data-naziv-stranice="Djelatnik">{{.User.FullName}}{{if .User.Title}} <small style="font-size:0.6em; color:var(--text-muted);">{{.User.Title}}</small>{{end}}</h1>
     <p class="page-desc">
       @{{.User.Username}} · {{orgLabel .User.OrgType}}{{if .User.OrgName}} · {{.User.OrgName}}{{end}}
       {{$state := .User.AccountState}}

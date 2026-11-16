@@ -6,14 +6,13 @@
 {{define "sidroPomoci"}}#posta{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/users">Djelatnici</a> › Adresar tvrtke</div>
-
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{icon "building"}} Adresar tvrtke</h1>
+    <h1 class="page-title">Adresar tvrtke</h1>
     <p class="page-desc">Osobe, adrese i telefoni iz adresara tvrtke (Exchange), kako ih vodi informatika. Čita se vašim računom e-pošte. Imenik goCOP-a može se usporediti s adresarom i uskladiti.</p>
   </div>
 </div>
+{{template "djelatniciKartice" "adresar"}}
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
