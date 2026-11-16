@@ -28,6 +28,7 @@ func (s *Server) SetKisaSlivova(f KisaSlivovaFunc) { s.kisaSlivova = f }
 
 // PorastLetve je najveći porast u dnevnoj prognozi
 type PorastLetve struct {
+	Letva string // oznaka letve u prognozi („aljmas”)
 	Naziv string
 	Cm    float64
 	Dan   int
@@ -185,7 +186,7 @@ func slivUKisi(st prognoza.StanjeSliva, naziv string, nazivLetve map[string]stri
 	polazista map[string]float64, izdano *time.Time) SlivUKisi {
 	x := SlivUKisi{StanjeSliva: st, Naziv: naziv}
 	for _, l := range st.Letve {
-		pl := PorastLetve{Naziv: nazivLetve[l]}
+		pl := PorastLetve{Letva: l, Naziv: nazivLetve[l]}
 		if pl.Naziv == "" {
 			pl.Naziv = l
 		}

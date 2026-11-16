@@ -60,7 +60,12 @@
     </div>
   </div>
   {{end}}
-  <p class="kisa-lanac-natpis">Žuto: toliko padne tri puta godišnje, narančasto jednom godišnje, crveno jednom u pet godina.{{if .ImaOcekivano}} Broj s plusom je kiša očekivana u 48 h; boja je od pale i očekivane zajedno.{{end}}</p>
+  <ul class="kisa-kljuc">
+    <li><span class="kisa-kljuc-boja kisa-zuto"></span>oborina koja padne tri puta godišnje</li>
+    <li><span class="kisa-kljuc-boja kisa-narancasto"></span>oborina koja padne jednom godišnje</li>
+    <li><span class="kisa-kljuc-boja kisa-crveno"></span>oborina koja padne jednom u pet godina</li>
+    {{if .ImaOcekivano}}<li><span class="kisa-kljuc-plus">+</span>očekivana oborina u 48 h; boja je od pale i očekivane zajedno</li>{{end}}
+  </ul>
 </div>
 <ul class="kisa-retci">
   {{range $i, $r := .Retci}}{{if lt $i 5}}
@@ -74,6 +79,10 @@
     </a>
   </li>
   {{end}}{{end}}
+</ul>
+<ul class="kisa-kljuc">
+  <li><span class="kisa-kljuc-boja kisa-palo"></span>pala oborina</li>
+  <li><span class="kisa-kljuc-boja kisa-ocekivano"></span>očekivana oborina</li>
 </ul>
 {{with .Vise}}<a class="kartica-vise samo-siroko" href="/slivovi#kisa">{{.}} →</a>{{end}}
 {{with .ViseMobitel}}<a class="kartica-vise samo-mobitel" href="/slivovi#kisa">{{.}} →</a>{{end}}

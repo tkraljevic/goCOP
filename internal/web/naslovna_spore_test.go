@@ -92,8 +92,9 @@ func TestKarticaJacihOborina(t *testing.T) {
 	if p.Upozorenja[0].Sliv != "vuka" {
 		t.Error("kartica ne smije presložiti podatke koje dijeli s ostalima")
 	}
-	// redak vodi na svoj međusliv, „Više” na tablicu kiše; kartica kaže odakle je broj
-	if k.Redovi[0].URL != "/slivovi#sliv-drava-dm" || k.URL != "/slivovi#kisa" || k.Napomena != napomenaTrakeKise+" "+napomenaKiseSlivova {
+	// redak vodi na svoj međusliv, „Više” na tablicu kiše; boje objašnjava
+	// legenda u tijelu kartice, pa napomene ispod nema
+	if k.Redovi[0].URL != "/slivovi#sliv-drava-dm" || k.URL != "/slivovi#kisa" || k.Napomena != "" {
 		t.Errorf("poveznice i napomena: %q %q %q", k.Redovi[0].URL, k.URL, k.Napomena)
 	}
 	if g := karticaJacihOborina(kisaSlivovaPodaci{Greska: "nema"}, sadNaslovne); g.Prazno == nil || g.Prazno.Vrsta != PraznoNedostupno || g.Prazno.Tekst != "nema" {
@@ -274,7 +275,7 @@ func TestKarticaJacihOborinaLanacITraka(t *testing.T) {
 	}
 	r := tijelo.Retci[0]
 	if r.Naziv != "međusliv D" || r.Rijetko != "jednom godišnje" ||
-		r.Palo != "palo 52 mm u 72 h: čet 18 · pet 33 · danas 1" || r.Ocekivano != "očekivano 15 mm u 48 h: ned 0 · pon 15" ||
+		r.Palo != "palo 52 mm u 72 h: čet 18 mm · pet 33 mm · danas 1 mm" || r.Ocekivano != "očekivano 15 mm u 48 h: ned 0 mm · pon 15 mm" ||
 		r.Porast != "porast u prognozi: Terezino Polje +35 cm (3. dan)" {
 		t.Errorf("redak %+v", r)
 	}

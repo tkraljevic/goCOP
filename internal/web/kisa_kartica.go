@@ -178,14 +178,14 @@ func redakKise(s SlivUKisi, izdano time.Time) RedakJaceKise {
 		Rijetko: strings.TrimPrefix(s.Ucestalost, "toliko padne u prosjeku ")}
 	r.Dijelovi, r.Crtice = trakaKise(s, izdano)
 	r.Palo, r.Ocekivano = kisaRetka(s, izdano)
-	r.Porast = porastRetka(s.Letve)
+	r.Porast = porastRetka(s)
 	r.Opis = strings.Join(slices.DeleteFunc([]string{r.Palo, r.Ocekivano, pragRetka(s.Pragovi.Dan3[0])},
 		func(t string) bool { return t == "" }), "; ")
 	return r
 }
 
-// kisaRetka: „palo 52 mm u 72 h: čet 18 · pet 33 · danas 1” i „očekivano
-// 15 mm u 48 h: ned 0 · pon 15”; bez jučer ili prekjučer samo 24 h, bez
+// kisaRetka: „palo 52 mm u 72 h: čet 18 mm · pet 33 mm · danas 1 mm” i
+// „očekivano 15 mm u 48 h: ned 0 mm · pon 15 mm”; bez jučer ili prekjučer samo 24 h, bez
 // sutra ništa očekivano
 func kisaRetka(s SlivUKisi, izdano time.Time) (palo, ocekivano string) {
 	palo = "palo " + brojHRf(s.Palo24, 0) + " mm u 24 h"
@@ -198,25 +198,53 @@ func kisaRetka(s SlivUKisi, izdano time.Time) (palo, ocekivano string) {
 	return palo, ocekivano
 }
 
-// daniKise: „čet 18 · pet 33 · danas 1” za dane od–do koje niz ima
+// daniKise: „čet 18 mm · pet 33 mm · danas 1 mm” za dane od–do koje niz ima
 func daniKise(s SlivUKisi, od, do int, izdano time.Time) string {
 	var d []string
 	for i := od; i <= do; i++ {
 		if s.ImaDan[i+2] {
-			d = append(d, danKise(i, izdano)+" "+brojHRf(s.Dani[i+2], 0))
+			d = append(d, danKise(i, izdano)+" "+brojHRf(s.Dani[i+2], 0)+" mm")
 		}
 	}
 	return strings.Join(d, " · ")
 }
 
-// porastRetka: prva letva međusliva s porastom u dnevnoj prognozi
-func porastRetka(letve []PorastLetve) string {
-	for _, l := range letve {
+// krajMedjusliva je letva na kraju međusliva, ili prva nizvodno kad na kraju
+// nema letve u dnevnoj prognozi (Borl, Mohács, uzvodni Dunav). Kiša međusliva
+// ulazi u prognozu više letava, a redak porasta pokazuje samo ovu
+// (Odluke 16. 11. 2026.).
+var krajMedjusliva = map[string]string{
+	"A": "botovo", "B": "letenye", "C": "botovo", "D": "terezino-polje", "E": "donji-miholjac",
+	"F": "belisce", "G": "osijek", "H": "budapest", "I": "batina", "J": "aljmas",
+	"K": "komarom", "L": "komarom", "M": "komarom", "N": "komarom", "O": "komarom",
+}
+
+// porastRetka: porast letve na kraju međusliva u dnevnoj prognozi; bez
+// porasta te letve ništa. Kad je letva nepoznata ili je nema u nizu, prva
+// letva međusliva s porastom.
+func porastRetka(s SlivUKisi) string {
+	if kraj, ok := krajMedjusliva[s.Sliv]; ok {
+		for _, l := range s.Letve {
+			if l.Letva == kraj && l.Ima {
+				return opisPorasta(l)
+			}
+		}
+	}
+	for _, l := range s.Letve {
 		if l.Ima && l.Cm >= 1 {
-			return "porast u prognozi: " + l.Opis()
+			return opisPorasta(l)
 		}
 	}
 	return ""
+}
+
+// opisPorasta: „porast u prognozi: Aljmaš +45 cm u ned. 22. 11.”, a ispod
+// 1 cm ništa
+func opisPorasta(l PorastLetve) string {
+	if l.Cm < 1 {
+		return ""
+	}
+	return "porast u prognozi: " + l.Opis()
 }
 
 // pragRetka: najniži prag za 72 h riječima, za čitač zaslona
