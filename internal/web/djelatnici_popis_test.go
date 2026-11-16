@@ -216,3 +216,20 @@ func TestPravaAdresara(t *testing.T) {
 		t.Errorf("uprava sektora s modulom: %+v", s)
 	}
 }
+
+// Odluke (16. 11. 2026.), Djelatnici 6: svaka uloga u obrascima nosi svoj
+// doseg, a polja sektora, područja i dionica označena su, da skripta pokaže
+// samo ona koja uloga traži.
+func TestObrasciNoseDosegUloge(t *testing.T) {
+	if (option{Value: string(models.RoleWaterGuard)}).Doseg() != string(models.RoleWaterGuard.NaturalScope()) ||
+		(option{Value: string(models.RoleSectorLeader)}).Doseg() != "SECTOR" {
+		t.Error("doseg uloge")
+	}
+	html := iscrtaj(t, "duty_form.html", UserPageData{CurrentUser: &models.User{FullName: "Uprava"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		User: &models.User{ID: uuid.New(), FullName: "Ivan Primjer"}, CanManage: true, Roles: roleOptionsZa(&models.UserPermissions{IsGlobalAdmin: true}, "")})
+	for _, want := range []string{`value="SECTOR_LEADER" data-doseg="SECTOR">`, `data-doseg-polje="sektor"`, `data-doseg-polje="podrucje"`, `data-doseg-polje="dionice"`} {
+		if !strings.Contains(html, want) {
+			t.Errorf("obrazac zaduženja nema %s", want)
+		}
+	}
+}

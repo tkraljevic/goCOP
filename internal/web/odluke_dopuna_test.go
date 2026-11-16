@@ -50,7 +50,7 @@ func TestObrazacDuznostiBezZadaneUloge(t *testing.T) {
 
 	podrucje := 16
 	html = obrazac(&models.Duty{ID: uuid.New(), Role: models.RoleAreaDeputy, AreaID: &podrucje, IsActive: true})
-	if !strings.Contains(html, `value="AREA_DEPUTY" selected>`) {
+	if !strings.Contains(html, `value="AREA_DEPUTY" selected data-doseg="AREA">`) {
 		t.Error("pri izmjeni nema dosadašnje uloge")
 	}
 	if strings.Contains(html, "— odaberi ulogu —") {
