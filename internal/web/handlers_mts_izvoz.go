@@ -18,7 +18,7 @@ import (
 func (h *MtsHandler) IzvoziTablicu(w http.ResponseWriter, r *http.Request) {
 	data := h.pageData(r)
 	if data.Sektor == "" {
-		redirectWith(w, r, "/sredstva", "error", "Popis za Glavni centar radi se po sektoru; odaberite sektor")
+		redirectWith(w, r, "/sredstva", "error", "Tablica za Glavni centar radi se po sektoru; odaberite sektor.")
 		return
 	}
 	dan := time.Now().In(models.Zagreb)

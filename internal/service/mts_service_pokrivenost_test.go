@@ -35,7 +35,7 @@ func TestMtsSpremiVrstuOdbija(t *testing.T) {
 	}{
 		{"bez naziva", models.VrstaSredstva{Naziv: "  ", Jedinica: "kom", Grupa: models.GrupaAlat}, "mora imati naziv"},
 		{"bez jedinice", models.VrstaSredstva{Naziv: "Kramp", Jedinica: " ", Grupa: models.GrupaAlat}, "jedinicu mjere"},
-		{"nepoznata skupina", models.VrstaSredstva{Naziv: "Kramp", Jedinica: "kom", Grupa: "IGRACKE"}, "nepoznata skupina"},
+		{"nepoznata skupina", models.VrstaSredstva{Naziv: "Kramp", Jedinica: "kom", Grupa: "IGRACKE"}, "Nepoznata skupina"},
 		{"naziv bez slova", models.VrstaSredstva{Naziv: "—", Jedinica: "kom", Grupa: models.GrupaAlat}, "upišite je ručno"},
 		{"oznaka zauzeta", models.VrstaSredstva{Naziv: "Lopata", Jedinica: "kom", Grupa: models.GrupaAlat}, "već postoji"},
 	}
@@ -207,7 +207,7 @@ func TestKolicinaTekst(t *testing.T) {
 
 func TestMtsPredlozakPopisa(t *testing.T) {
 	s, sk, ctx, u, uprava := pripremiMts(t)
-	if _, err := s.PredlozakPopisa(ctx, "nema-skladista", danMts(2025, 6, 1)); err == nil || !strings.Contains(err.Error(), "nepoznato") {
+	if _, err := s.PredlozakPopisa(ctx, "nema-skladista", danMts(2025, 6, 1)); err == nil || !strings.Contains(err.Error(), "Nepoznato") {
 		t.Errorf("nepoznato skladište: %v", err)
 	}
 	dan := danMts(2025, 6, 30)
@@ -231,7 +231,7 @@ func TestMtsPredlozakPopisa(t *testing.T) {
 			lopata = &p.Stavke[i]
 		}
 	}
-	if lopata == nil || lopata.Knjizno != 30 || lopata.VrstaNaziv == "" || lopata.Jedinica == "" {
+	if lopata == nil || lopata.Knjizno != 30 || lopata.VrstaNaziv == "" || lopata.Jedinica == "" || lopata.RedniBroj == 0 {
 		t.Fatalf("stavka lopata: %+v", lopata)
 	}
 	lopata.Utvrdjeno = 28
@@ -248,7 +248,7 @@ func TestMtsPredlozakPopisa(t *testing.T) {
 		t.Fatalf("predložak nije vratio spremljeni popis: %q, a spremljen %q", drugi.ID, p.ID)
 	}
 	for _, st := range drugi.Stavke {
-		if st.VrstaID == "lopata" && (st.Utvrdjeno != 28 || st.VrstaNaziv == "" || st.Jedinica == "") {
+		if st.VrstaID == "lopata" && (st.Utvrdjeno != 28 || st.VrstaNaziv == "" || st.Jedinica == "" || st.RedniBroj == 0) {
 			t.Errorf("spremljena stavka: %+v", st)
 		}
 	}
@@ -260,7 +260,7 @@ func TestMtsSpremiPopisOdbija(t *testing.T) {
 	if err := s.SpremiPopis(ctx, nil, uprava, &models.Popis{SkladisteID: sk.ID, Dan: dan}); err == nil || !strings.Contains(err.Error(), "prijavu") {
 		t.Errorf("bez prijave: %v", err)
 	}
-	if err := s.SpremiPopis(ctx, u, uprava, &models.Popis{SkladisteID: "nema", Dan: dan}); err == nil || !strings.Contains(err.Error(), "nepoznato skladište") {
+	if err := s.SpremiPopis(ctx, u, uprava, &models.Popis{SkladisteID: "nema", Dan: dan}); err == nil || !strings.Contains(err.Error(), "Nepoznato skladište") {
 		t.Errorf("nepoznato skladište: %v", err)
 	}
 	if err := s.SpremiPopis(ctx, u, uprava, &models.Popis{ID: uuid.NewString(), SkladisteID: sk.ID, Dan: dan}); err == nil || !strings.Contains(err.Error(), "nije pronađen") {
@@ -317,11 +317,11 @@ func TestMtsPotrebeOdbijanjaIPreskakanje(t *testing.T) {
 	if err := s.SpremiPotrebe(ctx, nil, uprava, sk.ID, 2026, nil); err == nil || !strings.Contains(err.Error(), "prijavu") {
 		t.Errorf("bez prijave: %v", err)
 	}
-	if err := s.SpremiPotrebe(ctx, u, uprava, "nema", 2026, nil); err == nil || !strings.Contains(err.Error(), "nepoznato") {
+	if err := s.SpremiPotrebe(ctx, u, uprava, "nema", 2026, nil); err == nil || !strings.Contains(err.Error(), "Nepoznato") {
 		t.Errorf("nepoznato skladište: %v", err)
 	}
 	for _, g := range []int{1999, 2201} {
-		if err := s.SpremiPotrebe(ctx, u, uprava, sk.ID, g, nil); err == nil || !strings.Contains(err.Error(), "godina") {
+		if err := s.SpremiPotrebe(ctx, u, uprava, sk.ID, g, nil); err == nil || !strings.Contains(err.Error(), "Godina") {
 			t.Errorf("godina %d: %v", g, err)
 		}
 	}
@@ -465,7 +465,7 @@ func TestMtsTablicaSektora(t *testing.T) {
 	if len(jedno.Skladista) != 1 || jedno.Sektor != "B" || jedno.UkupnoStanje("lopata") != 7 {
 		t.Errorf("tablica Darde: %d skladišta, sektor %s, stanje %v", len(jedno.Skladista), jedno.Sektor, jedno.UkupnoStanje("lopata"))
 	}
-	if _, err := s.TablicaSkladista(ctx, "nema", dan); err == nil || !strings.Contains(err.Error(), "nepoznato") {
+	if _, err := s.TablicaSkladista(ctx, "nema", dan); err == nil || !strings.Contains(err.Error(), "Nepoznato") {
 		t.Errorf("tablica nepoznatog skladišta: %v", err)
 	}
 	// sektor bez skladišta daje praznu tablicu
@@ -497,7 +497,7 @@ func TestMtsObrisiVrstu(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := s.ObrisiVrstu(ctx, "lopata")
-	if err == nil || !strings.Contains(err.Error(), "redaka prometa: 1, popisa: 0") || !strings.Contains(err.Error(), "ugasite") {
+	if err == nil || !strings.Contains(err.Error(), "redaka prometa: 1, inventura: 0") || !strings.Contains(err.Error(), "ugasite") {
 		t.Errorf("vrsta s prometom: %v", err)
 	}
 
@@ -514,7 +514,7 @@ func TestMtsObrisiVrstu(t *testing.T) {
 	if err := s.SpremiPopis(ctx, u, uprava, p); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.ObrisiVrstu(ctx, naPopisu.ID); err == nil || !strings.Contains(err.Error(), "popisa: 1") {
+	if err := s.ObrisiVrstu(ctx, naPopisu.ID); err == nil || !strings.Contains(err.Error(), "inventura: 1") {
 		t.Errorf("vrsta na popisu: %v", err)
 	}
 	if v, err := s.Vrsta(ctx, "lopata"); err != nil || v == nil {

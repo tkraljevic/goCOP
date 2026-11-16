@@ -74,23 +74,23 @@ func (s *MtsService) SpremiVrstu(ctx context.Context, v *models.VrstaSredstva) e
 	v.Naziv = strings.TrimSpace(v.Naziv)
 	v.Jedinica = strings.TrimSpace(v.Jedinica)
 	if v.Naziv == "" {
-		return errors.New("vrsta sredstva mora imati naziv")
+		return errors.New("Vrsta sredstva mora imati naziv.")
 	}
 	if v.Jedinica == "" {
-		return errors.New("vrsta sredstva mora imati jedinicu mjere")
+		return errors.New("Vrsta sredstva mora imati jedinicu mjere.")
 	}
 	if !models.PostojiGrupa(v.Grupa) {
-		return errors.New("nepoznata skupina sredstava")
+		return errors.New("Nepoznata skupina sredstava.")
 	}
 	if v.ID == "" {
 		v.ID = models.OznakaSredstva(v.Naziv)
 		if v.ID == "" {
-			return errors.New("iz naziva se ne može složiti oznaka; upišite je ručno")
+			return errors.New("Iz naziva se ne može složiti oznaka; upišite je ručno.")
 		}
 		if postoji, err := s.repo.GetVrsta(ctx, v.ID); err != nil {
 			return err
 		} else if postoji != nil {
-			return fmt.Errorf("vrsta s oznakom %s već postoji", v.ID)
+			return fmt.Errorf("Vrsta s oznakom %s već postoji.", v.ID)
 		}
 	}
 	return s.repo.SaveVrsta(ctx, v)
@@ -108,13 +108,13 @@ func (s *MtsService) Skladiste(ctx context.Context, id string) (*models.Skladist
 func (s *MtsService) SpremiSkladiste(ctx context.Context, perms *models.UserPermissions, sk *models.Skladiste) error {
 	sk.Naziv = strings.TrimSpace(sk.Naziv)
 	if sk.Naziv == "" {
-		return errors.New("skladište mora imati naziv")
+		return errors.New("Skladište mora imati naziv.")
 	}
 	if sk.Sektor == "" {
-		return errors.New("skladište mora pripadati sektoru")
+		return errors.New("Skladište mora pripadati sektoru.")
 	}
 	if !s.SmijeUrediti(perms, sk.Sektor, sk.AreaID) {
-		return errors.New("skladišta uređuje uprava branjenog područja ili sektora")
+		return errors.New("Skladišta uređuje uprava branjenog područja ili sektora.")
 	}
 	if err := s.podrucjeUSektoru(ctx, sk.AreaID, sk.Sektor); err != nil {
 		return err
@@ -137,10 +137,10 @@ func (s *MtsService) smijeMijenjatiSkladiste(ctx context.Context, perms *models.
 		return err
 	}
 	if !s.SmijeUrediti(perms, cur.Sektor, cur.AreaID) {
-		return errors.New("skladišta uređuje uprava branjenog područja ili sektora")
+		return errors.New("Skladišta uređuje uprava branjenog područja ili sektora.")
 	}
 	if cur.Sektor != sk.Sektor && !perms.IsGlobalAdmin {
-		return errors.New("sektor skladišta mijenja samo globalni administrator")
+		return errors.New("Sektor skladišta mijenja samo globalni administrator.")
 	}
 	return nil
 }
@@ -156,7 +156,7 @@ func (s *MtsService) podrucjeUSektoru(ctx context.Context, areaID int, sektor st
 		return err
 	}
 	if sektorPodrucja != sektor {
-		return fmt.Errorf("branjeno područje %d nije u sektoru %s", areaID, sektor)
+		return fmt.Errorf("Branjeno područje %d nije u sektoru %s.", areaID, sektor)
 	}
 	return nil
 }
@@ -354,7 +354,7 @@ func (s *MtsService) mjestoTerena(ctx context.Context, z Zahvat) (models.MjestoT
 		}
 	}
 	if m.AreaID == 0 {
-		return m, errors.New("mjesto na terenu traži branjeno područje (a po volji dionicu, objekt ili opis)")
+		return m, errors.New("Mjesto na terenu traži branjeno područje (a po volji dionicu, objekt ili opis).")
 	}
 	return m, nil
 }
@@ -370,12 +370,12 @@ func (s *MtsService) podrucjeDionice(m *models.MjestoTerena) error {
 		return err
 	}
 	if sec == nil {
-		return fmt.Errorf("nepoznata dionica %s", m.SectionCode)
+		return fmt.Errorf("Nepoznata dionica %s.", m.SectionCode)
 	}
 	if m.AreaID == 0 {
 		m.AreaID = sec.AreaID
 	} else if sec.AreaID != m.AreaID {
-		return fmt.Errorf("dionica %s nije u branjenom području %d", m.SectionCode, m.AreaID)
+		return fmt.Errorf("Dionica %s nije u branjenom području %d.", m.SectionCode, m.AreaID)
 	}
 	return nil
 }
@@ -385,14 +385,14 @@ func (s *MtsService) podrucjeDionice(m *models.MjestoTerena) error {
 func (s *MtsService) objektTerena(ctx context.Context, structureID string) (*models.Structure, error) {
 	id, err := uuid.Parse(structureID)
 	if err != nil {
-		return nil, fmt.Errorf("neispravan objekt „%s”", structureID)
+		return nil, fmt.Errorf("Neispravan objekt „%s”.", structureID)
 	}
 	st, err := s.structures.GetStructure(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 	if st == nil {
-		return nil, fmt.Errorf("objekt %s nije u registru objekata", structureID)
+		return nil, fmt.Errorf("Objekt %s nije u registru objekata.", structureID)
 	}
 	return st, nil
 }
@@ -427,33 +427,33 @@ type Zahvat struct {
 // Provedi upisuje zahvat kao promet. Vraća retke koji su nastali.
 func (s *MtsService) Provedi(ctx context.Context, u *models.User, perms *models.UserPermissions, z Zahvat) ([]models.Promet, error) {
 	if u == nil {
-		return nil, errors.New("upis zahtijeva prijavu")
+		return nil, errors.New("Upis zahtijeva prijavu.")
 	}
 	if z.Kolicina <= 0 {
-		return nil, errors.New("količina mora biti veća od nule")
+		return nil, errors.New("Količina mora biti veća od nule.")
 	}
 	vrsta, err := s.repo.GetVrsta(ctx, z.VrstaID)
 	if err != nil {
 		return nil, err
 	}
 	if vrsta == nil {
-		return nil, errors.New("nepoznata vrsta sredstva")
+		return nil, errors.New("Nepoznata vrsta sredstva.")
 	}
 	sk, err := s.repo.GetSkladiste(ctx, z.SkladisteID)
 	if err != nil {
 		return nil, err
 	}
 	if sk == nil {
-		return nil, errors.New("nepoznato skladište")
+		return nil, errors.New("Nepoznato skladište.")
 	}
 	if !s.SmijePisati(perms, sk) {
-		return nil, errors.New("promet sredstava upisuje uprava branjenog područja ili sektora")
+		return nil, errors.New("Promet sredstava upisuje skladištar ili uprava branjenog područja i sektora.")
 	}
 	if z.Datum.IsZero() {
 		z.Datum = time.Now().In(models.Zagreb)
 	}
 	if pocetakDana(z.Datum).After(pocetakDana(time.Now().In(models.Zagreb))) {
-		return nil, errors.New("promet se upisuje za danas ili unatrag, ne unaprijed")
+		return nil, errors.New("Promet se upisuje za danas ili unatrag, ne unaprijed.")
 	}
 	if !vrsta.ImaOblike() {
 		z.Oblik = models.OblikOsnovni
@@ -493,7 +493,7 @@ func (s *MtsService) Provedi(ctx context.Context, u *models.User, perms *models.
 			if skladisteID == "" {
 				gdje = "na terenu"
 			}
-			return fmt.Errorf("%s stoji %s %s, a skida se %s — upišite prvo primku ili ispravite količinu",
+			return fmt.Errorf("%s stoji %s %s, a skida se %s — upišite prvo primku ili ispravite količinu.",
 				gdje, kolicinaTekst(ima), vrsta.Jedinica, kolicinaTekst(treba))
 		}
 		return nil
@@ -521,7 +521,7 @@ func (s *MtsService) Provedi(ctx context.Context, u *models.User, perms *models.
 		// drugi oblik. Vreće se pune u skladištu; box barijere na dionici,
 		// bagerom — tada se puni ono što je na terenu.
 		if !vrsta.ImaOblike() {
-			return nil, errors.New("punjenje ima smisla samo za sredstvo koje se vodi u više oblika")
+			return nil, errors.New("Punjenje ima smisla samo za sredstvo koje se vodi u više oblika.")
 		}
 		iz, u := z.Oblik, z.UOblik
 		if iz == "" {
@@ -531,7 +531,7 @@ func (s *MtsService) Provedi(ctx context.Context, u *models.User, perms *models.
 			u = models.OblikPunjeno
 		}
 		if iz == u {
-			return nil, errors.New("punjenje mora mijenjati oblik")
+			return nil, errors.New("Punjenje mora mijenjati oblik.")
 		}
 		a, b := osnova, osnova
 		if naTeren {
@@ -557,7 +557,7 @@ func (s *MtsService) Provedi(ctx context.Context, u *models.User, perms *models.
 			return nil, err
 		}
 		if cilj == nil || cilj.ID == sk.ID {
-			return nil, errors.New("prijenos traži drugo skladište")
+			return nil, errors.New("Prijenos traži drugo skladište.")
 		}
 		if err := provjeriZalihu(sk.ID, z.Oblik, z.Kolicina); err != nil {
 			return nil, err
@@ -604,7 +604,7 @@ func (s *MtsService) Provedi(ctx context.Context, u *models.User, perms *models.
 		redci = append(redci, r)
 
 	default:
-		return nil, fmt.Errorf("nepoznata vrsta prometa %q", z.Vrsta)
+		return nil, fmt.Errorf("Nepoznata vrsta prometa %q.", z.Vrsta)
 	}
 
 	if err := s.repo.SavePromet(ctx, redci); err != nil {
@@ -637,7 +637,7 @@ func (s *MtsService) PredlozakPopisa(ctx context.Context, skladisteID string, da
 		return nil, err
 	}
 	if sk == nil {
-		return nil, errors.New("nepoznato skladište")
+		return nil, errors.New("Nepoznato skladište.")
 	}
 	dan = pocetakDana(dan)
 	if postojeci, err := s.repo.PopisZaDan(ctx, skladisteID, dan); err != nil {
@@ -655,7 +655,7 @@ func (s *MtsService) PredlozakPopisa(ctx context.Context, skladisteID string, da
 		for _, o := range sv.Vrsta.SviOblici() {
 			k := sv.PoOblicima[o]
 			p.Stavke = append(p.Stavke, models.PopisnaStavka{VrstaID: sv.Vrsta.ID, Oblik: o, Utvrdjeno: k, Knjizno: k,
-				VrstaNaziv: sv.Vrsta.Naziv, Jedinica: sv.Vrsta.Jedinica, Grupa: sv.Vrsta.Grupa})
+				VrstaNaziv: sv.Vrsta.Naziv, Jedinica: sv.Vrsta.Jedinica, Grupa: sv.Vrsta.Grupa, RedniBroj: sv.Vrsta.Redoslijed})
 		}
 	}
 	return p, nil
@@ -674,6 +674,7 @@ func (s *MtsService) dopuniPopis(ctx context.Context, p *models.Popis) (*models.
 	for i := range p.Stavke {
 		if v, ok := po[p.Stavke[i].VrstaID]; ok {
 			p.Stavke[i].VrstaNaziv, p.Stavke[i].Jedinica, p.Stavke[i].Grupa = v.Naziv, v.Jedinica, v.Grupa
+			p.Stavke[i].RedniBroj = v.Redoslijed
 		}
 	}
 	return p, nil
@@ -682,7 +683,7 @@ func (s *MtsService) dopuniPopis(ctx context.Context, p *models.Popis) (*models.
 // SpremiPopis upisuje popis kao nacrt; zaključeni se ne mijenja
 func (s *MtsService) SpremiPopis(ctx context.Context, u *models.User, perms *models.UserPermissions, p *models.Popis) error {
 	if u == nil {
-		return errors.New("upis zahtijeva prijavu")
+		return errors.New("Upis zahtijeva prijavu.")
 	}
 	cur, err := s.postojeciPopis(ctx, p)
 	if err != nil {
@@ -693,17 +694,17 @@ func (s *MtsService) SpremiPopis(ctx context.Context, u *models.User, perms *mod
 		return err
 	}
 	if sk == nil {
-		return errors.New("nepoznato skladište")
+		return errors.New("Nepoznato skladište.")
 	}
 	if !s.SmijePisati(perms, sk) {
-		return errors.New("popis vodi uprava branjenog područja ili sektora")
+		return errors.New("Inventuru vodi skladištar ili uprava branjenog područja i sektora.")
 	}
 	if p.Dan.IsZero() {
-		return errors.New("popis mora imati dan")
+		return errors.New("Inventura mora imati dan.")
 	}
 	p.Dan = pocetakDana(p.Dan)
 	if p.Dan.After(pocetakDana(time.Now().In(models.Zagreb))) {
-		return errors.New("popis se radi za dan koji je prošao, ne unaprijed")
+		return errors.New("Inventura se radi za dan koji je prošao, ne unaprijed.")
 	}
 	p.Sektor, p.Godina = sk.Sektor, p.Dan.Year()
 	postojeci, err := s.repo.PopisZaDan(ctx, p.SkladisteID, p.Dan)
@@ -711,11 +712,11 @@ func (s *MtsService) SpremiPopis(ctx context.Context, u *models.User, perms *mod
 		return err
 	}
 	if postojeci != nil && postojeci.ID != p.ID {
-		return fmt.Errorf("popis skladišta %s na dan %s već postoji", sk.Naziv, p.Dan.Format("2.1.2006."))
+		return fmt.Errorf("Inventura skladišta %s na dan %s već postoji.", sk.Naziv, p.Dan.Format("2.1.2006."))
 	}
 	if cur != nil {
 		if cur.Zakljucen() {
-			return errors.New("zaključeni popis se ne mijenja; razlika je proknjižena")
+			return errors.New("Zaključena inventura se ne mijenja; razlika je proknjižena.")
 		}
 		p.CreatedAt, p.IzradioID, p.Izradio, p.ZakljucenoAt = cur.CreatedAt, cur.IzradioID, cur.Izradio, cur.ZakljucenoAt
 	}
@@ -738,7 +739,7 @@ func (s *MtsService) postojeciPopis(ctx context.Context, p *models.Popis) (*mode
 		return nil, err
 	}
 	if cur == nil {
-		return nil, errors.New("popis nije pronađen")
+		return nil, errors.New("Inventura nije pronađena.")
 	}
 	p.SkladisteID = cur.SkladisteID
 	return cur, nil
@@ -754,20 +755,20 @@ func (s *MtsService) ZakljuciPopis(ctx context.Context, u *models.User, perms *m
 		return err
 	}
 	if p == nil {
-		return errors.New("popis nije pronađen")
+		return errors.New("Inventura nije pronađena.")
 	}
 	sk, err := s.repo.GetSkladiste(ctx, p.SkladisteID)
 	if err != nil {
 		return err
 	}
 	if u == nil || sk == nil || !s.SmijePisati(perms, sk) {
-		return errors.New("popis zaključuje uprava branjenog područja ili sektora")
+		return errors.New("Inventuru zaključuje skladištar ili uprava branjenog područja i sektora.")
 	}
 	if p.Zakljucen() {
 		return nil
 	}
 	if p.Prazan() {
-		return errors.New("prazan popis se ne zaključuje: upišite prebrojano stanje")
+		return errors.New("Prazna inventura se ne zaključuje: upišite prebrojano stanje.")
 	}
 	// knjižno stanje se čita iznova u trenutku zaključenja: između sastavljanja
 	// i zaključenja mogao je netko upisati promet
@@ -973,20 +974,20 @@ func (s *MtsService) GodinePotreba(ctx context.Context, sektor string) []int {
 // kako obrazac nosi; nula znači da potrebe nema
 func (s *MtsService) SpremiPotrebe(ctx context.Context, u *models.User, perms *models.UserPermissions, skladisteID string, godina int, potrebe []models.Potreba) error {
 	if u == nil {
-		return errors.New("upis zahtijeva prijavu")
+		return errors.New("Upis zahtijeva prijavu.")
 	}
 	sk, err := s.repo.GetSkladiste(ctx, skladisteID)
 	if err != nil {
 		return err
 	}
 	if sk == nil {
-		return errors.New("nepoznato skladište")
+		return errors.New("Nepoznato skladište.")
 	}
 	if !s.SmijePisati(perms, sk) {
-		return errors.New("potrebe upisuje skladištar ili uprava branjenog područja i sektora")
+		return errors.New("Potrebe upisuje skladištar ili uprava branjenog područja i sektora.")
 	}
 	if godina < 2000 || godina > 2200 {
-		return errors.New("godina nabave nije valjana")
+		return errors.New("Godina nabave nije valjana.")
 	}
 	postojece, err := s.PotrebeSkladista(ctx, skladisteID, godina)
 	if err != nil {
@@ -995,7 +996,7 @@ func (s *MtsService) SpremiPotrebe(ctx context.Context, u *models.User, perms *m
 	var upis []models.Potreba
 	for _, p := range potrebe {
 		if p.Kolicina < 0 {
-			return errors.New("potreba ne može biti negativna")
+			return errors.New("Potreba ne može biti negativna.")
 		}
 		p.SkladisteID, p.Godina, p.UserName = skladisteID, godina, u.FullName
 		p.Napomena = strings.TrimSpace(p.Napomena)
@@ -1077,7 +1078,7 @@ func (s *MtsService) TablicaSkladista(ctx context.Context, skladisteID string, d
 		return nil, err
 	}
 	if sk == nil {
-		return nil, errors.New("nepoznato skladište")
+		return nil, errors.New("Nepoznato skladište.")
 	}
 	return s.tablica(ctx, sk.Sektor, []models.Skladiste{*sk}, dan)
 }
@@ -1136,14 +1137,14 @@ func (s *MtsService) ObrisiVrstu(ctx context.Context, id string) error {
 		return err
 	}
 	if v == nil {
-		return errors.New("vrsta nije pronađena")
+		return errors.New("Vrsta nije pronađena.")
 	}
 	prometa, popisa, err := s.repo.UpotrebaVrste(ctx, id)
 	if err != nil {
 		return err
 	}
 	if prometa > 0 || popisa > 0 {
-		return fmt.Errorf("vrsta „%s“ se ne može ukloniti dok na nju pokazuju retci prometa ili popisi (redaka prometa: %d, popisa: %d) — ugasite je umjesto toga", v.Naziv, prometa, popisa)
+		return fmt.Errorf("Vrsta „%s” se ne može ukloniti dok na nju pokazuju retci prometa ili inventure (redaka prometa: %d, inventura: %d); ugasite je umjesto toga.", v.Naziv, prometa, popisa)
 	}
 	return s.repo.ArhivirajVrstu(ctx, v)
 }

@@ -412,6 +412,7 @@ type PopisnaStavka struct {
 	VrstaNaziv string `json:"-"`
 	Jedinica   string `json:"-"`
 	Grupa      string `json:"-"`
+	RedniBroj  int    `json:"-"` // redni broj vrste u katalogu, za stupac „R. br.”
 }
 
 // Razlika je koliko popis odstupa od knjige: pozitivno višak, negativno manjak

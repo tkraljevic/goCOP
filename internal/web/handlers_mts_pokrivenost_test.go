@@ -405,7 +405,7 @@ func TestSpremanjeSkladista(t *testing.T) {
 
 	put, poruka = preusmjerenjeSredstava(t, o.zovi(t, upravaSredstava(), http.MethodPost, "/sredstva/skladista/"+o.sk.ID,
 		url.Values{"naziv": {" "}, "sektor": {"B"}, "area_id": {"34"}}), "error")
-	if put != "/sredstva/skladista/"+o.sk.ID+"/uredi" || poruka != "skladište mora imati naziv" {
+	if put != "/sredstva/skladista/"+o.sk.ID+"/uredi" || poruka != "Skladište mora imati naziv." {
 		t.Errorf("izmjena bez naziva: %s %q", put, poruka)
 	}
 	put, poruka = preusmjerenjeSredstava(t, o.zovi(t, promatracSredstava(), http.MethodPost, "/sredstva/skladista",
@@ -477,7 +477,7 @@ func TestSpremanjeZahvata(t *testing.T) {
 	}
 	p, poruka = preusmjerenjeSredstava(t, o.zovi(t, upravaSredstava(), http.MethodPost, put, url.Values{
 		"vrsta": {models.PrometPrimka}, "sredstvo": {"lopata"}, "kolicina": {"0"}, "datum": {"2025-05-01"}}), "error")
-	if p != natrag || poruka != "količina mora biti veća od nule" {
+	if p != natrag || poruka != "Količina mora biti veća od nule." {
 		t.Errorf("nula: %s %q", p, poruka)
 	}
 
@@ -563,7 +563,7 @@ func TestInventuraKrozRute(t *testing.T) {
 	// prazan dan i tuđe skladište: spremanje ne prolazi i vraća na predložak
 	p, poruka := preusmjerenjeSredstava(t, o.zovi(t, upravaSredstava(), http.MethodPost, "/sredstva/popisi",
 		url.Values{"skladiste": {o.sk.ID}}), "error")
-	if p != "/sredstva/skladista/"+o.sk.ID+"/popis" || poruka != "popis mora imati dan" {
+	if p != "/sredstva/skladista/"+o.sk.ID+"/popis" || poruka != "Inventura mora imati dan." {
 		t.Errorf("bez dana: %s %q", p, poruka)
 	}
 
@@ -610,7 +610,7 @@ func TestInventuraKrozRute(t *testing.T) {
 	}
 
 	// ponovno zaključenje i nepostojeći popis javljaju razlog
-	if _, poruka := preusmjerenjeSredstava(t, o.zovi(t, upravaSredstava(), http.MethodPost, "/sredstva/popisi/nema/zakljuci", url.Values{}), "error"); poruka != "popis nije pronađen" {
+	if _, poruka := preusmjerenjeSredstava(t, o.zovi(t, upravaSredstava(), http.MethodPost, "/sredstva/popisi/nema/zakljuci", url.Values{}), "error"); poruka != "Inventura nije pronađena." {
 		t.Errorf("nepostojeći popis: %q", poruka)
 	}
 }
@@ -690,10 +690,10 @@ func TestKatalogSredstava(t *testing.T) {
 	}
 
 	if _, poruka := preusmjerenjeSredstava(t, o.zovi(t, upravaSredstava(), http.MethodPost, "/sredstva/katalog", url.Values{
-		"grupa": {models.GrupaAlat}, "naziv": {"Kanta"}}), "error"); poruka != "vrsta sredstva mora imati jedinicu mjere" {
+		"grupa": {models.GrupaAlat}, "naziv": {"Kanta"}}), "error"); poruka != "Vrsta sredstva mora imati jedinicu mjere." {
 		t.Errorf("bez jedinice: %q", poruka)
 	}
-	if _, poruka := preusmjerenjeSredstava(t, o.zovi(t, upravaSredstava(), http.MethodPost, "/sredstva/katalog/nema/obrisi", url.Values{}), "error"); poruka != "vrsta nije pronađena" {
+	if _, poruka := preusmjerenjeSredstava(t, o.zovi(t, upravaSredstava(), http.MethodPost, "/sredstva/katalog/nema/obrisi", url.Values{}), "error"); poruka != "Vrsta nije pronađena." {
 		t.Errorf("brisanje nepostojeće: %q", poruka)
 	}
 }

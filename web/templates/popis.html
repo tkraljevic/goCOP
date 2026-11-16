@@ -10,7 +10,7 @@
   <div>
     <h1 class="page-title" data-naziv-stranice>{{icon "list"}} Inventura na dan {{$p.Dan.Format "2.1.2006."}}</h1>
     <p class="page-desc">{{$sk.Naziv}}{{if $sk.AreaName}} · BP {{$sk.AreaID}} {{$sk.AreaName}}{{end}} · {{term "sektor"}} {{$sk.Sektor}}
-      · {{if $p.Zakljucen}}<span class="badge">zaključen {{$p.ZakljucenoAt.Format "2.1.2006. 15:04"}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{end}}
+      · {{if $p.Zakljucen}}<span class="badge">zaključena {{$p.ZakljucenoAt.Format "2.1.2006. 15:04"}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{end}}
       {{if $p.Razlika}} · {{$p.Razlika}} {{uzBroj $p.Razlika "redak" "retka" "redaka"}} s razlikom{{end}}</p>
   </div>
   <div class="page-actions">
@@ -36,7 +36,7 @@
     <tr class="mts-grupa"><td>{{.Rimski}}</td><td colspan="7">{{.Naziv}}</td></tr>
     {{range .Stavke}}
     <tr{{if and (not .Utvrdjeno) (not .Knjizno)}} class="mts-prazno"{{end}}>
-      <td></td>
+      <td class="mono">{{if .RedniBroj}}{{.RedniBroj}}.{{end}}</td>
       <td>{{.VrstaNaziv}}</td>
       <td>{{.Jedinica}}</td>
       <td>{{if .Oblik}}{{oblik .Oblik}}{{end}}</td>
