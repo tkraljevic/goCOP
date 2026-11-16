@@ -1,12 +1,14 @@
 package web
 
 import (
+	"io/fs"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
 
 	"gocop/internal/models"
+	webassets "gocop/web"
 )
 
 // Odluke (16. 11. 2026.), Djelatnici 3 i 5: popis je tablica s recima koji
@@ -66,6 +68,33 @@ func TestCipoviDjelatnika(t *testing.T) {
 	for _, iz := range c[3].Izbor {
 		if iz.Naziv == "Isključen" && (!strings.Contains(iz.URL, "status=DISABLED") || !strings.Contains(iz.URL, "sector=B")) {
 			t.Errorf("izbor stanja: %s", iz.URL)
+		}
+	}
+}
+
+// Stranica osobe po crtežu 20, 2: kartica „Prijava i lozinka” s objema
+// radnjama i rečenicom što rade, moduli kao tri izbora istog imena polja
+// (mod_*), pa obrazac šalje isto kao dosadašnji izbornik.
+func TestStranicaOsobePoCrtezu(t *testing.T) {
+	templatesFS, err := fs.Sub(webassets.Files, "templates")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := fs.ReadFile(templatesFS, "user_detail.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := string(b)
+	for _, want := range []string{
+		`<h2 id="os-prijava">Prijava i lozinka</h2>`,
+		`action="/users/{{.User.ID}}/reset-password"`, `action="/users/{{.User.ID}}/kod-prijave"`,
+		`Za osobu koja je zaboravila lozinku.`, `Kad PIN ne stiže:`,
+		`<input type="radio" name="mod_{{.ID}}" value=""`, `value="show"`, `value="hide"`,
+		`<summary>{{icon "history"}} Prijašnja zaduženja`,
+		`Pregled tuđim očima`,
+	} {
+		if !strings.Contains(h, want) {
+			t.Errorf("stranica osobe nema %s", want)
 		}
 	}
 }

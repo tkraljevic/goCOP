@@ -135,7 +135,7 @@ func TestPrivremenoImenovanjeKrozObrazac(t *testing.T) {
 	}
 
 	// profil: prestaje s krajem obrane (raniji od datuma), u satu po našem vremenu
-	mora(zovi(http.MethodGet, "/users/"+osoba.ID.String(), nil), "profil", "Privremeno · Rukovoditelj dionice",
+	mora(zovi(http.MethodGet, "/users/"+osoba.ID.String(), nil), "profil", `>Privremeno</span><span class="oznaka-stanja os-mala">Rukovoditelj dionice</span>`,
 		"prestaje "+krajObrane.In(zagreb).Format("2. 1. 2006. u 15:04")+" (prestanak obrane, akt B-7/2026)")
 
 	// obrazac izmjene nudi zadani datum, a kvačica ostaje

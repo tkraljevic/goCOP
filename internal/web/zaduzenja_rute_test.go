@@ -122,7 +122,7 @@ func TestZaduzenjaNaProfiluKrozRute(t *testing.T) {
 	uredi := "/users/duties/" + zad.ID.String() + "/edit"
 
 	// tablica s gumbima
-	mora(zovi(http.MethodGet, profil, nil), "profil", "Rukovoditelj dionica A.34.1", "Dodaj zaduženje", uredi, "Opozovi", "A.34.1", "primarna")
+	mora(zovi(http.MethodGet, profil, nil), "profil", "Rukovoditelj dionica A.34.1", "Dodaj zaduženje", uredi, "Opozovi", "A.34.1", "primarno")
 	nema(zovi(http.MethodGet, profil, nil), "profil bez povijesti", "Prijašnja zaduženja")
 
 	// obrazac za izmjenu je predispunjen
