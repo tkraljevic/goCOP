@@ -169,6 +169,14 @@
 <span id="pomoc" aria-hidden="true"></span>
 <section class="detail-section" id="pocetak">
   <h2>{{icon "info"}} Kako se program koristi</h2>
+  <div class="pomoc-poglavlje">
+  <details class="pomoc-podnaslovi" data-pomoc-podnaslovi open>
+    <summary><small>U ovom poglavlju</small><span>2 podnaslova</span>{{icon "chevron-down"}}</summary>
+    <nav aria-label="U ovom poglavlju: Kako se program koristi">
+      <a href="#karte">Karte</a>
+      <a href="#karta-uredjivanje">Crtanje na karti</a>
+    </nav>
+  </details>
   <div class="reg-card pomoc-tekst">
     <p>goCOP vodi evidenciju obrane od poplava: vodostaje, dionice, objekte, dnevnike, dokumente,
       sredstva i ljude koji su u obrani. Osnovni rad ne treba internet — svaki čvor drži svoju
@@ -306,11 +314,26 @@
       letvu onaj tko smije mijenjati letvu. Tok vodotoka crta samo globalni administrator. Ostali
       kartu samo gledaju.</p>
   </div>
+  </div>
   {{template "pomocPoglavljeNav" (list "" "" "Naslovna" "#dashboard")}}
 </section>
 
 <section class="detail-section" id="dashboard">
   <h2>{{icon "house"}} Naslovna</h2>
+  <div class="pomoc-poglavlje">
+  <details class="pomoc-podnaslovi" data-pomoc-podnaslovi open>
+    <summary><small>U ovom poglavlju</small><span>8 podnaslova</span>{{icon "chevron-down"}}</summary>
+    <nav aria-label="U ovom poglavlju: Naslovna">
+      <a href="#dashboard-hero">Prijavljeni djelatnik i profil</a>
+      <a href="#dashboard-kartice">Moduli</a>
+      <a href="#dashboard-vrijeme">Vrijeme i vode</a>
+      <a href="#dashboard-kisa">Kiša po slivovima</a>
+      <a href="#dashboard-stanje">Stanje obrane</a>
+      <a href="#dashboard-brojke">Podaci u sustavu</a>
+      <a href="#dashboard-razmjena">Razmjena s čvorovima</a>
+      <a href="#dashboard-dogadjanja">Zid događanja</a>
+    </nav>
+  </details>
   <div class="reg-card pomoc-tekst">
     <p>Početna stranica je operativna ploča. Odozgo redom pokazuje module za koje imate ovlasti,
       vrijeme i vode za vaše područje, kišu po slivovima, način rada svakog sektora, podatke u
@@ -475,6 +498,7 @@
       <em>Teren</em> za terenske djelatnike te uvijek <em>Događanja</em>. Prečac u modul koji ne
       vidite se ne prikazuje.</p>
   </div>
+  </div>
   {{template "pomocPoglavljeNav" (list "Kako se program koristi" "#pocetak" "Obilazak letava" "#obilazak")}}
 </section>
 
@@ -553,6 +577,17 @@
 
 <section class="detail-section" id="sections">
   <h2>{{icon "file-text"}} Dionice</h2>
+  <div class="pomoc-poglavlje">
+  <details class="pomoc-podnaslovi" data-pomoc-podnaslovi open>
+    <summary><small>U ovom poglavlju</small><span>5 podnaslova</span>{{icon "chevron-down"}}</summary>
+    <nav aria-label="U ovom poglavlju: Dionice">
+      <a href="#dionica-poddionice">Poddionice</a>
+      <a href="#dionica-nasipi">Nasipi, objekti i ugroženo područje</a>
+      <a href="#dionica-vodomjeri">Mjerodavni vodomjeri</a>
+      <a href="#dionica-obrana">Proglašavanje obrane</a>
+      <a href="#dionica-ljudi">Tko je zadužen</a>
+    </nav>
+  </details>
   <div class="reg-card pomoc-tekst">
     <p>Branjena dionica je dio vodotoka koji se brani kao cjelina. Nosi šifru oblika
       <em>sektor.područje.broj</em> — B.34.1 je prva dionica područja 34 u sektoru B — i sve
@@ -672,11 +707,27 @@
     <p>Gumb <strong>Excel</strong> na kartici dionice daje karticu za ispis na A4; isti gumb na
       popisu dionica izvozi popis po odabranom sektoru, području i pretrazi.</p>
   </div>
+  </div>
   {{template "pomocPoglavljeNav" (list "Karta" "#karta" "Letve" "#stations")}}
 </section>
 
 <section class="detail-section" id="stations">
   <h2>{{icon "gauge"}} Letve</h2>
+  <div class="pomoc-poglavlje">
+  <details class="pomoc-podnaslovi" data-pomoc-podnaslovi open>
+    <summary><small>U ovom poglavlju</small><span>9 podnaslova</span>{{icon "chevron-down"}}</summary>
+    <nav aria-label="U ovom poglavlju: Letve">
+      <a href="#letva-kota">Kota nule i visinski sustavi</a>
+      <a href="#letva-pragovi">Pragovi i stupanj obrane</a>
+      <a href="#letva-ekstremi">Zabilježeni ekstremi</a>
+      <a href="#letva-povratni">Povratni vodostaji</a>
+      <a href="#letva-valovi">Valovi obrane u nizu</a>
+      <a href="#letva-korito">Korito i voda u njemu</a>
+      <a href="#letva-karta">Karta položaja</a>
+      <a href="#letva-historijat">Historijat letve</a>
+      <a href="#letva-izvjesce">Izvoz u Excel</a>
+    </nav>
+  </details>
   <div class="reg-card pomoc-tekst">
     <p>Letva je mjesto na kojem se mjeri vodostaj. Kartica letve skuplja sve što se o njoj zna i
       sve što se iz njezina niza da izračunati — od kote nule do stogodišnje vode.</p>
@@ -816,11 +867,25 @@
     <p>Na stranici očitanja Excel prati odabrano razdoblje. CSV ostaje za sirovu obradu i povrat
       ispravaka, a <code>.cop</code> za prijenos cijelog historijata među čvorovima.</p>
   </div>
+  </div>
   {{template "pomocPoglavljeNav" (list "Dionice" "#sections" "Očitanja" "#readings")}}
 </section>
 
 <section class="detail-section" id="readings">
   <h2>{{icon "ruler"}} Očitanja</h2>
+  <div class="pomoc-poglavlje">
+  <details class="pomoc-podnaslovi" data-pomoc-podnaslovi open>
+    <summary><small>U ovom poglavlju</small><span>7 podnaslova</span>{{icon "chevron-down"}}</summary>
+    <nav aria-label="U ovom poglavlju: Očitanja">
+      <a href="#ocitanja-zadnje">Zadnje očitanje</a>
+      <a href="#ocitanja-graf">Kretanje vodostaja</a>
+      <a href="#ocitanja-popis">Upis i popis očitanja</a>
+      <a href="#ocitanja-raspon">Vrijednosti izvan raspona</a>
+      <a href="#ocitanja-kvar">Kvar mjernog uređaja</a>
+      <a href="#ocitanja-skupno">Unos više odjednom</a>
+      <a href="#ocitanja-ispravak">Provjera i ispravak u tablici</a>
+    </nav>
+  </details>
   <div class="reg-card pomoc-tekst">
     <p>Očitanja koja ovaj program sam vodi: ono što vodočuvar upiše, što se uveze s letva.voda.hr
       ili što stigne telemetrijom. Za razliku od arhive, ovi se zapisi <strong>uređuju</strong> i
@@ -974,11 +1039,25 @@
       se stvarno mijenja, kroz istu knjigu verzija kao izmjena jednog po jednog. Poslije se zna
       tko je i kad što promijenio.</p>
   </div>
+  </div>
   {{template "pomocPoglavljeNav" (list "Letve" "#stations" "Arhiva vodostaja" "#arhiva")}}
 </section>
 
 <section class="detail-section" id="arhiva">
   <h2>{{icon "history"}} Arhiva vodostaja</h2>
+  <div class="pomoc-poglavlje">
+  <details class="pomoc-podnaslovi" data-pomoc-podnaslovi open>
+    <summary><small>U ovom poglavlju</small><span>7 podnaslova</span>{{icon "chevron-down"}}</summary>
+    <nav aria-label="U ovom poglavlju: Arhiva vodostaja">
+      <a href="#arhiva-karakteristike">Karakteristične vrijednosti</a>
+      <a href="#arhiva-izvori">Spojeni niz i izvori</a>
+      <a href="#arhiva-rekonstrukcija">Rekonstruirani nizovi</a>
+      <a href="#arhiva-ispravci">Izvoz i ispravci</a>
+      <a href="#arhiva-unos">Unos i ulaganje kroz sučelje</a>
+      <a href="#arhiva-postupak">Gradnja iz izvornih datoteka</a>
+      <a href="#arhiva-selidba">Prebacivanje u arhivu i pospremanje</a>
+    </nav>
+  </details>
   <div class="reg-card pomoc-tekst">
     <p>Arhiva je <strong>zasebna baza</strong> s mjerenjima starijim od programa — na Batini od
       1901. Odvojena je zato što je velika i zato što nije naša: donesena je izvana, ne uređuje
@@ -1145,11 +1224,23 @@
       pregled i provjeru. Administrator poslužitelja ima za izravan rad i alat <code>selidba-arhive</code>,
       koji nije dio isporuke.</p>
   </div>
+  </div>
   {{template "pomocPoglavljeNav" (list "Očitanja" "#readings" "Prognoze" "#prognoze")}}
 </section>
 
 <section class="detail-section" id="prognoze">
   <h2>{{icon "chart-column"}} Prognoze</h2>
+  <div class="pomoc-poglavlje">
+  <details class="pomoc-podnaslovi" data-pomoc-podnaslovi open>
+    <summary><small>U ovom poglavlju</small><span>5 podnaslova</span>{{icon "chevron-down"}}</summary>
+    <nav aria-label="U ovom poglavlju: Prognoze">
+      <a href="#prognoze-citanje">Kako čitati prognozu</a>
+      <a href="#prognoze-ranija">Ranija prognoza</a>
+      <a href="#prognoze-profil">Uzdužni profil</a>
+      <a href="#prognoze-metoda">Kako nastaje</a>
+      <a href="#prognoze-ogranicenja">Ograničenja i provjera</a>
+    </nav>
+  </details>
   <div class="reg-card pomoc-tekst">
     <p>Prognoza povezuje zadnja mjerenja s povijesnim ponašanjem postaja i procjenjuje kako bi se
       vodni val mogao kretati. Prikazuje sadašnje stanje, satne dosege <strong>+6 i +12 sati</strong>
@@ -1341,11 +1432,28 @@
       zadnjih 48 sati te satna kiša i prognozirane oborine po točkama slivova. Čvor koji prima
       upisuje ih u svoju bazu oborina.</p>
   </div>
+  </div>
   {{template "pomocPoglavljeNav" (list "Arhiva vodostaja" "#arhiva" "Dokumenti" "#journals")}}
 </section>
 
 <section class="detail-section" id="journals">
   <h2>{{icon "file-text"}} Dokumenti</h2>
+  <div class="pomoc-poglavlje">
+  <details class="pomoc-podnaslovi" data-pomoc-podnaslovi open>
+    <summary><small>U ovom poglavlju</small><span>10 podnaslova</span>{{icon "chevron-down"}}</summary>
+    <nav aria-label="U ovom poglavlju: Dokumenti">
+      <a href="#tok-obrane">Tok aktivne obrane</a>
+      <a href="#dnevnik-cop">Dnevnik COP-a</a>
+      <a href="#dnevnik-dezurstva">Plan dežurstava</a>
+      <a href="#dnevnik-obracun">Obračun sati i IORS</a>
+      <a href="#izvjesca">Dnevna izvješća</a>
+      <a href="#dogadjanja">Događanja</a>
+      <a href="#vodocuvar">Vodočuvarski dnevnik</a>
+      <a href="#prijave">Prijave s terena</a>
+      <a href="#akti">Rješenja i obavijesti</a>
+      <a href="#dnevnik-usluge">Dnevnici usluga A.02 i A.03</a>
+    </nav>
+  </details>
   <div class="reg-card pomoc-tekst">
     <p>Ulaz u Dokumente razdvaja povezane, ali različite poslove u četiri skupine. Pod Obranom su
       rješenja i obavijesti, dnevnici COP-a, plan dežurstava i dnevna izvješća, pod Terenom
@@ -1792,6 +1900,7 @@
       <span class="reg-chip">Briše: uprava sektora</span></p>
     {{if .VidiDokumente}}<p><a class="btn btn-secondary btn-sm" href="/dnevnici">{{icon "notebook"}} Otvori Dnevnike</a></p>{{end}}
   </div>
+  </div>
   {{template "pomocPoglavljeNav" (list "Prognoze" "#prognoze" "Sredstva" "#sredstva")}}
 </section>
 
@@ -1908,6 +2017,15 @@
 
 <section class="detail-section" id="users">
   <h2>{{icon "users"}} Djelatnici i dežurstva</h2>
+  <div class="pomoc-poglavlje">
+  <details class="pomoc-podnaslovi" data-pomoc-podnaslovi open>
+    <summary><small>U ovom poglavlju</small><span>3 podnaslova</span>{{icon "chevron-down"}}</summary>
+    <nav aria-label="U ovom poglavlju: Djelatnici i dežurstva">
+      <a href="#users-privremeno-imenovanje">Privremeno imenovanje</a>
+      <a href="#users-kod-prijave">Privremeni kod za prijavu</a>
+      <a href="#users-potvrda-adrese">Adresa za PIN izvan domene</a>
+    </nav>
+  </details>
   <div class="reg-card pomoc-tekst">
     <p>Imenik ljudi u obrani s njihovim ulogama i operativnim funkcijama. Uloga određuje što
       tko vidi i smije mijenjati; dužnost određuje za koje je dionice zadužen. Djelatnici imaju
@@ -2063,6 +2181,7 @@
       adrese ne hvata, osim kad istu adresu ima još jedan aktivni račun. Starije izdanje programa (0.0.26-alfa) potvrdu prenosi i čuva, ali na
       adresu izvan domene PIN ne šalje.</p>
   </div>
+  </div>
   {{template "pomocPoglavljeNav" (list "Potpisi i izvornici" "#potpisi" "Registri" "#registers")}}
 </section>
 
@@ -2126,6 +2245,13 @@
 
 <section class="detail-section" id="slivovi">
   <h2>{{icon "cloud-rain"}} Slivovi i kišomjeri</h2>
+  <div class="pomoc-poglavlje">
+  <details class="pomoc-podnaslovi" data-pomoc-podnaslovi open>
+    <summary><small>U ovom poglavlju</small><span>1 podnaslov</span>{{icon "chevron-down"}}</summary>
+    <nav aria-label="U ovom poglavlju: Slivovi i kišomjeri">
+      <a href="#slivovi-kisomjeri">Kišomjeri i izvedene točke</a>
+    </nav>
+  </details>
   <div class="reg-card pomoc-tekst">
     <p>Registar prikazuje <strong>međuslivove između susjednih vodomjernih postaja</strong>: dio
       prostora s kojega voda pritječe između gornje i donje letve. Na karti su zajedno poligoni
@@ -2173,11 +2299,22 @@
       potječu iz HydroBASINS/HydroSHEDS skupa (CC BY 4.0), a tokovi iz OpenStreetMapa (ODbL); izvor
       ostaje naveden uz prikaz.</p>
   </div>
+  </div>
   {{template "pomocPoglavljeNav" (list "Registri" "#registers" "Administracija" "#admin")}}
 </section>
 
 <section class="detail-section" id="admin">
   <h2>{{icon "settings"}} Administracija</h2>
+  <div class="pomoc-poglavlje">
+  <details class="pomoc-podnaslovi" data-pomoc-podnaslovi open>
+    <summary><small>U ovom poglavlju</small><span>4 podnaslova</span>{{icon "chevron-down"}}</summary>
+    <nav aria-label="U ovom poglavlju: Administracija">
+      <a href="#admin-posta-pin">PIN za prijavu izvana</a>
+      <a href="#admin-karta-bez-interneta">Karta bez interneta</a>
+      <a href="#telemetrija">Telemetrija letava</a>
+      <a href="#admin-test">Testne opcije</a>
+    </nav>
+  </details>
   <div class="reg-card pomoc-tekst">
     <p>Sve što se tiče samog programa, a ne obrane.</p>
     <p id="admin-raspored">Kartice na ulaznoj stranici stoje u šest skupina: <em>Ustroj i ljudi</em>,
@@ -2506,11 +2643,19 @@
       što ne može poništiti. Prije stvarnog rada sve testne prekidače treba isključiti i provjeriti
       da u bazi nema probnih izvornika.</p>
   </div>
+  </div>
   {{template "pomocPoglavljeNav" (list "Slivovi i kišomjeri" "#slivovi" "Profil" "#profile")}}
 </section>
 
 <section class="detail-section" id="profile">
   <h2>{{icon "user"}} Profil</h2>
+  <div class="pomoc-poglavlje">
+  <details class="pomoc-podnaslovi" data-pomoc-podnaslovi open>
+    <summary><small>U ovom poglavlju</small><span>1 podnaslov</span>{{icon "chevron-down"}}</summary>
+    <nav aria-label="U ovom poglavlju: Profil">
+      <a href="#profil-prijava-izvana">Prijava izvana i PIN</a>
+    </nav>
+  </details>
   <div class="reg-card pomoc-tekst">
     <p>Profil je podijeljen na odjeljke. Na računalu je popis odjeljaka lijevo, a odabrani
       odjeljak desno; na mobitelu prvo vidite popis, a <em>← Profil</em> vas vraća na njega. Iz
@@ -2601,6 +2746,7 @@
       adresu izvan dopuštene domene (npr. u tvrtki izvođača) upisuje i potvrđuje administrator;
       tada na profilu piše tko ju je potvrdio. Promijenite li je sami, potvrda prestaje (vidi
       <a href="#users-potvrda-adrese">Adresa za PIN izvan domene</a>).</p>
+  </div>
   </div>
   {{template "pomocPoglavljeNav" (list "Administracija" "#admin" "Pojmovnik" "#pojmovi")}}
 </section>
