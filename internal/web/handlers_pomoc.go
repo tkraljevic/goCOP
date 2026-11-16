@@ -28,6 +28,11 @@ type PomocPageData struct {
 	ErrorMessage   string
 	ActiveNav      string
 	ViewAsBanner
+
+	// Poveznice iz teksta u program vode samo onoga tko taj dio ima; ostali
+	// čitaju isti tekst bez poveznice umjesto gole stranice 403
+	VidiAdministraciju bool
+	VidiDokumente      bool
 }
 
 func (h *PomocHandler) ShowPomoc(w http.ResponseWriter, r *http.Request) {
@@ -37,6 +42,9 @@ func (h *PomocHandler) ShowPomoc(w http.ResponseWriter, r *http.Request) {
 		CurrentUser: u, Permissions: perms,
 		ActiveNav: "pomoc", ViewAsBanner: viewBanner(r),
 	}
+	moduli, _ := r.Context().Value(contextKeyModules).(models.Visibility)
+	data.VidiAdministraciju = moduli.Sees(models.ModuleAdmin)
+	data.VidiDokumente = moduli.Sees(models.ModuleJournals)
 	if err := h.tmpl.ExecuteTemplate(w, "pomoc.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

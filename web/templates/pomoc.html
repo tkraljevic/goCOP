@@ -1310,11 +1310,11 @@
 
     <h3 id="prognoze-cvorovi">Koji čvor izdaje prognozu</h3>
     <p>Vodostaje s izvora preuzima i prognozu izdaje jedan čvor. Uloge uključuje globalni
-      administrator u Administraciji, na stranici <a href="/settings#uloge">Ovo računalo i
-      mreža</a> (Uloge ovog čvora); na novom čvoru obje su isključene i on sve prima
+      administrator u Administraciji, na stranici {{if .VidiAdministraciju}}<a href="/settings#uloge">Ovo računalo i
+      mreža</a>{{else}}Ovo računalo i mreža{{end}} (Uloge ovog čvora); na novom čvoru obje su isključene i on sve prima
       razmjenom. Uloge se mijenjaju samo na samom računalu ili iz njegove lokalne mreže, ne izvana
       ni kroz tunel. Razmjenom se drugima samo javljaju, a drugo ih računalo ne može promijeniti.
-      Isključivanje traži potvrdu. Na stranici <a href="/sinkronizacija">Stanje razmjene</a> uz
+      Isključivanje traži potvrdu. Na stranici {{if .VidiAdministraciju}}<a href="/sinkronizacija">Stanje razmjene</a>{{else}}Stanje razmjene{{end}} uz
       svako računalo piše koje uloge ima, ako ih ono javlja (starija izdanja programa to ne
       rade). Očitanja putuju razmjenom kao i
       sva druga, a svako izdanje prognoze putuje s tuđim prognozama koje je izdavač tada imao i s kišom
@@ -1466,7 +1466,7 @@
       <code>BP_&lt;broj&gt;</code>, ukupnim iznosima i mjestima za potpise.</p>
     <p><span class="reg-chip">Obračun: uprava centra</span>
       <span class="reg-chip">IORS: uprava centra i osoba sama</span></p>
-    <p><a class="btn btn-secondary btn-sm" href="/dnevnici/popis?vrsta=DEZURSTVA">{{icon "users"}} Otvori plan dežurstava</a></p>
+    {{if .VidiDokumente}}<p><a class="btn btn-secondary btn-sm" href="/dnevnici/popis?vrsta=DEZURSTVA">{{icon "users"}} Otvori plan dežurstava</a></p>{{end}}
 
     <h3 id="izvjesca">Dnevna izvješća</h3>
     <p>Rukovoditelj dionice ili zamjenik za svaki dan obrane dopunjava izvješće dionice i predaje
@@ -1774,7 +1774,7 @@
     <p><span class="reg-chip">Nadzor: ovlaštenik za praćenje ugovora, a dok ga nema uprava</span>
       <span class="reg-chip">Naslovnica: ovlaštenik i uprava</span>
       <span class="reg-chip">Briše: uprava sektora</span></p>
-    <p><a class="btn btn-secondary btn-sm" href="/dnevnici">{{icon "notebook"}} Otvori Dnevnike</a></p>
+    {{if .VidiDokumente}}<p><a class="btn btn-secondary btn-sm" href="/dnevnici">{{icon "notebook"}} Otvori Dnevnike</a></p>{{end}}
   </div>
   {{template "pomocPoglavljeNav" (list "Prognoze" "#prognoze" "Sredstva za obranu" "#sredstva")}}
 </section>
@@ -2649,7 +2649,7 @@
     <p>Stalni čvor može preuzimati vodostaje i kišu te izdavati satne i dnevne prognoze.
       Ostala računala mogu primati gotova izdanja, umjesto da svako ponavlja preuzimanje i
       izračun. Uloge <em>Preuzima vodostaje s izvora</em> i <em>Izdaje prognozu</em> uključuje
-      globalni administrator na stranici <a href="/settings#uloge">Ovo računalo i mreža</a>. Novi čvor nema nijednu dok
+      globalni administrator na stranici {{if .VidiAdministraciju}}<a href="/settings#uloge">Ovo računalo i mreža</a>{{else}}Ovo računalo i mreža{{end}}. Novi čvor nema nijednu dok
       mu se ne uključi; ako ih u mreži nema nijedan čvor, vodostaji i prognoza se ne obnavljaju.
       Kad nema veze, dostupni ostaju lokalno spremljeni
       podaci; to ne znači da su očitanja i prognoze još svježi.</p>
