@@ -2646,6 +2646,13 @@ textarea {
 .pomoc-kazalo a.kazalo-glava::before { content: none; }
 .pomoc-kazalo a:hover { color: var(--primary); text-decoration: underline; }
 .pomoc-tekst { padding: 1rem 1.25rem; max-width: 62rem; line-height: 1.6; }
+/* Slika zaslona u Pomoći: snimljena u dvostrukoj gustoći, prikazana u
+   prirodnoj veličini dok stane; vidi se samo ona u temi programa */
+.pomoc-slika { margin: 0.75rem 0 1rem; }
+.pomoc-slika img { display: block; max-width: min(100%, 46rem); height: auto; border: 1px solid var(--border); border-radius: 12px; }
+.pomoc-slika-tamna { display: none !important; }
+:root[data-theme="dark"] .pomoc-slika-svijetla { display: none !important; }
+:root[data-theme="dark"] .pomoc-slika-tamna { display: block !important; }
 .pomoc-tekst p { margin: 0 0 0.75rem; }
 .pomoc-tekst p:last-child { margin-bottom: 0; }
 .pomoc-tekst h3 {
