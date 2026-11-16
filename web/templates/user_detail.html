@@ -96,7 +96,7 @@
   {{if .User.Duties}}
   <div class="table-card"><div class="table-responsive">
     <table class="data-table zaduzenja">
-      <thead><tr><th>Funkcija</th><th>Uloga</th><th>Doseg</th><th>Dionice</th><th>Vrijedi</th>{{if .CanManage}}<th class="radnje"></th>{{end}}</tr></thead>
+      <thead><tr><th>Zaduženje</th><th>Uloga</th><th>Doseg</th><th>Dionice</th><th>Vrijedi</th>{{if .CanManage}}<th class="radnje"></th>{{end}}</tr></thead>
       <tbody>
       {{range .User.Duties}}
       <tr>
@@ -112,7 +112,7 @@
                 onsubmit="return confirm('Opozvati zaduženje „{{.Title}}“? Nestaje s profila, a ostaje u povijesti.')">
             <input type="hidden" name="duty_id" value="{{.ID}}">
             <input type="hidden" name="user_id" value="{{$.User.ID}}">
-            {{if and $.Izvana (eq .Role.RazinaUprave 1)}}<input type="password" name="lozinka_racuna" class="form-control d-inline" placeholder="Lozinka vašeg računa" autocomplete="current-password" aria-label="Lozinka vašeg računa" title="Izvana se dužnost uprave organizacije opoziva samo uz lozinku vašeg računa" style="max-width:180px;" required>{{end}}
+            {{if and $.Izvana (eq .Role.RazinaUprave 1)}}<input type="password" name="lozinka_racuna" class="form-control d-inline" placeholder="Lozinka vašeg računa" autocomplete="current-password" aria-label="Lozinka vašeg računa" title="Izvana se zaduženje uprave organizacije opoziva samo uz lozinku vašeg računa" style="max-width:180px;" required>{{end}}
             <button type="submit" class="btn btn-sm btn-secondary" title="Opozovi zaduženje">{{icon "x"}} Opozovi</button>
           </form>
         </td>
@@ -142,7 +142,7 @@
 <section class="detail-section">
   <h2>{{icon "eye"}} Moduli koje račun vidi</h2>
   <form method="POST" action="/users/{{.User.ID}}/modules" class="reg-card p-4">
-    <p class="form-help mt-0 mb-3">„Kao uloga“ slijedi pravilo za uloge (Administracija → Moduli i ovlasti). Iznimka vrijedi samo za ovaj račun i ne mijenja prava upisa.</p>
+    <p class="form-help mt-0 mb-3">„Kao uloga“ slijedi pravilo za uloge (Administracija → Vidljivost modula). Iznimka vrijedi samo za ovaj račun i ne mijenja prava upisa.</p>
     <div class="reg-facts stupci-14">
       {{range .ModuleRows}}
       <div>

@@ -240,7 +240,7 @@ func privremenaNadStalnom(actor *models.UserPermissions, target *models.User) er
 	if actor == nil || !actor.IsGlobalAdmin || stalnaUpravaOrganizacije(actor) || !stalnaUpravaRacuna(target) {
 		return nil
 	}
-	return fmt.Errorf("%w: lozinku, kod za prijavu izvana, uključenost računa i dužnost stalne uprave organizacije mijenja samo stalna uprava organizacije", ErrUnauthorized)
+	return fmt.Errorf("%w: lozinku, kod za prijavu izvana, uključenost računa i zaduženje stalne uprave organizacije mijenja samo stalna uprava organizacije", ErrUnauthorized)
 }
 
 // Tuđim očima vrijede ovlasti osobe čijim se očima gleda, pa se računi i
@@ -281,7 +281,7 @@ func opozivStalneRazine1(actor *models.UserPermissions, d models.Duty) error {
 	if !stalnaDuznostRazine1(d, time.Now()) || stalnaUpravaOrganizacije(actor) {
 		return nil
 	}
-	return fmt.Errorf("%w: stalnu dužnost razine 1 („%s”) opoziva samo stalna uprava organizacije", ErrUnauthorized, d.Role.Label())
+	return fmt.Errorf("%w: stalno zaduženje razine 1 („%s”) opoziva samo stalna uprava organizacije", ErrUnauthorized, d.Role.Label())
 }
 
 // izmjenaStalneRazine1: izmjena koja stalnoj dužnosti razine 1 daje rok ili
@@ -395,7 +395,7 @@ func vijekIzmjene(p *models.UserPermissions, dosad, nova *models.Duty, sectors a
 		return nil
 	}
 	if err := mayGrant(p, nova.Role, nova.SectorID, nova.AreaID, sectors); err != nil {
-		return fmt.Errorf("%w; rok ove dužnosti možete ostaviti ili skratiti", err)
+		return fmt.Errorf("%w; rok ovog zaduženja možete ostaviti ili skratiti", err)
 	}
 	return nil
 }
@@ -481,7 +481,7 @@ func mayManage(p *models.UserPermissions, target *models.User, sectors areaSecto
 		return ErrUnauthorized
 	}
 	if len(target.Duties) == 0 {
-		return fmt.Errorf("%w: osoba nema dužnosti u vašem dosegu", ErrUnauthorized)
+		return fmt.Errorf("%w: osoba nema zaduženja u vašem dosegu", ErrUnauthorized)
 	}
 	for _, d := range target.Duties {
 		if err := mayAssign(p, d.Role, d.SectorID, d.AreaID, sectors); err != nil {
@@ -515,7 +515,7 @@ func zaduzujeTudji(target *models.User) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("%w: račun bez aktivne dužnosti zadužuje globalni administrator", ErrUnauthorized)
+	return fmt.Errorf("%w: račun bez važećeg zaduženja zadužuje globalni administrator", ErrUnauthorized)
 }
 
 // dionicaPodrucja vraća područje i sektor dionice; ok=false kad je nema u

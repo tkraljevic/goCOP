@@ -18,8 +18,8 @@ func TestStanjeRacuna(t *testing.T) {
 		naziv  string
 		znacka string
 	}{
-		{"isključen, nikad prijavljen", User{FullName: "Pero Perić"}, AccountDisabled, "Neaktivan", "badge-inactive"},
-		{"isključen, prijavljivao se", User{FullName: "Ana Anić", LastLoginAt: &prijava}, AccountDisabled, "Neaktivan", "badge-inactive"},
+		{"isključen, nikad prijavljen", User{FullName: "Pero Perić"}, AccountDisabled, "Isključen", "badge-inactive"},
+		{"isključen, prijavljivao se", User{FullName: "Ana Anić", LastLoginAt: &prijava}, AccountDisabled, "Isključen", "badge-inactive"},
 		{"uključen, još se nije prijavio", User{FullName: "Ivo Ivić", IsActive: true, PasswordHash: "postavljena"}, AccountPending, "Nije se prijavio", "badge-pending"},
 		{"uključen i prijavljivao se", User{FullName: "Marko Markić", IsActive: true, LastLoginAt: &prijava}, AccountActive, "Aktivan", "badge-active"},
 	} {

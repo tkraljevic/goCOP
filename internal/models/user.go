@@ -203,7 +203,7 @@ func (u *User) AccountState() AccountState {
 func (s AccountState) Label() string {
 	switch s {
 	case AccountDisabled:
-		return "Neaktivan"
+		return "Isključen"
 	case AccountPending:
 		return "Nije se prijavio"
 	default:

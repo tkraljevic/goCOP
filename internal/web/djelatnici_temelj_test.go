@@ -50,3 +50,24 @@ func TestDjelatniciZajednickiDijelovi(t *testing.T) {
 		}
 	}
 }
+
+// Odluke (16. 11. 2026.), Djelatnici 4: osoba ima zaduženja (ne dužnosti
+// ni funkcije), privremeno je „Privremeno”, a isključen račun „Isključen”.
+func TestDjelatniciRijeci(t *testing.T) {
+	templatesFS, err := fs.Sub(webassets.Files, "templates")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, stranica := range []string{"users.html", "user_detail.html", "user_form.html", "duty_form.html"} {
+		b, err := fs.ReadFile(templatesFS, stranica)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tekst := string(b)
+		for _, staro := range []string{"užnost", "Funkcija", "funkcij", "Ispomoć", "Neaktivan", "emailu", "Moduli i ovlasti"} {
+			if strings.Contains(tekst, staro) {
+				t.Errorf("%s još piše %q", stranica, staro)
+			}
+		}
+	}
+}

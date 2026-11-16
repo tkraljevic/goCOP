@@ -33,7 +33,7 @@
       <div class="search-input-wrapper">
         <span class="search-icon">{{icon "search"}} </span>
         <input type="text" id="filter-search" name="q" class="search-input" 
-               placeholder="Pretraži po imenu, prezimenu, dionici, mobitelu, telefonu, emailu, funkciji..." 
+               placeholder="Pretraži po imenu, prezimenu, dionici, mobitelu, telefonu, e-pošti, zaduženju…" 
                value="{{.SearchQuery}}">
         {{if .SearchQuery}}
         <a href="/users?sector={{$.SelectedSector}}&area={{$.SelectedArea}}&role={{$.SelectedRole}}&status={{$.SelectedStatus}}" class="search-clear-btn" title="Očisti unos pretrage">&times;</a>
@@ -77,10 +77,10 @@
 
       <div class="filter-group">
         <label class="filter-label" for="filter-role">
-          <span>{{icon "shield"}} </span> Uloga / Funkcija
+          <span>{{icon "shield"}} </span> Uloga
         </label>
         <select id="filter-role" name="role" class="filter-select {{if .SelectedRole}}filter-active{{end}}" onchange="this.form.submit()">
-          <option value="">-- Sve uloge i dužnosti --</option>
+          <option value="">-- Sve uloge --</option>
           <option value="GLOBAL_ADMIN" {{if eq $.SelectedRole "GLOBAL_ADMIN"}}selected{{end}}>{{roleLabel "GLOBAL_ADMIN"}}</option>
           {{range roleOptions}}{{if ne .Value "VIEWER"}}<option value="{{.Value}}" {{if or (eq $.SelectedRole .Value) (and (eq .Value "WATER_GUARD") (eq $.SelectedRole "FIELD_WORKER"))}}selected{{end}}>{{.Label}}</option>{{end}}{{end}}
         </select>
@@ -94,7 +94,7 @@
           <option value="">-- Sva stanja računa --</option>
           <option value="ACTIVE" {{if eq $.SelectedStatus "ACTIVE"}}selected{{end}}>Aktivan (prijavljivao se)</option>
           <option value="PENDING" {{if eq $.SelectedStatus "PENDING"}}selected{{end}}>Nije se prijavio</option>
-          <option value="DISABLED" {{if eq $.SelectedStatus "DISABLED"}}selected{{end}}>Neaktivan (prijava isključena)</option>
+          <option value="DISABLED" {{if eq $.SelectedStatus "DISABLED"}}selected{{end}}>Isključen</option>
           <option value="BEZ_EPOSTE" {{if eq $.SelectedStatus "BEZ_EPOSTE"}}selected{{end}}>Bez adrese za PIN (prazna, tuđa domena bez potvrde ili zajednička)</option>
         </select>
       </div>
@@ -130,7 +130,7 @@
       {{end}}
       {{if .SelectedStatus}}
       <span class="filter-pill">
-        {{icon "key-round"}} {{if eq .SelectedStatus "PENDING"}}Nije se prijavio{{else if eq .SelectedStatus "DISABLED"}}Neaktivan{{else if eq .SelectedStatus "BEZ_EPOSTE"}}Bez adrese za PIN{{else}}Aktivan{{end}}
+        {{icon "key-round"}} {{if eq .SelectedStatus "PENDING"}}Nije se prijavio{{else if eq .SelectedStatus "DISABLED"}}Isključen{{else if eq .SelectedStatus "BEZ_EPOSTE"}}Bez adrese za PIN{{else}}Aktivan{{end}}
         <a href="/users?q={{$.SearchQuery}}&sector={{$.SelectedSector}}&area={{$.SelectedArea}}&role={{$.SelectedRole}}" class="pill-remove" title="Ukloni filtar stanja računa">&times;</a>
       </span>
       {{end}}
@@ -163,7 +163,7 @@
         <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:0.375rem;">
           <strong>{{.Title}}</strong>
           <span class="badge {{if .IsTemporary}}badge-ispomoc{{else}}badge-area-admin{{end}}">
-            {{if .IsTemporary}}{{icon "zap"}} Ispomoć{{else}}{{roleLabel .Role}}{{end}}
+            {{if .IsTemporary}}{{icon "zap"}} Privremeno{{else}}{{roleLabel .Role}}{{end}}
           </span>
         </div>
         <div class="c-muted mt-1">

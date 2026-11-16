@@ -162,7 +162,7 @@ func TestUpravljanjeTudjimRacunom(t *testing.T) {
 		t.Error("razina 1 upravlja svakim računom")
 	}
 	bez := &models.User{ID: uuid.New(), IsActive: true}
-	ocekujOdbijeno(t, mayManage(sektorB, bez, sectorsOf), "nema dužnosti")
+	ocekujOdbijeno(t, mayManage(sektorB, bez, sectorsOf), "nema zaduženja")
 
 	if err := zaduzujeTudji(nil); !errors.Is(err, ErrUserNotFound) {
 		t.Errorf("nepostojeći račun: %v", err)

@@ -384,7 +384,7 @@ func (h *UsersHandler) HandleAddDuty(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if ispomoc {
-		redirectWith(w, r, "/users/"+userID.String(), "success", "Zaduženje je dodano kao ispomoć, pod nazivom uloge: primarnu dužnost i vlastiti naziv daje onaj tko uređuje cijeli račun (viša razina ili globalni administrator).")
+		redirectWith(w, r, "/users/"+userID.String(), "success", "Zaduženje je dodano pod nazivom uloge i nije primarno: primarno zaduženje i vlastiti naziv daje onaj tko uređuje cijeli račun (viša razina ili globalni administrator).")
 		return
 	}
 	redirectWith(w, r, "/users/"+userID.String(), "success", "Zaduženje je dodano.")
@@ -427,7 +427,7 @@ func (h *UsersHandler) HandleUpdateDuty(w http.ResponseWriter, r *http.Request) 
 	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
 	dutyID, err := uuid.Parse(r.PathValue("duty"))
 	if err != nil {
-		http.Redirect(w, r, "/users?error=Neispravan+ID+dužnosti", http.StatusSeeOther)
+		http.Redirect(w, r, "/users?error=Neispravan+ID+zaduženja", http.StatusSeeOther)
 		return
 	}
 	userID, err := uuid.Parse(r.FormValue("user_id"))
@@ -461,7 +461,7 @@ func (h *UsersHandler) HandleRevokeDuty(w http.ResponseWriter, r *http.Request) 
 	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
 	dutyID, err := uuid.Parse(r.FormValue("duty_id"))
 	if err != nil {
-		http.Redirect(w, r, "/users?error=Neispravan+ID+dužnosti", http.StatusSeeOther)
+		http.Redirect(w, r, "/users?error=Neispravan+ID+zaduženja", http.StatusSeeOther)
 		return
 	}
 
