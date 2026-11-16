@@ -91,3 +91,25 @@ func TestPorukaDjelatnika(t *testing.T) {
 		}
 	}
 }
+
+// Plan Djelatnika, B.9 i B.10: obrasci djelatnika i zaduženja nakon greške
+// vraćaju upisano, a račun bez vrste organizacije pri izmjeni ne dobije
+// sam „Hrvatske vode”.
+func TestObrasciDjelatnikaZadrzavajuUpisano(t *testing.T) {
+	templatesFS, err := fs.Sub(webassets.Files, "templates")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for stranica, want := range map[string]string{
+		"user_form.html": `{{if and .IsEdit (not .User.OrgType)}}<option value="" selected>— nije upisano —</option>{{end}}`,
+		"duty_form.html": `data-zadrzi-upisano>`,
+	} {
+		b, err := fs.ReadFile(templatesFS, stranica)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(b), want) || !strings.Contains(string(b), "data-zadrzi-upisano") {
+			t.Errorf("%s nema %s ili zadržavanja upisanog", stranica, want)
+		}
+	}
+}

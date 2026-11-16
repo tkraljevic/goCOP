@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"gocop/internal/models"
+	"gocop/internal/repository"
 )
 
 // ErrPreventivnaObrana: u sektoru nema otvorenog dnevnika COP-a, pa je obrana
@@ -230,7 +231,7 @@ func (s *VodocuvarService) UpisiIzAkta(ctx context.Context, a *models.Akt, dan t
 	if err := provjeriDanLista(dan, s.sada()); err != nil {
 		return []string{"dnevnici vodočuvara: " + err.Error()}
 	}
-	svi, err := s.users.ListUsers("", 0, "", "", "active")
+	svi, err := s.users.ListUsers("", 0, "", "", string(repository.StanjeUkljucen))
 	if err != nil {
 		return []string{"dnevnici vodočuvara: " + err.Error()}
 	}

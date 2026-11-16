@@ -842,7 +842,7 @@ func (s *AktService) UsporediImenik(ctx context.Context, perms *models.UserPermi
 		return nil, err
 	}
 	pp := s.Posta(ctx)
-	svi, err := s.users.ListUsers(sektor, 0, "", "", "active")
+	svi, err := s.users.ListUsers(sektor, 0, "", "", string(repository.StanjeUkljucen))
 	if err != nil {
 		return nil, err
 	}
@@ -1125,7 +1125,7 @@ func (s *AktService) AdreseZaPismo(ctx context.Context, u *models.User, upit str
 		vidjeno[email] = true
 		out = append(out, PredlozenaAdresa{Ime: strings.TrimSpace(ime), Email: email, Izvor: izvor})
 	}
-	if svi, err := s.users.ListUsers("", 0, "", "", "active"); err == nil {
+	if svi, err := s.users.ListUsers("", 0, "", "", string(repository.StanjeUkljucen)); err == nil {
 		for _, x := range svi {
 			dodaj(x.FullName, x.Email, "djelatnik")
 		}
