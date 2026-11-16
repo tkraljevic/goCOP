@@ -39,3 +39,18 @@ func TestTrakaSredstava(t *testing.T) {
 		t.Errorf("bez sektora adresa ostaje gola: %s", u)
 	}
 }
+
+// Skladišta na pregledu idu po branjenim područjima; skladište bez
+// područja stoji pod sektorom.
+func TestSkladistaPoPodrucjima(t *testing.T) {
+	d := MtsPageData{Skladista: []models.Skladiste{
+		{Naziv: "Bez područja", Sektor: "B"},
+		{Naziv: "CS Draž", Sektor: "B", AreaID: 16, AreaName: "Mali sliv Baranja"},
+		{Naziv: "CS Bakanka", Sektor: "B", AreaID: 16, AreaName: "Mali sliv Baranja"},
+		{Naziv: "Lapovac", Sektor: "B", AreaID: 17, AreaName: "Mali sliv Karašica-Vučica"},
+	}}
+	s := d.SkladistaPoPodrucjima()
+	if len(s) != 3 || s[0].Naslov != "Sektor B" || s[1].Naslov != "BP 16 · Mali sliv Baranja" || len(s[1].Skladista) != 2 || len(s[2].Skladista) != 1 {
+		t.Errorf("skupine: %+v", s)
+	}
+}

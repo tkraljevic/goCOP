@@ -131,6 +131,29 @@ type GrupaStanja struct {
 	Redci             []models.StanjeVrste
 }
 
+// SkupinaSkladista su skladišta jednog branjenog područja na pregledu
+type SkupinaSkladista struct {
+	Naslov    string
+	Skladista []models.Skladiste
+}
+
+// SkladistaPoPodrucjima slaže skladišta po branjenim područjima, redom kojim
+// ih daje baza (po području); skladište bez područja ide pod sektor
+func (d MtsPageData) SkladistaPoPodrucjima() []SkupinaSkladista {
+	var out []SkupinaSkladista
+	for _, sk := range d.Skladista {
+		naslov := "Sektor " + sk.Sektor
+		if sk.AreaID > 0 {
+			naslov = fmt.Sprintf("BP %d · %s", sk.AreaID, sk.AreaName)
+		}
+		if len(out) == 0 || out[len(out)-1].Naslov != naslov {
+			out = append(out, SkupinaSkladista{Naslov: naslov})
+		}
+		out[len(out)-1].Skladista = append(out[len(out)-1].Skladista, sk)
+	}
+	return out
+}
+
 // StavkePoGrupama slaže stavke popisa po skupinama, redom popisa
 func (d MtsPageData) StavkePoGrupama() []GrupaStavki {
 	if d.Popis == nil {

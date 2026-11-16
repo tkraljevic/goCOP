@@ -10765,3 +10765,36 @@ td .odr-sitno { margin-top: 2px; }
 .fir-cip { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 12px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 8px; font-size: 0.875rem; cursor: pointer; }
 .fir-cip:has(input:checked) { background: var(--md-sys-color-secondary-container); border-color: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
 .fir-cip input { margin: 0; accent-color: var(--md-sys-color-primary); }
+
+/* Sredstva, pregled (crtež 19a, 1): stanje lijevo, skladišta desno; ispod
+   1024 px skladišta idu iznad stanja */
+.sr-stupci { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.sr-desno { display: flex; flex-direction: column; }
+.sr-opis { margin: -4px 0 10px; color: var(--text-muted); font-size: 0.8125rem; }
+.sr-stanje { display: flex; flex-direction: column; gap: 4px; }
+.sr-glava, .sr-redak { display: grid; grid-template-columns: 44px minmax(0, 1fr) 56px 96px 20px; gap: 8px; align-items: center; }
+.sr-glava { padding: 4px 12px; color: var(--text-muted); font-size: 0.75rem; }
+.sr-skupina { padding: 10px 12px 2px; color: var(--text-muted); font-size: 0.75rem; font-weight: 600; }
+.sr-redak { min-height: 40px; padding: 6px 12px; border-radius: 8px; background: var(--bg); color: var(--text); text-decoration: none; font-size: 0.875rem; }
+.sr-redak:hover { background: var(--surface-hover); }
+.sr-redak small { display: block; color: var(--text-muted); font-size: 0.75rem; }
+.sr-redak .icon { width: 18px; height: 18px; color: var(--text-muted); }
+.sr-redak.sr-prazno { color: var(--text-muted); }
+.sr-glava .br, .sr-redak .br { text-align: right; }
+.sr-podrucje { margin: 10px 0 0; color: var(--text-muted); font-size: 0.75rem; font-weight: 600; }
+.sr-skladiste small { display: block; color: var(--text-muted); font-size: 0.75rem; }
+.sr-gcop { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.sr-gcop .form-label { width: 100%; margin: 0; }
+.sr-gcop .form-control { flex: 1 1 10rem; max-width: 14rem; }
+@media (max-width: 1023px) {
+  .sr-stupci { grid-template-columns: minmax(0, 1fr); }
+  .sr-desno { order: -1; }
+}
+@media (max-width: 599px) {
+  .sr-glava { display: none; }
+  .sr-redak { grid-template-columns: 28px minmax(0, 1fr) auto auto 16px; gap: 6px; padding-inline: 10px; }
+  .sr-redak > span:nth-child(4) { order: 3; }
+  .sr-redak > span:nth-child(3) { order: 4; color: var(--text-muted); }
+  .sr-redak > .icon { order: 5; }
+}
+
