@@ -13,6 +13,17 @@
 </nav>
 {{end}}
 
+{{/* Slika zaslona s pokazne kopije s izmišljenim podacima (Odluke (16. 11. 2026.)):
+     ime datoteke bez teme, opis za čitač zaslona i širina u točkama zaslona
+     (snimka je dvostruke gustoće, pa bi bez širine bila dvaput veća). Svijetla i tamna snimka
+     mijenjaju se s temom programa; snima ih tools/diagnostics/pokazna-kopija. */}}
+{{define "pomocSlika"}}
+<figure class="pomoc-slika">
+  <img class="pomoc-slika-svijetla" src="{{statika (printf "img/pomoc/%s-svijetla.webp" (index . 0))}}" alt="{{index . 1}}" width="{{index . 2}}" loading="lazy">
+  <img class="pomoc-slika-tamna" src="{{statika (printf "img/pomoc/%s-tamna.webp" (index . 0))}}" alt="{{index . 1}}" width="{{index . 2}}" loading="lazy">
+</figure>
+{{end}}
+
 {{define "content"}}
 <div class="breadcrumb"><a href="/">Naslovna</a> › Pomoć</div>
 
@@ -475,6 +486,7 @@
       ispisa se ne broji, jer letvu nije obišao onaj tko je ispis zalijepio. Traka pokazuje
       koliko ih je danas očitano, a gumb <em>Nastavi obilazak</em> vodi na prvu koja još nije.
       <em>Upiši</em> uz letvu otvara upis, a nakon spremanja program se vraća na isti popis.</p>
+    {{template "pomocSlika" (list "ocitanja-moje-letve" "Moje letve na mobitelu: jedna od dvije letve danas je očitana, gumb Nastavi obilazak vodi na Aljmaš, a uz njega je Upiši." "359")}}
     <p>Letva je danas očitana kad je netko na nju ručno upisao očitanje; uz vrijeme piše i tko.
       Satno očitanje uređaja i skupni unos se ne broje. Ostale letve su ispod, po vodama; čipom
       <em>Područje</em> popis se suzi na jedno branjeno područje.</p>
@@ -817,6 +829,7 @@
       (Dunav, Drava…), s objektima s letvom na kraju. Uz letvu su strelica kretanja, sat očitanja,
       kako je očitano i tko je očitao, stupanj obrane ako je na snazi, a crvenim slovima i
       <em>Mjerni uređaj je vjerojatno u kvaru.</em> kad mjerenje ne izgleda pravo.</p>
+    {{template "pomocSlika" (list "ocitanja-popis" "Popis letava po vodama: Batina raste i u pripremnom je stanju, uz Belišće piše da je mjerni uređaj vjerojatno u kvaru, Donji Miholjac pada i očitao ga je vodočuvar." "736")}}
     <p>Čipovi iznad popisa sužavaju ga: <strong>Moje letve</strong> ostavlja letve koje ste
       u zadnjih 90 dana sami očitali, a <strong>Sektor</strong> i <strong>Područje</strong> otvaraju
       izbor. Povećalo otvara pretragu po nazivu, a karta otvara Kartu zumiranu na letve s popisa.
@@ -929,7 +942,8 @@
       u tu vrijednost skočilo, ili je ona daleko izvan uobičajenog raspona letve. Isto se javlja kad
       mjerni uređaj odskoči daleko od prave razine i ondje se drži, npr. 1385 cm umjesto oko −120 cm.
       Tada je na vrhu stranice letve okvir <em>Mjerni uređaj je vjerojatno u kvaru</em>, a u popisu
-      Očitanja uz letvu znak <em>kvar uređaja</em>. Okvir nestane sam kad mjerni uređaj opet radi.</p>
+      Očitanja uz letvu trokut i ista rečenica. Okvir nestane sam kad mjerni uređaj opet radi.</p>
+    {{template "pomocSlika" (list "ocitanja-kvar" "Okvir na vrhu stranice letve: mjerenje stoji na istoj vrijednosti od jučer, a u nju se skočilo; ispod je zadnje očitanje s pragovima." "728")}}
     <p>Očitanja se zbog toga ne brišu. Kad kvar potvrđuje susjedna letva, prognoza ta očitanja ne uzima i
       računa kao da mjerenja nema; inače ih uzima, a uz izdanje stoji napomena.</p>
     <p>Niska vrijednost koja stoji dok se susjedne letve samo spuštaju vjerojatno nije kvar: voda je
