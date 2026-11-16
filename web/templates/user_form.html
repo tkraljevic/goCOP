@@ -175,7 +175,9 @@
   </section>
   {{end}}
 
-  {{if .Permissions.IsGlobalAdmin}}
+  {{/* Uključenost računa mijenja i uprava u svom dosegu (Odluke (16. 11. 2026.),
+       Djelatnici 7), a zastavicu globalnog administratora samo administrator */}}
+  {{if or .Permissions.IsGlobalAdmin (and .IsEdit .CanManage (not .IsSelf))}}
   <section class="os-kartica" aria-labelledby="ob-prava">
   <h2 id="ob-prava">Prava</h2>
     {{if .IsEdit}}
@@ -185,6 +187,7 @@
       {{if .IsSelf}}<input type="hidden" name="is_active" value="1">{{end}}
     </label>
     {{end}}
+    {{if .Permissions.IsGlobalAdmin}}
     <label class="ob-prekidac">
       <span>Globalni administrator<small>Smije sve u cijeloj organizaciji.</small></span>
       <input type="checkbox" class="prekidac" role="switch" id="is_global_admin" name="is_global_admin" value="1" {{if .User.IsGlobalAdmin}}checked{{end}}>
@@ -217,6 +220,7 @@
   })();
   </script>
   {{end}}
+    {{end}}
   </section>
   {{else if .IsEdit}}
   <input type="hidden" name="is_active" value="{{if .User.IsActive}}1{{else}}0{{end}}">
