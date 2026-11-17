@@ -51,6 +51,7 @@ func (s *Server) izvoriNaslovne() IzvoriNaslovne {
 		PrometSredstava:  s.prometSredstavaNaslovne,
 		PopisiSredstava:  s.popisiSredstavaNaslovne,
 		VrsteSredstava:   s.vrsteSredstavaNaslovne,
+		Posiljke:         s.posiljkeNaslovne,
 		DnevniciUsluga:   s.dnevniciUslugaNaslovne,
 		ListoviDnevnika:  s.listoviDnevnikaNaslovne,
 	}
@@ -195,6 +196,14 @@ func (s *Server) sredstvaNaTerenuNaslovne(ctx context.Context, sektor string) ([
 		return nil, errSredstvaZatvorena
 	}
 	return s.mtsService.NaTerenu(ctx, "", sektor)
+}
+
+// posiljkeNaslovne je roba na putu po filtru
+func (s *Server) posiljkeNaslovne(ctx context.Context, f repository.FiltarPosiljki) ([]models.Posiljka, error) {
+	if s.mtsService == nil {
+		return nil, errSredstvaZatvorena
+	}
+	return s.mtsService.NaPutu(ctx, f)
 }
 
 // prometSredstavaNaslovne je promet po filtru

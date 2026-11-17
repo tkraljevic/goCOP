@@ -403,7 +403,7 @@ func (h *DashboardHandler) zaRijesitiNaPodrucju(ctx context.Context, perms *mode
 		p, _ := h.izvori.Prijave(ctx, perms, repository.FiltarPrijava{Sektor: sektor, AreaID: area, Status: models.PrijavaObjavljena, Limit: 2000}) // bez prijava redak izostaje
 		out = append(out, redoviPrijava(p, sektor, sad)...)
 	}
-	return out
+	return append(out, h.stizeNaTeren(ctx, sektor, area)...)
 }
 
 // zaRijesitiDionica: listovi koji čekaju parafu i prijave s terena na

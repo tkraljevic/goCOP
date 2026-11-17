@@ -62,6 +62,7 @@ type IzvoriNaslovne struct {
 	PrometSredstava  func(ctx context.Context, f repository.FiltarPrometa) ([]models.Promet, error)
 	PopisiSredstava  func(ctx context.Context, sektor, skladiste string, godina int) ([]models.Popis, error)
 	VrsteSredstava   func(ctx context.Context) ([]models.VrstaSredstva, error)
+	Posiljke         func(ctx context.Context, f repository.FiltarPosiljki) ([]models.Posiljka, error)
 	// DnevniciUsluga su otvoreni dnevnici radova A.02 i A.03 područja, a
 	// ListoviDnevnika dnevni listovi dnevnika
 	DnevniciUsluga  func(ctx context.Context, area int) ([]models.Journal, error)
@@ -474,6 +475,7 @@ type stavkeZaRijesiti struct {
 	Akti    []models.Akt
 	Prijave []models.PrijavaSTerena
 	Sektor  string
+	NaPutu  []RedakKartice // COP: pošiljke dugo na putu
 }
 
 // zaRijesiti skuplja posao globalnog administratora: sektorsko izvješće u
@@ -494,6 +496,9 @@ func (h *DashboardHandler) zaRijesiti(r *http.Request, perms *models.UserPermiss
 		if l, err := h.izvori.Nepredani(ctx, perms, st.Sektor); err == nil && len(l) > 0 {
 			s.Nepredani[st.Sektor] = l
 		}
+	}
+	if ulogaNaslovne(perms, sad) == uDezurni {
+		s.NaPutu = h.dugoNaPutu(ctx, sektorOsobe(perms, sad), sad)
 	}
 	if !perms.IsGlobalAdmin {
 		return karticaZaRijesiti(s, sad) // prava i nove djelatnike rješava samo globalni administrator
@@ -552,6 +557,7 @@ func karticaZaRijesiti(s stavkeZaRijesiti, sad time.Time) KarticaNaslovne {
 	}
 	k.Redovi = append(k.Redovi, redoviNepredanih(s.Nepredani)...)
 	k.Redovi = append(k.Redovi, redoviPrijava(s.Prijave, s.Sektor, sad)...)
+	k.Redovi = append(k.Redovi, s.NaPutu...)
 	if s.PravaCeka > 0 {
 		k.Redovi = append(k.Redovi, redakPrava(s.PravaCeka, s.PravaNacin))
 	}
