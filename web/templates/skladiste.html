@@ -23,7 +23,7 @@
   </div>
 </div>
 
-{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}{{if .Potvrda}} <a href="/sredstva/promet/{{.Potvrda}}/potvrda.xlsx" class="btn btn-secondary btn-sm sr-potvrda">{{icon "download"}} Ispiši potvrdu / otpremnicu</a>{{end}}</div>{{end}}
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}{{if .Potvrda}} <a href="/sredstva/promet/{{.Potvrda}}/potvrda.pdf" target="_blank" class="btn btn-secondary btn-sm sr-potvrda">{{icon "printer"}} Ispiši potvrdu / otpremnicu</a> <a href="/sredstva/promet/{{.Potvrda}}/potvrda.xlsx" class="btn btn-link btn-sm">{{icon "download"}} Excel</a>{{end}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 
 {{if .SmijePisati}}
@@ -110,7 +110,7 @@
         <td data-stupac="Količina" class="mono br {{if lt .Kolicina 0.0}}mts-minus{{else}}mts-plus{{end}}">{{kolicinaZnak .Kolicina}} {{.Jedinica}}</td>
         <td data-stupac="Nalog">{{if .Nalozio}}nalog: {{.Nalozio}}{{end}}{{if .Preuzeo}}{{if .Nalozio}} · {{end}}{{strana .Vrsta}}: {{.Preuzeo}}{{end}}{{if .Dokument}} · {{.Dokument}}{{end}}{{if not .SkladisteID}} · {{.MjestoNaziv}}{{end}}{{if .Napomena}}<span class="reg-card-sub sr-napomena">{{.Napomena}}</span>{{end}}</td>
         <td data-stupac="Upisao">{{.UserName}}<span class="reg-card-sub">{{.CreatedAt.Format "2.1.2006. 15:04"}}</span></td>
-        <td data-stupac="Potvrda">{{if .VezaID}}<a href="/sredstva/promet/{{.VezaID}}/potvrda.xlsx" class="sr-plus" title="Potvrda / otpremnica" aria-label="Potvrda / otpremnica">{{icon "download"}}</a>{{end}}</td>
+        <td data-stupac="Potvrda">{{if .VezaID}}<a href="/sredstva/promet/{{.VezaID}}/potvrda.pdf" target="_blank" class="sr-plus" title="Potvrda / otpremnica za ispis" aria-label="Potvrda / otpremnica za ispis">{{icon "printer"}}</a>{{end}}</td>
       </tr>
       {{end}}
       </tbody>

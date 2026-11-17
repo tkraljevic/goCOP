@@ -15,7 +15,7 @@
 </div>
 
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
-{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}{{if .Potvrda}} <a href="/sredstva/promet/{{.Potvrda}}/potvrda.xlsx" class="btn btn-secondary btn-sm sr-potvrda">{{icon "download"}} Ispiši potvrdu</a>{{end}}</div>{{end}}
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}{{if .Potvrda}} <a href="/sredstva/promet/{{.Potvrda}}/potvrda.pdf" target="_blank" class="btn btn-secondary btn-sm sr-potvrda">{{icon "printer"}} Ispiši potvrdu</a> <a href="/sredstva/promet/{{.Potvrda}}/potvrda.xlsx" class="btn btn-link btn-sm">{{icon "download"}} Excel</a>{{end}}</div>{{end}}
 
 {{/* Zahvat po crtežu 19a (3): vrsta zahvata kao pločice (na mobitelu
      izbornik), polja u karticama. Skripta niže pokazuje i skriva kartice

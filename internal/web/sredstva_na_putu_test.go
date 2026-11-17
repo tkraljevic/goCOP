@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
@@ -115,12 +116,22 @@ func TestNaPutuNaTerenu(t *testing.T) {
 	if w := o.zovi(t, upravaSredstava(), http.MethodGet, "/sredstva/promet/"+povrat[0].Slanje.VezaID+"/potvrda.xlsx", nil); w.Code != http.StatusOK {
 		t.Errorf("potvrda povrata na putu: %d", w.Code)
 	}
+	if w := o.zovi(t, upravaSredstava(), http.MethodGet, "/sredstva/promet/"+povrat[0].Slanje.VezaID+"/potvrda.pdf", nil); w.Code != http.StatusOK {
+		t.Errorf("PDF potvrde povrata na putu: %d", w.Code)
+	}
+	// obrana koje više nema: potvrda je ispisuje bez obrane
+	if o := o.h.obranaZahvata(httptest.NewRequest(http.MethodGet, "/", nil), models.Promet{JournalID: "nema-je"}); o != "" {
+		t.Errorf("nepostojeća obrana: %q", o)
+	}
 
 	if _, err := o.baza.Exec(`ALTER TABLE mts_promet RENAME COLUMN prema_mjesto TO prema_mjesto_staro`); err != nil {
 		t.Fatal(err)
 	}
 	if w := o.zovi(t, promatracSredstava(), http.MethodGet, "/sredstva/na-terenu?sektor=B", nil); w.Code != http.StatusInternalServerError {
 		t.Errorf("na terenu bez knjige puta: %d", w.Code)
+	}
+	if w := o.zovi(t, upravaSredstava(), http.MethodGet, "/sredstva/promet/"+povrat[0].Slanje.VezaID+"/potvrda.pdf", nil); w.Code != http.StatusInternalServerError {
+		t.Errorf("PDF potvrde bez knjige puta: %d", w.Code)
 	}
 }
 

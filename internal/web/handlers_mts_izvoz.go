@@ -182,8 +182,6 @@ func naznaka(s string) string {
 	return " Napomena: " + models.ZavrsenaRecenica(s)
 }
 
-// IzvoziPotvrdu piše potvrdu jednog zahvata: otpremnicu za izdavanje i
-// prijenos, primku za primljeno, povratnicu za povrat, potvrdu za ostalo
 // skladisteZahvata je skladište iz kojeg je zahvat: redak sa skladištem, kod
 // izdavanja onaj negativni; povrat na putu ima samo redak s terena, pa je to
 // odredište. Skladište koje se ne da pročitati potvrda izostavi.
@@ -201,40 +199,94 @@ func (h *MtsHandler) skladisteZahvata(r *http.Request, redci []models.Promet) *m
 	return sk
 }
 
-func (h *MtsHandler) IzvoziPotvrdu(w http.ResponseWriter, r *http.Request) {
+// potvrdaZahvata je ono što stoji na potvrdi jednog zahvata, isto u Excelu i
+// u PDF-u
+type potvrdaZahvata struct {
+	redci  []models.Promet
+	sk     *models.Skladiste
+	sek    *models.Sector
+	obrana string
+	z      ZaglavljeIzvoza
+}
+
+// ucitajPotvrdu čita retke zahvata, skladište, sektor i obranu; zahvat koji
+// ne postoji javlja kao nepostojeću stranicu
+func (h *MtsHandler) ucitajPotvrdu(w http.ResponseWriter, r *http.Request) (*potvrdaZahvata, bool) {
 	data := h.pageData(r)
 	redci, err := h.svc().Promet(r.Context(), repository.FiltarPrometa{VezaID: r.PathValue("veza")})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return nil, false
 	}
 	if len(redci) == 0 {
 		http.NotFound(w, r)
-		return
+		return nil, false
 	}
-	sk := h.skladisteZahvata(r, redci)
+	p := &potvrdaZahvata{redci: redci, sk: h.skladisteZahvata(r, redci), obrana: h.obranaZahvata(r, redci[0])}
+	p.z, p.sek = zaglavljePotvrde(p.sk, data.Sektori)
+	return p, true
+}
+
+// zaglavljePotvrde je zaglavlje potvrde i sektor skladišta iz kojeg je
+// zahvat; bez skladišta potvrda nosi samo organizaciju
+func zaglavljePotvrde(sk *models.Skladiste, sektori []models.Sector) (ZaglavljeIzvoza, *models.Sector) {
 	terms := models.Terms()
 	z := ZaglavljeIzvoza{Organizacija: terms.OrgName, Datum: time.Now().In(models.Zagreb)}
 	if terms.HasLogo() && terms.LogoMime == "image/png" {
 		z.LogoPNG = terms.Logo
 	}
-	if sk != nil {
-		z.Sektor = sk.Sektor
-		for _, x := range data.Sektori {
-			if x.ID == sk.Sektor {
-				z.Odjel, z.Centar = x.VgoName, x.CenterCop
-				z.Mjesto = strings.TrimSpace(strings.TrimPrefix(x.CenterCop, terms.CenterShort))
-			}
+	if sk == nil {
+		return z, nil
+	}
+	z.Sektor = sk.Sektor
+	for i, x := range sektori {
+		if x.ID == sk.Sektor {
+			z.Odjel, z.Centar = x.VgoName, x.CenterCop
+			z.Mjesto = strings.TrimSpace(strings.TrimPrefix(x.CenterCop, terms.CenterShort))
+			return z, &sektori[i]
 		}
 	}
-	var obrana string
-	if h.journals != nil && redci[0].JournalID != "" {
-		if j, err := h.journals.GetJournal(r.Context(), redci[0].JournalID); err == nil && j != nil {
-			obrana = j.DisplayTitle()
-		}
+	return z, nil
+}
+
+// obranaZahvata je naziv obrane uz koju je zahvat upisan, prazno bez nje
+func (h *MtsHandler) obranaZahvata(r *http.Request, prvi models.Promet) string {
+	if h.journals == nil || prvi.JournalID == "" {
+		return ""
 	}
-	naslov := nazivPotvrde(redci[0].Vrsta)
-	posaljiXLSX(w, models.OznakaSredstva(naslov)+"_"+redci[0].Datum.Format("2006-01-02")+"_"+redci[0].VezaID[:8]+".xlsx", KnjigaPotvrde(redci, sk, obrana, z))
+	if j, err := h.journals.GetJournal(r.Context(), prvi.JournalID); err == nil && j != nil {
+		return j.DisplayTitle()
+	}
+	return ""
+}
+
+// imeDatoteke je ime potvrde: vrsta dokumenta, dan i početak oznake zahvata
+func (p *potvrdaZahvata) imeDatoteke(nastavak string) string {
+	prvi := p.redci[0]
+	return models.OznakaSredstva(nazivPotvrde(prvi.Vrsta)) + "_" + prvi.Datum.Format("2006-01-02") + "_" + prvi.VezaID[:8] + nastavak
+}
+
+// IzvoziPotvrdu piše potvrdu jednog zahvata kao .xlsx: otpremnicu za
+// izdavanje i prijenos, primku za primljeno, povratnicu za povrat, potvrdu
+// za ostalo
+func (h *MtsHandler) IzvoziPotvrdu(w http.ResponseWriter, r *http.Request) {
+	p, ok := h.ucitajPotvrdu(w, r)
+	if !ok {
+		return
+	}
+	posaljiXLSX(w, p.imeDatoteke(".xlsx"), KnjigaPotvrde(p.redci, p.sk, p.obrana, p.z))
+}
+
+// IzvoziPotvrduPDF daje istu potvrdu kao PDF za ispis i vlastoručne potpise
+// (Odluke 16. 11. 2026., 9)
+func (h *MtsHandler) IzvoziPotvrduPDF(w http.ResponseWriter, r *http.Request) {
+	p, ok := h.ucitajPotvrdu(w, r)
+	if !ok {
+		return
+	}
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", `inline; filename="`+p.imeDatoteke(".pdf")+`"`)
+	_, _ = w.Write(pdfPotvrde(p, models.Terms()))
 }
 
 // nazivPotvrde je naslov dokumenta po vrsti zahvata
@@ -250,36 +302,23 @@ func nazivPotvrde(vrsta string) string {
 	return "Potvrda o zahvatu"
 }
 
-// KnjigaPotvrde slaže potvrdu zahvata na A4 uspravno: broj i datum, odakle
-// i kamo, stavke, tko je naložio, tko preuzeo i tko upisao, s potpisima
-func KnjigaPotvrde(redci []models.Promet, sk *models.Skladiste, obrana string, z ZaglavljeIzvoza) *xlsxw.Knjiga {
-	k := &xlsxw.Knjiga{LogoPNG: z.LogoPNG}
-	B := xlsxw.T
-	const stupaca = 8
-	prvi := redci[0]
-	l := k.NoviList(nazivPotvrde(prvi.Vrsta))
-	l.Uspravno = true
-	l.Sirine = []float64{7, 30, 12, 8, 12, 12, 12, 14}
-	broj := prvi.Dokument
-	if broj == "" {
-		broj = strings.ToUpper(prvi.VezaID[:8])
+// brojPotvrde je broj dokumenta upisan uz zahvat, a bez njega početak oznake
+// zahvata
+func brojPotvrde(prvi models.Promet) string {
+	if prvi.Dokument != "" {
+		return prvi.Dokument
 	}
-	zaglavljeLista(l, z, strings.ToUpper(nazivPotvrde(prvi.Vrsta))+" br. "+broj, models.PrometNaziv(prvi.Vrsta)+" · "+prvi.Datum.Format("02.01.2006."), stupaca)
+	return strings.ToUpper(prvi.VezaID[:8])
+}
 
+// poljaPotvrde su retci iznad stavki, oznaka pa tekst; prazni se izostavljaju
+func poljaPotvrde(redci []models.Promet, sk *models.Skladiste, obrana string) [][2]string {
+	prvi := redci[0]
+	var out [][2]string
 	polje := func(oznaka, tekst string) {
-		if strings.TrimSpace(tekst) == "" {
-			return
+		if strings.TrimSpace(tekst) != "" {
+			out = append(out, [2]string{oznaka, tekst})
 		}
-		r := l.Redak()
-		red := make([]xlsxw.Celija, stupaca)
-		for c := range red {
-			red[c] = B("", xlsxw.Tablica)
-		}
-		red[0], red[2] = B(oznaka, xlsxw.TablicaPod), B(tekst, xlsxw.TablicaTekst)
-		l.Dodaj(red...)
-		l.Spoji(0, r, 1, r)
-		l.Spoji(2, r, stupaca-1, r)
-		l.Visina(r, visinaTeksta(tekst, 70, 18, 0))
 	}
 	if sk != nil {
 		odakle := sk.Naziv
@@ -301,42 +340,40 @@ func KnjigaPotvrde(redci []models.Promet, sk *models.Skladiste, obrana string, z
 	polje("Naložio", prvi.Nalozio)
 	polje(models.StranaOznaka(prvi.Vrsta), prvi.Preuzeo)
 	polje("Napomena", prvi.Napomena)
+	return out
+}
 
-	l.Dodaj()
-	r := l.Redak()
-	l.Dodaj(B("R. br.", xlsxw.Zaglavlje), B("Vrsta sredstva", xlsxw.Zaglavlje), B("Oblik", xlsxw.Zaglavlje), B("Jed.", xlsxw.Zaglavlje), B("Količina", xlsxw.Zaglavlje),
-		B("", xlsxw.Zaglavlje), B("", xlsxw.Zaglavlje), B("", xlsxw.Zaglavlje))
-	l.Spoji(4, r, 7, r)
-	l.Visina(r, 22)
-	n := 0
+// stavkePotvrde su retci zahvata bez ponavljanja: dvoredni potez (iz jednog
+// mjesta u drugo) je jedna stavka
+func stavkePotvrde(redci []models.Promet) []models.Promet {
+	var out []models.Promet
 	vidjeno := map[string]bool{}
 	for _, x := range redci {
-		// dvoredni potez (iz jednog mjesta u drugo) je jedna stavka
 		kljuc := x.VrstaID + "|" + x.Oblik + "|" + kolicinaHR(absKolicina(x.Kolicina))
-		if vidjeno[kljuc] {
-			continue
+		if !vidjeno[kljuc] {
+			vidjeno[kljuc] = true
+			out = append(out, x)
 		}
-		vidjeno[kljuc] = true
-		n++
-		oblik := ""
-		if x.Oblik != "" {
-			oblik = models.OblikNaziv(x.Oblik)
-		}
-		rr := l.Redak()
-		l.Dodaj(B(strconv.Itoa(n)+".", xlsxw.TablicaSredina), B(x.VrstaNaziv, xlsxw.Tablica), B(oblik, xlsxw.TablicaSredina), B(x.Jedinica, xlsxw.TablicaSredina),
-			xlsxw.N(absKolicina(x.Kolicina), xlsxw.TablicaBrojPod), B("", xlsxw.TablicaBrojPod), B("", xlsxw.TablicaBrojPod), B("", xlsxw.TablicaBrojPod))
-		l.Spoji(4, rr, 7, rr)
-		l.Visina(rr, 20)
 	}
-	l.Dodaj()
-	upisao := "Upisao u program: " + prvi.UserName + ", " + prvi.CreatedAt.In(models.Zagreb).Format("02.01.2006. 15:04")
-	rr := l.Redak()
-	red := make([]xlsxw.Celija, stupaca)
-	red[0] = B(upisao, xlsxw.Napomena)
-	l.Dodaj(red...)
-	l.Spoji(0, rr, stupaca-1, rr)
-	zp := z
-	zp.Datum = prvi.Datum
+	return out
+}
+
+// oblikStavke je naziv oblika stavke, prazno kad ga vrsta nema
+func oblikStavke(x models.Promet) string {
+	if x.Oblik == "" {
+		return ""
+	}
+	return models.OblikNaziv(x.Oblik)
+}
+
+// upisaoPotvrde je redak o tome tko je zahvat upisao u program i kada
+func upisaoPotvrde(prvi models.Promet) string {
+	return "Upisao u program: " + prvi.UserName + ", " + prvi.CreatedAt.In(models.Zagreb).Format("02.01.2006. 15:04")
+}
+
+// potpisniciPotvrde su oni koji potpisuju potvrdu: skladištar, druga strana
+// kad je ima, i tko je naložio
+func potpisniciPotvrde(prvi models.Promet) []PotpisnikIzvoza {
 	potpisnici := []PotpisnikIzvoza{{Funkcija: "izdao / zaprimio (skladištar)", Ime: prvi.UserName}}
 	switch prvi.Vrsta {
 	case models.PrometIzdano, models.PrometPrijenos, models.PrometPovrat, models.PrometPrimka:
@@ -345,7 +382,56 @@ func KnjigaPotvrde(redci []models.Promet, sk *models.Skladiste, obrana string, z
 	if prvi.Nalozio != "" {
 		potpisnici = append(potpisnici, PotpisnikIzvoza{Funkcija: "naložio", Ime: prvi.Nalozio})
 	}
-	potpisiLista(l, zp, stupaca, potpisnici)
+	return potpisnici
+}
+
+// KnjigaPotvrde slaže potvrdu zahvata na A4 uspravno: broj i datum, odakle
+// i kamo, stavke, tko je naložio, tko preuzeo i tko upisao, s potpisima
+func KnjigaPotvrde(redci []models.Promet, sk *models.Skladiste, obrana string, z ZaglavljeIzvoza) *xlsxw.Knjiga {
+	k := &xlsxw.Knjiga{LogoPNG: z.LogoPNG}
+	B := xlsxw.T
+	const stupaca = 8
+	prvi := redci[0]
+	l := k.NoviList(nazivPotvrde(prvi.Vrsta))
+	l.Uspravno = true
+	l.Sirine = []float64{7, 30, 12, 8, 12, 12, 12, 14}
+	zaglavljeLista(l, z, strings.ToUpper(nazivPotvrde(prvi.Vrsta))+" br. "+brojPotvrde(prvi), models.PrometNaziv(prvi.Vrsta)+" · "+prvi.Datum.Format("02.01.2006."), stupaca)
+
+	for _, p := range poljaPotvrde(redci, sk, obrana) {
+		r := l.Redak()
+		red := make([]xlsxw.Celija, stupaca)
+		for c := range red {
+			red[c] = B("", xlsxw.Tablica)
+		}
+		red[0], red[2] = B(p[0], xlsxw.TablicaPod), B(p[1], xlsxw.TablicaTekst)
+		l.Dodaj(red...)
+		l.Spoji(0, r, 1, r)
+		l.Spoji(2, r, stupaca-1, r)
+		l.Visina(r, visinaTeksta(p[1], 70, 18, 0))
+	}
+
+	l.Dodaj()
+	r := l.Redak()
+	l.Dodaj(B("R. br.", xlsxw.Zaglavlje), B("Vrsta sredstva", xlsxw.Zaglavlje), B("Oblik", xlsxw.Zaglavlje), B("Jed.", xlsxw.Zaglavlje), B("Količina", xlsxw.Zaglavlje),
+		B("", xlsxw.Zaglavlje), B("", xlsxw.Zaglavlje), B("", xlsxw.Zaglavlje))
+	l.Spoji(4, r, 7, r)
+	l.Visina(r, 22)
+	for i, x := range stavkePotvrde(redci) {
+		rr := l.Redak()
+		l.Dodaj(B(strconv.Itoa(i+1)+".", xlsxw.TablicaSredina), B(x.VrstaNaziv, xlsxw.Tablica), B(oblikStavke(x), xlsxw.TablicaSredina), B(x.Jedinica, xlsxw.TablicaSredina),
+			xlsxw.N(absKolicina(x.Kolicina), xlsxw.TablicaBrojPod), B("", xlsxw.TablicaBrojPod), B("", xlsxw.TablicaBrojPod), B("", xlsxw.TablicaBrojPod))
+		l.Spoji(4, rr, 7, rr)
+		l.Visina(rr, 20)
+	}
+	l.Dodaj()
+	rr := l.Redak()
+	red := make([]xlsxw.Celija, stupaca)
+	red[0] = B(upisaoPotvrde(prvi), xlsxw.Napomena)
+	l.Dodaj(red...)
+	l.Spoji(0, rr, stupaca-1, rr)
+	zp := z
+	zp.Datum = prvi.Datum
+	potpisiLista(l, zp, stupaca, potpisniciPotvrde(prvi))
 	return k
 }
 

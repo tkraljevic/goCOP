@@ -465,7 +465,7 @@ func TestZidOpisiPrometSredstava(t *testing.T) {
 		{"izdano sa skladišta", verzijaZida(t, e, izdano), true, ModulSredstva, func(d *Dogadjaj) {
 			d.Sektor, d.Tko, d.Naslov, d.AreaID = "B", "Ana Anić", "Izdano na teren", 51
 			d.Tekst = "4\u00a0000 kom Vreće 50x80 cm (napunjeno) · Centralno skladište Osijek · preuzeo vodočuvar Batina"
-			d.Link = "/sredstva/promet/veza-1/potvrda.xlsx"
+			d.Link = "/sredstva/promet/veza-1/potvrda.pdf"
 		}},
 		{"primka, područje skladišta", verzijaZida(t, e, primka), true, ModulSredstva, func(d *Dogadjaj) {
 			d.Sektor, d.Tko, d.Naslov, d.AreaID = "B", "Ana Anić", "Primka", 34
@@ -485,7 +485,7 @@ func TestZidOpisiPrometSredstava(t *testing.T) {
 		}},
 		{"prijenos kojem se izlaz ne zna", verzijaZida(t, e, prijenos), true, ModulSredstva, func(d *Dogadjaj) {
 			d.Sektor, d.Tko, d.Naslov, d.AreaID = "D", "Ana Anić", "Prijenos", 34
-			d.Tekst, d.Link = "3 kom Vreće 50x80 cm · Centralno skladište Osijek", "/sredstva/promet/veza-2/potvrda.xlsx"
+			d.Tekst, d.Link = "3 kom Vreće 50x80 cm · Centralno skladište Osijek", "/sredstva/promet/veza-2/potvrda.pdf"
 		}},
 		{"bez vrste prometa nema naslova", verzijaZida(t, e, bezVrste), false, ModulSredstva, func(d *Dogadjaj) {
 			d.Sektor, d.Tko, d.AreaID = "B", "Ana Anić", 34

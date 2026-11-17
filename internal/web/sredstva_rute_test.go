@@ -87,6 +87,7 @@ func TestSredstvaKrozRute(t *testing.T) {
 	mux.HandleFunc("GET /sredstva/potrebe", h.ShowPotrebeSektora)
 	mux.HandleFunc("GET /sredstva/skladista/{id}/skladiste.xlsx", h.IzvoziSkladiste)
 	mux.HandleFunc("GET /sredstva/promet/{veza}/potvrda.xlsx", h.IzvoziPotvrdu)
+	mux.HandleFunc("GET /sredstva/promet/{veza}/potvrda.pdf", h.IzvoziPotvrduPDF)
 	mux.HandleFunc("GET /sredstva/na-putu/{veza}", h.ShowZaprimi)
 	mux.HandleFunc("POST /sredstva/na-putu/{veza}", h.HandleZaprimi)
 	mux.HandleFunc("GET /sredstva/promet.xlsx", h.IzvoziPromet)
@@ -202,6 +203,17 @@ func TestSredstvaKrozRute(t *testing.T) {
 				t.Errorf("otpremnica nema %q\n%s", want, list)
 			}
 		}
+	}
+	// ista otpremnica kao PDF za ispis; nepostojeći zahvat nema ni jednu ni drugu
+	w = zovi(http.MethodGet, "/sredstva/promet/"+veza+"/potvrda.pdf", nil)
+	if w.Code != http.StatusOK || w.Header().Get("Content-Type") != "application/pdf" || !strings.Contains(w.Header().Get("Content-Disposition"), "otpremnica_") || !strings.HasPrefix(w.Body.String(), "%PDF") {
+		t.Fatalf("otpremnica PDF: %d %s %s", w.Code, w.Header().Get("Content-Type"), w.Header().Get("Content-Disposition"))
+	}
+	if tekst := tekstPotvrde(t, w.Body.Bytes()); tekst != "" && !strings.Contains(tekst, "OTPREMNICA br. OT 7/26") {
+		t.Errorf("otpremnica PDF bez broja:\n%s", tekst)
+	}
+	if w := zovi(http.MethodGet, "/sredstva/promet/nema-ga/potvrda.pdf", nil); w.Code != http.StatusNotFound {
+		t.Errorf("potvrda nepostojećeg zahvata: %d", w.Code)
 	}
 	// izdano je na putu dok ga teren ne zaprimi (Odluke 16. 11. 2026., Na putu)
 	mora(zovi(http.MethodGet, "/sredstva/na-terenu?sektor=B", nil), http.StatusOK, "na putu", "Na putu · 1 pošiljka", "/sredstva/na-putu/"+veza, "Ništa nije na terenu")

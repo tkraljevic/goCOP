@@ -137,6 +137,7 @@ func rutaSredstava(h *MtsHandler) *http.ServeMux {
 	mux.HandleFunc("POST /sredstva/skladista/{id}/potrebe", h.HandleSavePotrebe)
 	mux.HandleFunc("GET /sredstva/potrebe", h.ShowPotrebeSektora)
 	mux.HandleFunc("GET /sredstva/promet/{veza}/potvrda.xlsx", h.IzvoziPotvrdu)
+	mux.HandleFunc("GET /sredstva/promet/{veza}/potvrda.pdf", h.IzvoziPotvrduPDF)
 	mux.HandleFunc("GET /sredstva/na-putu/{veza}", h.ShowZaprimi)
 	mux.HandleFunc("POST /sredstva/na-putu/{veza}", h.HandleZaprimi)
 	mux.HandleFunc("POST /sredstva/na-putu/{veza}/manjak", h.HandleManjak)
