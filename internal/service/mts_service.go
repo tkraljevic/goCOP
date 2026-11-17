@@ -25,13 +25,14 @@ type MtsService struct {
 	sections   *repository.SectionRepository
 	users      *repository.UserRepository
 	structures *repository.StructureRepository
+	naPut      map[string]bool // zahvati koji robu šalju na put (mts_na_putu.go)
 }
 
 // SetStructures daje servisu registar objekata, za mjesta na terenu
 func (s *MtsService) SetStructures(r *repository.StructureRepository) { s.structures = r }
 
 func NewMtsService(repo *repository.MtsRepository, sections *repository.SectionRepository, users *repository.UserRepository) *MtsService {
-	return &MtsService{repo: repo, sections: sections, users: users}
+	return &MtsService{repo: repo, sections: sections, users: users, naPut: vrsteNaPut}
 }
 
 // SmijePisati: promet i popis upisuje skladištar tog područja i uprava
@@ -592,7 +593,7 @@ func (s *MtsService) Provedi(ctx context.Context, u *models.User, perms *models.
 		if b.Napomena == "" {
 			b.Napomena = "iz " + sk.Naziv
 		}
-		redci = append(redci, a, b)
+		redci = append(redci, s.potez(z.Vrsta, a, b)...)
 
 	case models.PrometIzdano:
 		if err := provjeriZalihu(sk.ID, z.Oblik, z.Kolicina); err != nil {
@@ -602,7 +603,7 @@ func (s *MtsService) Provedi(ctx context.Context, u *models.User, perms *models.
 		a.SkladisteID, a.Kolicina, a.VezaID = sk.ID, -z.Kolicina, veza
 		naTerenu(&b)
 		b.Kolicina, b.VezaID = z.Kolicina, veza
-		redci = append(redci, a, b)
+		redci = append(redci, s.potez(z.Vrsta, a, b)...)
 
 	case models.PrometPovrat:
 		if err := provjeriZalihu("", z.Oblik, z.Kolicina); err != nil {
@@ -612,7 +613,7 @@ func (s *MtsService) Provedi(ctx context.Context, u *models.User, perms *models.
 		naTerenu(&a)
 		a.Kolicina, a.VezaID = -z.Kolicina, veza
 		b.SkladisteID, b.Kolicina, b.VezaID = sk.ID, z.Kolicina, veza
-		redci = append(redci, a, b)
+		redci = append(redci, s.potez(z.Vrsta, a, b)...)
 
 	case models.PrometUtrosak:
 		// ugrađeno na terenu: odlazi s terena i ne vraća se
