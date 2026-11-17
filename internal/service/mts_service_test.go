@@ -65,6 +65,7 @@ func TestMtsPutVrecaKrozObranu(t *testing.T) {
 	if ima(models.OblikPunjeno) != 1000 {
 		t.Fatalf("poslije izdavanja u skladištu: %v", ima(models.OblikPunjeno))
 	}
+	zaprimiSve(t, s, ctx, u)
 	naTerenu, err := s.NaTerenu(ctx, obrana, "")
 	if err != nil {
 		t.Fatal(err)
@@ -102,6 +103,7 @@ func TestMtsPutVrecaKrozObranu(t *testing.T) {
 	if _, err := s.Provedi(ctx, u, uprava, Zahvat{Vrsta: models.PrometIzdano, SkladisteID: sk.ID, VrstaID: box, Oblik: models.OblikPrazno, Kolicina: 120, AreaID: 34, SectionCode: "B.34.1", JournalID: obrana}); err != nil {
 		t.Fatal(err)
 	}
+	zaprimiSve(t, s, ctx, u)
 	if _, err := s.Provedi(ctx, u, uprava, Zahvat{Vrsta: models.PrometPunjenje, SkladisteID: sk.ID, VrstaID: box, Oblik: models.OblikPrazno, UOblik: models.OblikPunjeno,
 		Kolicina: 100, AreaID: 34, SectionCode: "B.34.1", JournalID: obrana, Preuzeo: "bager Hidrogradnja"}); err != nil {
 		t.Fatalf("punjenje na terenu: %v", err)
@@ -129,6 +131,7 @@ func TestMtsPutVrecaKrozObranu(t *testing.T) {
 		Kolicina: 200, AreaID: 34, Mjesto: "kuća iza groblja, Kopačevo", JournalID: obrana}); err != nil {
 		t.Fatalf("izdavanje na opis mjesta: %v", err)
 	}
+	zaprimiSve(t, s, ctx, u)
 	if _, err := s.Provedi(ctx, u, uprava, Zahvat{Vrsta: models.PrometIzdano, SkladisteID: sk.ID, VrstaID: vrece, Oblik: models.OblikPunjeno,
 		Kolicina: 100, Mjesto: "negdje"}); err == nil || !strings.Contains(err.Error(), "branjeno područje") {
 		t.Errorf("izdavanje bez područja prošlo: %v", err)

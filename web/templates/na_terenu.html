@@ -6,8 +6,8 @@
 <div class="page-header">
   <div>
     <h1 class="page-title" data-naziv-stranice>Na terenu</h1>
-    <p class="page-desc">Što je izdano na dionice a nije ni vraćeno ni ugrađeno. Ugradnja i povrat upisuju se iz skladišta koje je
-      izdalo.</p>
+    <p class="page-desc">Što je izdano na dionice a nije ni vraćeno ni ugrađeno. Izdano se na terenu broji kad ga rukovoditelj
+      dionice ili vodočuvar zaprimi. Ugradnja i povrat upisuju se iz skladišta koje je izdalo.</p>
   </div>
 </div>
 
@@ -23,6 +23,31 @@
     </div>
   </details>
 </div>
+
+{{/* Roba na putu (crtež 19a, 7c; Odluke 16. 11. 2026., Na putu): izdano
+     na teren i vraćeno s terena, a još nezaprimljeno */}}
+{{if .Stize}}
+<section class="os-kartica" aria-labelledby="nt-na-putu">
+  <h2 id="nt-na-putu">Na putu · {{len .Stize}} {{uzBroj (len .Stize) "pošiljka" "pošiljke" "pošiljaka"}}</h2>
+  <div class="table-responsive tablica-kartice">
+    <table class="data-table sr-promet">
+      <thead><tr><th>Sredstvo</th><th>Oblik</th><th class="br">Količina</th><th>Odakle → kamo</th><th>Poslano</th><th aria-label="Zaprimanje"></th></tr></thead>
+      <tbody>
+      {{range .Stize}}{{$s := .Slanje}}
+      <tr>
+        <td class="naslov">{{$s.VrstaNaziv}}</td>
+        <td>{{if and $s.Oblik (ne $s.Oblik "OSNOVNI")}}{{oblik $s.Oblik}}{{end}}</td>
+        <td class="mono br">{{kolicina .NaPutu}} {{$s.Jedinica}}</td>
+        <td>{{.Odakle}} → {{.Kamo}}</td>
+        <td><span><span class="mono">{{$s.Datum.Format "2.1.2006."}}</span>{{if $s.Preuzeo}}<span class="reg-card-sub">{{$s.Preuzeo}}</span>{{end}}</span></td>
+        <td class="nowrap br">{{if .SmijeZaprimiti}}<a href="/sredstva/na-putu/{{$s.VezaID}}" class="btn btn-secondary btn-sm">Zaprimi</a>{{end}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div>
+</section>
+{{end}}
 
 {{if .NaTerenu}}
 {{$vrste := .Vrste}}

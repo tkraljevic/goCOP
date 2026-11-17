@@ -87,6 +87,8 @@ func TestSredstvaKrozRute(t *testing.T) {
 	mux.HandleFunc("GET /sredstva/potrebe", h.ShowPotrebeSektora)
 	mux.HandleFunc("GET /sredstva/skladista/{id}/skladiste.xlsx", h.IzvoziSkladiste)
 	mux.HandleFunc("GET /sredstva/promet/{veza}/potvrda.xlsx", h.IzvoziPotvrdu)
+	mux.HandleFunc("GET /sredstva/na-putu/{veza}", h.ShowZaprimi)
+	mux.HandleFunc("POST /sredstva/na-putu/{veza}", h.HandleZaprimi)
 	mux.HandleFunc("GET /sredstva/promet.xlsx", h.IzvoziPromet)
 	mux.HandleFunc("GET /sredstva/popisi", h.ShowPopisi)
 	mux.HandleFunc("POST /sredstva/popisi", h.HandleSavePopis)
@@ -200,6 +202,12 @@ func TestSredstvaKrozRute(t *testing.T) {
 				t.Errorf("otpremnica nema %q\n%s", want, list)
 			}
 		}
+	}
+	// izdano je na putu dok ga teren ne zaprimi (Odluke 16. 11. 2026., Na putu)
+	mora(zovi(http.MethodGet, "/sredstva/na-terenu?sektor=B", nil), http.StatusOK, "na putu", "Na putu · 1 pošiljka", "/sredstva/na-putu/"+veza, "Ništa nije na terenu")
+	mora(zovi(http.MethodGet, "/sredstva/na-putu/"+veza, nil), http.StatusOK, "zaprimanje", "Zaprimi pošiljku", "teren · BP 34 Drava i Dunav · B.34.1")
+	if l := zovi(http.MethodPost, "/sredstva/na-putu/"+veza, url.Values{"datum": {danas}, "kolicina": {"4000"}, "preuzeo": {"vodočuvar"}}).Header().Get("Location"); !strings.Contains(l, "/sredstva/na-terenu?sektor=B") {
+		t.Fatalf("zaprimanje na terenu: %s", l)
 	}
 	mora(zovi(http.MethodGet, "/sredstva/na-terenu?sektor=B", nil), http.StatusOK, "na terenu", "BP 34 Drava i Dunav · B.34.1", "4 000")
 	mora(zovi(http.MethodGet, "/sredstva/promet?sektor=B", nil), http.StatusOK, "knjiga", "Izdano na teren", "teren · BP 34 Drava i Dunav · B.34.1", "−4 000", "&#43;4 000", "Preuzeo: vodočuvar")

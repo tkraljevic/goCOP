@@ -37,7 +37,7 @@ func TestMjestoTerenaObjekt(t *testing.T) {
 	}
 	// objekt iz registra daje područje kad nije upisano
 	redci, err := izdaj(cs.ID.String(), 0)
-	if err != nil || len(redci) != 2 || redci[1].StructureID != cs.ID.String() || redci[1].AreaID != 34 {
+	if err != nil || len(redci) != 1 || redci[0].PremaStructureID != cs.ID.String() || redci[0].PremaAreaID != 34 {
 		t.Fatalf("izdavanje na objekt: %+v %v", redci, err)
 	}
 	if ima := kolicinaU(t, s, ctx, sk.ID, mpLopata); ima != 4 {

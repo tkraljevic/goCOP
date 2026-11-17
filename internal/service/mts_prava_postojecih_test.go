@@ -224,6 +224,7 @@ func TestTerenSeBrojiPoSektoru(t *testing.T) {
 			t.Fatalf("%s sektora B: %v", z.Vrsta, err)
 		}
 	}
+	zaprimiSve(t, s, ctx, u)
 
 	skladistarF := skladistarPodrucja("F", 40)
 	for _, z := range []Zahvat{
@@ -247,6 +248,7 @@ func TestTerenSeBrojiPoSektoru(t *testing.T) {
 	if _, err := s.Provedi(ctx, u, skladistarF, Zahvat{Vrsta: models.PrometIzdano, SkladisteID: metkovic.ID, VrstaID: "lopata", Kolicina: 2, AreaID: 34, SectionCode: "B.34.1"}); err != nil {
 		t.Fatalf("izdavanje sektora F na teren sektora B: %v", err)
 	}
+	zaprimiSve(t, s, ctx, u)
 	if _, err := s.Provedi(ctx, u, skladistarF, Zahvat{Vrsta: models.PrometPovrat, SkladisteID: metkovic.ID, VrstaID: "lopata", Kolicina: 3, AreaID: 34, SectionCode: "B.34.1"}); err == nil {
 		t.Fatal("sektor F na terenu ima 2 lopate, ne 3")
 	}

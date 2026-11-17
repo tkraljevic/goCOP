@@ -72,6 +72,7 @@ func TestZidIzKnjige(t *testing.T) {
 		AreaID: 34, SectionCode: "B.34.1", JournalID: j.ID, Preuzeo: "vodočuvar Batina"}); err != nil {
 		t.Fatal(err)
 	}
+	zaprimiSve(t, mts, ctx, u)
 
 	zid := NewZidService(rec, journals, sections, mtsRepo, userRepo, nil, repository.NewEpisodeRepository(baza, rec))
 	dog, dalje, err := zid.Zadnji(ctx, uprava, FiltarZida{Limit: 50})
@@ -85,7 +86,7 @@ func TestZidIzKnjige(t *testing.T) {
 	izdano := 0
 	for _, d := range dog {
 		naslovi = append(naslovi, d.Modul+":"+d.Naslov)
-		if d.Naslov == "Izdano na teren" {
+		if d.Naslov == "Poslano na put" {
 			izdano++
 			if !strings.Contains(d.Tekst, "4\u00a0000 kom Vreće 50x80 cm (napunjeno)") || !strings.Contains(d.Tekst, "B.34.1") || !strings.Contains(d.Tekst, "preuzeo vodočuvar Batina") {
 				t.Errorf("tekst izdavanja: %q", d.Tekst)
@@ -96,10 +97,10 @@ func TestZidIzKnjige(t *testing.T) {
 		}
 	}
 	if izdano != 1 {
-		t.Errorf("izdavanje se pojavljuje %d puta, a redci para su jedan događaj: %v", izdano, naslovi)
+		t.Errorf("slanje na teren se pojavljuje %d puta: %v", izdano, naslovi)
 	}
 	sve := strings.Join(naslovi, "\n")
-	for _, want := range []string{"dnevnik:Dojava", "dnevnik:Otvoren dnevnik COP-a", "sredstva:Početno stanje", "sredstva:Izdano na teren", "registar:Novo skladište"} {
+	for _, want := range []string{"dnevnik:Dojava", "dnevnik:Otvoren dnevnik COP-a", "sredstva:Početno stanje", "sredstva:Poslano na put", "sredstva:Zaprimljeno", "registar:Novo skladište"} {
 		if !strings.Contains(sve, want) {
 			t.Errorf("zid nema %q:\n%s", want, sve)
 		}

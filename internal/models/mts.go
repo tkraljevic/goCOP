@@ -260,6 +260,9 @@ type Promet struct {
 	SkladisteNaziv string `json:"-"`
 	AreaName       string `json:"-"`
 	StructureName  string `json:"-"`
+	// odredište slanja na put, za prikaz
+	PremaSkladisteNaziv string `json:"-"`
+	PremaAreaName       string `json:"-"`
 }
 
 // IdeNaPut javlja je li redak slanje koje čeka zaprimanje na odredištu
@@ -272,16 +275,23 @@ func (p Promet) PremaTerenu() MjestoTerena {
 	return MjestoTerena{AreaID: p.PremaAreaID, SectionCode: p.PremaSectionCode, StructureID: p.PremaStructureID, Mjesto: p.PremaMjesto}
 }
 
+// PremaNaziv je ime odredišta slanja: skladište ili mjesto na terenu
+func (p Promet) PremaNaziv() string {
+	if p.PremaSkladisteID != "" {
+		if p.PremaSkladisteNaziv != "" {
+			return p.PremaSkladisteNaziv
+		}
+		return "skladište"
+	}
+	return "teren · " + nazivTerena(p.PremaAreaID, p.PremaAreaName, p.PremaSectionCode, "", p.PremaMjesto)
+}
+
 // Posiljka je roba na putu: redak slanja i koliko je od njega zaprimljeno
 // ili otpisano kao manjak pri prijevozu
 type Posiljka struct {
 	Slanje      Promet
 	Zaprimljeno float64
-
-	// Izvedeno pri čitanju: odredište za prikaz
-	PremaSkladisteNaziv string
-	PremaSektor         string // sektor odredišnog skladišta; za teren sektor skladišta koje je poslalo
-	PremaAreaName       string
+	PremaSektor string // sektor odredišnog skladišta; za teren sektor skladišta koje je poslalo
 }
 
 // NaPutu je količina koja još nije stigla
