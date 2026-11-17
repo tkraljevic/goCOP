@@ -10798,5 +10798,24 @@ td .odr-sitno { margin-top: 2px; }
   .sr-redak > .icon { order: 5; }
 }
 
+/* Sredstva, skladište (crtež 19a, 2): zahvati u redu, redak stanja s
+   gumbom za zahvat, zadnji promet u kartici */
+.sr-oznake { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 0; }
+.sr-zahvati { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 16px; }
+.sr-glava-skl, .sr-redak-skl { grid-template-columns: 44px minmax(0, 1fr) 56px 96px 32px; }
+.sr-redak-skl a { color: inherit; text-decoration: none; }
+.sr-redak-skl a:hover { text-decoration: underline; }
+.sr-oblici-radnje { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.sr-oblici-radnje .ocitanja-cip { min-height: 28px; padding: 0 10px; font-size: 0.75rem; }
+.sr-plus { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 50%; color: var(--text); }
+.sr-plus .icon { width: 18px; height: 18px; }
+.sr-plus:hover { background: var(--surface-hover); }
+.sr-potvrda { margin-left: 0.5rem; }
+.sr-promet .reg-card-sub { display: block; }
+@media (max-width: 599px) {
+  .sr-redak-skl { grid-template-columns: 28px minmax(0, 1fr) auto auto 32px; }
+  .sr-redak-skl > span:nth-child(5) { order: 5; }
+}
+
 /* Polje koje program nije mogao pročitati (Sredstva: krivo upisan broj) */
 .form-control[aria-invalid="true"] { border-color: var(--md-sys-color-error); box-shadow: inset 0 0 0 1px var(--md-sys-color-error); }
