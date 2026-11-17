@@ -8739,6 +8739,9 @@ summary.ocitanja-cip { padding-right: 8px; }
 }
 .os-ikona-gumb:hover { background: var(--surface-hover); }
 .os-ikona-gumb .icon { width: 18px; height: 18px; }
+/* Sredstva na mobitelu: prazna ćelija se ne ispisuje, a ikone retka stoje desno jedna uz drugu */
+.table-responsive.tablica-kartice .sr-promet td:empty { display: none; }
+.table-responsive.tablica-kartice .sr-promet td.nowrap { justify-content: flex-end; gap: 8px; }
 .os-prijasnja { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; }
 .os-prijasnja summary { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.875rem; }
 .os-opis { margin: 0 0 8px; color: var(--text-muted); font-size: 0.8125rem; }
