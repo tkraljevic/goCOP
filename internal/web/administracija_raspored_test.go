@@ -568,3 +568,28 @@ func TestDosegUloge(t *testing.T) {
 		}
 	}
 }
+
+// Vidljivost modula: svaki stupac ima ikonu, a retci idu pod međunaslove
+// skupina redom iz kataloga uloga.
+func TestVidljivostModulaStupciISkupine(t *testing.T) {
+	for _, s := range stupciModula() {
+		if s.Ikona == "" {
+			t.Errorf("modul %s nema ikone", s.ID)
+		}
+	}
+	var rows []service.RoleRow
+	for _, d := range models.RoleCatalog {
+		rows = append(rows, service.RoleRow{Role: d.Role})
+	}
+	sk := skupineUloga(rows)
+	if len(sk) < 3 || sk[0].Group != models.RoleCatalog[0].Group {
+		t.Fatalf("skupine: %+v", sk)
+	}
+	n := 0
+	for _, s := range sk {
+		n += len(s.Rows)
+	}
+	if n != len(rows) {
+		t.Errorf("u skupinama %d redaka, a uloga je %d", n, len(rows))
+	}
+}
