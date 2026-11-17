@@ -9,6 +9,9 @@
     <p class="page-desc">Svaki ulaz i izlaz{{if .Skladiste}} skladišta {{.Skladiste.Naziv}}{{else if .Sektor}} u sektoru {{.Sektor}}{{end}}, najnoviji prvi. Redci s
       istim potezom (prijenos, punjenje, izdavanje) idu u paru: iz jednog mjesta odlazi, u drugo dolazi.</p>
   </div>
+  <div class="page-actions">
+    <a href="{{.ExcelKnjige}}" class="btn btn-link" title="ista knjiga, po istim filtrima, A4 vodoravno">{{icon "download"}} Excel</a>
+  </div>
 </div>
 
 {{template "sredstvaTraka" .}}
@@ -16,28 +19,30 @@
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 
-<form method="GET" action="/sredstva/promet" class="obracun-filtar">
-  <input type="hidden" name="sektor" value="{{.Sektor}}">
-  <label for="f-sk">Skladište</label>
-  <select id="f-sk" name="skladiste" class="form-control">
-    <option value="">sva</option>
-    {{range .Skladista}}<option value="{{.ID}}"{{if and $.Skladiste (eq .ID $.Skladiste.ID)}} selected{{end}}>{{.Naziv}}</option>{{end}}
-  </select>
-  <label for="f-vrsta">Sredstvo</label>
-  <select id="f-vrsta" name="vrsta" class="form-control">
-    <option value="">sva</option>
-    {{range .Vrste}}<option value="{{.ID}}"{{if eq .ID $.VrstaID}} selected{{end}}>{{.Naziv}}</option>{{end}}
-  </select>
-  <label for="f-od">od</label><input type="date" id="f-od" name="od" class="form-control" value="{{.Od}}">
-  <label for="f-do">do</label><input type="date" id="f-do" name="do" class="form-control" value="{{.Do}}">
-  <button type="submit" class="btn btn-secondary">{{icon "search"}} Prikaži</button>
-  <button type="submit" formaction="/sredstva/promet.xlsx" class="btn btn-secondary" title="ista knjiga, po istim filtrima, A4 vodoravno">{{icon "download"}} Excel</button>
-</form>
+{{/* Filtri kao čipovi s izbornikom (crtež 19a, 4): izbor odmah učitava knjigu */}}
+<div class="ocitanja-cipovi cipovi-stranice sr-filtri" role="group" aria-label="Filtri knjige">
+  <details class="ocitanja-izbor">
+    <summary class="ocitanja-cip"{{if .Skladiste}} data-odabran{{end}}>Skladište: {{if .Skladiste}}{{.Skladiste.Naziv}}{{else}}sva{{end}}{{icon "chevron-down"}}</summary>
+    <div class="ocitanja-izbornik" role="menu">
+      <a role="menuitemradio" aria-checked="{{if .Skladiste}}false{{else}}true{{end}}" href="{{.URLKnjige "skladiste" ""}}">sva</a>
+      {{range .Skladista}}<a role="menuitemradio" aria-checked="{{if and $.Skladiste (eq .ID $.Skladiste.ID)}}true{{else}}false{{end}}" href="{{$.URLKnjige "skladiste" .ID}}">{{.Naziv}}</a>{{end}}
+    </div>
+  </details>
+  <details class="ocitanja-izbor">
+    <summary class="ocitanja-cip"{{if .VrstaID}} data-odabran{{end}}>Sredstvo: {{.NazivVrsteKnjige}}{{icon "chevron-down"}}</summary>
+    <div class="ocitanja-izbornik" role="menu">
+      <a role="menuitemradio" aria-checked="{{if .VrstaID}}false{{else}}true{{end}}" href="{{.URLKnjige "vrsta" ""}}">sva</a>
+      {{range .Vrste}}<a role="menuitemradio" aria-checked="{{if eq .ID $.VrstaID}}true{{else}}false{{end}}" href="{{$.URLKnjige "vrsta" .ID}}">{{.Naziv}}</a>{{end}}
+    </div>
+  </details>
+  {{range .DatumiKnjige}}{{template "sredstvaDatumKnjige" .}}{{end}}
+</div>
 
 {{if .Promet}}
-<div class="table-card"><div class="table-responsive tablica-kartice">
-  <table class="data-table">
-    <thead><tr><th>Datum</th><th>Zahvat</th><th>Mjesto</th><th>Sredstvo</th><th class="br">Količina</th><th>Nalog · osoba · dokument</th><th>Upisao</th><th>Napomena</th></tr></thead>
+<section class="os-kartica" aria-label="Knjiga prometa">
+<div class="table-responsive tablica-kartice">
+  <table class="data-table sr-promet">
+    <thead><tr><th>Datum</th><th>Zahvat</th><th>Mjesto</th><th>Sredstvo</th><th class="br">Količina</th><th>Nalog · osoba · dokument</th><th>Upisao</th><th aria-label="Potvrda"></th></tr></thead>
     <tbody>
     {{range .Promet}}
     <tr>
@@ -46,15 +51,36 @@
       <td data-stupac="Mjesto">{{if .SkladisteID}}<a href="/sredstva/skladista/{{.SkladisteID}}">{{.MjestoNaziv}}</a>{{else}}{{.MjestoNaziv}}{{end}}</td>
       <td data-stupac="Sredstvo">{{.VrstaNaziv}}{{if .Oblik}} <span class="reg-card-sub">{{oblik .Oblik}}</span>{{end}}</td>
       <td data-stupac="Količina" class="mono br {{if lt .Kolicina 0.0}}mts-minus{{else}}mts-plus{{end}}">{{kolicinaZnak .Kolicina}} {{.Jedinica}}</td>
-      <td data-stupac="Nalog">{{if .Nalozio}}nalog: {{.Nalozio}}{{end}}{{if .Preuzeo}}{{if .Nalozio}} · {{end}}{{strana .Vrsta}}: {{.Preuzeo}}{{end}}{{if .Dokument}} · {{.Dokument}}{{end}}</td>
+      <td data-stupac="Nalog">{{if .Nalozio}}nalog: {{.Nalozio}}{{end}}{{if .Preuzeo}}{{if .Nalozio}} · {{end}}{{strana .Vrsta}}: {{.Preuzeo}}{{end}}{{if .Dokument}} · {{.Dokument}}{{end}}{{if .Napomena}}<span class="reg-card-sub">{{.Napomena}}</span>{{end}}</td>
       <td data-stupac="Upisao">{{.UserName}} <span class="reg-card-sub">{{vrijemeHR .CreatedAt}}</span></td>
-      <td data-stupac="Napomena">{{.Napomena}}{{if .VezaID}} <a href="/sredstva/promet/{{.VezaID}}/potvrda.xlsx" title="potvrda / otpremnica" class="reg-card-sub">{{icon "download"}}</a>{{end}}</td>
+      <td data-stupac="Potvrda">{{if .VezaID}}<a href="/sredstva/promet/{{.VezaID}}/potvrda.xlsx" class="sr-plus" title="Potvrda / otpremnica" aria-label="Potvrda / otpremnica">{{icon "download"}}</a>{{end}}</td>
     </tr>
     {{end}}
     </tbody>
   </table>
-</div></div>
+</div>
+</section>
 {{else}}
 <div class="reg-empty">Nema prometa za taj izbor.</div>
 {{end}}
+{{end}}
+
+{{/* Čip datuma u knjizi prometa: izbornik s poljem dana koje odmah učitava
+     knjigu, i brisanjem kad je dan zadan */}}
+{{define "sredstvaDatumKnjige"}}{{$d := .Podaci}}
+<details class="ocitanja-izbor">
+  <summary class="ocitanja-cip"{{if .Vrijednost}} data-odabran{{end}}>{{.Natpis}}: {{if .Vrijednost}}{{datumHR .Vrijednost}}{{else}}—{{end}}{{icon "chevron-down"}}</summary>
+  <div class="ocitanja-izbornik sr-datum-izbor">
+    <form method="GET" action="/sredstva/promet">
+      <input type="hidden" name="sektor" value="{{$d.Sektor}}">
+      {{if $d.Skladiste}}<input type="hidden" name="skladiste" value="{{$d.Skladiste.ID}}">{{end}}
+      {{if $d.VrstaID}}<input type="hidden" name="vrsta" value="{{$d.VrstaID}}">{{end}}
+      {{if and $d.Od (ne .Ime "od")}}<input type="hidden" name="od" value="{{$d.Od}}">{{end}}
+      {{if and $d.Do (ne .Ime "do")}}<input type="hidden" name="do" value="{{$d.Do}}">{{end}}
+      <label class="form-label" for="f-{{.Ime}}">{{.Natpis}} dana</label>
+      <input type="date" id="f-{{.Ime}}" name="{{.Ime}}" class="form-control" value="{{.Vrijednost}}" onchange="this.form.submit()">
+    </form>
+    {{if .Vrijednost}}<a href="{{$d.URLKnjige .Ime ""}}">Bez ograničenja</a>{{end}}
+  </div>
+</details>
 {{end}}
