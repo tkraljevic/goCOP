@@ -10778,7 +10778,9 @@ td .odr-sitno { margin-top: 2px; }
 .sr-prikaz { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
 .os-kartica-glava .sr-prikaz { margin: 0; }
 .sr-prikaz .ocitanja-cip:not([aria-pressed="true"]) .icon { display: none; }
-[data-prikaz="ima"] [data-ima="0"], [data-prikaz="razlike"] [data-razlika="0"], .sr-skupina-prazna { display: none !important; }
+[data-prikaz="ima"] [data-ima="0"], [data-prikaz="razlike"] [data-razlika="0"], .sr-skupina-prazna,
+[data-prikaz="nacrt"] [data-stanje="zakljucena"], [data-prikaz="zakljucene"] [data-stanje="nacrt"] { display: none !important; }
+.sr-sazetak-potreba { margin: 0 0 8px; text-align: right; }
 .sr-stanje { display: flex; flex-direction: column; gap: 4px; }
 .sr-glava, .sr-redak { display: grid; grid-template-columns: 44px minmax(0, 1fr) 56px 96px 20px; gap: 8px; align-items: center; }
 .sr-glava { padding: 4px 12px; color: var(--text-muted); font-size: 0.75rem; }

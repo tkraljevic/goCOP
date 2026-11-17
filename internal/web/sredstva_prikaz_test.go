@@ -2,6 +2,7 @@ package web
 
 import (
 	"testing"
+	"time"
 
 	"gocop/internal/models"
 )
@@ -56,5 +57,20 @@ func TestBrojImaSkupine(t *testing.T) {
 	g := GrupaStanja{Redci: []models.StanjeVrste{{Ukupno: 3}, {}, {Potrebno: 1}}}
 	if g.BrojIma() != 2 {
 		t.Errorf("ima %d", g.BrojIma())
+	}
+}
+
+// Popis inventura broji nacrte i zaključene, a potrebe sektora vrste s
+// potrebom i skladišta koja je imaju.
+func TestCipoviInventuraISazetakPotreba(t *testing.T) {
+	sad := time.Now()
+	d := MtsPageData{Popisi: []models.Popis{{}, {ZakljucenoAt: &sad}, {ZakljucenoAt: &sad}}}
+	p := d.PrikazInventura()
+	if p.Cilj != "sr-inventure" || p.Zadano != "sve" || p.Cipovi[1].Broj != 1 || p.Cipovi[2].Broj != 2 {
+		t.Errorf("čipovi inventura: %+v", p)
+	}
+	d.PotrebeSektora = []models.Potreba{{SkladisteID: "s1", VrstaID: "a", Kolicina: 3}, {SkladisteID: "s2", VrstaID: "a", Kolicina: 1}, {SkladisteID: "s2", VrstaID: "b", Kolicina: 2}, {SkladisteID: "s3", VrstaID: "c"}}
+	if s := d.SazetakPotreba(); s.Vrsta != 2 || s.Skladista != 2 {
+		t.Errorf("sažetak potreba: %+v", s)
 	}
 }

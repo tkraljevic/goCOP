@@ -84,3 +84,31 @@ func (d MtsPageData) PrikazPotreba() PrikazRedaka {
 	}
 	return prikazRedaka("sr-potrebe", "ima", CipPrikaza{"ima", "s potrebom", ima}, CipPrikaza{"sve", "sve vrste", len(d.Stanje)})
 }
+
+// PrikazInventura su čipovi stanja „sve / nacrt / zaključene” na popisu
+// inventura; popis se otvara na svima
+func (d MtsPageData) PrikazInventura() PrikazRedaka {
+	nacrt := 0
+	for _, p := range d.Popisi {
+		if !p.Zakljucen() {
+			nacrt++
+		}
+	}
+	return prikazRedaka("sr-inventure", "sve", CipPrikaza{"sve", "sve", len(d.Popisi)},
+		CipPrikaza{"nacrt", "nacrt", nacrt}, CipPrikaza{"zakljucene", "zaključene", len(d.Popisi) - nacrt})
+}
+
+// SazetakPotreba je rečenica iznad potreba sektora: koliko vrsta ima
+// potrebu i u koliko skladišta
+type SazetakPotreba struct{ Vrsta, Skladista int }
+
+// SazetakPotreba broji vrste s potrebom i skladišta koja je imaju
+func (d MtsPageData) SazetakPotreba() SazetakPotreba {
+	vrste, skladista := map[string]bool{}, map[string]bool{}
+	for _, p := range d.PotrebeSektora {
+		if p.Kolicina != 0 {
+			vrste[p.VrstaID], skladista[p.SkladisteID] = true, true
+		}
+	}
+	return SazetakPotreba{Vrsta: len(vrste), Skladista: len(skladista)}
+}

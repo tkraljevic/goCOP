@@ -22,6 +22,7 @@
   {{range .GodinePopisa}}<a class="ocitanja-cip" href="/sredstva/popisi?sektor={{$.Sektor}}&amp;godina={{.}}" aria-pressed="{{if eq . $.Godina}}true{{else}}false{{end}}">{{if eq . $.Godina}}{{icon "check"}}{{end}}{{.}}.</a>{{end}}
   <a class="ocitanja-cip" href="/sredstva/popisi?sektor={{.Sektor}}" aria-pressed="{{if .Godina}}false{{else}}true{{end}}">{{if not .Godina}}{{icon "check"}}{{end}}sve</a>
 </div>
+{{$pr := .PrikazInventura}}{{if .Popisi}}{{template "sredstvaPrikaz" $pr}}{{end}}
 
 {{if .ZaInventuru}}
 <section class="os-kartica" aria-labelledby="inv-nova">
@@ -40,9 +41,9 @@
 <div class="table-responsive tablica-kartice">
   <table class="data-table sr-promet">
     <thead><tr><th>Na dan</th><th>Skladište</th><th>Stanje</th><th class="br">Redaka s razlikom</th><th>Izradio</th></tr></thead>
-    <tbody>
+    <tbody id="{{$pr.Cilj}}" data-prikaz="{{$pr.Zadano}}">
     {{range .Popisi}}
-    <tr>
+    <tr data-stanje="{{if .Zakljucen}}zakljucena{{else}}nacrt{{end}}">
       <td data-stupac="Na dan"><a href="/sredstva/popisi/{{.ID}}"><strong>{{.Dan.Format "2.1.2006."}}</strong></a></td>
       <td data-stupac="Skladište">{{.SkladisteNaziv}}{{if .AreaID}}<span class="reg-card-sub">BP {{.AreaID}}</span>{{end}}</td>
       <td data-stupac="Stanje">{{if .Zakljucen}}<span class="badge">zaključena {{.ZakljucenoAt.Format "2.1.2006."}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{if .Prazan}}<span class="reg-card-sub sr-prazan-nacrt">prazan nacrt{{if index $.PisatiU .SkladisteID}} · <form method="POST" action="/sredstva/popisi/{{.ID}}/obrisi" class="d-inline" onsubmit="return confirm('Obrisati prazan nacrt inventure skladišta {{.SkladisteNaziv}} na dan {{.Dan.Format "2. 1. 2006."}}?');"><button type="submit" class="sr-obrisi">Obriši</button></form>{{end}}</span>{{end}}{{end}}</td>

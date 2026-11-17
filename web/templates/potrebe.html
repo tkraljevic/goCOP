@@ -29,7 +29,8 @@
   </div>{{end}}
 </form>
 
-{{if .PotrebeSektora}}
+{{if .PotrebeSektora}}{{$s := .SazetakPotreba}}
+<p class="sr-opis sr-sazetak-potreba">{{$s.Vrsta}} {{uzBroj $s.Vrsta "vrsta" "vrste" "vrsta"}} s potrebom u {{$s.Skladista}} {{uzBroj $s.Skladista "skladištu" "skladišta" "skladišta"}}</p>
 <section class="os-kartica" aria-label="Potrebe po vrsti">
 <div class="table-responsive">
   <table class="data-table mts-stanje sr-promet">
