@@ -294,3 +294,13 @@ func TestNaslovMjesta(t *testing.T) {
 		}
 	}
 }
+
+// Kratko ime ide u uske stupce; bez njega puni naziv.
+func TestKratkoImeSkladista(t *testing.T) {
+	if k := (Skladiste{Naziv: "Skladište obrane od poplava D. Miholjac", KratkoIme: "D. Miholjac"}).Kratko(); k != "D. Miholjac" {
+		t.Errorf("kratko: %q", k)
+	}
+	if k := (Skladiste{Naziv: "CS Draž"}).Kratko(); k != "CS Draž" {
+		t.Errorf("bez kratkog: %q", k)
+	}
+}

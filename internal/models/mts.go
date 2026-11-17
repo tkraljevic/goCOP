@@ -116,6 +116,7 @@ type Skladiste struct {
 	Sektor       string `json:"sektor"`
 	AreaID       int    `json:"area_id"`
 	Naziv        string `json:"naziv"`
+	KratkoIme    string `json:"kratko_ime,omitempty"` // za uske stupce: „D. Miholjac”; prazno je puni naziv
 	Adresa       string `json:"adresa,omitempty"`
 	StructureID  string `json:"structure_id,omitempty"`  // objekt iz registra (crpna stanica)
 	ContractorID string `json:"contractor_id,omitempty"` // firma u čijem krugu stoji
@@ -130,6 +131,15 @@ type Skladiste struct {
 	AreaName       string `json:"-"`
 	StructureName  string `json:"-"`
 	ContractorName string `json:"-"`
+}
+
+// Kratko je ime skladišta za uske stupce (potrebe sektora): kratko ime
+// kad je upisano, inače puni naziv
+func (s Skladiste) Kratko() string {
+	if s.KratkoIme != "" {
+		return s.KratkoIme
+	}
+	return s.Naziv
 }
 
 // PunNaziv je naziv skladišta s branjenim područjem, kako stoji u popisu
