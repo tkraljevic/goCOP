@@ -3,19 +3,24 @@
 {{define "title"}}goCOP — Stanje razmjene{{end}}
 
 {{define "content"}}
+{{/* Stanje razmjene po crtežu 18b · 2 (goCOP-m3): upozorenja kao trake,
+     pet pločica, Računala, Lokalna mreža sada, Dohvatljivost i Provjera
+     veze s računalom jedna uz drugu, prava i odbijeno u karticama.
+     Identifikatori i skripte su isti; stupac Uloge s čipovima i razlog
+     puta su novo ponašanje i čekaju odluku. */}}
 <div class="stranica-sinkronizacija">
 
-<div class="breadcrumb"><a href="/administracija">Administracija</a> › Stanje razmjene</div>
-
+<a class="adm-natrag" href="/administracija">{{icon "arrow-left"}} Administracija</a>
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{icon "activity"}} Stanje razmjene</h1>
-    <p class="page-desc">S kim ovo računalo razmjenjuje, tko je na mreži, s kim je zadnja razmjena uspjela i tko zaostaje. Ovdje se razmjena pokreće rukom i provjerava veza. Osvježava se samo, svakih 20 sekundi. Ključ, uloge, uparivanje i adrese su na stranici <a href="/settings">Ovo računalo i mreža</a>.</p>
+    <h1 class="page-title" data-naziv-stranice>Stanje razmjene</h1>
+    <p class="page-desc">S kim ovo računalo razmjenjuje, tko je na mreži, s kim je zadnja razmjena uspjela i tko zaostaje. Ovdje se razmjena pokreće rukom i provjerava veza. Osvježava se samo, svakih 20 sekundi.</p>
+    <a class="adm-poveznica" href="/settings">Ključ, uloge, uparivanje i adrese su na stranici Ovo računalo i mreža {{icon "arrow-right"}}</a>
   </div>
   {{if .Permissions.IsGlobalAdmin}}
-  <div class="detail-actions">
-    <button type="button" class="btn btn-primary" id="sync-all" onclick="syncAll()">{{icon "refresh-cw"}} Razmijeni sa svima</button>
-    <button type="button" class="btn btn-secondary" onclick="refresh(true)">{{icon "search"}} Pretraži lokalnu mrežu</button>
+  <div class="page-actions">
+    <button type="button" class="btn btn-primary" id="sync-all" onclick="syncAll()">Razmijeni sa svima</button>
+    <button type="button" class="btn btn-link" onclick="refresh(true)">Pretraži lokalnu mrežu</button>
   </div>
   {{end}}
 </div>
@@ -31,25 +36,28 @@
   <div class="tile" id="t-auto"><div class="n">–</div><div class="l">automatski razmak</div></div>
 </div>
 
-<div class="table-card"><div class="table-responsive">
+<section class="adm-kartica" aria-labelledby="raz-racunala">
+<h2 id="raz-racunala">Računala</h2>
+<div class="table-responsive">
   <table class="data-table" id="peers">
     <thead><tr><th>Računalo</th><th>Stanje</th><th>Član</th><th>Zadnja razmjena</th><th>Primljeno / poslano</th><th>Zaostaje</th><th>Adrese</th><th></th></tr></thead>
     <tbody><tr><td colspan="8" class="muted">Učitavanje…</td></tr></tbody>
   </table>
-</div></div>
+</div>
+</section>
 
-<div id="lan" class="mt-4"></div>
-<p class="muted mt-2" id="stamp"></p>
+<section id="lan" class="adm-kartica raz-lan" aria-label="Lokalna mreža sada"></section>
 
+<div class="raz-par">
 {{with .Dohvatljivost}}
-<section id="dohvatljivost">
-<h2 class="mt-4" style="font-size:1rem;">Dohvatljivost ovog računala</h2>
+<section id="dohvatljivost" class="adm-kartica">
+<h2>Dohvatljivost ovog računala <span class="rac-doseg" title="Vrijedi samo na ovom računalu i ne ide razmjenom.">R</span></h2>
 {{range .Upozorenja}}<div class="alert alert-warning">{{.}}</div>{{end}}
 {{with .Signal}}<p>{{.}}</p>{{end}}
 {{with .Provjera}}
 <p>{{.Sazetak}}{{with $.Dohvatljivost.Vrijedi}} Vrijedi: {{.}}.{{end}}</p>
 <p class="muted">Provjereno {{vrijemeHR .Kad}}{{if .Privremena}}, na utičnici otvorenoj samo za ovu provjeru{{end}}.{{with .Upozorenje}} {{.}}.{{end}}</p>
-{{with $.Dohvatljivost.Javna}}<p>Javna adresa: <span class="mono">{{.}}</span></p>{{end}}
+{{with $.Dohvatljivost.Javna}}<p>Adresa koju vidi internet (STUN): <span class="mono">{{.}}</span></p>{{end}}
 {{range $.Dohvatljivost.Izlazi}}<p>{{.}}</p>{{end}}
 {{if not .Greska}}<p>Adrese za WEB sync: {{range $i, $k := $.Dohvatljivost.Kandidati}}{{if $i}}, {{end}}<span class="mono">{{$k}}</span>{{else}}nijedna{{end}}</p>{{end}}
 {{with .Razlozi}}<p class="muted">Nisu ponuđene: {{range $i, $r := .}}{{if $i}}; {{end}}{{$r}}{{end}}</p>{{end}}
@@ -66,12 +74,12 @@
 {{end}}
 
 {{with .ProvjeraRacunala}}
-<section id="provjera-racunala">
-<h2 class="mt-4" style="font-size:1rem;">Provjera veze s računalom</h2>
+<section id="provjera-racunala" class="adm-kartica">
+<h2>Provjera veze s računalom <span class="rac-doseg" title="Vrijedi samo na ovom računalu i ne ide razmjenom.">R</span></h2>
 <p class="muted">Program nazove svaku adresu koju za računalo zna, kao razmjena, i stane čim se ono javi svojim ključem; podaci se ne razmjenjuju. Usput izmjeri i mrežu ovog računala, kao gumb Provjeri vezu iznad. Traje do 10 sekundi.</p>
 {{if .Racunala}}
 {{if .Nudi}}<form method="POST" action="/sinkronizacija/provjeri-vezu" class="actions">
-  <select name="cvor" aria-label="Računalo">{{range .Racunala}}<option value="{{.NodeID}}"{{if eq .NodeID $.ProvjeraRacunala.Odabrano}} selected{{end}}>{{.Naziv}}</option>{{end}}</select>
+  <select name="cvor" aria-label="Računalo" class="form-control">{{range .Racunala}}<option value="{{.NodeID}}"{{if eq .NodeID $.ProvjeraRacunala.Odabrano}} selected{{end}}>{{.Naziv}}</option>{{end}}</select>
   <button type="submit" class="btn btn-secondary">{{icon "activity"}} Provjeri vezu s računalom</button>
 </form>
 {{else}}<p class="muted">{{.Zabrana}}</p>{{end}}
@@ -90,9 +98,11 @@
 </section>
 {{end}}
 
+</div>
+
 {{with .Prava}}
-<section id="prava">
-<h2 class="mt-4" style="font-size:1rem;">Promjene prava koje čekaju potvrdu</h2>
+<section id="prava" class="adm-kartica">
+<h2>Promjene prava koje čekaju potvrdu</h2>
 <p class="muted">Kad s drugog računala stigne promjena koja nekome daje ili oduzima prava globalnog administratora ili dužnost uprave organizacije, ili mijenja lozinku ili uključenost računa globalnog administratora, ona ne vrijedi dok je ne potvrdi globalni administrator. Do tada ostaje zapisana i ide dalje drugim računalima, a ostale izmjene istog računa, npr. telefon, stižu kao i prije. Dok promjena čeka, taj se račun ili dužnost na ovom računalu ne može mijenjati. Odbijena promjena ostaje zapisana, ali ne vrijedi. Računalo u stupcu S računala je ono koje navodi sama promjena.</p>
 {{if .Kljucem}}<p class="muted">Ovo računalo drži ključ mreže. Odluka se ovdje donosi jednom za cijelu mrežu: potvrda ili odbijanje potpiše se ključem mreže i stigne razmjenom na sva računala. Izmjene prava napravljene na ovom računalu vrijede na ostalima čim do njih stignu razmjenom, bez čekanja na potvrdu.</p>
 {{else if .Drugdje}}<p class="muted">Promjenu potvrđuje ili odbija globalni administrator na računalu koje drži ključ mreže. Kad ondje odluči, odluka stigne ovamo razmjenom i ovdje vrijedi bez nove potvrde.</p>
@@ -120,7 +130,7 @@
 {{if and .Nudi .TraziLozinku}}<p class="muted">Izvana se o promjeni prava odlučuje uz lozinku vašeg računa.</p>{{end}}
 {{else}}<p class="muted">Nijedna promjena prava ne čeka potvrdu.</p>{{end}}
 {{if .Odluke}}
-<h3 class="mt-3" style="font-size:.95rem;">Zadnje odluke</h3>
+<h3>Zadnje odluke</h3>
 <div class="table-card"><div class="table-responsive">
   <table class="data-table" id="prava-odluke">
     <thead><tr><th>Račun</th><th>Što se mijenja</th><th>S računala</th><th>Odluka</th><th>Tko</th><th>Kad</th></tr></thead>
@@ -137,7 +147,8 @@
 {{end}}
 
 {{if .Permissions.IsGlobalAdmin}}
-<h2 class="mt-4" style="font-size:1rem;">Odbijeno i djelomično razumljeno, zadnjih 7 dana</h2>
+<section class="adm-kartica" id="odbijeno-kartica">
+<h2>Odbijeno i djelomično razumljeno, zadnjih 7 dana</h2>
 <p class="muted">Bez adresa i bez sadržaja zapisa. Ponešto odbijenih pokušaja na vratima je uobičajeno, osobito kroz tunel, gdje se javlja bilo tko s interneta. Stanje u trenutku otvaranja stranice.</p>
 {{if .OdbijenoGreska}}<div class="alert alert-warning">{{.OdbijenoGreska}}</div>{{end}}
 {{if .Odbijeno}}
@@ -148,10 +159,13 @@
   </table>
 </div></div>
 {{else if not .OdbijenoGreska}}<p class="muted">Ništa nije odbijeno.</p>{{end}}
+</section>
 {{end}}
+<p class="muted" id="stamp"></p>
 
 <script>
 const IS_ADMIN = {{if .Permissions.IsGlobalAdmin}}true{{else}}false{{end}};
+const IKONA_UPOZORENJA = '<svg class="icon" aria-hidden="true"><use href="/static/img/icons.svg#triangle-alert"/></svg>';
 // Slanje (POST) pokazuje da čeka na pritisnutom gumbu (odziv.gumb), a
 // čitanje stanja ne, jer se vrti samo.
 const api = (url, body) => {
@@ -224,13 +238,13 @@ function render(st) {
   $('t-total').querySelector('.n').textContent = st.total;
   $('t-versions').querySelector('.n').textContent = st.versions.toLocaleString('hr-HR');
   $('t-last').querySelector('.n').textContent = when(st.last_ok);
-  $('t-last').querySelector('.n').style.fontSize = '1.05rem';
+  
   $('t-auto').querySelector('.n').textContent = st.auto_sync ? fmtEvery(st.interval_sec) : 'isključeno';
   $('t-auto').className = 'tile ' + (st.auto_sync ? '' : 'bad');
 
   // upozorenja koja traže uparivanje vode globalnog administratora na uparivanje
-  $('alerts').innerHTML = (st.alerts || []).map(a => '<div class="alert alert-warning">' + esc(a) +
-    (IS_ADMIN && a.indexOf('Uparite') >= 0 ? ' <a href="/uparivanje">Upari računalo</a>' : '') + '</div>').join('');
+  $('alerts').innerHTML = (st.alerts || []).map(a => '<div class="dash-traka" role="status">' + IKONA_UPOZORENJA + '<span>' + esc(a) + '</span>' +
+    (IS_ADMIN && a.indexOf('Uparite') >= 0 ? '<a href="/uparivanje" class="btn btn-link">Upari računalo</a>' : '') + '</div>').join('');
 
   const label = {online: 'na mreži', offline: 'ne odgovara', never: 'još nikad'};
   const rows = (st.peers || []).map(p => {
@@ -239,21 +253,21 @@ function render(st) {
     const total = st.versions || 1;
     const pct = Math.max(0, Math.min(100, Math.round(100 * (1 - (p.backlog || 0) / total))));
     return `<tr>
-      <td><b>${name}</b>${p.is_bootstrap ? ' <span class="reg-chip">domenski</span>' : ''}<br><span class="muted mono">${esc(p.node_id)}</span>${p.program ? '<br><span class="muted">' + esc(p.gradnja || p.program) + (p.razlicit_program ? ' — drukčija od ovog čvora' : '') + '</span>' : (p.razlicit_program ? '<br><span class="muted">starija inačica (ne javlja je)</span>' : '')}${uloge(s)}</td>
+      <td><b>${name}</b>${p.is_bootstrap ? ' <span class="reg-chip">domenski</span>' : ''}<br><span class="muted mono">${esc(p.node_id)}</span>${p.program ? '<br><span class="muted">' + esc(p.gradnja || p.program) + (p.razlicit_program ? ', drukčija od ovog računala' : '') + '</span>' : (p.razlicit_program ? '<br><span class="muted">starija inačica (ne javlja je)</span>' : '')}${uloge(s)}</td>
       <td><span class="dot ${p.reachability}"></span>${label[p.reachability] || p.reachability}${s.fails ? '<br><span class="muted">' + s.fails + '× zaredom bez odgovora</span>' : ''}</td>
       <td>${p.member ? clan(p.rok_clanstva) : '<span class="badge badge-inactive" title="' + esc(p.member_problem) + '">nije</span>'}</td>
       <td>${when(s.last_ok)}${put(s)}${s.last_error ? '<br><span class="err">' + esc(s.last_error) + '</span>' : ''}${s.last_attempt && s.last_attempt !== s.last_ok ? '<br><span class="muted">pokušaj ' + when(s.last_attempt) + '</span>' : ''}</td>
       <td>${s.last_ok ? s.applied + ' / ' + s.sent + '<br><span class="muted">' + (s.duration_ms >= 1000 ? (s.duration_ms / 1000).toFixed(1) + ' s' : s.duration_ms + ' ms') + '</span>' + brojaci(s) : '—'}</td>
       <td>${s.last_ok ? (p.backlog ? p.backlog + ' ' + uzBroj(p.backlog, 'verzija', 'verzije', 'verzija') : 'ništa') + '<div class="bar"><i style="width:' + pct + '%"></i></div>' : '—'}</td>
       <td class="muted mono">${(p.addresses || []).concat((s.tailscale || []).map(a => a + ' (Tailscale)')).map(esc).join('<br>') || '—'}${pokusaji(st, p, s)}</td>
-      <td>${IS_ADMIN ? '<button class="btn btn-sm btn-secondary" data-node="' + esc(p.node_id) + '" onclick="syncOne(this.dataset.node)">Razmijeni</button>' : ''}</td>
+      <td>${IS_ADMIN ? '<button class="btn btn-sm btn-link" data-node="' + esc(p.node_id) + '" onclick="syncOne(this.dataset.node)">Razmijeni</button>' : ''}</td>
     </tr>`;
   });
   $('peers').querySelector('tbody').innerHTML = rows.join('') || '<tr><td colspan="8" class="muted">Nema poznatih računala.</td></tr>';
 
   if (st.lan) {
-    $('lan').innerHTML = '<h2 style="font-size:1rem;">Lokalna mreža sada</h2>' + (st.lan.length
-      ? st.lan.map(f => `<div class="muted"><span class="dot online"></span><b>${esc(f.name || f.deviceId)}</b> <span class="mono">${esc(f.addr)}</span>${f.known ? '' : ' · nepoznato računalo, nije upareno' + upariPoveznica(f)}</div>`).join('')
+    $('lan').innerHTML = '<h2>Lokalna mreža sada</h2>' + (st.lan.length
+      ? st.lan.map(f => `<div class="raz-lan-red"><span class="dot online"></span><b>${esc(f.name || f.deviceId)}</b> <span class="mono">${esc(f.addr)}</span><span class="muted">${f.known ? 'upareno' : 'nepoznato računalo, nije upareno' + upariPoveznica(f)}</span></div>`).join('')
       : '<div class="muted">Nijedno goCOP računalo ne javlja se u lokalnoj mreži.</div>');
   }
   $('stamp').textContent = 'Stanje od ' + new Date(st.generated_at).toLocaleTimeString('hr-HR');
