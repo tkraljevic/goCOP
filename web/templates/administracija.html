@@ -2,46 +2,55 @@
 
 {{define "title"}}goCOP — Administracija{{end}}
 
+{{/* Ulaz u Administraciju po crtežu 18a · 1 (goCOP-m3): šest skupina s
+     podnaslovom i rečenicom, kartice u tri stupca (tablet dva, mobitel
+     redak bez opisa), čip dosega R / M / R+M i stanja u glavi kartice.
+     Prvi koraci su kartica s trakom napretka (18a · 1a). Upozorenja su
+     trake u boji tehničkog upozorenja s radnjom desno. Kartica PIN-a,
+     brojevi na Sudionicima, Vidljivosti i Nazivima te traka ponovnog
+     pokretanja su novo ponašanje i čekaju odluku (plan-administracija-dizajn). */}}
 {{define "content"}}
-<div class="dashboard-container">
-  <div class="section-title-wrap">
-    <div class="breadcrumb"><a href="/">Početna</a> › Administracija</div>
-    <h1 class="page-title">{{icon "settings"}} Administracija</h1>
-    <p class="section-desc">
-      Ustroj obrane i ljudi, ovo računalo i mreža, izvori vodostaja, akti i izgled programa. Registri i dnevnici su drugdje.
-      Uz karticu piše vrijedi li ono što se na njoj mijenja samo na ovom računalu, u cijeloj mreži, ili dio ovdje, a dio u mreži.
-    </p>
+<div class="dash-ulaz">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title" data-naziv-stranice>Administracija</h1>
+      <p class="page-desc">Ustroj i ljudi, ovo računalo i mreža, izvori vodostaja, akti i izgled. Uz karticu piše vrijedi li promjena samo ovdje (R), u cijeloj mreži (M) ili dio ovdje, a dio u mreži (R+M).</p>
+    </div>
   </div>
 
-    
   {{if and (eq .Sectors 0) (not .PrviKoraci)}}
-  <div class="alert alert-warning">
-    {{icon "triangle-alert"}} Čvor još nema nijedan {{terml "sektor"}}. Dok ustroja nema, nema ni dionica ni zaduženja.
-    Počnite s <a href="/organizacija/sektori/new">novim sektorom</a>, pa mu dodajte {{terml "podrucja"}}.
+  <div class="dash-traka" role="status">
+    {{icon "triangle-alert"}}<span>Ovo računalo još nema nijedan {{terml "sektor"}}. Dok ustroja nema, nema ni dionica ni zaduženja. Počnite novim sektorom, pa mu dodajte {{terml "podrucja"}}.</span>
+    <a href="/organizacija/sektori/new" class="btn btn-link">Novi sektor</a>
   </div>
   {{end}}
   {{if .PINBezPosiljatelja}}
-  <div class="alert alert-error" id="pin-bez-posiljatelja">
-    {{icon "triangle-alert"}} <span><strong>PIN izvana je uključen, a ovaj čvor nema ispravnog računa za slanje PIN-a.</strong>
-    Tko se kroz ovaj čvor prijavljuje izvana, ulazi samo rezervnim ili privremenim kodom.
-    Upišite račun i pošaljite probni PIN u <a href="/administracija/posta#pin">E-pošti</a>.</span>
+  <div class="dash-traka" id="pin-bez-posiljatelja" role="status">
+    {{icon "triangle-alert"}}<span><strong>PIN izvana je uključen, a ovo računalo nema ispravnog računa za slanje PIN-a.</strong>
+    Tko se preko njega prijavljuje izvana, ulazi samo rezervnim ili privremenim kodom. Upišite račun i pošaljite probni PIN.</span>
+    <a href="/administracija/posta#pin" class="btn btn-link">Otvori E-poštu</a>
   </div>
   {{end}}
   {{if .NoContact}}
-  <div class="alert alert-warning">
-    {{icon "triangle-alert"}} Nijedan globalni administrator nema upisan mobitel ni e-poštu, pa stranica prijave
-    ne zna kome uputiti osobu koja je zaboravila lozinku. Upišite kontakt na <a href="/profile">svom profilu</a>.
+  <div class="dash-traka" role="status">
+    {{icon "triangle-alert"}}<span>Nijedan globalni administrator nema upisan mobitel ni e-poštu, pa stranica prijave ne zna kome uputiti osobu koja je zaboravila lozinku.</span>
+    <a href="/profile" class="btn btn-link">Upiši na profilu</a>
   </div>
   {{end}}
 
-  {{with .PrviKoraci}}
-  <section class="dash-skupina" id="prvi-koraci">
-    <h2 class="dash-skupina-naslov">{{icon "list"}} Prvi koraci</h2>
-    <p class="section-desc">Redom kojim se program postavlja na prvom računalu u mreži. Kvačica znači da je korak napravljen. Gdje piše „pogledajte sami”, program to ne zna sam, pa taj korak jednom pogledajte. Popis nestaje kad su ostali koraci gotovi.</p>
+  {{with .PrviKoraci}}{{$n := $.Napredak}}
+  <section class="dash-prvi" id="prvi-koraci" aria-labelledby="prvi-koraci-naslov">
+    <div class="dash-prvi-glava">
+      <h2 id="prvi-koraci-naslov">Prvi koraci</h2>
+      <span class="dash-prvi-broj">{{$n.Gotovo}} od {{$n.Ukupno}} gotovo</span>
+    </div>
+    <p class="dash-prvi-opis">Redom kojim se program postavlja na prvom računalu u mreži. Gdje piše „pogledajte sami”, program to ne zna, pa taj korak jednom pogledajte. Popis nestaje kad su ostali koraci gotovi.</p>
+    <div class="dash-prvi-traka" role="progressbar" aria-valuemin="0" aria-valuemax="{{$n.Ukupno}}" aria-valuenow="{{$n.Gotovo}}" aria-label="Napravljeni koraci"><span style="width: {{$n.Postotak}}%"></span></div>
     <ol class="dash-koraci">
-      {{range .}}<li class="dash-korak{{if .Gotov}} gotov{{end}}">
-        <span class="dash-korak-oznaka{{if not .Zna}} bez-provjere{{end}}">{{if .Gotov}}{{icon "check"}}{{end}}</span>
-        <span><a href="{{.Href}}">{{.Naslov}}</a>{{if not .Zna}} <span class="text-muted">· pogledajte sami</span>{{end}}<br><span class="text-muted">{{.Opis}}</span></span>
+      {{range $i, $k := .}}<li class="dash-korak{{if .Gotov}} gotov{{end}}">
+        <span class="dash-korak-oznaka{{if not .Zna}} bez-provjere{{end}}">{{if .Gotov}}{{icon "check"}}{{else}}{{add $i 1}}{{end}}</span>
+        <span class="dash-korak-tekst"><a href="{{.Href}}">{{.Naslov}}</a>{{if not .Zna}} <span class="dash-cip">pogledajte sami</span>{{end}}<span class="dash-korak-opis">{{.Opis}}</span></span>
+        <span class="dash-korak-otvori" aria-hidden="true">Otvori {{icon "arrow-right"}}</span>
       </li>{{end}}
     </ol>
   </section>
@@ -50,126 +59,128 @@
   {{if .Skupina.ustroj}}
   <section class="dash-skupina" id="skupina-ustroj">
     <h2 class="dash-skupina-naslov">Ustroj i ljudi</h2>
-    <div class="dashboard-cards-grid">
+    <p class="dash-skupina-opis">Tko je tko i što tko vidi.</p>
+    <div class="dash-kartice">
     {{if .Vidi.organizacija}}<div class="dash-card">
       <div class="dash-card-header">
-        <div class="dash-card-icon-box primary">{{icon "building"}}</div>
-        <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.organizacija}} <span class="dash-status-pill {{if .Sectors}}info{{else}}default{{end}}">{{.Sectors}} SEKTORA · {{.Areas}} BP</span></div>
+        <div class="dash-card-icon-box">{{icon "building"}}</div>
+        <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.organizacija}} <span class="dash-cip">{{.Sectors}} {{uzBroj .Sectors "sektor" "sektora" "sektora"}} · {{.Areas}} BP</span></div>
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">Administrativna organizacija</h2>
-        <p class="dash-card-desc">{{term "sektori"}} s centrima obrane i {{terml "podrucja"}} s ispostavama. Na njih se vežu ovlasti, dionice i zaduženja.</p>
+        <p class="dash-card-desc">{{term "sektori"}} s centrima obrane i {{terml "podrucja"}} s ispostavama; na njih se vežu ovlasti, dionice i zaduženja.</p>
       </div>
-      <div class="dash-card-footer"><a href="/organizacija" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+      <div class="dash-card-footer"><a href="/organizacija" class="btn btn-link dash-btn">Otvori<span class="sr-only"> Administrativnu organizaciju</span>{{icon "arrow-right"}}{{icon "chevron-right"}}</a></div>
     </div>{{end}}
     {{if .Vidi.djelatnici}}<div class="dash-card">
       <div class="dash-card-header">
-        <div class="dash-card-icon-box primary">{{icon "users"}}</div>
-        <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.djelatnici}} <span class="dash-status-pill {{if .Locked}}warning{{else}}default{{end}}">{{.Users}} RAČUNA</span></div>
+        <div class="dash-card-icon-box">{{icon "users"}}</div>
+        <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.djelatnici}} <span class="dash-cip{{if .Locked}} pozor{{end}}">{{.Users}} {{uzBroj .Users "račun" "računa" "računa"}}</span></div>
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">Djelatnici</h2>
         <p class="dash-card-desc">{{if .Locked}}{{.Locked}} {{uzBroj .Locked "račun čeka" "računa čekaju" "računa čeka"}} promjenu lozinke pri prvoj prijavi.{{else}}Nijedan račun ne čeka promjenu lozinke.{{end}}
           {{if .Inactive}} {{.Inactive}} {{uzBroj .Inactive "je isključen" "su isključena" "je isključeno"}}.{{end}}
-          Lozinku poništavate na stranici te osobe.</p>
+          Lozinku poništavate na stranici osobe.</p>
       </div>
-      <div class="dash-card-footer"><a href="/users" class="btn btn-secondary dash-btn"><span>Otvori djelatnike</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+      <div class="dash-card-footer"><a href="/users" class="btn btn-link dash-btn">Otvori<span class="sr-only"> Djelatnike</span>{{icon "arrow-right"}}{{icon "chevron-right"}}</a></div>
     </div>{{end}}
     {{if .Vidi.sudionici}}<div class="dash-card">
       <div class="dash-card-header">
-        <div class="dash-card-icon-box primary">{{icon "shield"}}</div>
+        <div class="dash-card-icon-box">{{icon "shield"}}</div>
         <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.sudionici}}</div>
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">Sudionici obrane</h2>
-        <p class="dash-card-desc">Uloge koje program poznaje i nazivi kojima ih vaša organizacija zove. Ovlasti se ne mijenjaju.</p>
+        <p class="dash-card-desc">Uloge koje program poznaje i nazivi kojima ih vaša organizacija zove; ovlasti se ne mijenjaju.</p>
       </div>
-      <div class="dash-card-footer"><a href="/administracija/sudionici" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+      <div class="dash-card-footer"><a href="/administracija/sudionici" class="btn btn-link dash-btn">Otvori<span class="sr-only"> Sudionike obrane</span>{{icon "arrow-right"}}{{icon "chevron-right"}}</a></div>
     </div>{{end}}
     {{if .Vidi.moduli}}<div class="dash-card">
       <div class="dash-card-header">
-        <div class="dash-card-icon-box info">{{icon "eye"}}</div>
+        <div class="dash-card-icon-box">{{icon "eye"}}</div>
         <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.moduli}}</div>
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">Vidljivost modula</h2>
-        <p class="dash-card-desc">Što koja uloga vidi u izborniku, uz iznimke za pojedini račun. Vidljivost je odvojena od prava upisa, koje daju dužnosti.</p>
+        <p class="dash-card-desc">Što koja uloga vidi u izborniku, uz iznimke za pojedini račun; vidljivost nije pravo upisa.</p>
       </div>
-      <div class="dash-card-footer"><a href="/moduli" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+      <div class="dash-card-footer"><a href="/moduli" class="btn btn-link dash-btn">Otvori<span class="sr-only"> Vidljivost modula</span>{{icon "arrow-right"}}{{icon "chevron-right"}}</a></div>
     </div>{{end}}
     {{if .Vidi.nazivi}}<div class="dash-card">
       <div class="dash-card-header">
-        <div class="dash-card-icon-box primary">{{icon "pencil"}}</div>
+        <div class="dash-card-icon-box">{{icon "pencil"}}</div>
         <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.nazivi}}</div>
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">Nazivi</h2>
-        <p class="dash-card-desc">Naziv organizacije i njezin znak, tekst na stranici prijave i riječi kojima program zove razine ustroja.</p>
+        <p class="dash-card-desc">Naziv organizacije i znak, tekst na stranici prijave i riječi za razine ustroja.</p>
       </div>
-      <div class="dash-card-footer"><a href="/administracija/nazivi" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+      <div class="dash-card-footer"><a href="/administracija/nazivi" class="btn btn-link dash-btn">Otvori<span class="sr-only"> Nazive</span>{{icon "arrow-right"}}{{icon "chevron-right"}}</a></div>
     </div>{{end}}
     </div>
-    {{if .Vidi.uvozi}}<p class="dash-skupina-poveznica" id="poveznica-uvozi">{{icon "download"}} <a href="/administracija/uvozi">Uvozi podataka</a>: registri, imenik, ugovori i tablice vodostaja iz ranijih evidencija.</p>{{end}}
+    {{if .Vidi.uvozi}}<a class="dash-redak" id="poveznica-uvozi" href="/administracija/uvozi">{{icon "download"}}<span class="dash-redak-tekst"><span class="dash-redak-naslov">Uvozi podataka</span><span class="dash-redak-opis">Registri, imenik, ugovori i tablice vodostaja iz ranijih evidencija.</span></span>{{icon "chevron-right"}}</a>{{end}}
   </section>
   {{end}}
   {{if .Skupina.mreza}}
   <section class="dash-skupina" id="skupina-mreza">
     <h2 class="dash-skupina-naslov">Ovo računalo i mreža</h2>
-    <div class="dashboard-cards-grid">
-    {{if .Vidi.prijave}}<div class="dash-card" id="kartica-prijave">
-      <div class="dash-card-header">
-        <div class="dash-card-icon-box teal">{{icon "bug"}}</div>
-        <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.prijave}}{{if .PrijaveNove}} <span class="dash-status-pill info">{{.PrijaveNove}} {{uzBroj .PrijaveNove "NOVA" "NOVE" "NOVIH"}}</span>{{end}}</div>
-      </div>
-      <div class="dash-card-body">
-        <h2 class="dash-card-title">Prijave grešaka i prijedlozi</h2>
-        <p class="dash-card-desc">Što su korisnici prijavili kukcem u gornjoj traci. Ovdje upisuješ stanje i odgovor, a osoba ih vidi na svom profilu.</p>
-      </div>
-      <div class="dash-card-footer"><a href="/administracija/prijave-gresaka" class="btn btn-secondary dash-btn"><span>Otvori prijave</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
-    </div>{{end}}
+    <p class="dash-skupina-opis">Kad razmjena ne radi ili se disk puni.</p>
+    <div class="dash-kartice">
     {{if .Vidi.racunalo}}<div class="dash-card">
       <div class="dash-card-header">
-        <div class="dash-card-icon-box teal">{{icon "radio-tower"}}</div>
+        <div class="dash-card-icon-box">{{icon "radio-tower"}}</div>
         <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.racunalo}}</div>
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">Ovo računalo i mreža</h2>
-        <p class="dash-card-desc">Ključ i uloge ovog računala, članstvo u mreži, uparivanje, adrese za razmjenu i WEB sync. Uloge i WEB sync vrijede samo za ovo računalo.</p>
+        <p class="dash-card-desc">Ključ i uloge ovog računala, članstvo u mreži, uparivanje, adrese za razmjenu i WEB sync; uloge i WEB sync vrijede samo ovdje.</p>
       </div>
-      <div class="dash-card-footer"><a href="/settings" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+      <div class="dash-card-footer"><a href="/settings" class="btn btn-link dash-btn">Otvori<span class="sr-only"> Ovo računalo i mrežu</span>{{icon "arrow-right"}}{{icon "chevron-right"}}</a></div>
     </div>{{end}}
     {{if .Vidi.razmjena}}<div class="dash-card">
       <div class="dash-card-header">
-        <div class="dash-card-icon-box {{if .SyncAlerts}}danger{{else}}info{{end}}">{{icon "activity"}}</div>
-        <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.razmjena}} <span class="dash-status-pill {{if .SyncAlerts}}warning{{else}}info{{end}}">{{.SyncOnline}} / {{.SyncTotal}} NA MREŽI</span></div>
+        <div class="dash-card-icon-box">{{icon "activity"}}</div>
+        <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.razmjena}} <span class="dash-cip{{if .SyncAlerts}} pozor{{end}}">{{.SyncOnline}} / {{.SyncTotal}} na mreži</span></div>
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">Stanje razmjene</h2>
-        <p class="dash-card-desc">{{if .SyncAlerts}}{{.SyncAlerts}} {{uzBroj .SyncAlerts "upozorenje" "upozorenja" "upozorenja"}}: nešto ne štima.{{else}}S kim ovo računalo razmjenjuje, tko je na mreži i tko zaostaje. Ovdje se razmjena pokreće rukom i provjerava veza.{{end}}</p>
+        <p class="dash-card-desc">{{if .SyncAlerts}}{{.SyncAlerts}} {{uzBroj .SyncAlerts "upozorenje" "upozorenja" "upozorenja"}}: nešto ne štima.{{else}}S kim ovo računalo razmjenjuje, tko je na mreži i tko zaostaje; ručna razmjena i provjera veze.{{end}}</p>
       </div>
-      <div class="dash-card-footer"><a href="/sinkronizacija" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+      <div class="dash-card-footer"><a href="/sinkronizacija" class="btn btn-link dash-btn">Otvori<span class="sr-only"> Stanje razmjene</span>{{icon "arrow-right"}}{{icon "chevron-right"}}</a></div>
     </div>{{end}}
     {{if .Vidi.pretplate}}<div class="dash-card">
       <div class="dash-card-header">
-        <div class="dash-card-icon-box teal">{{icon "download"}}</div>
+        <div class="dash-card-icon-box">{{icon "download"}}</div>
         <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.pretplate}}</div>
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">Što ovo računalo prati</h2>
         <p class="dash-card-desc">Područja i godine čija očitanja i dnevnike ovo računalo prima, a za uredski poslužitelj Prati sve i koliko tuđih očitanja drži.</p>
       </div>
-      <div class="dash-card-footer"><a href="/pretplate" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+      <div class="dash-card-footer"><a href="/pretplate" class="btn btn-link dash-btn">Otvori<span class="sr-only"> Što ovo računalo prati</span>{{icon "arrow-right"}}{{icon "chevron-right"}}</a></div>
     </div>{{end}}
     {{if .Vidi.baza}}<div class="dash-card">
       <div class="dash-card-header">
-        <div class="dash-card-icon-box teal">{{icon "history"}}</div>
+        <div class="dash-card-icon-box">{{icon "history"}}</div>
         <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.baza}}</div>
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">Održavanje baze</h2>
-        <p class="dash-card-desc">Veličina i sastav baze, gdje su baza, arhiva i gocop.toml, sažimanje knjige, povrat prostora na disku, izvoz i uvoz kanala u datoteku. U dijelu Pohrana je rok čuvanja fotografija, koji vrijedi na svim računalima.</p>
+        <p class="dash-card-desc">Veličina i sastav baze, sažimanje knjige, izvoz i uvoz kanala, a u dijelu Pohrana rok čuvanja fotografija.</p>
       </div>
-      <div class="dash-card-footer"><a href="/administracija/baza" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+      <div class="dash-card-footer"><a href="/administracija/baza" class="btn btn-link dash-btn">Otvori<span class="sr-only"> Održavanje baze</span>{{icon "arrow-right"}}{{icon "chevron-right"}}</a></div>
+    </div>{{end}}
+    {{if .Vidi.prijave}}<div class="dash-card" id="kartica-prijave">
+      <div class="dash-card-header">
+        <div class="dash-card-icon-box">{{icon "bug"}}</div>
+        <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.prijave}}{{if .PrijaveNove}} <span class="dash-cip pozor">{{.PrijaveNove}} {{uzBroj .PrijaveNove "nova" "nove" "novih"}}</span>{{end}}</div>
+      </div>
+      <div class="dash-card-body">
+        <h2 class="dash-card-title">Prijave grešaka i prijedlozi</h2>
+        <p class="dash-card-desc">Što su korisnici prijavili kukcem u gornjoj traci; ovdje upisuješ stanje i odgovor, a osoba ih vidi na svom profilu.</p>
+      </div>
+      <div class="dash-card-footer"><a href="/administracija/prijave-gresaka" class="btn btn-link dash-btn">Otvori<span class="sr-only"> Prijave grešaka</span>{{icon "arrow-right"}}{{icon "chevron-right"}}</a></div>
     </div>{{end}}
     </div>
   </section>
@@ -177,50 +188,51 @@
   {{if .Skupina.vodostaji}}
   <section class="dash-skupina" id="skupina-vodostaji">
     <h2 class="dash-skupina-naslov">Vodostaji, arhiva i prognoza</h2>
-    <div class="dashboard-cards-grid">
+    <p class="dash-skupina-opis">Odakle dolaze vodostaji i kamo idu.</p>
+    <div class="dash-kartice">
     {{if .Vidi.telemetrija}}<div class="dash-card">
       <div class="dash-card-header">
-        <div class="dash-card-icon-box teal">{{icon "activity"}}</div>
+        <div class="dash-card-icon-box">{{icon "gauge"}}</div>
         <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.telemetrija}}</div>
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">Telemetrija</h2>
-        <p class="dash-card-desc">Računi za Geolux HydroView i mobilnu stranicu Hrvatskih voda, odakle se čitaju letve bez javne stranice vodostaja. Lozinke vrijede samo na ovom računalu.</p>
+        <p class="dash-card-desc">Računi za Geolux HydroView i mobilnu stranicu Hrvatskih voda, za letve bez javne stranice; lozinke vrijede samo ovdje.</p>
       </div>
-      <div class="dash-card-footer"><a href="/administracija/telemetrija" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+      <div class="dash-card-footer"><a href="/administracija/telemetrija" class="btn btn-link dash-btn">Otvori<span class="sr-only"> Telemetriju</span>{{icon "arrow-right"}}{{icon "chevron-right"}}</a></div>
     </div>{{end}}
     {{if .Vidi.izvori}}<div class="dash-card">
       <div class="dash-card-header">
-        <div class="dash-card-icon-box teal">{{icon "radio-tower"}}</div>
+        <div class="dash-card-icon-box">{{icon "layers"}}</div>
         <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.izvori}}</div>
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">Izvori arhive</h2>
-        <p class="dash-card-desc">Tko javlja vodostaj, koliko mu se vjeruje i ulazi li u spojeni niz. Isključen izvor ostaje u arhivi, ali se na ovom računalu nigdje ne prikazuje.</p>
+        <p class="dash-card-desc">Tko javlja vodostaj, koliko mu se vjeruje i ulazi li u spojeni niz. Isključen izvor ostaje u arhivi, ali se na ovom računalu ne prikazuje.</p>
       </div>
-      <div class="dash-card-footer"><a href="/administracija/izvori" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+      <div class="dash-card-footer"><a href="/administracija/izvori" class="btn btn-link dash-btn">Otvori<span class="sr-only"> Izvore arhive</span>{{icon "arrow-right"}}{{icon "chevron-right"}}</a></div>
     </div>{{end}}
     {{if .Vidi.unos}}<div class="dash-card">
       <div class="dash-card-header">
-        <div class="dash-card-icon-box teal">{{icon "upload"}}</div>
+        <div class="dash-card-icon-box">{{icon "upload"}}</div>
         <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.unos}}</div>
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">Unos u arhivu</h2>
-        <p class="dash-card-desc">Datoteka s očitanjima s diska ili očitanja iz programa. Program pokaže što je pročitao, vi potvrdite, niz uđe u arhivu i ponudi se novo izdanje.</p>
+        <p class="dash-card-desc">Datoteka s očitanjima ili očitanja iz programa: pregled, potvrda, upis i novo izdanje.</p>
       </div>
-      <div class="dash-card-footer"><a href="/administracija/uvoz-niza" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+      <div class="dash-card-footer"><a href="/administracija/uvoz-niza" class="btn btn-link dash-btn">Otvori<span class="sr-only"> Unos u arhivu</span>{{icon "arrow-right"}}{{icon "chevron-right"}}</a></div>
     </div>{{end}}
     {{if .Vidi.prognoza}}<div class="dash-card">
       <div class="dash-card-header">
-        <div class="dash-card-icon-box teal">{{icon "trending-up"}}</div>
+        <div class="dash-card-icon-box">{{icon "chart-column"}}</div>
         <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.prognoza}}</div>
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">Postavke prognoze</h2>
-        <p class="dash-card-desc">Satni ili dnevni model u tablici i grafovima, generiranje prognoze odmah, priprema modela i ranija prognoza za odabrani dan i sat.</p>
+        <p class="dash-card-desc">Satni ili dnevni model, generiranje prognoze odmah, priprema modela i ranija prognoza.</p>
       </div>
-      <div class="dash-card-footer"><a href="/prognoze/postavke" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+      <div class="dash-card-footer"><a href="/prognoze/postavke" class="btn btn-link dash-btn">Otvori<span class="sr-only"> Postavke prognoze</span>{{icon "arrow-right"}}{{icon "chevron-right"}}</a></div>
     </div>{{end}}
     </div>
   </section>
@@ -228,50 +240,51 @@
   {{if .Skupina.akti}}
   <section class="dash-skupina" id="skupina-akti">
     <h2 class="dash-skupina-naslov">Akti i dokumenti</h2>
-    <div class="dashboard-cards-grid">
+    <p class="dash-skupina-opis">Da akt izađe s pečatom, potpisom i poštom.</p>
+    <div class="dash-kartice">
     {{if .Vidi.posta}}<div class="dash-card">
       <div class="dash-card-header">
-        <div class="dash-card-icon-box primary">{{icon "mail"}}</div>
+        <div class="dash-card-icon-box">{{icon "mail"}}</div>
         <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.posta}}</div>
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">E-pošta</h2>
-        <p class="dash-card-desc">Poslužitelj e-pošte tvrtke (Exchange) preko kojeg se ovjereni akti šalju primateljima „na znanje” i čita sandučić, te PIN za prijavu izvana. Svaki korisnik svoju lozinku upisuje u profilu. Račun koji šalje PIN upisuje se na svakom računalu posebno.</p>
+        <p class="dash-card-desc">Poslužitelj e-pošte tvrtke za slanje ovjerenih akata i čitanje sandučića, te PIN za prijavu izvana; račun koji šalje PIN upisuje se na svakom računalu posebno.</p>
       </div>
-      <div class="dash-card-footer"><a href="/administracija/posta" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+      <div class="dash-card-footer"><a href="/administracija/posta" class="btn btn-link dash-btn">Otvori<span class="sr-only"> E-poštu</span>{{icon "arrow-right"}}{{icon "chevron-right"}}</a></div>
     </div>{{end}}
     {{if .Vidi.zig}}<div class="dash-card">
       <div class="dash-card-header">
-        <div class="dash-card-icon-box primary">{{icon "shield"}}</div>
+        <div class="dash-card-icon-box">{{icon "file-text"}}</div>
         <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.zig}}</div>
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">Žig centra</h2>
-        <p class="dash-card-desc">Skenirani žig centra obrane od poplava koji stoji na PDF-u svakog akta ovjerenog u goCOP-u. Svaki sektor ima svoj; uređuje ga uprava sektora na stranici sektora, pod Registri › Administrativna organizacija.</p>
+        <p class="dash-card-desc">Skenirani žig na PDF-u svakog ovjerenog akta; uređuje ga uprava sektora na stranici sektora.</p>
       </div>
-      <div class="dash-card-footer"><a href="/administracija/zig" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+      <div class="dash-card-footer"><a href="/administracija/zig" class="btn btn-link dash-btn">Otvori<span class="sr-only"> Žig centra</span>{{icon "arrow-right"}}{{icon "chevron-right"}}</a></div>
     </div>{{end}}
     {{if .Vidi.potpisi}}<div class="dash-card">
       <div class="dash-card-header">
-        <div class="dash-card-icon-box primary">{{icon "lock"}}</div>
+        <div class="dash-card-icon-box">{{icon "lock"}}</div>
         <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.potpisi}}</div>
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">Elektronički potpisi</h2>
-        <p class="dash-card-desc">Izdavatelj certifikata ovog računala i izdavatelji drugih računala, izdani osobni ključevi, certifikat izdavatelja za preuzimanje i dodavanje među pouzdane u čitaču PDF-a. Ovdje je i adresa za QR kod na dokumentima ovog računala.</p>
+        <p class="dash-card-desc">Izdavatelji certifikata, osobni ključevi i adresa za QR kod na dokumentima ovog računala.</p>
       </div>
-      <div class="dash-card-footer"><a href="/administracija/potpisi" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+      <div class="dash-card-footer"><a href="/administracija/potpisi" class="btn btn-link dash-btn">Otvori<span class="sr-only"> Elektroničke potpise</span>{{icon "arrow-right"}}{{icon "chevron-right"}}</a></div>
     </div>{{end}}
     {{if .Vidi.obracun}}<div class="dash-card">
       <div class="dash-card-header">
-        <div class="dash-card-icon-box primary">{{icon "calculator"}}</div>
+        <div class="dash-card-icon-box">{{icon "calculator"}}</div>
         <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.obracun}}</div>
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">Obračun sati</h2>
-        <p class="dash-card-desc">Blagdani, redovno radno vrijeme i koeficijenti po kojima se sati iz plana dežurstava pretvaraju u obračunske. Zakon i kolektivni ugovor se mijenjaju, a ovdje se to upiše bez nove verzije programa.</p>
+        <p class="dash-card-desc">Blagdani, radno vrijeme i koeficijenti za obračunske sate iz plana dežurstava.</p>
       </div>
-      <div class="dash-card-footer"><a href="/administracija/obracun" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+      <div class="dash-card-footer"><a href="/administracija/obracun" class="btn btn-link dash-btn">Otvori<span class="sr-only"> Obračun sati</span>{{icon "arrow-right"}}{{icon "chevron-right"}}</a></div>
     </div>{{end}}
     </div>
   </section>
@@ -279,46 +292,51 @@
   {{if .Skupina.izgled}}
   <section class="dash-skupina" id="skupina-izgled">
     <h2 class="dash-skupina-naslov">Izgled</h2>
-    <div class="dashboard-cards-grid">
+    <p class="dash-skupina-opis">Ne utječe na podatke.</p>
+    <div class="dash-kartice">
     {{if .Vidi.tema}}<div class="dash-card">
       <div class="dash-card-header">
-        <div class="dash-card-icon-box secondary">{{icon "sun-moon"}}</div>
+        <div class="dash-card-icon-box">{{icon "sun-moon"}}</div>
         <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.tema}}</div>
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">Tema</h2>
-        <p class="dash-card-desc">Boje programa za svijetlu i tamnu temu: glavna boja, naglasak i glavni gumb, s pregledom i provjerom čitljivosti. Zadane su boje Hrvatskih voda.</p>
+        <p class="dash-card-desc">Boje za svijetlu i tamnu temu s pregledom i provjerom čitljivosti.</p>
       </div>
-      <div class="dash-card-footer"><a href="/administracija/tema" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+      <div class="dash-card-footer"><a href="/administracija/tema" class="btn btn-link dash-btn">Otvori<span class="sr-only"> Temu</span>{{icon "arrow-right"}}{{icon "chevron-right"}}</a></div>
     </div>{{end}}
     {{if .Vidi.karte}}<div class="dash-card">
       <div class="dash-card-header">
-        <div class="dash-card-icon-box secondary">{{icon "map"}}</div>
+        <div class="dash-card-icon-box">{{icon "map"}}</div>
         <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.karte}}</div>
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">Karte</h2>
-        <p class="dash-card-desc">Boja, debljina crte i ikona za svaku vrstu objekta na kartama. Podloge koje se uz običnu kartu mogu upaliti, npr. satelit, s adresom i ključem. Karta bez interneta i odakle ovaj čvor uzima običnu kartu.</p>
+        <p class="dash-card-desc">Boja, crta i ikona po vrsti objekta, podloge, karta bez interneta i izvor obične karte.</p>
       </div>
-      <div class="dash-card-footer"><a href="/administracija/karte" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+      <div class="dash-card-footer"><a href="/administracija/karte" class="btn btn-link dash-btn">Otvori<span class="sr-only"> Karte</span>{{icon "arrow-right"}}{{icon "chevron-right"}}</a></div>
     </div>{{end}}
     </div>
   </section>
   {{end}}
   {{if .Skupina.testni}}
   <section class="dash-skupina" id="skupina-testni">
-    <h2 class="dash-skupina-naslov">Testni prekidači <span class="dash-status-pill {{if .TestnihUkljuceno}}warning{{else}}default{{end}}" id="testnih-ukljuceno">{{if .TestnihUkljuceno}}{{.TestnihUkljuceno}} {{uzBroj .TestnihUkljuceno "uključen" "uključena" "uključeno"}}{{else}}svi isključeni{{end}}</span></h2>
-    <div class="dashboard-cards-grid">
-    {{if .Vidi.opcije}}<div class="dash-card">
+    <div class="dash-skupina-glava">
+      <h2 class="dash-skupina-naslov">Testni prekidači</h2>
+      <span class="dash-cip{{if .TestnihUkljuceno}} pozor{{end}}" id="testnih-ukljuceno">{{if .TestnihUkljuceno}}{{.TestnihUkljuceno}} {{uzBroj .TestnihUkljuceno "uključen" "uključena" "uključeno"}}{{else}}svi isključeni{{end}}</span>
+    </div>
+    <p class="dash-skupina-opis">Opasni prekidači; u operativnom radu isključeni.</p>
+    <div class="dash-kartice">
+    {{if .Vidi.opcije}}<div class="dash-card{{if .TestnihUkljuceno}} pozor{{end}}">
       <div class="dash-card-header">
-        <div class="dash-card-icon-box warning">{{icon "settings"}}</div>
+        <div class="dash-card-icon-box">{{icon "sliders"}}</div>
         <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.opcije}}</div>
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">Opcije</h2>
-        <p class="dash-card-desc">Opći prekidači programa s objašnjenjem: što je uključeno u testnom okruženju, a što u operativnom radu ostaje isključeno, npr. trajno brisanje ovjerenih akata.</p>
+        <p class="dash-card-desc">Opći prekidači s objašnjenjem: što je uključeno u testnom okruženju, a što u operativnom radu ostaje isključeno, npr. trajno brisanje ovjerenih akata.</p>
       </div>
-      <div class="dash-card-footer"><a href="/administracija/opcije" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+      <div class="dash-card-footer"><a href="/administracija/opcije" class="btn btn-link dash-btn">Otvori<span class="sr-only"> Opcije</span>{{icon "arrow-right"}}{{icon "chevron-right"}}</a></div>
     </div>{{end}}
     </div>
   </section>
@@ -326,5 +344,6 @@
 </div>
 {{end}}
 
-{{/* oznaka dosega na kartici; bez oznake kad se iz spremanja ne zna sigurno */}}
-{{define "dosegKartice"}}{{with .}}<span class="dash-doseg" title="{{.Opis}}">{{.}}</span>{{end}}{{end}}
+{{/* čip dosega na kartici (R, M ili R+M) s objašnjenjem; bez čipa kad se iz
+     spremanja ne zna sigurno */}}
+{{define "dosegKartice"}}{{with .}}<span class="dash-doseg" title="{{.Opis}}"><span aria-hidden="true">{{.Kratko}}</span><span class="sr-only">{{.}}</span></span>{{end}}{{end}}

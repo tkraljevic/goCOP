@@ -1155,124 +1155,6 @@ a:hover { color: var(--accent); }
   gap: var(--space-16);
 }
 
-.dash-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r-kartica);
-  padding: var(--space-16);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  box-shadow: var(--sjena-kartica);
-  transition: border-color 0.2s ease;
-  position: relative;
-}
-
-.dash-card:hover {
-  border-color: var(--rub-hover);
-}
-
-.dash-card.featured {
-  border: 2px solid var(--primary);
-  background: linear-gradient(180deg, var(--surface) 0%, var(--tint-sky-bg) 100%);
-}
-
-.dash-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-.dash-card-icon-box {
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.375rem;
-}
-
-.dash-card-icon-box.primary { background: var(--primary-light); }
-.dash-card-icon-box.info { background: var(--tint-blue-bg); }
-.dash-card-icon-box.warning { background: var(--tint-amber-bg); }
-.dash-card-icon-box.danger { background: var(--danger-bg); }
-.dash-card-icon-box.secondary { background: var(--bg-subtle); }
-.dash-card-icon-box.teal { background: var(--tint-teal-bg); }
-
-.dash-status-pill {
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 16px;
-  padding: 4px 10px;
-  border-radius: var(--shape-small);
-}
-
-.dash-status-pill.success {
-  background: var(--tint-green-bg);
-  color: var(--tint-green-fg);
-  border: 1px solid var(--tint-green-bg);
-}
-
-.dash-status-pill.info {
-  background: var(--tint-blue-bg);
-  color: var(--tint-blue-fg);
-  border: 1px solid var(--tint-blue-bg);
-}
-
-.dash-status-pill.warning {
-  background: var(--tint-amber-bg);
-  color: var(--tint-amber-fg);
-  border: 1px solid var(--tint-amber-bg);
-}
-
-.dash-status-pill.default {
-  background: var(--bg-subtle);
-  color: var(--text-muted);
-  border: 1px solid var(--border);
-}
-
-.dash-card-title {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--secondary);
-  margin-bottom: 0.5rem;
-  line-height: 1.3;
-}
-
-.dash-card-desc {
-  font-size: 0.875rem;
-  color: var(--text-muted);
-  line-height: 1.45;
-  margin-bottom: 0.875rem;
-}
-
-.dash-card-list {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 1.25rem 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-}
-
-.dash-card-list li {
-  position: relative;
-  padding-left: 1rem;
-  line-height: 1.4;
-}
-
-.dash-card-list li::before {
-  content: "•";
-  position: absolute;
-  left: 0;
-  color: var(--primary);
-  font-weight: bold;
-}
-
 .quick-filters-box {
   display: flex;
   align-items: center;
@@ -1307,110 +1189,6 @@ a:hover { color: var(--accent); }
 .quick-filter-link:hover {
   background: var(--gumb);
   color: var(--gumb-tekst);
-}
-
-.dash-card-footer {
-  margin-top: auto;
-  padding-top: 0.875rem;
-  border-top: 1px solid var(--border);
-}
-
-.dash-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  text-decoration: none;
-}
-
-.dash-btn .arrow {
-  transition: transform 0.15s ease;
-}
-
-.dash-btn:hover .arrow {
-  transform: translateX(4px);
-}
-
-/* Administracija: skupine kartica, oznaka dosega i Prvi koraci */
-.dash-skupina {
-  margin-top: 2rem;
-}
-
-.dash-skupina-naslov {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: var(--naslov);
-  margin-bottom: 0.875rem;
-}
-
-.dash-skupina-poveznica {
-  margin-top: 0.875rem;
-  font-size: 0.875rem;
-  color: var(--text-muted);
-}
-
-.dash-card-oznake {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.375rem;
-}
-
-.dash-doseg {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  padding: 0.2rem 0.6rem;
-  border-radius: 9999px;
-  border: 1px dashed var(--border);
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
-.dash-koraci {
-  list-style: none;
-  padding: 0;
-  margin: 0.75rem 0 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 0.75rem 1.5rem;
-}
-
-.dash-korak {
-  display: flex;
-  gap: 0.625rem;
-  align-items: flex-start;
-  font-size: 0.875rem;
-  line-height: 1.4;
-}
-
-.dash-korak a {
-  font-weight: 600;
-}
-
-.dash-korak-oznaka {
-  flex: 0 0 auto;
-  width: 1.25rem;
-  height: 1.25rem;
-  margin-top: 0.1rem;
-  border: 2px solid var(--border);
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--tint-green-fg);
-}
-
-.dash-korak-oznaka.bez-provjere {
-  border-color: transparent;
-}
-
-.dash-korak.gotov .dash-korak-oznaka {
-  border-color: var(--tint-green-fg);
-  background: var(--tint-green-bg);
 }
 
 @media (max-width: 840px) {
@@ -2244,10 +2022,6 @@ textarea {
 }
 .form-control::placeholder,
 .search-input::placeholder { color: var(--text-muted); opacity: 0.8; }
-
-/* Kartice modula na početnoj: tekst popisa mora ostati čitljiv i u tamnoj temi */
-.dash-card li, .dash-card p { color: var(--text-secondary); }
-.dash-card li strong { color: var(--text); }
 
 /* Vodostaji: očitanja i graf */
 .reading-value { font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.1; color: var(--text-strong); }
@@ -10985,4 +10759,87 @@ td .odr-sitno { margin-top: 2px; }
 @media (max-width: 599px) {
   .sr-vrsta-izbor { display: block; }
   .os-kartica .mts-zahvati { display: none; }
+}
+
+/* Ulaz u Administraciju po crtežu 18a · 1 (goCOP-m3). Skupine s podnaslovom
+   i rečenicom, kartice u tri stupca (tablet dva, mobitel redak bez opisa),
+   čip dosega R / M / R+M i stanja u glavi, Prvi koraci s trakom napretka.
+   Cijela kartica je poveznica (::after na „Otvori”). */
+.dash-ulaz { display: flex; flex-direction: column; gap: 16px; }
+.dash-ulaz .page-header { margin-bottom: 0; }
+.dash-traka { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--upozorenje-tehnicko-rub); border-radius: 8px; background: var(--upozorenje-tehnicko-ploha); color: var(--md-sys-color-on-surface); font-size: 0.875rem; line-height: 20px; }
+.dash-traka > .icon { flex: none; width: 20px; height: 20px; color: var(--upozorenje-tehnicko-rub); }
+.dash-traka > span { flex: 1; min-width: 0; }
+.dash-traka > .btn { flex: none; }
+.dash-skupina { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.dash-skupina-glava { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.dash-skupina-naslov { margin: 0; font-size: 1rem; line-height: 24px; font-weight: 500; color: var(--md-sys-color-on-surface); }
+.dash-skupina-opis { margin: 0 0 8px; font-size: 0.8125rem; line-height: 18px; color: var(--md-sys-color-on-surface-variant); }
+.dash-kartice { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.dash-card { position: relative; display: flex; flex-direction: column; gap: 8px; padding: 16px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px; background: var(--md-sys-color-surface-container-low); transition: background-color 0.15s ease; }
+.dash-card:hover { background: var(--md-sys-color-surface-container); }
+.dash-card:focus-within { outline: 2px solid var(--md-sys-color-primary); outline-offset: 2px; }
+.dash-card.pozor { border: 2px solid var(--upozorenje-tehnicko-rub); padding: 15px; }
+.dash-card-header { display: flex; align-items: center; gap: 8px; }
+.dash-card-icon-box { flex: none; width: 40px; height: 40px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; background: var(--md-sys-color-surface-container-highest); color: var(--md-sys-color-on-surface-variant); }
+.dash-card-icon-box .icon { width: 22px; height: 22px; margin: 0; }
+.dash-card-oznake { margin-left: auto; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 6px; }
+.dash-doseg { padding: 0 6px; border: 1px solid var(--md-sys-color-outline); border-radius: 4px; font-size: 0.6875rem; line-height: 15px; font-weight: 500; color: var(--md-sys-color-on-surface); white-space: nowrap; cursor: help; }
+.dash-cip { padding: 1px 8px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 6px; font-size: 0.75rem; line-height: 17px; color: var(--md-sys-color-on-surface-variant); white-space: nowrap; }
+.dash-cip.pozor { border-color: var(--upozorenje-tehnicko-rub); background: var(--upozorenje-tehnicko-ploha); color: var(--md-sys-color-on-surface); }
+.dash-card-title { margin: 0; font-size: 0.9375rem; line-height: 20px; font-weight: 500; color: var(--md-sys-color-on-surface); }
+.dash-card-desc { margin: 4px 0 0; font-size: 0.8125rem; line-height: 18px; color: var(--md-sys-color-on-surface-variant); }
+.dash-card-footer { margin-top: auto; display: flex; justify-content: flex-end; }
+.dash-btn { margin-right: -12px; margin-bottom: -8px; }
+.dash-btn::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+.dash-btn:focus-visible { outline: none; }
+.dash-btn .icon { width: 16px; height: 16px; margin: 0; }
+.dash-btn .icon:last-child { display: none; }
+.dash-redak { display: flex; align-items: center; gap: 12px; margin-top: 8px; padding: 8px 12px; border-radius: 8px; color: var(--md-sys-color-on-surface); text-decoration: none; }
+.dash-redak:hover { background: var(--md-sys-color-surface-container); }
+.dash-redak > .icon { flex: none; color: var(--md-sys-color-on-surface-variant); }
+.dash-redak-tekst { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.dash-redak-naslov { font-size: 0.875rem; line-height: 20px; }
+.dash-redak-opis { font-size: 0.75rem; line-height: 16px; color: var(--md-sys-color-on-surface-variant); }
+.dash-prvi { display: flex; flex-direction: column; gap: 8px; padding: 16px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px; background: var(--md-sys-color-surface-container-low); }
+.dash-prvi-glava { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.dash-prvi-glava h2 { margin: 0; font-size: 1rem; line-height: 24px; font-weight: 500; }
+.dash-prvi-broj { font-size: 0.875rem; color: var(--md-sys-color-primary); white-space: nowrap; }
+.dash-prvi-opis { margin: 0; font-size: 0.8125rem; line-height: 18px; color: var(--md-sys-color-on-surface-variant); }
+.dash-prvi-traka { height: 4px; border-radius: 2px; background: var(--md-sys-color-surface-container-highest); overflow: hidden; }
+.dash-prvi-traka > span { display: block; height: 100%; background: var(--md-sys-color-primary); }
+.dash-koraci { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.dash-korak { position: relative; display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 8px; background: var(--md-sys-color-surface); }
+.dash-korak:hover { background: var(--md-sys-color-surface-container); }
+.dash-korak:focus-within { outline: 2px solid var(--md-sys-color-primary); outline-offset: -2px; }
+.dash-korak-oznaka { flex: none; width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid var(--md-sys-color-outline); font-size: 0.8125rem; color: var(--md-sys-color-on-surface-variant); }
+.dash-korak-oznaka .icon { width: 16px; height: 16px; margin: 0; }
+.dash-korak.gotov .dash-korak-oznaka { border-color: transparent; background: var(--upozorenje-tehnicko-rub); color: var(--md-sys-color-surface); }
+.dash-korak-tekst { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; font-size: 0.875rem; line-height: 20px; }
+.dash-korak-tekst a { color: var(--md-sys-color-primary); text-decoration: none; }
+.dash-korak-tekst a::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+.dash-korak-tekst a:focus-visible { outline: none; }
+.dash-korak-opis { flex-basis: 100%; font-size: 0.75rem; line-height: 16px; color: var(--md-sys-color-on-surface-variant); }
+.dash-korak.gotov .dash-korak-tekst a, .dash-korak.gotov .dash-korak-otvori { color: var(--md-sys-color-on-surface-variant); }
+.dash-korak-otvori { flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: 0.875rem; font-weight: 500; color: var(--md-sys-color-primary); }
+.dash-korak-otvori .icon { width: 16px; height: 16px; margin: 0; }
+@media (max-width: 1099px) {
+  .dash-kartice { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 599px) {
+  .dash-traka { flex-wrap: wrap; }
+  .dash-traka > .btn { margin-left: auto; }
+  .dash-kartice { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .dash-card, .dash-card.pozor { display: grid; grid-template-columns: 24px minmax(0, 1fr) 24px; grid-template-areas: "ikona naslov strelica" "ikona oznake strelica"; align-items: center; gap: 2px 12px; padding: 10px 12px; border-radius: 8px; }
+  .dash-card.pozor { padding: 9px 11px; }
+  .dash-card-header, .dash-card-body, .dash-card-footer { display: contents; }
+  .dash-card-icon-box { grid-area: ikona; width: 24px; height: 24px; background: none; }
+  .dash-card-oznake { grid-area: oznake; margin: 0; justify-content: flex-start; }
+  .dash-card-title { grid-area: naslov; font-size: 0.875rem; }
+  .dash-card-desc { display: none; }
+  .dash-btn { grid-area: strelica; margin: 0; padding: 0; min-height: 0; font-size: 0; color: var(--md-sys-color-on-surface-variant); }
+  .dash-btn .icon:first-of-type { display: none; }
+  .dash-btn .icon:last-child { display: inline-block; width: 20px; height: 20px; }
+  .dash-btn:hover { background: none; }
+  .dash-korak-otvori { display: none; }
 }

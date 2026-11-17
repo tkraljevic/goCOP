@@ -66,6 +66,8 @@ type AdminPageData struct {
 	PrviKoraci []KorakUstroja
 	// TestnihUkljuceno: koliko je prekidača na stranici Opcije uključeno
 	TestnihUkljuceno int
+	// Napredak: traka napretka Prvih koraka
+	Napredak NapredakKoraka
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -114,7 +116,12 @@ func (h *AdminHandler) ShowAdmin(w http.ResponseWriter, r *http.Request) {
 // nisu dala, da Prvi koraci ne pokažu nepročitano kao nenapravljeno
 func (h *AdminHandler) dodajUstroj(ctx context.Context, data *AdminPageData) (g greskeUstroja) {
 	sectors, err := h.org.ListSectors(ctx)
-	data.Sectors, g.sektori = len(sectors), err
+	g.sektori = err
+	for _, s := range sectors {
+		if !s.IsLevel1() { // krovna jedinica (Direkcija) nije sektor
+			data.Sectors++
+		}
+	}
 	if areas, err := h.org.ListAreas(ctx, ""); err == nil { // broj područja je samo natpis na kartici
 		data.Areas = len(areas)
 	}
@@ -144,7 +151,7 @@ func (h *AdminHandler) dodajRaspored(ctx context.Context, data *AdminPageData, g
 	p := pravaKartice{perms: data.Permissions, moduli: moduli}
 	if p.admin() {
 		if k := prviKoraci(h.stanjeUstroja(ctx, data, g)); !ustrojGotov(k) {
-			data.PrviKoraci = k
+			data.PrviKoraci, data.Napredak = k, napredakKoraka(k)
 		}
 		if h.izvori.opcije != nil {
 			data.TestnihUkljuceno = ukljucenihTestnih(h.izvori.opcije(ctx))

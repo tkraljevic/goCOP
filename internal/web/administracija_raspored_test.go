@@ -98,11 +98,11 @@ func TestAdministracijaSkupineRedom(t *testing.T) {
 	}
 	for id, hrefovi := range kartice {
 		s := skupinaNaStranici(html, id)
-		if n := strings.Count(s, `class="dash-card"`); n != len(hrefovi) {
+		if n := strings.Count(s, `class="dash-card-header"`); n != len(hrefovi) {
 			t.Errorf("%s: %d kartica, a treba %d", id, n, len(hrefovi))
 		}
 		for _, href := range hrefovi {
-			if !strings.Contains(s, `href="`+href+`" class="btn btn-secondary dash-btn"`) {
+			if !strings.Contains(s, `href="`+href+`" class="btn btn-link dash-btn"`) {
 				t.Errorf("%s nema kartice %s", id, href)
 			}
 		}
@@ -117,7 +117,7 @@ func TestAdministracijaSkupineRedom(t *testing.T) {
 		t.Error("Testni prekidači ne kažu koliko ih je uključeno")
 	}
 	vodostaji := skupinaNaStranici(html, "skupina-vodostaji")
-	if !strings.Contains(vodostaji, `class="dash-doseg" title="Vrijedi samo na ovom računalu i ne ide razmjenom.">ovo računalo<`) {
+	if !strings.Contains(vodostaji, `class="dash-doseg" title="Vrijedi samo na ovom računalu i ne ide razmjenom."><span aria-hidden="true">R</span><span class="sr-only">ovo računalo<`) {
 		t.Error("Telemetrija nema oznake da vrijedi samo za ovo računalo")
 	}
 	if !strings.Contains(skupinaNaStranici(html, "skupina-ustroj"), ">cijela mreža<") {
@@ -518,5 +518,38 @@ func TestWebSyncImaSvojOdjeljak(t *testing.T) {
 	}
 	if blok := html[i : i+strings.Index(html[i:], "</details>")]; strings.Contains(blok, `data-postavka="povezivost.`) {
 		t.Error("postavke WEB synca stoje i u kartici Mreža")
+	}
+}
+
+// Čip dosega je kratak (R, M, R+M), a puni opis je uz njega za čitač zaslona.
+func TestDosegKratko(t *testing.T) {
+	for d, k := range map[DosegKartice]string{DosegRacunalo: "R", DosegMreza: "M", DosegOboje: "R+M", "": ""} {
+		if got := d.Kratko(); got != k {
+			t.Errorf("%q: %q, a treba %q", d, got, k)
+		}
+	}
+}
+
+// Traka napretka broji samo korake koje program zna provjeriti.
+func TestNapredakKoraka(t *testing.T) {
+	n := napredakKoraka([]KorakUstroja{{Zna: true, Gotov: true}, {Zna: true}, {Zna: false}, {Zna: true}})
+	if n != (NapredakKoraka{Gotovo: 1, Ukupno: 3, Postotak: 33}) {
+		t.Errorf("napredak: %+v", n)
+	}
+	if n := napredakKoraka([]KorakUstroja{{Zna: false}}); n != (NapredakKoraka{}) {
+		t.Errorf("bez koraka koje program zna: %+v", n)
+	}
+}
+
+// Kartica organizacije broji sektore bez krovne jedinice (Direkcije) i slaže
+// riječ s brojem.
+func TestKarticaOrganizacijeBezKrovneJedinice(t *testing.T) {
+	o := novaOkolinaAdministracije(t)
+	if _, err := o.baza.Exec(`INSERT INTO sectors (id, name, vgo_name, center_cop, level) VALUES
+		('DIREKCIJA', 'Direkcija', 'Direkcija Primjer', 'GCOP', 1), ('P', 'Sektor P', 'VGO Primjerovo', 'COP Primjerovo', 2)`); err != nil {
+		t.Fatal(err)
+	}
+	if ustroj := skupinaNaStranici(o.prikazi(t, administrator, nil), "skupina-ustroj"); !strings.Contains(ustroj, ">1 sektor · ") {
+		t.Errorf("kartica organizacije:\n%s", ustroj)
 	}
 }
