@@ -253,6 +253,7 @@ func TestTerenSeBrojiPoSektoru(t *testing.T) {
 	if _, err := s.Provedi(ctx, u, skladistarF, Zahvat{Vrsta: models.PrometPovrat, SkladisteID: metkovic.ID, VrstaID: "lopata", Kolicina: 2, AreaID: 34, SectionCode: "B.34.1"}); err != nil {
 		t.Fatalf("sektor F vraća svoje lopate: %v", err)
 	}
+	zaprimiSve(t, s, ctx, u)
 	if got := kolicinaU(t, s, ctx, metkovic.ID, "lopata"); got != 2 {
 		t.Fatalf("u Metkoviću moraju biti 2 lopate, a ima %v", got)
 	}
@@ -277,6 +278,7 @@ func TestTerenSeBrojiPoSektoru(t *testing.T) {
 			t.Fatalf("%s skladištara područja 34: %v", z.Vrsta, err)
 		}
 	}
+	zaprimiSve(t, s, ctx, u)
 	if got := kolicinaU(t, s, ctx, osijek.ID, "lopata"); got != 9 {
 		t.Fatalf("u Osijeku mora biti 9 lopata, a ima %v", got)
 	}

@@ -82,6 +82,10 @@ func TestMtsPutVrecaKrozObranu(t *testing.T) {
 		Oblik: models.OblikPunjeno, Kolicina: 500, AreaID: 34, SectionCode: "B.34.1", JournalID: obrana}); err != nil {
 		t.Fatal(err)
 	}
+	if ima(models.OblikPunjeno) != 1000 {
+		t.Errorf("povrat je na putu dok ga skladište ne zaprimi: %v", ima(models.OblikPunjeno))
+	}
+	zaprimiSve(t, s, ctx, u)
 	if naTerenu, _ := s.NaTerenu(ctx, obrana, ""); len(naTerenu) != 0 {
 		t.Errorf("teren nije zatvoren: %+v", naTerenu)
 	}
@@ -138,6 +142,7 @@ func TestMtsPutVrecaKrozObranu(t *testing.T) {
 		Kolicina: 200, AreaID: 34, Mjesto: "kuća iza groblja, Kopačevo", JournalID: obrana}); err != nil {
 		t.Fatalf("povrat s opisa mjesta: %v", err)
 	}
+	zaprimiSve(t, s, ctx, u)
 	for _, m := range s.MjestaNaTerenu(ctx, obrana, "") {
 		if m.Mjesto == "kuća iza groblja, Kopačevo" {
 			t.Errorf("mjesto poslije povrata još stoji: %+v", m)
@@ -293,6 +298,10 @@ func TestMtsPrijenosMedjuSektorima(t *testing.T) {
 		Nalozio: "Glavni centar", Preuzeo: "prijevoznik"}); err != nil {
 		t.Fatal(err)
 	}
+	if k := kolicinaU(t, s, ctx, osijek.ID, vrece); k != 2000 {
+		t.Errorf("Osijek prije zaprimanja: %v", k)
+	}
+	zaprimiSve(t, s, ctx, u)
 	if k := kolicinaU(t, s, ctx, metkovic.ID, vrece); k != 60000 {
 		t.Errorf("Metković poslije prijenosa: %v", k)
 	}

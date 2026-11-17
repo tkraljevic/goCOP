@@ -171,6 +171,7 @@ func TestMtsGdjeImaPreskaceNuleIRedaPoNazivu(t *testing.T) {
 		if _, err := s.Provedi(ctx, u, admin, z); err != nil {
 			t.Fatal(err)
 		}
+		zaprimiSve(t, s, ctx, u)
 	}
 	gdje, err := s.GdjeIma(ctx, "lopata")
 	if err != nil {
@@ -188,6 +189,7 @@ func TestMtsGdjeImaPreskaceNuleIRedaPoNazivu(t *testing.T) {
 		VrstaID: "lopata", Kolicina: 2, Datum: dan}); err != nil {
 		t.Fatal(err)
 	}
+	zaprimiSve(t, s, ctx, u)
 	gdje, _ = s.GdjeIma(ctx, "lopata") // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if len(gdje) != 2 || gdje[0].Skladiste.Naziv != "Bilje" || gdje[1].Skladiste.Naziv != "Darda" || gdje[0].Kolicina != 12 {
 		t.Errorf("jednake količine: %+v", gdje)

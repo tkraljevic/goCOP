@@ -1,0 +1,90 @@
+package web
+
+import (
+	"context"
+	"net/http"
+	"net/url"
+	"strings"
+	"testing"
+
+	"gocop/internal/models"
+	"gocop/internal/repository"
+)
+
+// Roba na putu kroz stranice (Odluke 16. 11. 2026., Na putu): prijenos iz
+// Bilja u Dardu je na putu dok ga Darda ne zaprimi. Skladište vidi što
+// stiže i što je poslalo; zaprima se djelomično, a ostatak se otpisuje kao
+// manjak uz razlog. Tko ne smije zaprimiti, obrazac ne dobije.
+func TestRobaNaPutuKrozStranice(t *testing.T) {
+	o := novaOkolinaSredstava(t)
+	ctx := context.Background()
+	darda := &models.Skladiste{Sektor: "B", AreaID: 34, Naziv: "Skladište Darda", Aktivno: true}
+	if err := o.svc.SpremiSkladiste(ctx, upravaSredstava(), darda); err != nil {
+		t.Fatal(err)
+	}
+	preusmjerenjeSredstava(t, o.zovi(t, upravaSredstava(), http.MethodPost, "/sredstva/skladista/"+o.sk.ID+"/promet",
+		url.Values{"vrsta": {models.PrometPrijenos}, "sredstvo": {"lopata"}, "kolicina": {"5"}, "na_skladiste": {darda.ID}, "dokument": {"OTP 3/26"}}), "success")
+	stize, err := o.svc.NaPutu(ctx, repository.FiltarPosiljki{PremaSkladisteID: darda.ID})
+	if err != nil || len(stize) != 1 {
+		t.Fatalf("na putu u Dardu: %+v %v", stize, err)
+	}
+	put := "/sredstva/na-putu/" + stize[0].Slanje.VezaID
+
+	mora(t, o.ispis(t, promatracSredstava(), "/sredstva/skladista/"+darda.ID), "Darda", "Stize=1;", "Poslano=0;")
+	mora(t, o.ispis(t, promatracSredstava(), "/sredstva/skladista/"+o.sk.ID), "Bilje", "Stize=0;", "Poslano=1;")
+
+	if w := o.zovi(t, promatracSredstava(), http.MethodGet, put, nil); w.Code != http.StatusForbidden {
+		t.Errorf("promatrač otvara zaprimanje: %d", w.Code)
+	}
+	mora(t, o.ispis(t, upravaSredstava(), put), "obrazac", "Posiljka="+stize[0].Slanje.VezaID+";", "Sektor=B;")
+	if p, poruka := preusmjerenjeSredstava(t, o.zovi(t, upravaSredstava(), http.MethodGet, "/sredstva/na-putu/nema", nil), "error"); p != "/sredstva" || !strings.Contains(poruka, "više nema na putu") {
+		t.Errorf("nepoznata pošiljka: %s %q", p, poruka)
+	}
+
+	for _, k := range []struct{ kolicina, poruka string }{{"tri", "nije broj"}, {"10", "Na putu je 5"}} {
+		w := o.zovi(t, upravaSredstava(), http.MethodPost, put, url.Values{"kolicina": {k.kolicina}, "datum": {"2026-01-01"}})
+		if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "VratiUpisano=true;") || !strings.Contains(w.Body.String(), k.poruka) {
+			t.Errorf("zaprimanje %q: %d %s", k.kolicina, w.Code, w.Body.String())
+		}
+	}
+	p, poruka := preusmjerenjeSredstava(t, o.zovi(t, upravaSredstava(), http.MethodPost, put, url.Values{"kolicina": {"3"}, "preuzeo": {"Ivo Ivić"}}), "success")
+	if p != "/sredstva/skladista/"+darda.ID || !strings.Contains(poruka, "Na putu je ostalo 2.") {
+		t.Errorf("djelomično zaprimanje: %s %q", p, poruka)
+	}
+
+	if w := o.zovi(t, upravaSredstava(), http.MethodPost, put+"/manjak", url.Values{"razlog": {" "}}); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "uz razlog") {
+		t.Errorf("manjak bez razloga: %d %s", w.Code, w.Body.String())
+	}
+	if _, poruka := preusmjerenjeSredstava(t, o.zovi(t, upravaSredstava(), http.MethodPost, put+"/manjak", url.Values{"razlog": {"dvije lopate pale s kamiona"}}), "success"); !strings.Contains(poruka, "2 kom Lopata") {
+		t.Errorf("otpis manjka: %q", poruka)
+	}
+	mora(t, o.ispis(t, promatracSredstava(), "/sredstva/skladista/"+darda.ID), "Darda poslije", "Stize=0;")
+}
+
+// Pošiljka na teren: ime mjesta i povratak na stranicu terena sektora
+func TestPosiljkaNaTeren(t *testing.T) {
+	p := PosiljkaNaPutu{Posiljka: models.Posiljka{
+		Slanje:        models.Promet{Kolicina: -400, SkladisteID: "osijek", SkladisteNaziv: "Centralno skladište Osijek", PremaAreaID: 34, PremaSectionCode: "B.34.1"},
+		PremaSektor:   "B",
+		PremaAreaName: "Drava i Dunav",
+	}}
+	if p.Kamo() != "teren · BP 34 Drava i Dunav · B.34.1" || p.Povratak() != "/sredstva/na-terenu?sektor=B" || p.Odakle() != "Centralno skladište Osijek" || p.Poslano() != 400 {
+		t.Errorf("pošiljka na teren: %q %q %q %v", p.Kamo(), p.Povratak(), p.Odakle(), p.Poslano())
+	}
+	p.Slanje.PremaSkladisteID, p.PremaSkladisteNaziv = "sava", "Skladište Sava"
+	if p.Kamo() != "Skladište Sava" || p.Povratak() != "/sredstva/skladista/sava" {
+		t.Errorf("pošiljka u skladište: %q %q", p.Kamo(), p.Povratak())
+	}
+}
+
+// Kad se roba na putu ne može pročitati, stranica skladišta to javlja
+// greškom, a ne pokazuje skladište bez pošiljaka
+func TestSkladisteBezKnjigePuta(t *testing.T) {
+	o := novaOkolinaSredstava(t)
+	if _, err := o.baza.Exec(`ALTER TABLE mts_promet RENAME COLUMN prema_mjesto TO prema_mjesto_staro`); err != nil {
+		t.Fatal(err)
+	}
+	if w := o.zovi(t, promatracSredstava(), http.MethodGet, "/sredstva/skladista/"+o.sk.ID, nil); w.Code != http.StatusInternalServerError {
+		t.Errorf("skladište bez knjige puta: %d", w.Code)
+	}
+}

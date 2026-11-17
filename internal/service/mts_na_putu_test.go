@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +16,21 @@ import (
 // odredišta dobiju zaprimanje
 func sviNaPut(s *MtsService) {
 	s.naPut = map[string]bool{models.PrometPrijenos: true, models.PrometIzdano: true, models.PrometPovrat: true}
+}
+
+// zaprimiSve zaprima sve što je na putu na dan slanja, kao da je odredište
+// sve odmah preuzelo; za testove kojima put robe nije tema
+func zaprimiSve(t *testing.T, s *MtsService, ctx context.Context, u *models.User) {
+	t.Helper()
+	sve, err := s.NaPutu(ctx, repository.FiltarPosiljki{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range sve {
+		if _, err := s.Zaprimi(ctx, u, &models.UserPermissions{IsGlobalAdmin: true}, Zaprimanje{VezaID: p.Slanje.VezaID, Kolicina: p.NaPutu(), Datum: p.Slanje.Datum}); err != nil {
+			t.Fatal(err)
+		}
+	}
 }
 
 // Prijenos među skladištima: izvor odmah gubi robu, odredište je dobiva tek
@@ -161,6 +177,7 @@ func TestNaPutuTerenIPovrat(t *testing.T) {
 // stari potezi bez odredišta nisu na putu.
 func TestNaPutuIskljucen(t *testing.T) {
 	s, sk, ctx, u, uprava := pripremiMts(t)
+	s.naPut = map[string]bool{}
 	drugo := &models.Skladiste{Sektor: "B", AreaID: 34, Naziv: "CS Draž", Aktivno: true}
 	if err := s.SpremiSkladiste(ctx, uprava, drugo); err != nil {
 		t.Fatal(err)

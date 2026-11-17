@@ -45,7 +45,8 @@ const probniIspis = `Sektor={{.Sektor}};IsEdit={{.IsEdit}};SmijePisati={{.SmijeP
 	`Popis={{if .Popis}}{{.Popis.ID}}|{{len .Popis.Stavke}}{{end}};Uredi={{if .Vrsta}}{{.Vrsta.ID}}{{end}};` +
 	`GdjeIma={{len .GdjeIma}};PotrebeSektora={{len .PotrebeSektora}};Stanje={{len .Stanje}};` +
 	`VratiUpisano={{.VratiUpisano}};Greska={{.ErrorMessage}};` +
-	`Podrucja={{len .Podrucja}};ZaInventuru={{len .ZaInventuru}};Svi={{.SviSektori}};`
+	`Podrucja={{len .Podrucja}};ZaInventuru={{len .ZaInventuru}};Svi={{.SviSektori}};` +
+	`Stize={{len .Stize}};Poslano={{len .Poslano}};Posiljka={{if .Posiljka}}{{.Posiljka.Slanje.VezaID}}{{end}};`
 
 func probniPredlozakSredstava(stranica string) *template.Template {
 	return template.Must(template.New(stranica).Parse(`{{define "` + stranica + `"}}` + probniIspis + `{{end}}`))
@@ -135,6 +136,9 @@ func rutaSredstava(h *MtsHandler) *http.ServeMux {
 	mux.HandleFunc("GET /sredstva/skladista/{id}/potrebe", h.ShowPotrebe)
 	mux.HandleFunc("POST /sredstva/skladista/{id}/potrebe", h.HandleSavePotrebe)
 	mux.HandleFunc("GET /sredstva/potrebe", h.ShowPotrebeSektora)
+	mux.HandleFunc("GET /sredstva/na-putu/{veza}", h.ShowZaprimi)
+	mux.HandleFunc("POST /sredstva/na-putu/{veza}", h.HandleZaprimi)
+	mux.HandleFunc("POST /sredstva/na-putu/{veza}/manjak", h.HandleManjak)
 	mux.HandleFunc("GET /sredstva/popisi", h.ShowPopisi)
 	mux.HandleFunc("POST /sredstva/popisi", h.HandleSavePopis)
 	mux.HandleFunc("GET /sredstva/popisi/{id}", h.ShowPopis)

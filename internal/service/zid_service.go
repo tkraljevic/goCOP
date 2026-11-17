@@ -297,19 +297,24 @@ func (s *ZidService) Zadnji(ctx context.Context, perms *models.UserPermissions, 
 	return out, prije, nil
 }
 
-// kljucPoteza: redci jednog poteza sredstava (prijenos, punjenje, izdavanje)
-// su jedan događaj. Ulaz se upisuje iza izlaza, pa je događaj ulaz; kod
-// prijenosa u skladište drugog sektora to je obavijest ciljnom sektoru
-// (Odluke (8. 10. 2026.), pitanje 11). Par se spaja prije provjere tko
-// smije vidjeti i filtra sektora, pa sektor koji šalje taj prijenos na
-// zidu ne vidi, kao ni prije odluke. Prazno za sve što nije par prometa.
+// kljucPoteza: redci jednog upisa poteza sredstava (prijenos, punjenje,
+// izdavanje) su jedan događaj. Ulaz se upisuje iza izlaza, pa je događaj
+// ulaz; kod prijenosa u skladište drugog sektora to je obavijest ciljnom
+// sektoru (Odluke (8. 10. 2026.), pitanje 11). Par se spaja prije provjere
+// tko smije vidjeti i filtra sektora, pa sektor koji šalje taj prijenos na
+// zidu ne vidi, kao ni prije odluke. Roba na putu (Odluke 16. 11. 2026.)
+// upisuje slanje, svako zaprimanje i otpis manjka zasebno, pa su to zasebni
+// događaji: ključ je potez i vrijeme upisa. Prazno za sve što nije promet.
 func kljucPoteza(v ledger.Version) string {
 	if v.Entity != repository.EntityMtsPromet {
 		return ""
 	}
 	var p models.Promet
-	_ = json.Unmarshal(v.Payload, &p)
-	return p.VezaID
+	_ = json.Unmarshal(v.Payload, &p) // nečitljiv sadržaj nema potez, pa nije par
+	if p.VezaID == "" {
+		return ""
+	}
+	return p.VezaID + "|" + p.CreatedAt.UTC().Format(time.RFC3339Nano)
 }
 
 // krajPoteza: kad se stranica zida napuni na retku poteza, oznaka za
@@ -813,26 +818,43 @@ func (c *opisivac) prometSredstava(d *Dogadjaj, v ledger.Version, nova bool) boo
 		d.AreaID = p.AreaID
 	}
 	kol := c.kolicinaPrometa(p)
-	gdje := ""
-	if sk := c.skladiste(p.SkladisteID); sk != nil {
-		gdje = sk.Naziv
-		d.Link = "/sredstva/skladista/" + sk.ID
-		if d.AreaID == 0 {
-			d.AreaID = sk.AreaID
-		}
-	} else {
-		gdje = "teren · " + p.MjestoNaziv()
-		d.Link = "/sredstva/na-terenu?sektor=" + p.Sektor
-	}
+	gdje := c.mjestoPrometa(p, d)
 	d.Tekst = kol + " · " + gdje
+	if p.IdeNaPut() {
+		d.Naslov, d.Tekst = "Poslano na put", kol+" · iz "+gdje+" · u "+c.odrediste(p)
+	}
 	if p.Preuzeo != "" {
 		d.Tekst += " · " + strings.ToLower(models.StranaOznaka(p.Vrsta)) + " " + p.Preuzeo
 	}
 	if p.VezaID != "" {
 		d.Link = "/sredstva/promet/" + p.VezaID + "/potvrda.xlsx"
 	}
-	*d = c.prijenosIzDrugogSektora(p, *d)
+	*d = c.dolazakPoteza(p, *d)
 	return d.Naslov != ""
+}
+
+// mjestoPrometa je ime skladišta ili mjesta na terenu retka; događaju daje
+// poveznicu na to mjesto i, kad ga nema, područje skladišta
+func (c *opisivac) mjestoPrometa(p models.Promet, d *Dogadjaj) string {
+	sk := c.skladiste(p.SkladisteID)
+	if sk == nil {
+		d.Link = "/sredstva/na-terenu?sektor=" + p.Sektor
+		return "teren · " + p.MjestoNaziv()
+	}
+	d.Link = "/sredstva/skladista/" + sk.ID
+	if d.AreaID == 0 {
+		d.AreaID = sk.AreaID
+	}
+	return sk.Naziv
+}
+
+// odrediste je ime skladišta ili mjesta na terenu kamo slanje ide
+func (c *opisivac) odrediste(p models.Promet) string {
+	if sk := c.skladiste(p.PremaSkladisteID); sk != nil {
+		return sk.Naziv
+	}
+	m := p.PremaTerenu()
+	return models.Promet{AreaID: m.AreaID, SectionCode: m.SectionCode, Mjesto: m.Mjesto}.MjestoNaziv()
 }
 
 // kolicinaPrometa je „4000 kom Vreće 50x80 cm (napunjeno)”: koliko, bez
@@ -1105,38 +1127,50 @@ func prijelazPrijave(p, prije *models.PrijavaSTerena, stanje func(models.Prijava
 	return stanje(*p) && (prije == nil || !stanje(*prije))
 }
 
-// prijenosIzDrugogSektora: ulaz prijenosa iz skladišta drugog sektora na
-// zidu ciljnog sektora je istaknuta obavijest „Prijenos iz Sektora X”, s
-// izvornim skladištem. Prijenos ne traži potvrdu ciljnog sektora i stanje
-// raste odmah, pa ciljni sektor tako sazna za upis koji nije tražio
+// dolazakPoteza opisuje ulaz poteza koji ima izlaz. Zaprimljena roba na
+// putu je „Zaprimljeno”, s mjestom odakle je poslana. Ulaz prijenosa iz
+// skladišta drugog sektora upisan odjednom, prije robe na putu, na zidu
+// ciljnog sektora je istaknuta obavijest „Prijenos iz Sektora X”, s
+// izvornim skladištem: ciljni sektor tako sazna za upis koji nije tražio
 // (Odluke (8. 10. 2026.), pitanje 11).
-func (c *opisivac) prijenosIzDrugogSektora(p models.Promet, d Dogadjaj) Dogadjaj {
-	if p.Vrsta != models.PrometPrijenos || p.Kolicina <= 0 || p.VezaID == "" {
+func (c *opisivac) dolazakPoteza(p models.Promet, d Dogadjaj) Dogadjaj {
+	if p.Kolicina <= 0 || p.VezaID == "" || (p.Vrsta != models.PrometPrijenos && p.Vrsta != models.PrometPovrat && p.Vrsta != models.PrometIzdano) {
 		return d
 	}
-	sektor, skladiste := c.izlazPrijenosa(p.VezaID)
-	if sektor == "" || sektor == p.Sektor {
-		return d
-	}
-	d.Naslov, d.Vazno = "Prijenos iz Sektora "+sektor, true
-	if sk := c.skladiste(skladiste); sk != nil {
-		d.Tekst += " · iz " + sk.Naziv
+	sektor, skladiste, naPut := c.izlazPrijenosa(p.VezaID)
+	switch {
+	case naPut:
+		d.Naslov, d.Tekst = "Zaprimljeno", d.Tekst+c.odakle(skladiste)
+	case p.Vrsta == models.PrometPrijenos && sektor != "" && sektor != p.Sektor:
+		d.Naslov, d.Vazno, d.Tekst = "Prijenos iz Sektora "+sektor, true, d.Tekst+c.odakle(skladiste)
 	}
 	return d
+}
+
+// odakle je „ · iz skladišta” izlaza poteza ili „ · s terena”; skladište
+// koje ovaj čvor ne zna ostaje bez imena
+func (c *opisivac) odakle(skladisteID string) string {
+	if skladisteID == "" {
+		return " · s terena"
+	}
+	if sk := c.skladiste(skladisteID); sk != nil {
+		return " · iz " + sk.Naziv
+	}
+	return ""
 }
 
 // izlazPrijenosa: sektor i skladište izlaza istog poteza, iz kojeg se šalje;
 // prazno kad ga ovaj čvor nema. Traži se po indeksu veze, jer se zove za
 // svaki ulaz prijenosa koji zid pročita.
-func (c *opisivac) izlazPrijenosa(veza string) (sektor, skladisteID string) {
+func (c *opisivac) izlazPrijenosa(veza string) (sektor, skladisteID string, naPut bool) {
 	if c.s.mts == nil {
-		return "", ""
+		return "", "", false
 	}
-	sektor, skladisteID, err := c.s.mts.IzvorPoteza(c.ctx, veza)
+	sektor, skladisteID, naPut, err := c.s.mts.IzvorPoteza(c.ctx, veza)
 	if err != nil {
-		return "", ""
+		return "", "", false
 	}
-	return sektor, skladisteID
+	return sektor, skladisteID, naPut
 }
 
 func absF(v float64) float64 {

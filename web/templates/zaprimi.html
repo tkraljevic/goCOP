@@ -1,0 +1,87 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Zaprimi pošiljku{{end}}
+
+{{define "content"}}
+{{$p := .Posiljka}}{{$s := $p.Slanje}}
+<a href="{{$p.Povratak}}" class="povratna-poveznica">← {{$p.Kamo}}</a>
+
+{{/* Zaprimanje po crtežu 19a (7b, Odluke 16. 11. 2026., Na putu): pošiljka
+     gore, što je stiglo i tko je preuzeo u karticama; ostatak se zaprima
+     poslije ili otpisuje kao manjak pri prijevozu */}}
+<div class="page-header">
+  <div>
+    <h1 class="page-title" data-naziv-stranice>Zaprimi pošiljku</h1>
+    <p class="page-desc">Iz {{$p.Odakle}} u {{$p.Kamo}}. Dok se ne zaprimi, roba je na putu i ne broji se ni na jednom mjestu.</p>
+  </div>
+</div>
+
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+
+<section class="os-kartica" aria-labelledby="zp-posiljka">
+  <h2 id="zp-posiljka">Pošiljka</h2>
+  <div class="sr-posiljka">
+    <div><strong>Poslano</strong><small>{{$s.Datum.Format "2.1.2006."}} · upisao {{$s.UserName}}</small></div>
+    <div><strong>Odakle</strong><small>{{$p.Odakle}}</small></div>
+    <div><strong>Kamo</strong><small>{{$p.Kamo}}</small></div>
+    <div><strong>Što</strong><small>{{$s.VrstaNaziv}}{{if and $s.Oblik (ne $s.Oblik "OSNOVNI")}}, {{oblik $s.Oblik}}{{end}} · poslano {{kolicina $p.Poslano}} {{$s.Jedinica}}{{if $p.Zaprimljeno}} · zaprimljeno {{kolicina $p.Zaprimljeno}}{{end}}</small></div>
+    {{if or $s.Nalozio $s.Preuzeo $s.Dokument}}<div><strong>Nalog i dokument</strong><small>{{if $s.Nalozio}}nalog: {{$s.Nalozio}}{{end}}{{if $s.Preuzeo}}{{if $s.Nalozio}} · {{end}}{{strana $s.Vrsta}}: {{$s.Preuzeo}}{{end}}{{if $s.Dokument}} · {{$s.Dokument}}{{end}}</small></div>{{end}}
+  </div>
+</section>
+
+<form class="form-page ob-obrazac" method="POST" action="/sredstva/na-putu/{{$s.VezaID}}">
+  <section class="os-kartica" aria-labelledby="zp-stiglo">
+    <h2 id="zp-stiglo">Što je stiglo</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="datum">Zaprimljeno *</label>
+        <input type="date" id="datum" name="datum" class="form-control" value="{{if .VratiUpisano}}{{index .Upisano "datum"}}{{else}}{{.Danas}}{{end}}" min="{{$s.Datum.Format "2006-01-02"}}" max="{{.Danas}}" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="kolicina">Stiglo * ({{$s.Jedinica}})</label>
+        <input type="text" id="kolicina" name="kolicina" class="form-control mono" inputmode="decimal" required{{if index .Neispravno "kolicina"}} aria-invalid="true"{{end}}
+          value="{{if .VratiUpisano}}{{index .Upisano "kolicina"}}{{else}}{{kolicinaPlain $p.NaPutu}}{{end}}">
+      </div>
+    </div>
+    <p class="sr-napomena-iznad">{{icon "info"}}<span>Na putu je {{kolicina $p.NaPutu}} {{$s.Jedinica}}. Upišite koliko je stvarno stiglo; razlika ostaje na putu dok se ne zaprimi ili otpiše kao manjak pri prijevozu.</span></p>
+  </section>
+
+  <section class="os-kartica" aria-labelledby="zp-preuzimanje">
+    <h2 id="zp-preuzimanje">Preuzimanje</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="preuzeo">Preuzeo{{if $p.Umjesto}} *{{end}}</label>
+        <input type="text" id="preuzeo" name="preuzeo" class="form-control" value="{{index .Upisano "preuzeo"}}"{{if $p.Umjesto}} required{{end}} placeholder="ime osobe koja je robu preuzela">
+        {{if $p.Umjesto}}<small class="form-help">Zaprimate kao dežurni COP-a, umjesto odredišta: upišite tko je robu preuzeo.</small>{{end}}
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="dokument">Dokument</label>
+        <input type="text" id="dokument" name="dokument" class="form-control" value="{{if .VratiUpisano}}{{index .Upisano "dokument"}}{{else}}{{$s.Dokument}}{{end}}" placeholder="otpremnica ili primka">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="napomena">Napomena</label>
+      <input type="text" id="napomena" name="napomena" class="form-control" value="{{index .Upisano "napomena"}}" placeholder="npr. jedna paleta oštećena">
+    </div>
+  </section>
+
+  <div class="form-actions ob-radnje">
+    <a href="{{$p.Povratak}}" class="btn btn-link">Odustani</a>
+    <button type="submit" class="btn btn-primary">Zaprimi</button>
+  </div>
+</form>
+
+<form class="form-page ob-obrazac" method="POST" action="/sredstva/na-putu/{{$s.VezaID}}/manjak" onsubmit="return confirm('Otpisati {{kolicina $p.NaPutu}} {{$s.Jedinica}} kao manjak pri prijevozu? Pošiljka se time zatvara.');">
+  <section class="os-kartica" aria-labelledby="zp-manjak">
+    <h2 id="zp-manjak">Ostatak nije stigao</h2>
+    <p class="sr-opis">Kad je dio robe izgubljen ili uništen na putu, otpišite ostatak od {{kolicina $p.NaPutu}} {{$s.Jedinica}} kao manjak pri prijevozu. U knjizi ostaje uz razlog.</p>
+    <div class="form-group">
+      <label class="form-label" for="razlog">Razlog *</label>
+      <input type="text" id="razlog" name="razlog" class="form-control" value="{{index .Upisano "razlog"}}" required placeholder="što se dogodilo s robom">
+    </div>
+    <div class="form-actions ob-radnje">
+      <button type="submit" class="btn btn-secondary">Otpiši manjak</button>
+    </div>
+  </section>
+</form>
+{{end}}

@@ -19,8 +19,9 @@ import (
 // bez odredišta imaju oba retka i smatraju se zaprimljenima.
 
 // vrsteNaPut su zahvati koji robu šalju na put. Vrsta se uključuje tek kad
-// odredište u programu ima zaprimanje, da se roba ne pošalje nikamo.
-var vrsteNaPut = map[string]bool{}
+// odredište u programu ima zaprimanje, da se roba ne pošalje nikamo:
+// skladište ga ima (kartica „Stiže”), teren još ne, pa izdavanje ide odjednom.
+var vrsteNaPut = map[string]bool{models.PrometPrijenos: true, models.PrometPovrat: true}
 
 // potez vraća retke poteza koji premješta robu: oba odjednom, ili samo
 // slanje kad ta vrsta zahvata ide na put
@@ -93,6 +94,7 @@ type Zaprimanje struct {
 	Kolicina float64 // stvarno primljeno; razlika ostaje na putu
 	Datum    time.Time
 	Preuzeo  string // tko je robu preuzeo; obvezno kad zaprima dežurni COP-a
+	Dokument string // otpremnica ili primka; prazno ostaje dokument slanja
 	Napomena string
 }
 
@@ -117,6 +119,9 @@ func (s *MtsService) Zaprimi(ctx context.Context, u *models.User, perms *models.
 	}
 	red := dolazak(*p, u, z.Datum, z.Kolicina, p.Slanje.Vrsta, z.Napomena)
 	red.Preuzeo = z.Preuzeo
+	if d := strings.TrimSpace(z.Dokument); d != "" {
+		red.Dokument = d
+	}
 	if err := s.repo.SavePromet(ctx, []models.Promet{red}); err != nil {
 		return nil, err
 	}

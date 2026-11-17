@@ -10786,6 +10786,12 @@ td .odr-sitno { margin-top: 2px; }
 .sr-glava .br, .sr-redak .br { text-align: right; }
 .sr-podrucje { margin: 10px 0 0; color: var(--text-muted); font-size: 0.75rem; font-weight: 600; }
 .sr-skladiste small { display: block; color: var(--text-muted); font-size: 0.75rem; }
+/* roba na putu (19a, 7 i 7b): pošiljka u kartici skladišta i podaci pošiljke u obrascu zaprimanja */
+.sr-posiljka-redak > span:first-of-type { min-width: 0; }
+.sr-posiljka-redak .btn, .sr-posiljka-redak .badge { flex: none; }
+.sr-posiljka { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 8px; }
+.sr-posiljka > div { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 8px; background: var(--bg); font-size: 0.875rem; }
+.sr-posiljka small { color: var(--text-muted); font-size: 0.8125rem; }
 .sr-gcop { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .sr-gcop .form-label { width: 100%; margin: 0; }
 .sr-gcop .form-control { flex: 1 1 10rem; max-width: 14rem; }

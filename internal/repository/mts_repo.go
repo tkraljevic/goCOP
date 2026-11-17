@@ -416,17 +416,19 @@ func (r *MtsRepository) SavePromet(ctx context.Context, redci []models.Promet) e
 }
 
 // izvorPotezaSQL traži izlaz poteza po indeksu veze, bez spajanja tablica
-const izvorPotezaSQL = `SELECT sektor, skladiste_id FROM mts_promet WHERE veza_id = ? AND kolicina < 0 LIMIT 1`
+// (prvo slanje na put, ako ga potez ima, a ne otpis manjka istog poteza)
+const izvorPotezaSQL = `SELECT sektor, skladiste_id, prema_skladiste_id <> '' OR prema_area_id > 0 AS na_put FROM mts_promet
+	WHERE veza_id = ? AND kolicina < 0 ORDER BY na_put DESC LIMIT 1`
 
 // IzvorPoteza vraća sektor i skladište retka koji u potezu skida (izlaz
-// prijenosa); prazno kad potez nema izlaza ili ga ovaj čvor nema. Zid
-// događanja ga zove za svaki ulaz prijenosa koji pročita.
-func (r *MtsRepository) IzvorPoteza(ctx context.Context, veza string) (sektor, skladisteID string, err error) {
-	err = r.db.QueryRowContext(ctx, izvorPotezaSQL, veza).Scan(&sektor, &skladisteID)
+// prijenosa) i je li to slanje na put; prazno kad potez nema izlaza ili ga
+// ovaj čvor nema. Zid događanja ga zove za svaki ulaz poteza koji pročita.
+func (r *MtsRepository) IzvorPoteza(ctx context.Context, veza string) (sektor, skladisteID string, naPut bool, err error) {
+	err = r.db.QueryRowContext(ctx, izvorPotezaSQL, veza).Scan(&sektor, &skladisteID, &naPut)
 	if errors.Is(err, sql.ErrNoRows) {
-		return "", "", nil
+		return "", "", false, nil
 	}
-	return sektor, skladisteID, err
+	return sektor, skladisteID, naPut, err
 }
 
 // FiltarPosiljki sužava robu na putu; prazna polja ne sužavaju
