@@ -10,7 +10,8 @@
   <div>
     <h1 class="page-title" data-naziv-stranice>Gdje ima: {{$v.Naziv}}</h1>
     <p class="page-desc">{{grupa $v.Grupa}} · {{$v.Jedinica}} · sva skladišta u svim sektorima, najviše prvo. Kad u jednom sektoru ponestane,
-      ovdje se vidi odakle se može dopremiti; prijenos se upiše iz skladišta koje šalje.</p>
+      ovdje se vidi odakle se može dopremiti; prijenos se upiše iz skladišta koje šalje. Roba koja je skladištu na putu
+      uključena je u zbroj i vidi se zasebno.</p>
   </div>
 </div>
 
@@ -19,7 +20,7 @@
 <section class="os-kartica" aria-label="Skladišta u kojima ima {{$v.Naziv}}">
 <div class="table-responsive tablica-kartice">
   <table class="data-table sr-promet">
-    <thead><tr><th>{{term "sektor"}}</th><th>{{term "podrucje"}}</th><th>Skladište</th><th class="br">Ukupno</th>{{if $v.ImaOblike}}{{range $v.Oblici}}<th class="br">{{oblik .}}</th>{{end}}{{end}}</tr></thead>
+    <thead><tr><th>{{term "sektor"}}</th><th>{{term "podrucje"}}</th><th>Skladište</th><th class="br">Ukupno</th><th class="br">od toga na putu</th>{{if $v.ImaOblike}}{{range $v.Oblici}}<th class="br">{{oblik .}}</th>{{end}}{{end}}</tr></thead>
     <tbody>
     {{range .GdjeIma}}
     <tr>
@@ -27,6 +28,7 @@
       <td data-stupac="Područje">{{if .Skladiste.AreaName}}BP {{.Skladiste.AreaID}} · {{.Skladiste.AreaName}}{{end}}</td>
       <td data-stupac="Skladište"><a href="/sredstva/skladista/{{.Skladiste.ID}}">{{.Skladiste.Naziv}}</a>{{if .Skladiste.Adresa}}<span class="reg-card-sub">{{.Skladiste.Adresa}}</span>{{end}}</td>
       <td data-stupac="Ukupno" class="mono br"><strong>{{kolicina .Kolicina}}</strong> {{$v.Jedinica}}</td>
+      <td data-stupac="Na putu" class="mono br">{{if .NaPutu}}{{kolicina .NaPutu}}{{end}}</td>
       {{$m := .}}{{if $v.ImaOblike}}{{range $v.Oblici}}<td class="mono br">{{with index $m.PoOblicima .}}{{kolicina .}}{{end}}</td>{{end}}{{end}}
     </tr>
     {{end}}

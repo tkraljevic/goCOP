@@ -87,6 +87,11 @@ func TestSkladisteBezKnjigePuta(t *testing.T) {
 	if w := o.zovi(t, promatracSredstava(), http.MethodGet, "/sredstva/skladista/"+o.sk.ID, nil); w.Code != http.StatusInternalServerError {
 		t.Errorf("skladište bez knjige puta: %d", w.Code)
 	}
+	for _, put := range []string{"/sredstva?sektor=B", "/sredstva/gdje/lopata"} {
+		if w := o.zovi(t, promatracSredstava(), http.MethodGet, put, nil); w.Code != http.StatusInternalServerError {
+			t.Errorf("%s bez knjige puta: %d", put, w.Code)
+		}
+	}
 }
 
 // Na terenu: izdano a nezaprimljeno stoji u kartici „Na putu”, suženo na

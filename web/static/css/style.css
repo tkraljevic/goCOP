@@ -10784,6 +10784,9 @@ td .odr-sitno { margin-top: 2px; }
 .sr-redak .icon { width: 18px; height: 18px; color: var(--text-muted); }
 .sr-redak.sr-prazno { color: var(--text-muted); }
 .sr-glava .br, .sr-redak .br { text-align: right; }
+/* pregled sektora: uz ukupno i dio koji je na putu (Odluke 16. 11., Na putu) */
+.sr-glava-put, .sr-redak-put { grid-template-columns: 44px minmax(0, 1fr) 56px 96px 96px 20px; }
+.sr-redak .sr-na-putu { color: var(--text-muted); }
 .sr-podrucje { margin: 10px 0 0; color: var(--text-muted); font-size: 0.75rem; font-weight: 600; }
 .sr-skladiste small { display: block; color: var(--text-muted); font-size: 0.75rem; }
 /* roba na putu (19a, 7 i 7b): pošiljka u kartici skladišta i podaci pošiljke u obrascu zaprimanja */
@@ -10813,6 +10816,9 @@ td .odr-sitno { margin-top: 2px; }
   .sr-redak > span:nth-child(4) { order: 3; }
   .sr-redak > span:nth-child(3) { order: 4; color: var(--text-muted); }
   .sr-redak > .icon { order: 5; }
+  .sr-redak-put > .sr-na-putu { order: 6; grid-column: 2 / -1; text-align: left; font-size: 0.75rem; }
+  .sr-redak-put > .sr-na-putu::before { content: "od toga na putu "; }
+  .sr-redak-put > .sr-na-putu:empty { display: none; }
 }
 
 /* Sredstva, skladište (crtež 19a, 2): zahvati u redu, redak stanja s
