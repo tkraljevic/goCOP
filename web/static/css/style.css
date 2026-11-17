@@ -10834,6 +10834,11 @@ td .odr-sitno { margin-top: 2px; }
 .sr-plus .icon { width: 18px; height: 18px; }
 .sr-plus:hover { background: var(--surface-hover); }
 .sr-potvrda { margin-left: 0.5rem; }
+/* Obrazac zahvata (crtež 19a, 3): rečenice koliko stoji i upozorenje inventure */
+.sr-recenica { display: flex; align-items: flex-start; gap: 6px; margin: 4px 0 0; }
+.sr-recenica[hidden] { display: none; }
+.sr-recenica .icon { flex: none; width: 16px; height: 16px; margin-top: 1px; }
+.sr-upozorenje { color: var(--warning-fg); margin-bottom: 10px; }
 .sr-promet .reg-card-sub { display: block; }
 .sr-promet th.br, .sr-promet td.br { text-align: right; white-space: nowrap; }
 /* Obrazac inventure (crtež 19b, 8a): na mobitelu kartica po vrsti s velikim poljem */
