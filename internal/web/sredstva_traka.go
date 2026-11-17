@@ -33,12 +33,23 @@ func (d MtsPageData) KarticeModula() []KarticaSredstava {
 	return out
 }
 
-// CipoviSektora vode na istu karticu u drugom sektoru. Katalog nema sektora.
+// sviSektori je vrijednost parametra sektor kad pregled zbraja sve sektore
+// (Odluke 16. 11. 2026., 4); prazan parametar znači sektor korisnika.
+const sviSektori = "svi"
+
+// CipoviSektora vode na istu karticu u drugom sektoru. Katalog nema sektora,
+// a „Svi sektori” ima samo pregled: ostale kartice rade sa skladištima jednog sektora.
 func (d MtsPageData) CipoviSektora() []CipPopisa {
 	for _, k := range karticeSredstava {
-		if k.id == d.Kartica && k.id != "katalog" {
-			return cipoviJednogSektora(k.staza, d.Sektori, d.Sektor)
+		if k.id != d.Kartica || k.id == "katalog" {
+			continue
 		}
+		cipovi := cipoviJednogSektora(k.staza, d.Sektori, d.Sektor)
+		if k.id == "pregled" {
+			svi := CipPopisa{Naziv: "Svi sektori", URL: k.staza + "?sektor=" + sviSektori, Odabran: d.SviSektori}
+			cipovi = append([]CipPopisa{svi}, cipovi...)
+		}
+		return cipovi
 	}
 	return nil
 }
