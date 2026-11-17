@@ -12,69 +12,87 @@
   {{with temaCSS}}<link rel="stylesheet" href="{{.}}">{{end}}
 </head>
 <body class="stranica-uparivanje">
-<div class="wrap">
-  <div class="box">
-    <div class="brand"><img src="{{logo}}" alt="">{{term "org"}} · goCOP</div>
+{{/* Novi izgled po crtežu 18b · 5 Uparivanje (goCOP-m3): samostalna
+     stranica bez izbornika, jedna kartica na sredini, koraci kao okomiti
+     koračnik s brojem u krugu. Imena gumba ista su kao na Ovom računalu i
+     mreži i na Stanju razmjene. */}}
+<div class="upar-stranica">
+  <main class="upar-kartica">
+    <div class="upar-znak"><img src="{{logo}}" alt=""><span><span class="upar-org">{{term "org"}}</span><span class="upar-ime">goCOP</span></span></div>
     <h1>Poveži ovo računalo s uredom</h1>
-    <p class="sub">
+    <p class="upar-uvod">
       {{if .InNetwork}}Ovo računalo je član mreže <b>{{.Network}}</b>. Ovdje ga možete upariti s još jednim računalom ili odmah pokrenuti razmjenu podataka.
       {{else}}Ovo računalo još nije u mreži. Dok se ne upari s uredom, u njemu nema ni djelatnika ni registara.
       Za uparivanje treba osoba i na drugoj strani: oba ekrana pokažu isti kod i oboje ga potvrde.{{end}}
     </p>
 
-    <div class="steps">
-      <div class="step on" id="step-find">
-        <h2><span class="num">1</span> Pronađi drugo računalo</h2>
-        <p class="desc">Ako ste u istoj lokalnoj mreži, program ga sam nađe. Inače upišite adresu koju vam kaže osoba u uredu, ili pričekajte da ured nazove ovo računalo.</p>
-        <div class="actions">
-          <button type="button" class="btn btn-primary" onclick="discover()">Pretraži lokalnu mrežu</button>
-          <input type="text" id="addr" class="form-control" placeholder="adresa, npr. 192.168.1.20" style="max-width:220px;">
-          <button type="button" class="btn btn-secondary" onclick="dial()">Nazovi</button>
-          <button type="button" class="btn btn-secondary" onclick="listen()">Čekaj poziv ureda</button>
-          <button type="button" class="btn btn-secondary" id="stop-btn" onclick="stopListen()" style="display:none;">Prestani čekati</button>
-        </div>
-        <div id="found"></div>
-        <p id="status" class="muted mt-2 mb-0"></p>
-      </div>
-
-      <div class="step" id="step-code">
-        <h2><span class="num">2</span> Usporedi kod</h2>
-        <p class="desc">Isti kod mora pisati i na drugom ekranu. Ako se razlikuje, netko se ubacio između: odbijte.</p>
-        <div id="pending" style="display:none;">
-          <p class="m-0">Računalo <b id="peer-name"></b> <span class="muted mono" id="peer-id"></span></p>
-          <div class="sas" id="sas"></div>
-          {{if .TraziLozinku}}<div class="form-group mb-2">
-            <label class="form-label" for="lozinka-racuna">Lozinka vašeg računa (izvana se računala uparuju samo uz nju)</label>
-            <input type="password" id="lozinka-racuna" class="form-control" autocomplete="current-password" style="max-width:220px;">
-          </div>{{end}}
-          <div class="actions">
-            <button type="button" class="btn btn-primary" onclick="confirmPair(true)">Kod se podudara — upari</button>
-            <button type="button" class="btn btn-secondary" onclick="confirmPair(false)">Odbij</button>
+    <ol class="steps">
+      <li class="step on" id="step-find">
+        <span class="num" aria-hidden="true">1</span>
+        <div class="step-tijelo">
+          <h2>Pronađi drugo računalo</h2>
+          <div class="upar-ploce">
+            <section class="upar-ploca" aria-labelledby="ploca-mreza">
+              <h3 id="ploca-mreza">U istoj mreži</h3>
+              <div><button type="button" class="btn btn-primary" onclick="discover()">Pretraži lokalnu mrežu</button></div>
+              <div id="found"></div>
+            </section>
+            <section class="upar-ploca" aria-labelledby="ploca-adresa">
+              <h3 id="ploca-adresa">Na adresu</h3>
+              <div class="form-group list-polje">{{icon "link"}}<label class="form-label" for="addr">Adresa</label><input type="text" id="addr" class="form-control" placeholder="npr. 192.168.1.20" autocomplete="off"></div>
+              <div class="actions upar-desno">
+                <button type="button" class="btn btn-link" onclick="listen()">Čekaj poziv</button>
+                <button type="button" class="btn btn-link" id="stop-btn" onclick="stopListen()" hidden>Prestani čekati</button>
+                <button type="button" class="btn btn-primary" onclick="dial()">Nazovi</button>
+              </div>
+            </section>
           </div>
+          <p id="status" class="muted" role="status"></p>
         </div>
-        <p id="code-result" class="muted m-0"></p>
-      </div>
+      </li>
 
-      <div class="step {{if .InNetwork}}on{{end}}" id="step-sync">
-        <h2><span class="num">3</span> Preuzmi podatke</h2>
-        <p class="desc">Razmjena s uparenim računalima donosi djelatnike, registre i dnevnike. Prvi put može potrajati koju minutu.</p>
-        <div class="actions">
-          <button type="button" class="btn btn-primary" id="sync-btn" onclick="sync()" {{if not .InNetwork}}disabled{{end}}>Sinkroniziraj</button>
+      <li class="step" id="step-code">
+        <span class="num" aria-hidden="true">2</span>
+        <div class="step-tijelo">
+          <h2>Usporedi kod</h2>
+          <p class="desc">Isti kod mora pisati i na drugom ekranu. Ako se razlikuje, netko se ubacio: odbijte.</p>
+          <div id="pending" class="upar-ploca" hidden>
+            <p class="m-0">Računalo <b id="peer-name"></b> <span class="muted mono" id="peer-id"></span></p>
+            <div class="sas" id="sas"></div>
+            {{if .TraziLozinku}}<div class="form-group list-polje">{{icon "lock"}}<label class="form-label" for="lozinka-racuna">Lozinka vašeg računa</label><input type="password" id="lozinka-racuna" class="form-control" autocomplete="current-password"></div>
+            <p class="desc">Izvana se računala uparuju samo uz lozinku.</p>{{end}}
+            <div class="actions upar-desno">
+              <button type="button" class="btn btn-link" onclick="confirmPair(false)">Odbij</button>
+              <button type="button" class="btn btn-primary" onclick="confirmPair(true)">Kod se podudara, upari</button>
+            </div>
+          </div>
+          <p id="code-result" class="muted" role="status"></p>
         </div>
-        <p id="sync-result" class="muted mt-2 mb-0"></p>
-        {{if .Peers}}<div class="mt-2">{{range .Peers}}<div class="peer"><span>{{if .Name}}{{.Name}}{{else}}{{.NodeID}}{{end}}</span><span class="muted">{{if .LastSync}}zadnja razmjena {{.LastSync.Format "02.01.2006 15:04"}}{{else}}još bez razmjene{{end}}</span></div>{{end}}</div>{{end}}
-      </div>
+      </li>
+
+      <li class="step {{if .InNetwork}}on{{end}}" id="step-sync">
+        <span class="num" aria-hidden="true">3</span>
+        <div class="step-tijelo">
+          <h2>Preuzmi podatke</h2>
+          <p class="desc">Gumb Razmijeni donosi djelatnike, registre i dnevnike; prvi put može potrajati koju minutu.</p>
+          <div class="actions">
+            <button type="button" class="btn btn-primary" id="sync-btn" onclick="sync()" {{if not .InNetwork}}disabled{{end}}>Razmijeni</button>
+          </div>
+          <p id="sync-result" class="muted" role="status"></p>
+          {{if .Peers}}<ul class="upar-popis">{{range .Peers}}<li class="peer"><span>{{if .Name}}{{.Name}}{{else}}{{.NodeID}}{{end}}</span><span class="muted">{{if .LastSync}}zadnja razmjena {{.LastSync.Format "02.01.2006 15:04"}}{{else}}još bez razmjene{{end}}</span></li>{{end}}</ul>{{end}}
+        </div>
+      </li>
+    </ol>
+
+    <div class="actions upar-desno upar-izlaz">
+      {{if .User}}<a href="/pretplate" class="btn btn-link">Što ovo računalo prati</a> <a href="/profile" class="btn btn-link">Natrag na profil</a>{{else}}<a href="/login" class="btn btn-link" id="login-link">Na prijavu</a>{{end}}
     </div>
 
-    <div class="actions mt-4">
-      {{if .User}}<a href="/pretplate" class="btn btn-secondary">Što ovo računalo prati</a> <a href="/profile" class="btn btn-secondary">Natrag na profil</a>{{else}}<a href="/login" class="btn btn-secondary" id="login-link">Na prijavu</a>{{end}}
-    </div>
-
-    <div class="me">
-      Ovo računalo: <b>{{.NodeName}}</b> <span class="mono">{{.NodeID}}</span> · uparivanje na portu {{.PairPort}}.
+    <p class="me">
+      Ovo računalo: <b>{{.NodeName}}</b> · <span class="mono">{{.NodeID}}</span> · uparivanje na portu {{.PairPort}}.
       Tako ga vidi osoba na drugoj strani.
-    </div>
-  </div>
+    </p>
+  </main>
 </div>
 
 <script>
@@ -100,15 +118,15 @@ function show(st) {
   if (st.error) { status.innerHTML = '<span class="err">' + escPronadjeno(st.error) + '</span>'; }
   else if (st.waiting) { status.textContent = 'Čeka se da ured nazove ovo računalo…'; }
   else if (!st.pending) { status.textContent = ''; }
-  $('stop-btn').style.display = st.waiting ? '' : 'none';
+  $('stop-btn').hidden = !st.waiting;
   if (st.pending) {
     on('step-find', 'done'); on('step-code', 'on');
-    $('pending').style.display = 'block';
+    $('pending').hidden = false;
     $('peer-name').textContent = st.peer.name || '';
     $('peer-id').textContent = st.peer.deviceId || '';
     $('sas').textContent = st.sas;
   } else {
-    $('pending').style.display = 'none';
+    $('pending').hidden = true;
   }
   if (st.in_network) { $('sync-btn').disabled = false; if (!st.pending) on('step-sync', 'on'); }
   if ((st.waiting || st.pending) && !poll) {
@@ -135,7 +153,7 @@ async function confirmPair(approved) {
   try {
     const lozinka = $('lozinka-racuna');
     const r = await api('/api/uparivanje/confirm', {approved, lozinka_racuna: lozinka ? lozinka.value : ''});
-    $('pending').style.display = 'none';
+    $('pending').hidden = true;
     if (r.paired) {
       on('step-code', 'done'); on('step-sync', 'on');
       $('code-result').innerHTML = '<span class="ok">' + escPronadjeno(r.message || 'Računala su uparena.') + '</span>';
@@ -154,11 +172,12 @@ async function discover() {
     const r = await api('/api/uparivanje/discover');
     pronadjeni = r.found || [];
     if (!pronadjeni.length) { box.innerHTML = '<p class="muted">U lokalnoj mreži nije nađeno nijedno goCOP računalo. Upišite adresu ili pričekajte poziv.</p>'; return; }
-    box.innerHTML = pronadjeni.map((f, i) => `
-      <div class="peer">
-        <span><b>${escPronadjeno(f.name || f.deviceId)}</b> <span class="muted mono">${escPronadjeno(f.addr)}</span>${f.known ? ' <span class="muted">· već upareno</span>' : ''}</span>
-        ${f.known ? '' : `<button class="btn btn-sm btn-primary" onclick="dial(pronadjeni[${i}].addr)">Upari</button>`}
-      </div>`).join('');
+    box.innerHTML = '<ul class="upar-popis">' + pronadjeni.map((f, i) => `
+      <li class="peer">
+        <span class="upar-tocka" aria-hidden="true"></span>
+        <span class="upar-racunalo"><b>${escPronadjeno(f.name || f.deviceId)}</b><span class="muted mono">${escPronadjeno(f.addr)}</span></span>
+        ${f.known ? '<span class="muted">već upareno</span>' : `<button type="button" class="btn btn-sm btn-link" onclick="dial(pronadjeni[${i}].addr)">Upari</button>`}
+      </li>`).join('') + '</ul>';
   } catch (e) { box.innerHTML = '<p class="err">' + escPronadjeno(e.message) + '</p>'; }
 }
 async function sync() {
@@ -170,7 +189,7 @@ async function sync() {
     const redovi = Object.entries(r.results || {}).map(([k, v]) => escPronadjeno(k + ': ' + v));
     out.innerHTML = '<span class="ok">' + (redovi.join('<br>') || 'Nema uparenih računala.') + '</span>';
     on('step-sync', 'done');
-    if (!r.fresh && $('login-link')) { out.innerHTML += '<br>Djelatnici su stigli. Prijavite se svojim računom.'; $('login-link').classList.replace('btn-secondary', 'btn-primary'); }
+    if (!r.fresh && $('login-link')) { out.innerHTML += '<br>Djelatnici su stigli. Prijavite se svojim računom.'; $('login-link').classList.replace('btn-link', 'btn-primary'); }
   } catch (e) { out.innerHTML = '<span class="err">' + escPronadjeno(e.message) + '</span>'; }
   $('sync-btn').disabled = false;
 }
