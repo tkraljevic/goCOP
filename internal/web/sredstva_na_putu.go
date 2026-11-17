@@ -27,13 +27,7 @@ func (p PosiljkaNaPutu) Poslano() float64 { return -p.Slanje.Kolicina }
 func (p PosiljkaNaPutu) Odakle() string { return p.Slanje.MjestoNaziv() }
 
 // Kamo je ime odredišta pošiljke: skladište ili mjesto na terenu
-func (p PosiljkaNaPutu) Kamo() string {
-	if p.Slanje.PremaSkladisteID != "" {
-		return p.PremaSkladisteNaziv
-	}
-	m := p.Slanje.PremaTerenu()
-	return models.Promet{AreaID: m.AreaID, AreaName: p.PremaAreaName, SectionCode: m.SectionCode, Mjesto: m.Mjesto}.MjestoNaziv()
-}
+func (p PosiljkaNaPutu) Kamo() string { return p.Slanje.PremaNaziv() }
 
 // Povratak je stranica odredišta, kamo se ide poslije zaprimanja
 func (p PosiljkaNaPutu) Povratak() string {
@@ -68,6 +62,24 @@ func (h *MtsHandler) naPutuSkladista(r *http.Request, data *MtsPageData, skladis
 		return err
 	}
 	data.Poslano, err = h.uzPravo(r, data.Permissions, poslano)
+	return err
+}
+
+// naPutuTerena puni karticu „Na putu” stranice Na terenu: izdano na teren
+// sektora i vraćeno s njega, a nezaprimljeno; obrana sužava (crtež 19a, 7c)
+func (h *MtsHandler) naPutuTerena(r *http.Request, data *MtsPageData, journalID string) error {
+	sve, err := h.svc().NaPutu(r.Context(), repository.FiltarPosiljki{Sektor: data.Sektor})
+	if err != nil {
+		return err
+	}
+	var teren []models.Posiljka
+	for _, p := range sve {
+		naTeren, sTerena := p.Slanje.PremaAreaID > 0, p.Slanje.SkladisteID == ""
+		if (naTeren || sTerena) && (journalID == "" || p.Slanje.JournalID == journalID) {
+			teren = append(teren, p)
+		}
+	}
+	data.Stize, err = h.uzPravo(r, data.Permissions, teren)
 	return err
 }
 

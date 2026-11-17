@@ -113,9 +113,11 @@ func prometArgs(p *models.Promet) []any {
 const prometColumns = `p.id, p.datum, p.vrsta_id, p.oblik, p.kolicina, p.vrsta, p.sektor, p.skladiste_id, p.area_id, p.section_code, p.structure_id, p.mjesto, p.veza_id, p.journal_id,
 	p.popis_id, p.nalozio, p.preuzeo, p.dokument, p.user_id, p.user_name, p.napomena, p.created_at, p.updated_at,
 	p.prema_skladiste_id, p.prema_area_id, p.prema_section_code, p.prema_structure_id, p.prema_mjesto,
-	COALESCE(v.naziv, ''), COALESCE(v.jedinica, ''), COALESCE(s.naziv, ''), COALESCE(a.name, ''), COALESCE(st.name, '')`
+	COALESCE(v.naziv, ''), COALESCE(v.jedinica, ''), COALESCE(s.naziv, ''), COALESCE(a.name, ''), COALESCE(st.name, ''),
+	COALESCE(ps.naziv, ''), COALESCE(pa.name, '')`
 const prometFrom = ` FROM mts_promet p LEFT JOIN mts_vrste v ON v.id = p.vrsta_id LEFT JOIN mts_skladista s ON s.id = p.skladiste_id
-	LEFT JOIN areas a ON a.id = p.area_id LEFT JOIN structures st ON st.id = p.structure_id`
+	LEFT JOIN areas a ON a.id = p.area_id LEFT JOIN structures st ON st.id = p.structure_id
+	LEFT JOIN mts_skladista ps ON ps.id = p.prema_skladiste_id LEFT JOIN areas pa ON pa.id = p.prema_area_id`
 
 // scanPromet čita redak prometColumns; dodatno su stupci iza njih, kad ih upit ima
 func scanPromet(row interface{ Scan(...any) error }, dodatno ...any) (models.Promet, error) {
@@ -124,7 +126,8 @@ func scanPromet(row interface{ Scan(...any) error }, dodatno ...any) (models.Pro
 	err := row.Scan(append([]any{&p.ID, &datum, &p.VrstaID, &p.Oblik, &p.Kolicina, &p.Vrsta, &p.Sektor, &p.SkladisteID, &p.AreaID, &p.SectionCode, &p.StructureID, &p.Mjesto, &p.VezaID, &p.JournalID,
 		&p.PopisID, &p.Nalozio, &p.Preuzeo, &p.Dokument, &p.UserID, &p.UserName, &p.Napomena, &p.CreatedAt, &p.UpdatedAt,
 		&p.PremaSkladisteID, &p.PremaAreaID, &p.PremaSectionCode, &p.PremaStructureID, &p.PremaMjesto,
-		&p.VrstaNaziv, &p.Jedinica, &p.SkladisteNaziv, &p.AreaName, &p.StructureName}, dodatno...)...)
+		&p.VrstaNaziv, &p.Jedinica, &p.SkladisteNaziv, &p.AreaName, &p.StructureName,
+		&p.PremaSkladisteNaziv, &p.PremaAreaName}, dodatno...)...)
 	p.Datum = parseDay(datum)
 	return p, err
 }
@@ -445,9 +448,8 @@ const zaprimljenoSQL = `COALESCE((SELECT SUM(z.kolicina) FROM mts_promet z WHERE
 
 // ListPosiljke vraća robu na putu: slanja kojima nije sve zaprimljeno, najstarija prva
 func (r *MtsRepository) ListPosiljke(ctx context.Context, f FiltarPosiljki) ([]models.Posiljka, error) {
-	q := `SELECT ` + prometColumns + `, ` + zaprimljenoSQL + `, COALESCE(ps.naziv, ''), COALESCE(ps.sektor, p.sektor), COALESCE(pa.name, '')` + prometFrom +
-		` LEFT JOIN mts_skladista ps ON ps.id = p.prema_skladiste_id LEFT JOIN areas pa ON pa.id = p.prema_area_id
-		WHERE p.kolicina < 0 AND (p.prema_skladiste_id <> '' OR p.prema_area_id > 0) AND -p.kolicina - ` + zaprimljenoSQL + ` > 1e-9`
+	q := `SELECT ` + prometColumns + `, ` + zaprimljenoSQL + `, COALESCE(ps.sektor, p.sektor)` + prometFrom +
+		` WHERE p.kolicina < 0 AND (p.prema_skladiste_id <> '' OR p.prema_area_id > 0) AND -p.kolicina - ` + zaprimljenoSQL + ` > 1e-9`
 	var args []any
 	for _, uvjet := range []struct {
 		sql        string
@@ -478,7 +480,7 @@ func (r *MtsRepository) ListPosiljke(ctx context.Context, f FiltarPosiljki) ([]m
 	for rows.Next() {
 		var po models.Posiljka
 		var err error
-		if po.Slanje, err = scanPromet(rows, &po.Zaprimljeno, &po.PremaSkladisteNaziv, &po.PremaSektor, &po.PremaAreaName); err != nil {
+		if po.Slanje, err = scanPromet(rows, &po.Zaprimljeno, &po.PremaSektor); err != nil {
 			return nil, err
 		}
 		out = append(out, po)

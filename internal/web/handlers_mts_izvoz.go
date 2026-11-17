@@ -184,6 +184,23 @@ func naznaka(s string) string {
 
 // IzvoziPotvrdu piše potvrdu jednog zahvata: otpremnicu za izdavanje i
 // prijenos, primku za primljeno, povratnicu za povrat, potvrdu za ostalo
+// skladisteZahvata je skladište iz kojeg je zahvat: redak sa skladištem, kod
+// izdavanja onaj negativni; povrat na putu ima samo redak s terena, pa je to
+// odredište. Skladište koje se ne da pročitati potvrda izostavi.
+func (h *MtsHandler) skladisteZahvata(r *http.Request, redci []models.Promet) *models.Skladiste {
+	var sk *models.Skladiste
+	for _, x := range redci {
+		id := x.SkladisteID
+		if id == "" && x.IdeNaPut() {
+			id = x.PremaSkladisteID
+		}
+		if id != "" && (sk == nil || x.Kolicina < 0) {
+			sk, _ = h.svc().Skladiste(r.Context(), id) // bez skladišta potvrda nema zaglavlja sektora, ali se ispiše
+		}
+	}
+	return sk
+}
+
 func (h *MtsHandler) IzvoziPotvrdu(w http.ResponseWriter, r *http.Request) {
 	data := h.pageData(r)
 	redci, err := h.svc().Promet(r.Context(), repository.FiltarPrometa{VezaID: r.PathValue("veza")})
@@ -195,13 +212,7 @@ func (h *MtsHandler) IzvoziPotvrdu(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	// skladište iz kojeg je zahvat: redak sa skladištem, kod izdavanja onaj negativni
-	var sk *models.Skladiste
-	for _, x := range redci {
-		if x.SkladisteID != "" && (sk == nil || x.Kolicina < 0) {
-			sk, _ = h.svc().Skladiste(r.Context(), x.SkladisteID)
-		}
-	}
+	sk := h.skladisteZahvata(r, redci)
 	terms := models.Terms()
 	z := ZaglavljeIzvoza{Organizacija: terms.OrgName, Datum: time.Now().In(models.Zagreb)}
 	if terms.HasLogo() && terms.LogoMime == "image/png" {
@@ -285,16 +296,7 @@ func KnjigaPotvrde(redci []models.Promet, sk *models.Skladiste, obrana string, z
 			polje("Skladište (izdaje)", odakle)
 		}
 	}
-	for _, x := range redci {
-		if x.SkladisteID == "" {
-			polje("Mjesto na terenu", x.MjestoNaziv())
-			break
-		}
-		if sk != nil && x.SkladisteID != sk.ID && x.SkladisteNaziv != "" {
-			polje("U skladište", x.SkladisteNaziv)
-			break
-		}
-	}
+	polje(drugoMjestoPotvrde(redci, sk))
 	polje("Obrana", obrana)
 	polje("Naložio", prvi.Nalozio)
 	polje(models.StranaOznaka(prvi.Vrsta), prvi.Preuzeo)
@@ -648,4 +650,33 @@ func KnjigaMts(t *service.TablicaSredstava, nazivSektora string, z ZaglavljeIzvo
 		strings.Join(izvori, "; ")+". Vreće su zbrojene prazne i napunjene. Iz programa goCOP.", stupaca, 40)
 	potpisiLista(l, z, stupaca, []PotpisnikIzvoza{{Funkcija: "sastavio"}, {Funkcija: "rukovoditelj obrane od poplava " + models.Terms().Lower("sektor") + "a " + t.Sektor}})
 	return k
+}
+
+// drugoMjestoPotvrde je mjesto zahvata osim skladišta: teren ili skladište u
+// koje se prenosi. Roba na putu ga nosi na retku slanja, i prije zaprimanja.
+func drugoMjestoPotvrde(redci []models.Promet, sk *models.Skladiste) (oznaka, naziv string) {
+	for _, x := range redci {
+		switch {
+		case x.IdeNaPut():
+			return mjestoSlanja(x)
+		case x.SkladisteID == "":
+			return "Mjesto na terenu", x.MjestoNaziv()
+		case sk != nil && x.SkladisteID != sk.ID && x.SkladisteNaziv != "":
+			return "U skladište", x.SkladisteNaziv
+		}
+	}
+	return "", ""
+}
+
+// mjestoSlanja je drugo mjesto retka slanja na put: kod povrata teren odakle
+// je roba krenula (skladište prima), inače odredište
+func mjestoSlanja(x models.Promet) (oznaka, naziv string) {
+	switch {
+	case x.SkladisteID == "":
+		return "Mjesto na terenu", x.MjestoNaziv()
+	case x.PremaSkladisteID != "":
+		return "U skladište", x.PremaNaziv()
+	default:
+		return "Mjesto na terenu", x.PremaNaziv()
+	}
 }

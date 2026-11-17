@@ -20,8 +20,8 @@ import (
 
 // vrsteNaPut su zahvati koji robu šalju na put. Vrsta se uključuje tek kad
 // odredište u programu ima zaprimanje, da se roba ne pošalje nikamo:
-// skladište ga ima (kartica „Stiže”), teren još ne, pa izdavanje ide odjednom.
-var vrsteNaPut = map[string]bool{models.PrometPrijenos: true, models.PrometPovrat: true}
+// skladište ga ima na kartici „Stiže”, a teren na stranici Na terenu.
+var vrsteNaPut = map[string]bool{models.PrometPrijenos: true, models.PrometPovrat: true, models.PrometIzdano: true}
 
 // potez vraća retke poteza koji premješta robu: oba odjednom, ili samo
 // slanje kad ta vrsta zahvata ide na put

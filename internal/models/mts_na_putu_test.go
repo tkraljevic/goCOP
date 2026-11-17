@@ -26,3 +26,19 @@ func TestPrometNaPutu(t *testing.T) {
 		t.Errorf("na putu: %v", n)
 	}
 }
+
+// Odredište slanja za prikaz: ime skladišta ili mjesto na terenu
+func TestPremaNaziv(t *testing.T) {
+	for _, k := range []struct {
+		p    Promet
+		want string
+	}{
+		{Promet{PremaSkladisteID: "sava", PremaSkladisteNaziv: "Skladište Sava"}, "Skladište Sava"},
+		{Promet{PremaSkladisteID: "sava"}, "skladište"},
+		{Promet{PremaAreaID: 34, PremaAreaName: "Drava i Dunav", PremaSectionCode: "B.34.1", PremaMjesto: "kod ustave"}, "teren · BP 34 Drava i Dunav · B.34.1 · kod ustave"},
+	} {
+		if got := k.p.PremaNaziv(); got != k.want {
+			t.Errorf("%+v: %q, očekivano %q", k.p, got, k.want)
+		}
+	}
+}

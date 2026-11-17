@@ -563,6 +563,10 @@ func (h *MtsHandler) ShowNaTerenu(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	if err := h.naPutuTerena(r, &data, journalID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	data.Vrste, _ = h.svc().Vrste(r.Context())
 	if h.journals != nil {
 		if sve, err := h.journals.ListCOPJournals(r.Context(), data.Sektor); err == nil {

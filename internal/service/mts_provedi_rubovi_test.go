@@ -140,14 +140,14 @@ func TestProvediRedci(t *testing.T) {
 	}
 	zaprimiSve(t, s, ctx, pero)
 
-	// izdavanje na dionicu: područje dolazi iz dionice; drugi redak je na
-	// terenu, bez skladišta
+	// izdavanje na dionicu: područje dolazi iz dionice; slanje pamti mjesto,
+	// a redak na terenu, bez skladišta, nastaje zaprimanjem
 	redci, err = s.Provedi(ctx, pero, uprava, Zahvat{Vrsta: models.PrometIzdano, SkladisteID: sk.ID, VrstaID: mpLopata, Kolicina: 3, SectionCode: " B.34.1 ", Mjesto: " kod ustave "})
-	if err != nil || len(redci) != 2 {
+	if err != nil || len(redci) != 1 || redci[0].PremaAreaID != 34 || redci[0].PremaSectionCode != "B.34.1" || redci[0].PremaMjesto != "kod ustave" {
 		t.Fatalf("izdavanje: %+v %v", redci, err)
 	}
-	if teren := redci[1]; teren.SkladisteID != "" || teren.AreaID != 34 || teren.SectionCode != "B.34.1" || teren.Mjesto != "kod ustave" || teren.Kolicina != 3 {
-		t.Errorf("redak na terenu: %+v", teren)
+	if teren, err := s.Zaprimi(ctx, pero, uprava, Zaprimanje{VezaID: redci[0].VezaID, Kolicina: 3}); err != nil || teren.SkladisteID != "" || teren.AreaID != 34 || teren.SectionCode != "B.34.1" || teren.Mjesto != "kod ustave" || teren.Kolicina != 3 {
+		t.Errorf("redak na terenu: %+v %v", teren, err)
 	}
 	// utrošak s istog mjesta: samo jedan redak, s terena
 	redci, err = s.Provedi(ctx, pero, uprava, Zahvat{Vrsta: models.PrometUtrosak, SkladisteID: sk.ID, VrstaID: mpLopata, Kolicina: 1, AreaID: 34, SectionCode: "B.34.1", Mjesto: "kod ustave"})

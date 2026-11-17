@@ -58,7 +58,7 @@ func TestNaPutuPrijenos(t *testing.T) {
 		t.Fatalf("poslije slanja: izvor %v, odredište %v", a, b)
 	}
 	stize, err := s.NaPutu(ctx, repository.FiltarPosiljki{PremaSkladisteID: drugo.ID})
-	if err != nil || len(stize) != 1 || stize[0].NaPutu() != 30 || stize[0].PremaSkladisteNaziv != "CS Draž" || stize[0].Slanje.SkladisteNaziv != sk.Naziv {
+	if err != nil || len(stize) != 1 || stize[0].NaPutu() != 30 || stize[0].Slanje.PremaSkladisteNaziv != "CS Draž" || stize[0].Slanje.SkladisteNaziv != sk.Naziv {
 		t.Fatalf("stiže: %+v %v", stize, err)
 	}
 

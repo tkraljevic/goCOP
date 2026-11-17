@@ -69,7 +69,7 @@ func TestListPosiljke(t *testing.T) {
 		}
 	}
 	p, err := repo.ListPosiljke(ctx, FiltarPosiljki{VezaID: "v1"})
-	if err != nil || len(p) != 1 || p[0].PremaSkladisteNaziv != "Sava" || p[0].PremaSektor != "D" || p[0].Slanje.SkladisteNaziv != "Osijek" {
+	if err != nil || len(p) != 1 || p[0].Slanje.PremaSkladisteNaziv != "Sava" || p[0].PremaSektor != "D" || p[0].Slanje.SkladisteNaziv != "Osijek" {
 		t.Errorf("pošiljka v1: %+v %v", p, err)
 	}
 	if p, err := repo.ListPosiljke(ctx, FiltarPosiljki{VezaID: "v2"}); err != nil || len(p) != 1 || p[0].PremaSektor != "B" {
