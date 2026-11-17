@@ -6,7 +6,7 @@
 <div class="page-header">
   <div>
     <h1 class="page-title" data-naziv-stranice>Sredstva</h1>
-    <p class="page-desc">Što stoji po skladištima sektora, zbrojeno po vrstama iz propisanog popisa. Stanje se ne upisuje nego
+    <p class="page-desc">Što stoji po skladištima sektora, zbrojeno po vrstama iz kataloga. Stanje se ne upisuje nego
       zbraja iz prometa: svaka primka, izdavanje i utrošak ostaju u knjizi.</p>
   </div>
   <div class="page-actions">
@@ -19,60 +19,54 @@
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 
-{{if .Sektor}}
-<form method="GET" action="/sredstva/mts.xlsx" class="obracun-filtar">
-  <input type="hidden" name="sektor" value="{{.Sektor}}">
-  <label for="f-dan">Tablica za Glavni centar na dan</label>
-  <input type="date" id="f-dan" name="dan" class="form-control" value="{{.Danas}}" max="{{.Danas}}">
-  <button type="submit" class="btn btn-secondary" title="Tablica po skladištima u obliku koji ide GCOP-u">{{icon "download"}} Excel za GCOP</button>
-</form>
-{{end}}
+{{/* Pregled po crtežu 19a: stanje sektora lijevo, skladišta po branjenim
+     područjima desno; na tabletu i mobitelu skladišta idu iznad stanja. */}}
+<div class="sr-stupci">
+  <section class="os-kartica sr-stanje-kartica" aria-labelledby="sr-stanje-naslov">
+    <h2 id="sr-stanje-naslov">Stanje{{if .Sektor}} sektora {{.Sektor}}{{else}} svih sektora{{end}} po vrstama</h2>
+    <p class="sr-opis">Sva skladišta zbrojena. Klik na vrstu pokazuje gdje je ima, i u drugim sektorima.</p>
+    <div class="sr-stanje" role="table" aria-label="Stanje po vrstama">
+      <div class="sr-glava" role="row"><span role="columnheader">R. br.</span><span role="columnheader">Vrsta sredstva</span><span role="columnheader">Jed.</span><span role="columnheader" class="br">Ukupno</span><span></span></div>
+      {{range .PoGrupama}}
+      <div class="sr-skupina" role="row"><span role="cell">{{.Rimski}} · {{.Naziv}}</span></div>
+      {{range .Redci}}{{$sv := .}}
+      <a class="sr-redak{{if not .Ima}} sr-prazno{{end}}" role="row" href="/sredstva/gdje/{{.Vrsta.ID}}">
+        <span role="cell" class="mono">{{.Vrsta.Redoslijed}}.</span>
+        <span role="cell">{{.Vrsta.Naziv}}{{if and .Vrsta.ImaOblike .Ima}}<small>od toga: {{range $i, $o := .Vrsta.Oblici}}{{if $i}} · {{end}}{{oblik $o}} {{kolicina ($sv.Oblik $o)}}{{end}}</small>{{end}}</span>
+        <span role="cell">{{.Vrsta.Jedinica}}</span>
+        <span role="cell" class="mono br">{{if .Ukupno}}{{kolicina .Ukupno}}{{end}}</span>
+        {{icon "chevron-right"}}
+      </a>
+      {{end}}
+      {{end}}
+    </div>
+  </section>
 
-<section class="detail-section">
-  <h2>{{icon "building"}} Skladišta <span class="reg-chip">{{len .Skladista}}</span></h2>
-  {{if .Skladista}}
-  <div class="reg-list mts-skladista">
-    {{range .Skladista}}
-    <article class="reg-card">
-      <div class="reg-card-head">
-        <div>
-          <div class="reg-card-title"><a href="/sredstva/skladista/{{.ID}}">{{.Naziv}}</a>{{if .Centralno}} <span class="reg-chip">središnje</span>{{end}}</div>
-          <div class="reg-card-sub">{{if .AreaName}}BP {{.AreaID}} · {{.AreaName}}{{else}}{{term "sektor"}} {{.Sektor}}{{end}}{{if .Adresa}} · {{.Adresa}}{{end}}</div>
-          {{if or .StructureName .ContractorName}}<div class="reg-card-sub">{{if .StructureName}}objekt: {{.StructureName}}{{end}}{{if .ContractorName}}{{if .StructureName}} · {{end}}kod: {{.ContractorName}}{{end}}</div>{{end}}
-        </div>
-        <a href="/sredstva/skladista/{{.ID}}" class="btn btn-secondary btn-sm">{{icon "arrow-right"}}</a>
-      </div>
-    </article>
+  <div class="sr-desno">
+    <section class="os-kartica" aria-labelledby="sr-skladista-naslov">
+      <div class="os-kartica-glava"><h2 id="sr-skladista-naslov">Skladišta</h2><span class="reg-chip">{{len .Skladista}}</span></div>
+      {{range .SkladistaPoPodrucjima}}
+      <h3 class="sr-podrucje">{{.Naslov}}</h3>
+      {{range .Skladista}}
+      <a class="dez-plan sr-skladiste" href="/sredstva/skladista/{{.ID}}">{{icon "building"}}<span>{{.Naziv}}<small>{{if .Centralno}}središnje{{if .Adresa}} · {{end}}{{end}}{{if .Adresa}}{{.Adresa}}{{else if not .Centralno}}bez adrese{{end}}</small></span>{{icon "chevron-right"}}</a>
+      {{end}}
+      {{else}}
+      <p class="sr-opis">Nema upisanih skladišta{{if .Sektor}} u sektoru {{.Sektor}}{{end}}.{{if .SmijeUrediti}} Upišite ih gumbom „Novo skladište”: jedno za svako mjesto na kojem sredstva stoje.{{end}}</p>
+      {{end}}
+    </section>
+
+    {{if .Sektor}}
+    <section class="os-kartica" aria-labelledby="sr-gcop-naslov">
+      <h2 id="sr-gcop-naslov">Tablica za Glavni centar</h2>
+      <p class="sr-opis">Stanje po skladištima na dan i potrebe za nabavom, u obliku koji traži Glavni centar.</p>
+      <form method="GET" action="/sredstva/mts.xlsx" class="sr-gcop">
+        <input type="hidden" name="sektor" value="{{.Sektor}}">
+        <label class="form-label" for="f-dan">Na dan</label>
+        <input type="date" id="f-dan" name="dan" class="form-control" value="{{.Danas}}" max="{{.Danas}}">
+        <button type="submit" class="btn btn-link">{{icon "download"}} Excel za GCOP</button>
+      </form>
+    </section>
     {{end}}
   </div>
-  {{else}}
-  <div class="reg-empty">Nema upisanih skladišta{{if .Sektor}} u sektoru {{.Sektor}}{{end}}.{{if .SmijeUrediti}} Upišite ih gumbom „Novo skladište“ — jedno za svako mjesto na kojem sredstva stoje.{{end}}</div>
-  {{end}}
-</section>
-
-<section class="detail-section">
-  <h2>{{icon "list"}} Stanje{{if .Sektor}} sektora {{.Sektor}}{{else}} svih sektora{{end}} po vrstama</h2>
-  <p class="page-desc">Sva skladišta zbrojena. Klik na vrstu pokazuje gdje je ima — i u drugim sektorima.</p>
-  <div class="table-card"><div class="table-responsive">
-    <table class="data-table mts-stanje">
-      <thead><tr><th>R. br.</th><th>Vrsta sredstva</th><th>Jed.</th><th class="br">Ukupno</th></tr></thead>
-      <tbody>
-      {{range .PoGrupama}}
-      <tr class="mts-grupa"><td>{{.Rimski}}</td><td colspan="3">{{.Naziv}}</td></tr>
-      {{range .Redci}}
-      <tr{{if not .Ima}} class="mts-prazno"{{end}}>
-        <td class="mono">{{.Vrsta.Redoslijed}}.</td>
-        <td><a href="/sredstva/gdje/{{.Vrsta.ID}}">{{.Vrsta.Naziv}}</a></td>
-        <td>{{.Vrsta.Jedinica}}</td>
-        <td class="mono br"><strong>{{if .Ukupno}}{{kolicina .Ukupno}}{{end}}</strong></td>
-      </tr>
-      {{if and .Vrsta.ImaOblike .Ima}}{{$sv := .}}
-      <tr class="mts-oblici"><td></td><td colspan="3">od toga: {{range $i, $o := .Vrsta.Oblici}}{{if $i}} · {{end}}{{oblik $o}} <strong class="mono">{{kolicina ($sv.Oblik $o)}}</strong>{{end}}</td></tr>
-      {{end}}
-      {{end}}
-      {{end}}
-      </tbody>
-    </table>
-  </div></div>
-</section>
+</div>
 {{end}}
