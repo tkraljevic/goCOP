@@ -997,14 +997,23 @@ func (h *MtsHandler) ShowPotrebeSektora(w http.ResponseWriter, r *http.Request) 
 	h.render(w, "potrebe.html", data)
 }
 
-// PotrebaU vraća potrebu vrste u skladištu iz popisa sektora, za tablicu
-func (d MtsPageData) PotrebaU(skladisteID, vrstaID string) float64 {
-	for _, p := range d.PotrebeSektora {
-		if p.SkladisteID == skladisteID && p.VrstaID == vrstaID {
-			return p.Kolicina
+// PotrebaUSkladistu je potreba vrste u jednom skladištu, za stupac „Po skladištima”
+type PotrebaUSkladistu struct {
+	Skladiste string
+	Kolicina  float64
+}
+
+// PoSkladistima vraća upisane potrebe vrste po skladištima sektora, redom kao na popisu skladišta
+func (d MtsPageData) PoSkladistima(vrstaID string) []PotrebaUSkladistu {
+	var out []PotrebaUSkladistu
+	for _, sk := range d.Skladista {
+		for _, p := range d.PotrebeSektora {
+			if p.SkladisteID == sk.ID && p.VrstaID == vrstaID && p.Kolicina != 0 {
+				out = append(out, PotrebaUSkladistu{Skladiste: sk.Naziv, Kolicina: p.Kolicina})
+			}
 		}
 	}
-	return 0
+	return out
 }
 
 // UkupnoPotreba zbraja potrebu vrste kroz skladišta

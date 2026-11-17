@@ -6,41 +6,50 @@
 <div class="page-header">
   <div>
     <h1 class="page-title" data-naziv-stranice>Potrebe za nabavom u {{.Godina}}.</h1>
-    <p class="page-desc">Po skladištima i vrstama, sa zbrojem sektora. Upisuju se na kartici skladišta; ovdje se vide zajedno i idu u
+    <p class="page-desc">Po skladištima i vrstama, sa zbrojem sektora. Upisuju se na stranici skladišta; ovdje se vide zajedno i idu u
       tablicu za Glavni centar.</p>
   </div>
 </div>
 
 {{template "sredstvaTraka" .}}
 
-<form method="GET" action="/sredstva/potrebe" class="obracun-filtar">
+{{/* Potrebe sektora po crtežu 19b (9a): godina kao polje i čipovi, jedan
+     stupac „Po skladištima” (Odluke 16. 11. 2026., 5) */}}
+<form method="GET" action="/sredstva/potrebe" class="sr-godina">
   <input type="hidden" name="sektor" value="{{.Sektor}}">
-  <label for="f-godina">Godina nabave</label>
-  <input type="number" id="f-godina" name="godina" class="form-control max-w-7" value="{{.Godina}}" min="2000" max="2200" onchange="this.form.submit()">
-  {{range .GodinePotreba}}<a href="/sredstva/potrebe?sektor={{$.Sektor}}&godina={{.}}" class="btn btn-secondary btn-sm">{{.}}</a>{{end}}
+  <div class="form-group">
+    <label class="form-label" for="f-godina">Godina nabave</label>
+    <input type="number" id="f-godina" name="godina" class="form-control mono" value="{{.Godina}}" min="2000" max="2200" onchange="this.form.submit()">
+  </div>
+  {{if .GodinePotreba}}<div class="ocitanja-cipovi" role="group" aria-label="Godine s upisanim potrebama">
+    {{range .GodinePotreba}}<a class="ocitanja-cip" href="/sredstva/potrebe?sektor={{$.Sektor}}&amp;godina={{.}}" aria-pressed="{{if eq . $.Godina}}true{{else}}false{{end}}">{{if eq . $.Godina}}{{icon "check"}}{{end}}{{.}}.</a>{{end}}
+  </div>{{end}}
 </form>
 
 {{if .PotrebeSektora}}
-<div class="table-card"><div class="table-responsive">
-  <table class="data-table mts-stanje">
-    <thead><tr><th>Vrsta sredstva</th><th>Jed.</th><th class="br">Ukupno</th>{{range .Skladista}}<th class="br">{{.Naziv}}</th>{{end}}</tr></thead>
+<section class="os-kartica" aria-label="Potrebe po vrsti">
+<div class="table-responsive">
+  <table class="data-table mts-stanje sr-promet">
+    <thead><tr><th>R. br.</th><th>Vrsta sredstva</th><th>Jed.</th><th class="br">Ukupno</th><th>Po skladištima</th></tr></thead>
     <tbody>
     {{range $g := .Grupe}}
     {{$ima := false}}{{range $.Vrste}}{{if and (eq .Grupa $g.ID) ($.UkupnoPotreba .ID)}}{{$ima = true}}{{end}}{{end}}
     {{if $ima}}
-    <tr class="mts-grupa"><td colspan="{{add 3 (len $.Skladista)}}">{{$g.Rimski}} {{$g.Naziv}}</td></tr>
+    <tr class="mts-grupa"><td>{{$g.Rimski}}</td><td colspan="4">{{$g.Naziv}}</td></tr>
     {{range $.Vrste}}{{if eq .Grupa $g.ID}}{{$u := $.UkupnoPotreba .ID}}{{if $u}}
     <tr>
-      <td>{{.Naziv}}</td><td>{{.Jedinica}}</td><td class="mono br"><strong>{{kolicina $u}}</strong></td>
-      {{$v := .}}{{range $.Skladista}}<td class="mono br">{{with $.PotrebaU .ID $v.ID}}{{kolicina .}}{{end}}</td>{{end}}
+      <td class="mono sr-rbr">{{.Redoslijed}}.</td><td class="naslov">{{.Naziv}}</td><td>{{.Jedinica}}</td><td class="mono br">{{kolicina $u}}</td>
+      <td><span>{{range $i, $p := $.PoSkladistima .ID}}{{if $i}} · {{end}}{{$p.Skladiste}} {{kolicina $p.Kolicina}}{{end}}</span></td>
     </tr>
     {{end}}{{end}}{{end}}
     {{end}}
     {{end}}
     </tbody>
   </table>
-</div></div>
+</div>
+</section>
+<p class="page-desc">Iste brojke idu u tablicu za Glavni centar kao „Dodatne potrebe za nabavom u {{.Godina}}.”.</p>
 {{else}}
-<div class="reg-empty">Za {{.Godina}}. još nema upisanih potreba. Upisuju se na kartici skladišta, gumb „Potrebe za nabavom“.</div>
+<div class="reg-empty">Za {{.Godina}}. još nema upisanih potreba. Upisuju se na stranici skladišta, poveznica „Potrebe za nabavom”.</div>
 {{end}}
 {{end}}

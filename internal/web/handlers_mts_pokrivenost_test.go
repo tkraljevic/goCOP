@@ -220,7 +220,7 @@ func TestOblicIStanjaPoGrupama(t *testing.T) {
 	if d.StavkePoGrupama() != nil {
 		t.Error("stavke bez popisa")
 	}
-	if d.PotrebaU("sk", "lopata") != 0 || d.Potreba("lopata").Kolicina != 0 {
+	if d.PoSkladistima("lopata") != nil || d.Potreba("lopata").Kolicina != 0 {
 		t.Error("potreba bez upisa nije nula")
 	}
 }
@@ -729,8 +729,9 @@ func TestPotrebeZaNabavom(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	d := MtsPageData{PotrebeSektora: potrebe}
-	if d.PotrebaU(o.sk.ID, "lopata") != 20 || d.UkupnoPotreba("lopata") != 20 || d.PotrebaU("drugo", "lopata") != 0 {
+	d := MtsPageData{PotrebeSektora: potrebe, Skladista: []models.Skladiste{{ID: "drugo", Naziv: "Drugo"}, *o.sk}}
+	po := d.PoSkladistima("lopata")
+	if len(po) != 1 || po[0].Skladiste != o.sk.Naziv || po[0].Kolicina != 20 || d.UkupnoPotreba("lopata") != 20 || d.PoSkladistima("vreca") != nil {
 		t.Errorf("potrebe sektora: %+v", potrebe)
 	}
 }

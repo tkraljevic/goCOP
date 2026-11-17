@@ -10787,6 +10787,13 @@ td .odr-sitno { margin-top: 2px; }
 .sr-gcop .form-label { width: 100%; margin: 0; }
 .sr-gcop .form-control { flex: 1 1 10rem; max-width: 14rem; }
 .sr-gcop .sr-polje-sire { flex: 2 1 16rem; max-width: 28rem; }
+/* godina potreba: polje i čipovi godina u istom redu (19b, 9 i 9a) */
+.sr-godina { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 12px; margin: 0 0 16px; }
+.sr-godina .form-group { margin: 0; }
+.sr-godina .form-control { width: 8rem; }
+/* na mobitelu je naziv vrste naslov kartice, a redni broj se ne ponavlja */
+.table-responsive.tablica-kartice .sr-promet td.sr-rbr { display: none; }
+.table-responsive.tablica-kartice .sr-promet td.naslov::before { content: none; }
 @media (max-width: 1023px) {
   .sr-stupci { grid-template-columns: minmax(0, 1fr); }
   .sr-desno { order: -1; }
