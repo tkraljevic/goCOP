@@ -170,8 +170,8 @@ func TestSredstvaKrozRute(t *testing.T) {
 	// preko zalihe se ne izdaje
 	w := zovi(http.MethodPost, "/sredstva/skladista/"+sk+"/promet", url.Values{"vrsta": {"IZDANO"}, "datum": {danas}, "sredstvo": {"vrece-50x80"},
 		"oblik": {"PUNJENO"}, "kolicina": {"9000"}, "podrucje": {"34"}, "dionica": {"B.34.1"}})
-	if l := w.Header().Get("Location"); !strings.Contains(l, "error=") {
-		t.Errorf("izdavanje preko zalihe prošlo: %s", l)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "a skida se") || !strings.Contains(w.Body.String(), `value="9000"`) {
+		t.Errorf("izdavanje preko zalihe: %d %s", w.Code, w.Header().Get("Location"))
 	}
 	kamo = odredište(zovi(http.MethodPost, "/sredstva/skladista/"+sk+"/promet", url.Values{"vrsta": {"IZDANO"}, "datum": {danas}, "sredstvo": {"vrece-50x80"},
 		"oblik": {"PUNJENO"}, "kolicina": {"4000"}, "podrucje": {"34"}, "dionica": {"B.34.1"}, "preuzeo": {"vodočuvar"}, "nalozio": {"voditelj COP-a"}, "dokument": {"OT 7/26"}}), "izdavanje")

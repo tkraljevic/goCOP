@@ -57,12 +57,12 @@
       <label class="form-label" for="u_oblik">U oblik (punjenje)</label>
       <select id="u_oblik" name="u_oblik" class="form-control">
         <option value="PUNJENO">napunjeno</option>
-        <option value="PRAZNO">prazno</option>
+        <option value="PRAZNO"{{if eq $z.UOblik "PRAZNO"}} selected{{end}}>prazno</option>
       </select>
     </div>
     <div class="form-group">
       <label class="form-label" for="kolicina">Količina * <span class="reg-card-sub" id="jed"></span></label>
-      <input type="text" id="kolicina" name="kolicina" class="form-control mono" inputmode="decimal" required placeholder="npr. 4 200">
+      <input type="text" id="kolicina" name="kolicina" class="form-control mono" inputmode="decimal" required placeholder="npr. 4 200"{{if $.VratiUpisano}} value="{{index $.Upisano "kolicina"}}"{{end}}{{if index $.Neispravno "kolicina"}} aria-invalid="true"{{end}}>
     </div>
   </div>
 
@@ -93,7 +93,7 @@
         <label class="form-label" for="objekt">Objekt ili nasip iz registra</label>
         <select id="objekt" name="objekt" class="form-control" onchange="podrucjeIzObjekta()">
           <option value="">— po volji —</option>
-          {{range .Objekti}}<option value="{{.ID}}" data-area="{{.AreaID}}">{{.Name}}{{if .AreaID}} (BP {{.AreaID}}){{end}}</option>{{end}}
+          {{range .Objekti}}<option value="{{.ID}}" data-area="{{.AreaID}}"{{if eq (print .ID) $z.StructureID}} selected{{end}}>{{.Name}}{{if .AreaID}} (BP {{.AreaID}}){{end}}</option>{{end}}
         </select>
       </div>
     </div>
@@ -116,7 +116,7 @@
     <label class="form-label" for="na_skladiste">U skladište (prijenos)</label>
     <select id="na_skladiste" name="na_skladiste" class="form-control">
       <option value="">— odaberite —</option>
-      {{range .Skladista}}{{if ne .ID $sk.ID}}<option value="{{.ID}}">{{term "sektor"}} {{.Sektor}} · {{if .AreaName}}BP {{.AreaID}} · {{end}}{{.Naziv}}</option>{{end}}{{end}}
+      {{range .Skladista}}{{if ne .ID $sk.ID}}<option value="{{.ID}}"{{if eq .ID $z.NaSkladisteID}} selected{{end}}>{{term "sektor"}} {{.Sektor}} · {{if .AreaName}}BP {{.AreaID}} · {{end}}{{.Naziv}}</option>{{end}}{{end}}
     </select>
   </div>
 

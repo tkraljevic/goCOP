@@ -351,14 +351,31 @@ func (h *MtsHandler) HandleSaveSkladiste(w http.ResponseWriter, r *http.Request)
 		sk.CreatedAt = cur.CreatedAt
 	}
 	if err := h.svc().SpremiSkladiste(r.Context(), data.Permissions, sk); err != nil {
-		back := "/sredstva/skladista/novo?sektor=" + sk.Sektor
-		if sk.ID != "" {
-			back = "/sredstva/skladista/" + sk.ID + "/uredi"
-		}
-		redirectWith(w, r, back, "error", err.Error())
+		h.ponoviObrazacSkladista(w, r, data, sk, err.Error())
 		return
 	}
 	redirectWith(w, r, "/sredstva/skladista/"+sk.ID, "success", "Skladište je upisano.")
+}
+
+// ponoviObrazacSkladista vraća obrazac s upisanim i porukom; tko skladište
+// ne smije ni upisati ni urediti, vraća se na prazan obrazac s porukom
+func (h *MtsHandler) ponoviObrazacSkladista(w http.ResponseWriter, r *http.Request, data MtsPageData, sk *models.Skladiste, poruka string) {
+	natrag := "/sredstva/skladista/novo?sektor=" + sk.Sektor
+	sva, _ := h.users.ListAreas(sk.Sektor) // bez popisa područja obrazac nudi samo ono što smije uprava sektora
+	data.Podrucja = h.svc().PodrucjaZaSkladista(data.Permissions, sk.Sektor, sva)
+	smije := len(data.Podrucja) > 0
+	if sk.ID != "" {
+		natrag = "/sredstva/skladista/" + sk.ID + "/uredi"
+		data.IsEdit, data.Podrucja = true, sva
+		cur, _ := h.svc().Skladiste(r.Context(), sk.ID) // postoji: provjereno prije spremanja
+		smije = cur != nil && h.svc().SmijeUrediti(data.Permissions, cur.Sektor, cur.AreaID)
+	}
+	if !smije {
+		redirectWith(w, r, natrag, "error", poruka)
+		return
+	}
+	data.Skladiste, data.Sektor, data.SmijeUrediti, data.ErrorMessage = sk, sk.Sektor, true, poruka
+	h.render(w, "skladiste_form.html", data)
 }
 
 // ---- promet
@@ -420,6 +437,7 @@ func (h *MtsHandler) HandleSavePromet(w http.ResponseWriter, r *http.Request) {
 	}
 	id := r.PathValue("id")
 	f := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
+	u := noviUpisaniBrojevi(r)
 	z := service.Zahvat{Vrsta: f("vrsta"), SkladisteID: id, VrstaID: f("sredstvo"), Oblik: f("oblik"), UOblik: f("u_oblik"),
 		NaSkladisteID: f("na_skladiste"), SectionCode: f("dionica"), StructureID: f("objekt"), Mjesto: f("mjesto"), JournalID: f("obrana"),
 		Nalozio: f("nalozio"), Preuzeo: f("preuzeo"), Dokument: f("dokument"), Napomena: f("napomena")}
@@ -427,16 +445,16 @@ func (h *MtsHandler) HandleSavePromet(w http.ResponseWriter, r *http.Request) {
 	if t, err := time.ParseInLocation("2006-01-02", f("datum"), models.Zagreb); err == nil {
 		z.Datum = t
 	}
-	back := "/sredstva/skladista/" + id + "/promet/novo?vrsta=" + z.Vrsta + "&sredstvo=" + z.VrstaID
-	k, ok := parseBroj(f("kolicina"))
+	k, ok := parseBroj(u.tekst("kolicina"))
 	if !ok {
-		redirectWith(w, r, back, "error", "Količina nije broj")
+		u.Neispravno["kolicina"] = true
+		h.ponoviObrazacZahvata(w, r, data, z, u, "Količina nije broj; upišite je brojkama, npr. 4 200.")
 		return
 	}
 	z.Kolicina = k
 	redci, err := h.svc().Provedi(r.Context(), data.CurrentUser, data.Permissions, z)
 	if err != nil {
-		redirectWith(w, r, back, "error", err.Error())
+		h.ponoviObrazacZahvata(w, r, data, z, u, err.Error())
 		return
 	}
 	poruka := models.PrometNaziv(z.Vrsta) + ": " + kolicinaHR(z.Kolicina)
@@ -452,6 +470,23 @@ func (h *MtsHandler) HandleSavePromet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redirectWith(w, r, "/sredstva/skladista/"+id+"?potvrda="+veza, "success", poruka+" je upisano.")
+}
+
+// ponoviObrazacZahvata vraća obrazac zahvata s upisanim i porukom; tko u
+// skladište ne smije pisati, vraća se na prazan obrazac s porukom
+func (h *MtsHandler) ponoviObrazacZahvata(w http.ResponseWriter, r *http.Request, data MtsPageData, z service.Zahvat, u *upisaniBrojevi, poruka string) {
+	sk, ok := h.ucitajSkladiste(w, r, &data)
+	if !ok {
+		return
+	}
+	if !data.SmijePisati {
+		redirectWith(w, r, "/sredstva/skladista/"+sk.ID+"/promet/novo?vrsta="+z.Vrsta+"&sredstvo="+z.VrstaID, "error", poruka)
+		return
+	}
+	h.popuniObrazacPrometa(r, &data, sk)
+	data.Zahvat = z
+	data.vratiUpisano(u, poruka)
+	h.render(w, "promet_form.html", data)
 }
 
 // ShowPromet prikazuje knjigu prometa po filtru
