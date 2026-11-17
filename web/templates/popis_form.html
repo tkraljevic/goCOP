@@ -11,7 +11,8 @@
     <h1 class="page-title" data-naziv-stranice>Inventura · {{$sk.Naziv}}</h1>
     <p class="page-desc">Stanje na dan <strong>{{$p.Dan.Format "2.1.2006."}}</strong>. Stupac „knjižno“ je što promet pokazuje na taj dan; u
       „prebrojano“ upišite što je na polici. Potrebe za nabavom vode se odvojeno, na kartici skladišta. Nacrt se može mijenjati;
-      zaključenje proknjiži razlike i tada se više ne mijenja.</p>
+      zaključenje proknjiži razlike i tada se više ne mijenja. Roba koja je taj dan na putu ne pripada ni skladištu koje ju
+      je poslalo ni onom kojem ide, pa je nema ni u knjižnom ni u prebrojanom.</p>
     <div class="sr-oznake">{{if $p.Zakljucen}}<span class="badge">zaključena</span>{{else}}<span class="badge badge-pending">nacrt</span>{{end}}</div>
   </div>
 </div>

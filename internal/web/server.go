@@ -1475,6 +1475,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /sredstva/popisi/{id}/uredi", s.authMiddleware(http.HandlerFunc(mtsH.ShowPopisUredi)))
 	s.mux.Handle("POST /sredstva/popisi/{id}", s.authMiddleware(http.HandlerFunc(mtsH.HandleSavePopis)))
 	s.mux.Handle("POST /sredstva/popisi/{id}/zakljuci", s.authMiddleware(http.HandlerFunc(mtsH.HandleZakljuciPopis)))
+	s.mux.Handle("POST /sredstva/popisi/{id}/obrisi", s.authMiddleware(http.HandlerFunc(mtsH.HandleObrisiPopis)))
 	s.mux.Handle("POST /sredstva/popisi/{id}/otkljucaj", s.authMiddleware(http.HandlerFunc(mtsH.HandleOtkljucajPopis)))
 	s.mux.Handle("GET /sredstva/popisi/{id}/inventura.xlsx", s.authMiddleware(http.HandlerFunc(mtsH.IzvoziInventuru)))
 
