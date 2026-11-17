@@ -46,7 +46,8 @@ const probniIspis = `Sektor={{.Sektor}};IsEdit={{.IsEdit}};SmijePisati={{.SmijeP
 	`GdjeIma={{len .GdjeIma}};PotrebeSektora={{len .PotrebeSektora}};Stanje={{len .Stanje}};` +
 	`VratiUpisano={{.VratiUpisano}};Greska={{.ErrorMessage}};` +
 	`Podrucja={{len .Podrucja}};ZaInventuru={{len .ZaInventuru}};Svi={{.SviSektori}};` +
-	`Stize={{len .Stize}};Poslano={{len .Poslano}};Posiljka={{if .Posiljka}}{{.Posiljka.Slanje.VezaID}}{{end}};`
+	`Stize={{len .Stize}};Poslano={{len .Poslano}};Posiljka={{if .Posiljka}}{{.Posiljka.Slanje.VezaID}}{{end}};` +
+	`Knjiga={{len .Knjiga}}/{{.UkupnoZahvata}}/{{.ZahvataNaZaslonu}};ZahvatKnjige={{.ZahvatKnjige}};`
 
 func probniPredlozakSredstava(stranica string) *template.Template {
 	return template.Must(template.New(stranica).Parse(`{{define "` + stranica + `"}}` + probniIspis + `{{end}}`))
@@ -540,9 +541,11 @@ func TestSpremanjeZahvata(t *testing.T) {
 func TestKnjigaPrometaPoFiltru(t *testing.T) {
 	o := novaOkolinaSredstava(t)
 	mora(t, o.ispis(t, upravaSredstava(), "/sredstva/promet?sektor=B&od=2025-01-01&do=2025-12-31&skladiste="+o.sk.ID+"&vrsta=lopata"),
-		"filtar", "Od=2025-01-01;Do=2025-12-31;VrstaID=lopata;", "Skladiste=Skladište Bilje", "Promet=1;")
-	mora(t, o.ispis(t, upravaSredstava(), "/sredstva/promet?sektor=B&od=2026-01-01"), "kasnije razdoblje", "Promet=0;", "Od=2026-01-01;Do=;")
-	mora(t, o.ispis(t, upravaSredstava(), "/sredstva/promet?sektor=B&od=nije-datum"), "krivi datum", "Od=;", "Promet=2;")
+		"filtar", "Od=2025-01-01;Do=2025-12-31;VrstaID=lopata;", "Skladiste=Skladište Bilje", "Knjiga=1/1/100;")
+	mora(t, o.ispis(t, upravaSredstava(), "/sredstva/promet?sektor=B&od=2026-01-01"), "kasnije razdoblje", "Knjiga=0/0/", "Od=2026-01-01;Do=;")
+	mora(t, o.ispis(t, upravaSredstava(), "/sredstva/promet?sektor=B&od=nije-datum&n=1000&zahvat=NEPOZNATO"), "krivi datum", "Od=;", "Knjiga=2/2/500;", "ZahvatKnjige=;")
+	mora(t, o.ispis(t, upravaSredstava(), "/sredstva/promet?sektor=B&zahvat=PRIMKA"), "zahvat bez prometa", "Knjiga=0/0/100;ZahvatKnjige=PRIMKA;")
+	mora(t, o.ispis(t, upravaSredstava(), "/sredstva/promet?sektor=B&n=1"), "jedan zahvat od dva", "Knjiga=1/2/1;")
 }
 
 // Gdje ima: nađe skladište sa zalihom te vrste.

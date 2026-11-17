@@ -170,6 +170,9 @@ func TestMtsPutVrecaKrozObranu(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if n, err := s.BrojZahvata(ctx, repository.FiltarPrometa{SkladisteID: sk.ID}); err != nil || n == 0 || n > len(knjiga) {
+		t.Errorf("zahvata u knjizi %d od %d redaka: %v", n, len(knjiga), err)
+	}
 	nasao := false
 	for _, p := range knjiga {
 		if p.Vrsta == models.PrometIzdano && p.Preuzeo == "vodočuvar Batina" && p.Dokument == "OT-2026-14" && p.Nalozio == "rukovoditelj dionice" {
