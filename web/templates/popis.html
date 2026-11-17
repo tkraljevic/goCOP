@@ -6,21 +6,22 @@
 {{$p := .Popis}}{{$sk := .Skladiste}}
 <a href="/sredstva/popisi?sektor={{$sk.Sektor}}" class="povratna-poveznica">← Inventura</a>
 
-<div class="detail-head">
+{{/* Dokument inventure po crtežu 19b (8): značke ispod naslova, oblik ispod
+     naziva vrste, tablica u kartici, potpis ispod */}}
+<div class="page-header">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "list"}} Inventura na dan {{$p.Dan.Format "2.1.2006."}}</h1>
-    <p class="page-desc">{{$sk.Naziv}}{{if $sk.AreaName}} · BP {{$sk.AreaID}} {{$sk.AreaName}}{{end}} · {{term "sektor"}} {{$sk.Sektor}}
-      · {{if $p.Zakljucen}}<span class="badge">zaključena {{$p.ZakljucenoAt.Format "2.1.2006. 15:04"}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{end}}
-      {{if $p.Razlika}} · {{$p.Razlika}} {{uzBroj $p.Razlika "redak" "retka" "redaka"}} s razlikom{{end}}</p>
+    <h1 class="page-title" data-naziv-stranice>Inventura na dan {{$p.Dan.Format "2.1.2006."}}</h1>
+    <p class="page-desc">{{$sk.Naziv}}{{if $sk.AreaName}} · BP {{$sk.AreaID}} {{$sk.AreaName}}{{end}} · {{term "sektor"}} {{$sk.Sektor}}</p>
+    <div class="sr-oznake">{{if $p.Zakljucen}}<span class="badge">zaključena {{$p.ZakljucenoAt.Format "2.1.2006. 15:04"}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{end}}{{if $p.Razlika}}<span class="reg-chip">{{$p.Razlika}} {{uzBroj $p.Razlika "redak" "retka" "redaka"}} s razlikom</span>{{end}}</div>
   </div>
   <div class="page-actions">
-    <a href="/sredstva/popisi/{{$p.ID}}/inventura.xlsx" class="btn btn-secondary" title="inventura s usporedbom prema prethodnoj, A4">{{icon "download"}} Excel</a>
+    <a href="/sredstva/popisi/{{$p.ID}}/inventura.xlsx" class="btn btn-link" title="inventura s usporedbom prema prethodnoj, A4">{{icon "download"}} Excel</a>
     {{if and .SmijePisati (not $p.Zakljucen)}}
-    <a href="/sredstva/popisi/{{$p.ID}}/uredi" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>
+    <a href="/sredstva/popisi/{{$p.ID}}/uredi" class="btn btn-link">{{icon "pencil"}} Uredi</a>
     <form method="POST" action="/sredstva/popisi/{{$p.ID}}/zakljuci" class="d-inline" onsubmit="return confirm('Zaključiti inventuru? Razlike prema knjizi bit će proknjižene.');"><button type="submit" class="btn btn-primary">{{icon "lock"}} Zaključi</button></form>
     {{end}}
     {{if and .SmijeOtkljucati $p.Zakljucen}}
-    <form method="POST" action="/sredstva/popisi/{{$p.ID}}/otkljucaj" class="d-inline" onsubmit="return confirm('Otključati inventuru? Inventura se vraća u nacrt, a usklađenja koja je zaključenje upisalo brišu se. Ponovno zaključenje razliku računa iznova s knjižnim stanjem toga dana.');"><button type="submit" class="btn btn-secondary" title="Za promet upisan unatrag, s danom prije inventure.">{{icon "history"}} Otključaj inventuru</button></form>
+    <form method="POST" action="/sredstva/popisi/{{$p.ID}}/otkljucaj" class="d-inline" onsubmit="return confirm('Otključati inventuru? Inventura se vraća u nacrt, a usklađenja koja je zaključenje upisalo brišu se. Ponovno zaključenje razliku računa iznova s knjižnim stanjem toga dana.');"><button type="submit" class="btn btn-link" title="Za promet upisan unatrag, s danom prije inventure.">{{icon "history"}} Otključaj inventuru</button></form>
     {{end}}
   </div>
 </div>
@@ -28,20 +29,20 @@
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 
-<div class="table-card"><div class="table-responsive">
-  <table class="data-table mts-popis">
-    <thead><tr><th>R. br.</th><th>Vrsta sredstva</th><th>Jed.</th><th>Oblik</th><th class="br">Knjižno</th><th class="br">Prebrojano</th><th class="br">Razlika</th><th>Napomena</th></tr></thead>
+<section class="os-kartica" aria-label="Stavke inventure">
+<div class="table-responsive">
+  <table class="data-table mts-popis sr-promet">
+    <thead><tr><th>R. br.</th><th>Vrsta sredstva</th><th>Jed.</th><th class="br">Knjižno</th><th class="br">Prebrojano</th><th class="br">Razlika</th><th>Napomena</th></tr></thead>
     <tbody>
     {{range .StavkePoGrupama}}
-    <tr class="mts-grupa"><td>{{.Rimski}}</td><td colspan="7">{{.Naziv}}</td></tr>
+    <tr class="mts-grupa"><td>{{.Rimski}}</td><td colspan="6">{{.Naziv}}</td></tr>
     {{range .Stavke}}
     <tr{{if and (not .Utvrdjeno) (not .Knjizno)}} class="mts-prazno"{{end}}>
       <td class="mono">{{if .RedniBroj}}{{.RedniBroj}}.{{end}}</td>
-      <td>{{.VrstaNaziv}}</td>
+      <td>{{.VrstaNaziv}}{{if .Oblik}}<span class="reg-card-sub">{{oblik .Oblik}}</span>{{end}}</td>
       <td>{{.Jedinica}}</td>
-      <td>{{if .Oblik}}{{oblik .Oblik}}{{end}}</td>
       <td class="mono br">{{if .Knjizno}}{{kolicina .Knjizno}}{{end}}</td>
-      <td class="mono br"><strong>{{if .Utvrdjeno}}{{kolicina .Utvrdjeno}}{{end}}</strong></td>
+      <td class="mono br"><strong>{{if .Utvrdjeno}}{{kolicina .Utvrdjeno}}{{else if .Razlika}}0{{end}}</strong></td>
       <td class="mono br {{if lt .Razlika 0.0}}mts-minus{{else if gt .Razlika 0.0}}mts-plus{{end}}">{{if .Razlika}}{{kolicinaZnak .Razlika}}{{end}}</td>
       <td>{{.Napomena}}</td>
     </tr>
@@ -49,7 +50,8 @@
     {{end}}
     </tbody>
   </table>
-</div></div>
+</div>
+</section>
 
 <p class="reading-meta mt-3">Izradio: <strong>{{$p.Izradio}}</strong>, {{$p.IzradenoAt.Format "2.1.2006. 15:04"}}{{if $p.Napomena}} · {{$p.Napomena}}{{end}}
   {{if $p.Zakljucen}} · razlike proknjižene kao usklađenje po inventuri{{end}}</p>

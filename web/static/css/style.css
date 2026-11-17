@@ -10813,6 +10813,7 @@ td .odr-sitno { margin-top: 2px; }
 .sr-plus:hover { background: var(--surface-hover); }
 .sr-potvrda { margin-left: 0.5rem; }
 .sr-promet .reg-card-sub { display: block; }
+.sr-promet th.br, .sr-promet td.br { text-align: right; white-space: nowrap; }
 /* Obrazac inventure (crtež 19b, 8a): na mobitelu kartica po vrsti s velikim poljem */
 .sr-napomena-iznad { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; padding: 10px 12px; border-radius: 8px; background: var(--surface-2, var(--bg)); font-size: 0.875rem; }
 .sr-napomena-iznad .icon { width: 20px; height: 20px; flex: none; }
