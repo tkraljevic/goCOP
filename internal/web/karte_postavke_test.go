@@ -217,3 +217,18 @@ func TestStranicaPostavkiKarata(t *testing.T) {
 		t.Errorf("brisanje ikone bez baze: %s", loc)
 	}
 }
+
+// „Makni kartu” stoji samo na računalu koje kartu ima: s onoga koje je nema
+// podloga bi nestala sa svih računala, a ono samo ništa ne bi izgubilo.
+func TestMakniKartuSamoGdjeJeUcitana(t *testing.T) {
+	tp := predlozakStranice(t, "administracija_karte.html")
+	for _, ovdje := range []bool{true, false} {
+		var b strings.Builder
+		if err := tp.ExecuteTemplate(&b, "content", PostavkeKarteData{Vektorska: &models.VektorskaKarta{Naziv: "Sektor P"}, VektorskaOvdje: ovdje}); err != nil {
+			t.Fatal(err)
+		}
+		if ima := strings.Contains(b.String(), `action="/administracija/karte/vektorska/makni"`); ima != ovdje {
+			t.Errorf("karta ovdje %v: gumb Makni kartu %v", ovdje, ima)
+		}
+	}
+}
