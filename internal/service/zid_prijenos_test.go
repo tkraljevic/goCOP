@@ -60,7 +60,7 @@ func TestZidPrijenosUDrugiSektorJavljaCiljnomSektoru(t *testing.T) {
 	if o.Naslov != "Prijenos iz Sektora B" || o.Sektor != "D" || o.AreaID != 51 || !o.Vazno || o.Tko != "Ana Anić" {
 		t.Errorf("obavijest ciljnom sektoru: %+v", o)
 	}
-	for _, dio := range []string{"15000 kom Vreće 50x80 cm (prazno)", "Skladište Sava", "iz Centralno skladište Osijek"} {
+	for _, dio := range []string{"15\u00a0000 kom Vreće 50x80 cm (prazno)", "Skladište Sava", "iz Centralno skladište Osijek"} {
 		if !strings.Contains(o.Tekst, dio) {
 			t.Errorf("obavijest nema %q: %q", dio, o.Tekst)
 		}

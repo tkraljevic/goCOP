@@ -198,7 +198,7 @@ func TestMtsGdjeImaPreskaceNuleIRedaPoNazivu(t *testing.T) {
 }
 
 func TestKolicinaTekst(t *testing.T) {
-	for v, ocekivano := range map[float64]string{0: "0", 12: "12", 2.5: "2,5", 0.125: "0,125", 1.0004: "1", -3.75: "-3,75"} {
+	for v, ocekivano := range map[float64]string{0: "0", 12: "12", 2.5: "2,5", 0.125: "0,125", 1.0004: "1", -3.75: "-3,75", 20000: "20\u00a0000", 1234567.5: "1\u00a0234\u00a0567,5", -1500: "-1\u00a0500", -0.0001: "0"} {
 		if got := kolicinaTekst(v); got != ocekivano {
 			t.Errorf("kolicinaTekst(%v) = %q, očekivano %q", v, got, ocekivano)
 		}

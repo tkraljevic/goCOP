@@ -635,13 +635,26 @@ func (s *MtsService) Provedi(ctx context.Context, u *models.User, perms *models.
 	return redci, nil
 }
 
-// kolicinaTekst piše količinu bez suvišnih nula, sa zarezom
+// kolicinaTekst piše količinu bez suvišnih nula, sa zarezom i razmakom
+// tisućica kao u modulu: 20000 → „20 000”, 12,5 → „12,5”
 func kolicinaTekst(v float64) string {
 	s := strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.3f", v), "0"), ".")
-	if s == "" || s == "-" {
-		s = "0"
+	znak, s := "", strings.TrimPrefix(s, "-")
+	if v < 0 && s != "0" {
+		znak = "-"
 	}
-	return strings.Replace(s, ".", ",", 1)
+	cijeli, dec, _ := strings.Cut(s, ".")
+	var b strings.Builder
+	for i, r := range cijeli {
+		if i > 0 && (len(cijeli)-i)%3 == 0 {
+			b.WriteRune('\u00a0')
+		}
+		b.WriteRune(r)
+	}
+	if dec != "" {
+		return znak + b.String() + "," + dec
+	}
+	return znak + b.String()
 }
 
 // Promet vraća knjigu prometa po filtru

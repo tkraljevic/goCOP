@@ -9,6 +9,7 @@
     <p class="page-desc">Propisani popis kako ga traži obrazac za Glavni centar, isti za sve sektore. Vrsta koju nitko nije koristio može se ukloniti;
       korištena se gasi, jer promet i popisi na nju pokazuju. Nova vrsta ide na kraj svoje skupine.</p>
   </div>
+  {{if .SmijeUrediti}}<div class="page-actions"><a href="/sredstva/katalog#nova-vrsta" class="btn btn-primary">{{icon "plus"}} Nova vrsta</a></div>{{end}}
 </div>
 
 {{template "sredstvaTraka" .}}
@@ -16,49 +17,65 @@
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 
+{{/* Katalog po crtežu 19b (10): obrazac vrste kao kartica iznad tablice,
+     oblici kao prekidač s rečenicom, uredi i ukloni kao ikone u retku */}}
 {{if .SmijeUrediti}}
 {{$v := .Vrsta}}
-<div class="sektorsko-ploca">
-  <div class="sektorsko-ploca-glava"><h2>{{icon "plus"}} {{if $v}}Uredi vrstu: {{$v.Naziv}}{{else}}Nova vrsta sredstva{{end}}</h2></div>
-  <form method="POST" action="{{if $v}}/sredstva/katalog/{{$v.ID}}{{else}}/sredstva/katalog{{end}}" class="form-page form-wide m-0">
+<form method="POST" action="{{if $v}}/sredstva/katalog/{{$v.ID}}{{else}}/sredstva/katalog{{end}}" class="form-page ob-obrazac sr-katalog-obrazac">
+  <section class="os-kartica" aria-labelledby="nova-vrsta">
+    <h2 id="nova-vrsta">{{if $v}}Uredi vrstu: {{$v.Naziv}}{{else}}Nova vrsta sredstva{{end}}</h2>
     <div class="form-row">
-      <div class="form-group" style="flex:2;"><label class="form-label" for="naziv">Naziv *</label><input type="text" id="naziv" name="naziv" class="form-control" value="{{if $v}}{{$v.Naziv}}{{end}}" required placeholder="npr. Pumpa potopna 50 l/s"></div>
+      <div class="form-group"><label class="form-label" for="naziv">Naziv *</label><input type="text" id="naziv" name="naziv" class="form-control" value="{{if $v}}{{$v.Naziv}}{{end}}" required placeholder="npr. Pumpa potopna 50 l/s"></div>
       <div class="form-group"><label class="form-label" for="grupa">Skupina *</label>
         <select id="grupa" name="grupa" class="form-control">{{range .Grupe}}<option value="{{.ID}}"{{if and $v (eq .ID $v.Grupa)}} selected{{end}}>{{.Rimski}} {{.Naziv}}</option>{{end}}</select></div>
-      <div class="form-group"><label class="form-label" for="jedinica">Jedinica *</label>
-        <select id="jedinica" name="jedinica" class="form-control">{{range (list "kom" "par" "kg" "t" "m" "m'" "m²" "m³" "l")}}<option value="{{.}}"{{if and $v (eq . $v.Jedinica)}} selected{{end}}>{{.}}</option>{{end}}</select></div>
-      <div class="form-group"><label class="form-label" for="redoslijed">Redni broj</label><input type="number" id="redoslijed" name="redoslijed" class="form-control max-w-7" min="1" value="{{if $v}}{{$v.Redoslijed}}{{end}}" placeholder="kraj skupine"></div>
     </div>
     <div class="form-row">
-      <div class="form-group"><label><input type="checkbox" name="oblici" value="vrece"{{if and $v $v.ImaOblike}} checked{{end}}> Vodi se prazno i napunjeno (kao vreće)</label></div>
-      {{if $v}}<div class="form-group"><label><input type="checkbox" name="aktivna" value="1"{{if $v.Aktivna}} checked{{end}}> Aktivna</label><input type="hidden" name="aktivna" value="0"></div>{{end}}
+      <div class="form-group"><label class="form-label" for="jedinica">Jedinica *</label>
+        <select id="jedinica" name="jedinica" class="form-control">{{range (list "kom" "par" "kg" "t" "m" "m'" "m²" "m³" "l")}}<option value="{{.}}"{{if and $v (eq . $v.Jedinica)}} selected{{end}}>{{.}}</option>{{end}}</select></div>
+      <div class="form-group"><label class="form-label" for="redoslijed">Redni broj</label><input type="number" id="redoslijed" name="redoslijed" class="form-control" min="1" value="{{if $v}}{{$v.Redoslijed}}{{end}}" placeholder="kraj skupine"></div>
     </div>
+    <label class="ob-prekidac">
+      <span>Vodi se prazno i napunjeno (kao vreće)<small>Stanje se tada vodi odvojeno za prazno i napunjeno.</small></span>
+      <input type="checkbox" class="prekidac" role="switch" name="oblici" value="vrece"{{if and $v $v.ImaOblike}} checked{{end}}>
+    </label>
+    {{if $v}}
+    <label class="ob-prekidac">
+      <span>Aktivna<small>Ugašena vrsta ostaje u knjizi i na starim inventurama, ali se ne nudi.</small></span>
+      <input type="checkbox" class="prekidac" role="switch" name="aktivna" value="1"{{if $v.Aktivna}} checked{{end}}>
+    </label>
+    <input type="hidden" name="aktivna" value="0">
+    {{end}}
     <div class="form-group"><label class="form-label" for="napomena">Napomena</label><input type="text" id="napomena" name="napomena" class="form-control" value="{{if $v}}{{$v.Napomena}}{{end}}"></div>
-    <div class="form-actions"><button type="submit" class="btn btn-primary">{{icon "check"}} Spremi</button>{{if $v}}<a href="/sredstva/katalog" class="btn btn-secondary">Odustani</a>{{end}}</div>
-  </form>
-</div>
+    <div class="form-actions ob-radnje">
+      {{if $v}}<a href="/sredstva/katalog" class="btn btn-link">Odustani</a>{{end}}
+      <button type="submit" class="btn btn-primary">Spremi</button>
+    </div>
+  </section>
+</form>
 {{end}}
 
-<div class="table-card"><div class="table-responsive">
-  <table class="data-table mts-stanje">
-    <thead><tr><th>R. br.</th><th>Vrsta sredstva</th><th>Jed.</th><th>Oblici</th><th>Oznaka</th><th>Napomena</th>{{if .SmijeUrediti}}<th></th>{{end}}</tr></thead>
+<section class="os-kartica" aria-label="Vrste sredstava">
+<div class="table-responsive">
+  <table class="data-table mts-stanje sr-promet">
+    <thead><tr><th>R. br.</th><th>Vrsta sredstva</th><th>Jed.</th><th>Oblici</th><th>Oznaka</th><th>Napomena</th>{{if .SmijeUrediti}}<th aria-label="Radnje"></th>{{end}}</tr></thead>
     <tbody>
     {{range $g := .Grupe}}
     <tr class="mts-grupa"><td>{{$g.Rimski}}</td><td colspan="{{if $.SmijeUrediti}}6{{else}}5{{end}}">{{$g.Naziv}}</td></tr>
     {{range $.Vrste}}{{if eq .Grupa $g.ID}}
     <tr{{if not .Aktivna}} class="mts-prazno"{{end}}>
-      <td class="mono">{{.Redoslijed}}.</td>
-      <td>{{.Naziv}}{{if not .Aktivna}} <span class="badge badge-inactive">ugašena</span>{{end}}</td>
+      <td class="mono sr-rbr">{{.Redoslijed}}.</td>
+      <td class="naslov">{{.Naziv}}{{if not .Aktivna}} <span class="badge badge-inactive">ugašena</span>{{end}}</td>
       <td>{{.Jedinica}}</td>
       <td>{{if .ImaOblike}}{{range $i, $o := .Oblici}}{{if $i}}, {{end}}{{oblik $o}}{{end}}{{end}}</td>
-      <td class="mono reg-card-sub">{{.ID}}</td>
+      <td><span class="mono reg-card-sub">{{.ID}}</span></td>
       <td>{{.Napomena}}</td>
-      {{if $.SmijeUrediti}}<td class="nowrap"><a href="/sredstva/katalog?uredi={{.ID}}" class="btn btn-secondary btn-sm" title="uredi">{{icon "pencil"}}</a>
-        <form method="POST" action="/sredstva/katalog/{{.ID}}/obrisi" class="d-inline" onsubmit="return confirm('Ukloniti vrstu „{{.Naziv}}“ iz kataloga? Prolazi samo ako je nitko nije koristio; inače je ugasite.');"><button type="submit" class="btn btn-secondary btn-sm" title="ukloni nekorištenu">{{icon "trash"}}</button></form></td>{{end}}
+      {{if $.SmijeUrediti}}<td class="nowrap br"><a href="/sredstva/katalog?uredi={{.ID}}#nova-vrsta" class="os-ikona-gumb" title="Uredi vrstu" aria-label="Uredi vrstu {{.Naziv}}">{{icon "pencil"}}</a>
+        <form method="POST" action="/sredstva/katalog/{{.ID}}/obrisi" class="d-inline" onsubmit="return confirm('Ukloniti vrstu „{{.Naziv}}” iz kataloga? Prolazi samo ako je nitko nije koristio; inače je ugasite.');"><button type="submit" class="os-ikona-gumb" title="Ukloni nekorištenu vrstu" aria-label="Ukloni vrstu {{.Naziv}}">{{icon "trash"}}</button></form></td>{{end}}
     </tr>
     {{end}}{{end}}
     {{end}}
     </tbody>
   </table>
-</div></div>
+</div>
+</section>
 {{end}}

@@ -464,7 +464,7 @@ func TestZidOpisiPrometSredstava(t *testing.T) {
 	provjeriOpise(t, p, []slucajOpisa{
 		{"izdano sa skladišta", verzijaZida(t, e, izdano), true, ModulSredstva, func(d *Dogadjaj) {
 			d.Sektor, d.Tko, d.Naslov, d.AreaID = "B", "Ana Anić", "Izdano na teren", 51
-			d.Tekst = "4000 kom Vreće 50x80 cm (napunjeno) · Centralno skladište Osijek · preuzeo vodočuvar Batina"
+			d.Tekst = "4\u00a0000 kom Vreće 50x80 cm (napunjeno) · Centralno skladište Osijek · preuzeo vodočuvar Batina"
 			d.Link = "/sredstva/promet/veza-1/potvrda.xlsx"
 		}},
 		{"primka, područje skladišta", verzijaZida(t, e, primka), true, ModulSredstva, func(d *Dogadjaj) {
@@ -477,7 +477,7 @@ func TestZidOpisiPrometSredstava(t *testing.T) {
 		}},
 		{"na terenu", verzijaZida(t, e, naTeren), true, ModulSredstva, func(d *Dogadjaj) {
 			d.Sektor, d.Tko, d.Naslov, d.AreaID = "B", "Ana Anić", "Izdano na teren", 34
-			d.Tekst, d.Link = "4000 kom Vreće 50x80 cm · teren · teren · BP 34 · B.34.1", "/sredstva/na-terenu?sektor=B"
+			d.Tekst, d.Link = "4\u00a0000 kom Vreće 50x80 cm · teren · teren · BP 34 · B.34.1", "/sredstva/na-terenu?sektor=B"
 		}},
 		{"nepoznato skladište i sredstvo", verzijaZida(t, e, nestalo), true, ModulSredstva, func(d *Dogadjaj) {
 			d.Sektor, d.Tko, d.Naslov = "B", "Ana Anić", "Primka"
@@ -541,7 +541,7 @@ func TestZidOpisiPotrebu(t *testing.T) {
 	upisana := func(d *Dogadjaj) {
 		d.Sektor, d.AreaID, d.Tko = "B", 34, "Ana Anić"
 		d.Link = "/sredstva/skladista/sk-os/potrebe?godina=2027"
-		d.Naslov, d.Tekst = "Upisana potreba za nabavom", "2000 kom Vreće 50x80 cm · Centralno skladište Osijek · za 2027."
+		d.Naslov, d.Tekst = "Upisana potreba za nabavom", "2\u00a0000 kom Vreće 50x80 cm · Centralno skladište Osijek · za 2027."
 	}
 	e := repository.EntityMtsPotrebe
 	provjeriOpise(t, p, []slucajOpisa{
@@ -549,7 +549,7 @@ func TestZidOpisiPotrebu(t *testing.T) {
 		{"izmijenjena", verzijaZida(t, e, potreba, izmjenaVerzije), true, ModulSredstva, upisana},
 		{"nepoznato skladište", verzijaZida(t, e, nestalo), true, ModulSredstva, func(d *Dogadjaj) {
 			d.Tko, d.Link = "Ana Anić", "/sredstva/skladista/nestalo/potrebe?godina=2027"
-			d.Naslov, d.Tekst = "Upisana potreba za nabavom", "2000 kom Vreće 50x80 cm · nestalo · za 2027."
+			d.Naslov, d.Tekst = "Upisana potreba za nabavom", "2\u00a0000 kom Vreće 50x80 cm · nestalo · za 2027."
 		}},
 		{"bez količine", verzijaZida(t, e, nula), false, ModulSredstva, nil},
 		{"obrisana", verzijaZida(t, e, potreba, arhiviranaVerzija), false, ModulSredstva, nil},
