@@ -427,6 +427,7 @@ type StanjeVrste struct {
 	Ukupno     float64            `json:"ukupno"`
 	NaPutu     float64            `json:"na_putu,omitempty"`  // dio zbroja koji je na putu prema sektoru
 	Potrebno   float64            `json:"potrebno,omitempty"` // dodatne potrebe za nabavom, iz zadnjeg popisa
+	Skladista  int                `json:"skladista,omitempty"` // u koliko skladišta vrste ima (pregled sektora)
 }
 
 // Ima javlja vodi li se išta od te vrste

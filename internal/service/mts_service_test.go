@@ -320,9 +320,14 @@ func TestMtsPrijenosMedjuSektorima(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, sv := range svi {
-		if sv.Vrsta.ID == vrece && sv.Ukupno != 82000 {
-			t.Errorf("ukupno poslije prijenosa: %v", sv.Ukupno)
+		if sv.Vrsta.ID == vrece && (sv.Ukupno != 82000 || sv.Skladista != 2) {
+			t.Errorf("ukupno poslije prijenosa: %v u %d skladišta", sv.Ukupno, sv.Skladista)
 		}
+	}
+	// pregled broji vrste po skladištu: oba skladišta imaju vreće
+	po, err := s.BrojVrstaPoSkladistu(ctx, "")
+	if err != nil || po[metkovic.ID] < 1 || po[osijek.ID] < 1 {
+		t.Errorf("vrsta po skladištu: %v %v", po, err)
 	}
 }
 

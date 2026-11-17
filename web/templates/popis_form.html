@@ -25,16 +25,17 @@
   <input type="hidden" name="dan" value="{{$p.Dan.Format "2006-01-02"}}">
   <p class="sr-napomena-iznad">{{icon "info"}}<span>Prebrojano je unaprijed jednako knjižnom. Promijenite samo ono što na polici nije tako.</span></p>
   <section class="os-kartica" aria-label="Stavke inventure">
+  {{$pr := .PrikazObrascaPopisa}}{{template "sredstvaPrikaz" $pr}}
   {{/* vlastiti okvir, a ne table-responsive: na mobitelu kartice slaže CSS niže, ne opća skripta */}}
   <div class="sr-inv-okvir">
     <table class="data-table mts-popis sr-promet sr-inv-obrazac">
       <thead><tr><th>R. br.</th><th>Vrsta sredstva</th><th>Jed.</th><th class="br">Knjižno</th><th class="br">Prebrojano</th><th>Napomena</th></tr></thead>
-      <tbody>
+      <tbody id="{{$pr.Cilj}}" data-prikaz="{{$pr.Zadano}}">
       {{range .StavkePoGrupama}}
-      <tr class="mts-grupa"><td>{{.Rimski}}</td><td colspan="5">{{.Naziv}}</td></tr>
+      <tr class="mts-grupa" data-skupina><td>{{.Rimski}}</td><td colspan="5">{{.Naziv}}</td></tr>
       {{range .Stavke}}
       {{$k := printf "%s:%s" .VrstaID .Oblik}}
-      <tr>
+      <tr data-ima="{{if .Knjizno}}1{{else}}0{{end}}">
         <td class="mono sr-inv-rbr">{{if .RedniBroj}}{{.RedniBroj}}.{{end}}</td>
         <td class="sr-inv-naziv">{{.VrstaNaziv}}{{if .Oblik}}<span class="reg-card-sub">{{oblik .Oblik}}</span>{{end}}</td>
         <td class="sr-inv-jed">{{.Jedinica}}</td>

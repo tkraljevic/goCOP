@@ -319,6 +319,15 @@
 
 {{/* Traka modula Sredstva (crtež 19a): sektor iznad šest kartica. Na mobitelu
      je sektor polje s izbornikom, kao na Rješenjima i obavijestima. */}}
+{{/* Čipovi prikaza iznad tablice Sredstava (sredstva_prikaz.go): .Cilj je
+     id okvira tablice, a okvir nosi data-prikaz="{{.Zadano}}" */}}
+{{define "sredstvaPrikaz"}}
+<div class="sr-prikaz" role="group" aria-label="Koji redci se vide" data-cilj="{{.Cilj}}">
+  {{range .Cipovi}}<button type="button" class="ocitanja-cip" data-prikaz="{{.Vrijednost}}" aria-pressed="{{if eq .Vrijednost $.Zadano}}true{{else}}false{{end}}">{{icon "check"}}{{.Natpis}} · {{.Broj}}</button>{{end}}
+</div>
+<script src="{{statika "js/sredstva-prikaz.js"}}" defer></script>
+{{end}}
+
 {{define "sredstvaTraka"}}
 {{with .CipoviSektora}}
 <div class="ocitanja-cipovi cipovi-stranice akti-sektori" role="group" aria-label="{{term "sektor"}}">

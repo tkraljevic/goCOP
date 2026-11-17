@@ -215,10 +215,53 @@ func (s *MtsService) StanjeSektora(ctx context.Context, sektor string, naDan *ti
 		return nil, err
 	}
 	out := slozi(vrste, stanja)
+	brojiSkladista(out, stanja)
 	if naDan != nil { // na dan se ne zna što je tada bilo na putu
 		return out, nil
 	}
 	return out, s.dodajNaPutu(ctx, out, sektor)
+}
+
+// zbrojPoSkladistu zbraja oblike: vrsta → skladište → količina
+func zbrojPoSkladistu(stanja []models.Stanje) map[string]map[string]float64 {
+	po := map[string]map[string]float64{}
+	for _, st := range stanja {
+		if po[st.VrstaID] == nil {
+			po[st.VrstaID] = map[string]float64{}
+		}
+		po[st.VrstaID][st.SkladisteID] += st.Kolicina
+	}
+	return po
+}
+
+// brojiSkladista upisuje uz vrstu u koliko skladišta je ima (crtež 19a, 1)
+func brojiSkladista(out []models.StanjeVrste, stanja []models.Stanje) {
+	po := zbrojPoSkladistu(stanja)
+	for i := range out {
+		for _, k := range po[out[i].Vrsta.ID] {
+			if k > 1e-9 {
+				out[i].Skladista++
+			}
+		}
+	}
+}
+
+// BrojVrstaPoSkladistu broji koliko vrsta ima svako skladište sektora;
+// prazan sektor znači sva skladišta
+func (s *MtsService) BrojVrstaPoSkladistu(ctx context.Context, sektor string) (map[string]int, error) {
+	stanja, err := s.repo.Stanje(ctx, "", sektor, nil)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]int{}
+	for _, poSkladistu := range zbrojPoSkladistu(stanja) {
+		for skladiste, k := range poSkladistu {
+			if k > 1e-9 {
+				out[skladiste]++
+			}
+		}
+	}
+	return out, nil
 }
 
 // slozi spaja katalog i zbrojeve u redak po vrsti

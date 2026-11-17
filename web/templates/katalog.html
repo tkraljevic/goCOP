@@ -57,17 +57,16 @@
 <section class="os-kartica" aria-label="Vrste sredstava">
 <div class="table-responsive">
   <table class="data-table mts-stanje sr-promet">
-    <thead><tr><th>R. br.</th><th>Vrsta sredstva</th><th>Jed.</th><th>Oblici</th><th>Oznaka</th><th>Napomena</th>{{if .SmijeUrediti}}<th aria-label="Radnje"></th>{{end}}</tr></thead>
+    <thead><tr><th>R. br.</th><th>Vrsta sredstva</th><th>Jed.</th><th>Oblici</th><th>Napomena</th>{{if .SmijeUrediti}}<th aria-label="Radnje"></th>{{end}}</tr></thead>
     <tbody>
     {{range $g := .Grupe}}
-    <tr class="mts-grupa"><td>{{$g.Rimski}}</td><td colspan="{{if $.SmijeUrediti}}6{{else}}5{{end}}">{{$g.Naziv}}</td></tr>
+    <tr class="mts-grupa"><td>{{$g.Rimski}}</td><td colspan="{{if $.SmijeUrediti}}5{{else}}4{{end}}">{{$g.Naziv}}</td></tr>
     {{range $.Vrste}}{{if eq .Grupa $g.ID}}
     <tr{{if not .Aktivna}} class="mts-prazno"{{end}}>
       <td class="mono sr-rbr">{{.Redoslijed}}.</td>
       <td class="naslov">{{.Naziv}}{{if not .Aktivna}} <span class="badge badge-inactive">ugašena</span>{{end}}</td>
       <td>{{.Jedinica}}</td>
       <td>{{if .ImaOblike}}{{range $i, $o := .Oblici}}{{if $i}}, {{end}}{{oblik $o}}{{end}}{{end}}</td>
-      <td><span class="mono reg-card-sub">{{.ID}}</span></td>
       <td>{{.Napomena}}</td>
       {{if $.SmijeUrediti}}<td class="nowrap br"><a href="/sredstva/katalog?uredi={{.ID}}#nova-vrsta" class="os-ikona-gumb" title="Uredi vrstu" aria-label="Uredi vrstu {{.Naziv}}">{{icon "pencil"}}</a>
         <form method="POST" action="/sredstva/katalog/{{.ID}}/obrisi" class="d-inline" onsubmit="return confirm('Ukloniti vrstu „{{.Naziv}}” iz kataloga? Prolazi samo ako je nitko nije koristio; inače je ugasite.');"><button type="submit" class="os-ikona-gumb" title="Ukloni nekorištenu vrstu" aria-label="Ukloni vrstu {{.Naziv}}">{{icon "trash"}}</button></form></td>{{end}}
