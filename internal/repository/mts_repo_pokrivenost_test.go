@@ -297,6 +297,16 @@ func TestListPrometIStanjePoFiltrima(t *testing.T) {
 	if teren, err := repo.StanjeNaTerenu(ctxRaz, "druga-obrana", ""); err != nil || len(teren) != 0 {
 		t.Errorf("teren druge obrane: %+v", teren)
 	}
+
+	// dolazak na teren nosi dan i skladište poteza po vezi (Na terenu, crtež 19a, 6)
+	dolasci, err := repo.DolasciNaTeren(ctxRaz, osnovaDnevnik, "B")
+	nuzno(t, err)
+	if len(dolasci) != 1 || dolasci[0].SkladisteID != a.ID || dolasci[0].Datum != "2026-02-10" || dolasci[0].Mjesto.Mjesto != "Nasip" || dolasci[0].VrstaID != "lopata" {
+		t.Errorf("dolasci na teren: %+v", dolasci)
+	}
+	if dolasci, err := repo.DolasciNaTeren(ctxRaz, "", "A"); err != nil || len(dolasci) != 0 {
+		t.Errorf("dolasci sektora A: %+v %v", dolasci, err)
+	}
 }
 
 func TestPopisiPoDanuIFiltrima(t *testing.T) {
@@ -447,6 +457,9 @@ func TestMtsZatvorenaBaza(t *testing.T) {
 	}
 	if _, err := repo.StanjeNaTerenu(ctxRaz, "", ""); err == nil {
 		t.Error("StanjeNaTerenu bez baze")
+	}
+	if _, err := repo.DolasciNaTeren(ctxRaz, "", ""); err == nil {
+		t.Error("DolasciNaTeren bez baze")
 	}
 	if err := repo.SavePopis(ctxRaz, &models.Popis{}); err == nil {
 		t.Error("SavePopis bez baze")

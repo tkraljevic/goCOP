@@ -394,6 +394,20 @@ type Stanje struct {
 	// Izvedeno pri čitanju
 	AreaName      string `json:"-"`
 	StructureName string `json:"-"`
+
+	// Samo na terenu: skladište koje je zadnje izdalo tu vrstu na to mjesto i
+	// prvi dan kad je stigla (crtež 19a, 6 · Na terenu)
+	IzdaloID    string    `json:"-"`
+	IzdaloNaziv string    `json:"-"`
+	Od          time.Time `json:"-"`
+}
+
+// NaslovMjesta je mjesto na terenu bez slobodnog opisa, za naslov kartice
+func (s Stanje) NaslovMjesta() string {
+	if s.AreaID == 0 && s.SectionCode == "" && s.StructureName == "" {
+		return "teren, nije razvrstano"
+	}
+	return nazivTerena(s.AreaID, s.AreaName, s.SectionCode, s.StructureName, "")
 }
 
 // Teren vraća mjesto stanja na terenu
