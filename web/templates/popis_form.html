@@ -34,8 +34,8 @@
         <td>{{.Jedinica}}</td>
         <td>{{if .Oblik}}{{oblik .Oblik}}{{end}}</td>
         <td class="mono br">{{kolicina .Knjizno}}<input type="hidden" name="k:{{$k}}" value="{{.Knjizno}}"></td>
-        <td class="br"><input type="text" name="u:{{$k}}" class="form-control mono mts-broj" inputmode="decimal" value="{{if .Utvrdjeno}}{{kolicinaPlain .Utvrdjeno}}{{end}}"></td>
-        <td><input type="text" name="n:{{$k}}" class="form-control" value="{{.Napomena}}"></td>
+        <td class="br"><input type="text" name="u:{{$k}}" class="form-control mono mts-broj" inputmode="decimal"{{if index $.Neispravno (printf "u:%s" $k)}} aria-invalid="true"{{end}} value="{{if $.VratiUpisano}}{{index $.Upisano (printf "u:%s" $k)}}{{else if .Utvrdjeno}}{{kolicinaPlain .Utvrdjeno}}{{end}}"></td>
+        <td><input type="text" name="n:{{$k}}" class="form-control" value="{{if $.VratiUpisano}}{{index $.Upisano (printf "n:%s" $k)}}{{else}}{{.Napomena}}{{end}}"></td>
       </tr>
       {{end}}
       {{end}}
@@ -44,7 +44,7 @@
   </div></div>
   <div class="form-group mt-3">
     <label class="form-label" for="napomena">Napomena uz inventuru</label>
-    <input type="text" id="napomena" name="napomena" class="form-control" value="{{$p.Napomena}}" placeholder="tko je brojao, što nedostaje, što je oštećeno">
+    <input type="text" id="napomena" name="napomena" class="form-control" value="{{if .VratiUpisano}}{{index .Upisano "napomena"}}{{else}}{{$p.Napomena}}{{end}}" placeholder="tko je brojao, što nedostaje, što je oštećeno">
   </div>
   <div class="form-actions">
     <button type="submit" class="btn btn-secondary">{{icon "check"}} Spremi nacrt</button>

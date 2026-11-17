@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -85,6 +86,12 @@ type MtsPageData struct {
 	VrstaID         string
 
 	Kartica string // kartica modula na kojoj se stoji (sredstva_traka.go)
+
+	// Obrazac vraćen zbog greške pokazuje upisano, a ne spremljeno
+	// (sredstva_obrazac_brojeva.go)
+	VratiUpisano bool
+	Upisano      map[string]string
+	Neispravno   map[string]bool
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -619,26 +626,26 @@ func (h *MtsHandler) HandleSavePopis(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	f := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
-	p := &models.Popis{ID: r.PathValue("id"), SkladisteID: f("skladiste"), Napomena: f("napomena")}
+	u := noviUpisaniBrojevi(r)
+	p := &models.Popis{ID: r.PathValue("id"), SkladisteID: f("skladiste"), Napomena: u.tekst("napomena")}
 	if t, err := time.ParseInLocation("2006-01-02", f("dan"), models.Zagreb); err == nil {
 		p.Dan = t
 	}
-	vrste, _ := h.svc().SveVrste(r.Context())
+	vrste, _ := h.svc().SveVrste(r.Context()) // bez kataloga obrazac nema redaka, pa servis javi praznu inventuru
 	for _, v := range vrste {
 		for _, o := range v.SviOblici() {
 			kljuc := v.ID + ":" + o
-			u, _ := parseBroj(f("u:" + kljuc))
-			kn, _ := parseBroj(f("k:" + kljuc))
-			st := models.PopisnaStavka{VrstaID: v.ID, Oblik: o, Utvrdjeno: u, Knjizno: kn, Napomena: f("n:" + kljuc)}
+			kn, _ := parseBroj(f("k:" + kljuc)) // knjižno je skriveno polje koje je program sam upisao
+			st := models.PopisnaStavka{VrstaID: v.ID, Oblik: o, Utvrdjeno: u.broj("u:"+kljuc, redakVrste(v, o)), Knjizno: kn, Napomena: u.tekst("n:" + kljuc)}
 			p.Stavke = append(p.Stavke, st)
 		}
 	}
+	if poruka := u.Poruka("Prebrojano"); poruka != "" {
+		h.ponoviObrazacPopisa(w, r, data, p, u, poruka)
+		return
+	}
 	if err := h.svc().SpremiPopis(r.Context(), data.CurrentUser, data.Permissions, p); err != nil {
-		back := "/sredstva/skladista/" + p.SkladisteID + "/popis?dan=" + f("dan")
-		if p.ID != "" {
-			back = "/sredstva/popisi/" + p.ID + "/uredi"
-		}
-		redirectWith(w, r, back, "error", err.Error())
+		h.ponoviObrazacPopisa(w, r, data, p, u, err.Error())
 		return
 	}
 	if r.FormValue("zakljuci") == "1" {
@@ -650,6 +657,31 @@ func (h *MtsHandler) HandleSavePopis(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redirectWith(w, r, "/sredstva/popisi/"+p.ID, "success", "Inventura je spremljena kao nacrt.")
+}
+
+// ponoviObrazacPopisa vraća obrazac inventure s upisanim vrijednostima i
+// porukom. Inventura bez skladišta ili dana nema što pokazati, pa se vraća
+// na obrazac kao prije, samo s porukom.
+func (h *MtsHandler) ponoviObrazacPopisa(w http.ResponseWriter, r *http.Request, data MtsPageData, p *models.Popis, u *upisaniBrojevi, poruka string) {
+	natrag := "/sredstva/skladista/" + p.SkladisteID + "/popis?dan=" + strings.TrimSpace(r.FormValue("dan"))
+	if p.ID != "" {
+		natrag = "/sredstva/popisi/" + p.ID + "/uredi"
+	}
+	sk, err := h.svc().Skladiste(r.Context(), p.SkladisteID)
+	if err != nil || sk == nil || p.Dan.IsZero() {
+		redirectWith(w, r, natrag, "error", poruka)
+		return
+	}
+	prikaz, err := h.svc().PredlozakPopisa(r.Context(), sk.ID, p.Dan)
+	if err != nil {
+		redirectWith(w, r, natrag, "error", poruka)
+		return
+	}
+	data.Skladiste, data.Sektor, data.Popis = sk, sk.Sektor, prikaz
+	data.SmijePisati = h.svc().SmijePisati(data.Permissions, sk)
+	data.IsEdit = prikaz.ID != ""
+	data.vratiUpisano(u, poruka)
+	h.render(w, "popis_form.html", data)
 }
 
 // HandleZakljuciPopis proknjižava razlike
@@ -833,20 +865,25 @@ func (h *MtsHandler) ShowPotrebe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data.Godina, _ = strconv.Atoi(r.URL.Query().Get("godina"))
+	if err := h.prikaziPotrebe(w, r, data, sk); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// prikaziPotrebe slaže obrazac potreba skladišta za godinu iz podataka
+func (h *MtsHandler) prikaziPotrebe(w http.ResponseWriter, r *http.Request, data MtsPageData, sk *models.Skladiste) error {
 	if data.Godina == 0 {
 		data.Godina = models.GodinaPotreba(time.Now().In(models.Zagreb))
 	}
-	var err error
-	if data.Stanje, err = h.svc().StanjeSkladista(r.Context(), sk.ID, nil); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if data.Potrebe, err = h.svc().PotrebeSkladista(r.Context(), sk.ID, data.Godina); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	var gStanje, gPotrebe error
+	data.Stanje, gStanje = h.svc().StanjeSkladista(r.Context(), sk.ID, nil)
+	data.Potrebe, gPotrebe = h.svc().PotrebeSkladista(r.Context(), sk.ID, data.Godina)
+	if err := errors.Join(gStanje, gPotrebe); err != nil {
+		return err
 	}
 	data.GodinePotreba = h.svc().GodinePotreba(r.Context(), sk.Sektor)
 	h.render(w, "potrebe_form.html", data)
+	return nil
 }
 
 // HandleSavePotrebe upisuje potrebe skladišta za godinu; polja su pt:<vrsta> i pn:<vrsta>
@@ -857,16 +894,29 @@ func (h *MtsHandler) HandleSavePotrebe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := r.PathValue("id")
-	f := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
-	godina, _ := strconv.Atoi(f("godina"))
-	vrste, _ := h.svc().Vrste(r.Context())
+	godina, _ := strconv.Atoi(strings.TrimSpace(r.FormValue("godina"))) // kriva godina je 0, a servis je odbije porukom
+	u := noviUpisaniBrojevi(r)
+	vrste, _ := h.svc().Vrste(r.Context()) // bez kataloga nema ni redaka potreba
 	var potrebe []models.Potreba
 	for _, v := range vrste {
-		k, _ := parseBroj(f("pt:" + v.ID))
-		potrebe = append(potrebe, models.Potreba{VrstaID: v.ID, Kolicina: k, Napomena: f("pn:" + v.ID)})
+		potrebe = append(potrebe, models.Potreba{VrstaID: v.ID, Kolicina: u.broj("pt:"+v.ID, v.Naziv), Napomena: u.tekst("pn:" + v.ID)})
 	}
-	if err := h.svc().SpremiPotrebe(r.Context(), data.CurrentUser, data.Permissions, id, godina, potrebe); err != nil {
-		redirectWith(w, r, "/sredstva/skladista/"+id+"/potrebe?godina="+strconv.Itoa(godina), "error", err.Error())
+	poruka := u.Poruka("Potrebno")
+	if poruka == "" {
+		if err := h.svc().SpremiPotrebe(r.Context(), data.CurrentUser, data.Permissions, id, godina, potrebe); err != nil {
+			poruka = err.Error()
+		}
+	}
+	if poruka != "" {
+		sk, ok := h.ucitajSkladiste(w, r, &data)
+		if !ok {
+			return
+		}
+		data.Godina = godina
+		data.vratiUpisano(u, poruka)
+		if err := h.prikaziPotrebe(w, r, data, sk); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 		return
 	}
 	redirectWith(w, r, "/sredstva/skladista/"+id+"/potrebe?godina="+strconv.Itoa(godina), "success", "Potrebe za nabavom u "+strconv.Itoa(godina)+". su upisane.")

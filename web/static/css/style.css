@@ -1762,8 +1762,7 @@ a:hover { color: var(--accent); }
   }
 }
 
-/* ==========================================================================
-   Registri kao kartični popisi — jedan prikaz za telefon i računalo.
+/* ===================================================================   Registri kao kartični popisi — jedan prikaz za telefon i računalo.
    Na telefonu jedan stupac, na širem ekranu onoliko stupaca koliko stane.
    Tablica ne postoji: kartica je jedini oblik, pa se održava jedno.
    ========================================================================== */
@@ -10798,3 +10797,6 @@ td .odr-sitno { margin-top: 2px; }
   .sr-redak > .icon { order: 5; }
 }
 
+=======
+/* Polje koje program nije mogao pročitati (Sredstva: krivo upisan broj) */
+.form-control[aria-invalid="true"] { border-color: var(--md-sys-color-error); box-shadow: inset 0 0 0 1px var(--md-sys-color-error); }
