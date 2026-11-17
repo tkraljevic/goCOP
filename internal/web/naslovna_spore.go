@@ -138,7 +138,7 @@ func (h *DashboardHandler) vodostaji(ctx context.Context, perms *models.UserPerm
 	if h.izvori.Prije != nil {
 		prije = func(g models.GaugeSummary) *int { return h.izvori.Prije(ctx, g) }
 	}
-	switch ulogaNaslovne(perms, sad) {
+	switch ulogaKartice(perms, kVodostaji, sad) {
 	case uSektor:
 		return vodostajiSektora(letve, prije, sektorOsobe(perms, sad), sad)
 	case uDezurni:
@@ -478,12 +478,69 @@ type stavkeZaRijesiti struct {
 	NaPutu  []RedakKartice // COP: pošiljke dugo na putu
 }
 
-// zaRijesiti skuplja posao globalnog administratora: sektorsko izvješće u
-// obrani, nepredane dnevne listove, promjene prava i nove djelatnike
+// zaRijesiti spaja posao svih uloga osobe koje imaju tu karticu
 func (h *DashboardHandler) zaRijesiti(r *http.Request, perms *models.UserPermissions, sad time.Time) KarticaNaslovne {
-	if k, ima := h.zaRijesitiUloge(r, perms, sad); ima {
+	var kartice []KarticaNaslovne
+	for _, u := range ulogeNaslovne(perms, sad) {
+		if slices.Contains(karticeZaUlogu[u], kZaRijesiti) {
+			kartice = append(kartice, h.zaRijesitiUloge(r, perms, u, sad))
+		}
+	}
+	return spojiZaRijesiti(kartice)
+}
+
+// spojiZaRijesiti spaja kartice Za riješiti više uloga: retci bez
+// ponavljanja, a prazna je tek kad nijedna uloga nema posla. Nedostupan
+// izvor jedne uloge piše se samo kad drugih redaka nema.
+func spojiZaRijesiti(kartice []KarticaNaslovne) KarticaNaslovne {
+	if len(kartice) == 0 {
+		k := glavaKartice(kZaRijesiti)
+		k.Prazno = &PraznaKartica{Vrsta: PraznoGotovo, Tekst: "Nema ništa za riješiti."}
 		return k
 	}
+	k := kartice[0]
+	k.Redovi = nil
+	vidjeno := map[string]bool{}
+	for _, d := range kartice {
+		for _, red := range d.Redovi {
+			if kljuc := red.URL + "|" + red.Glavno + "|" + red.Sporedno; !vidjeno[kljuc] {
+				vidjeno[kljuc] = true
+				k.Redovi = append(k.Redovi, red)
+			}
+		}
+		if d.Prazno != nil && d.Prazno.Vrsta == PraznoNedostupno {
+			k.Prazno = d.Prazno
+		}
+	}
+	k.Broj = len(k.Redovi)
+	if k.Broj > 0 {
+		k.Prazno = nil
+	}
+	return k
+}
+
+// zaRijesitiUloge je kartica Za riješiti jedne uloge: područje, sektor,
+// skladište, ugovor i dionica imaju svoj posao, a ostali posao uprave
+func (h *DashboardHandler) zaRijesitiUloge(r *http.Request, perms *models.UserPermissions, uloga string, sad time.Time) KarticaNaslovne {
+	switch uloga {
+	case uPodrucje:
+		return h.zaRijesitiPodrucja(r.Context(), perms, *duznostPodrucja(&perms.User, sad), sad)
+	case uSektor:
+		return h.zaRijesitiSektora(r, perms, sektorOsobe(perms, sad), sad)
+	case uSkladiste:
+		return h.karticaSkladistara(r, perms, kZaRijesiti, sad)
+	case uUgovor:
+		return h.karticaUsluga(r, perms, kZaRijesiti, sad)
+	case uDionica:
+		return h.zaRijesitiDionica(r.Context(), perms, duznostiDionica(&perms.User, sad), sad)
+	}
+	return h.zaRijesitiUprave(r, perms, uloga, sad)
+}
+
+// zaRijesitiUprave skuplja posao globalnog administratora, uprave i
+// dežurnog: sektorsko izvješće u obrani, nepredane dnevne listove, a
+// administratoru i promjene prava i nove djelatnike
+func (h *DashboardHandler) zaRijesitiUprave(r *http.Request, perms *models.UserPermissions, uloga string, sad time.Time) KarticaNaslovne {
 	ctx := r.Context()
 	s := stavkeZaRijesiti{Nepredani: map[string][]models.VodocuvarskiList{}}
 	data := DashboardViewData{ViewAsBanner: viewBanner(r)}
@@ -497,8 +554,8 @@ func (h *DashboardHandler) zaRijesiti(r *http.Request, perms *models.UserPermiss
 			s.Nepredani[st.Sektor] = l
 		}
 	}
-	if ulogaNaslovne(perms, sad) == uDezurni {
-		s.NaPutu = h.dugoNaPutu(ctx, sektorOsobe(perms, sad), sad)
+	if uloga == uDezurni {
+		s.NaPutu = h.dugoNaPutu(ctx, *dezurnaDuznost(&perms.User, sad).SectorID, sad)
 	}
 	if !perms.IsGlobalAdmin {
 		return karticaZaRijesiti(s, sad) // prava i nove djelatnike rješava samo globalni administrator
@@ -511,22 +568,6 @@ func (h *DashboardHandler) zaRijesiti(r *http.Request, perms *models.UserPermiss
 		s.BezUloge = noviBezUloge(svi)
 	}
 	return karticaZaRijesiti(s, sad)
-}
-
-// zaRijesitiUloge je kartica Za riješiti uloga koje imaju svoj posao
-// (područje, sektor, skladište); false za ostale
-func (h *DashboardHandler) zaRijesitiUloge(r *http.Request, perms *models.UserPermissions, sad time.Time) (KarticaNaslovne, bool) {
-	switch ulogaNaslovne(perms, sad) {
-	case uPodrucje:
-		return h.zaRijesitiPodrucja(r.Context(), perms, *duznostPodrucja(&perms.User, sad), sad), true
-	case uSektor:
-		return h.zaRijesitiSektora(r, perms, sektorOsobe(perms, sad), sad), true
-	case uSkladiste:
-		return h.karticaSkladistara(r, perms, kZaRijesiti, sad), true
-	case uUgovor:
-		return h.karticaUsluga(r, perms, kZaRijesiti, sad), true
-	}
-	return KarticaNaslovne{}, false
 }
 
 // noviBezUloge su računi koji su se prijavili, a još nemaju ulogu. Djelatnik

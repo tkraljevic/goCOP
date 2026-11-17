@@ -26,8 +26,9 @@ const (
 	kSustav       = "sustav"
 )
 
-// Uloge s vlastitom Naslovnom. Osoba s više dužnosti dobije Naslovnu prve
-// po ovom redu.
+// Uloge s vlastitom Naslovnom. Osoba s više dužnosti vidi kartice svih
+// svojih uloga, redom prednosti i bez ponavljanja; traka i raspored su po
+// prvoj (Odluke 17. 11. 2026.).
 const (
 	uAdmin     = "admin"
 	uUprava    = "uprava"
@@ -44,15 +45,35 @@ const (
 	uGost      = "gost"    // gost obrane: samo gleda, bez imena
 )
 
-// ulogaNaslovne je uloga po kojoj se slaže Naslovna osobe; prazno znači
-// dosadašnju Naslovnu
+// ulogaNaslovne je prva uloga osobe, po kojoj su traka i raspored Naslovne;
+// prazno znači dosadašnju Naslovnu
 func ulogaNaslovne(perms *models.UserPermissions, sad time.Time) string {
-	if perms == nil {
-		return ""
+	if u := ulogeNaslovne(perms, sad); len(u) > 0 {
+		return u[0]
 	}
+	return ""
+}
+
+// ulogeNaslovne su sve uloge osobe s vlastitom Naslovnom, redom prednosti
+func ulogeNaslovne(perms *models.UserPermissions, sad time.Time) []string {
+	if perms == nil {
+		return nil
+	}
+	var out []string
 	for _, p := range pravilaUloga {
 		if p.ima(perms, sad) {
-			return p.uloga
+			out = append(out, p.uloga)
+		}
+	}
+	return out
+}
+
+// ulogaKartice je prva uloga osobe koja ima tu karticu; po njoj se kartica
+// slaže (vodostaji rukovoditelja dionice nisu vodostaji dežurnog)
+func ulogaKartice(perms *models.UserPermissions, id string, sad time.Time) string {
+	for _, u := range ulogeNaslovne(perms, sad) {
+		if slices.Contains(karticeZaUlogu[u], id) {
+			return u
 		}
 	}
 	return ""
@@ -103,10 +124,18 @@ func imaUlogu(u *models.User, uloga models.Role, sad time.Time) bool {
 // TrakaPregleda je napomena iznad kartica gosta i preglednika
 const TrakaPregleda = "Račun za pregled: možete gledati, ali ne i upisivati."
 
-// karticeUloge su kartice Naslovne za ulogu osobe, redom; nil znači
-// dosadašnju Naslovnu
+// karticeUloge su kartice Naslovne svih uloga osobe: najprije kartice prve
+// uloge, pa nove kartice svake sljedeće; nil znači dosadašnju Naslovnu
 func karticeUloge(perms *models.UserPermissions) []string {
-	return karticeZaUlogu[ulogaNaslovne(perms, time.Now())]
+	var out []string
+	for _, u := range ulogeNaslovne(perms, time.Now()) {
+		for _, id := range karticeZaUlogu[u] {
+			if !slices.Contains(out, id) {
+				out = append(out, id)
+			}
+		}
+	}
+	return out
 }
 
 // kartice slaže kartice Naslovne za osobu. Spore kartice dobiju samo glavu i
@@ -244,7 +273,7 @@ func (h *DashboardHandler) ShowKartica(w http.ResponseWriter, r *http.Request) {
 // sporaKartica računa tijelo spore kartice
 func (h *DashboardHandler) sporaKartica(r *http.Request, perms *models.UserPermissions, id string) KarticaNaslovne {
 	sad := time.Now()
-	if ulogaNaslovne(perms, sad) == uDionica && id != kVrijeme && id != kJaceOborine {
+	if ulogaKartice(perms, id, sad) == uDionica && id != kVrijeme && id != kJaceOborine && id != kZaRijesiti {
 		return h.karticaRukovoditeljaDionice(r, perms, id, sad)
 	}
 	if f, ima := sporeKartice[id]; ima {

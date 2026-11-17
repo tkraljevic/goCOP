@@ -47,7 +47,7 @@ func dnevnikProbe(sad time.Time) dnevnikRadova {
 func TestDuznostiUsluga(t *testing.T) {
 	for uloga, zeli := range map[models.Role]string{models.RoleContractOfficerA2: uUgovor, models.RoleContractDeputyA3: uUgovor, models.RoleServiceLeaderForeman: uUsluga} {
 		p := dozvoleUsluge(uloga)
-		if u := ulogaNaslovne(p, sadNaslovne); u != zeli || duznostUsluge(p, sadNaslovne) == nil {
+		if u := ulogaNaslovne(p, sadNaslovne); u != zeli || duznostUsluge(p, kDnevnikRadova, sadNaslovne) == nil {
 			t.Errorf("%s: %s", uloga, u)
 		}
 	}
