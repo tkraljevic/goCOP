@@ -15,7 +15,7 @@ import (
 )
 
 // Naslovna skladištara sredstava za obranu (Odluke (31. 10. 2026.)): traka
-// stanja obrane područja, Za riješiti (godišnji popis), skladište, sredstva
+// stanja obrane područja, Za riješiti (godišnji popis, roba koja stiže), skladište, sredstva
 // na terenu i zadnji promet. Zahtjeva za sredstva, povrata s rokom i
 // najmanje količine u programu još nema, pa ih nema ni na kartici.
 
@@ -73,10 +73,11 @@ func (h *DashboardHandler) karticaSkladistara(r *http.Request, perms *models.Use
 	return h.skladiste(ctx, skladista)
 }
 
-// popisiZaRijesiti: u prosincu skladišta čiji godišnji popis još nije
-// zaključen
+// popisiZaRijesiti: pošiljke koje stižu u skladišta, a u prosincu i
+// skladišta čiji godišnji popis još nije zaključen
 func (h *DashboardHandler) popisiZaRijesiti(ctx context.Context, skladista []models.Skladiste, sad time.Time) KarticaNaslovne {
 	k := glavaKartice(kZaRijesiti)
+	k.Redovi = h.stizeSkladistima(ctx, skladista)
 	godina := sad.In(models.Zagreb).Year()
 	if sad.In(models.Zagreb).Month() < PopisOdMjeseca || h.izvori.PopisiSredstava == nil {
 		skladista = nil

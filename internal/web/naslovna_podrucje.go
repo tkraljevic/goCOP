@@ -432,6 +432,7 @@ type stavkePodrucja struct {
 	Ovjera    []models.VodocuvarskiList
 	Nepredani []models.VodocuvarskiList
 	Prijave   []models.PrijavaSTerena
+	Stize     []RedakKartice // roba na putu prema terenu područja
 }
 
 // zaRijesitiPodrucja: listovi koji čekaju ovjeru, nepredani listovi i
@@ -453,6 +454,7 @@ func (h *DashboardHandler) zaRijesitiPodrucja(ctx context.Context, perms *models
 	if h.izvori.Prijave != nil {
 		s.Prijave, _ = h.izvori.Prijave(ctx, perms, repository.FiltarPrijava{Sektor: sektor, AreaID: area, Status: models.PrijavaObjavljena, Limit: 2000}) // bez prijava redak izostaje
 	}
+	s.Stize = h.stizeNaTeren(ctx, sektor, area)
 	return karticaZaRijesitiPodrucja(area, sektor, s, sad)
 }
 
@@ -474,6 +476,7 @@ func karticaZaRijesitiPodrucja(area int, sektor string, s stavkePodrucja, sad ti
 		k.Redovi = append(k.Redovi, redakListova(s.Nepredani, fmt.Sprintf("%d %s", n, models.UzBrojHR(n, "dnevni list nije predan", "dnevna lista nisu predana", "dnevnih listova nije predano")), knjiga))
 	}
 	k.Redovi = append(k.Redovi, redoviPrijava(s.Prijave, sektor, sad)...)
+	k.Redovi = append(k.Redovi, s.Stize...)
 	k.Broj = len(k.Redovi)
 	if k.Broj == 0 {
 		k.Prazno = &PraznaKartica{Vrsta: PraznoGotovo, Tekst: "Nema ništa za riješiti."}

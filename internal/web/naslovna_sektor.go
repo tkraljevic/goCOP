@@ -103,6 +103,7 @@ func (h *DashboardHandler) zaRijesitiSektora(r *http.Request, perms *models.User
 	if h.izvori.Prijave != nil {
 		s.Prijave, _ = h.izvori.Prijave(ctx, perms, repository.FiltarPrijava{Sektor: sektor, Status: models.PrijavaObjavljena, Limit: 5000}) // bez prijava redak izostaje
 	}
+	s.NaPutu = h.dugoNaPutu(ctx, sektor, sad)
 	return karticaZaRijesiti(s, sad)
 }
 

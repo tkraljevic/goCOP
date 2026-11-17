@@ -171,7 +171,8 @@ func TestIzvoriNaslovne(t *testing.T) {
 		_, e4 := s.prometSredstavaNaslovne(ctx, repository.FiltarPrometa{Limit: 5})
 		_, e5 := s.popisiSredstavaNaslovne(ctx, "B", "sk", 2026)
 		_, e6 := s.vrsteSredstavaNaslovne(ctx)
-		return []error{e1, e2, e3, e4, e5, e6}
+		_, e7 := s.posiljkeNaslovne(ctx, repository.FiltarPosiljki{Sektor: "B"})
+		return []error{e1, e2, e3, e4, e5, e6, e7}
 	}
 	for i, err := range sredstva() {
 		if err == nil {
