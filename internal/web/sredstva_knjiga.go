@@ -47,6 +47,7 @@ type RedakKnjige struct {
 	Redci    []models.Promet // sve količine
 	Oblici   []string        // „prazno → napunjeno”
 	Napomene []string
+	Kamo     string // kartica skladišta: drugo mjesto zahvata
 }
 
 // kljucZahvata je isti ključ kao u bazi: potez i vrijeme upisa

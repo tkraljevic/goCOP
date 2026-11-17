@@ -92,6 +92,7 @@ type MtsPageData struct {
 	ZahvatKnjige     string
 	UkupnoZahvata    int
 	ZahvataNaZaslonu int
+	PotrebeUKartici  []RedakPotrebe
 	VrstaID          string
 
 	// roba na putu (sredstva_na_putu.go): na skladištu što stiže i što je
@@ -310,7 +311,8 @@ func (h *MtsHandler) ShowSkladiste(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	data.Promet, _ = h.svc().Promet(r.Context(), repository.FiltarPrometa{SkladisteID: sk.ID, Limit: 25})
+	h.zadnjiPrometSkladista(r, &data, sk.ID)
+	h.potrebeSkladista(r, &data, sk.ID)
 	data.Popisi, _ = h.svc().Popisi(r.Context(), "", sk.ID, 0)
 	if err := h.naPutuSkladista(r, &data, sk.ID); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

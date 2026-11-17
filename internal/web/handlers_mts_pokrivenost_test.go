@@ -379,7 +379,7 @@ func TestSredstvaPromatracNePise(t *testing.T) {
 		}
 	}
 	mora(t, o.ispis(t, promatracSredstava(), "/sredstva/skladista/"+o.sk.ID), "kartica skladišta",
-		"SmijePisati=false", "SmijeUrediti=false", "Skladiste=Skladište Bilje", "Promet=2;")
+		"SmijePisati=false", "SmijeUrediti=false", "Skladiste=Skladište Bilje", "Knjiga=2/0/0;")
 	if v, err := o.svc.Vrsta(context.Background(), "lopata"); err != nil || v == nil {
 		t.Error("promatrač je obrisao vrstu")
 	}
