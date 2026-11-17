@@ -10814,6 +10814,25 @@ td .odr-sitno { margin-top: 2px; }
 .sr-potvrda { margin-left: 0.5rem; }
 .sr-promet .reg-card-sub { display: block; }
 .sr-promet th.br, .sr-promet td.br { text-align: right; white-space: nowrap; }
+/* Obrazac inventure (crtež 19b, 8a): na mobitelu kartica po vrsti s velikim poljem */
+.sr-napomena-iznad { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; padding: 10px 12px; border-radius: 8px; background: var(--surface-2, var(--bg)); font-size: 0.875rem; }
+.sr-napomena-iznad .icon { width: 20px; height: 20px; flex: none; }
+.sr-inv-okvir { overflow-x: auto; }
+@media (max-width: 599px) {
+  .sr-inv-obrazac thead { display: none; }
+  .sr-inv-obrazac, .sr-inv-obrazac tbody { display: block; }
+  .sr-inv-obrazac tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; padding: 12px; }
+  .sr-inv-obrazac tr:not(.mts-grupa) { margin-bottom: 8px; border: 1px solid var(--border); border-radius: 12px; }
+  .sr-inv-obrazac td { display: block; padding: 0; border: 0; }
+  .sr-inv-obrazac .sr-inv-rbr, .sr-inv-obrazac .sr-inv-jed { display: none; }
+  .sr-inv-obrazac .sr-inv-naziv { grid-column: 1 / -1; }
+  .sr-inv-obrazac .sr-inv-knjizno { grid-column: 1 / -1; text-align: left; color: var(--text-muted); font-size: 0.8125rem; }
+  .sr-inv-obrazac .sr-inv-knjizno::before { content: "knjižno "; }
+  .sr-inv-obrazac .sr-inv-knjizno::after { content: " " attr(data-jed); }
+  .sr-inv-obrazac .sr-inv-broj, .sr-inv-obrazac .sr-inv-nap { grid-column: 1 / -1; }
+  .sr-inv-obrazac .mts-broj { max-width: none; min-height: 48px; font-size: 1.1rem; text-align: left; }
+  .sr-inv-obrazac .sr-inv-broj::before { content: "Prebrojano"; display: block; margin-bottom: 4px; color: var(--text-muted); font-size: 0.75rem; text-align: left; }
+}
 @media (max-width: 599px) {
   .sr-redak-skl { grid-template-columns: 28px minmax(0, 1fr) auto auto 32px; }
   .sr-redak-skl > span:nth-child(5) { order: 5; }

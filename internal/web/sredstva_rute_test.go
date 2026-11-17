@@ -210,7 +210,7 @@ func TestSredstvaKrozRute(t *testing.T) {
 	mora(zovi(http.MethodGet, "/sredstva?sektor=B", nil), http.StatusOK, "pregled sa stanjem", "96 000", "95 000", "1 000")
 
 	// popis: predložak nosi knjižno, spremi se s prebrojanim i potrebama, zaključi
-	mora(zovi(http.MethodGet, "/sredstva/skladista/"+sk+"/popis?dan="+danas, nil), http.StatusOK, "popis predložak", "Inventura na dan", `name="u:vrece-50x80:PRAZNO"`, `value="95000"`)
+	mora(zovi(http.MethodGet, "/sredstva/skladista/"+sk+"/popis?dan="+danas, nil), http.StatusOK, "popis predložak", "Inventura · ", "Prebrojano je unaprijed jednako knjižnom", `name="u:vrece-50x80:PRAZNO"`, `value="95000"`)
 	obrazac := url.Values{"skladiste": {sk}, "dan": {danas}, "u:vrece-50x80:PRAZNO": {"94 990"}, "k:vrece-50x80:PRAZNO": {"95000"},
 		"u:vrece-50x80:PUNJENO": {"1000"}, "k:vrece-50x80:PUNJENO": {"1000"}, "n:vrece-50x80:PRAZNO": {"10 poderanih"}}
 	kamo = odredište(zovi(http.MethodPost, "/sredstva/popisi", obrazac), "spremanje popisa")
