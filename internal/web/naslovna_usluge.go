@@ -50,9 +50,10 @@ func duznostUsluga(u *models.User, sad time.Time) *models.Duty {
 	return nil
 }
 
-// duznostUsluge je dužnost po kojoj se slaže Naslovna dnevnika radova
-func duznostUsluge(perms *models.UserPermissions, sad time.Time) *models.Duty {
-	if ulogaNaslovne(perms, sad) == uUsluga {
+// duznostUsluge je dužnost po kojoj se slaže kartica dnevnika radova:
+// voditelja usluga za njegove kartice, inače ovlaštenika
+func duznostUsluge(perms *models.UserPermissions, id string, sad time.Time) *models.Duty {
+	if ulogaKartice(perms, id, sad) == uUsluga {
 		return duznostUsluga(&perms.User, sad)
 	}
 	return duznostUgovora(&perms.User, sad)
@@ -60,7 +61,7 @@ func duznostUsluge(perms *models.UserPermissions, sad time.Time) *models.Duty {
 
 // karticaUsluga slaže spore kartice ovlaštenika i voditelja usluga
 func (h *DashboardHandler) karticaUsluga(r *http.Request, perms *models.UserPermissions, id string, sad time.Time) KarticaNaslovne {
-	d := duznostUsluge(perms, sad)
+	d := duznostUsluge(perms, id, sad)
 	if d == nil || h.izvori.DnevniciUsluga == nil {
 		return nedostupna(id, "Dnevnik radova trenutačno nije dostupan.")
 	}

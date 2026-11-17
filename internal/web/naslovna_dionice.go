@@ -93,9 +93,6 @@ func (h *DashboardHandler) dioniceOsobe(ctx context.Context, duznosti []models.D
 func (h *DashboardHandler) karticaRukovoditeljaDionice(r *http.Request, perms *models.UserPermissions, id string, sad time.Time) KarticaNaslovne {
 	duznosti := duznostiDionica(&perms.User, sad)
 	ctx := r.Context()
-	if id == kZaRijesiti {
-		return h.zaRijesitiDionica(ctx, perms, duznosti, sad)
-	}
 	if len(duznosti) == 0 || h.izvori.StanjaSektora == nil {
 		return nedostupna(id, "Dionice trenutačno nisu dostupne.")
 	}

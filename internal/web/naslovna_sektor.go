@@ -28,9 +28,9 @@ func duznostSektora(u *models.User, sad time.Time) *models.Duty {
 	return nil
 }
 
-// sektorOsobe je sektor dežurnog ili uprave sektora, po ulozi Naslovne
+// sektorOsobe je sektor uprave sektora, a bez nje sektor dežurnog
 func sektorOsobe(perms *models.UserPermissions, sad time.Time) string {
-	if d := duznostSektora(&perms.User, sad); d != nil && ulogaNaslovne(perms, sad) == uSektor {
+	if d := duznostSektora(&perms.User, sad); d != nil {
 		return *d.SectorID
 	}
 	if d := dezurnaDuznost(&perms.User, sad); d != nil {
