@@ -6,29 +6,38 @@
 {{$sk := .Skladiste}}
 <a href="/sredstva/skladista/{{$sk.ID}}" class="povratna-poveznica">← {{$sk.Naziv}}</a>
 
+{{/* Potrebe skladišta po crtežu 19b (9): skladište ispod naslova, godina kao
+     polje i čipovi, tablica s poljima u kartici, gumbi dolje desno */}}
 <div class="page-header">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "notebook-pen"}} Potrebe za nabavom u {{.Godina}}. — {{$sk.Naziv}}</h1>
-    <p class="page-desc">Što u ovom skladištu treba nabaviti u godini, po vrsti. Upisuje se kad se vidi da nedostaje — poslije obrane,
-      kad se nešto potroši ili pokvari — neovisno o inventuri. U tablicu za Glavni centar ide uz stanje na dan kao „dodatne
-      potrebe za nabavom u godini“.</p>
+    <h1 class="page-title" data-naziv-stranice>Potrebe za nabavom u {{.Godina}}.</h1>
+    <p class="page-desc">{{$sk.Naziv}}{{if $sk.AreaName}} · BP {{$sk.AreaID}} {{$sk.AreaName}}{{end}} · {{term "sektor"}} {{$sk.Sektor}}</p>
+    <p class="page-desc">Što u ovom skladištu treba nabaviti u godini, po vrsti. Upisuje se kad se vidi da nedostaje, poslije obrane,
+      kad se nešto potroši ili pokvari, neovisno o inventuri. U tablicu za Glavni centar ide uz stanje na dan kao „dodatne
+      potrebe za nabavom u godini”.</p>
   </div>
 </div>
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 
-<form method="GET" action="/sredstva/skladista/{{$sk.ID}}/potrebe" class="obracun-filtar">
-  <label for="f-godina">Godina nabave</label>
-  <input type="number" id="f-godina" name="godina" class="form-control max-w-7" value="{{.Godina}}" min="2000" max="2200" onchange="this.form.submit()">
-  {{range .GodinePotreba}}<a href="/sredstva/skladista/{{$sk.ID}}/potrebe?godina={{.}}" class="btn btn-secondary btn-sm">{{.}}</a>{{end}}
+<form method="GET" action="/sredstva/skladista/{{$sk.ID}}/potrebe" class="sr-godina">
+  <div class="form-group">
+    <label class="form-label" for="f-godina">Godina nabave</label>
+    <input type="number" id="f-godina" name="godina" class="form-control mono" value="{{.Godina}}" min="2000" max="2200" onchange="this.form.submit()">
+  </div>
+  {{if .GodinePotreba}}<div class="ocitanja-cipovi" role="group" aria-label="Godine s upisanim potrebama">
+    {{range .GodinePotreba}}<a class="ocitanja-cip" href="/sredstva/skladista/{{$sk.ID}}/potrebe?godina={{.}}" aria-pressed="{{if eq . $.Godina}}true{{else}}false{{end}}">{{if eq . $.Godina}}{{icon "check"}}{{end}}{{.}}.</a>{{end}}
+  </div>{{end}}
 </form>
 
 {{if .SmijePisati}}
-<form method="POST" action="/sredstva/skladista/{{$sk.ID}}/potrebe" class="form-page form-wide">
+<form method="POST" action="/sredstva/skladista/{{$sk.ID}}/potrebe" class="form-page ob-obrazac">
   <input type="hidden" name="godina" value="{{.Godina}}">
-  <div class="table-card"><div class="table-responsive">
-    <table class="data-table mts-popis">
+  <section class="os-kartica" aria-label="Potrebe po vrsti">
+  {{/* vlastiti okvir, a ne table-responsive: na mobitelu kartice slaže CSS, ne opća skripta */}}
+  <div class="sr-inv-okvir">
+    <table class="data-table mts-popis sr-promet sr-inv-obrazac">
       <thead><tr><th>R. br.</th><th>Vrsta sredstva</th><th>Jed.</th><th class="br">Stanje sad</th><th class="br">Potrebno u {{.Godina}}.</th><th>Napomena</th></tr></thead>
       <tbody>
       {{range .PoGrupama}}
@@ -36,29 +45,32 @@
       {{range .Redci}}
       {{$p := $.Potreba .Vrsta.ID}}
       <tr>
-        <td class="mono">{{.Vrsta.Redoslijed}}.</td>
-        <td>{{.Vrsta.Naziv}}</td>
-        <td>{{.Vrsta.Jedinica}}</td>
-        <td class="mono br">{{if .Ukupno}}{{kolicina .Ukupno}}{{end}}</td>
-        <td class="br"><input type="text" name="pt:{{.Vrsta.ID}}" class="form-control mono mts-broj" inputmode="decimal"{{if index $.Neispravno (printf "pt:%s" .Vrsta.ID)}} aria-invalid="true"{{end}} value="{{if $.VratiUpisano}}{{index $.Upisano (printf "pt:%s" .Vrsta.ID)}}{{else if $p.Kolicina}}{{kolicinaPlain $p.Kolicina}}{{end}}"></td>
-        <td><input type="text" name="pn:{{.Vrsta.ID}}" class="form-control" value="{{if $.VratiUpisano}}{{index $.Upisano (printf "pn:%s" .Vrsta.ID)}}{{else}}{{$p.Napomena}}{{end}}" placeholder="zašto, kada"></td>
+        <td class="mono sr-inv-rbr">{{.Vrsta.Redoslijed}}.</td>
+        <td class="sr-inv-naziv">{{.Vrsta.Naziv}}</td>
+        <td class="sr-inv-jed">{{.Vrsta.Jedinica}}</td>
+        <td class="mono br sr-inv-knjizno" data-oznaka="stanje sad" data-jed="{{.Vrsta.Jedinica}}">{{if .Ukupno}}{{kolicina .Ukupno}}{{end}}</td>
+        <td class="br sr-inv-broj" data-oznaka="Potrebno u {{$.Godina}}."><input type="text" name="pt:{{.Vrsta.ID}}" aria-label="Potrebno: {{.Vrsta.Naziv}}" class="form-control mono mts-broj" inputmode="decimal"{{if index $.Neispravno (printf "pt:%s" .Vrsta.ID)}} aria-invalid="true"{{end}} value="{{if $.VratiUpisano}}{{index $.Upisano (printf "pt:%s" .Vrsta.ID)}}{{else if $p.Kolicina}}{{kolicinaPlain $p.Kolicina}}{{end}}"></td>
+        <td class="sr-inv-nap"><input type="text" name="pn:{{.Vrsta.ID}}" class="form-control" aria-label="Napomena: {{.Vrsta.Naziv}}" value="{{if $.VratiUpisano}}{{index $.Upisano (printf "pn:%s" .Vrsta.ID)}}{{else}}{{$p.Napomena}}{{end}}" placeholder="zašto, kada"></td>
       </tr>
       {{end}}
       {{end}}
       </tbody>
     </table>
-  </div></div>
-  <div class="form-actions">
-    <button type="submit" class="btn btn-primary">{{icon "check"}} Upiši potrebe</button>
-    <a href="/sredstva/skladista/{{$sk.ID}}" class="btn btn-secondary">Natrag na skladište</a>
+  </div>
+  </section>
+  <div class="form-actions ob-radnje">
+    <a href="/sredstva/skladista/{{$sk.ID}}" class="btn btn-link">Natrag na skladište</a>
+    <button type="submit" class="btn btn-primary">Upiši potrebe</button>
   </div>
 </form>
 {{else}}
-<div class="table-card"><div class="table-responsive">
-  <table class="data-table mts-popis">
+<section class="os-kartica" aria-label="Potrebe po vrsti">
+<div class="table-responsive">
+  <table class="data-table mts-popis sr-promet">
     <thead><tr><th>Vrsta sredstva</th><th>Jed.</th><th class="br">Potrebno u {{.Godina}}.</th><th>Napomena</th><th>Upisao</th></tr></thead>
     <tbody>{{range .Stanje}}{{$p := $.Potreba .Vrsta.ID}}{{if $p.Kolicina}}<tr><td>{{.Vrsta.Naziv}}</td><td>{{.Vrsta.Jedinica}}</td><td class="mono br">{{kolicina $p.Kolicina}}</td><td>{{$p.Napomena}}</td><td>{{$p.UserName}}</td></tr>{{end}}{{end}}</tbody>
   </table>
-</div></div>
+</div>
+</section>
 {{end}}
 {{end}}

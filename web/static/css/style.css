@@ -10827,11 +10827,12 @@ td .odr-sitno { margin-top: 2px; }
   .sr-inv-obrazac .sr-inv-rbr, .sr-inv-obrazac .sr-inv-jed { display: none; }
   .sr-inv-obrazac .sr-inv-naziv { grid-column: 1 / -1; }
   .sr-inv-obrazac .sr-inv-knjizno { grid-column: 1 / -1; text-align: left; color: var(--text-muted); font-size: 0.8125rem; }
-  .sr-inv-obrazac .sr-inv-knjizno::before { content: "knjižno "; }
+  .sr-inv-obrazac .sr-inv-knjizno::before { content: attr(data-oznaka) " "; }
   .sr-inv-obrazac .sr-inv-knjizno::after { content: " " attr(data-jed); }
+  .sr-inv-obrazac .sr-inv-knjizno:empty { display: none; }
   .sr-inv-obrazac .sr-inv-broj, .sr-inv-obrazac .sr-inv-nap { grid-column: 1 / -1; }
   .sr-inv-obrazac .mts-broj { max-width: none; min-height: 48px; font-size: 1.1rem; text-align: left; }
-  .sr-inv-obrazac .sr-inv-broj::before { content: "Prebrojano"; display: block; margin-bottom: 4px; color: var(--text-muted); font-size: 0.75rem; text-align: left; }
+  .sr-inv-obrazac .sr-inv-broj::before { content: attr(data-oznaka); display: block; margin-bottom: 4px; color: var(--text-muted); font-size: 0.75rem; text-align: left; }
 }
 @media (max-width: 599px) {
   .sr-redak-skl { grid-template-columns: 28px minmax(0, 1fr) auto auto 32px; }
