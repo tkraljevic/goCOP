@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -496,6 +497,7 @@ type FiltarPrometa struct {
 	JournalID   string
 	VezaID      string
 	Zahvat      string // vrsta prometa (Promet*)
+	Veze        []string // redci ovih poteza
 	Od, Do      *time.Time
 	Limit       int
 	// Zahvata ograničava knjigu na toliko najnovijih zahvata; redci jednog
@@ -525,6 +527,12 @@ func uvjetiPrometa(f FiltarPrometa) (string, []any) {
 		if u.v != "" {
 			q += u.sql
 			args = append(args, u.v)
+		}
+	}
+	if len(f.Veze) > 0 {
+		q += ` AND p.veza_id IN (?` + strings.Repeat(`, ?`, len(f.Veze)-1) + `)`
+		for _, v := range f.Veze {
+			args = append(args, v)
 		}
 	}
 	if f.Od != nil {

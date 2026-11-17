@@ -269,6 +269,7 @@ func TestListPrometIStanjePoFiltrima(t *testing.T) {
 		"zahvat":    {FiltarPrometa{Zahvat: models.PrometIzdano}, 2},
 		"zahvata":   {FiltarPrometa{Zahvata: 2}, 3},
 		"zahvat B":  {FiltarPrometa{Zahvata: 1, Sektor: "B"}, 2},
+		"potezi":    {FiltarPrometa{Veze: []string{"potez-1", "nema"}}, 2},
 	} {
 		redci, err := repo.ListPromet(ctxRaz, slucaj.f)
 		nuzno(t, err)

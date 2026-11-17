@@ -89,26 +89,31 @@
     </section>
 
     <section class="os-kartica" aria-labelledby="sr-potrebe-naslov">
-      <div class="os-kartica-glava"><h2 id="sr-potrebe-naslov">Potrebe za nabavom</h2><a href="/sredstva/skladista/{{$sk.ID}}/potrebe" class="btn btn-link">{{if .SmijePisati}}Uredi{{else}}Otvori{{end}}</a></div>
-      <p class="sr-opis">Što ovo skladište treba nabaviti u godini, po vrsti.</p>
+      <div class="os-kartica-glava"><h2 id="sr-potrebe-naslov">Potrebe za nabavom u {{.Godina}}.</h2><a href="/sredstva/skladista/{{$sk.ID}}/potrebe" class="btn btn-link">{{if .SmijePisati}}Uredi{{else}}Otvori{{end}}</a></div>
+      {{range .PotrebeUKartici}}
+      <div class="dez-plan sr-potreba"><span>{{.Naziv}}{{if .Napomena}}<small>{{.Napomena}}</small>{{end}}</span><span class="mono">{{kolicina .Kolicina}} {{.Jedinica}}</span></div>
+      {{else}}
+      <p class="sr-opis">Za {{.Godina}}. još nije upisana nijedna potreba.</p>
+      {{end}}
     </section>
   </div>
 </div>
 
 <section class="os-kartica" aria-labelledby="sr-promet-naslov">
   <div class="os-kartica-glava"><h2 id="sr-promet-naslov">Zadnji promet</h2><a href="/sredstva/promet?sektor={{$sk.Sektor}}&skladiste={{$sk.ID}}" class="btn btn-link">Cijela knjiga</a></div>
-  {{if .Promet}}
+  {{if .Knjiga}}
   <div class="table-responsive tablica-kartice">
     <table class="data-table sr-promet">
-      <thead><tr><th>Datum</th><th>Zahvat</th><th>Sredstvo</th><th class="br">Količina</th><th>Nalog · osoba · dokument</th><th>Upisao</th><th aria-label="Potvrda"></th></tr></thead>
+      <thead><tr><th>Datum</th><th>Zahvat</th><th>Sredstvo</th><th class="br">Količina</th><th>Kamo ili odakle</th><th>Nalog · osoba · dokument</th><th>Upisao</th><th aria-label="Potvrda"></th></tr></thead>
       <tbody>
-      {{range .Promet}}
+      {{range .Knjiga}}
       <tr>
         <td data-stupac="Datum" class="mono">{{.Datum.Format "2.1.2006."}}</td>
         <td data-stupac="Zahvat">{{promet .Vrsta}}</td>
-        <td data-stupac="Sredstvo">{{.VrstaNaziv}}{{if .Oblik}} <span class="reg-card-sub">{{oblik .Oblik}}</span>{{end}}</td>
-        <td data-stupac="Količina" class="mono br {{if lt .Kolicina 0.0}}mts-minus{{else}}mts-plus{{end}}">{{kolicinaZnak .Kolicina}} {{.Jedinica}}</td>
-        <td data-stupac="Nalog">{{if .Nalozio}}nalog: {{.Nalozio}}{{end}}{{if .Preuzeo}}{{if .Nalozio}} · {{end}}{{strana .Vrsta}}: {{.Preuzeo}}{{end}}{{if .Dokument}} · {{.Dokument}}{{end}}{{if not .SkladisteID}} · {{.MjestoNaziv}}{{end}}{{if .Napomena}}<span class="reg-card-sub sr-napomena">{{.Napomena}}</span>{{end}}</td>
+        <td data-stupac="Sredstvo">{{.VrstaNaziv}}{{if .Oblici}} <span class="reg-card-sub">{{range $j, $o := .Oblici}}{{if $j}} → {{end}}{{oblik $o}}{{end}}</span>{{end}}</td>
+        <td data-stupac="Količina" class="mono br"><span class="sr-niz">{{range .Redci}}<span class="{{if lt .Kolicina 0.0}}mts-minus{{else}}mts-plus{{end}}">{{kolicinaZnak .Kolicina}} {{.Jedinica}}</span>{{end}}</span></td>
+        <td data-stupac="Kamo ili odakle">{{.Kamo}}</td>
+        <td data-stupac="Nalog"><span class="sr-niz">{{if .Nalozio}}nalog: {{.Nalozio}}{{end}}{{if .Preuzeo}}{{if .Nalozio}} · {{end}}{{strana .Vrsta}}: {{.Preuzeo}}{{end}}{{if .Dokument}}{{if or .Nalozio .Preuzeo}} · {{end}}{{.Dokument}}{{end}}{{range .Napomene}}<span class="reg-card-sub sr-napomena">{{.}}</span>{{end}}</span></td>
         <td data-stupac="Upisao">{{.UserName}}<span class="reg-card-sub">{{.CreatedAt.Format "2.1.2006. 15:04"}}</span></td>
         <td data-stupac="Potvrda">{{if .VezaID}}<a href="/sredstva/promet/{{.VezaID}}/potvrda.pdf" target="_blank" class="sr-plus" title="Potvrda / otpremnica za ispis" aria-label="Potvrda / otpremnica za ispis">{{icon "printer"}}</a>{{end}}</td>
       </tr>
