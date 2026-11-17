@@ -166,6 +166,11 @@ func InitSchema(database *sql.DB) error {
 			section_code TEXT NOT NULL DEFAULT '',
 			structure_id TEXT NOT NULL DEFAULT '',
 			mjesto TEXT NOT NULL DEFAULT '',
+			prema_skladiste_id TEXT NOT NULL DEFAULT '',
+			prema_area_id INTEGER NOT NULL DEFAULT 0,
+			prema_section_code TEXT NOT NULL DEFAULT '',
+			prema_structure_id TEXT NOT NULL DEFAULT '',
+			prema_mjesto TEXT NOT NULL DEFAULT '',
 			veza_id TEXT NOT NULL DEFAULT '',
 			journal_id TEXT NOT NULL DEFAULT '',
 			popis_id TEXT NOT NULL DEFAULT '',
@@ -1654,6 +1659,11 @@ func migrateSchema(database *sql.DB) error {
 		{"mts_promet", "area_id", "INTEGER NOT NULL DEFAULT 0"},
 		{"mts_promet", "structure_id", "TEXT NOT NULL DEFAULT ''"},
 		{"mts_promet", "mjesto", "TEXT NOT NULL DEFAULT ''"},
+		{"mts_promet", "prema_skladiste_id", "TEXT NOT NULL DEFAULT ''"},
+		{"mts_promet", "prema_area_id", "INTEGER NOT NULL DEFAULT 0"},
+		{"mts_promet", "prema_section_code", "TEXT NOT NULL DEFAULT ''"},
+		{"mts_promet", "prema_structure_id", "TEXT NOT NULL DEFAULT ''"},
+		{"mts_promet", "prema_mjesto", "TEXT NOT NULL DEFAULT ''"},
 		{"users", "last_login_at", "DATETIME"},
 		{"sessions", "viewing_as", "TEXT"},
 		// Otisak sažetka lozinke s kojim je sesija otvorena: kad lozinka
@@ -2010,6 +2020,8 @@ func migrateSchema(database *sql.DB) error {
 	for _, stmt := range []string{
 		`CREATE INDEX IF NOT EXISTS idx_versions_channel ON record_versions(node_id, channel, version_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_readings_channel ON readings(channel)`,
+		// roba na putu: slanja koja čekaju zaprimanje (Odluke 16. 11. 2026., Na putu)
+		`CREATE INDEX IF NOT EXISTS idx_mts_promet_prema ON mts_promet(prema_skladiste_id, prema_area_id) WHERE kolicina < 0`,
 	} {
 		if _, err := database.Exec(stmt); err != nil {
 			return fmt.Errorf("greška pri kazalu kanala: %w", err)

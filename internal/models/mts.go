@@ -226,6 +226,16 @@ type Promet struct {
 	StructureID string `json:"structure_id,omitempty"`
 	Mjesto      string `json:"mjesto,omitempty"`
 
+	// Odredište poteza koji ide na put (Odluke 16. 11. 2026., Na putu): redak
+	// slanja nosi kamo roba ide, a redak s plusom na odredištu nastaje tek
+	// zaprimanjem, s istim VezaID. Bez odredišta potez je upisan odjednom:
+	// stari prijenosi, izdavanja i povrati smatraju se zaprimljenima.
+	PremaSkladisteID string `json:"prema_skladiste_id,omitempty"`
+	PremaAreaID      int    `json:"prema_area_id,omitempty"`
+	PremaSectionCode string `json:"prema_section_code,omitempty"`
+	PremaStructureID string `json:"prema_structure_id,omitempty"`
+	PremaMjesto      string `json:"prema_mjesto,omitempty"`
+
 	VezaID    string `json:"veza_id,omitempty"`    // redci jednog poteza: prijenos, punjenje, izdavanje
 	JournalID string `json:"journal_id,omitempty"` // obrana uz koju promet stoji
 	PopisID   string `json:"popis_id,omitempty"`   // godišnji popis koji je usklađenje napravio
@@ -251,6 +261,31 @@ type Promet struct {
 	AreaName       string `json:"-"`
 	StructureName  string `json:"-"`
 }
+
+// IdeNaPut javlja je li redak slanje koje čeka zaprimanje na odredištu
+func (p Promet) IdeNaPut() bool {
+	return p.Kolicina < 0 && (p.PremaSkladisteID != "" || p.PremaAreaID > 0)
+}
+
+// PremaTerenu je mjesto na terenu kamo slanje ide; prazno kad ide u skladište
+func (p Promet) PremaTerenu() MjestoTerena {
+	return MjestoTerena{AreaID: p.PremaAreaID, SectionCode: p.PremaSectionCode, StructureID: p.PremaStructureID, Mjesto: p.PremaMjesto}
+}
+
+// Posiljka je roba na putu: redak slanja i koliko je od njega zaprimljeno
+// ili otpisano kao manjak pri prijevozu
+type Posiljka struct {
+	Slanje      Promet
+	Zaprimljeno float64
+
+	// Izvedeno pri čitanju: odredište za prikaz
+	PremaSkladisteNaziv string
+	PremaSektor         string // sektor odredišnog skladišta; za teren sektor skladišta koje je poslalo
+	PremaAreaName       string
+}
+
+// NaPutu je količina koja još nije stigla
+func (p Posiljka) NaPutu() float64 { return -p.Slanje.Kolicina - p.Zaprimljeno }
 
 // MjestoTerena je mjesto na terenu kako ga promet nosi; isti skup polja
 // znači isto mjesto, pa se po njemu zbraja što je gdje

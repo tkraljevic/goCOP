@@ -92,32 +92,39 @@ func scanSkladiste(row interface{ Scan(...any) error }) (models.Skladiste, error
 }
 
 const prometUpsert = `INSERT INTO mts_promet (id, datum, vrsta_id, oblik, kolicina, vrsta, sektor, skladiste_id, area_id, section_code, structure_id, mjesto, veza_id, journal_id,
-	popis_id, nalozio, preuzeo, dokument, user_id, user_name, napomena, created_at, updated_at)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	popis_id, nalozio, preuzeo, dokument, user_id, user_name, napomena, created_at, updated_at,
+	prema_skladiste_id, prema_area_id, prema_section_code, prema_structure_id, prema_mjesto)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(id) DO UPDATE SET datum = excluded.datum, vrsta_id = excluded.vrsta_id, oblik = excluded.oblik, kolicina = excluded.kolicina,
 		vrsta = excluded.vrsta, sektor = excluded.sektor, skladiste_id = excluded.skladiste_id, area_id = excluded.area_id, section_code = excluded.section_code,
 		structure_id = excluded.structure_id, mjesto = excluded.mjesto, veza_id = excluded.veza_id,
 		journal_id = excluded.journal_id, popis_id = excluded.popis_id, nalozio = excluded.nalozio, preuzeo = excluded.preuzeo,
 		dokument = excluded.dokument, user_id = excluded.user_id, user_name = excluded.user_name, napomena = excluded.napomena,
-		created_at = excluded.created_at, updated_at = excluded.updated_at`
+		created_at = excluded.created_at, updated_at = excluded.updated_at,
+		prema_skladiste_id = excluded.prema_skladiste_id, prema_area_id = excluded.prema_area_id, prema_section_code = excluded.prema_section_code,
+		prema_structure_id = excluded.prema_structure_id, prema_mjesto = excluded.prema_mjesto`
 
 func prometArgs(p *models.Promet) []any {
 	return []any{p.ID, dayKey(p.Datum), p.VrstaID, p.Oblik, p.Kolicina, p.Vrsta, p.Sektor, p.SkladisteID, p.AreaID, p.SectionCode, p.StructureID, p.Mjesto, p.VezaID, p.JournalID,
-		p.PopisID, p.Nalozio, p.Preuzeo, p.Dokument, p.UserID, p.UserName, p.Napomena, p.CreatedAt.UTC(), p.UpdatedAt.UTC()}
+		p.PopisID, p.Nalozio, p.Preuzeo, p.Dokument, p.UserID, p.UserName, p.Napomena, p.CreatedAt.UTC(), p.UpdatedAt.UTC(),
+		p.PremaSkladisteID, p.PremaAreaID, p.PremaSectionCode, p.PremaStructureID, p.PremaMjesto}
 }
 
 const prometColumns = `p.id, p.datum, p.vrsta_id, p.oblik, p.kolicina, p.vrsta, p.sektor, p.skladiste_id, p.area_id, p.section_code, p.structure_id, p.mjesto, p.veza_id, p.journal_id,
 	p.popis_id, p.nalozio, p.preuzeo, p.dokument, p.user_id, p.user_name, p.napomena, p.created_at, p.updated_at,
+	p.prema_skladiste_id, p.prema_area_id, p.prema_section_code, p.prema_structure_id, p.prema_mjesto,
 	COALESCE(v.naziv, ''), COALESCE(v.jedinica, ''), COALESCE(s.naziv, ''), COALESCE(a.name, ''), COALESCE(st.name, '')`
 const prometFrom = ` FROM mts_promet p LEFT JOIN mts_vrste v ON v.id = p.vrsta_id LEFT JOIN mts_skladista s ON s.id = p.skladiste_id
 	LEFT JOIN areas a ON a.id = p.area_id LEFT JOIN structures st ON st.id = p.structure_id`
 
-func scanPromet(row interface{ Scan(...any) error }) (models.Promet, error) {
+// scanPromet čita redak prometColumns; dodatno su stupci iza njih, kad ih upit ima
+func scanPromet(row interface{ Scan(...any) error }, dodatno ...any) (models.Promet, error) {
 	var p models.Promet
 	var datum string
-	err := row.Scan(&p.ID, &datum, &p.VrstaID, &p.Oblik, &p.Kolicina, &p.Vrsta, &p.Sektor, &p.SkladisteID, &p.AreaID, &p.SectionCode, &p.StructureID, &p.Mjesto, &p.VezaID, &p.JournalID,
+	err := row.Scan(append([]any{&p.ID, &datum, &p.VrstaID, &p.Oblik, &p.Kolicina, &p.Vrsta, &p.Sektor, &p.SkladisteID, &p.AreaID, &p.SectionCode, &p.StructureID, &p.Mjesto, &p.VezaID, &p.JournalID,
 		&p.PopisID, &p.Nalozio, &p.Preuzeo, &p.Dokument, &p.UserID, &p.UserName, &p.Napomena, &p.CreatedAt, &p.UpdatedAt,
-		&p.VrstaNaziv, &p.Jedinica, &p.SkladisteNaziv, &p.AreaName, &p.StructureName)
+		&p.PremaSkladisteID, &p.PremaAreaID, &p.PremaSectionCode, &p.PremaStructureID, &p.PremaMjesto,
+		&p.VrstaNaziv, &p.Jedinica, &p.SkladisteNaziv, &p.AreaName, &p.StructureName}, dodatno...)...)
 	p.Datum = parseDay(datum)
 	return p, err
 }
@@ -420,6 +427,61 @@ func (r *MtsRepository) IzvorPoteza(ctx context.Context, veza string) (sektor, s
 		return "", "", nil
 	}
 	return sektor, skladisteID, err
+}
+
+// FiltarPosiljki sužava robu na putu; prazna polja ne sužavaju
+type FiltarPosiljki struct {
+	VezaID           string // jedna pošiljka
+	SkladisteID      string // poslano iz skladišta
+	PremaSkladisteID string // stiže u skladište
+	PremaAreaID      int    // stiže na teren u branjeno područje
+	Sektor           string // poslao ili prima sektor
+}
+
+// zaprimljenoSQL zbraja retke s plusom istog poteza: zaprimanja i manjak pri prijevozu
+const zaprimljenoSQL = `COALESCE((SELECT SUM(z.kolicina) FROM mts_promet z WHERE z.veza_id = p.veza_id AND z.veza_id <> '' AND z.kolicina > 0), 0)`
+
+// ListPosiljke vraća robu na putu: slanja kojima nije sve zaprimljeno, najstarija prva
+func (r *MtsRepository) ListPosiljke(ctx context.Context, f FiltarPosiljki) ([]models.Posiljka, error) {
+	q := `SELECT ` + prometColumns + `, ` + zaprimljenoSQL + `, COALESCE(ps.naziv, ''), COALESCE(ps.sektor, p.sektor), COALESCE(pa.name, '')` + prometFrom +
+		` LEFT JOIN mts_skladista ps ON ps.id = p.prema_skladiste_id LEFT JOIN areas pa ON pa.id = p.prema_area_id
+		WHERE p.kolicina < 0 AND (p.prema_skladiste_id <> '' OR p.prema_area_id > 0) AND -p.kolicina - ` + zaprimljenoSQL + ` > 1e-9`
+	var args []any
+	for _, uvjet := range []struct {
+		sql        string
+		vrijednost any
+		ima        bool
+	}{
+		{` AND p.veza_id = ?`, f.VezaID, f.VezaID != ""},
+		{` AND p.skladiste_id = ?`, f.SkladisteID, f.SkladisteID != ""},
+		{` AND p.prema_skladiste_id = ?`, f.PremaSkladisteID, f.PremaSkladisteID != ""},
+		{` AND p.prema_area_id = ?`, f.PremaAreaID, f.PremaAreaID > 0},
+	} {
+		if uvjet.ima {
+			q += uvjet.sql
+			args = append(args, uvjet.vrijednost)
+		}
+	}
+	if f.Sektor != "" {
+		q += ` AND (p.sektor = ? OR ps.sektor = ?)`
+		args = append(args, f.Sektor, f.Sektor)
+	}
+	q += ` ORDER BY p.datum, p.created_at`
+	rows, err := r.db.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []models.Posiljka
+	for rows.Next() {
+		var po models.Posiljka
+		var err error
+		if po.Slanje, err = scanPromet(rows, &po.Zaprimljeno, &po.PremaSkladisteNaziv, &po.PremaSektor, &po.PremaAreaName); err != nil {
+			return nil, err
+		}
+		out = append(out, po)
+	}
+	return out, rows.Err()
 }
 
 // FiltarPrometa sužava knjigu prometa; prazna polja ne sužavaju
