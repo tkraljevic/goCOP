@@ -41,6 +41,19 @@ func (d DosegKartice) Opis() string {
 	return ""
 }
 
+// Kratko je oznaka na čipu kartice: R (ovo računalo), M (mreža) ili R+M
+func (d DosegKartice) Kratko() string {
+	switch d {
+	case DosegRacunalo:
+		return "R"
+	case DosegMreza:
+		return "M"
+	case DosegOboje:
+		return "R+M"
+	}
+	return ""
+}
+
 // pravaKartice su prava i vidljivi moduli onoga tko gleda stranicu
 type pravaKartice struct {
 	perms  *models.UserPermissions
@@ -144,6 +157,29 @@ func rasporedKartica(p pravaKartice, prviKoraci bool) (vidi, skupine map[string]
 type KorakUstroja struct {
 	Naslov, Href, Opis string
 	Zna, Gotov         bool
+}
+
+// NapredakKoraka je traka napretka Prvih koraka: gotovi od onih koje
+// program zna provjeriti; „pogledajte sami” se ne broji
+type NapredakKoraka struct {
+	Gotovo, Ukupno, Postotak int
+}
+
+// napredakKoraka broji gotove korake od onih koje program zna provjeriti
+func napredakKoraka(koraci []KorakUstroja) (n NapredakKoraka) {
+	for _, k := range koraci {
+		if !k.Zna {
+			continue
+		}
+		n.Ukupno++
+		if k.Gotov {
+			n.Gotovo++
+		}
+	}
+	if n.Ukupno > 0 {
+		n.Postotak = n.Gotovo * 100 / n.Ukupno
+	}
+	return n
 }
 
 // stanjeUstroja je ono što je za Prve korake pročitano iz postojećih

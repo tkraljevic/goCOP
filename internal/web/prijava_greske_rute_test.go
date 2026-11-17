@@ -470,7 +470,7 @@ func TestKarticaPrijavaGresaka(t *testing.T) {
 	o := novaOkolinaAdministracije(t)
 	o.h.prijaveNove = func(context.Context) int { return 3 }
 	html := o.prikazi(t, &models.UserPermissions{User: models.User{FullName: "Ivo Ivić"}, IsGlobalAdmin: true}, samoModulAdm)
-	if !strings.Contains(html, `href="/administracija/prijave-gresaka"`) || !strings.Contains(html, "3 NOVE") {
+	if !strings.Contains(html, `href="/administracija/prijave-gresaka"`) || !strings.Contains(html, "3 nove") {
 		t.Error("administrator ne vidi karticu s brojem novih")
 	}
 	html = o.prikazi(t, &models.UserPermissions{User: models.User{FullName: "Ana Anić"}}, samoModulAdm)
