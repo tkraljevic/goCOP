@@ -514,3 +514,16 @@ func TestMtsZatvorenaBaza(t *testing.T) {
 		t.Errorf("prazan promet: %v", err)
 	}
 }
+
+// Kratko ime skladišta sprema se i čita s ostalim podacima.
+func TestKratkoImeSkladistaUBazi(t *testing.T) {
+	n := noviCvor(t, "ured")
+	repo := NewMtsRepository(n.db, n.rec)
+	sk := &models.Skladiste{Sektor: "B", AreaID: 17, Naziv: "Skladište obrane od poplava D. Miholjac", KratkoIme: "D. Miholjac", Aktivno: true}
+	nuzno(t, repo.SaveSkladiste(ctxRaz, sk))
+	procitano, err := repo.GetSkladiste(ctxRaz, sk.ID)
+	nuzno(t, err)
+	if procitano == nil || procitano.KratkoIme != "D. Miholjac" {
+		t.Errorf("kratko ime iz baze: %+v", procitano)
+	}
+}

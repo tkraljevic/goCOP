@@ -757,6 +757,11 @@ func TestPotrebeZaNabavom(t *testing.T) {
 		t.Fatal(err)
 	}
 	d := MtsPageData{PotrebeSektora: potrebe, Skladista: []models.Skladiste{{ID: "drugo", Naziv: "Drugo"}, *o.sk}}
+	kratko := *o.sk
+	kratko.KratkoIme = "Bilje"
+	if po := (MtsPageData{PotrebeSektora: potrebe, Skladista: []models.Skladiste{kratko}}).PoSkladistima("lopata"); len(po) != 1 || po[0].Skladiste != "Bilje" {
+		t.Errorf("potrebe s kratkim imenom: %+v", po)
+	}
 	po := d.PoSkladistima("lopata")
 	if len(po) != 1 || po[0].Skladiste != o.sk.Naziv || po[0].Kolicina != 20 || d.UkupnoPotreba("lopata") != 20 || d.PoSkladistima("vreca") != nil {
 		t.Errorf("potrebe sektora: %+v", potrebe)

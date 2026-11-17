@@ -392,7 +392,7 @@ func (h *MtsHandler) HandleSaveSkladiste(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	f := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
-	sk := &models.Skladiste{ID: r.PathValue("id"), Sektor: f("sektor"), Naziv: f("naziv"), Adresa: f("adresa"),
+	sk := &models.Skladiste{ID: r.PathValue("id"), Sektor: f("sektor"), Naziv: f("naziv"), KratkoIme: f("kratko_ime"), Adresa: f("adresa"),
 		StructureID: f("structure_id"), ContractorID: f("contractor_id"), Centralno: r.FormValue("centralno") == "1",
 		Aktivno: r.FormValue("aktivno") != "0", Napomena: f("napomena")}
 	sk.AreaID, _ = strconv.Atoi(f("area_id"))
@@ -1085,7 +1085,7 @@ func (d MtsPageData) PoSkladistima(vrstaID string) []PotrebaUSkladistu {
 	for _, sk := range d.Skladista {
 		for _, p := range d.PotrebeSektora {
 			if p.SkladisteID == sk.ID && p.VrstaID == vrstaID && p.Kolicina != 0 {
-				out = append(out, PotrebaUSkladistu{Skladiste: sk.Naziv, Kolicina: p.Kolicina})
+				out = append(out, PotrebaUSkladistu{Skladiste: sk.Kratko(), Kolicina: p.Kolicina})
 			}
 		}
 	}

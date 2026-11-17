@@ -143,6 +143,7 @@ func InitSchema(database *sql.DB) error {
 			sektor TEXT NOT NULL,
 			area_id INTEGER NOT NULL DEFAULT 0,
 			naziv TEXT NOT NULL,
+			kratko_ime TEXT NOT NULL DEFAULT '',
 			adresa TEXT NOT NULL DEFAULT '',
 			structure_id TEXT NOT NULL DEFAULT '',
 			contractor_id TEXT NOT NULL DEFAULT '',
@@ -1664,6 +1665,7 @@ func migrateSchema(database *sql.DB) error {
 		{"mts_promet", "prema_section_code", "TEXT NOT NULL DEFAULT ''"},
 		{"mts_promet", "prema_structure_id", "TEXT NOT NULL DEFAULT ''"},
 		{"mts_promet", "prema_mjesto", "TEXT NOT NULL DEFAULT ''"},
+		{"mts_skladista", "kratko_ime", "TEXT NOT NULL DEFAULT ''"},
 		{"users", "last_login_at", "DATETIME"},
 		{"sessions", "viewing_as", "TEXT"},
 		// Otisak sažetka lozinke s kojim je sesija otvorena: kad lozinka

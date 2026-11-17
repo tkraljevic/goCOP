@@ -128,7 +128,7 @@ func (s *MtsService) Skladiste(ctx context.Context, id string) (*models.Skladist
 
 // SpremiSkladiste upisuje skladište; naziv, sektor i područje su obvezni
 func (s *MtsService) SpremiSkladiste(ctx context.Context, perms *models.UserPermissions, sk *models.Skladiste) error {
-	sk.Naziv = strings.TrimSpace(sk.Naziv)
+	sk.Naziv, sk.KratkoIme = strings.TrimSpace(sk.Naziv), strings.TrimSpace(sk.KratkoIme)
 	if sk.Naziv == "" {
 		return errors.New("Skladište mora imati naziv.")
 	}

@@ -63,7 +63,7 @@ func KnjigaPotreba(sektor string, godina int, vrste []models.VrstaSredstva, skla
 	stupac := map[string]int{}
 	for i, sk := range skl {
 		l.Sirine = append(l.Sirine, 14)
-		glava = append(glava, B(sk.Naziv, xlsxw.Zaglavlje))
+		glava = append(glava, B(sk.Kratko(), xlsxw.Zaglavlje))
 		stupac[sk.ID] = 4 + i
 	}
 	zaglavljeLista(l, z, fmt.Sprintf("POTREBE ZA NABAVOM SREDSTAVA U %d.", godina), models.Terms().Sector+" "+sektor, stupaca)

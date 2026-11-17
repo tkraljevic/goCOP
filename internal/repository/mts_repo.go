@@ -59,9 +59,9 @@ func scanVrsta(row interface{ Scan(...any) error }) (models.VrstaSredstva, error
 	return v, nil
 }
 
-const skladisteUpsert = `INSERT INTO mts_skladista (id, sektor, area_id, naziv, adresa, structure_id, contractor_id, centralno, aktivno, napomena, created_at, updated_at)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	ON CONFLICT(id) DO UPDATE SET sektor = excluded.sektor, area_id = excluded.area_id, naziv = excluded.naziv, adresa = excluded.adresa,
+const skladisteUpsert = `INSERT INTO mts_skladista (id, sektor, area_id, naziv, adresa, structure_id, contractor_id, centralno, aktivno, napomena, created_at, updated_at, kratko_ime)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	ON CONFLICT(id) DO UPDATE SET sektor = excluded.sektor, area_id = excluded.area_id, naziv = excluded.naziv, adresa = excluded.adresa, kratko_ime = excluded.kratko_ime,
 		structure_id = excluded.structure_id, contractor_id = excluded.contractor_id, centralno = excluded.centralno,
 		aktivno = excluded.aktivno, napomena = excluded.napomena, created_at = excluded.created_at, updated_at = excluded.updated_at`
 
@@ -73,11 +73,11 @@ func skladisteArgs(s *models.Skladiste) []any {
 	if s.Aktivno {
 		a = 1
 	}
-	return []any{s.ID, s.Sektor, s.AreaID, s.Naziv, s.Adresa, s.StructureID, s.ContractorID, c, a, s.Napomena, s.CreatedAt.UTC(), s.UpdatedAt.UTC()}
+	return []any{s.ID, s.Sektor, s.AreaID, s.Naziv, s.Adresa, s.StructureID, s.ContractorID, c, a, s.Napomena, s.CreatedAt.UTC(), s.UpdatedAt.UTC(), s.KratkoIme}
 }
 
 const skladisteColumns = `s.id, s.sektor, s.area_id, s.naziv, s.adresa, s.structure_id, s.contractor_id, s.centralno, s.aktivno, s.napomena,
-	s.created_at, s.updated_at, COALESCE(a.name, ''), COALESCE(st.name, ''), COALESCE(c.name, '')`
+	s.created_at, s.updated_at, COALESCE(a.name, ''), COALESCE(st.name, ''), COALESCE(c.name, ''), s.kratko_ime`
 const skladisteFrom = ` FROM mts_skladista s
 	LEFT JOIN areas a ON a.id = s.area_id
 	LEFT JOIN structures st ON st.id = s.structure_id
@@ -87,7 +87,7 @@ func scanSkladiste(row interface{ Scan(...any) error }) (models.Skladiste, error
 	var s models.Skladiste
 	var centralno, aktivno int
 	err := row.Scan(&s.ID, &s.Sektor, &s.AreaID, &s.Naziv, &s.Adresa, &s.StructureID, &s.ContractorID, &centralno, &aktivno, &s.Napomena,
-		&s.CreatedAt, &s.UpdatedAt, &s.AreaName, &s.StructureName, &s.ContractorName)
+		&s.CreatedAt, &s.UpdatedAt, &s.AreaName, &s.StructureName, &s.ContractorName, &s.KratkoIme)
 	s.Centralno, s.Aktivno = centralno != 0, aktivno != 0
 	return s, err
 }

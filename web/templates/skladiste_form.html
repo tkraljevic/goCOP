@@ -26,6 +26,11 @@
       <label class="form-label" for="naziv">Naziv *</label>
       <input type="text" id="naziv" name="naziv" class="form-control" value="{{$sk.Naziv}}" required placeholder="npr. Centralno skladište obrane od poplava">
     </div>
+    <div class="form-group">
+      <label class="form-label" for="kratko_ime">Kratko ime</label>
+      <input type="text" id="kratko_ime" name="kratko_ime" class="form-control" value="{{$sk.KratkoIme}}" maxlength="30" placeholder="npr. Centralno, D. Miholjac">
+      <p class="form-help">Za uske stupce, npr. u potrebama sektora. Prazno znači puni naziv.</p>
+    </div>
     <div class="form-row">
       <div class="form-group">
         <label class="form-label" for="sektor-prikaz">{{term "sektor"}}</label>
