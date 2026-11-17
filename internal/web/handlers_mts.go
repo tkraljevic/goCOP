@@ -84,6 +84,10 @@ type MtsPageData struct {
 	GodinePotreba  []int
 
 	GdjeIma []service.MjestoZalihe
+	// Gdje ima: redak zbroja, prijenos iz skladišta i teren (sredstva_gdje_ima.go)
+	ZbrojGdjeIma ZbrojGdjeIma
+	PrijenosIz   map[string]bool
+	TerenVrste   []models.Stanje
 
 	Potvrda         string // veza zahvata koji je upravo upisan, za ispis potvrde
 	SmijePisati     bool
@@ -555,6 +559,7 @@ func (h *MtsHandler) ShowGdjeIma(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	h.dopuniGdjeIma(r, &data)
 	h.render(w, "gdje_ima.html", data)
 }
 
