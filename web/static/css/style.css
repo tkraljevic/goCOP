@@ -10774,10 +10774,29 @@ td .odr-sitno { margin-top: 2px; }
 .sr-stupci { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); gap: 16px; align-items: start; }
 .sr-desno { display: flex; flex-direction: column; }
 .sr-opis { margin: -4px 0 10px; color: var(--text-muted); font-size: 0.8125rem; }
+/* Čipovi prikaza (sredstva_prikaz.go): skrivaju retke bez sadržaja i prazne skupine */
+.sr-prikaz { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+.os-kartica-glava .sr-prikaz { margin: 0; }
+.sr-prikaz .ocitanja-cip:not([aria-pressed="true"]) .icon { display: none; }
+[data-prikaz="ima"] [data-ima="0"], [data-prikaz="razlike"] [data-razlika="0"], .sr-skupina-prazna,
+[data-prikaz="nacrt"] [data-stanje="zakljucena"], [data-prikaz="zakljucene"] [data-stanje="nacrt"] { display: none !important; }
+.sr-sazetak-potreba { margin: 0 0 8px; text-align: right; }
 .sr-stanje { display: flex; flex-direction: column; gap: 4px; }
 .sr-glava, .sr-redak { display: grid; grid-template-columns: 44px minmax(0, 1fr) 56px 96px 20px; gap: 8px; align-items: center; }
 .sr-glava { padding: 4px 12px; color: var(--text-muted); font-size: 0.75rem; }
-.sr-skupina { padding: 10px 12px 2px; color: var(--text-muted); font-size: 0.75rem; font-weight: 600; }
+.sr-skupina { display: flex; justify-content: space-between; padding: 10px 12px 2px; color: var(--text-muted); font-size: 0.75rem; font-weight: 600; }
+.sr-skupina > span + span { font-weight: 400; }
+/* Inventura (crtež 19b, 8 i 8a): sažetak, broj redaka uz skupinu, zbroj razlika */
+.sr-sazetak { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 32px; margin: 0 0 12px; }
+.sr-sazetak > div:not(.sr-prikaz) { display: flex; flex-direction: column; }
+.sr-sazetak small { color: var(--text-muted); font-size: 0.75rem; }
+.sr-sazetak .sr-prikaz { margin: 0 0 0 auto; }
+.sr-skupina-broj { float: right; margin-left: 12px; color: var(--text-muted); font-weight: 400; text-transform: none; letter-spacing: 0; }
+.sr-zbroj-razlika { margin: 0 auto 0 0; color: var(--text-muted); font-size: 0.8125rem; }
+@media (max-width: 599px) {
+  .sr-zbroj-razlika { flex-basis: 100%; margin-bottom: 8px; }
+}
+.sr-broj-vrsta { margin-left: auto; color: var(--text-muted); font-size: 0.8125rem; white-space: nowrap; }
 .sr-redak { min-height: 40px; padding: 6px 12px; border-radius: 8px; background: var(--bg); color: var(--text); text-decoration: none; font-size: 0.875rem; }
 .sr-redak:hover { background: var(--surface-hover); }
 .sr-redak small { display: block; color: var(--text-muted); font-size: 0.75rem; }
@@ -10785,7 +10804,7 @@ td .odr-sitno { margin-top: 2px; }
 .sr-redak.sr-prazno { color: var(--text-muted); }
 .sr-glava .br, .sr-redak .br { text-align: right; }
 /* pregled sektora: uz ukupno i dio koji je na putu (Odluke 16. 11., Na putu) */
-.sr-glava-put, .sr-redak-put { grid-template-columns: 44px minmax(0, 1fr) 56px 96px 96px 20px; }
+.sr-glava-put, .sr-redak-put { grid-template-columns: 44px minmax(0, 1fr) 56px 72px 96px 96px 20px; }
 .sr-redak .sr-na-putu { color: var(--text-muted); }
 .sr-podrucje { margin: 10px 0 0; color: var(--text-muted); font-size: 0.75rem; font-weight: 600; }
 .sr-skladiste small { display: block; color: var(--text-muted); font-size: 0.75rem; }
@@ -10816,6 +10835,8 @@ td .odr-sitno { margin-top: 2px; }
   .sr-redak > span:nth-child(4) { order: 3; }
   .sr-redak > span:nth-child(3) { order: 4; color: var(--text-muted); }
   .sr-redak > .icon { order: 5; }
+  .sr-redak-put > .sr-u-skladista { display: none; }
+  .sr-redak-put > span:nth-child(5) { order: 3; }
   .sr-redak-put > .sr-na-putu { order: 6; grid-column: 2 / -1; text-align: left; font-size: 0.75rem; }
   .sr-redak-put > .sr-na-putu::before { content: "od toga na putu "; }
   .sr-redak-put > .sr-na-putu:empty { display: none; }
@@ -10873,6 +10894,9 @@ td .odr-sitno { margin-top: 2px; }
   .sr-inv-obrazac .sr-inv-knjizno::after { content: " " attr(data-jed); }
   .sr-inv-obrazac .sr-inv-knjizno:empty { display: none; }
   .sr-inv-obrazac .sr-inv-broj, .sr-inv-obrazac .sr-inv-nap { grid-column: 1 / -1; }
+  .sr-inv-obrazac td.sr-inv-razlika { grid-column: 1 / -1; text-align: left; font-size: 0.8125rem; }
+  .sr-inv-obrazac .sr-inv-razlika::before { content: attr(data-oznaka) " "; color: var(--text-muted); }
+  .sr-inv-obrazac .sr-inv-razlika:empty { display: none; }
   .sr-inv-obrazac .mts-broj { max-width: none; min-height: 48px; font-size: 1.1rem; text-align: left; }
   .sr-inv-obrazac .sr-inv-broj::before { content: attr(data-oznaka); display: block; margin-bottom: 4px; color: var(--text-muted); font-size: 0.75rem; text-align: left; }
 }

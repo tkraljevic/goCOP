@@ -36,13 +36,14 @@
 
 <div class="sr-stupci">
   <section class="os-kartica" aria-labelledby="sr-stanje-naslov">
-    <h2 id="sr-stanje-naslov">Stanje</h2>
-    <div class="sr-stanje" role="table" aria-label="Stanje skladišta">
+    {{$pr := .PrikazStanja}}
+    <div class="os-kartica-glava"><h2 id="sr-stanje-naslov">Stanje</h2>{{template "sredstvaPrikaz" $pr}}</div>
+    <div class="sr-stanje" role="table" aria-label="Stanje skladišta" id="{{$pr.Cilj}}" data-prikaz="{{$pr.Zadano}}">
       <div class="sr-glava sr-glava-skl" role="row"><span role="columnheader">R. br.</span><span role="columnheader">Vrsta sredstva</span><span role="columnheader">Jed.</span><span role="columnheader" class="br">Ukupno</span><span></span></div>
       {{range .PoGrupama}}
-      <div class="sr-skupina" role="row"><span role="cell">{{.Rimski}} · {{.Naziv}}</span></div>
+      <div class="sr-skupina" role="row" data-skupina><span role="cell">{{.Rimski}} · {{.Naziv}}</span><span role="cell">{{.BrojIma}} od {{len .Redci}}</span></div>
       {{range .Redci}}{{$sv := .}}
-      <div class="sr-redak sr-redak-skl{{if not .Ima}} sr-prazno{{end}}" role="row">
+      <div class="sr-redak sr-redak-skl{{if not .Ima}} sr-prazno{{end}}" role="row" data-ima="{{if .Ima}}1{{else}}0{{end}}">
         <span role="cell" class="mono">{{.Vrsta.Redoslijed}}.</span>
         <span role="cell"><a href="/sredstva/gdje/{{.Vrsta.ID}}" title="gdje ima">{{.Vrsta.Naziv}}</a>
           {{if and .Vrsta.ImaOblike .Ima}}<small>od toga: {{range $i, $o := .Vrsta.Oblici}}{{if $i}} · {{end}}{{oblik $o}} {{kolicina ($sv.Oblik $o)}}{{end}}</small>

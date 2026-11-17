@@ -29,15 +29,22 @@
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 
+{{$s := .SazetakPopisa}}{{$pr := .PrikazPopisa}}
+<div class="sr-sazetak">
+  <div><small>Vrsta s količinom</small><strong>{{$s.SKolicinom}}</strong></div>
+  <div><small>Manjak</small><strong>{{$s.Manjak}} {{uzBroj $s.Manjak "redak" "retka" "redaka"}}</strong></div>
+  <div><small>Višak</small><strong>{{$s.Visak}} {{uzBroj $s.Visak "redak" "retka" "redaka"}}</strong></div>
+  {{template "sredstvaPrikaz" $pr}}
+</div>
 <section class="os-kartica" aria-label="Stavke inventure">
 <div class="table-responsive">
   <table class="data-table mts-popis sr-promet">
     <thead><tr><th>R. br.</th><th>Vrsta sredstva</th><th>Jed.</th><th class="br">Knjižno</th><th class="br">Prebrojano</th><th class="br">Razlika</th><th>Napomena</th></tr></thead>
-    <tbody>
+    <tbody id="{{$pr.Cilj}}" data-prikaz="{{$pr.Zadano}}">
     {{range .StavkePoGrupama}}
-    <tr class="mts-grupa"><td>{{.Rimski}}</td><td colspan="6">{{.Naziv}}</td></tr>
+    <tr class="mts-grupa" data-skupina><td>{{.Rimski}}</td><td colspan="6">{{.Naziv}}<span class="sr-skupina-broj">{{.BrojIma}} od {{len .Stavke}} {{uzBroj (len .Stavke) "retka" "retka" "redaka"}}</span></td></tr>
     {{range .Stavke}}
-    <tr{{if and (not .Utvrdjeno) (not .Knjizno)}} class="mts-prazno"{{end}}>
+    <tr{{if and (not .Utvrdjeno) (not .Knjizno)}} class="mts-prazno"{{end}} data-ima="{{if or .Utvrdjeno .Knjizno}}1{{else}}0{{end}}" data-razlika="{{if .Razlika}}1{{else}}0{{end}}">
       <td class="mono">{{if .RedniBroj}}{{.RedniBroj}}.{{end}}</td>
       <td>{{.VrstaNaziv}}{{if .Oblik}}<span class="reg-card-sub">{{oblik .Oblik}}</span>{{end}}</td>
       <td>{{.Jedinica}}</td>

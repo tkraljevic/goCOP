@@ -106,6 +106,7 @@ type MtsPageData struct {
 	ZahvatKnjige     string
 	UkupnoZahvata    int
 	ZahvataNaZaslonu int
+	VrstaUSkladistu  map[string]int // pregled: koliko vrsta ima skladište
 	PotrebeUKartici  []RedakPotrebe
 	VrstaID          string
 
@@ -167,6 +168,17 @@ func (d MtsPageData) PoGrupama() []GrupaStanja {
 type GrupaStanja struct {
 	ID, Rimski, Naziv string
 	Redci             []models.StanjeVrste
+}
+
+// BrojIma je koliko vrsta skupine ima, za „10 od 14” uz naslov skupine
+func (g GrupaStanja) BrojIma() int {
+	n := 0
+	for _, sv := range g.Redci {
+		if sv.Ima() {
+			n++
+		}
+	}
+	return n
 }
 
 // SkupinaSkladista su skladišta jednog branjenog područja na pregledu
@@ -287,6 +299,7 @@ func (h *MtsHandler) ShowPregled(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	data.VrstaUSkladistu, _ = svc.BrojVrstaPoSkladistu(r.Context(), data.Sektor) // bez broja kartica skladišta ostaje bez njega
 	if !data.SviSektori { // novo skladište se upisuje u jedan sektor
 		data.Podrucja, _ = h.users.ListAreas(data.Sektor) // bez područja gumb vidi samo uprava sektora
 		data.SmijeUrediti = svc.SmijeDodatiSkladiste(data.Permissions, data.Sektor, data.Podrucja)

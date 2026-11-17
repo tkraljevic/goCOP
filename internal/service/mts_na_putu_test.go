@@ -285,3 +285,14 @@ func TestNaPutuZbrojBezKnjigePuta(t *testing.T) {
 		t.Error("gdje ima bez knjige puta")
 	}
 }
+
+// Broj vrsta po skladištu bez knjige prometa javlja grešku
+func TestBrojVrstaPoSkladistuBezKnjige(t *testing.T) {
+	s, _, ctx, _, _, baza := pripremiMtsIBazu(t)
+	if _, err := baza.Exec(`DROP TABLE mts_promet`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.BrojVrstaPoSkladistu(ctx, "B"); err == nil {
+		t.Error("broj vrsta bez knjige prometa")
+	}
+}

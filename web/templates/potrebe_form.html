@@ -35,18 +35,19 @@
 <form method="POST" action="/sredstva/skladista/{{$sk.ID}}/potrebe" class="form-page ob-obrazac">
   <input type="hidden" name="godina" value="{{.Godina}}">
   <section class="os-kartica" aria-label="Potrebe po vrsti">
+  {{$pr := .PrikazPotreba}}{{template "sredstvaPrikaz" $pr}}
   {{/* vlastiti okvir, a ne table-responsive: na mobitelu kartice slaže CSS, ne opća skripta */}}
   <div class="sr-inv-okvir">
     <table class="data-table mts-popis sr-promet sr-inv-obrazac">
       <thead><tr><th>R. br.</th><th>Vrsta sredstva</th><th>Jed.</th><th class="br">Stanje sad</th><th class="br">Potrebno u {{.Godina}}.</th><th>Napomena</th></tr></thead>
-      <tbody>
+      <tbody id="{{$pr.Cilj}}" data-prikaz="{{$pr.Zadano}}">
       {{range .PoGrupama}}
-      <tr class="mts-grupa"><td>{{.Rimski}}</td><td colspan="5">{{.Naziv}}</td></tr>
+      <tr class="mts-grupa" data-skupina><td>{{.Rimski}}</td><td colspan="5">{{.Naziv}}</td></tr>
       {{range .Redci}}
       {{$p := $.Potreba .Vrsta.ID}}
-      <tr>
+      <tr data-ima="{{if gt $p.Kolicina 0.0}}1{{else}}0{{end}}">
         <td class="mono sr-inv-rbr">{{.Vrsta.Redoslijed}}.</td>
-        <td class="sr-inv-naziv">{{.Vrsta.Naziv}}</td>
+        <td class="sr-inv-naziv">{{.Vrsta.Naziv}}{{if $p.UserName}}<span class="reg-card-sub">upisao {{$p.UserName}}{{if not $p.UpdatedAt.IsZero}}, {{vrijemeHR $p.UpdatedAt}}{{end}}</span>{{end}}</td>
         <td class="sr-inv-jed">{{.Vrsta.Jedinica}}</td>
         <td class="mono br sr-inv-knjizno" data-oznaka="stanje sad" data-jed="{{.Vrsta.Jedinica}}">{{if .Ukupno}}{{kolicina .Ukupno}}{{end}}</td>
         <td class="br sr-inv-broj" data-oznaka="Potrebno u {{$.Godina}}."><input type="text" name="pt:{{.Vrsta.ID}}" aria-label="Potrebno: {{.Vrsta.Naziv}}" class="form-control mono mts-broj" inputmode="decimal"{{if index $.Neispravno (printf "pt:%s" .Vrsta.ID)}} aria-invalid="true"{{end}} value="{{if $.VratiUpisano}}{{index $.Upisano (printf "pt:%s" .Vrsta.ID)}}{{else if $p.Kolicina}}{{kolicinaPlain $p.Kolicina}}{{end}}"></td>
@@ -68,7 +69,7 @@
 <div class="table-responsive">
   <table class="data-table mts-popis sr-promet">
     <thead><tr><th>Vrsta sredstva</th><th>Jed.</th><th class="br">Potrebno u {{.Godina}}.</th><th>Napomena</th><th>Upisao</th></tr></thead>
-    <tbody>{{range .Stanje}}{{$p := $.Potreba .Vrsta.ID}}{{if $p.Kolicina}}<tr><td>{{.Vrsta.Naziv}}</td><td>{{.Vrsta.Jedinica}}</td><td class="mono br">{{kolicina $p.Kolicina}}</td><td>{{$p.Napomena}}</td><td>{{$p.UserName}}</td></tr>{{end}}{{end}}</tbody>
+    <tbody>{{range .Stanje}}{{$p := $.Potreba .Vrsta.ID}}{{if $p.Kolicina}}<tr><td>{{.Vrsta.Naziv}}</td><td>{{.Vrsta.Jedinica}}</td><td class="mono br">{{kolicina $p.Kolicina}}</td><td>{{$p.Napomena}}</td><td>{{$p.UserName}}{{if not $p.UpdatedAt.IsZero}}<span class="reg-card-sub">{{vrijemeHR $p.UpdatedAt}}</span>{{end}}</td></tr>{{end}}{{end}}</tbody>
   </table>
 </div>
 </section>

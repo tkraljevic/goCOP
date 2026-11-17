@@ -26,21 +26,23 @@
   <input type="hidden" name="dan" value="{{$p.Dan.Format "2006-01-02"}}">
   <p class="sr-napomena-iznad">{{icon "info"}}<span>Prebrojano je unaprijed jednako knjižnom. Promijenite samo ono što na polici nije tako.</span></p>
   <section class="os-kartica" aria-label="Stavke inventure">
+  {{$pr := .PrikazObrascaPopisa}}{{template "sredstvaPrikaz" $pr}}
   {{/* vlastiti okvir, a ne table-responsive: na mobitelu kartice slaže CSS niže, ne opća skripta */}}
   <div class="sr-inv-okvir">
-    <table class="data-table mts-popis sr-promet sr-inv-obrazac">
-      <thead><tr><th>R. br.</th><th>Vrsta sredstva</th><th>Jed.</th><th class="br">Knjižno</th><th class="br">Prebrojano</th><th>Napomena</th></tr></thead>
-      <tbody>
+    <table class="data-table mts-popis sr-promet sr-inv-obrazac" data-razlike>
+      <thead><tr><th>R. br.</th><th>Vrsta sredstva</th><th>Jed.</th><th class="br">Knjižno</th><th class="br">Prebrojano</th><th class="br">Razlika</th><th>Napomena</th></tr></thead>
+      <tbody id="{{$pr.Cilj}}" data-prikaz="{{$pr.Zadano}}">
       {{range .StavkePoGrupama}}
-      <tr class="mts-grupa"><td>{{.Rimski}}</td><td colspan="5">{{.Naziv}}</td></tr>
+      <tr class="mts-grupa" data-skupina><td>{{.Rimski}}</td><td colspan="6">{{.Naziv}}<span class="sr-skupina-broj">{{.BrojUKnjizi}} od {{len .Stavke}} {{uzBroj (len .Stavke) "retka" "retka" "redaka"}}</span></td></tr>
       {{range .Stavke}}
       {{$k := printf "%s:%s" .VrstaID .Oblik}}
-      <tr>
+      <tr data-ima="{{if .Knjizno}}1{{else}}0{{end}}" data-red>
         <td class="mono sr-inv-rbr">{{if .RedniBroj}}{{.RedniBroj}}.{{end}}</td>
         <td class="sr-inv-naziv">{{.VrstaNaziv}}{{if .Oblik}}<span class="reg-card-sub">{{oblik .Oblik}}</span>{{end}}</td>
         <td class="sr-inv-jed">{{.Jedinica}}</td>
         <td class="mono br sr-inv-knjizno" data-oznaka="knjižno" data-jed="{{.Jedinica}}">{{kolicina .Knjizno}}<input type="hidden" name="k:{{$k}}" value="{{.Knjizno}}"></td>
         <td class="br sr-inv-broj" data-oznaka="Prebrojano"><input type="text" name="u:{{$k}}" aria-label="Prebrojano: {{.VrstaNaziv}}" class="form-control mono mts-broj" inputmode="decimal"{{if index $.Neispravno (printf "u:%s" $k)}} aria-invalid="true"{{end}} value="{{if $.VratiUpisano}}{{index $.Upisano (printf "u:%s" $k)}}{{else if .Utvrdjeno}}{{kolicinaPlain .Utvrdjeno}}{{end}}"></td>
+        <td class="mono br sr-inv-razlika{{if lt .Razlika 0.0}} mts-minus{{else if gt .Razlika 0.0}} mts-plus{{end}}" data-oznaka="Razlika">{{if .Razlika}}{{kolicinaZnak .Razlika}}{{end}}</td>
         <td class="sr-inv-nap"><input type="text" name="n:{{$k}}" class="form-control" placeholder="napomena" aria-label="Napomena: {{.VrstaNaziv}}" value="{{if $.VratiUpisano}}{{index $.Upisano (printf "n:%s" $k)}}{{else}}{{.Napomena}}{{end}}"></td>
       </tr>
       {{end}}
@@ -54,9 +56,12 @@
     <input type="text" id="napomena" name="napomena" class="form-control" value="{{if .VratiUpisano}}{{index .Upisano "napomena"}}{{else}}{{$p.Napomena}}{{end}}" placeholder="tko je brojao, što nedostaje, što je oštećeno">
   </div>
   <div class="form-actions ob-radnje">
+    {{$s := .SazetakPopisa}}<p class="sr-zbroj-razlika" data-zbroj-razlika aria-live="polite">{{with add $s.Manjak $s.Visak}}S razlikom: {{.}} {{uzBroj . "redak" "retka" "redaka"}} (manjak {{$s.Manjak}}, višak {{$s.Visak}}).{{else}}Bez razlike prema knjizi.{{end}}</p>
     <a href="/sredstva/skladista/{{$sk.ID}}" class="btn btn-link">Odustani</a>
     <button type="submit" class="btn btn-link">Spremi nacrt</button>
     <button type="submit" name="zakljuci" value="1" class="btn btn-primary" onclick="return confirm('Zaključiti inventuru? Razlike prema knjizi bit će proknjižene i inventura se više ne mijenja.');">Spremi i zaključi</button>
   </div>
 </form>
 {{end}}
+
+{{define "scripts"}}<script src="{{statika "js/sredstva-inventura.js"}}" defer></script>{{end}}
