@@ -89,6 +89,8 @@ type MtsPageData struct {
 	VrstaID         string
 
 	Kartica string // kartica modula na kojoj se stoji (sredstva_traka.go)
+	// SviSektori: pregled zbraja skladišta svih sektora (?sektor=svi); Sektor je tada prazan
+	SviSektori bool
 
 	// Obrazac vraćen zbog greške pokazuje upisano, a ne spremljeno
 	// (sredstva_obrazac_brojeva.go)
@@ -204,7 +206,10 @@ func (h *MtsHandler) pageData(r *http.Request) MtsPageData {
 	}
 	d.Sektori, _ = h.users.ListSectors()
 	d.Sektor = strings.TrimSpace(r.URL.Query().Get("sektor"))
-	if d.Sektor == "" {
+	if d.Sektor == sviSektori {
+		d.Sektor, d.SviSektori = "", true
+	}
+	if d.Sektor == "" && !d.SviSektori {
 		d.Sektor = sektorKorisnika(perms, d.Sektori)
 	}
 	return d
@@ -256,8 +261,10 @@ func (h *MtsHandler) ShowPregled(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	data.Podrucja, _ = h.users.ListAreas(data.Sektor) // bez područja gumb vidi samo uprava sektora
-	data.SmijeUrediti = svc.SmijeDodatiSkladiste(data.Permissions, data.Sektor, data.Podrucja)
+	if !data.SviSektori { // novo skladište se upisuje u jedan sektor
+		data.Podrucja, _ = h.users.ListAreas(data.Sektor) // bez područja gumb vidi samo uprava sektora
+		data.SmijeUrediti = svc.SmijeDodatiSkladiste(data.Permissions, data.Sektor, data.Podrucja)
+	}
 	data.Kartica = "pregled"
 	h.render(w, "sredstva.html", data)
 }
