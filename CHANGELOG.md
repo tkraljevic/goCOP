@@ -4,6 +4,64 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.59-alfa — 17. 11. 2026.
+
+Sredstva su u novom izgledu i roba koja se premješta sad je na putu dok je
+odredište ne zaprimi. Profil, Sandučić, Djelatnici i Pomoć su u novom
+izgledu. Baza se mijenja: knjiga prometa sredstava pamti kamo roba ide, a
+skladište dobiva kratko ime. Računala na kojima se radi sa Sredstvima
+nadograđuju se zajedno, a ostala kad odgovara.
+
+- **Sredstva u novom izgledu.** Pregled, skladište, zahvat, knjiga prometa,
+  „Gdje ima”, Na terenu, inventura, potrebe i katalog složeni su po crtežu,
+  s karticama modula i sektorom iznad njih. „Svi sektori” na pregledu sad
+  zbraja sva skladišta svih sektora. Obrasci nakon greške zadrže upisano, a
+  krivo upisan broj u inventuri i potrebama javlja grešku umjesto nule.
+- **Roba na putu.** Prijenos među skladištima, izdavanje na teren i povrat
+  više nisu odmah na odredištu: roba je na putu dok je odredište ne zaprimi.
+  Skladište i teren imaju „Stiže” s gumbom „Zaprimi” i „Poslano, na putu”.
+  Zaprima se ono što je stvarno stiglo, a razlika se otpiše kao manjak pri
+  prijevozu, uz razlog. Pregled sektora i „Gdje ima” imaju stupac „od toga na
+  putu”. Na Naslovnoj skladištar i rukovoditelj vide „Stiže”, a sektor i
+  dežurni pošiljke koje su na putu dulje od 24 sata. Stari upisi smatraju se
+  zaprimljenima.
+- **Zahvati.** Potvrda i otpremnica zahvata su PDF za ispis, s crtama za
+  potpis, a Excel ostaje uz njih. Pražnjenje vreća je zaseban zahvat, a
+  oštećeno ide u otpis. Obrazac zahvata kaže koliko sredstva stoji u
+  skladištu i na odabranom mjestu, a upozori kad je dan zahvata prije
+  zaključene inventure. Na terenu je kartica po mjestu s gumbima „Povrat” i
+  „Utrošak”.
+- **Knjiga, skladište i inventura.** Knjiga prometa spaja retke istog
+  zahvata, ima filtar „Zahvat” i lista po 100 redaka. Skladište pokazuje
+  kamo je roba otišla ili odakle je došla i potrebe za godinu, a u obrascu
+  se objekt i firma biraju iz registra. Skladište može dobiti kratko ime
+  („D. Miholjac”) za uske stupce. Iznad tablica su čipovi „ima / sve”, pa se
+  ne prikazuje cijeli katalog. Inventura ima sažetak, razlika prema knjizi
+  računa se dok se upisuje, a prazan nacrt može se obrisati. Potrebe sektora
+  imaju svoj Excel.
+- **Naslovna.** Osoba s više uloga, npr. strojar i skladištar, vidi kartice
+  svih svojih uloga.
+- **Profil.** Odjeljci su lijevo, a odabrani desno, s kratkim stanjem uz
+  svaki. Uz privremenu lozinku odjeljci su zaključani. Rezervni kodovi sa
+  zaslona preuzimaju se bez novog niza, a stranica se više sama ne osvježi
+  dok se nešto upisuje. Izvođaču piše da njegova dežurstva i sate vodi
+  njegova tvrtka. Lozinka za ulaz svugdje se zove „Lozinka za goCOP”.
+- **Sandučić.** Mape su lijevo, pisma kao redci, a na pismu su „Arhiviraj” i
+  „Premjesti”. Neuspjelo slanje više ne briše napisano pismo. Bez adrese
+  tvrtke nema ni Sandučića ni e-pošte tvrtke.
+- **Djelatnici.** Popis, osoba, obrasci, Adresar i dežurstva su po crtežu.
+  Obrazac zaduženja pokazuje samo doseg koji uloga traži. Uprava u svom
+  dosegu isključuje i uključuje račun, a u Adresaru tvrtke traži svatko s
+  računom. Ime i prezime ne može se izbrisati izmjenom računa.
+- **Pomoć.** Ulaz ima pretragu, česte zadatke i teme u pet skupina, a na
+  zaslonu je jedno poglavlje s popisom podnaslova. Znak „?” vodi na odjeljak
+  o stranici na kojoj ste. Uz Očitanja su prve slike zaslona.
+- **Objekti i letve.** Vodostaj upisan na objektu ide i na letvu objekta, a
+  letve crpne stanice i ustave imaju jasne natpise.
+- **Jače oborine.** Legenda ima sličice boja, uz dane piše mm, a porast letve
+  računa se od trenutnog vodostaja.
+- **Primjeri u praznim poljima** više nisu stvarni podaci.
+
 ## 0.0.58-alfa — 15. 11. 2026.
 
 Mađarske letve opet se čitaju. Stranica Teren je ukinuta, a obilazak letava

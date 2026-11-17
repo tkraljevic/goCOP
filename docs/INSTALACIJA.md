@@ -1,7 +1,7 @@
 # Postavljanje i održavanje goCOP čvora
 
-Administratorske upute za izdanje 0.0.58-alfa. Pregledane 15. 10. 2026.,
-odjeljak o nadogradnji dopunjen 15. 11. 2026.
+Administratorske upute za izdanje 0.0.59-alfa. Pregledane 15. 10. 2026.,
+odjeljak o nadogradnji dopunjen 17. 11. 2026.
 Kratki pregled projekta: [README](../README.md). Korisnički postupci su u Pomoći aplikacije.
 
 Operativni program za obranu od poplava Hrvatskih voda: povezuje organizaciju,
@@ -10,7 +10,7 @@ i bez interneta; kopije na različitim računalima međusobno se usklađuju.
 Repozitorij nosi program i praznu shemu baze, a podatke unosi ili uvozi
 organizacija koja ga koristi.
 
-> **Status: alfa, izdanje 0.0.58-alfa (15. 11. 2026.), za testiranje i daljnji
+> **Status: alfa, izdanje 0.0.59-alfa (17. 11. 2026.), za testiranje i daljnji
 > razvoj.** Nije za operativnu upotrebu. Sve se još mijenja. Što je u kojem
 > izdanju, piše u [popisu izmjena](../CHANGELOG.md).
 >
@@ -1061,6 +1061,14 @@ Nadograđuje se redom: najprije stalni čvor, odmah zatim ostala računala. Dok
 sva ne rade na istom izdanju, ne dodavati, mijenjati ni brisati djelatnike i
 zaduženja. Na kojem izdanju radi koji čvor, pokazuju pločica „Razmjena s
 čvorovima” i stranica Stanje razmjene.
+
+0.0.59-alfa dodaje stupce u dvije tablice Sredstava: `mts_promet` pamti kamo
+roba ide (`prema_*`), a `mts_skladista` kratko ime skladišta. Baza se dopuni
+sama pri prvom pokretanju. Računala na kojima se radi sa Sredstvima
+nadograđuju se zajedno. Starije izdanje vidi poslanu robu kao izašlu iz
+skladišta, a na odredištu je vidi tek kad je zaprimi novije, pa bi do tada
+stanja na dva računala bila različita. Ostala računala nadograđuju se kad
+odgovara.
 
 0.0.58-alfa ne mijenja bazu ni način razmjene. Mađarske letve čita računalo
 koje preuzima vodostaje i izdaje prognozu, pa se ono nadograđuje prvo, a
