@@ -38,8 +38,8 @@
         <td class="mono sr-inv-rbr">{{if .RedniBroj}}{{.RedniBroj}}.{{end}}</td>
         <td class="sr-inv-naziv">{{.VrstaNaziv}}{{if .Oblik}}<span class="reg-card-sub">{{oblik .Oblik}}</span>{{end}}</td>
         <td class="sr-inv-jed">{{.Jedinica}}</td>
-        <td class="mono br sr-inv-knjizno" data-jed="{{.Jedinica}}">{{kolicina .Knjizno}}<input type="hidden" name="k:{{$k}}" value="{{.Knjizno}}"></td>
-        <td class="br sr-inv-broj"><input type="text" name="u:{{$k}}" aria-label="Prebrojano: {{.VrstaNaziv}}" class="form-control mono mts-broj" inputmode="decimal"{{if index $.Neispravno (printf "u:%s" $k)}} aria-invalid="true"{{end}} value="{{if $.VratiUpisano}}{{index $.Upisano (printf "u:%s" $k)}}{{else if .Utvrdjeno}}{{kolicinaPlain .Utvrdjeno}}{{end}}"></td>
+        <td class="mono br sr-inv-knjizno" data-oznaka="knjižno" data-jed="{{.Jedinica}}">{{kolicina .Knjizno}}<input type="hidden" name="k:{{$k}}" value="{{.Knjizno}}"></td>
+        <td class="br sr-inv-broj" data-oznaka="Prebrojano"><input type="text" name="u:{{$k}}" aria-label="Prebrojano: {{.VrstaNaziv}}" class="form-control mono mts-broj" inputmode="decimal"{{if index $.Neispravno (printf "u:%s" $k)}} aria-invalid="true"{{end}} value="{{if $.VratiUpisano}}{{index $.Upisano (printf "u:%s" $k)}}{{else if .Utvrdjeno}}{{kolicinaPlain .Utvrdjeno}}{{end}}"></td>
         <td class="sr-inv-nap"><input type="text" name="n:{{$k}}" class="form-control" placeholder="napomena" aria-label="Napomena: {{.VrstaNaziv}}" value="{{if $.VratiUpisano}}{{index $.Upisano (printf "n:%s" $k)}}{{else}}{{.Napomena}}{{end}}"></td>
       </tr>
       {{end}}
