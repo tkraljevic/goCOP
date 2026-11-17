@@ -40,6 +40,51 @@ func (s *MtsService) NaPutu(ctx context.Context, f repository.FiltarPosiljki) ([
 	return s.repo.ListPosiljke(ctx, f)
 }
 
+// dodajNaPutu pribraja stanju sektora robu na putu prema njemu (Odluke
+// 16. 11. 2026., Na putu, 4): vidi se zasebno i uključena je u zbroj. Roba
+// iz drugog sektora broji se odredištu, a roba prema terenu sektoru koji ju
+// je poslao; prazan sektor broji sve.
+func (s *MtsService) dodajNaPutu(ctx context.Context, stanje []models.StanjeVrste, sektor string) error {
+	posiljke, err := s.repo.ListPosiljke(ctx, repository.FiltarPosiljki{})
+	if err != nil {
+		return err
+	}
+	red := map[string]*models.StanjeVrste{}
+	for i := range stanje {
+		red[stanje[i].Vrsta.ID] = &stanje[i]
+	}
+	for _, p := range posiljke {
+		sv := red[p.Slanje.VrstaID]
+		if sv == nil || (sektor != "" && p.PremaSektor != sektor) {
+			continue
+		}
+		k := p.NaPutu()
+		sv.NaPutu += k
+		sv.Ukupno += k
+		sv.PoOblicima[p.Slanje.Oblik] += k
+	}
+	return nil
+}
+
+// stizeUSkladista pribraja skladištima robu jedne vrste koja im je na putu
+func (s *MtsService) stizeUSkladista(ctx context.Context, vrstaID string, po map[string]*MjestoZalihe) error {
+	posiljke, err := s.repo.ListPosiljke(ctx, repository.FiltarPosiljki{})
+	if err != nil {
+		return err
+	}
+	for _, p := range posiljke {
+		m := po[p.Slanje.PremaSkladisteID]
+		if m == nil || p.Slanje.VrstaID != vrstaID {
+			continue
+		}
+		k := p.NaPutu()
+		m.NaPutu += k
+		m.Kolicina += k
+		m.PoOblicima[p.Slanje.Oblik] += k
+	}
+	return nil
+}
+
 // posiljka vraća pošiljku koja je još na putu, ili grešku za korisnika
 func (s *MtsService) posiljka(ctx context.Context, vezaID string) (*models.Posiljka, error) {
 	if strings.TrimSpace(vezaID) == "" {

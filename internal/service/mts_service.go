@@ -214,7 +214,11 @@ func (s *MtsService) StanjeSektora(ctx context.Context, sektor string, naDan *ti
 	if err != nil {
 		return nil, err
 	}
-	return slozi(vrste, stanja), nil
+	out := slozi(vrste, stanja)
+	if naDan != nil { // na dan se ne zna što je tada bilo na putu
+		return out, nil
+	}
+	return out, s.dodajNaPutu(ctx, out, sektor)
 }
 
 // slozi spaja katalog i zbrojeve u redak po vrsti
@@ -250,6 +254,7 @@ func slozi(vrste []models.VrstaSredstva, stanja []models.Stanje) []models.Stanje
 type MjestoZalihe struct {
 	Skladiste  models.Skladiste
 	Kolicina   float64
+	NaPutu     float64 // dio količine koji je na putu prema skladištu
 	PoOblicima map[string]float64
 }
 
@@ -269,16 +274,9 @@ func (s *MtsService) GdjeIma(ctx context.Context, vrstaID string) ([]MjestoZalih
 	for i := range skladista {
 		po[skladista[i].ID] = &MjestoZalihe{Skladiste: skladista[i], PoOblicima: map[string]float64{}}
 	}
-	for _, st := range stanja {
-		if st.VrstaID != vrstaID || st.Kolicina == 0 {
-			continue
-		}
-		m, ok := po[st.SkladisteID]
-		if !ok {
-			continue
-		}
-		m.Kolicina += st.Kolicina
-		m.PoOblicima[st.Oblik] += st.Kolicina
+	zbrojiZalihe(stanja, vrstaID, po)
+	if err := s.stizeUSkladista(ctx, vrstaID, po); err != nil {
+		return nil, err
 	}
 	var out []MjestoZalihe
 	for _, m := range po {
@@ -293,6 +291,18 @@ func (s *MtsService) GdjeIma(ctx context.Context, vrstaID string) ([]MjestoZalih
 		return out[a].Skladiste.Naziv < out[b].Skladiste.Naziv
 	})
 	return out, nil
+}
+
+// zbrojiZalihe pribraja skladištima stanje jedne vrste
+func zbrojiZalihe(stanja []models.Stanje, vrstaID string, po map[string]*MjestoZalihe) {
+	for _, st := range stanja {
+		m := po[st.SkladisteID]
+		if m == nil || st.VrstaID != vrstaID || st.Kolicina == 0 {
+			continue
+		}
+		m.Kolicina += st.Kolicina
+		m.PoOblicima[st.Oblik] += st.Kolicina
+	}
 }
 
 // NaTerenu vraća što je izdano a nije vraćeno ni ugrađeno, po dionicama

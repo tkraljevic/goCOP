@@ -205,3 +205,83 @@ func TestNaPutuIskljucen(t *testing.T) {
 		t.Error("zaprimanje bez pošiljke")
 	}
 }
+
+// Na pregledu sektora roba na putu ulazi u zbroj sektora kojem ide, a
+// prema terenu sektora koji ju je poslao; „Gdje ima” je pribraja skladištu
+// kojem stiže (Odluke 16. 11. 2026., Na putu, 4).
+func TestNaPutuUZbroju(t *testing.T) {
+	s, sk, ctx, u, uprava := pripremiMts(t)
+	sviNaPut(s)
+	svi := &models.UserPermissions{IsGlobalAdmin: true}
+	draz := &models.Skladiste{Sektor: "B", AreaID: 34, Naziv: "CS Draž", Aktivno: true}
+	metkovic := &models.Skladiste{Sektor: "F", AreaID: 40, Naziv: "Skladište Metković", Aktivno: true}
+	for _, d := range []*models.Skladiste{draz, metkovic} {
+		if err := s.SpremiSkladiste(ctx, svi, d); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, z := range []Zahvat{
+		{Vrsta: models.PrometPrimka, SkladisteID: sk.ID, VrstaID: "lopata", Kolicina: 100},
+		{Vrsta: models.PrometPrijenos, SkladisteID: sk.ID, NaSkladisteID: metkovic.ID, VrstaID: "lopata", Kolicina: 30},
+		{Vrsta: models.PrometPrijenos, SkladisteID: sk.ID, NaSkladisteID: draz.ID, VrstaID: "lopata", Kolicina: 10},
+		{Vrsta: models.PrometIzdano, SkladisteID: sk.ID, VrstaID: "lopata", Kolicina: 5, AreaID: 34, SectionCode: "B.34.1"},
+	} {
+		if _, err := s.Provedi(ctx, u, uprava, z); err != nil {
+			t.Fatal(err)
+		}
+	}
+	lopate := func(sektor string, naDan *time.Time) models.StanjeVrste {
+		t.Helper()
+		stanje, err := s.StanjeSektora(ctx, sektor, naDan)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, sv := range stanje {
+			if sv.Vrsta.ID == "lopata" {
+				return sv
+			}
+		}
+		t.Fatal("nema lopata u stanju")
+		return models.StanjeVrste{}
+	}
+	for _, c := range []struct {
+		sektor         string
+		ukupno, naPutu float64
+	}{{"B", 70, 15}, {"F", 30, 30}, {"", 100, 45}} {
+		if sv := lopate(c.sektor, nil); sv.Ukupno != c.ukupno || sv.NaPutu != c.naPutu || sv.Oblik(sv.Vrsta.SviOblici()[0]) != c.ukupno {
+			t.Errorf("sektor %q: ukupno %v, na putu %v, po oblicima %v", c.sektor, sv.Ukupno, sv.NaPutu, sv.PoOblicima)
+		}
+	}
+	danas := time.Now()
+	if sv := lopate("B", &danas); sv.Ukupno != 55 || sv.NaPutu != 0 {
+		t.Errorf("stanje na dan bez puta: %+v", sv)
+	}
+
+	mjesta, err := s.GdjeIma(ctx, "lopata")
+	if err != nil {
+		t.Fatal(err)
+	}
+	po := map[string]MjestoZalihe{}
+	for _, m := range mjesta {
+		po[m.Skladiste.ID] = m
+	}
+	if len(mjesta) != 3 || po[sk.ID].Kolicina != 55 || po[sk.ID].NaPutu != 0 ||
+		po[metkovic.ID].Kolicina != 30 || po[metkovic.ID].NaPutu != 30 || po[draz.ID].Kolicina != 10 || po[draz.ID].NaPutu != 10 {
+		t.Errorf("gdje ima: %+v", mjesta)
+	}
+}
+
+// Kad se roba na putu ne može pročitati, pregled i „Gdje ima” javljaju
+// grešku umjesto zbroja bez nje
+func TestNaPutuZbrojBezKnjigePuta(t *testing.T) {
+	s, _, ctx, _, _, baza := pripremiMtsIBazu(t)
+	if _, err := baza.Exec(`ALTER TABLE mts_promet RENAME COLUMN prema_mjesto TO prema_mjesto_staro`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.StanjeSektora(ctx, "B", nil); err == nil {
+		t.Error("stanje sektora bez knjige puta")
+	}
+	if _, err := s.GdjeIma(ctx, "lopata"); err == nil {
+		t.Error("gdje ima bez knjige puta")
+	}
+}

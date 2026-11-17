@@ -24,17 +24,18 @@
 <div class="sr-stupci">
   <section class="os-kartica sr-stanje-kartica" aria-labelledby="sr-stanje-naslov">
     <h2 id="sr-stanje-naslov">Stanje{{if .Sektor}} sektora {{.Sektor}}{{else}} svih sektora{{end}} po vrstama</h2>
-    <p class="sr-opis">Sva skladišta zbrojena. Klik na vrstu pokazuje gdje je ima, i u drugim sektorima.</p>
+    <p class="sr-opis">Sva skladišta zbrojena, s robom koja im je na putu. Klik na vrstu pokazuje gdje je ima, i u drugim sektorima.</p>
     <div class="sr-stanje" role="table" aria-label="Stanje po vrstama">
-      <div class="sr-glava" role="row"><span role="columnheader">R. br.</span><span role="columnheader">Vrsta sredstva</span><span role="columnheader">Jed.</span><span role="columnheader" class="br">Ukupno</span><span></span></div>
+      <div class="sr-glava sr-glava-put" role="row"><span role="columnheader">R. br.</span><span role="columnheader">Vrsta sredstva</span><span role="columnheader">Jed.</span><span role="columnheader" class="br">Ukupno</span><span role="columnheader" class="br">od toga na putu</span><span></span></div>
       {{range .PoGrupama}}
       <div class="sr-skupina" role="row"><span role="cell">{{.Rimski}} · {{.Naziv}}</span></div>
       {{range .Redci}}{{$sv := .}}
-      <a class="sr-redak{{if not .Ima}} sr-prazno{{end}}" role="row" href="/sredstva/gdje/{{.Vrsta.ID}}">
+      <a class="sr-redak sr-redak-put{{if not .Ima}} sr-prazno{{end}}" role="row" href="/sredstva/gdje/{{.Vrsta.ID}}">
         <span role="cell" class="mono">{{.Vrsta.Redoslijed}}.</span>
         <span role="cell">{{.Vrsta.Naziv}}{{if and .Vrsta.ImaOblike .Ima}}<small>od toga: {{range $i, $o := .Vrsta.Oblici}}{{if $i}} · {{end}}{{oblik $o}} {{kolicina ($sv.Oblik $o)}}{{end}}</small>{{end}}</span>
         <span role="cell">{{.Vrsta.Jedinica}}</span>
         <span role="cell" class="mono br">{{if .Ukupno}}{{kolicina .Ukupno}}{{end}}</span>
+        <span role="cell" class="mono br sr-na-putu">{{if .NaPutu}}{{kolicina .NaPutu}}{{end}}</span>
         {{icon "chevron-right"}}
       </a>
       {{end}}

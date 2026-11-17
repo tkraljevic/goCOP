@@ -409,6 +409,7 @@ type StanjeVrste struct {
 	Vrsta      VrstaSredstva      `json:"vrsta"`
 	PoOblicima map[string]float64 `json:"po_oblicima"`
 	Ukupno     float64            `json:"ukupno"`
+	NaPutu     float64            `json:"na_putu,omitempty"`  // dio zbroja koji je na putu prema sektoru
 	Potrebno   float64            `json:"potrebno,omitempty"` // dodatne potrebe za nabavom, iz zadnjeg popisa
 }
 
