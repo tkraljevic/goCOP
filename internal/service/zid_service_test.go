@@ -87,7 +87,7 @@ func TestZidIzKnjige(t *testing.T) {
 		naslovi = append(naslovi, d.Modul+":"+d.Naslov)
 		if d.Naslov == "Izdano na teren" {
 			izdano++
-			if !strings.Contains(d.Tekst, "4000 kom Vreće 50x80 cm (napunjeno)") || !strings.Contains(d.Tekst, "B.34.1") || !strings.Contains(d.Tekst, "preuzeo vodočuvar Batina") {
+			if !strings.Contains(d.Tekst, "4\u00a0000 kom Vreće 50x80 cm (napunjeno)") || !strings.Contains(d.Tekst, "B.34.1") || !strings.Contains(d.Tekst, "preuzeo vodočuvar Batina") {
 				t.Errorf("tekst izdavanja: %q", d.Tekst)
 			}
 			if d.Sektor != "B" || d.AreaID != 34 || d.Tko != "Voditelj Centra" || !strings.Contains(d.Link, "potvrda.xlsx") {
@@ -125,7 +125,7 @@ func TestZidIzKnjige(t *testing.T) {
 
 	// traka stanja: otvoren dnevnik, ništa u obrani, 4 000 vreća na terenu
 	st := zid.Stanje(ctx, uprava, []models.Sector{{ID: "B", CenterCop: "COP Osijek"}, {ID: "C"}}, nil, mts)
-	if len(st) != 1 || st[0].Dnevnik == nil || st[0].DionicaUObr != 0 || len(st[0].NaTerenu) != 1 || !strings.Contains(st[0].NaTerenu[0], "4000 kom Vreće 50x80 cm (napunjeno)") {
+	if len(st) != 1 || st[0].Dnevnik == nil || st[0].DionicaUObr != 0 || len(st[0].NaTerenu) != 1 || !strings.Contains(st[0].NaTerenu[0], "4\u00a0000 kom Vreće 50x80 cm (napunjeno)") {
 		t.Errorf("stanje: %+v", st)
 	}
 	if st[0].Mirno() {

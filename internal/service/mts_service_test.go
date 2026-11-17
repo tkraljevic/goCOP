@@ -147,7 +147,7 @@ func TestMtsPutVrecaKrozObranu(t *testing.T) {
 	// ne može se izdati više nego što stoji; poruka kaže koliko ima
 	_, err = s.Provedi(ctx, u, uprava, Zahvat{Vrsta: models.PrometIzdano, SkladisteID: sk.ID, VrstaID: vrece,
 		Oblik: models.OblikPunjeno, Kolicina: 9000, AreaID: 34, SectionCode: "B.34.1", JournalID: obrana})
-	if err == nil || !strings.Contains(err.Error(), "1500") {
+	if err == nil || !strings.Contains(err.Error(), "1\u00a0500") {
 		t.Errorf("izdavanje preko zalihe: %v", err)
 	}
 	// ni ugraditi više nego što je na terenu

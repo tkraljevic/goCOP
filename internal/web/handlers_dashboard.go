@@ -220,7 +220,7 @@ func precaciZa(perms *models.UserPermissions) []Precac {
 		}
 	}
 	if skladistar || uprava || len(perms.AdminAreas) > 0 {
-		dodaj("Skladišta i sredstva", "/sredstva", "package")
+		dodaj("Sredstva", "/sredstva", "package")
 	}
 	if perms.User.IsFieldUser() {
 		dodaj("Moje letve", "/readings", "ruler")
