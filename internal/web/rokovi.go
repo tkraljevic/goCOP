@@ -176,6 +176,7 @@ var pravilaRuta = map[string]pravilo{
 	"GET /sredstva/promet.xlsx":                   {dugo: true},
 	"GET /sredstva/skladista/{id}/skladiste.xlsx": {dugo: true},
 	"GET /sredstva/promet/{veza}/potvrda.xlsx":    {dugo: true},
+	"GET /sredstva/promet/{veza}/potvrda.pdf":     {dugo: true},
 	"GET /sredstva/popisi/{id}/inventura.xlsx":    {dugo: true},
 	"GET /izvjesca/{id}/izvjesce.xlsx":            {dugo: true},
 	"GET /sektorsko-izvjesce/{id}/izvjesce.xlsx":  {dugo: true},

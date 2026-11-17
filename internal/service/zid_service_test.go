@@ -91,7 +91,7 @@ func TestZidIzKnjige(t *testing.T) {
 			if !strings.Contains(d.Tekst, "4\u00a0000 kom Vreće 50x80 cm (napunjeno)") || !strings.Contains(d.Tekst, "B.34.1") || !strings.Contains(d.Tekst, "preuzeo vodočuvar Batina") {
 				t.Errorf("tekst izdavanja: %q", d.Tekst)
 			}
-			if d.Sektor != "B" || d.AreaID != 34 || d.Tko != "Voditelj Centra" || !strings.Contains(d.Link, "potvrda.xlsx") {
+			if d.Sektor != "B" || d.AreaID != 34 || d.Tko != "Voditelj Centra" || !strings.Contains(d.Link, "potvrda.pdf") {
 				t.Errorf("izdavanje: %+v", d)
 			}
 		}

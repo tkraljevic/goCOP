@@ -827,7 +827,7 @@ func (c *opisivac) prometSredstava(d *Dogadjaj, v ledger.Version, nova bool) boo
 		d.Tekst += " · " + strings.ToLower(models.StranaOznaka(p.Vrsta)) + " " + p.Preuzeo
 	}
 	if p.VezaID != "" {
-		d.Link = "/sredstva/promet/" + p.VezaID + "/potvrda.xlsx"
+		d.Link = "/sredstva/promet/" + p.VezaID + "/potvrda.pdf"
 	}
 	*d = c.dolazakPoteza(p, *d)
 	return d.Naslov != ""

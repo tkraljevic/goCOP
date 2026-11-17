@@ -53,7 +53,7 @@
       <td data-stupac="Količina" class="mono br {{if lt .Kolicina 0.0}}mts-minus{{else}}mts-plus{{end}}">{{kolicinaZnak .Kolicina}} {{.Jedinica}}</td>
       <td data-stupac="Nalog">{{if .Nalozio}}nalog: {{.Nalozio}}{{end}}{{if .Preuzeo}}{{if .Nalozio}} · {{end}}{{strana .Vrsta}}: {{.Preuzeo}}{{end}}{{if .Dokument}} · {{.Dokument}}{{end}}{{if .Napomena}}<span class="reg-card-sub">{{.Napomena}}</span>{{end}}</td>
       <td data-stupac="Upisao">{{.UserName}} <span class="reg-card-sub">{{vrijemeHR .CreatedAt}}</span></td>
-      <td data-stupac="Potvrda">{{if .VezaID}}<a href="/sredstva/promet/{{.VezaID}}/potvrda.xlsx" class="sr-plus" title="Potvrda / otpremnica" aria-label="Potvrda / otpremnica">{{icon "download"}}</a>{{end}}</td>
+      <td data-stupac="Potvrda">{{if .VezaID}}<a href="/sredstva/promet/{{.VezaID}}/potvrda.pdf" target="_blank" class="sr-plus" title="Potvrda / otpremnica za ispis" aria-label="Potvrda / otpremnica za ispis">{{icon "printer"}}</a>{{end}}</td>
     </tr>
     {{end}}
     </tbody>
