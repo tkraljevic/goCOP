@@ -98,8 +98,10 @@ func TestSluzbeUzZupanijuKrozRute(t *testing.T) {
 			t.Errorf("teritorij nema %q", zeli)
 		}
 	}
+	// broj se traži kao vrijednost između oznaka, ne kao bilo koji niz: otisak
+	// datoteke stilova u adresi (style.css?v=161d5567) zna sadržavati iste znamenke
 	for _, staro := range []string{"428", "6.724", "556"} {
-		if strings.Contains(stranica, staro) {
+		if strings.Contains(stranica, ">"+staro+"<") {
 			t.Errorf("teritorij i dalje ima upisan broj %s", staro)
 		}
 	}
