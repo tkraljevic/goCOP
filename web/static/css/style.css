@@ -6896,28 +6896,56 @@ h3.kis-podnaslov { margin:1rem 0 0.4rem; display:flex; align-items:center; gap:0
 .stranica-sinkronizacija .bar > i { display: block; height: 100%; background: var(--accent-dark); }
 
 /* Uparivanje (uparivanje.html, samostalna stranica) */
-.stranica-uparivanje .wrap { min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding: 1rem; background: var(--hero); }
-.stranica-uparivanje .box { background: var(--surface); border-radius: 12px; padding: 1.5rem; width: 100%; max-width: 560px; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.3); margin-top: 2rem; }
-.stranica-uparivanje .brand { display: flex; align-items: center; gap: 0.6rem; color: var(--primary); font-weight: 700; font-size: 0.8rem; letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 1rem; }
-.stranica-uparivanje .brand img { height: 36px; width: auto; max-width: 64px; object-fit: contain; }
-.stranica-uparivanje h1 { font-size: 1.25rem; margin: 0 0 0.25rem; }
-.stranica-uparivanje .sub { font-size: 0.85rem; color: var(--text-muted); margin: 0 0 1rem; }
-.stranica-uparivanje .steps { display: grid; gap: 0.75rem; }
-.stranica-uparivanje .step { border: 1px solid var(--border); border-radius: 10px; padding: 0.9rem 1rem; opacity: 0.55; }
-.stranica-uparivanje .step.on { opacity: 1; border-color: var(--primary); }
-.stranica-uparivanje .step.done { opacity: 0.8; border-color: var(--success); }
-.stranica-uparivanje .step h2 { font-size: 0.95rem; margin: 0 0 0.35rem; display: flex; align-items: center; gap: 0.5rem; }
-.stranica-uparivanje .num { display: inline-flex; width: 1.6rem; height: 1.6rem; border-radius: 50%; background: var(--gumb); color: var(--gumb-tekst); align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; }
-.stranica-uparivanje .done .num { background: var(--accent-dark); color: var(--surface); }
-.stranica-uparivanje .desc { font-size: 0.82rem; color: var(--text-muted); margin: 0 0 0.6rem; }
-.stranica-uparivanje .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
-.stranica-uparivanje .sas { font-family: "SFMono-Regular", Menlo, monospace; font-size: 2.4rem; letter-spacing: 0.25em; text-align: center; padding: 0.5rem 0; }
 .stranica-postavljanje .sas { font-family: "SFMono-Regular", Menlo, monospace; font-size: 2.2rem; letter-spacing: 0.25em; text-align: center; padding: 0.5rem 0; }
-.stranica-uparivanje .muted { color: var(--text-muted); font-size: 0.85rem; }
-.stranica-uparivanje .err { color: var(--danger); font-size: 0.85rem; }
-.stranica-uparivanje .ok { color: var(--tint-green-fg); }
-.stranica-uparivanje .peer { border-top: 1px solid var(--border); padding: 0.5rem 0; display: flex; justify-content: space-between; gap: 0.5rem; align-items: center; flex-wrap: wrap; font-size: 0.9rem; }
-.stranica-uparivanje .me { font-size: 0.8rem; color: var(--text-muted); margin-top: 1rem; border-top: 1px dashed var(--border-strong); padding-top: 0.6rem; }
+/* Uparivanje (uparivanje.html) po crtežu 18b · 5: samostalna stranica,
+   kartica na sredini, okomiti koračnik; u prvom koraku dvije ploče */
+.stranica-uparivanje { margin: 0; min-height: 100vh; background: var(--md-sys-color-surface); color: var(--md-sys-color-on-surface); }
+.upar-stranica { min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding: 16px; }
+.upar-kartica { width: 100%; max-width: 640px; margin-top: 2rem; padding: 28px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--shape-large); background: var(--md-sys-color-surface-container-low); display: flex; flex-direction: column; gap: 12px; }
+.upar-znak { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.upar-znak img { height: 36px; width: auto; max-width: 64px; object-fit: contain; }
+.upar-znak > span { display: flex; flex-direction: column; }
+.upar-org { font: var(--md-type-label-medium); color: var(--md-sys-color-on-surface-variant); }
+.upar-ime { font: var(--md-type-title-large); color: var(--md-sys-color-primary); }
+.stranica-uparivanje h1 { font: var(--md-type-headline-small); margin: 0; }
+.upar-uvod { font: var(--md-type-body-medium); color: var(--md-sys-color-on-surface-variant); margin: 0; }
+.stranica-uparivanje .steps { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 20px; }
+.stranica-uparivanje .step { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 14px; }
+.stranica-uparivanje .num { width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font: var(--md-type-label-large); border: 1.5px solid var(--md-sys-color-outline); color: var(--md-sys-color-on-surface-variant); }
+.stranica-uparivanje .step.on .num { background: var(--md-sys-color-primary); border-color: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); }
+.stranica-uparivanje .step.done .num { background: var(--md-sys-color-primary-container); border-color: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); }
+.stranica-uparivanje .step-tijelo { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.stranica-uparivanje .step h2 { font: var(--md-type-title-medium); margin: 2px 0 0; }
+.stranica-uparivanje .step:not(.on) h2 { color: var(--md-sys-color-on-surface-variant); }
+.stranica-uparivanje .desc { font: var(--md-type-body-small); color: var(--md-sys-color-on-surface-variant); margin: 0; }
+.upar-ploce { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+.stranica-uparivanje [hidden] { display: none !important; }
+.upar-ploca { --list-podloga: var(--md-sys-color-surface); display: flex; flex-direction: column; gap: 12px; padding: 12px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--shape-medium); background: var(--md-sys-color-surface); }
+.upar-ploca h3 { font: var(--md-type-title-small); margin: 0; }
+.upar-ploca .list-polje { margin: 0; }
+.stranica-uparivanje .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.upar-desno { justify-content: flex-end; }
+.upar-izlaz { margin-top: 4px; }
+.upar-popis { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.stranica-uparivanje .peer { display: flex; align-items: center; gap: 10px; padding: 6px 0; font: var(--md-type-body-medium); }
+.stranica-uparivanje .peer > :last-child { margin-left: auto; }
+.upar-popis + .upar-popis, .step-tijelo > .upar-popis .peer + .peer { border-top: 1px solid var(--md-sys-color-outline-variant); }
+.upar-tocka { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--success); }
+.upar-racunalo { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
+.upar-racunalo b { font-weight: 400; }
+.upar-racunalo .mono { font-size: 0.75rem; }
+.stranica-uparivanje .sas { font-family: "SFMono-Regular", Menlo, monospace; font-size: 2.4rem; letter-spacing: 0.25em; text-align: center; padding: 0.25rem 0; }
+.stranica-uparivanje .muted { color: var(--md-sys-color-on-surface-variant); font: var(--md-type-body-small); margin: 0; }
+.stranica-uparivanje .muted:empty { display: none; }
+.stranica-uparivanje .err { color: var(--md-sys-color-error); }
+.stranica-uparivanje .ok { color: var(--success); }
+.stranica-uparivanje .me { font: var(--md-type-body-small); color: var(--md-sys-color-on-surface-variant); margin: 8px 0 0; padding-top: 12px; border-top: 1px solid var(--md-sys-color-outline-variant); overflow-wrap: anywhere; }
+@media (max-width: 599px) {
+  .upar-stranica { padding: 0; }
+  .upar-kartica { margin-top: 0; min-height: 100vh; border: 0; border-radius: 0; padding: 20px 16px; }
+  .upar-ploce { grid-template-columns: minmax(0, 1fr); }
+  .stranica-uparivanje .sas { font-size: 2rem; }
+}
 
 /* Upozorenje o početnoj lozinci na vrhu svake stranice (base.html): ploha s
    crtom, ikona 24 px, gumb bez ispune u boji teksta upozorenja */
