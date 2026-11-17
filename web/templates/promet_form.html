@@ -60,16 +60,14 @@
           <option value="NEISPRAVNO"{{if eq $z.Oblik "NEISPRAVNO"}} selected{{end}}>neispravno</option>
         </select>
       </div>
-      <div class="form-group" id="p-u-oblik">
-        <label class="form-label" for="u_oblik">U oblik (punjenje)</label>
-        <select id="u_oblik" name="u_oblik" class="form-control">
-          <option value="PUNJENO">napunjeno</option>
-          <option value="PRAZNO"{{if eq $z.UOblik "PRAZNO"}} selected{{end}}>prazno</option>
-        </select>
-      </div>
       <div class="form-group">
         <label class="form-label" for="kolicina">Količina * <span class="reg-card-sub" id="jed"></span></label>
         <input type="text" id="kolicina" name="kolicina" class="form-control mono" inputmode="decimal" required placeholder="npr. 4 200"{{if $.VratiUpisano}} value="{{index $.Upisano "kolicina"}}"{{end}}{{if index $.Neispravno "kolicina"}} aria-invalid="true"{{end}}>
+      </div>
+      <div class="form-group" id="p-osteceno">
+        <label class="form-label" for="osteceno">Od toga oštećeno</label>
+        <input type="text" id="osteceno" name="osteceno" class="form-control mono" inputmode="decimal" placeholder="0"{{if $.VratiUpisano}} value="{{index $.Upisano "osteceno"}}"{{end}}{{if index $.Neispravno "osteceno"}} aria-invalid="true"{{end}}>
+        <p class="form-help">Oštećene vreće idu u otpis za zbrinjavanje, a ostale postaju prazne.</p>
       </div>
     </div>
   </section>
@@ -163,13 +161,15 @@ function pokaziPolja() {
   var oblici = (opt.getAttribute && opt.getAttribute('data-oblici')) || '';
   document.getElementById('jed').textContent = (opt.getAttribute && opt.getAttribute('data-jed')) || '';
   var imaOblike = oblici !== '';
-  document.getElementById('p-oblik').style.display = imaOblike ? '' : 'none';
-  document.getElementById('p-u-oblik').style.display = (imaOblike && v === 'PUNJENJE') ? '' : 'none';
-  document.getElementById('p-teren').style.display = (v === 'IZDANO' || v === 'POVRAT' || v === 'UTROSAK' || (v === 'PUNJENJE' && imaOblike)) ? '' : 'none';
-  document.getElementById('l-podrucje').textContent = v === 'PUNJENJE' ? 'Područje (samo za punjenje na terenu)' : 'Područje *';
-  document.getElementById('p-postojece').style.display = (v === 'POVRAT' || v === 'UTROSAK' || v === 'PUNJENJE') ? '' : 'none';
+  var mijenjaOblik = v === 'PUNJENJE' || v === 'PRAZNJENJE';
+  // pražnjenje je uvijek iz napunjenog, pa oblik ne bira
+  document.getElementById('p-oblik').style.display = (imaOblike && v !== 'PRAZNJENJE') ? '' : 'none';
+  document.getElementById('p-osteceno').style.display = v === 'PRAZNJENJE' ? '' : 'none';
+  document.getElementById('p-teren').style.display = (v === 'IZDANO' || v === 'POVRAT' || v === 'UTROSAK' || (mijenjaOblik && imaOblike)) ? '' : 'none';
+  document.getElementById('l-podrucje').textContent = mijenjaOblik ? 'Područje (samo za ' + (v === 'PUNJENJE' ? 'punjenje' : 'pražnjenje') + ' na terenu)' : 'Područje *';
+  document.getElementById('p-postojece').style.display = (v === 'POVRAT' || v === 'UTROSAK' || mijenjaOblik) ? '' : 'none';
   document.getElementById('p-na-skladiste').style.display = v === 'PRIJENOS' ? '' : 'none';
-  var l = {PRIMKA: 'Dopremio', IZDANO: 'Preuzeo', PRIJENOS: 'Preuzeo', POVRAT: 'Vratio', UTROSAK: 'Ugradio', OTPIS: 'Rashodovao'};
+  var l = {PRIMKA: 'Dopremio', IZDANO: 'Preuzeo', PRIJENOS: 'Preuzeo', POVRAT: 'Vratio', UTROSAK: 'Ugradio', OTPIS: 'Rashodovao', PRAZNJENJE: 'Odvezao oštećeno'};
   document.getElementById('l-preuzeo').textContent = l[v] || 'Osoba';
 }
 // na mobitelu se vrsta bira izbornikom; on samo označi pločicu, koja se šalje
@@ -198,7 +198,7 @@ function zadaniOblik() {
   var v = (document.querySelector('input[name=vrsta]:checked') || {}).value || '';
   var o = document.getElementById('oblik');
   if (v === 'PUNJENJE' || v === 'PRIMKA' || v === 'POCETNO') { o.value = 'PRAZNO'; }
-  else if (v === 'IZDANO' || v === 'POVRAT' || v === 'UTROSAK') { o.value = 'PUNJENO'; }
+  else if (v === 'IZDANO' || v === 'POVRAT' || v === 'UTROSAK' || v === 'PRAZNJENJE') { o.value = 'PUNJENO'; }
   pokaziPolja();
 }
 pokaziPolja();

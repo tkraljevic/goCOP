@@ -442,13 +442,14 @@ type Zahvat struct {
 	Kolicina    float64 // uvijek pozitivno; smjer određuje vrsta zahvata
 
 	// odredište, ovisno o vrsti
-	NaSkladisteID string // prijenos u drugo skladište
-	AreaID        int    // teren: branjeno područje
-	SectionCode   string // teren: dionica, po volji
-	StructureID   string // teren: objekt ili nasip iz registra, po volji
-	Mjesto        string // teren: slobodan opis, po volji
-	JournalID     string // obrana uz koju izdavanje stoji
-	UOblik        string // punjenje: oblik u koji prelazi
+	NaSkladisteID string  // prijenos u drugo skladište
+	AreaID        int     // teren: branjeno područje
+	SectionCode   string  // teren: dionica, po volji
+	StructureID   string  // teren: objekt ili nasip iz registra, po volji
+	Mjesto        string  // teren: slobodan opis, po volji
+	JournalID     string  // obrana uz koju izdavanje stoji
+	UOblik        string  // punjenje: oblik u koji prelazi
+	Osteceno      float64 // pražnjenje: od toga oštećeno, ide u otpis
 
 	Nalozio  string
 	Preuzeo  string
@@ -548,40 +549,25 @@ func (s *MtsService) Provedi(ctx context.Context, u *models.User, perms *models.
 		r.Kolicina = -z.Kolicina
 		redci = append(redci, r)
 
-	case models.PrometPunjenje:
-		// prazno postaje napunjeno (ili obrnuto pri pražnjenju): isti komad,
-		// drugi oblik. Vreće se pune u skladištu; box barijere na dionici,
-		// bagerom — tada se puni ono što je na terenu.
-		if !vrsta.ImaOblike() {
-			return nil, errors.New("Punjenje ima smisla samo za sredstvo koje se vodi u više oblika.")
-		}
-		iz, u := z.Oblik, z.UOblik
-		if iz == "" {
-			iz = models.OblikPrazno
-		}
-		if u == "" {
-			u = models.OblikPunjeno
-		}
-		if iz == u {
-			return nil, errors.New("Punjenje mora mijenjati oblik.")
-		}
-		a, b := osnova, osnova
+	case models.PrometPunjenje, models.PrometPraznjenje:
+		// isti komad mijenja oblik na mjestu na kojem stoji. Vreće se pune
+		// u skladištu; box barijere na dionici, bagerom: tada se puni ono
+		// što je na terenu.
+		gdje := sk.ID
 		if naTeren {
-			if err := provjeriZalihu("", iz, z.Kolicina); err != nil {
-				return nil, err
-			}
-			naTerenu(&a)
-			naTerenu(&b)
-			a.Oblik, a.Kolicina, a.VezaID = iz, -z.Kolicina, veza
-			b.Oblik, b.Kolicina, b.VezaID = u, z.Kolicina, veza
+			gdje = ""
+			naTerenu(&osnova)
 		} else {
-			if err := provjeriZalihu(sk.ID, iz, z.Kolicina); err != nil {
-				return nil, err
-			}
-			a.SkladisteID, a.Oblik, a.Kolicina, a.VezaID = sk.ID, iz, -z.Kolicina, veza
-			b.SkladisteID, b.Oblik, b.Kolicina, b.VezaID = sk.ID, u, z.Kolicina, veza
+			osnova.SkladisteID = sk.ID
 		}
-		redci = append(redci, a, b)
+		iz, kamo, err := obliciZahvata(vrsta, z)
+		if err != nil {
+			return nil, err
+		}
+		if err := provjeriZalihu(gdje, iz, z.Kolicina); err != nil {
+			return nil, err
+		}
+		redci = append(redci, promjenaOblika(osnova, iz, kamo, z)...)
 
 	case models.PrometPrijenos:
 		cilj, err := s.repo.GetSkladiste(ctx, z.NaSkladisteID)

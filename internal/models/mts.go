@@ -166,15 +166,16 @@ func itoa(n int) string {
 // pozitivno, iz mjesta negativno. Stanje mjesta je zbroj njegovih redaka,
 // pa se nikad ne pita je li netko zaboravio prepraviti broj.
 const (
-	PrometPocetno  = "POCETNO"  // stanje zatečeno pri uvođenju u program
-	PrometPrimka   = "PRIMKA"   // nabavljeno, primljeno u skladište
-	PrometIzdano   = "IZDANO"   // izdano iz skladišta na teren
-	PrometPovrat   = "POVRAT"   // vraćeno s terena u skladište
-	PrometUtrosak  = "UTROSAK"  // ugrađeno ili potrošeno na terenu
-	PrometPrijenos = "PRIJENOS" // premješteno među skladištima
-	PrometPunjenje = "PUNJENJE" // vreće napunjene: prazne u punjene
-	PrometPopis    = "POPIS"    // usklađenje po godišnjem popisu
-	PrometOtpis    = "OTPIS"    // rashodovano, uništeno
+	PrometPocetno    = "POCETNO"    // stanje zatečeno pri uvođenju u program
+	PrometPrimka     = "PRIMKA"     // nabavljeno, primljeno u skladište
+	PrometIzdano     = "IZDANO"     // izdano iz skladišta na teren
+	PrometPovrat     = "POVRAT"     // vraćeno s terena u skladište
+	PrometUtrosak    = "UTROSAK"    // ugrađeno ili potrošeno na terenu
+	PrometPrijenos   = "PRIJENOS"   // premješteno među skladištima
+	PrometPunjenje   = "PUNJENJE"   // vreće napunjene: prazne u punjene
+	PrometPraznjenje = "PRAZNJENJE" // vreće ispražnjene: napunjene u prazne, oštećene u otpis
+	PrometPopis      = "POPIS"      // usklađenje po godišnjem popisu
+	PrometOtpis      = "OTPIS"      // rashodovano, uništeno
 )
 
 // VrstePrometa redom kojim se nude, s nazivom i time troši li se stanje
@@ -186,7 +187,8 @@ var VrstePrometa = []struct {
 	{PrometPovrat, "Povrat s terena", "vraćeno u skladište, neutrošeno"},
 	{PrometUtrosak, "Utrošak na terenu", "ugrađeno u nasip ili potrošeno"},
 	{PrometPrijenos, "Prijenos", "premješteno u drugo skladište"},
-	{PrometPunjenje, "Punjenje", "prazno postaje napunjeno, u skladištu ili na dionici (jumbo vreće i box barijere pune se na terenu); pražnjenje obrnuto"},
+	{PrometPunjenje, "Punjenje", "prazno postaje napunjeno, u skladištu ili na dionici (jumbo vreće i box barijere pune se na terenu)"},
+	{PrometPraznjenje, "Pražnjenje", "napunjeno postaje prazno, u skladištu ili na dionici; oštećeno ide u otpis (zbrinjavanje)"},
 	{PrometOtpis, "Otpis", "rashodovano ili uništeno"},
 	{PrometPopis, "Usklađenje po inventuri", "razlika utvrđena inventurom"},
 	{PrometPocetno, "Početno stanje", "zatečeno pri uvođenju u program"},
