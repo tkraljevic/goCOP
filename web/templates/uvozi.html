@@ -6,106 +6,82 @@
 {{define "sidroPomoci"}}#admin-uvozi{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/administracija">Administracija</a> › Uvozi podataka</div>
-
-<div class="page-header">
-  <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "download"}} Uvozi podataka</h1>
-    <p class="page-desc">
-      Program ne nosi podatke u sebi. U prazan čvor ulaze na tri načina: razmjenom s uparenim čvorom,
-      ručnim upisom, ili uvozom iz datoteke. Uvoz treba samo prvom čvoru u mreži — ostali podatke dobiju sinkronizacijom.
-    </p>
+{{/* Uvozi podataka po crtežu 18a · 6 (goCOP-m3): pet kartica istim
+     redom; CSV kao redci s izvozom i uvozom, kod očitanja gumb Unos u
+     arhivu i naredbe za terminal kao sklopivi redak. Obrasci su isti. */}}
+<div class="adm-stranica">
+  <a class="adm-natrag" href="/administracija">{{icon "arrow-left"}} Administracija</a>
+  <div class="page-header">
+    <div>
+      <h1 class="page-title" data-naziv-stranice>Uvozi podataka</h1>
+      <p class="page-desc">Program ne nosi podatke u sebi. U prazno računalo ulaze razmjenom s uparenim računalom, ručnim upisom ili uvozom iz datoteke. Uvoz treba samo prvom računalu u mreži; ostala podatke dobiju razmjenom.</p>
+      <span class="adm-doseg">samo prvo računalo u mreži</span>
+    </div>
   </div>
+
+  <section class="adm-kartica" aria-labelledby="uv-racunalo">
+    <h2 id="uv-racunalo">Od drugog računala</h2>
+    <p class="uv-opis">Najjednostavniji put: uparite ovo računalo s onim koje podatke već ima i pustite razmjenu. Registri, djelatnici, dionice i dnevnici stižu sami, a povijest očitanja onoliko koliko ovo računalo drži.</p>
+    <div><a href="/settings#uparivanje" class="btn btn-link uv-lijevo">Uparivanje</a></div>
+  </section>
+
+  <section class="adm-kartica" id="csv" aria-labelledby="uv-csv">
+    <h2 id="uv-csv">CSV: izvoz i uvoz registara</h2>
+    <p class="form-help">Isti oblik u oba smjera: izvezi, uredi u Excelu, uvezi natrag. Redak s brojem koji već postoji se osvježi, redak bez broja se doda; ništa se ne briše. Brojevi su s decimalnim zarezom, OIB ostaje tekst.</p>
+    <div class="uv-tablica" role="table" aria-labelledby="uv-csv">
+      <div class="uv-glava" role="row"><span role="columnheader">Registar</span><span role="columnheader">Izvoz</span><span role="columnheader">Uvoz</span></div>
+      {{range .CSV}}
+      <div class="uv-redak" role="row">
+        <span role="cell" class="uv-ime">{{.Name}}{{if .Note}}<span class="uv-napomena">{{.Note}}</span>{{end}}</span>
+        <span role="cell"><a href="{{.Export}}" class="btn btn-link btn-sm" title="Izvoz u CSV (Excel)">CSV {{icon "download"}}</a></span>
+        <span role="cell">
+          {{if .Import}}
+          <form method="POST" action="{{.Import}}" enctype="multipart/form-data" class="uv-uvoz">
+            {{if .Kind}}<input type="hidden" name="kind" value="{{.Kind}}">{{end}}
+            <input type="file" name="csv" accept=".csv,text/csv" required class="form-control" aria-label="Datoteka za {{.Name}}">
+            <button type="submit" class="btn btn-link btn-sm">Uvezi {{icon "upload"}}</button>
+          </form>
+          {{else}}<span class="uv-napomena">nema uvoza</span>{{end}}
+        </span>
+      </div>
+      {{end}}
+    </div>
+  </section>
+
+  <section class="adm-kartica" aria-labelledby="uv-data">
+    <h2 id="uv-data">Registri i imenik uz bazu</h2>
+    <p class="form-help">Datoteke se stave u mapu <span class="mono">data/</span> uz bazu i pročitaju se pri prvom pokretanju praznog računala. Kasnije se ne čitaju, da ne bi pregazile ono što su ljudi u međuvremenu upisali. Nisu dio programa; tko ih nema, upisuje ustroj i registre ručno.</p>
+    <div class="uv-tablica" role="table" aria-labelledby="uv-data">
+      <div class="uv-glava dva" role="row"><span role="columnheader">Datoteka</span><span role="columnheader">Što nosi</span></div>
+      <div class="uv-redak dva" role="row"><span role="cell" class="mono">organizacija.json</span><span role="cell">sektori i {{terml "podrucja"}}</span></div>
+      <div class="uv-redak dva" role="row"><span role="cell" class="mono">sections.json</span><span role="cell">dionice s poddionicama, vodomjerima i pragovima, objektima, nasipima i branama</span></div>
+      <div class="uv-redak dva" role="row"><span role="cell" class="mono">watercourses.json</span><span role="cell">vodotoci i vodna tijela</span></div>
+      <div class="uv-redak dva" role="row"><span role="cell" class="mono">territories.json</span><span role="cell">županije, gradovi, općine i naselja</span></div>
+      <div class="uv-redak dva" role="row"><span role="cell" class="mono">section_territories.json</span><span role="cell">ugrožena područja dionica</span></div>
+      <div class="uv-redak dva" role="row"><span role="cell" class="mono">objekti_bp16.json</span><span role="cell">objekti jednog branjenog područja</span></div>
+      <div class="uv-redak dva" role="row"><span role="cell" class="mono">imenik.json</span><span role="cell">djelatnici i njihova zaduženja (osobni podaci)</span></div>
+    </div>
+  </section>
+
+  <section class="adm-kartica" aria-labelledby="uv-a02">
+    <h2 id="uv-a02">Ugovor o održavanju (A.02)</h2>
+    <p class="uv-opis">Radna knjiga iz Excel dodatka Hrvatskih voda. Uvoz daje popis lokacija izvršenja usluga po branjenom području i stavke radova bez cijena; pozicije plana i cjenici se ne uvoze, jer se mijenjaju sa svakim okvirnim sporazumom. Prije upisa vidite izvješće: što je prepoznato u registru, što bi bilo novo i gdje treba ručna veza.</p>
+    <div><a href="/odrzavanje" class="btn btn-link uv-lijevo">Otvori Održavanje i učitaj ugovor</a></div>
+  </section>
+
+  <section class="adm-kartica" aria-labelledby="uv-ocitanja">
+    <h2 id="uv-ocitanja">Očitanja vodostaja</h2>
+    <p class="uv-opis">Mjerenja se ne objavljuju ni s programom ni u repozitoriju. Tablice i datoteke s očitanjima unose se u arhivu u pregledniku, s pregledom prije upisa, ili naredbom u terminalu.</p>
+    {{if .Permissions.IsGlobalAdmin}}<div><a href="/administracija/uvoz-niza" class="btn btn-primary">Unos u arhivu</a></div>{{end}}
+    <details class="uv-terminal">
+      <summary>{{icon "monitor"}}<span><span class="uv-terminal-naslov">Za terminal</span><span class="uv-napomena">gocop -tablica dnevni.csv · gocop -import-bp16 · gocop -import-bp16-dnevnici</span></span>{{icon "chevron-right"}}</summary>
+      <p class="form-help">Bez zastavice <span class="mono">-upisi</span> svaki uvoz samo izvještava, ništa ne mijenja.</p>
+      <div class="uv-tablica" role="table" aria-label="Naredbe za terminal">
+        <div class="uv-redak dva" role="row"><span role="cell" class="mono">gocop -tablica dnevni.csv</span><span role="cell">dnevna tablica vodostaja: stupci su postaje, redci datumi</span></div>
+        <div class="uv-redak dva" role="row"><span role="cell" class="mono">gocop -import-bp16</span><span role="cell">očitanja i stanja objekata iz ranije evidencije branjenog područja</span></div>
+        <div class="uv-redak dva" role="row"><span role="cell" class="mono">gocop -import-bp16-dnevnici</span><span role="cell">evidencije radova kao rekonstruirani dnevnici, uz napomenu na svakom listu</span></div>
+      </div>
+    </details>
+  </section>
 </div>
-
-<section class="detail-section">
-  <h2>{{icon "radio-tower"}} Od drugog čvora</h2>
-  <p class="page-desc">
-    Najjednostavniji put: uparite ovaj čvor s onim koji podatke već ima i pustite razmjenu. Registri, djelatnici,
-    dionice i dnevnici stižu sami, a povijest očitanja onoliko koliko ovaj čvor drži.
-  </p>
-  <a href="/settings#uparivanje" class="btn btn-secondary">{{icon "link"}} Uparivanje</a>
-</section>
-
-<section class="detail-section" id="csv">
-  <h2>{{icon "table"}} CSV: izvoz i uvoz registara</h2>
-  <p class="page-desc">
-    Isti oblik u oba smjera: izvezi, uredi u Excelu, uvezi natrag. Redak s brojem koji već postoji se osvježi,
-    redak bez broja se doda; ništa se ne briše. Brojevi su s decimalnim zarezom, OIB ostaje tekst.
-  </p>
-  <div class="table-card"><div class="table-responsive">
-    <table class="data-table">
-      <thead><tr><th>Registar</th><th>Izvoz</th><th>Uvoz</th></tr></thead>
-      <tbody>
-        {{range .CSV}}
-        <tr>
-          <td><strong>{{.Name}}</strong>{{if .Note}}<div class="reading-meta">{{.Note}}</div>{{end}}</td>
-          <td class="nowrap"><a href="{{.Export}}" class="btn btn-sm btn-secondary" title="Izvoz u CSV (Excel)">{{icon "download"}} CSV</a></td>
-          <td>
-            {{if .Import}}
-            <form method="POST" action="{{.Import}}" enctype="multipart/form-data" style="display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap;">
-              {{if .Kind}}<input type="hidden" name="kind" value="{{.Kind}}">{{end}}
-              <input type="file" name="csv" accept=".csv,text/csv" required class="form-control max-w-18">
-              <button type="submit" class="btn btn-sm btn-primary">{{icon "upload"}} Uvezi</button>
-            </form>
-            {{else}}<span class="reading-meta">nema uvoza</span>{{end}}
-          </td>
-        </tr>
-        {{end}}
-      </tbody>
-    </table>
-  </div></div>
-</section>
-<section class="detail-section">
-  <h2>{{icon "file-text"}} Registri i imenik uz bazu</h2>
-  <p class="page-desc">
-    Datoteke se stave u mapu <span class="mono">data/</span> uz bazu i pročitaju se pri prvom pokretanju praznog čvora.
-    Kasnije se ne čitaju, da ne bi pregazile ono što su ljudi u međuvremenu upisali.
-  </p>
-  <div class="table-card"><div class="table-responsive">
-    <table class="data-table">
-      <thead><tr><th>Datoteka</th><th>Što nosi</th></tr></thead>
-      <tbody>
-        <tr><td class="mono">organizacija.json</td><td>sektori i {{terml "podrucja"}}</td></tr>
-        <tr><td class="mono">sections.json</td><td>dionice s poddionicama, vodomjerima i pragovima, objektima, nasipima i branama</td></tr>
-        <tr><td class="mono">watercourses.json</td><td>vodotoci i vodna tijela</td></tr>
-        <tr><td class="mono">territories.json</td><td>županije, gradovi, općine i naselja</td></tr>
-        <tr><td class="mono">section_territories.json</td><td>ugrožena područja dionica</td></tr>
-        <tr><td class="mono">objekti_bp16.json</td><td>objekti jednog branjenog područja</td></tr>
-        <tr><td class="mono">imenik.json</td><td>djelatnici i njihova zaduženja (osobni podaci)</td></tr>
-      </tbody>
-    </table>
-  </div></div>
-  <p class="page-desc mt-2">
-    Datoteke nisu dio programa. Tko ih nema, upisuje ustroj i registre ručno.
-  </p>
-</section>
-
-<section class="detail-section">
-  <h2>{{icon "wrench"}} Ugovor o održavanju (A.02)</h2>
-  <p class="page-desc">
-    Radna knjiga iz Excel dodatka Hrvatskih voda. Uvoz daje popis lokacija izvršenja usluga po branjenom području
-    i stavke radova bez cijena. Pozicije plana i cjenici se ne uvoze jer se mijenjaju sa svakim okvirnim sporazumom.
-    Prije upisa vidite izvješće: što je prepoznato u registru, što bi bilo novo, gdje treba ručna veza.
-  </p>
-  <a href="/odrzavanje" class="btn btn-secondary">{{icon "wrench"}} Otvori Održavanje i učitaj ugovor</a>
-</section>
-
-<section class="detail-section">
-  <h2>{{icon "activity"}} Očitanja vodostaja</h2>
-  <p class="page-desc">
-    Mjerenja se ne objavljuju ni s programom ni u repozitoriju; uvoze se iz datoteke uz bazu, naredbom u terminalu.
-    Bez zastavice <span class="mono">-upisi</span> svaki uvoz samo izvještava, ništa ne mijenja.
-  </p>
-  <div class="table-card"><div class="table-responsive">
-    <table class="data-table">
-      <thead><tr><th>Naredba</th><th>Što radi</th></tr></thead>
-      <tbody>
-        <tr><td class="mono">gocop -tablica dnevni.csv</td><td>dnevna tablica vodostaja: stupci su postaje, redci datumi</td></tr>
-        <tr><td class="mono">gocop -import-bp16</td><td>očitanja i stanja objekata iz ranije evidencije branjenog područja</td></tr>
-        <tr><td class="mono">gocop -import-bp16-dnevnici</td><td>evidencije radova kao rekonstruirani dnevnici, uz napomenu na svakom listu</td></tr>
-      </tbody>
-    </table>
-  </div></div>
-</section>
 {{end}}

@@ -10932,3 +10932,32 @@ td .odr-sitno { margin-top: 2px; }
   .mod-tablica thead th span { writing-mode: vertical-rl; transform: rotate(180deg); }
   .mod-cip { display: none; }
 }
+
+/* Uvozi podataka po crtežu 18a · 6 */
+.uv-opis { margin: 0; font-size: 0.875rem; line-height: 20px; color: var(--md-sys-color-on-surface); }
+.uv-lijevo { margin-left: -12px; }
+.uv-tablica { display: flex; flex-direction: column; gap: 6px; }
+.uv-glava, .uv-redak { display: grid; grid-template-columns: minmax(0, 1.3fr) 110px minmax(0, 2fr); gap: 16px; align-items: center; }
+.uv-glava.dva, .uv-redak.dva { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
+.uv-glava { padding: 0 12px; font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); }
+.uv-redak { min-height: 44px; padding: 6px 12px; border-radius: 8px; background: var(--md-sys-color-surface); font-size: 0.875rem; line-height: 20px; color: var(--md-sys-color-on-surface); }
+.uv-ime { display: flex; flex-direction: column; }
+.uv-napomena { font-size: 0.75rem; line-height: 16px; color: var(--md-sys-color-on-surface-variant); }
+.uv-redak .btn-sm .icon { width: 14px; height: 14px; margin: 0; }
+.uv-uvoz { display: flex; align-items: center; gap: 8px; margin: 0; }
+.uv-uvoz .form-control { flex: 1 1 auto; min-width: 0; min-height: 32px; padding: 3px 8px; border: 1px solid var(--md-sys-color-outline); border-radius: 4px; background: var(--md-sys-color-surface); font-size: 0.8125rem; }
+.uv-terminal { border-radius: 8px; background: var(--md-sys-color-surface); }
+.uv-terminal > summary { list-style: none; display: flex; align-items: center; gap: 12px; padding: 8px 12px; cursor: pointer; }
+.uv-terminal > summary::-webkit-details-marker { display: none; }
+.uv-terminal > summary > span { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.uv-terminal > summary .icon { flex: none; color: var(--md-sys-color-on-surface-variant); }
+.uv-terminal[open] > summary .icon:last-child { transform: rotate(90deg); }
+.uv-terminal-naslov { font-size: 0.875rem; color: var(--md-sys-color-on-surface); }
+.uv-terminal > :not(summary), .adm-kartica .uv-terminal > .form-help { margin: 0 12px 12px; }
+.uv-uvoz input[type=file]::file-selector-button { margin-right: 8px; padding: 2px 10px; border: 1px solid var(--md-sys-color-outline); border-radius: var(--shape-full); background: transparent; color: var(--md-sys-color-primary); font: var(--md-type-label-medium); cursor: pointer; }
+.uv-terminal .uv-redak { background: var(--md-sys-color-surface-container-low); }
+@media (max-width: 699px) {
+  .uv-glava { display: none; }
+  .uv-redak, .uv-redak.dva { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; }
+  .uv-redak > :nth-child(3), .uv-redak.dva > :nth-child(2) { grid-column: 1 / -1; }
+}
