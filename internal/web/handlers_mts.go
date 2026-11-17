@@ -471,6 +471,10 @@ func (h *MtsHandler) HandleSavePromet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	z.Kolicina = k
+	if z.Osteceno = u.broj("osteceno", "Od toga oštećeno"); u.Neispravno["osteceno"] {
+		h.ponoviObrazacZahvata(w, r, data, z, u, "„Od toga oštećeno” nije broj; upišite ga brojkama ili ostavite prazno.")
+		return
+	}
 	redci, err := h.svc().Provedi(r.Context(), data.CurrentUser, data.Permissions, z)
 	if err != nil {
 		h.ponoviObrazacZahvata(w, r, data, z, u, err.Error())
