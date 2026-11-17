@@ -5,44 +5,48 @@
 {{define "content"}}
 <div class="stranica-cvor">
 
-<div class="breadcrumb"><a href="/administracija">Administracija</a> › Ovo računalo i mreža</div>
-
+{{/* Ovo računalo i mreža po crtežu 18b · 1 (goCOP-m3): lijevo ovo
+     računalo (Ovo računalo, Uloge, Razmjena na ovom računalu), desno mreža
+     (Adrese, Mreža, Uparivanje), dolje Poznata računala. Kartice zadržavaju
+     razred card, identifikatore i skripte; mijenja se raspored i izgled. */}}
+<a class="adm-natrag" href="/administracija">{{icon "arrow-left"}} Administracija</a>
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{icon "radio-tower"}} Ovo računalo i mreža</h1>
-    <p class="page-desc">Ključ i uloge ovog računala, članstvo u mreži, uparivanje, adrese za razmjenu i WEB sync. Svako računalo je punopravna kopija; nijedno nije jedino. Ručna razmjena, provjera veze i stanje veze s drugim računalima su na stranici <a href="/sinkronizacija">Stanje razmjene</a>.</p>
+    <h1 class="page-title" data-naziv-stranice>Ovo računalo i mreža</h1>
+    <p class="page-desc">Tko je ovo računalo, u kojoj je mreži i kako se u nju ulazi. Svako računalo je punopravna kopija; nijedno nije jedino. Ručna razmjena, provjera veze i stanje veze s drugim računalima su na stranici <a href="/sinkronizacija">Stanje razmjene</a>.</p>
+    <div class="rac-cipovi">
+      <span class="adm-doseg" title="Dio vrijedi samo na ovom računalu, a dio na svim računalima u mreži.">R+M · dio ovdje, dio u mreži</span>
+      <span class="rac-cip">{{.NodeName}}</span>
+      {{if .Network}}<span class="rac-cip dobro">član mreže {{.Network.Name}}</span>{{else}}<span class="rac-cip pozor">nije u mreži</span>{{end}}
+      <span class="rac-cip">uloge: {{if and .Uloge.Preuzima .Uloge.Izdaje}}preuzima i izdaje{{else if .Uloge.Preuzima}}preuzima vodostaje{{else if .Uloge.Izdaje}}izdaje prognozu{{else}}nijedna{{end}}</span>
+    </div>
   </div>
+  <div class="page-actions"><a href="/sinkronizacija" class="btn btn-link">Stanje razmjene</a></div>
 </div>
 
 {{template "trakaPonovnogPokretanja" .Postavke}}
 
 
-<div class="cards">
+<div class="cards rac-stupci">
+<div class="rac-stupac">
 
   <div class="card">
-    <h2>Ovaj čvor</h2>
+    <h2>Ovo računalo <span class="rac-doseg" title="Vrijedi samo na ovom računalu i ne ide razmjenom.">R</span></h2>
     <dl class="kv">
       <dt>Naziv</dt><dd>{{.NodeName}}</dd>
-      <dt>Ime čvora u mreži</dt><dd class="mono">{{.NodeID}}</dd>
+      <dt>Ime u mreži</dt><dd class="mono">{{.NodeID}}</dd>
       <dt>Javni ključ</dt><dd class="mono text-xs">{{.NodePublicKey}}</dd>
-      <dt>Verzija</dt><dd>{{if .NodeVersion}}{{.NodeVersion}}{{else}}razvojna{{end}} · shema {{.SchemaVersion}}</dd>
+      <dt>Izdanje</dt><dd>{{if .NodeVersion}}{{.NodeVersion}}{{else}}razvojna{{end}} · shema {{.SchemaVersion}}</dd>
       <dt>Portovi</dt><dd>razmjena {{.Ports.Exchange}} · uparivanje {{.Ports.Pair}} · pronalaženje {{.Ports.Discovery}}</dd>
     </dl>
-    <p class="muted" style="margin-top:0.6rem;">Ključ čvora leži uz bazu, ne u njoj — kopija baze ne nasljeđuje identitet stroja.</p>
+    <p class="muted" style="margin-top:0.6rem;">Ključ računala leži uz bazu, ne u njoj: kopija baze ne nasljeđuje identitet računala.</p>
     {{with .Postavke}}{{template "postavkeCvora" (.Dio "cvor")}}{{template "ponovnoPokretanje" .Ponovno}}{{template "starijeIzdanje" .Starije}}{{end}}
   </div>
 
-  {{with .Postavke}}
-  <div class="card">
-    <h2 id="web-sync">WEB sync i dohvatljivost</h2>
-    <p class="desc">WEB sync je izravna razmjena između računala iza kućnog ili uredskog usmjerivača. Ovdje se uključuje, a vrijedi samo za ovo računalo. Gumb Provjeri vezu i ishod zadnje provjere su na stranici <a href="/sinkronizacija#dohvatljivost">Stanje razmjene</a>.</p>
-    {{template "postavkeCvora" (.Dio "websync")}}{{template "webSyncNakonPadova" .WebSync}}
-  </div>
-  {{end}}
 
   <div class="card" id="uloge">
-    <h2>Uloge ovog čvora</h2>
-    <p class="desc">Vodostaje s izvora (vodostaji.voda.hr, mađarske, austrijske i ostale letve) dovoljno je da preuzima jedan čvor: očitanja putuju razmjenom. Prognozu izdaje jedan čvor, a njegovo izdanje stiže ostalima; inače dva računala izdaju dvije malo različite prognoze za isti sat.</p>
+    <h2>Uloge ovog računala <span class="rac-doseg" title="Vrijedi samo na ovom računalu i ne ide razmjenom.">R</span></h2>
+    <p class="desc">Vodostaje s izvora (vodostaji.voda.hr, mađarske, austrijske i ostale letve) dovoljno je da preuzima jedno računalo: očitanja putuju razmjenom. Prognozu izdaje jedno računalo, a njegovo izdanje stiže ostalima; inače dva računala izdaju dvije malo različite prognoze za isti sat.</p>
     {{/* isključivanje uloge traži potvrdu (Odluke (30. 10. 2026.), 13); uključivanje ne */}}
     <form method="POST" action="/settings/uloge" data-potvrda-uloga
           onsubmit="var p=this.elements.preuzima, i=this.elements.izdaje, x=[]; if (p.defaultChecked && !p.checked) x.push('Preuzima vodostaje s izvora'); if (i.defaultChecked && !i.checked) x.push('Izdaje prognozu'); return !x.length || confirm('Isključiti ulogu ovog čvora (' + x.join(', ') + ')? Ako je u mreži nema nijedan drugi čvor, vodostaji ili prognoza neće se obnavljati.')">
@@ -52,39 +56,16 @@
         <span><b>Izdaje prognozu</b><br><span class="muted">tuđe prognoze, kiša, izračun i priprema modela; izdanje i model idu razmjenom</span></span></label>
       {{if .Permissions.IsGlobalAdmin}}<div class="actions" style="margin-top:0.6rem;"><button type="submit" class="btn btn-primary">Spremi uloge</button></div>{{end}}
     </form>
-    {{if not (or .Uloge.Preuzima .Uloge.Izdaje)}}<p class="muted" style="margin-top:0.6rem;">Ovaj čvor sve prima razmjenom. Ako u mreži nijedan čvor nema ove uloge, vodostaji i prognoza neće se obnavljati.</p>{{end}}
+    {{if not (or .Uloge.Preuzima .Uloge.Izdaje)}}<p class="rac-napomena">Ovo računalo sve prima razmjenom. Ako u mreži nijedno računalo nema ove uloge, vodostaji i prognoza neće se obnavljati.</p>{{end}}
   </div>
 
+  {{with .Postavke}}
   <div class="card">
-    <h2>Domenski čvorovi</h2>
-    <p class="desc">Čvor s adresom za razmjenu (domena ili javni IP) dostupan je i izvan lokalne mreže: preko njega se ostali usklađuju kad nisu u istoj zgradi. Adresa za razmjenu putuje razmjenom, pa je dovoljno upisati je jednom, na bilo kojem čvoru.{{if $.Permissions.IsGlobalAdmin}} Adresa za QR kod na dokumentima je posebna postavka, na stranici <a href="/administracija/potpisi#qr-adresa">Elektronički potpisi</a>.{{end}}</p>
-    <div class="peer">
-      <div class="peer-head"><span class="peer-name">{{.Self.Name}} <span class="muted">(ovaj čvor)</span></span>{{if .Self.IsBootstrap}}<span class="badge badge-active">stalno izložen</span>{{end}}</div>
-      {{/* adrese računala vidi samo administrator */}}
-      <div class="peer-meta">{{if .Self.Addresses}}{{if $.Permissions.IsGlobalAdmin}}{{range .Self.Addresses}}<span class="mono">{{.}}</span> <button type="button" class="btn btn-sm btn-link" onclick="removeAddress('{{$.NodeID}}', '{{.}}')" title="Makni adresu">×</button> {{end}}{{else}}ima adresu za razmjenu{{end}}{{else}}bez adrese za razmjenu — dostupan samo u lokalnoj mreži{{end}}</div>
-    </div>
-    {{range .Peers}}{{if .IsBootstrap}}
-    <div class="peer">
-      <div class="peer-head"><span class="peer-name">{{if .Name}}{{.Name}}{{else}}{{.NodeID}}{{end}}</span><span class="badge badge-active">stalno izložen</span></div>
-      {{$peer := .}}{{if $.Permissions.IsGlobalAdmin}}<div class="peer-meta">{{range .Addresses}}<span class="mono">{{.}}</span> <button type="button" class="btn btn-sm btn-link" onclick="removeAddress('{{$peer.NodeID}}', '{{.}}')" title="Makni adresu">×</button> {{end}}</div>{{end}}
-    </div>
-    {{end}}{{end}}
-    {{if .Permissions.IsGlobalAdmin}}
-    <div class="actions mt-3">
-      <select id="addr-node" class="form-control" style="max-width:220px;">
-        <option value="{{.NodeID}}">{{.Self.Name}} (ovaj čvor)</option>
-        {{range .Peers}}<option value="{{.NodeID}}">{{if .Name}}{{.Name}}{{else}}{{.NodeID}}{{end}}</option>{{end}}
-      </select>
-      <input type="text" id="addr-new" class="form-control" placeholder="domena, IP ili https://domena za tunel" style="max-width:260px;">
-      {{if .Izvana}}<input type="password" id="adresa-lozinka" class="form-control" placeholder="Lozinka vašeg računa" autocomplete="current-password" aria-label="Lozinka vašeg računa" style="max-width:220px;">{{end}}
-      <button type="button" class="btn btn-primary" onclick="addAddress()">Dodaj adresu za razmjenu</button>
-    </div>
-    {{if .Izvana}}<p class="form-help" style="margin-top:0.4rem;">Stranicu ste otvorili izvana. Izvana se adresa dodaje ili miče samo uz lozinku vašeg računa.</p>{{end}}
-    <p class="muted" style="margin-top:0.4rem;">Bez porta uzima se port razmjene {{.Ports.Exchange}}; vatrozid ga mora propustiti do čvora.
-      Kad se izvana smije samo na web (Cloudflare tunel), upišite web adresu čvora, npr. <span class="mono">https://cop.primjer.hr</span>:
-      razmjena tada ide kroz web sučelje, a unutra je isti šifrirani razgovor s ključevima čvorova.</p>
-    {{end}}
+    <h2 id="web-sync">Razmjena na ovom računalu <span class="rac-doseg" title="Vrijedi samo na ovom računalu i ne ide razmjenom.">R</span></h2>
+    <p class="desc">WEB sync je izravna razmjena između računala iza kućnog ili uredskog usmjerivača. Ovdje se uključuje, a vrijedi samo za ovo računalo. Gumb Provjeri vezu i ishod zadnje provjere su na stranici <a href="/sinkronizacija#dohvatljivost">Stanje razmjene</a>.</p>
+    {{template "postavkeCvora" (.Dio "websync")}}{{template "webSyncNakonPadova" .WebSync}}
   </div>
+  {{end}}
 
   <div class="card">
     <h2>Knjiga verzija</h2>
@@ -97,14 +78,49 @@
     </dl>
   </div>
 
+</div>
+<div class="rac-stupac">
+
+  <div class="card">
+    <h2>Adrese <span class="rac-doseg" title="Vrijedi na svim računalima u mreži; promjena ide razmjenom.">M</span></h2>
+    <p class="desc">Računalo s adresom za razmjenu (domena, IP ili https adresa tunela) dostupno je i izvan lokalne mreže: preko njega se ostala usklađuju kad nisu u istoj zgradi. Adresa putuje razmjenom, pa je dovoljno upisati je jednom, na bilo kojem računalu.{{if $.Permissions.IsGlobalAdmin}} Adresa za QR kod na dokumentima je posebna postavka, na stranici <a href="/administracija/potpisi#qr-adresa">Elektronički potpisi</a>.{{end}}</p>
+    <div class="peer">
+      <div class="peer-head"><span class="peer-name">{{.Self.Name}} <span class="muted">(ovo računalo)</span></span>{{if .Self.IsBootstrap}}<span class="badge badge-active">stalno izložen</span>{{end}}</div>
+      {{/* adrese računala vidi samo administrator */}}
+      <div class="peer-meta">{{if .Self.Addresses}}{{if $.Permissions.IsGlobalAdmin}}{{range .Self.Addresses}}<span class="mono">{{.}}</span> <button type="button" class="btn btn-sm btn-link" onclick="removeAddress('{{$.NodeID}}', '{{.}}')" title="Makni adresu">×</button> {{end}}{{else}}ima adresu za razmjenu{{end}}{{else}}bez adrese za razmjenu — dostupan samo u lokalnoj mreži{{end}}</div>
+    </div>
+    {{range .Peers}}{{if .IsBootstrap}}
+    <div class="peer">
+      <div class="peer-head"><span class="peer-name">{{if .Name}}{{.Name}}{{else}}{{.NodeID}}{{end}}</span><span class="badge badge-active">stalno izložen</span></div>
+      {{$peer := .}}{{if $.Permissions.IsGlobalAdmin}}<div class="peer-meta">{{range .Addresses}}<span class="mono">{{.}}</span> <button type="button" class="btn btn-sm btn-link" onclick="removeAddress('{{$peer.NodeID}}', '{{.}}')" title="Makni adresu">×</button> {{end}}</div>{{end}}
+    </div>
+    {{end}}{{end}}
+    {{if .Permissions.IsGlobalAdmin}}
+    <div class="actions mt-3">
+      <select id="addr-node" class="form-control" style="max-width:220px;">
+        <option value="{{.NodeID}}">{{.Self.Name}} (ovo računalo)</option>
+        {{range .Peers}}<option value="{{.NodeID}}">{{if .Name}}{{.Name}}{{else}}{{.NodeID}}{{end}}</option>{{end}}
+      </select>
+      <input type="text" id="addr-new" class="form-control" placeholder="domena, IP ili https://domena za tunel" style="max-width:260px;">
+      {{if .Izvana}}<input type="password" id="adresa-lozinka" class="form-control" placeholder="Lozinka vašeg računa" autocomplete="current-password" aria-label="Lozinka vašeg računa" style="max-width:220px;">{{end}}
+      <button type="button" class="btn btn-primary" onclick="addAddress()">Dodaj adresu za razmjenu</button>
+    </div>
+    {{if .Izvana}}<p class="form-help" style="margin-top:0.4rem;">Stranicu ste otvorili izvana. Izvana se adresa dodaje ili miče samo uz lozinku vašeg računa.</p>{{end}}
+    <p class="muted" style="margin-top:0.4rem;">Bez porta uzima se port razmjene {{.Ports.Exchange}}; vatrozid ga mora propustiti do računala.
+      Kad se izvana smije samo na web (Cloudflare tunel), upišite web adresu računala, npr. <span class="mono">https://cop.primjer.hr</span>:
+      razmjena tada ide kroz web sučelje, a unutra je isti šifrirani razgovor s ključevima računala.</p>
+    {{end}}
+  </div>
+
+
   <div class="card wide">
-    <h2>Mreža</h2>
+    <h2>Mreža <span class="rac-doseg" title="Vrijedi na svim računalima u mreži; promjena ide razmjenom.">M</span></h2>
     {{if .Network}}
-    <p class="desc">Čvorovi si vjeruju samo unutar iste mreže. Članstvo je potpis ključa mreže nad ključem čvora; provjerava se pri svakoj razmjeni. Druga organizacija s istim programom ima drugi ključ — i time ništa zajedničko s nama.</p>
+    <p class="desc">Računala iste mreže vjeruju jedno drugome jer im je članstvo potpisao ključ mreže; provjerava se pri svakoj razmjeni. Druga organizacija s istim programom ima drugi ključ i time ništa zajedničko s nama.</p>
     <dl class="kv">
       <dt>Naziv</dt><dd><b>{{.Network.Name}}</b></dd>
       <dt>Ključ mreže</dt><dd class="mono text-xs">{{.Network.PublicKey}}</dd>
-      <dt>Ovaj čvor</dt><dd>{{if .Network.DrziKljuc}}<span class="badge badge-active">drži ključ mreže — može primati članove</span>{{else if .Network.Ovlast}}<span class="badge badge-active">ovlašteni primatelj — može primati članove</span> do {{formatDate .Network.Ovlast.ExpiresAt}}{{else}}član{{end}} · od {{formatDate .Network.JoinedAt}}</dd>
+      <dt>Ovo računalo</dt><dd>{{if .Network.DrziKljuc}}<span class="badge badge-active">drži ključ mreže — može primati članove</span>{{else if .Network.Ovlast}}<span class="badge badge-active">ovlašteni primatelj — može primati članove</span> do {{formatDate .Network.Ovlast.ExpiresAt}}{{else}}član{{end}} · od {{formatDate .Network.JoinedAt}}</dd>
       {{with .RokClanstva}}<dt>Članstvo</dt><dd><span class="badge {{.Oznaka}}">{{.Opis}}</span>{{if $.Permissions.IsGlobalAdmin}} <button type="button" class="btn btn-sm btn-secondary" onclick="obnoviClanstvo()">Obnovi članstvo</button>{{end}}
         <div class="form-help">Obnova se traži sama uz razmjenu 30 dana prije isteka. Gumbom se može tražiti u svako doba. Nakon isteka razmjena radi još 30 dana.</div></dd>{{end}}
       {{with .RokOvlasti}}<dt>Ovlast za primanje</dt><dd><span class="badge {{.Oznaka}}">{{.Opis}}</span></dd>{{end}}
@@ -146,7 +162,7 @@
       {{range .Members}}
       <div class="peer">
         <div class="peer-head">
-          <span class="peer-name">{{.DeviceID}}{{if .IsSelf}} <span class="muted">(ovaj čvor)</span>{{end}}
+          <span class="peer-name">{{.DeviceID}}{{if .IsSelf}} <span class="muted">(ovo računalo)</span>{{end}}
             {{if not .Valid}}<span class="badge badge-inactive" title="{{.Problem}}">nevažeće</span>{{else if .Rok.TraziPaznju}}<span class="badge {{.Rok.Oznaka}}">{{.Rok.Opis}}</span>{{else}}<span class="badge badge-active">član</span>{{end}}</span>
           {{if .BezClanstva}}<span class="peer-meta">na ovom računalu nema njegovog valjanog članstva</span>{{else}}<span class="peer-meta">primio {{.IssuedBy}}{{if .Primatelj}} (ovlašteni primatelj){{end}} · vrijedi do {{formatDate .ExpiresAt}}</span>{{end}}
         </div>
@@ -190,8 +206,8 @@
     </div>
     {{end}}
     {{else}}
-    <p class="desc">Ovaj čvor još nije ni u jednoj mreži. Bez mreže nema razmjene: nitko mu ne vjeruje i on ne vjeruje nikome.</p>
-    <p class="desc">Dva puta unutra: <b>osnovati mrežu</b> (ovaj čvor dobiva ključ mreže i prima ostale) ili <b>biti primljen</b> — upariti se s čvorom koji drži ključ mreže ili ovlast za primanje (članstvo stiže s uparivanjem), ili na daljinu, zahtjevom i potvrdom pod Postavljanje.</p>
+    <p class="desc">Ovo računalo još nije ni u jednoj mreži. Bez mreže nema razmjene: nitko mu ne vjeruje i ono ne vjeruje nikome.</p>
+    <p class="desc">Dva puta unutra: <b>osnovati mrežu</b> (ovo računalo dobiva ključ mreže i prima ostala) ili <b>biti primljeno</b>: upariti se s računalom koje drži ključ mreže ili ovlast za primanje (članstvo stiže s uparivanjem), ili na daljinu, zahtjevom i potvrdom pod Postavljanje.</p>
     {{if .Permissions.IsGlobalAdmin}}
     <div class="actions">
       <input type="text" id="network-name" class="form-control" placeholder="naziv mreže, npr. Hrvatske vode" style="max-width:300px;">
@@ -206,14 +222,14 @@
 
   {{if .Permissions.IsGlobalAdmin}}
   <div class="card wide" id="uparivanje">
-    <h2>Uparivanje</h2>
-    <p class="desc">Dva čvora se upare tako da oba pokažu isti šesteroznamenkasti kod i oba ga čovjek potvrdi. Nakon toga sami razmjenjuju podatke.</p>
+    <h2>Uparivanje <span class="rac-doseg" title="Vrijedi samo na ovom računalu i ne ide razmjenom.">R</span></h2>
+    <p class="desc">Dva se računala upare kad oba pokažu isti šesteroznamenkasti kod i čovjek ga potvrdi na oba. Nakon toga sama razmjenjuju podatke.</p>
     <div id="pair-box">
       <div class="actions">
-        <button type="button" class="btn btn-primary" onclick="pairListen()">Čekaj drugi čvor</button>
+        <button type="button" class="btn btn-primary" onclick="pairListen()">Čekaj poziv</button>
         <button type="button" class="btn btn-secondary" id="pair-stop" onclick="pairStop()" style="display:none;">Prestani čekati</button>
-        <input type="text" id="pair-addr" class="form-control" placeholder="adresa čvora, npr. 192.168.1.20" style="max-width:260px;">
-        <button type="button" class="btn btn-secondary" onclick="pairDial()">Nazovi čvor</button>
+        <input type="text" id="pair-addr" class="form-control" placeholder="adresa računala, npr. 192.168.1.20" style="max-width:260px;">
+        <button type="button" class="btn btn-secondary" onclick="pairDial()">Nazovi</button>
       </div>
       <p id="pair-status" class="muted" style="margin-top:0.6rem;"></p>
       <div id="pair-pending" style="display:none;">
@@ -232,15 +248,19 @@
   </div>
   {{end}}
 
+</div>
+</div>
+
+<div class="cards rac-dno">
   <div class="card wide">
-    <h2>Poznati čvorovi</h2>
-    <p class="desc">Računala s kojima ovo razmjenjuje. Adresa se mijenja, ključ ne. Računala s domenom označena su kao stalno izložena.
+    <h2>Poznata računala{{with .Peers}} <span class="rac-broj">{{len .}}</span>{{end}}</h2>
+    <p class="desc">Računala s kojima ovo razmjenjuje. Adresa se mijenja, ključ ne. Računalo s domenom ima stalnu adresu, pa ga druga mogu nazvati i izvana.
       Gumbi Razmijeni sa svima, Razmijeni i Pretraži lokalnu mrežu su na stranici <a href="/sinkronizacija" id="poveznica-stanje-razmjene">Stanje razmjene</a>.</p>
     {{if and .Izvana .Permissions.IsGlobalAdmin .Peers}}
     <div class="form-group mb-2">
       <label class="form-label" for="cvor-lozinka">Lozinka vašeg računa</label>
       <input type="password" id="cvor-lozinka" class="form-control" autocomplete="current-password" style="max-width:240px;">
-      <div class="form-help">Stranicu ste otvorili izvana. Izvana se čvor zaboravlja i označava kao stalno izložen samo uz lozinku vašeg računa.</div>
+      <div class="form-help">Stranicu ste otvorili izvana. Izvana se računalo zaboravlja i označava kao stalno izloženo samo uz lozinku vašeg računa.</div>
     </div>
     {{end}}
     <div id="peer-list">
@@ -266,7 +286,7 @@
         {{end}}
       </div>
       {{else}}
-      <p class="muted">Još nema poznatih čvorova. {{if $.Permissions.IsGlobalAdmin}}Prvo računalo uparite gore, pod Uparivanje. Koja se računala javljaju u lokalnoj mreži, pokazuje <a href="/sinkronizacija">Stanje razmjene</a>.{{else}}Čvorove dodaje administrator.{{end}}</p>
+      <p class="muted">Još nema poznatih računala. {{if $.Permissions.IsGlobalAdmin}}Prvo računalo uparite gore, pod Uparivanje. Koja se računala javljaju u lokalnoj mreži, pokazuje <a href="/sinkronizacija">Stanje razmjene</a>.{{else}}Računala dodaje administrator.{{end}}</p>
       {{end}}
     </div>
   </div>
@@ -474,7 +494,7 @@ async function forgetPeer(node, name) {
 }
 
 // adresa s popisa Lokalna mreža sada na Stanju razmjene (?upari=…): upiše
-// se u polje, a nazove se tek gumbom Nazovi čvor
+// se u polje, a nazove se tek gumbom Nazovi
 const upari = new URLSearchParams(location.search).get('upari');
 if (upari && document.getElementById('pair-addr')) { document.getElementById('pair-addr').value = upari; }
 

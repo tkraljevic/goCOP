@@ -464,7 +464,7 @@ func TestGumbiRazmjeneSamoNaStanjuRazmjene(t *testing.T) {
 			t.Errorf("Ovo računalo i mreža ima %q", nema)
 		}
 	}
-	for _, ima := range []string{"<title>goCOP — Ovo računalo i mreža", "› Ovo računalo i mreža</div>", `id="poveznica-stanje-razmjene"`,
+	for _, ima := range []string{"<title>goCOP — Ovo računalo i mreža", `<a class="adm-natrag" href="/administracija">`, `id="poveznica-stanje-razmjene"`,
 		"get('upari')", "getElementById('pair-addr').value = upari"} {
 		if !strings.Contains(racunalo, ima) {
 			t.Errorf("Ovo računalo i mreža nema %q", ima)
@@ -489,8 +489,9 @@ func TestGumbiRazmjeneSamoNaStanjuRazmjene(t *testing.T) {
 	}
 }
 
-// S5: WEB sync ima jedan odjeljak, s postavkama iz gocop.toml i ponovnim
-// uključivanjem, a ne više u karticama Ovaj čvor i Mreža. Provjera veze je
+// S5: WEB sync ima jedan odjeljak (Razmjena na ovom računalu), s postavkama
+// iz gocop.toml i ponovnim uključivanjem, a ne više u karticama Ovo računalo
+// i Mreža. Provjera veze je
 // na Stanju razmjene (Odluke (30. 10. 2026.), 3).
 func TestWebSyncImaSvojOdjeljak(t *testing.T) {
 	s, _ := cvorSPostavkama(t, sadrzajPostavk, nil)
@@ -508,9 +509,11 @@ func TestWebSyncImaSvojOdjeljak(t *testing.T) {
 			t.Errorf("%s nije u odjeljku WEB sync (%d < %d)", id, i, odjeljak)
 		}
 	}
-	uloge := strings.Index(html, `id="uloge"`)
-	if i := strings.Index(html, `data-postavka="povezivost.web_sync"`); i > uloge {
-		t.Error("WEB sync nije u svom odjeljku, odmah ispod kartice Ovaj čvor")
+	// po crtežu 18b · 1 razmjena na ovom računalu stoji u lijevom stupcu, ispod
+	// Uloga, a prije Adresa u desnom
+	uloge, adrese := strings.Index(html, `id="uloge"`), strings.Index(html, "<h2>Adrese")
+	if i := strings.Index(html, `data-postavka="povezivost.web_sync"`); i < uloge || i > adrese {
+		t.Error("Razmjena na ovom računalu nije u stupcu ovog računala, ispod Uloga")
 	}
 	i := strings.Index(html, `id="postavke-mreza"`)
 	if i < 0 {

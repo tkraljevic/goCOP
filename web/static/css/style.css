@@ -6613,31 +6613,41 @@ h3.kis-podnaslov { margin:1rem 0 0.4rem; display:flex; align-items:center; gap:0
 /* Čvor i mreža (settings.html): razredi vrijede samo na toj stranici */
 .stranica-cvor .uloga-red { display:flex; gap:0.6rem; align-items:flex-start; margin:0.5rem 0; cursor:pointer; }
 .stranica-cvor .uloga-red input { margin-top:0.25rem; }
-/* Postavke su prvi ekran rađen mobile-first: kartice u jednom stupcu,
-   radnje u redu koji se lomi, bez tablica. */
-.stranica-cvor .cards { display: flex; flex-direction: column; gap: 1rem; max-width: 760px; }
-.stranica-cvor .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-kartica); padding: var(--space-16); }
-.stranica-cvor .card h2 { font-size: 1rem; font-weight: 600; margin: 0 0 0.6rem; }
-.stranica-cvor .card .desc { font-size: 0.875rem; color: var(--text-muted); margin: 0 0 0.75rem; }
-.stranica-cvor .kv { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1rem; font-size: 0.9rem; }
-.stranica-cvor .kv dt { color: var(--text-muted); }
-.stranica-cvor .kv dd { margin: 0; word-break: break-all; }
-.stranica-cvor .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
-.stranica-cvor .peer { border-top: 1px solid var(--crta-glave); padding: 0.75rem 0; }
-.stranica-cvor .peer:first-of-type { border-top: 0; }
-.stranica-cvor .peer-head { display: flex; justify-content: space-between; gap: 0.75rem; align-items: baseline; flex-wrap: wrap; }
-.stranica-cvor .peer-name { font-weight: 600; }
-.stranica-cvor .peer-meta { font-size: 0.78rem; color: var(--text-muted); }
+/* Ovo računalo i mreža po crtežu 18b · 1: kartice u dva stupca (lijevo
+   ovo računalo, desno mreža), dolje Poznata računala; na mobitelu jedan
+   stupac. Radnje u redu koji se lomi, bez tablica. */
+.stranica-cvor { display: flex; flex-direction: column; gap: 16px; }
+.stranica-cvor .page-header { margin-bottom: 0; }
+.rac-cipovi { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.rac-cipovi .adm-doseg { margin-top: 0; }
+.rac-cip { padding: 0 8px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 4px; font-size: 0.75rem; line-height: 17px; color: var(--md-sys-color-on-surface-variant); }
+.rac-cip.dobro { border-color: transparent; background: var(--success-bg); color: var(--success); }
+.rac-cip.pozor { border-color: var(--upozorenje-tehnicko-rub); background: var(--upozorenje-tehnicko-ploha); color: var(--md-sys-color-on-surface); }
+.stranica-cvor .cards { display: flex; flex-direction: column; gap: 16px; }
+.rac-stupac { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.stranica-cvor .card { --list-podloga: var(--md-sys-color-surface-container-low); min-width: 0; padding: 16px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px; background: var(--md-sys-color-surface-container-low); }
+.stranica-cvor .card h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 1rem; line-height: 24px; font-weight: 500; color: var(--md-sys-color-on-surface); }
+.stranica-cvor .card h3 { margin: 12px 0 6px; font-size: 0.875rem; font-weight: 500; }
+.rac-doseg, .rac-broj { margin-left: auto; padding: 0 6px; border: 1px solid var(--md-sys-color-outline); border-radius: 4px; font-size: 0.6875rem; line-height: 15px; font-weight: 500; color: var(--md-sys-color-on-surface); cursor: help; }
+.rac-broj { border: 0; font-size: 0.875rem; color: var(--md-sys-color-primary); cursor: default; }
+.stranica-cvor .card .desc { margin: 0 0 12px; font-size: 0.8125rem; line-height: 18px; color: var(--md-sys-color-on-surface-variant); }
+.stranica-cvor .kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; font-size: 0.875rem; }
+.stranica-cvor .kv dt { font-size: 0.8125rem; color: var(--md-sys-color-on-surface-variant); }
+.stranica-cvor .kv dd { margin: 0; overflow-wrap: anywhere; }
+.stranica-cvor .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.stranica-cvor .peer { margin-top: 6px; padding: 8px 12px; border-radius: 8px; background: var(--md-sys-color-surface); }
+.stranica-cvor .peer-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.stranica-cvor .peer-name { font-size: 0.875rem; font-weight: 500; }
+.stranica-cvor .peer-meta { font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); overflow-wrap: anywhere; }
+.stranica-cvor .peer .actions { margin-top: 6px; }
 .stranica-cvor .sas { font-family: "SFMono-Regular", Menlo, monospace; font-size: 2.2rem; letter-spacing: 0.25em; text-align: center; padding: 0.5rem 0; }
-.stranica-cvor .muted { color: var(--text-muted); font-size: 0.85rem; }
+.stranica-cvor .muted, .rac-napomena { color: var(--md-sys-color-on-surface-variant); font-size: 0.8125rem; }
+.rac-napomena { margin: 12px 0 0; padding: 8px 12px; border: 1px solid var(--upozorenje-tehnicko-rub); border-radius: 8px; background: var(--upozorenje-tehnicko-ploha); color: var(--md-sys-color-on-surface); }
 .stranica-cvor .ok { color: var(--tint-green-fg); }
 .stranica-cvor .err { color: var(--danger); }
-@media (min-width: 900px) {
-  .stranica-cvor .cards { max-width: 980px; display: grid; grid-template-columns: 1fr 1fr; align-items: start; }
-  .stranica-cvor .card.wide { grid-column: 1 / -1; }
-  /* otvorene postavke čvora šire karticu, da desni stupac ne ostane prazan,
-     i stoje u dva stupca: što se mijenja i što se samo vidi */
-  .stranica-cvor .card:has(> .postavke-cvora[open]) { grid-column: 1 / -1; }
+.stranica-cvor .card .form-control { border: 1px solid var(--md-sys-color-outline); border-radius: 4px; background: var(--md-sys-color-surface); }
+@media (min-width: 1100px) {
+  .stranica-cvor .rac-stupci { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
   .postavke-cvora .postavke-stupci { display: grid; grid-template-columns: 1fr 1fr; gap: 0 2rem; align-items: start; }
 }
 /* Postavke iz gocop.toml (postavke_cvora.html): sklop na stranici Čvor i
