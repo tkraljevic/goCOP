@@ -10839,6 +10839,10 @@ td .odr-sitno { margin-top: 2px; }
 .sr-recenica[hidden] { display: none; }
 .sr-recenica .icon { flex: none; width: 16px; height: 16px; margin-top: 1px; }
 .sr-upozorenje { color: var(--warning-fg); margin-bottom: 10px; }
+/* Na terenu (crtež 19a, 6): opis mjesta odmah ispod naslova kartice, dionica desno */
+.sr-mjesto .os-kartica-glava { align-items: flex-start; margin-bottom: 10px; }
+.sr-mjesto .os-kartica-glava h2 { margin-bottom: 2px; }
+.sr-radnje-terena .btn + .btn { margin-left: 4px; }
 .sr-promet .reg-card-sub { display: block; }
 .sr-promet th.br, .sr-promet td.br { text-align: right; white-space: nowrap; }
 /* Obrazac inventure (crtež 19b, 8a): na mobitelu kartica po vrsti s velikim poljem */

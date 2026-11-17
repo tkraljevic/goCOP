@@ -65,6 +65,7 @@ type MtsPageData struct {
 	Dionice      []models.Section
 	Obrane       []models.Journal
 	NaTerenu     []models.Stanje
+	MjestaTerena []MjestoNaTerenu // NaTerenu po mjestu, s povratom i utroškom
 
 	Popis  *models.Popis
 	Popisi []models.Popis
@@ -416,15 +417,7 @@ func (h *MtsHandler) ShowPrometForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.popuniObrazacPrometa(r, &data, sk)
-	q := r.URL.Query()
-	data.Zahvat = service.Zahvat{Vrsta: q.Get("vrsta"), SkladisteID: sk.ID, VrstaID: q.Get("sredstvo"), Oblik: q.Get("oblik"),
-		Datum: time.Now().In(models.Zagreb)}
-	if data.Zahvat.Vrsta == "" {
-		data.Zahvat.Vrsta = models.PrometPrimka
-	}
-	if data.Zahvat.Oblik == "" {
-		data.Zahvat.Oblik = zadaniOblik(data.Zahvat.Vrsta)
-	}
+	data.Zahvat = zahvatIzAdrese(r.URL.Query(), sk.ID)
 	h.render(w, "promet_form.html", data)
 }
 
@@ -579,6 +572,7 @@ func (h *MtsHandler) ShowNaTerenu(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data.Vrste, _ = h.svc().Vrste(r.Context())
+	data.MjestaTerena = mjestaNaTerenu(data.NaTerenu, data.Vrste, journalID, h.smijePisatiU(r, data.Permissions))
 	if h.journals != nil {
 		if sve, err := h.journals.ListCOPJournals(r.Context(), data.Sektor); err == nil {
 			data.Obrane = sve
