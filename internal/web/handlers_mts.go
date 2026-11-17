@@ -67,6 +67,7 @@ type MtsPageData struct {
 	Dionice      []models.Section
 	Obrane       []models.Journal
 	NaTerenu     []models.Stanje
+	MjestaTerena []MjestoNaTerenu // NaTerenu po mjestu, s povratom i utroškom
 
 	Popis  *models.Popis
 	Popisi []models.Popis
@@ -74,6 +75,11 @@ type MtsPageData struct {
 
 	Objekti  []models.Structure // objekti i nasipi sektora, za mjesto na terenu
 	MjestaNa []models.Stanje    // mjesta na terenu na kojima nešto stoji
+	// rečenice obrasca zahvata: stanje vrste u skladištu, što stoji na mjestu
+	// (ključ mjesta) i dan zadnje zaključene inventure skladišta
+	StanjeUSkladistu    map[string]string
+	StojiNaMjestu       map[string]string
+	ZakljucenaInventura time.Time
 
 	Potrebe        map[string]models.Potreba // po vrsti, za obrazac skladišta
 	PotrebeSektora []models.Potreba
@@ -413,15 +419,7 @@ func (h *MtsHandler) ShowPrometForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.popuniObrazacPrometa(r, &data, sk)
-	q := r.URL.Query()
-	data.Zahvat = service.Zahvat{Vrsta: q.Get("vrsta"), SkladisteID: sk.ID, VrstaID: q.Get("sredstvo"), Oblik: q.Get("oblik"),
-		Datum: time.Now().In(models.Zagreb)}
-	if data.Zahvat.Vrsta == "" {
-		data.Zahvat.Vrsta = models.PrometPrimka
-	}
-	if data.Zahvat.Oblik == "" {
-		data.Zahvat.Oblik = zadaniOblik(data.Zahvat.Vrsta)
-	}
+	data.Zahvat = zahvatIzAdrese(r.URL.Query(), sk.ID)
 	h.render(w, "promet_form.html", data)
 }
 
@@ -447,6 +445,7 @@ func (h *MtsHandler) popuniObrazacPrometa(r *http.Request, data *MtsPageData, sk
 		data.Objekti, _ = h.structures.List(r.Context(), sk.Sektor, 0, "", "")
 	}
 	data.MjestaNa = h.svc().MjestaNaTerenu(r.Context(), "", sk.Sektor)
+	h.receniceObrasca(r, data, sk)
 }
 
 // HandleSavePromet provodi zahvat
@@ -486,15 +485,16 @@ func (h *MtsHandler) HandleSavePromet(w http.ResponseWriter, r *http.Request) {
 	if len(redci) > 0 && redci[0].Jedinica != "" {
 		poruka += " " + redci[0].Jedinica
 	}
+	upozorenje := upozorenjeInventure(z.Datum, h.zakljucenaInventura(r, id))
 	veza := ""
 	if len(redci) > 0 {
 		veza = redci[0].VezaID
 	}
 	if r.FormValue("jos") == "1" {
-		redirectWith(w, r, "/sredstva/skladista/"+id+"/promet/novo?vrsta="+z.Vrsta+"&potvrda="+veza, "success", poruka+" je upisano; sljedeći zahvat.")
+		redirectWith(w, r, "/sredstva/skladista/"+id+"/promet/novo?vrsta="+z.Vrsta+"&potvrda="+veza, "success", poruka+" je upisano; sljedeći zahvat."+upozorenje)
 		return
 	}
-	redirectWith(w, r, "/sredstva/skladista/"+id+"?potvrda="+veza, "success", poruka+" je upisano.")
+	redirectWith(w, r, "/sredstva/skladista/"+id+"?potvrda="+veza, "success", poruka+" je upisano."+upozorenje)
 }
 
 // ponoviObrazacZahvata vraća obrazac zahvata s upisanim i porukom; tko u
@@ -574,6 +574,7 @@ func (h *MtsHandler) ShowNaTerenu(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data.Vrste, _ = h.svc().Vrste(r.Context())
+	data.MjestaTerena = mjestaNaTerenu(data.NaTerenu, data.Vrste, journalID, h.smijePisatiU(r, data.Permissions))
 	if h.journals != nil {
 		if sve, err := h.journals.ListCOPJournals(r.Context(), data.Sektor); err == nil {
 			data.Obrane = sve

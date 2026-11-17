@@ -38,18 +38,19 @@
     <div class="form-row">
       <div class="form-group">
         <label class="form-label" for="datum">Datum *</label>
-        <input type="date" id="datum" name="datum" class="form-control" value="{{$z.Datum.Format "2006-01-02"}}" max="{{.Danas}}" required>
+        <input type="date" id="datum" name="datum" class="form-control" value="{{$z.Datum.Format "2006-01-02"}}" max="{{.Danas}}" required{{if not .ZakljucenaInventura.IsZero}} data-inventura="{{.ZakljucenaInventura.Format "2006-01-02"}}"{{end}} onchange="pokaziInventuru()">
       </div>
       <div class="form-group">
         <label class="form-label" for="sredstvo">Sredstvo *</label>
         <select id="sredstvo" name="sredstvo" class="form-control" required onchange="pokaziPolja()">
           <option value="">— odaberite —</option>
           {{range $g := .Grupe}}<optgroup label="{{$g.Rimski}} {{$g.Naziv}}">
-          {{range $.Vrste}}{{if eq .Grupa $g.ID}}<option value="{{.ID}}" data-jed="{{.Jedinica}}" data-oblici="{{join .Oblici ","}}"{{if eq .ID $z.VrstaID}} selected{{end}}>{{.Redoslijed}}. {{.Naziv}} ({{.Jedinica}})</option>{{end}}{{end}}
+          {{range $.Vrste}}{{if eq .Grupa $g.ID}}<option value="{{.ID}}" data-jed="{{.Jedinica}}" data-oblici="{{join .Oblici ","}}" data-stanje="{{index $.StanjeUSkladistu .ID}}"{{if eq .ID $z.VrstaID}} selected{{end}}>{{.Redoslijed}}. {{.Naziv}} ({{.Jedinica}})</option>{{end}}{{end}}
           </optgroup>{{end}}
         </select>
       </div>
     </div>
+    {{if not .ZakljucenaInventura.IsZero}}<p class="form-help sr-recenica sr-upozorenje" id="p-inventura" hidden>{{icon "triangle-alert"}} <span>Inventura ovog skladišta zaključena je {{.ZakljucenaInventura.Format "2. 1. 2006."}} Zahvat s tim danom ili ranijim mijenja stanje koje je ona utvrdila; upisat će se, ali provjerite dan.</span></p>{{end}}
     <div class="form-row">
       <div class="form-group" id="p-oblik">
         <label class="form-label" for="oblik">Oblik</label>
@@ -70,6 +71,7 @@
         <p class="form-help">Oštećene vreće idu u otpis za zbrinjavanje, a ostale postaju prazne.</p>
       </div>
     </div>
+    <p class="form-help sr-recenica" id="p-stoji" hidden>{{icon "info"}} <span></span></p>
   </section>
 
   <section class="os-kartica" id="p-na-skladiste" aria-labelledby="zh-u-skladiste">
@@ -89,7 +91,7 @@
       <label class="form-label" for="postojece">Mjesto na terenu na kojem nešto stoji</label>
       <select id="postojece" class="form-control" onchange="odaberiMjesto(this)">
         <option value="">— upišite mjesto dolje, ili odaberite —</option>
-        {{range .MjestaNa}}<option value="{{.AreaID}}|{{.SectionCode}}|{{.StructureID}}|{{.Mjesto}}">{{.MjestoNaziv}}</option>{{end}}
+        {{range .MjestaNa}}<option value="{{.AreaID}}|{{.SectionCode}}|{{.StructureID}}|{{.Mjesto}}" data-stoji="{{index $.StojiNaMjestu .Teren.Kljuc}}">{{.MjestoNaziv}}</option>{{end}}
       </select>
     </div>
     <div class="form-row">
@@ -131,6 +133,7 @@
       </div>
       <div class="form-group"></div>
     </div>
+    <p class="form-help sr-recenica" id="p-stoji-mjesto" hidden>{{icon "info"}} <span></span></p>
   </section>
 
   <section class="os-kartica" aria-labelledby="zh-nalog">
@@ -171,6 +174,21 @@ function pokaziPolja() {
   document.getElementById('p-na-skladiste').style.display = v === 'PRIJENOS' ? '' : 'none';
   var l = {PRIMKA: 'Dopremio', IZDANO: 'Preuzeo', PRIJENOS: 'Preuzeo', POVRAT: 'Vratio', UTROSAK: 'Ugradio', OTPIS: 'Rashodovao', PRAZNJENJE: 'Odvezao oštećeno'};
   document.getElementById('l-preuzeo').textContent = l[v] || 'Osoba';
+  pokaziStanje();
+}
+// rečenica ispod količine: koliko odabranog sredstva stoji u skladištu
+function pokaziStanje() {
+  var s = document.getElementById('sredstvo'); var opt = s.options[s.selectedIndex];
+  var p = document.getElementById('p-stoji');
+  if (!opt || !opt.value) { p.hidden = true; return; }
+  var t = opt.getAttribute('data-stanje');
+  p.querySelector('span').textContent = t ? 'U skladištu stoji ' + t + '.' : 'U skladištu ovoga sredstva nema.';
+  p.hidden = false;
+}
+// upozorenje kad dan zahvata nije poslije zaključene inventure
+function pokaziInventuru() {
+  var d = document.getElementById('datum'); var p = document.getElementById('p-inventura');
+  if (p) { p.hidden = !(d.value && d.value <= d.getAttribute('data-inventura')); }
 }
 // na mobitelu se vrsta bira izbornikom; on samo označi pločicu, koja se šalje
 function odaberiVrstu(v) {
@@ -186,6 +204,11 @@ function podrucjeIzObjekta() {
   if (o && o.getAttribute('data-area') && !document.getElementById('podrucje').value) { document.getElementById('podrucje').value = o.getAttribute('data-area'); }
 }
 function odaberiMjesto(sel) {
+  var p = document.getElementById('p-stoji-mjesto');
+  var o = sel.options[sel.selectedIndex];
+  var t = o && o.getAttribute('data-stoji');
+  p.hidden = !t;
+  if (t) { p.querySelector('span').textContent = 'Na tom mjestu već stoji: ' + t + '.'; }
   if (!sel.value) return;
   var d = sel.value.split('|');
   document.getElementById('podrucje').value = d[0];
@@ -202,5 +225,6 @@ function zadaniOblik() {
   pokaziPolja();
 }
 pokaziPolja();
+pokaziInventuru();
 </script>
 {{end}}

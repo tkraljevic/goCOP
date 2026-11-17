@@ -7,7 +7,7 @@
   <div>
     <h1 class="page-title" data-naziv-stranice>Na terenu</h1>
     <p class="page-desc">Što je izdano na dionice a nije ni vraćeno ni ugrađeno. Izdano se na terenu broji kad ga rukovoditelj
-      dionice ili vodočuvar zaprimi. Ugradnja i povrat upisuju se iz skladišta koje je izdalo.</p>
+      dionice ili vodočuvar zaprimi. Povrat i utrošak upisuju se gumbima uz sredstvo, u skladište koje ga je izdalo.</p>
   </div>
 </div>
 
@@ -49,26 +49,34 @@
 </section>
 {{end}}
 
-{{if .NaTerenu}}
-{{$vrste := .Vrste}}
-<section class="os-kartica" aria-label="Sredstva na terenu">
-<div class="table-responsive tablica-kartice">
-  <table class="data-table">
-    <thead><tr><th>Mjesto</th><th>Sredstvo</th><th>Oblik</th><th class="br">Količina</th></tr></thead>
-    <tbody>
-    {{range .NaTerenu}}
-    {{$st := .}}
-    <tr>
-      <td data-stupac="Mjesto">{{.MjestoNaziv}}{{if .SectionCode}} <a href="/sections/{{.SectionCode}}" class="reg-card-sub">dionica</a>{{end}}</td>
-      <td data-stupac="Sredstvo">{{range $vrste}}{{if eq .ID $st.VrstaID}}{{.Naziv}}{{end}}{{end}}</td>
-      <td data-stupac="Oblik">{{if .Oblik}}{{oblik .Oblik}}{{end}}</td>
-      <td data-stupac="Količina" class="mono br"><strong>{{kolicina .Kolicina}}</strong> {{range $vrste}}{{if eq .ID $st.VrstaID}}{{.Jedinica}}{{end}}{{end}}</td>
-    </tr>
-    {{end}}
-    </tbody>
-  </table>
-</div>
+{{/* Kartica po mjestu (crtež 19a, 6): izdalo skladište, na terenu od, te
+     povrat i utrošak u skladište koje je izdalo, s mjestom već upisanim */}}
+{{if .MjestaTerena}}
+{{range .MjestaTerena}}
+<section class="os-kartica sr-mjesto" aria-label="{{.Naslov}}">
+  <div class="os-kartica-glava">
+    <div><h2>{{.Naslov}}</h2>{{if .Opis}}<span class="reg-card-sub">{{.Opis}}</span>{{end}}</div>
+    {{if .SectionCode}}<a href="/sections/{{.SectionCode}}" class="btn btn-link">Dionica {{.SectionCode}}</a>{{end}}
+  </div>
+  <div class="table-responsive tablica-kartice">
+    <table class="data-table">
+      <thead><tr><th>Sredstvo</th><th>Oblik</th><th class="br">Količina</th><th>Izdalo skladište</th><th>Na terenu od</th><th aria-label="Povrat i utrošak"></th></tr></thead>
+      <tbody>
+      {{range .Redci}}
+      <tr>
+        <td data-stupac="Sredstvo">{{.Naziv}}</td>
+        <td data-stupac="Oblik">{{if and .Oblik (ne .Oblik "OSNOVNI")}}{{oblik .Oblik}}{{else}}—{{end}}</td>
+        <td data-stupac="Količina" class="mono br"><span><strong>{{kolicina .Kolicina}}</strong> {{.Jedinica}}</span></td>
+        <td data-stupac="Izdalo skladište">{{if .IzdaloID}}<a href="/sredstva/skladista/{{.IzdaloID}}">{{.IzdaloNaziv}}</a>{{else}}—{{end}}</td>
+        <td data-stupac="Na terenu od" class="mono">{{if not .Od.IsZero}}{{.Od.Format "2.1.2006."}}{{end}}</td>
+        <td class="nowrap br sr-radnje-terena">{{if .Povrat}}<a href="{{.Povrat}}" class="btn btn-secondary btn-sm">Povrat</a> <a href="{{.Utrosak}}" class="btn btn-secondary btn-sm">Utrošak</a>{{end}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div>
 </section>
+{{end}}
 {{else}}
 <div class="reg-empty">Ništa nije na terenu{{if .VrstaID}} za tu obranu{{end}}.</div>
 {{end}}

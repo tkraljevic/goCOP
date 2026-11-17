@@ -10838,6 +10838,15 @@ td .odr-sitno { margin-top: 2px; }
 .sr-prazan-nacrt { display: block; margin-top: 2px; }
 .sr-obrisi { border: 0; background: none; padding: 0; font: inherit; color: var(--danger); cursor: pointer; }
 .sr-obrisi:hover { text-decoration: underline; }
+/* Obrazac zahvata (crtež 19a, 3): rečenice koliko stoji i upozorenje inventure */
+.sr-recenica { display: flex; align-items: flex-start; gap: 6px; margin: 4px 0 0; }
+.sr-recenica[hidden] { display: none; }
+.sr-recenica .icon { flex: none; width: 16px; height: 16px; margin-top: 1px; }
+.sr-upozorenje { color: var(--warning-fg); margin-bottom: 10px; }
+/* Na terenu (crtež 19a, 6): opis mjesta odmah ispod naslova kartice, dionica desno */
+.sr-mjesto .os-kartica-glava { align-items: flex-start; margin-bottom: 10px; }
+.sr-mjesto .os-kartica-glava h2 { margin-bottom: 2px; }
+.sr-radnje-terena .btn + .btn { margin-left: 4px; }
 .sr-promet .reg-card-sub { display: block; }
 .sr-promet th.br, .sr-promet td.br { text-align: right; white-space: nowrap; }
 /* Obrazac inventure (crtež 19b, 8a): na mobitelu kartica po vrsti s velikim poljem */
