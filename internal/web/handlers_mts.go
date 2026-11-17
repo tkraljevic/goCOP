@@ -27,6 +27,7 @@ type MtsHandler struct {
 	sections   *service.SectionService
 	journals   *service.JournalService
 	structures *service.StructureService
+	org        *service.OrgService
 	tmpl       func(string) *template.Template
 }
 
@@ -56,6 +57,8 @@ type MtsPageData struct {
 
 	// ZaInventuru su skladišta u kojima osoba smije otvoriti inventuru
 	ZaInventuru []models.Skladiste
+	// PisatiU su ID-ovi tih skladišta, za brisanje praznog nacrta na popisu
+	PisatiU map[string]bool
 	// GodinePopisa su godine u kojima sektor ima inventuru, za čipove godine
 	GodinePopisa []int
 
@@ -71,14 +74,25 @@ type MtsPageData struct {
 	Popisi []models.Popis
 	Godina int
 
-	Objekti  []models.Structure // objekti i nasipi sektora, za mjesto na terenu
-	MjestaNa []models.Stanje    // mjesta na terenu na kojima nešto stoji
+	Objekti []models.Structure // objekti i nasipi sektora, za mjesto na terenu
+	// obrazac skladišta: izbor objekta i firme iz registra
+	ObjektiSkladista, FirmeSkladista []IzborRegistra
+	MjestaNa                         []models.Stanje // mjesta na terenu na kojima nešto stoji
+	// rečenice obrasca zahvata: stanje vrste u skladištu, što stoji na mjestu
+	// (ključ mjesta) i dan zadnje zaključene inventure skladišta
+	StanjeUSkladistu    map[string]string
+	StojiNaMjestu       map[string]string
+	ZakljucenaInventura time.Time
 
 	Potrebe        map[string]models.Potreba // po vrsti, za obrazac skladišta
 	PotrebeSektora []models.Potreba
 	GodinePotreba  []int
 
 	GdjeIma []service.MjestoZalihe
+	// Gdje ima: redak zbroja, prijenos iz skladišta i teren (sredstva_gdje_ima.go)
+	ZbrojGdjeIma ZbrojGdjeIma
+	PrijenosIz   map[string]bool
+	TerenVrste   []models.Stanje
 
 	Potvrda         string // veza zahvata koji je upravo upisan, za ispis potvrde
 	SmijePisati     bool
@@ -350,7 +364,7 @@ func (h *MtsHandler) ShowSkladisteForm(w http.ResponseWriter, r *http.Request) {
 	}
 	data.IsEdit = true
 	data.Podrucja, _ = h.users.ListAreas(data.Sektor) // bez popisa područja ostaje upisano područje skladišta
-	h.render(w, "skladiste_form.html", data)
+	h.renderObrazacSkladista(w, r, data)
 }
 
 // obrazacNovogSkladista nudi samo područja u koja osoba smije upisati
@@ -367,7 +381,7 @@ func (h *MtsHandler) obrazacNovogSkladista(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "Skladišta upisuje uprava branjenog područja ili sektora.", http.StatusForbidden)
 		return
 	}
-	h.render(w, "skladiste_form.html", data)
+	h.renderObrazacSkladista(w, r, data)
 }
 
 // HandleSaveSkladiste upisuje skladište
@@ -415,7 +429,7 @@ func (h *MtsHandler) ponoviObrazacSkladista(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	data.Skladiste, data.Sektor, data.SmijeUrediti, data.ErrorMessage = sk, sk.Sektor, true, poruka
-	h.render(w, "skladiste_form.html", data)
+	h.renderObrazacSkladista(w, r, data)
 }
 
 // ---- promet
@@ -458,6 +472,7 @@ func (h *MtsHandler) popuniObrazacPrometa(r *http.Request, data *MtsPageData, sk
 		data.Objekti, _ = h.structures.List(r.Context(), sk.Sektor, 0, "", "")
 	}
 	data.MjestaNa = h.svc().MjestaNaTerenu(r.Context(), "", sk.Sektor)
+	h.receniceObrasca(r, data, sk)
 }
 
 // HandleSavePromet provodi zahvat
@@ -497,15 +512,16 @@ func (h *MtsHandler) HandleSavePromet(w http.ResponseWriter, r *http.Request) {
 	if len(redci) > 0 && redci[0].Jedinica != "" {
 		poruka += " " + redci[0].Jedinica
 	}
+	upozorenje := upozorenjeInventure(z.Datum, h.zakljucenaInventura(r, id))
 	veza := ""
 	if len(redci) > 0 {
 		veza = redci[0].VezaID
 	}
 	if r.FormValue("jos") == "1" {
-		redirectWith(w, r, "/sredstva/skladista/"+id+"/promet/novo?vrsta="+z.Vrsta+"&potvrda="+veza, "success", poruka+" je upisano; sljedeći zahvat.")
+		redirectWith(w, r, "/sredstva/skladista/"+id+"/promet/novo?vrsta="+z.Vrsta+"&potvrda="+veza, "success", poruka+" je upisano; sljedeći zahvat."+upozorenje)
 		return
 	}
-	redirectWith(w, r, "/sredstva/skladista/"+id+"?potvrda="+veza, "success", poruka+" je upisano.")
+	redirectWith(w, r, "/sredstva/skladista/"+id+"?potvrda="+veza, "success", poruka+" je upisano."+upozorenje)
 }
 
 // ponoviObrazacZahvata vraća obrazac zahvata s upisanim i porukom; tko u
@@ -573,6 +589,7 @@ func (h *MtsHandler) ShowGdjeIma(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	h.dopuniGdjeIma(r, &data)
 	h.render(w, "gdje_ima.html", data)
 }
 
@@ -620,6 +637,10 @@ func (h *MtsHandler) ShowPopisi(w http.ResponseWriter, r *http.Request) {
 	for _, sk := range data.Skladista {
 		if h.svc().SmijePisati(data.Permissions, &sk) {
 			data.ZaInventuru = append(data.ZaInventuru, sk)
+			if data.PisatiU == nil {
+				data.PisatiU = map[string]bool{}
+			}
+			data.PisatiU[sk.ID] = true
 		}
 	}
 	data.Kartica = "inventura"
@@ -792,6 +813,18 @@ func (h *MtsHandler) HandleZakljuciPopis(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	redirectWith(w, r, "/sredstva/popisi/"+id, "success", "Inventura je zaključena; razlike su proknjižene.")
+}
+
+// HandleObrisiPopis briše prazan nacrt inventure i vraća na popis inventura
+func (h *MtsHandler) HandleObrisiPopis(w http.ResponseWriter, r *http.Request) {
+	data := h.pageData(r)
+	id := r.PathValue("id")
+	p, err := h.svc().ObrisiPrazanPopis(r.Context(), data.CurrentUser, data.Permissions, id)
+	if err != nil {
+		redirectWith(w, r, "/sredstva/popisi?sektor="+data.Sektor, "error", err.Error())
+		return
+	}
+	redirectWith(w, r, "/sredstva/popisi?sektor="+p.Sektor, "success", "Prazan nacrt inventure na dan "+p.Dan.Format("2. 1. 2006.")+" je obrisan.")
 }
 
 // HandleOtkljucajPopis vraća zaključenu inventuru u nacrt; smije samo

@@ -20,23 +20,44 @@
 <section class="os-kartica" aria-label="Skladišta u kojima ima {{$v.Naziv}}">
 <div class="table-responsive tablica-kartice">
   <table class="data-table sr-promet">
-    <thead><tr><th>{{term "sektor"}}</th><th>{{term "podrucje"}}</th><th>Skladište</th><th class="br">Ukupno</th><th class="br">od toga na putu</th>{{if $v.ImaOblike}}{{range $v.Oblici}}<th class="br">{{oblik .}}</th>{{end}}{{end}}</tr></thead>
+    <thead><tr><th>{{term "sektor"}}</th><th>{{term "podrucje"}}</th><th>Skladište</th><th class="br">Ukupno</th><th class="br">od toga na putu</th>{{if $v.ImaOblike}}{{range $v.Oblici}}<th class="br">{{oblik .}}</th>{{end}}{{end}}<th aria-label="Prijenos"></th></tr></thead>
     <tbody>
     {{range .GdjeIma}}
     <tr>
       <td data-stupac="Sektor">{{.Skladiste.Sektor}}</td>
       <td data-stupac="Područje">{{if .Skladiste.AreaName}}BP {{.Skladiste.AreaID}} · {{.Skladiste.AreaName}}{{end}}</td>
-      <td data-stupac="Skladište"><a href="/sredstva/skladista/{{.Skladiste.ID}}">{{.Skladiste.Naziv}}</a>{{if .Skladiste.Adresa}}<span class="reg-card-sub">{{.Skladiste.Adresa}}</span>{{end}}</td>
-      <td data-stupac="Ukupno" class="mono br"><strong>{{kolicina .Kolicina}}</strong> {{$v.Jedinica}}</td>
+      <td data-stupac="Skladište"><span class="sr-niz"><a href="/sredstva/skladista/{{.Skladiste.ID}}">{{.Skladiste.Naziv}}</a>{{if .Skladiste.Adresa}}<span class="reg-card-sub">{{.Skladiste.Adresa}}</span>{{end}}</span></td>
+      <td data-stupac="Ukupno" class="mono br"><span><strong>{{kolicina .Kolicina}}</strong> {{$v.Jedinica}}</span></td>
       <td data-stupac="Na putu" class="mono br">{{if .NaPutu}}{{kolicina .NaPutu}}{{end}}</td>
-      {{$m := .}}{{if $v.ImaOblike}}{{range $v.Oblici}}<td class="mono br">{{with index $m.PoOblicima .}}{{kolicina .}}{{end}}</td>{{end}}{{end}}
+      {{$m := .}}{{if $v.ImaOblike}}{{range $v.Oblici}}<td data-stupac="{{oblik .}}" class="mono br">{{with index $m.PoOblicima .}}{{kolicina .}}{{end}}</td>{{end}}{{end}}
+      <td class="br">{{if index $.PrijenosIz .Skladiste.ID}}<a href="/sredstva/skladista/{{.Skladiste.ID}}/promet/novo?vrsta=PRIJENOS&amp;sredstvo={{$v.ID}}" class="btn btn-secondary btn-sm" title="Upiši prijenos iz ovog skladišta">Prijenos</a>{{end}}</td>
     </tr>
     {{end}}
     </tbody>
+    {{if gt (len .GdjeIma) 1}}{{$z := .ZbrojGdjeIma}}
+    <tfoot>
+    <tr class="sr-zbroj">
+      <td colspan="3">Ukupno u skladištima</td>
+      <td data-stupac="Ukupno" class="mono br"><span><strong>{{kolicina $z.Kolicina}}</strong> {{$v.Jedinica}}</span></td>
+      <td data-stupac="Na putu" class="mono br">{{if $z.NaPutu}}{{kolicina $z.NaPutu}}{{end}}</td>
+      {{if $v.ImaOblike}}{{range $v.Oblici}}<td data-stupac="{{oblik .}}" class="mono br">{{with index $z.PoOblicima .}}{{kolicina .}}{{end}}</td>{{end}}{{end}}
+      <td></td>
+    </tr>
+    </tfoot>
+    {{end}}
   </table>
 </div>
 </section>
 {{else}}
 <div class="reg-empty">Nigdje nema upisano: {{$v.Naziv}}.</div>
+{{end}}
+
+{{if .TerenVrste}}
+<section class="os-kartica" aria-labelledby="sr-gi-teren">
+  <div class="os-kartica-glava"><h2 id="sr-gi-teren">Na terenu</h2><a href="/sredstva/na-terenu?sektor={{.Sektor}}" class="btn btn-link">Na terenu</a></div>
+  {{range .TerenVrste}}
+  <div class="dez-plan"><span>{{.MjestoNaziv}}{{if .IzdaloNaziv}}<small>izdalo {{.IzdaloNaziv}}{{if not .Od.IsZero}} {{.Od.Format "2.1.2006."}}{{end}}</small>{{end}}</span><span class="mono">{{kolicina .Kolicina}} {{$v.Jedinica}}{{if .Oblik}} {{oblik .Oblik}}{{end}}</span></div>
+  {{end}}
+</section>
 {{end}}
 {{end}}

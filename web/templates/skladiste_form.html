@@ -28,24 +28,34 @@
     </div>
     <div class="form-row">
       <div class="form-group">
+        <label class="form-label" for="sektor-prikaz">{{term "sektor"}}</label>
+        <input type="text" id="sektor-prikaz" class="form-control" value="{{.NazivSektora}}" readonly aria-readonly="true">
+      </div>
+      <div class="form-group">
         <label class="form-label" for="area_id">{{term "podrucje"}} *</label>
         <select id="area_id" name="area_id" class="form-control" required>
           {{range .Podrucja}}<option value="{{.ID}}"{{if eq .ID $sk.AreaID}} selected{{end}}>BP {{.ID}} — {{.Name}}</option>{{end}}
         </select>
       </div>
-      <div class="form-group">
-        <label class="form-label" for="adresa">Adresa</label>
-        <input type="text" id="adresa" name="adresa" class="form-control" value="{{$sk.Adresa}}" placeholder="ulica i mjesto">
-      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="adresa">Adresa</label>
+      <input type="text" id="adresa" name="adresa" class="form-control" value="{{$sk.Adresa}}" placeholder="ulica i mjesto">
     </div>
     <div class="form-row">
       <div class="form-group">
         <label class="form-label" for="structure_id">Objekt iz registra</label>
-        <input type="text" id="structure_id" name="structure_id" class="form-control" value="{{$sk.StructureID}}" placeholder="oznaka objekta, kad skladište stoji u crpnoj stanici">
+        <select id="structure_id" name="structure_id" class="form-control">
+          <option value="">— nije u objektu —</option>
+          {{range .ObjektiSkladista}}<option value="{{.ID}}"{{if .Odabran}} selected{{end}}>{{.Naziv}}</option>{{end}}
+        </select>
       </div>
       <div class="form-group">
         <label class="form-label" for="contractor_id">Firma u čijem krugu stoji</label>
-        <input type="text" id="contractor_id" name="contractor_id" class="form-control" value="{{$sk.ContractorID}}" placeholder="oznaka firme iz registra">
+        <select id="contractor_id" name="contractor_id" class="form-control">
+          <option value="">— nije u krugu firme —</option>
+          {{range .FirmeSkladista}}<option value="{{.ID}}"{{if .Odabran}} selected{{end}}>{{.Naziv}}</option>{{end}}
+        </select>
       </div>
     </div>
     <div class="form-group">

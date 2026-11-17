@@ -97,6 +97,7 @@ func TestSredstvaKrozRute(t *testing.T) {
 	mux.HandleFunc("GET /sredstva/popisi/{id}/uredi", h.ShowPopisUredi)
 	mux.HandleFunc("POST /sredstva/popisi/{id}", h.HandleSavePopis)
 	mux.HandleFunc("POST /sredstva/popisi/{id}/zakljuci", h.HandleZakljuciPopis)
+	mux.HandleFunc("POST /sredstva/popisi/{id}/obrisi", h.HandleObrisiPopis)
 	mux.HandleFunc("GET /sredstva/popisi/{id}/inventura.xlsx", h.IzvoziInventuru)
 
 	skladistar := &models.User{ID: uuid.New(), FullName: "Skladištar Osijek"}
@@ -169,6 +170,8 @@ func TestSredstvaKrozRute(t *testing.T) {
 		"oblik": {"PRAZNO"}, "kolicina": {"100 000"}, "preuzeo": {"Vreće d.o.o."}, "dokument": {"OT 44/26"}, "nalozio": {"rukovoditelj sektora"}}), "primka")
 	odredište(zovi(http.MethodPost, "/sredstva/skladista/"+sk+"/promet", url.Values{"vrsta": {"PUNJENJE"}, "datum": {danas}, "sredstvo": {"vrece-50x80"},
 		"oblik": {"PRAZNO"}, "u_oblik": {"PUNJENO"}, "kolicina": {"5000"}}), "punjenje")
+	// obrazac zahvata kaže koliko stoji u skladištu (crtež 19a, 3)
+	mora(zovi(http.MethodGet, "/sredstva/skladista/"+sk+"/promet/novo?vrsta=IZDANO", nil), http.StatusOK, "obrazac sa stanjem", "praznih i 5", "napunjenih\"", `id="p-stoji"`)
 	mora(zovi(http.MethodGet, "/sredstva/skladista/"+sk, nil), http.StatusOK, "kartica poslije", "95 000", "5 000", "Punjenje", "nalog: rukovoditelj sektora", "Dopremio: Vreće d.o.o.", "OT 44/26")
 	// preko zalihe se ne izdaje
 	w := zovi(http.MethodPost, "/sredstva/skladista/"+sk+"/promet", url.Values{"vrsta": {"IZDANO"}, "datum": {danas}, "sredstvo": {"vrece-50x80"},
@@ -242,6 +245,21 @@ func TestSredstvaKrozRute(t *testing.T) {
 	mora(zovi(http.MethodGet, "/sredstva/popisi/"+popis, nil), http.StatusOK, "zaključen", "zaključen", "razlike proknjižene")
 	mora(zovi(http.MethodGet, "/sredstva/skladista/"+sk, nil), http.StatusOK, "stanje poslije popisa", "94 990", "Usklađenje po inventuri")
 	mora(zovi(http.MethodGet, "/sredstva/popisi?sektor=B", nil), http.StatusOK, "popisi", "Centralno skladište Osijek", "zaključen")
+	// prazan nacrt (sve nule) briše se s popisa inventura; obrazac kaže i što je s robom na putu
+	jucer := time.Now().In(models.Zagreb).AddDate(0, 0, -1).Format("2006-01-02")
+	mora(zovi(http.MethodGet, "/sredstva/skladista/"+sk+"/popis?dan="+jucer, nil), http.StatusOK, "obrazac jučer", "na putu ne pripada ni skladištu")
+	kamo = odredište(zovi(http.MethodPost, "/sredstva/popisi", url.Values{"skladiste": {sk}, "dan": {jucer}, "u:vrece-50x80:PRAZNO": {"0"}, "u:vrece-50x80:PUNJENO": {"0"}}), "prazan nacrt")
+	prazan := strings.SplitN(strings.TrimPrefix(kamo, "/sredstva/popisi/"), "?", 2)[0]
+	mora(zovi(http.MethodGet, "/sredstva/popisi?sektor=B", nil), http.StatusOK, "popis s praznim nacrtom", "prazan nacrt", "/sredstva/popisi/"+prazan+"/obrisi")
+	if l := zovi(http.MethodPost, "/sredstva/popisi/"+prazan+"/obrisi", url.Values{}).Header().Get("Location"); !strings.Contains(l, "success=") {
+		t.Fatalf("brisanje praznog nacrta: %s", l)
+	}
+	if l := zovi(http.MethodPost, "/sredstva/popisi/"+popis+"/obrisi", url.Values{}).Header().Get("Location"); !strings.Contains(l, "error=") {
+		t.Errorf("brisanje zaključene: %s", l)
+	}
+	if w := zovi(http.MethodGet, "/sredstva/popisi?sektor=B", nil); strings.Contains(w.Body.String(), "prazan nacrt") {
+		t.Error("obrisani nacrt je još na popisu")
+	}
 	if w := zovi(http.MethodGet, "/sredstva/popisi/"+popis+"/uredi", nil); w.Code != http.StatusForbidden {
 		t.Errorf("uređivanje zaključenog: %d", w.Code)
 	}
