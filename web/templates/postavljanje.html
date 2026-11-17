@@ -11,128 +11,115 @@
   <link rel="stylesheet" href="{{statika "css/style.css"}}">
   {{with temaCSS}}<link rel="stylesheet" href="{{.}}">{{end}}
 </head>
-<body class="stranica-postavljanje">
-  <div class="login-wrapper">
-    <div class="login-box" style="max-width:34rem;">
-      <div class="login-header">
-        <div class="login-logo"><img src="{{logo}}" alt="">{{term "org"}}</div>
-        <h1 class="login-title">Postavljanje ovog računala</h1>
-        <p class="login-subtitle">Čvor <b>{{.Cvor}}</b> · goCOP {{.Izdanje}}</p>
-      </div>
+<body class="stranica-uparivanje stranica-postavljanje">
+{{/* Novi izgled po crtežu 18b · 6 Postavljanje ovog računala (goCOP-m3):
+     samostalna stranica kao prijava, samo dok je računalo svježe. Izbor
+     puta kao dvije velike kartice; odabrana otvara obrazac ispod (details
+     s istim imenom, pa je otvorena samo jedna). Dijelovi su isti kao na
+     Uparivanju (upar-*). */}}
+<div class="upar-stranica">
+  <main class="upar-kartica">
+    <div class="upar-znak"><img src="{{logo}}" alt=""><span><span class="upar-org">{{term "org"}}</span><span class="upar-ime">goCOP</span></span></div>
+    <h1>Postavljanje ovog računala</h1>
+    <p class="upar-uvod">Računalo <b>{{.Cvor}}</b> · goCOP {{.Izdanje}}</p>
 
-      {{if .Error}}<div class="alert alert-danger">{{.Error}}</div>{{end}}
+    {{if .Error}}<div class="alert alert-danger">{{.Error}}</div>{{end}}
 
-      {{if not .Dopusteno}}
-      <p>Postavljanje svježeg čvora radi samo na računalu na kojem je goCOP
-      instaliran, ili uz jednokratni kod koji čvor pri pokretanju ispiše u
-      dnevnik (u Dockeru: dnevnik spremnika).</p>
-      <form action="/postavljanje" method="GET">
-        <div class="form-group mb-4">
-          <label class="form-label" for="kod">Kod iz dnevnika</label>
-          <input type="text" id="kod" name="kod" class="form-control" required autofocus placeholder="npr. 7KQ4-M2XD" autocomplete="off">
-        </div>
-        {{with .Put}}<input type="hidden" name="put" value="{{.}}">{{end}}
-        <button type="submit" class="btn btn-primary w-full">Nastavi</button>
+    {{if not .Dopusteno}}
+    <p class="upar-uvod">Postavljanje svježeg računala radi samo na računalu na kojem je goCOP
+    instaliran, ili uz jednokratni kod koji program pri pokretanju ispiše u
+    dnevnik (u Dockeru: dnevnik spremnika).</p>
+    <form action="/postavljanje" method="GET" class="upar-ploca">
+      <div class="form-group list-polje">{{icon "lock"}}<label class="form-label" for="kod">Kod iz dnevnika</label><input type="text" id="kod" name="kod" class="form-control" required autofocus placeholder="npr. 7KQ4-M2XD" autocomplete="off"></div>
+      {{with .Put}}<input type="hidden" name="put" value="{{.}}">{{end}}
+      <div class="actions upar-desno"><button type="submit" class="btn btn-primary">Nastavi</button></div>
+    </form>
+    {{else if .Uvezeno}}
+
+    <div class="alert alert-success">Ovo računalo je primljeno u mrežu <b>{{.Uvezeno.Mreza}}</b>{{if .Uvezeno.Ovlast}}, s ovlašću da i samo prima računala{{end}}.</div>
+    <p class="upar-uvod">Sinkronizacija je krenula{{with .Uvezeno.Cvorovi}} s {{range $i, $c := .}}{{if $i}}, {{end}}<b>{{$c}}</b>{{end}}{{else}}, ali potvrda nije navela nijedan čvor s adresom. Kad se prijavite, upišite adresu ureda u Administraciji › Ovo računalo i mreža, pod Domenski čvorovi{{end}}.
+    Djelatnici, registri i podaci stižu od tamo; kad stignu, ova stranica sama vodi na prijavu, a prijavljujete se svojim računom.</p>
+    <script>setTimeout(function () { location.href = '/postavljanje{{if .Kod}}?kod={{.Kod}}{{end}}'; }, 15000);</script>
+
+    {{else if .UMrezi}}
+
+    <p class="upar-uvod">Ovo računalo je u mreži <b>{{.UMrezi}}</b>. Čeka se da sinkronizacijom stignu djelatnici; kad stignu, ova stranica sama vodi na prijavu, a prijavljujete se svojim računom.</p>
+    <p class="muted">Ako dugo ništa ne stiže, provjerite je li računalo na internetu i radi li čvor od kojeg je primljeno.</p>
+    <script>setTimeout(function () { location.reload(); }, 15000);</script>
+
+    {{else}}
+
+    <p class="upar-uvod">Još nema djelatnika ni mrežu. Izaberite:</p>
+
+    <details class="post-put" name="put" {{if ne .Put "postojeca"}}open{{end}}>
+      <summary>
+        <span class="post-ikona">{{icon "plus"}}</span>
+        <span class="post-tekst"><span class="post-naslov">Nova mreža: prvo računalo</span>
+        <span class="post-opis">Jednom po mreži, npr. prvi čvor centra. Osniva mrežu i vaš račun globalnog administratora, a ono prima ostala računala. Nova mreža je zaseban svijet: s drugima se ne razmjenjuje i kasnije se ne može spojiti s njima.</span></span>
+        <span class="post-oznaka" aria-hidden="true">{{icon "chevron-right"}}{{icon "check"}}</span>
+      </summary>
+      <form action="/postavljanje" method="POST" class="upar-ploca">
+        <input type="hidden" name="kod" value="{{.Kod}}">
+        <input type="hidden" name="nacin" value="nova">
+        <div class="form-group list-polje"><label class="form-label" for="mreza">Naziv mreže</label><input type="text" id="mreza" name="mreza" class="form-control" required value="{{.Mreza}}" placeholder="npr. Hrvatske vode — COP Osijek"></div>
+        <p class="desc">Vaš administratorski račun (globalni administrator). Početni račun <code>admin</code> se isključuje.</p>
+        <div class="form-group list-polje">{{icon "user"}}<label class="form-label" for="korisnik">Korisničko ime</label><input type="text" id="korisnik" name="korisnik" class="form-control" required value="{{.Korisnik}}" placeholder="npr. mprimjer" autocomplete="username"></div>
+        <div class="form-group list-polje"><label class="form-label" for="ime">Ime i prezime</label><input type="text" id="ime" name="ime" class="form-control" required value="{{.Ime}}"></div>
+        <div class="form-group list-polje">{{icon "mail"}}<label class="form-label" for="email">E-pošta (nije obavezna)</label><input type="email" id="email" name="email" class="form-control" value="{{.Email}}"></div>
+        <div class="form-group list-polje">{{icon "lock"}}<label class="form-label" for="lozinka">Lozinka (najmanje 10 znakova)</label><input type="password" id="lozinka" name="lozinka" class="form-control" required minlength="10" autocomplete="new-password"></div>
+        <div class="form-group list-polje">{{icon "lock"}}<label class="form-label" for="lozinka2">Lozinka još jednom</label><input type="password" id="lozinka2" name="lozinka2" class="form-control" required minlength="10" autocomplete="new-password"></div>
+        <label class="post-kvacica">
+          <input type="checkbox" name="razumijem" value="da" required>
+          <span><b>Razumijem:</b> ovo je prvo računalo nove mreže. Nova mreža je zaseban svijet i kasnije se ne može spojiti s drugim mrežama.</span>
+        </label>
+        <div class="actions upar-desno"><button type="submit" class="btn btn-primary">Osnuj mrežu i prijavi me</button></div>
       </form>
-      {{else if .Uvezeno}}
+    </details>
 
-      <div class="alert alert-success">Ovo računalo je primljeno u mrežu <b>{{.Uvezeno.Mreza}}</b>{{if .Uvezeno.Ovlast}}, s ovlašću da i samo prima računala{{end}}.</div>
-      <p>Sinkronizacija je krenula{{with .Uvezeno.Cvorovi}} s {{range $i, $c := .}}{{if $i}}, {{end}}<b>{{$c}}</b>{{end}}{{else}}, ali potvrda nije navela nijedan čvor s adresom. Kad se prijavite, upišite adresu ureda u Administraciji › Ovo računalo i mreža, pod Domenski čvorovi{{end}}.
-      Djelatnici, registri i podaci stižu od tamo; kad stignu, ova stranica sama vodi na prijavu, a prijavljujete se svojim računom.</p>
-      <script>setTimeout(function () { location.href = '/postavljanje{{if .Kod}}?kod={{.Kod}}{{end}}'; }, 15000);</script>
+    <details class="post-put" name="put" {{if eq .Put "postojeca"}}open{{end}}>
+      <summary>
+        <span class="post-ikona">{{icon "link"}}</span>
+        <span class="post-tekst"><span class="post-naslov">Postojeća mreža: svako sljedeće računalo <span class="post-cip">preporučeno</span></span>
+        <span class="post-opis">Laptop djelatnika, uredski PC. Računalo se priključi uredu i od njega razmjenom dobije djelatnike i registre, a prijavljujete se svojim računom.</span></span>
+        <span class="post-oznaka" aria-hidden="true">{{icon "chevron-right"}}{{icon "check"}}</span>
+      </summary>
 
-      {{else if .UMrezi}}
+      <section class="upar-ploca post-redak">
+        <div><h3>U istoj lokalnoj mreži</h3><p class="desc">Ured je u istoj zgradi ili mreži: povežite se izravno.</p></div>
+        <a href="/uparivanje{{if .Kod}}?kod={{.Kod}}{{end}}" class="btn btn-link">Poveži s uredom</a>
+      </section>
 
-      <p>Ovo računalo je u mreži <b>{{.UMrezi}}</b>. Čeka se da sinkronizacijom stignu djelatnici; kad stignu, ova stranica sama vodi na prijavu, a prijavljujete se svojim računom.</p>
-      <p class="muted">Ako dugo ništa ne stiže, provjerite je li računalo na internetu i radi li čvor od kojeg je primljeno.</p>
-      <script>setTimeout(function () { location.reload(); }, 15000);</script>
-
-      {{else}}
-
-      <p class="mb-2">Ovo računalo još nema djelatnika ni mrežu. Izaberite:</p>
-      <ul class="mb-4" style="padding-left:1.2rem;">
-        <li><b>Nova mreža</b> je za <b>prvo</b> računalo, jednom po mreži (npr. prvi čvor centra). Na njemu napravite svoj administratorski račun, upišete ustroj i djelatnike, a ono prima ostala računala u mrežu.</li>
-        <li><b>Postojeća mreža</b> je za <b>svako sljedeće</b> računalo (laptop djelatnika, uredski PC). Uparite ga s računalom koje je već u mreži ili ga ono primi na daljinu; djelatnici, registri i podaci stižu od tamo, a prijavljujete se svojim računom.</li>
-      </ul>
-      <p class="muted mb-4">Ako niste sigurni, izaberite postojeću. Nova mreža je zaseban svijet: ne vidi podatke drugih mreža i kasnije se ne može spojiti s njima.</p>
-
-      <details class="card mb-4" {{if ne .Put "postojeca"}}open{{end}}>
-        <summary class="fw-600" style="cursor:pointer;">Ovo je prvi čvor nove mreže</summary>
-        <form action="/postavljanje" method="POST" class="mt-4">
-          <input type="hidden" name="kod" value="{{.Kod}}">
-          <input type="hidden" name="nacin" value="nova">
-          <div class="form-group mb-4">
-            <label class="form-label" for="mreza">Naziv mreže</label>
-            <input type="text" id="mreza" name="mreza" class="form-control" required value="{{.Mreza}}" placeholder="npr. Hrvatske vode — COP Osijek">
-          </div>
-          <p class="muted mb-2">Vaš administratorski račun (globalni administrator). Početni račun <code>admin</code> se isključuje.</p>
-          <div class="form-group mb-4">
-            <label class="form-label" for="korisnik">Korisničko ime</label>
-            <input type="text" id="korisnik" name="korisnik" class="form-control" required value="{{.Korisnik}}" placeholder="npr. aprimjer" autocomplete="username">
-          </div>
-          <div class="form-group mb-4">
-            <label class="form-label" for="ime">Ime i prezime</label>
-            <input type="text" id="ime" name="ime" class="form-control" required value="{{.Ime}}">
-          </div>
-          <div class="form-group mb-4">
-            <label class="form-label" for="email">E-pošta (nije obavezna)</label>
-            <input type="email" id="email" name="email" class="form-control" value="{{.Email}}">
-          </div>
-          <div class="form-group mb-4">
-            <label class="form-label" for="lozinka">Lozinka (najmanje 10 znakova)</label>
-            <input type="password" id="lozinka" name="lozinka" class="form-control" required minlength="10" autocomplete="new-password">
-          </div>
-          <div class="form-group mb-6">
-            <label class="form-label" for="lozinka2">Lozinka još jednom</label>
-            <input type="password" id="lozinka2" name="lozinka2" class="form-control" required minlength="10" autocomplete="new-password">
-          </div>
-          <div class="form-group mb-6">
-            <label style="display:flex; gap:.5rem; align-items:flex-start;">
-              <input type="checkbox" name="razumijem" value="da" required style="margin-top:.3rem;">
-              <span><b>Razumijem:</b> ovo je prvo računalo nove mreže. Nova mreža je zaseban svijet i kasnije se ne može spojiti s drugim mrežama.</span>
-            </label>
-          </div>
-          <button type="submit" class="btn btn-primary w-full">Osnuj mrežu i prijavi me</button>
-        </form>
-      </details>
-
-      <details class="card" {{if eq .Put "postojeca"}}open{{end}}>
-        <summary class="fw-600" style="cursor:pointer;">Priključit ću se postojećoj mreži</summary>
-        <p class="mt-4"><b>U istoj lokalnoj mreži</b> (npr. u uredu): ovo računalo upari s računalom koje je već u mreži.
-        Djelatnici, registri i podaci stižu od tamo, pa se nakon toga prijavljujete svojim računom.</p>
-        <a href="/uparivanje{{if .Kod}}?kod={{.Kod}}{{end}}" class="btn btn-secondary w-full">Poveži ga s uredom</a>
-
-        <p class="mt-6 mb-2"><b>Na daljinu</b> (npr. laptop kod kuće, a ured na drugom kraju):</p>
-        <ol class="mb-4" style="padding-left:1.2rem;">
-          <li>Napravite <b>zahtjev</b>: ovo računalo pokaže <b>kod za primanje</b>.</li>
-          <li>Datoteku zahtjeva pošaljite nekome tko u mreži prima računala (npr. e-poštom), a kod mu <b>pročitajte telefonom</b> — nikad ga ne pišite u poruku.</li>
-          <li>Kad vam vrati <b>potvrdu</b>, učitajte je ovdje. Kod je provjerava sam: podmetnuta potvrda se ne prihvaća.</li>
+      <section class="upar-ploca">
+        <h3>Na daljinu</h3>
+        <ol class="post-koraci">
+          <li><span class="num" aria-hidden="true">1</span><div class="step-tijelo">
+            <p>Napravite zahtjev i datoteku pošaljite primatelju, npr. e-poštom.</p>
+            <div class="actions">
+              {{if .KodPrimanja}}<a href="/postavljanje/zahtjev{{if .Kod}}?kod={{.Kod}}{{end}}" class="btn btn-link">Preuzmi datoteku zahtjeva</a>{{end}}
+              <form action="/postavljanje/zahtjev" method="POST">
+                <input type="hidden" name="kod" value="{{.Kod}}">
+                <button type="submit" class="btn {{if .KodPrimanja}}btn-link{{else}}btn-primary{{end}}">{{if .KodPrimanja}}Napravi novi zahtjev{{else}}Napravi zahtjev{{end}}</button>
+              </form>
+            </div>
+          </div></li>
+          <li><span class="num" aria-hidden="true">2</span><div class="step-tijelo">
+            <p>Kod pročitajte primatelju telefonom, nikad u poruci{{if .KodPrimanja}}:{{else}}. Pokazat će se kad napravite zahtjev.{{end}}</p>
+            {{if .KodPrimanja}}<div class="post-kod">{{.KodPrimanja}}</div>
+            <p class="desc">Vrijedi dok ne učitate potvrdu; novi zahtjev ga poništava.</p>{{end}}
+          </div></li>
+          <li><span class="num" aria-hidden="true">3</span><div class="step-tijelo">
+            <p>Učitajte potvrdu koju vam primatelj vrati. Program je sam provjerava: podmetnuta potvrda se ne prihvaća.</p>
+            {{if .KodPrimanja}}<form action="/postavljanje/potvrda" method="POST" enctype="multipart/form-data" class="post-potvrda">
+              <input type="hidden" name="kod" value="{{.Kod}}">
+              <div class="form-group list-polje">{{icon "upload"}}<label class="form-label" for="datoteka">Potvrda od primatelja</label><input type="file" id="datoteka" name="datoteka" class="form-control" accept=".json,application/json" required></div>
+              <button type="submit" class="btn btn-primary">Uđi u mrežu</button>
+            </form>{{end}}
+          </div></li>
         </ol>
-        {{if .KodPrimanja}}
-        <div class="card mb-4">
-          <p class="mb-2">Kod za primanje ovog računala:</p>
-          <div class="sas">{{.KodPrimanja}}</div>
-          <p class="muted mb-4">Pročitajte ga primatelju telefonom. Vrijedi dok ne učitate potvrdu; novi zahtjev ga poništava.</p>
-          <a href="/postavljanje/zahtjev{{if .Kod}}?kod={{.Kod}}{{end}}" class="btn btn-primary w-full">Preuzmi datoteku zahtjeva</a>
-        </div>
-        {{end}}
-        <form action="/postavljanje/zahtjev" method="POST" class="mb-4">
-          <input type="hidden" name="kod" value="{{.Kod}}">
-          <button type="submit" class="btn btn-secondary w-full">{{if .KodPrimanja}}Napravi novi zahtjev{{else}}Napravi zahtjev{{end}}</button>
-        </form>
-        {{if .KodPrimanja}}
-        <form action="/postavljanje/potvrda" method="POST" enctype="multipart/form-data">
-          <input type="hidden" name="kod" value="{{.Kod}}">
-          <div class="form-group mb-4">
-            <label class="form-label" for="datoteka">Potvrda od primatelja</label>
-            <input type="file" id="datoteka" name="datoteka" class="form-control" accept=".json,application/json" required>
-          </div>
-          <button type="submit" class="btn btn-primary w-full">Učitaj potvrdu i uđi u mrežu</button>
-        </form>
-        {{end}}
-      </details>
-      {{end}}
-    </div>
-  </div>
+      </section>
+    </details>
+    {{end}}
+  </main>
+</div>
 </body>
 </html>
