@@ -87,7 +87,12 @@ type MtsPageData struct {
 	IsEdit          bool
 	Danas           string
 	Od, Do          string
-	VrstaID         string
+	// knjiga prometa: redci istog zahvata zajedno, filtar zahvata i listanje
+	Knjiga           []RedakKnjige
+	ZahvatKnjige     string
+	UkupnoZahvata    int
+	ZahvataNaZaslonu int
+	VrstaID          string
 
 	// roba na putu (sredstva_na_putu.go): na skladištu što stiže i što je
 	// poslano; obrazac zaprimanja jedne pošiljke
@@ -509,8 +514,9 @@ func (h *MtsHandler) ponoviObrazacZahvata(w http.ResponseWriter, r *http.Request
 func (h *MtsHandler) ShowPromet(w http.ResponseWriter, r *http.Request) {
 	data := h.pageData(r)
 	q := r.URL.Query()
-	fl := repository.FiltarPrometa{Sektor: data.Sektor, SkladisteID: q.Get("skladiste"), VrstaID: q.Get("vrsta"), Limit: 500}
-	data.VrstaID = fl.VrstaID
+	fl := repository.FiltarPrometa{Sektor: data.Sektor, SkladisteID: q.Get("skladiste"), VrstaID: q.Get("vrsta"), Zahvat: zahvatKnjige(q.Get("zahvat"))}
+	fl.Zahvata = zahvataNaZaslonu(q.Get("n"))
+	data.VrstaID, data.ZahvatKnjige, data.ZahvataNaZaslonu = fl.VrstaID, fl.Zahvat, fl.Zahvata
 	if t, err := time.ParseInLocation("2006-01-02", q.Get("od"), models.Zagreb); err == nil {
 		fl.Od, data.Od = &t, q.Get("od")
 	}
@@ -520,11 +526,15 @@ func (h *MtsHandler) ShowPromet(w http.ResponseWriter, r *http.Request) {
 	if fl.SkladisteID != "" {
 		data.Skladiste, _ = h.svc().Skladiste(r.Context(), fl.SkladisteID)
 	}
-	var err error
-	if data.Promet, err = h.svc().Promet(r.Context(), fl); err != nil {
+	promet, err := h.svc().Promet(r.Context(), fl)
+	if err == nil {
+		data.UkupnoZahvata, err = h.svc().BrojZahvata(r.Context(), fl)
+	}
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	data.Knjiga = spojiZahvate(promet)
 	data.Skladista, _ = h.svc().Skladista(r.Context(), data.Sektor, 0, true)
 	data.Vrste, _ = h.svc().Vrste(r.Context())
 	data.Kartica = "promet"

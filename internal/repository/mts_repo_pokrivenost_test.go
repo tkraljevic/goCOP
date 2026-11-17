@@ -266,12 +266,26 @@ func TestListPrometIStanjePoFiltrima(t *testing.T) {
 		"razdoblje": {FiltarPrometa{Od: &od, Do: &do}, 2},
 		"od":        {FiltarPrometa{Od: &od}, 3},
 		"granica":   {FiltarPrometa{Limit: 1}, 1},
+		"zahvat":    {FiltarPrometa{Zahvat: models.PrometIzdano}, 2},
+		"zahvata":   {FiltarPrometa{Zahvata: 2}, 3},
+		"zahvat B":  {FiltarPrometa{Zahvata: 1, Sektor: "B"}, 2},
 	} {
 		redci, err := repo.ListPromet(ctxRaz, slucaj.f)
 		nuzno(t, err)
 		if len(redci) != slucaj.broj {
 			t.Errorf("%s: %d redaka, očekivano %d", ime, len(redci), slucaj.broj)
 		}
+	}
+
+	// knjiga broji zahvate: oba retka izdavanja su jedan, prvo odakle
+	if n, err := repo.BrojZahvata(ctxRaz, FiltarPrometa{}); err != nil || n != 3 {
+		t.Errorf("zahvata u knjizi: %d %v", n, err)
+	}
+	if n, err := repo.BrojZahvata(ctxRaz, FiltarPrometa{Sektor: "B", Od: &od}); err != nil || n != 1 {
+		t.Errorf("zahvata u sektoru B od veljače: %d %v", n, err)
+	}
+	if izd, err := repo.ListPromet(ctxRaz, FiltarPrometa{Zahvata: 1, Sektor: "B"}); err != nil || len(izd) != 2 || izd[0].Kolicina > 0 {
+		t.Errorf("izdavanje, prvo odakle: %+v %v", izd, err)
 	}
 
 	// stanje broji samo skladišta; teren je odvojen
@@ -451,6 +465,9 @@ func TestMtsZatvorenaBaza(t *testing.T) {
 	}
 	if _, err := repo.ListPromet(ctxRaz, FiltarPrometa{}); err == nil {
 		t.Error("ListPromet bez baze")
+	}
+	if _, err := repo.BrojZahvata(ctxRaz, FiltarPrometa{}); err == nil {
+		t.Error("BrojZahvata bez baze")
 	}
 	if _, err := repo.Stanje(ctxRaz, "", "", nil); err == nil {
 		t.Error("Stanje bez baze")

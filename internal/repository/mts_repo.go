@@ -495,33 +495,37 @@ type FiltarPrometa struct {
 	VrstaID     string
 	JournalID   string
 	VezaID      string
+	Zahvat      string // vrsta prometa (Promet*)
 	Od, Do      *time.Time
 	Limit       int
+	// Zahvata ograničava knjigu na toliko najnovijih zahvata; redci jednog
+	// upisa (odakle i kamo, punjenje) idu zajedno, pa se par ne raspolovi
+	Zahvata int
 }
 
-// ListPromet vraća knjigu prometa, najnoviji prvi
-func (r *MtsRepository) ListPromet(ctx context.Context, f FiltarPrometa) ([]models.Promet, error) {
-	q := `SELECT ` + prometColumns + prometFrom + ` WHERE 1=1`
+// kljucZahvataSQL povezuje retke jednog upisa: isti potez, isto vrijeme
+// upisa. Zaprimanje robe na putu je zaseban upis istog poteza.
+const kljucZahvataSQL = `CASE WHEN p.veza_id = '' THEN p.id ELSE p.veza_id || '|' || p.created_at END`
+
+// uvjetiPrometa su uvjeti filtra iza WHERE 1=1, s argumentima
+func uvjetiPrometa(f FiltarPrometa) (string, []any) {
+	var q string
 	var args []any
-	if f.SkladisteID != "" {
-		q += ` AND p.skladiste_id = ?`
-		args = append(args, f.SkladisteID)
-	}
-	if f.Sektor != "" {
-		q += ` AND p.sektor = ?`
-		args = append(args, f.Sektor)
-	}
-	if f.VrstaID != "" {
-		q += ` AND p.vrsta_id = ?`
-		args = append(args, f.VrstaID)
-	}
-	if f.JournalID != "" {
-		q += ` AND p.journal_id = ?`
-		args = append(args, f.JournalID)
-	}
-	if f.VezaID != "" {
-		q += ` AND p.veza_id = ?`
-		args = append(args, f.VezaID)
+	for _, u := range []struct {
+		sql string
+		v   string
+	}{
+		{` AND p.skladiste_id = ?`, f.SkladisteID},
+		{` AND p.sektor = ?`, f.Sektor},
+		{` AND p.vrsta_id = ?`, f.VrstaID},
+		{` AND p.journal_id = ?`, f.JournalID},
+		{` AND p.veza_id = ?`, f.VezaID},
+		{` AND p.vrsta = ?`, f.Zahvat},
+	} {
+		if u.v != "" {
+			q += u.sql
+			args = append(args, u.v)
+		}
 	}
 	if f.Od != nil {
 		q += ` AND p.datum >= ?`
@@ -531,7 +535,20 @@ func (r *MtsRepository) ListPromet(ctx context.Context, f FiltarPrometa) ([]mode
 		q += ` AND p.datum <= ?`
 		args = append(args, dayKey(*f.Do))
 	}
-	q += ` ORDER BY p.datum DESC, p.created_at DESC`
+	return q, args
+}
+
+// ListPromet vraća knjigu prometa, najnoviji prvi; u istom upisu prvo
+// odakle (minus), pa kamo
+func (r *MtsRepository) ListPromet(ctx context.Context, f FiltarPrometa) ([]models.Promet, error) {
+	uvjeti, args := uvjetiPrometa(f)
+	q := `SELECT ` + prometColumns + prometFrom + ` WHERE 1=1` + uvjeti
+	if f.Zahvata > 0 {
+		q += ` AND ` + kljucZahvataSQL + ` IN (SELECT ` + kljucZahvataSQL + ` FROM mts_promet p WHERE 1=1` + uvjeti +
+			fmt.Sprintf(` GROUP BY 1 ORDER BY MAX(p.datum) DESC, MAX(p.created_at) DESC LIMIT %d)`, f.Zahvata)
+		args = append(args, args...)
+	}
+	q += ` ORDER BY p.datum DESC, p.created_at DESC, p.veza_id, p.kolicina`
 	if f.Limit > 0 {
 		q += fmt.Sprintf(` LIMIT %d`, f.Limit)
 	}
@@ -549,6 +566,15 @@ func (r *MtsRepository) ListPromet(ctx context.Context, f FiltarPrometa) ([]mode
 		out = append(out, p)
 	}
 	return out, rows.Err()
+}
+
+// BrojZahvata broji zahvate u knjizi po filtru; redci jednog upisa su
+// jedan zahvat
+func (r *MtsRepository) BrojZahvata(ctx context.Context, f FiltarPrometa) (int, error) {
+	uvjeti, args := uvjetiPrometa(f)
+	var n int
+	err := r.db.QueryRowContext(ctx, `SELECT COUNT(DISTINCT `+kljucZahvataSQL+`) FROM mts_promet p WHERE 1=1`+uvjeti, args...).Scan(&n)
+	return n, err
 }
 
 // Stanje zbraja promet po skladištima: koliko čega i u kojem obliku stoji.

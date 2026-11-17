@@ -658,6 +658,11 @@ func (s *MtsService) Promet(ctx context.Context, f repository.FiltarPrometa) ([]
 	return s.repo.ListPromet(ctx, f)
 }
 
+// BrojZahvata broji zahvate u knjizi prometa po filtru
+func (s *MtsService) BrojZahvata(ctx context.Context, f repository.FiltarPrometa) (int, error) {
+	return s.repo.BrojZahvata(ctx, f)
+}
+
 // ---- godišnji popis
 
 // PredlozakPopisa vraća popis skladišta na dan; kad ga još nema, slaže novi
