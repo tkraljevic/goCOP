@@ -318,7 +318,7 @@ func (s *MtsService) NaTerenu(ctx context.Context, journalID, sektor string) ([]
 			out = append(out, st)
 		}
 	}
-	return out, nil
+	return out, s.dodajPodrijetlo(ctx, out, journalID, sektor)
 }
 
 // kolikoIma javlja koliko jedne vrste u jednom obliku stoji na mjestu:

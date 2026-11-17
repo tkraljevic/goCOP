@@ -275,3 +275,22 @@ func TestPotrebeNabave(t *testing.T) {
 		}
 	}
 }
+
+// Naslov kartice mjesta na terenu je mjesto bez slobodnog opisa (opis ide
+// ispod naslova); mjesto bez ičega je „nije razvrstano”.
+func TestNaslovMjesta(t *testing.T) {
+	for _, k := range []struct {
+		st   Stanje
+		want string
+	}{
+		{Stanje{AreaID: 16, AreaName: "Mali sliv Baranja", SectionCode: "B.16.5", Mjesto: "nasip kod Draža"}, "BP 16 Mali sliv Baranja · B.16.5"},
+		{Stanje{AreaID: 16, StructureName: "CS Draž"}, "BP 16 · CS Draž"},
+		{Stanje{SectionCode: "B.16.4"}, "B.16.4"},
+		{Stanje{Mjesto: "kuća iza groblja"}, "teren, nije razvrstano"},
+		{Stanje{}, "teren, nije razvrstano"},
+	} {
+		if got := k.st.NaslovMjesta(); got != k.want {
+			t.Errorf("%+v: %q, očekivano %q", k.st, got, k.want)
+		}
+	}
+}

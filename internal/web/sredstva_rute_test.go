@@ -221,7 +221,8 @@ func TestSredstvaKrozRute(t *testing.T) {
 	if l := zovi(http.MethodPost, "/sredstva/na-putu/"+veza, url.Values{"datum": {danas}, "kolicina": {"4000"}, "preuzeo": {"vodočuvar"}}).Header().Get("Location"); !strings.Contains(l, "/sredstva/na-terenu?sektor=B") {
 		t.Fatalf("zaprimanje na terenu: %s", l)
 	}
-	mora(zovi(http.MethodGet, "/sredstva/na-terenu?sektor=B", nil), http.StatusOK, "na terenu", "BP 34 Drava i Dunav · B.34.1", "4 000")
+	mora(zovi(http.MethodGet, "/sredstva/na-terenu?sektor=B", nil), http.StatusOK, "na terenu", "BP 34 Drava i Dunav · B.34.1", "4 000",
+		"Izdalo skladište", ">Centralno skladište Osijek</a>", "Na terenu od", "Povrat</a>", "Utrošak</a>", "/promet/novo?dionica=B.34.1&amp;oblik=PUNJENO&amp;podrucje=34")
 	mora(zovi(http.MethodGet, "/sredstva/promet?sektor=B", nil), http.StatusOK, "knjiga", "Izdano na teren", "teren · BP 34 Drava i Dunav · B.34.1", "−4 000", "&#43;4 000", "Preuzeo: vodočuvar")
 	mora(zovi(http.MethodGet, "/sredstva/gdje/vrece-50x80", nil), http.StatusOK, "gdje ima", "Centralno skladište Osijek", "96 000")
 	if l := zovi(http.MethodPost, "/sredstva/katalog/vrece-50x80/obrisi", url.Values{}).Header().Get("Location"); !strings.Contains(l, "error=") {
