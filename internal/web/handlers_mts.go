@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -55,6 +56,8 @@ type MtsPageData struct {
 
 	// ZaInventuru su skladišta u kojima osoba smije otvoriti inventuru
 	ZaInventuru []models.Skladiste
+	// GodinePopisa su godine u kojima sektor ima inventuru, za čipove godine
+	GodinePopisa []int
 
 	Promet       []models.Promet
 	Zahvat       service.Zahvat
@@ -564,11 +567,12 @@ func (h *MtsHandler) ShowNaTerenu(w http.ResponseWriter, r *http.Request) {
 func (h *MtsHandler) ShowPopisi(w http.ResponseWriter, r *http.Request) {
 	data := h.pageData(r)
 	data.Godina, _ = strconv.Atoi(r.URL.Query().Get("godina"))
-	var err error
-	if data.Popisi, err = h.svc().Popisi(r.Context(), data.Sektor, "", data.Godina); err != nil {
+	sve, err := h.svc().Popisi(r.Context(), data.Sektor, "", 0)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	data.GodinePopisa, data.Popisi = popisiGodine(sve, data.Godina)
 	data.Skladista, _ = h.svc().Skladista(r.Context(), data.Sektor, 0, false)
 	for _, sk := range data.Skladista {
 		if h.svc().SmijePisati(data.Permissions, &sk) {
@@ -577,6 +581,23 @@ func (h *MtsHandler) ShowPopisi(w http.ResponseWriter, r *http.Request) {
 	}
 	data.Kartica = "inventura"
 	h.render(w, "popisi.html", data)
+}
+
+// popisiGodine vraća godine svih inventura (najnovija prva) i inventure
+// zadane godine; godina 0 su sve
+func popisiGodine(sve []models.Popis, godina int) ([]int, []models.Popis) {
+	var godine []int
+	var odabrani []models.Popis
+	for _, p := range sve {
+		if !slices.Contains(godine, p.Godina) {
+			godine = append(godine, p.Godina)
+		}
+		if godina == 0 || p.Godina == godina {
+			odabrani = append(odabrani, p)
+		}
+	}
+	sort.Sort(sort.Reverse(sort.IntSlice(godine)))
+	return godine, odabrani
 }
 
 // ShowPopisNovo otvara popis skladišta na dan: postojeći ili predložak

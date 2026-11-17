@@ -16,52 +16,58 @@
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 
-<form method="GET" action="/sredstva/popisi" class="obracun-filtar">
-  <input type="hidden" name="sektor" value="{{.Sektor}}">
-  <label for="f-godina">Godina</label>
-  <input type="number" id="f-godina" name="godina" class="form-control max-w-7" value="{{if .Godina}}{{.Godina}}{{end}}" placeholder="sve">
-  <button type="submit" class="btn btn-secondary">{{icon "search"}} Prikaži</button>
-</form>
-{{if .Sektor}}
-<form method="GET" action="/sredstva/mts.xlsx" class="obracun-filtar">
-  <input type="hidden" name="sektor" value="{{.Sektor}}">
-  <label for="f-dan-gcop">Tablica za Glavni centar na dan</label>
-  <input type="date" id="f-dan-gcop" name="dan" class="form-control" value="{{.Danas}}" max="{{.Danas}}">
-  <button type="submit" class="btn btn-secondary">{{icon "download"}} Excel za GCOP</button>
-</form>
-{{end}}
+{{/* Inventura po crtežu 19b (7): godina kao čipovi, nova inventura i tablica
+     u karticama, tablica za Glavni centar dolje */}}
+<div class="ocitanja-cipovi cipovi-stranice sr-filtri" role="group" aria-label="Godina">
+  {{range .GodinePopisa}}<a class="ocitanja-cip" href="/sredstva/popisi?sektor={{$.Sektor}}&amp;godina={{.}}" aria-pressed="{{if eq . $.Godina}}true{{else}}false{{end}}">{{if eq . $.Godina}}{{icon "check"}}{{end}}{{.}}.</a>{{end}}
+  <a class="ocitanja-cip" href="/sredstva/popisi?sektor={{.Sektor}}" aria-pressed="{{if .Godina}}false{{else}}true{{end}}">{{if not .Godina}}{{icon "check"}}{{end}}sve</a>
+</div>
 
 {{if .ZaInventuru}}
-<div class="sektorsko-ploca">
-  <div class="sektorsko-ploca-glava">
-    <h2>{{icon "plus"}} Nova inventura</h2>
-    <form method="GET" action="" class="obracun-filtar m-0" onsubmit="this.action='/sredstva/skladista/'+this.skladiste.value+'/popis';">
-      <select name="skladiste" class="form-control">{{range .ZaInventuru}}<option value="{{.ID}}">{{.Naziv}}</option>{{end}}</select>
-      <input type="date" name="dan" class="form-control" value="{{.Danas}}" max="{{.Danas}}">
-      <button type="submit" class="btn btn-primary">{{icon "list"}} Otvori inventuru na dan</button>
-    </form>
-  </div>
-</div>
+<section class="os-kartica" aria-labelledby="inv-nova">
+  <h2 id="inv-nova">Nova inventura</h2>
+  <form method="GET" action="" class="sr-gcop" onsubmit="this.action='/sredstva/skladista/'+this.skladiste.value+'/popis';">
+    <label class="form-label" for="inv-skladiste">Skladište</label>
+    <select id="inv-skladiste" name="skladiste" class="form-control sr-polje-sire">{{range .ZaInventuru}}<option value="{{.ID}}">{{.Naziv}}</option>{{end}}</select>
+    <input type="date" name="dan" class="form-control" value="{{.Danas}}" max="{{.Danas}}" aria-label="Na dan">
+    <button type="submit" class="btn btn-primary">Otvori inventuru</button>
+  </form>
+</section>
 {{end}}
 
 {{if .Popisi}}
-<div class="table-card"><div class="table-responsive tablica-kartice">
-  <table class="data-table">
+<section class="os-kartica" aria-label="Inventure">
+<div class="table-responsive tablica-kartice">
+  <table class="data-table sr-promet">
     <thead><tr><th>Na dan</th><th>Skladište</th><th>Stanje</th><th class="br">Redaka s razlikom</th><th>Izradio</th></tr></thead>
     <tbody>
     {{range .Popisi}}
     <tr>
       <td data-stupac="Na dan"><a href="/sredstva/popisi/{{.ID}}"><strong>{{.Dan.Format "2.1.2006."}}</strong></a></td>
-      <td data-stupac="Skladište">{{.SkladisteNaziv}}{{if .AreaID}} <span class="reg-card-sub">BP {{.AreaID}}</span>{{end}}</td>
+      <td data-stupac="Skladište">{{.SkladisteNaziv}}{{if .AreaID}}<span class="reg-card-sub">BP {{.AreaID}}</span>{{end}}</td>
       <td data-stupac="Stanje">{{if .Zakljucen}}<span class="badge">zaključena {{.ZakljucenoAt.Format "2.1.2006."}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{end}}</td>
       <td data-stupac="Razlika" class="mono br">{{.Razlika}}</td>
-      <td data-stupac="Izradio">{{.Izradio}} <span class="reg-card-sub">{{.IzradenoAt.Format "2.1.2006."}}</span></td>
+      <td data-stupac="Izradio">{{.Izradio}}<span class="reg-card-sub">{{.IzradenoAt.Format "2.1.2006."}}</span></td>
     </tr>
     {{end}}
     </tbody>
   </table>
-</div></div>
+</div>
+</section>
 {{else}}
 <div class="reg-empty">Još nema inventura{{if .Godina}} za {{.Godina}}.{{else}}.{{end}}</div>
+{{end}}
+
+{{if .Sektor}}
+<section class="os-kartica" aria-labelledby="inv-gcop">
+  <h2 id="inv-gcop">Tablica za Glavni centar</h2>
+  <p class="sr-opis">Stanje po skladištima na dan i potrebe za nabavom, u obliku koji traži Glavni centar.</p>
+  <form method="GET" action="/sredstva/mts.xlsx" class="sr-gcop">
+    <input type="hidden" name="sektor" value="{{.Sektor}}">
+    <label class="form-label" for="f-dan-gcop">Na dan</label>
+    <input type="date" id="f-dan-gcop" name="dan" class="form-control" value="{{.Danas}}" max="{{.Danas}}">
+    <button type="submit" class="btn btn-link">{{icon "download"}} Excel za GCOP</button>
+  </form>
+</section>
 {{end}}
 {{end}}
