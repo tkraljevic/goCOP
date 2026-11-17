@@ -10834,6 +10834,10 @@ td .odr-sitno { margin-top: 2px; }
 .sr-plus .icon { width: 18px; height: 18px; }
 .sr-plus:hover { background: var(--surface-hover); }
 .sr-potvrda { margin-left: 0.5rem; }
+/* Inventura (crtež 19b, 7): „prazan nacrt · Obriši” ispod značke nacrta */
+.sr-prazan-nacrt { display: block; margin-top: 2px; }
+.sr-obrisi { border: 0; background: none; padding: 0; font: inherit; color: var(--danger); cursor: pointer; }
+.sr-obrisi:hover { text-decoration: underline; }
 .sr-promet .reg-card-sub { display: block; }
 .sr-promet th.br, .sr-promet td.br { text-align: right; white-space: nowrap; }
 /* Obrazac inventure (crtež 19b, 8a): na mobitelu kartica po vrsti s velikim poljem */

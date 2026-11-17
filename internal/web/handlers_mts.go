@@ -56,6 +56,8 @@ type MtsPageData struct {
 
 	// ZaInventuru su skladišta u kojima osoba smije otvoriti inventuru
 	ZaInventuru []models.Skladiste
+	// PisatiU su ID-ovi tih skladišta, za brisanje praznog nacrta na popisu
+	PisatiU map[string]bool
 	// GodinePopisa su godine u kojima sektor ima inventuru, za čipove godine
 	GodinePopisa []int
 
@@ -601,6 +603,10 @@ func (h *MtsHandler) ShowPopisi(w http.ResponseWriter, r *http.Request) {
 	for _, sk := range data.Skladista {
 		if h.svc().SmijePisati(data.Permissions, &sk) {
 			data.ZaInventuru = append(data.ZaInventuru, sk)
+			if data.PisatiU == nil {
+				data.PisatiU = map[string]bool{}
+			}
+			data.PisatiU[sk.ID] = true
 		}
 	}
 	data.Kartica = "inventura"
@@ -773,6 +779,18 @@ func (h *MtsHandler) HandleZakljuciPopis(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	redirectWith(w, r, "/sredstva/popisi/"+id, "success", "Inventura je zaključena; razlike su proknjižene.")
+}
+
+// HandleObrisiPopis briše prazan nacrt inventure i vraća na popis inventura
+func (h *MtsHandler) HandleObrisiPopis(w http.ResponseWriter, r *http.Request) {
+	data := h.pageData(r)
+	id := r.PathValue("id")
+	p, err := h.svc().ObrisiPrazanPopis(r.Context(), data.CurrentUser, data.Permissions, id)
+	if err != nil {
+		redirectWith(w, r, "/sredstva/popisi?sektor="+data.Sektor, "error", err.Error())
+		return
+	}
+	redirectWith(w, r, "/sredstva/popisi?sektor="+p.Sektor, "success", "Prazan nacrt inventure na dan "+p.Dan.Format("2. 1. 2006.")+" je obrisan.")
 }
 
 // HandleOtkljucajPopis vraća zaključenu inventuru u nacrt; smije samo
