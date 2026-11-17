@@ -8,29 +8,32 @@
 
 <div class="page-header">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "search"}} Gdje ima: {{$v.Naziv}}</h1>
+    <h1 class="page-title" data-naziv-stranice>Gdje ima: {{$v.Naziv}}</h1>
     <p class="page-desc">{{grupa $v.Grupa}} · {{$v.Jedinica}} · sva skladišta u svim sektorima, najviše prvo. Kad u jednom sektoru ponestane,
-      ovdje se vidi odakle se može dopremiti — prijenos se upiše iz skladišta koje šalje.</p>
+      ovdje se vidi odakle se može dopremiti; prijenos se upiše iz skladišta koje šalje.</p>
   </div>
 </div>
 
+{{/* Gdje ima po crtežu 19a (5): ista tablica, u kartici */}}
 {{if .GdjeIma}}
-<div class="table-card"><div class="table-responsive tablica-kartice">
-  <table class="data-table">
+<section class="os-kartica" aria-label="Skladišta u kojima ima {{$v.Naziv}}">
+<div class="table-responsive tablica-kartice">
+  <table class="data-table sr-promet">
     <thead><tr><th>{{term "sektor"}}</th><th>{{term "podrucje"}}</th><th>Skladište</th><th class="br">Ukupno</th>{{if $v.ImaOblike}}{{range $v.Oblici}}<th class="br">{{oblik .}}</th>{{end}}{{end}}</tr></thead>
     <tbody>
     {{range .GdjeIma}}
     <tr>
       <td data-stupac="Sektor">{{.Skladiste.Sektor}}</td>
       <td data-stupac="Područje">{{if .Skladiste.AreaName}}BP {{.Skladiste.AreaID}} · {{.Skladiste.AreaName}}{{end}}</td>
-      <td data-stupac="Skladište"><a href="/sredstva/skladista/{{.Skladiste.ID}}">{{.Skladiste.Naziv}}</a>{{if .Skladiste.Adresa}} <span class="reg-card-sub">{{.Skladiste.Adresa}}</span>{{end}}</td>
+      <td data-stupac="Skladište"><a href="/sredstva/skladista/{{.Skladiste.ID}}">{{.Skladiste.Naziv}}</a>{{if .Skladiste.Adresa}}<span class="reg-card-sub">{{.Skladiste.Adresa}}</span>{{end}}</td>
       <td data-stupac="Ukupno" class="mono br"><strong>{{kolicina .Kolicina}}</strong> {{$v.Jedinica}}</td>
       {{$m := .}}{{if $v.ImaOblike}}{{range $v.Oblici}}<td class="mono br">{{with index $m.PoOblicima .}}{{kolicina .}}{{end}}</td>{{end}}{{end}}
     </tr>
     {{end}}
     </tbody>
   </table>
-</div></div>
+</div>
+</section>
 {{else}}
 <div class="reg-empty">Nigdje nema upisano: {{$v.Naziv}}.</div>
 {{end}}
