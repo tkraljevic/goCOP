@@ -10,8 +10,8 @@ import (
 	"gocop/internal/repository"
 )
 
-// Skladištar koji je i strojar vidi kartice obje uloge: najprije strojareve,
-// pa skladištareve, bez ponavljanja; traka je po prvoj ulozi, a Za riješiti
+// Skladištar koji je i strojar vidi kartice obje uloge: Za riješiti na vrhu,
+// pa strojareve, pa skladištareve, bez ponavljanja; traka je po prvoj ulozi, a Za riješiti
 // je skladištarev posao (Odluke 17. 11. 2026.)
 func TestNaslovnaViseUloga(t *testing.T) {
 	p := dozvoleNaslovne(false, models.RoleMachinist, models.RoleWarehouseKeeper)
@@ -21,9 +21,13 @@ func TestNaslovnaViseUloga(t *testing.T) {
 	if u := ulogeNaslovne(p, sadNaslovne); !slices.Equal(u, []string{uObjekt, uSkladiste}) || ulogaNaslovne(p, sadNaslovne) != uObjekt {
 		t.Fatalf("uloge: %v", u)
 	}
-	zeli := []string{kMojiObjekti, kNaloziObjektu, kVrijeme, kZaRijesiti, kSkladiste, kSredstvaTeren, kPrometSredstva}
+	zeli := []string{kZaRijesiti, kMojiObjekti, kNaloziObjektu, kVrijeme, kSkladiste, kSredstvaTeren, kPrometSredstva}
 	if k := karticeUloge(p); !slices.Equal(k, zeli) {
 		t.Errorf("kartice: %v", k)
+	}
+	// prva uloga koja ima Za riješiti zadržava svoj raspored
+	if k := karticeUloge(dozvoleNaslovne(true, models.RoleWarehouseKeeper)); k[0] != kStanjeObrane || k[1] != kZaRijesiti {
+		t.Errorf("administrator: %v", k)
 	}
 	if ulogaKartice(p, kZaRijesiti, sadNaslovne) != uSkladiste || ulogaKartice(p, kVrijeme, sadNaslovne) != uObjekt || ulogaKartice(p, kDnevniList, sadNaslovne) != "" {
 		t.Error("uloga kartice")

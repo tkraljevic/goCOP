@@ -125,7 +125,9 @@ func imaUlogu(u *models.User, uloga models.Role, sad time.Time) bool {
 const TrakaPregleda = "Račun za pregled: možete gledati, ali ne i upisivati."
 
 // karticeUloge su kartice Naslovne svih uloga osobe: najprije kartice prve
-// uloge, pa nove kartice svake sljedeće; nil znači dosadašnju Naslovnu
+// uloge, pa nove kartice svake sljedeće; nil znači dosadašnju Naslovnu. Za
+// riješiti koju donosi tek sljedeća uloga ide na vrh, da posao ne padne
+// ispod kartica prve uloge.
 func karticeUloge(perms *models.UserPermissions) []string {
 	var out []string
 	for _, u := range ulogeNaslovne(perms, time.Now()) {
@@ -134,6 +136,9 @@ func karticeUloge(perms *models.UserPermissions) []string {
 				out = append(out, id)
 			}
 		}
+	}
+	if i := slices.Index(out, kZaRijesiti); i > 0 && !slices.Contains(karticeZaUlogu[ulogaNaslovne(perms, time.Now())], kZaRijesiti) {
+		out = slices.Insert(slices.Delete(out, i, i+1), 0, kZaRijesiti)
 	}
 	return out
 }
