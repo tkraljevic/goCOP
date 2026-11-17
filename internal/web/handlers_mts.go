@@ -73,6 +73,11 @@ type MtsPageData struct {
 
 	Objekti  []models.Structure // objekti i nasipi sektora, za mjesto na terenu
 	MjestaNa []models.Stanje    // mjesta na terenu na kojima nešto stoji
+	// rečenice obrasca zahvata: stanje vrste u skladištu, što stoji na mjestu
+	// (ključ mjesta) i dan zadnje zaključene inventure skladišta
+	StanjeUSkladistu    map[string]string
+	StojiNaMjestu       map[string]string
+	ZakljucenaInventura time.Time
 
 	Potrebe        map[string]models.Potreba // po vrsti, za obrazac skladišta
 	PotrebeSektora []models.Potreba
@@ -445,6 +450,7 @@ func (h *MtsHandler) popuniObrazacPrometa(r *http.Request, data *MtsPageData, sk
 		data.Objekti, _ = h.structures.List(r.Context(), sk.Sektor, 0, "", "")
 	}
 	data.MjestaNa = h.svc().MjestaNaTerenu(r.Context(), "", sk.Sektor)
+	h.receniceObrasca(r, data, sk)
 }
 
 // HandleSavePromet provodi zahvat
@@ -484,15 +490,16 @@ func (h *MtsHandler) HandleSavePromet(w http.ResponseWriter, r *http.Request) {
 	if len(redci) > 0 && redci[0].Jedinica != "" {
 		poruka += " " + redci[0].Jedinica
 	}
+	upozorenje := upozorenjeInventure(z.Datum, h.zakljucenaInventura(r, id))
 	veza := ""
 	if len(redci) > 0 {
 		veza = redci[0].VezaID
 	}
 	if r.FormValue("jos") == "1" {
-		redirectWith(w, r, "/sredstva/skladista/"+id+"/promet/novo?vrsta="+z.Vrsta+"&potvrda="+veza, "success", poruka+" je upisano; sljedeći zahvat.")
+		redirectWith(w, r, "/sredstva/skladista/"+id+"/promet/novo?vrsta="+z.Vrsta+"&potvrda="+veza, "success", poruka+" je upisano; sljedeći zahvat."+upozorenje)
 		return
 	}
-	redirectWith(w, r, "/sredstva/skladista/"+id+"?potvrda="+veza, "success", poruka+" je upisano.")
+	redirectWith(w, r, "/sredstva/skladista/"+id+"?potvrda="+veza, "success", poruka+" je upisano."+upozorenje)
 }
 
 // ponoviObrazacZahvata vraća obrazac zahvata s upisanim i porukom; tko u

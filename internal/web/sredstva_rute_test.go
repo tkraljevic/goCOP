@@ -169,6 +169,8 @@ func TestSredstvaKrozRute(t *testing.T) {
 		"oblik": {"PRAZNO"}, "kolicina": {"100 000"}, "preuzeo": {"Vreće d.o.o."}, "dokument": {"OT 44/26"}, "nalozio": {"rukovoditelj sektora"}}), "primka")
 	odredište(zovi(http.MethodPost, "/sredstva/skladista/"+sk+"/promet", url.Values{"vrsta": {"PUNJENJE"}, "datum": {danas}, "sredstvo": {"vrece-50x80"},
 		"oblik": {"PRAZNO"}, "u_oblik": {"PUNJENO"}, "kolicina": {"5000"}}), "punjenje")
+	// obrazac zahvata kaže koliko stoji u skladištu (crtež 19a, 3)
+	mora(zovi(http.MethodGet, "/sredstva/skladista/"+sk+"/promet/novo?vrsta=IZDANO", nil), http.StatusOK, "obrazac sa stanjem", "praznih i 5", "napunjenih\"", `id="p-stoji"`)
 	mora(zovi(http.MethodGet, "/sredstva/skladista/"+sk, nil), http.StatusOK, "kartica poslije", "95 000", "5 000", "Punjenje", "nalog: rukovoditelj sektora", "Dopremio: Vreće d.o.o.", "OT 44/26")
 	// preko zalihe se ne izdaje
 	w := zovi(http.MethodPost, "/sredstva/skladista/"+sk+"/promet", url.Values{"vrsta": {"IZDANO"}, "datum": {danas}, "sredstvo": {"vrece-50x80"},
