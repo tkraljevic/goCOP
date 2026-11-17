@@ -135,7 +135,7 @@ func TestPretplateBezObrazacaZaOstale(t *testing.T) {
 				t.Errorf("%s vidi %q", opis, o)
 			}
 		}
-		if !strings.Contains(html, `<div class="alert alert-info">`) || !strings.Contains(html, x.poruka) {
+		if !strings.Contains(html, `<div class="mod-napomena">`) || !strings.Contains(html, x.poruka) {
 			t.Errorf("%s: nema rečenice %q na vrhu stranice", opis, x.poruka)
 		}
 		if strings.Contains(html, "<th></th>") || strings.Contains(html, `<td class="nowrap text-right">`) {

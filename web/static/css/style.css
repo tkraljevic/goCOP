@@ -11004,3 +11004,14 @@ td .odr-sitno { margin-top: 2px; }
 @media (max-width: 599px) {
   .stranica-sinkronizacija .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Što ovo računalo prati po crtežu 18b · 3 */
+.pre-predlog { flex-wrap: wrap; margin: 0; }
+.pre-predlog > span { flex: 1 1 320px; }
+.pre-pravila { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.pre-pravila li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 12px; border-radius: 8px; background: var(--md-sys-color-surface); font-size: 0.875rem; }
+.pre-pravila form { margin: 0; }
+.pre-tablica td .form-help { margin: 0 0 4px; }
+.adm-kartica .uv-terminal { background: var(--md-sys-color-surface); }
+.adm-kartica select.form-control { appearance: auto; }
+.adm-kartica > h2 { display: flex; align-items: center; gap: 8px; }
