@@ -405,11 +405,10 @@ func TestSpremanjeSkladista(t *testing.T) {
 		t.Errorf("poslije izmjene: %+v (nastalo prije %v)", poslije, prije.CreatedAt)
 	}
 
-	put, poruka = preusmjerenjeSredstava(t, o.zovi(t, upravaSredstava(), http.MethodPost, "/sredstva/skladista/"+o.sk.ID,
-		url.Values{"naziv": {" "}, "sektor": {"B"}, "area_id": {"34"}}), "error")
-	if put != "/sredstva/skladista/"+o.sk.ID+"/uredi" || poruka != "Skladište mora imati naziv." {
-		t.Errorf("izmjena bez naziva: %s %q", put, poruka)
-	}
+	// izmjena bez naziva vraća obrazac izmjene s upisanim i porukom
+	mora(t, o.zovi(t, upravaSredstava(), http.MethodPost, "/sredstva/skladista/"+o.sk.ID,
+		url.Values{"naziv": {" "}, "sektor": {"B"}, "area_id": {"34"}, "adresa": {"Bilje 2"}}).Body.String(),
+		"izmjena bez naziva", "IsEdit=true;", "Greska=Skladište mora imati naziv.;")
 	put, poruka = preusmjerenjeSredstava(t, o.zovi(t, promatracSredstava(), http.MethodPost, "/sredstva/skladista",
 		url.Values{"naziv": {"Skladište Darda"}, "sektor": {"B"}, "area_id": {"34"}}), "error")
 	if put != "/sredstva/skladista/novo" || !strings.Contains(poruka, "uprava") {
@@ -472,21 +471,22 @@ func TestSpremanjeZahvata(t *testing.T) {
 	put := "/sredstva/skladista/" + o.sk.ID + "/promet"
 	natrag := "/sredstva/skladista/" + o.sk.ID + "/promet/novo"
 
-	p, poruka := preusmjerenjeSredstava(t, o.zovi(t, upravaSredstava(), http.MethodPost, put, url.Values{
-		"vrsta": {models.PrometPrimka}, "sredstvo": {"lopata"}, "kolicina": {"tri"}}), "error")
-	if p != natrag || poruka != "Količina nije broj" {
-		t.Errorf("količina slovima: %s %q", p, poruka)
-	}
-	p, poruka = preusmjerenjeSredstava(t, o.zovi(t, upravaSredstava(), http.MethodPost, put, url.Values{
-		"vrsta": {models.PrometPrimka}, "sredstvo": {"lopata"}, "kolicina": {"0"}, "datum": {"2025-05-01"}}), "error")
-	if p != natrag || poruka != "Količina mora biti veća od nule." {
-		t.Errorf("nula: %s %q", p, poruka)
+	mora(t, o.zovi(t, upravaSredstava(), http.MethodPost, put, url.Values{
+		"vrsta": {models.PrometPrimka}, "sredstvo": {"lopata"}, "kolicina": {"tri"}}).Body.String(),
+		"količina slovima", "VratiUpisano=true;", "Sredstvo=lopata;", "Greska=Količina nije broj")
+	mora(t, o.zovi(t, upravaSredstava(), http.MethodPost, put, url.Values{
+		"vrsta": {models.PrometPrimka}, "sredstvo": {"lopata"}, "kolicina": {"0"}, "datum": {"2025-05-01"}}).Body.String(),
+		"nula", "Vrsta=PRIMKA;", "Greska=Količina mora biti veća od nule.;")
+	// tko ne smije pisati, vraća se na prazan obrazac s porukom
+	if p, poruka := preusmjerenjeSredstava(t, o.zovi(t, promatracSredstava(), http.MethodPost, put, url.Values{
+		"vrsta": {models.PrometPrimka}, "sredstvo": {"lopata"}, "kolicina": {"2"}}), "error"); p != natrag || poruka == "" {
+		t.Errorf("promatrač: %s %q", p, poruka)
 	}
 
 	w := o.zovi(t, upravaSredstava(), http.MethodPost, put, url.Values{
 		"vrsta": {models.PrometPrimka}, "sredstvo": {"lopata"}, "kolicina": {"1 500"}, "datum": {"2025-05-01"},
 		"dokument": {"Primka 7/2025"}, "jos": {"1"}})
-	p, poruka = preusmjerenjeSredstava(t, w, "success")
+	p, poruka := preusmjerenjeSredstava(t, w, "success")
 	if p != natrag || !strings.HasPrefix(poruka, "Primka: 1\u00a0500") || !strings.HasSuffix(poruka, " je upisano; sljedeći zahvat.") {
 		t.Errorf("još jedan: %s %q", p, poruka)
 	}
