@@ -3,6 +3,7 @@ package web
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -575,12 +576,13 @@ func listPrometa(k *xlsxw.Knjiga, naslov, podnaslov string, promet []models.Prom
 	napomenaLista(p, "Količina sa znakom: u mjesto pozitivno, iz mjesta negativno. Redci istog poteza (izdavanje, prijenos, punjenje) idu u paru. Iz programa goCOP.", stupaca, 24)
 }
 
-// IzvoziPromet piše knjigu prometa po istim filtrima kao stranica
-func (h *MtsHandler) IzvoziPromet(w http.ResponseWriter, r *http.Request) {
-	data := h.pageData(r)
-	q := r.URL.Query()
-	fl := repository.FiltarPrometa{Sektor: data.Sektor, SkladisteID: q.Get("skladiste"), VrstaID: q.Get("vrsta")}
+// filtarIzvozaKnjige su filtri Excela knjige iz adrese, s opisom za zaglavlje
+func filtarIzvozaKnjige(q url.Values, sektor string) (repository.FiltarPrometa, []string) {
+	fl := repository.FiltarPrometa{Sektor: sektor, SkladisteID: q.Get("skladiste"), VrstaID: q.Get("vrsta"), Zahvat: zahvatKnjige(q.Get("zahvat"))}
 	var opis []string
+	if fl.Zahvat != "" {
+		opis = append(opis, models.PrometNaziv(fl.Zahvat))
+	}
 	if t, err := time.ParseInLocation("2006-01-02", q.Get("od"), models.Zagreb); err == nil {
 		fl.Od = &t
 		opis = append(opis, "od "+t.Format("02.01.2006."))
@@ -589,6 +591,14 @@ func (h *MtsHandler) IzvoziPromet(w http.ResponseWriter, r *http.Request) {
 		fl.Do = &t
 		opis = append(opis, "do "+t.Format("02.01.2006."))
 	}
+	return fl, opis
+}
+
+// IzvoziPromet piše knjigu prometa po istim filtrima kao stranica
+func (h *MtsHandler) IzvoziPromet(w http.ResponseWriter, r *http.Request) {
+	data := h.pageData(r)
+	q := r.URL.Query()
+	fl, opis := filtarIzvozaKnjige(q, data.Sektor)
 	naslov := "KNJIGA PROMETA SREDSTAVA"
 	if fl.SkladisteID != "" {
 		if sk, _ := h.svc().Skladiste(r.Context(), fl.SkladisteID); sk != nil {

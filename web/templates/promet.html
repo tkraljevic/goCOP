@@ -6,8 +6,8 @@
 <div class="page-header">
   <div>
     <h1 class="page-title" data-naziv-stranice>Knjiga prometa</h1>
-    <p class="page-desc">Svaki ulaz i izlaz{{if .Skladiste}} skladišta {{.Skladiste.Naziv}}{{else if .Sektor}} u sektoru {{.Sektor}}{{end}}, najnoviji prvi. Redci s
-      istim potezom (prijenos, punjenje, izdavanje) idu u paru: iz jednog mjesta odlazi, u drugo dolazi.</p>
+    <p class="page-desc">Svaki ulaz i izlaz{{if .Skladiste}} skladišta {{.Skladiste.Naziv}}{{else if .Sektor}} u sektoru {{.Sektor}}{{end}}, najnoviji prvi. Redci istog
+      zahvata (prijenos, punjenje, izdavanje) stoje zajedno: iz jednog mjesta odlazi, u drugo dolazi.</p>
   </div>
   <div class="page-actions">
     <a href="{{.ExcelKnjige}}" class="btn btn-link" title="ista knjiga, po istim filtrima, A4 vodoravno">{{icon "download"}} Excel</a>
@@ -35,23 +35,30 @@
       {{range .Vrste}}<a role="menuitemradio" aria-checked="{{if eq .ID $.VrstaID}}true{{else}}false{{end}}" href="{{$.URLKnjige "vrsta" .ID}}">{{.Naziv}}</a>{{end}}
     </div>
   </details>
+  <details class="ocitanja-izbor">
+    <summary class="ocitanja-cip"{{if .ZahvatKnjige}} data-odabran{{end}}>Zahvat: {{.NazivZahvataKnjige}}{{icon "chevron-down"}}</summary>
+    <div class="ocitanja-izbornik" role="menu">
+      <a role="menuitemradio" aria-checked="{{if .ZahvatKnjige}}false{{else}}true{{end}}" href="{{.URLKnjige "zahvat" ""}}">svi</a>
+      {{range .VrstePrometa}}<a role="menuitemradio" aria-checked="{{if eq .ID $.ZahvatKnjige}}true{{else}}false{{end}}" href="{{$.URLKnjige "zahvat" .ID}}">{{.Naziv}}</a>{{end}}
+    </div>
+  </details>
   {{range .DatumiKnjige}}{{template "sredstvaDatumKnjige" .}}{{end}}
 </div>
 
-{{if .Promet}}
+{{if .Knjiga}}
 <section class="os-kartica" aria-label="Knjiga prometa">
 <div class="table-responsive tablica-kartice">
   <table class="data-table sr-promet">
     <thead><tr><th>Datum</th><th>Zahvat</th><th>Mjesto</th><th>Sredstvo</th><th class="br">Količina</th><th>Nalog · osoba · dokument</th><th>Upisao</th><th aria-label="Potvrda"></th></tr></thead>
     <tbody>
-    {{range .Promet}}
-    <tr>
+    {{range $i, $z := .Knjiga}}
+    <tr id="zahvat-{{add $i 1}}">
       <td data-stupac="Datum" class="mono">{{.Datum.Format "2.1.2006."}}</td>
       <td data-stupac="Zahvat">{{promet .Vrsta}}</td>
-      <td data-stupac="Mjesto">{{if .SkladisteID}}<a href="/sredstva/skladista/{{.SkladisteID}}">{{.MjestoNaziv}}</a>{{else}}{{.MjestoNaziv}}{{end}}</td>
-      <td data-stupac="Sredstvo">{{.VrstaNaziv}}{{if .Oblik}} <span class="reg-card-sub">{{oblik .Oblik}}</span>{{end}}</td>
-      <td data-stupac="Količina" class="mono br {{if lt .Kolicina 0.0}}mts-minus{{else}}mts-plus{{end}}">{{kolicinaZnak .Kolicina}} {{.Jedinica}}</td>
-      <td data-stupac="Nalog">{{if .Nalozio}}nalog: {{.Nalozio}}{{end}}{{if .Preuzeo}}{{if .Nalozio}} · {{end}}{{strana .Vrsta}}: {{.Preuzeo}}{{end}}{{if .Dokument}} · {{.Dokument}}{{end}}{{if .Napomena}}<span class="reg-card-sub">{{.Napomena}}</span>{{end}}</td>
+      <td data-stupac="Mjesto"><span class="sr-niz">{{range .Mjesta}}<span>{{if .SkladisteID}}<a href="/sredstva/skladista/{{.SkladisteID}}">{{.MjestoNaziv}}</a>{{else}}{{.MjestoNaziv}}{{end}}</span>{{end}}</span></td>
+      <td data-stupac="Sredstvo">{{.VrstaNaziv}}{{if .Oblici}} <span class="reg-card-sub">{{range $j, $o := .Oblici}}{{if $j}} → {{end}}{{oblik $o}}{{end}}</span>{{end}}</td>
+      <td data-stupac="Količina" class="mono br"><span class="sr-niz">{{range .Redci}}<span class="{{if lt .Kolicina 0.0}}mts-minus{{else}}mts-plus{{end}}">{{kolicinaZnak .Kolicina}} {{.Jedinica}}</span>{{end}}</span></td>
+      <td data-stupac="Nalog"><span class="sr-niz">{{if .Nalozio}}nalog: {{.Nalozio}}{{end}}{{if .Preuzeo}}{{if .Nalozio}} · {{end}}{{strana .Vrsta}}: {{.Preuzeo}}{{end}}{{if .Dokument}}{{if or .Nalozio .Preuzeo}} · {{end}}{{.Dokument}}{{end}}{{range .Napomene}}<span class="reg-card-sub">{{.}}</span>{{end}}</span></td>
       <td data-stupac="Upisao">{{.UserName}} <span class="reg-card-sub">{{vrijemeHR .CreatedAt}}</span></td>
       <td data-stupac="Potvrda">{{if .VezaID}}<a href="/sredstva/promet/{{.VezaID}}/potvrda.pdf" target="_blank" class="sr-plus" title="Potvrda / otpremnica za ispis" aria-label="Potvrda / otpremnica za ispis">{{icon "printer"}}</a>{{end}}</td>
     </tr>
@@ -59,6 +66,12 @@
     </tbody>
   </table>
 </div>
+{{if lt (len .Knjiga) .UkupnoZahvata}}
+<div class="sr-knjiga-dno">
+  <p>Prikazano {{len .Knjiga}} od {{.UkupnoZahvata}} redaka. Na zaslonu ih stane najviše {{.NajviseUKnjizi}}; cijela knjiga je u Excelu.</p>
+  {{if .ImaJosUKnjizi}}<a href="{{.JosKnjige}}" class="btn btn-link">Prikaži još</a>{{end}}
+</div>
+{{end}}
 </section>
 {{else}}
 <div class="reg-empty">Nema prometa za taj izbor.</div>
@@ -75,6 +88,7 @@
       <input type="hidden" name="sektor" value="{{$d.Sektor}}">
       {{if $d.Skladiste}}<input type="hidden" name="skladiste" value="{{$d.Skladiste.ID}}">{{end}}
       {{if $d.VrstaID}}<input type="hidden" name="vrsta" value="{{$d.VrstaID}}">{{end}}
+      {{if $d.ZahvatKnjige}}<input type="hidden" name="zahvat" value="{{$d.ZahvatKnjige}}">{{end}}
       {{if and $d.Od (ne .Ime "od")}}<input type="hidden" name="od" value="{{$d.Od}}">{{end}}
       {{if and $d.Do (ne .Ime "do")}}<input type="hidden" name="do" value="{{$d.Do}}">{{end}}
       <label class="form-label" for="f-{{.Ime}}">{{.Natpis}} dana</label>
