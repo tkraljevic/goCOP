@@ -10891,3 +10891,20 @@ td .odr-sitno { margin-top: 2px; }
   .adm-polja.dva, .adm-polja.tri, .naz-prijava { grid-template-columns: minmax(0, 1fr); }
   .adm-kartica { padding: 12px; }
 }
+
+/* Sudionici obrane po crtežu 18a · 3: tablica po skupini */
+.sud-tablica { display: flex; flex-direction: column; gap: 6px; }
+.sud-glava, .sud-redak { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.2fr) 150px minmax(0, 1.6fr); gap: 16px; align-items: center; }
+.sud-glava { padding: 0 8px; font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); }
+.sud-redak { padding: 6px 8px; border-radius: 8px; background: var(--md-sys-color-surface); font-size: 0.8125rem; line-height: 18px; }
+.sud-zadano { margin: 0; color: var(--md-sys-color-on-surface); cursor: text; }
+.sud-polje .form-control { min-height: 32px; padding: 4px 8px; border: 1px solid var(--md-sys-color-outline); border-radius: 4px; background: var(--md-sys-color-surface); font-size: 0.8125rem; }
+.sud-cip { display: inline-block; padding: 0 6px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 4px; font-size: 0.6875rem; line-height: 16px; color: var(--md-sys-color-on-surface-variant); white-space: nowrap; }
+.sud-ovlasti { color: var(--md-sys-color-on-surface-variant); }
+@media (max-width: 899px) {
+  .sud-glava { display: none; }
+  .sud-redak { grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; padding: 10px 12px; }
+  .sud-zadano { grid-column: 1; font-weight: 500; }
+  .sud-redak > :nth-child(3) { grid-column: 2; grid-row: 1; }
+  .sud-polje, .sud-ovlasti { grid-column: 1 / -1; }
+}

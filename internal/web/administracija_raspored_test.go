@@ -553,3 +553,18 @@ func TestKarticaOrganizacijeBezKrovneJedinice(t *testing.T) {
 		t.Errorf("kartica organizacije:\n%s", ustroj)
 	}
 }
+
+// Čip dosega na Sudionicima obrane: svaka vrsta dosega ima svoju riječ.
+func TestDosegUloge(t *testing.T) {
+	for s, r := range map[models.ScopeType]string{models.ScopeAll: "cijela organizacija", models.ScopeSector: "sektor",
+		models.ScopeArea: "područje", models.ScopeSection: "dionica", "": ""} {
+		if got := dosegUloge(s); got != r {
+			t.Errorf("%q: %q, a treba %q", s, got, r)
+		}
+	}
+	for _, r := range roleRows() {
+		if r.Doseg == "" {
+			t.Errorf("uloga %s nema dosega", r.Role)
+		}
+	}
+}

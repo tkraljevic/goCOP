@@ -668,6 +668,22 @@ func (h *OrgHandler) HandleDeleteContractor(w http.ResponseWriter, r *http.Reque
 // organizacije i što uloga smije
 type roleRow struct {
 	Role, Group, Name, Custom, Label, Desc string
+	Doseg                                  string // prirodni doseg uloge, za čip u tablici
+}
+
+// dosegUloge je prirodni doseg uloge kratko, za čip na Sudionicima obrane
+func dosegUloge(s models.ScopeType) string {
+	switch s {
+	case models.ScopeAll:
+		return "cijela organizacija"
+	case models.ScopeSector:
+		return "sektor"
+	case models.ScopeArea:
+		return "područje"
+	case models.ScopeSection:
+		return "dionica"
+	}
+	return ""
 }
 
 func roleRows() []roleRow {
@@ -675,7 +691,7 @@ func roleRows() []roleRow {
 	out := make([]roleRow, 0, len(models.RoleCatalog))
 	for _, d := range models.RoleCatalog {
 		out = append(out, roleRow{Role: string(d.Role), Group: d.Group, Name: d.Name,
-			Custom: t.RoleLabels[string(d.Role)], Label: d.Role.Label(), Desc: d.Desc})
+			Custom: t.RoleLabels[string(d.Role)], Label: d.Role.Label(), Desc: d.Desc, Doseg: dosegUloge(d.Scope)})
 	}
 	return out
 }
