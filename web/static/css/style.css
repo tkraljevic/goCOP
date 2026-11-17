@@ -10826,3 +10826,12 @@ td .odr-sitno { margin-top: 2px; }
 .sr-datum-izbor .form-control { margin-bottom: 4px; }
 .sr-datum-izbor a { padding: 8px 0; }
 
+/* Sredstva, zahvat (crtež 19a, 3): vrsta zahvata su pločice, na mobitelu izbornik */
+.sr-vrsta-izbor { display: none; }
+.os-kartica .mts-zahvat { position: relative; }
+.os-kartica .mts-zahvat input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.os-kartica .mts-zahvat:has(input:focus-visible) { outline: 2px solid var(--md-sys-color-primary); outline-offset: 2px; }
+@media (max-width: 599px) {
+  .sr-vrsta-izbor { display: block; }
+  .os-kartica .mts-zahvati { display: none; }
+}
