@@ -10819,3 +10819,13 @@ td .odr-sitno { margin-top: 2px; }
 
 /* Polje koje program nije mogao pročitati (Sredstva: krivo upisan broj) */
 .form-control[aria-invalid="true"] { border-color: var(--md-sys-color-error); box-shadow: inset 0 0 0 1px var(--md-sys-color-error); }
+
+/* Sredstva, zahvat (crtež 19a, 3): vrsta zahvata su pločice, na mobitelu izbornik */
+.sr-vrsta-izbor { display: none; }
+.os-kartica .mts-zahvat { position: relative; }
+.os-kartica .mts-zahvat input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.os-kartica .mts-zahvat:has(input:focus-visible) { outline: 2px solid var(--md-sys-color-primary); outline-offset: 2px; }
+@media (max-width: 599px) {
+  .sr-vrsta-izbor { display: block; }
+  .os-kartica .mts-zahvati { display: none; }
+}
