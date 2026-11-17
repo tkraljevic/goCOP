@@ -2069,13 +2069,6 @@ textarea {
 .unos-predznak .predznak-gumb { flex: none; min-width: 3.5rem; padding: 0; font-size: 1.5rem; font-weight: 600; }
 .level-input { font-size: 1.75rem; font-weight: 700; text-align: center; letter-spacing: 0.02em; min-height: 3.5rem; font-variant-numeric: tabular-nums; }
 
-/* Moduli po ulogama */
-.module-matrix { width:100%; border-collapse:collapse; font-size:0.9rem; }
-.module-matrix th, .module-matrix td { padding:0.6rem 0.75rem; border-bottom:1px solid var(--border); text-align:center; }
-.module-matrix th:first-child, .module-matrix td:first-child { text-align:left; }
-.module-matrix thead th { font-size:0.75rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-secondary); background:var(--bg-subtle); }
-.module-matrix tbody th { font-weight:600; color:var(--text-strong); white-space:nowrap; }
-.module-matrix input[type=checkbox] { width:1.25rem; height:1.25rem; accent-color:var(--primary); }
 .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
 
 /* Građa dionice: poddionice → redci (nasip, objekti, vodomjer) */
@@ -10907,4 +10900,35 @@ td .odr-sitno { margin-top: 2px; }
   .sud-zadano { grid-column: 1; font-weight: 500; }
   .sud-redak > :nth-child(3) { grid-column: 2; grid-row: 1; }
   .sud-polje, .sud-ovlasti { grid-column: 1 / -1; }
+}
+
+/* Vidljivost modula po crtežu 18a · 4: tablica uloga × moduli s
+   međunaslovima skupina i opis modula */
+.mod-napomena { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; background: var(--md-sys-color-surface-container-high); font-size: 0.8125rem; line-height: 18px; color: var(--md-sys-color-on-surface); }
+.mod-napomena .icon { flex: none; width: 18px; height: 18px; margin: 0; color: var(--md-sys-color-on-surface-variant); }
+.mod-omot { overflow-x: auto; }
+.mod-tablica { width: 100%; border-collapse: separate; border-spacing: 0 4px; font-size: 0.8125rem; }
+.mod-tablica th, .mod-tablica td { padding: 6px 8px; text-align: center; }
+.mod-tablica thead th { font-size: 0.6875rem; font-weight: 400; color: var(--md-sys-color-on-surface-variant); vertical-align: bottom; }
+.mod-tablica thead th .icon { display: block; width: 18px; height: 18px; margin: 0 auto 2px; }
+.mod-tablica thead th:first-child { text-align: left; font-size: 0.75rem; }
+.mod-tablica tbody th[scope="row"] { text-align: left; font-weight: 400; color: var(--md-sys-color-on-surface); }
+.mod-tablica tbody tr:not(.mod-skupina) > * { background: var(--md-sys-color-surface); }
+.mod-tablica tbody tr:not(.mod-skupina) > :first-child { border-radius: 8px 0 0 8px; }
+.mod-tablica tbody tr:not(.mod-skupina) > :last-child { border-radius: 0 8px 8px 0; }
+.mod-skupina th { padding: 8px 0 0; text-align: left; font-size: 0.6875rem; font-weight: 400; color: var(--md-sys-color-on-surface-variant); }
+.mod-tablica input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--md-sys-color-primary); cursor: pointer; }
+.mod-tablica label { display: inline-flex; padding: 4px; cursor: pointer; }
+.mod-cip { margin-left: 8px; padding: 0 6px; border: 1px solid var(--md-sys-color-outline); border-radius: 6px; font-size: 0.6875rem; line-height: 16px; color: var(--md-sys-color-on-surface-variant); white-space: nowrap; }
+.mod-popis { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.mod-popis li { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 8px; background: var(--md-sys-color-surface); }
+.mod-popis .icon { flex: none; color: var(--md-sys-color-on-surface-variant); }
+.mod-popis li > span { display: flex; flex-direction: column; }
+.mod-popis-naslov { font-size: 0.875rem; color: var(--md-sys-color-on-surface); }
+.mod-popis-opis { font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); }
+@media (max-width: 599px) {
+  .mod-tablica { font-size: 0.75rem; }
+  .mod-tablica th, .mod-tablica td { padding: 4px 3px; }
+  .mod-tablica thead th span { writing-mode: vertical-rl; transform: rotate(180deg); }
+  .mod-cip { display: none; }
 }
