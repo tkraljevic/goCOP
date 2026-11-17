@@ -57,6 +57,28 @@
   </section>
 
   <div class="sr-desno">
+    {{/* Roba na putu (crtež 19a, 7; Odluke 16. 11. 2026., Na putu) */}}
+    {{if .Stize}}
+    <section class="os-kartica" aria-labelledby="sr-stize-naslov">
+      <h2 id="sr-stize-naslov">Stiže · {{len .Stize}} {{uzBroj (len .Stize) "pošiljka" "pošiljke" "pošiljaka"}}</h2>
+      {{range .Stize}}{{$s := .Slanje}}
+      <div class="dez-plan sr-posiljka-redak"><span>{{if $s.SkladisteID}}Iz {{.Odakle}}{{else}}S terena · {{.Odakle}}{{end}} · {{$s.VrstaNaziv}}{{if and $s.Oblik (ne $s.Oblik "OSNOVNI")}}, {{oblik $s.Oblik}}{{end}}
+        <small>{{kolicina .NaPutu}} {{$s.Jedinica}} · poslano {{$s.Datum.Format "2.1.2006."}}{{if .Zaprimljeno}} · zaprimljeno {{kolicina .Zaprimljeno}}{{end}}{{if $s.Preuzeo}} · {{$s.Preuzeo}}{{end}}{{if $s.Dokument}} · {{$s.Dokument}}{{end}}</small></span>
+        {{if .SmijeZaprimiti}}<a href="/sredstva/na-putu/{{$s.VezaID}}" class="btn btn-primary btn-sm">Zaprimi</a>{{end}}</div>
+      {{end}}
+    </section>
+    {{end}}
+    {{if .Poslano}}
+    <section class="os-kartica" aria-labelledby="sr-poslano-naslov">
+      <h2 id="sr-poslano-naslov">Poslano, na putu</h2>
+      {{range .Poslano}}{{$s := .Slanje}}
+      <div class="dez-plan sr-posiljka-redak"><span>{{if $s.PremaSkladisteID}}U {{.Kamo}}{{else}}Na teren · {{.Kamo}}{{end}} · {{$s.VrstaNaziv}}{{if and $s.Oblik (ne $s.Oblik "OSNOVNI")}}, {{oblik $s.Oblik}}{{end}}
+        <small>{{kolicina .Poslano}} {{$s.Jedinica}} · poslano {{$s.Datum.Format "2.1.2006."}}{{if .Zaprimljeno}} · zaprimljeno {{kolicina .Zaprimljeno}}{{end}}{{if $s.Preuzeo}} · {{$s.Preuzeo}}{{end}}</small></span>
+        <span class="badge badge-pending">na putu {{kolicina .NaPutu}}</span></div>
+      {{end}}
+    </section>
+    {{end}}
+
     <section class="os-kartica" aria-labelledby="sr-inv-naslov">
       <div class="os-kartica-glava"><h2 id="sr-inv-naslov">Inventure</h2>{{if .SmijePisati}}<a href="/sredstva/skladista/{{$sk.ID}}/popis" class="btn btn-link">Nova inventura</a>{{end}}</div>
       {{range .Popisi}}

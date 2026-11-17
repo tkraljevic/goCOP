@@ -117,23 +117,28 @@ func TestProvediRedci(t *testing.T) {
 		t.Errorf("primka: %+v", r)
 	}
 
-	// prijenos: dva retka iste veze, napomena kaže kamo i odakle
+	// prijenos: slanje pamti odredište, a dolazak nastaje zaprimanjem s istom
+	// vezom; napomena kaže kamo i odakle
 	redci, err = s.Provedi(ctx, pero, uprava, Zahvat{Vrsta: models.PrometPrijenos, SkladisteID: sk.ID, NaSkladisteID: drugo.ID, VrstaID: mpLopata, Kolicina: 4})
-	if err != nil || len(redci) != 2 {
+	if err != nil || len(redci) != 1 {
 		t.Fatalf("prijenos: %+v %v", redci, err)
 	}
-	if redci[0].SkladisteID != sk.ID || redci[0].Kolicina != -4 || redci[1].SkladisteID != drugo.ID || redci[1].Kolicina != 4 ||
-		redci[0].VezaID != redci[1].VezaID || redci[0].Napomena != "u Skladište Primjerovo" || redci[1].Napomena != "iz "+sk.Naziv {
+	if redci[0].SkladisteID != sk.ID || redci[0].Kolicina != -4 || redci[0].PremaSkladisteID != drugo.ID || redci[0].Napomena != "u Skladište Primjerovo" {
 		t.Errorf("prijenos: %+v", redci)
+	}
+	dosao, err := s.Zaprimi(ctx, pero, uprava, Zaprimanje{VezaID: redci[0].VezaID, Kolicina: 4, Dokument: "primka 7"})
+	if err != nil || dosao.SkladisteID != drugo.ID || dosao.Kolicina != 4 || dosao.Napomena != "iz "+sk.Naziv || dosao.Dokument != "primka 7" {
+		t.Errorf("dolazak: %+v %v", dosao, err)
 	}
 	if kolicinaU(t, s, ctx, sk.ID, mpLopata) != 6 || kolicinaU(t, s, ctx, drugo.ID, mpLopata) != 4 {
 		t.Error("stanje nakon prijenosa")
 	}
-	// zadana napomena ostaje na oba retka
+	// upisana napomena ostaje na slanju
 	redci, err = s.Provedi(ctx, pero, uprava, Zahvat{Vrsta: models.PrometPrijenos, SkladisteID: drugo.ID, NaSkladisteID: sk.ID, VrstaID: mpLopata, Kolicina: 1, Napomena: "vraćeno"})
-	if err != nil || redci[0].Napomena != "vraćeno" || redci[1].Napomena != "vraćeno" {
+	if err != nil || redci[0].Napomena != "vraćeno" {
 		t.Errorf("prijenos s napomenom: %+v %v", redci, err)
 	}
+	zaprimiSve(t, s, ctx, pero)
 
 	// izdavanje na dionicu: područje dolazi iz dionice; drugi redak je na
 	// terenu, bez skladišta

@@ -118,33 +118,35 @@ func TestZidPrijenosIzDrugogSektoraRubovi(t *testing.T) {
 		"bez veze":     {Vrsta: models.PrometPrijenos, Sektor: "D", Kolicina: 3},
 		"nepoznat par": {Vrsta: models.PrometPrijenos, Sektor: "D", Kolicina: 3, VezaID: "veza-2"},
 	} {
-		if d := c.prijenosIzDrugogSektora(p, pocetni); d != pocetni {
+		if d := c.dolazakPoteza(p, pocetni); d != pocetni {
 			t.Errorf("%s: redak promijenjen u %+v", ime, d)
 		}
 	}
 	// izvorno skladište nije u registru ovog čvora: obavijest bez naziva izvora
-	if d := c.prijenosIzDrugogSektora(ulaz, pocetni); d.Naslov != "Prijenos iz Sektora B" || !d.Vazno || d.Tekst != pocetni.Tekst {
+	if d := c.dolazakPoteza(ulaz, pocetni); d.Naslov != "Prijenos iz Sektora B" || !d.Vazno || d.Tekst != pocetni.Tekst {
 		t.Errorf("bez izvornog skladišta: %+v", d)
 	}
 	// bez knjige prometa nema para
 	bez := &opisivac{s: NewZidService(rec, nil, nil, nil, nil, nil, nil), ctx: ctx}
-	if d := bez.prijenosIzDrugogSektora(ulaz, pocetni); d != pocetni {
+	if d := bez.dolazakPoteza(ulaz, pocetni); d != pocetni {
 		t.Errorf("bez knjige prometa: %+v", d)
 	}
 	// knjiga prometa se ne može pročitati: redak ostaje
 	baza.Close()
-	if d := c.prijenosIzDrugogSektora(ulaz, pocetni); d != pocetni {
+	if d := c.dolazakPoteza(ulaz, pocetni); d != pocetni {
 		t.Errorf("nečitljiva knjiga prometa: %+v", d)
 	}
 
-	// ključ poteza: veza, bez obzira na sektor retka; stari redak bez veze i
+	// ključ poteza: veza i vrijeme upisa, bez obzira na sektor retka; stari redak bez veze i
 	// drugi entiteti nisu par
 	for _, k := range []struct {
 		v    ledger.Version
 		want string
 	}{
-		{ledger.Version{Entity: repository.EntityMtsPromet, Payload: []byte(`{"veza_id":"veza-1","sektor":"D"}`)}, "veza-1"},
-		{ledger.Version{Entity: repository.EntityMtsPromet, Payload: []byte(`{"veza_id":"veza-1","sektor":"B"}`)}, "veza-1"},
+		{ledger.Version{Entity: repository.EntityMtsPromet, Payload: []byte(`{"veza_id":"veza-1","sektor":"D","created_at":"2026-11-17T08:00:00Z"}`)}, "veza-1|2026-11-17T08:00:00Z"},
+		{ledger.Version{Entity: repository.EntityMtsPromet, Payload: []byte(`{"veza_id":"veza-1","sektor":"B","created_at":"2026-11-17T08:00:00Z"}`)}, "veza-1|2026-11-17T08:00:00Z"},
+		// zaprimanje robe na putu je drugi upis istog poteza, pa zaseban događaj
+		{ledger.Version{Entity: repository.EntityMtsPromet, Payload: []byte(`{"veza_id":"veza-1","sektor":"D","created_at":"2026-11-18T09:30:00Z"}`)}, "veza-1|2026-11-18T09:30:00Z"},
 		{ledger.Version{Entity: repository.EntityMtsPromet, Payload: []byte(`{"sektor":"D"}`)}, ""},
 		{ledger.Version{Entity: repository.EntityJournalEntries, Payload: []byte(`{"veza_id":"veza-1"}`)}, ""},
 	} {
@@ -164,7 +166,9 @@ type zidPrijenosa struct {
 	zid     *ZidService
 }
 
-func noviZidPrijenosa(t *testing.T) *zidPrijenosa {
+// noviZidPrijenosa: potezi upisani odjednom, kao prije robe na putu; s
+// naPut prijenosi idu na put, a Sektor D zaprimi svoju pošiljku
+func noviZidPrijenosa(t *testing.T, naPut ...bool) *zidPrijenosa {
 	t.Helper()
 	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "zid.db"))
 	if err != nil {
@@ -190,6 +194,9 @@ func noviZidPrijenosa(t *testing.T) *zidPrijenosa {
 		t.Fatal(err)
 	}
 	mts := NewMtsService(mtsRepo, sections, userRepo)
+	if len(naPut) == 0 {
+		mts.naPut = map[string]bool{}
+	}
 	glavni := &models.UserPermissions{IsGlobalAdmin: true}
 	osijek := &models.Skladiste{Sektor: "B", AreaID: 34, Naziv: "Centralno skladište Osijek", Aktivno: true}
 	dalj := &models.Skladiste{Sektor: "B", AreaID: 34, Naziv: "Skladište Dalj", Aktivno: true}
@@ -209,6 +216,17 @@ func noviZidPrijenosa(t *testing.T) *zidPrijenosa {
 		{Vrsta: models.PrometPrijenos, SkladisteID: osijek.ID, NaSkladisteID: dalj.ID, VrstaID: "vrece-50x80", Oblik: models.OblikPrazno, Kolicina: 1000},
 	} {
 		if _, err := mts.Provedi(ctx, ana, upravaB, z); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(naPut) > 0 {
+		iva := &models.User{ID: uuid.New(), FullName: "Iva Ivić"}
+		upravaD := &models.UserPermissions{AdminSectors: map[string]bool{"D": true}, AllowedSectors: map[string]bool{"D": true}}
+		stize, err := mts.NaPutu(ctx, repository.FiltarPosiljki{PremaSkladisteID: sava.ID})
+		if err != nil || len(stize) != 1 {
+			t.Fatalf("Sava čeka jednu pošiljku: %+v %v", stize, err)
+		}
+		if _, err := mts.Zaprimi(ctx, iva, upravaD, Zaprimanje{VezaID: stize[0].Slanje.VezaID, Kolicina: 15000}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -255,7 +273,7 @@ func TestKrajPoteza(t *testing.T) {
 	promet := func(id, veza string) ledger.Version {
 		return ledger.Version{VersionID: id, Entity: repository.EntityMtsPromet, Payload: []byte(`{"veza_id":"` + veza + `"}`)}
 	}
-	videne := map[string]bool{"veza-1": true}
+	videne := map[string]bool{kljucPoteza(promet("v9", "veza-1")): true}
 	for _, k := range []struct {
 		ime      string
 		sljedece []ledger.Version
@@ -269,5 +287,60 @@ func TestKrajPoteza(t *testing.T) {
 		if got := krajPoteza(k.sljedece, videne, "v5"); got != k.want {
 			t.Errorf("%s: %q, očekivano %q", k.ime, got, k.want)
 		}
+	}
+}
+
+// Roba na putu na zidu (Odluke 16. 11. 2026., Na putu): slanje je „Poslano
+// na put” sektora koji šalje, s mjestom odakle i kamo, a zaprimanje je
+// zaseban događaj „Zaprimljeno” sektora koji prima, s mjestom odakle. Ni
+// listanje stranicu po stranicu ne spaja slanje sa zaprimanjem.
+func TestZidRobaNaPutu(t *testing.T) {
+	z := noviZidPrijenosa(t, true)
+	glavni := &models.UserPermissions{IsGlobalAdmin: true}
+	f := FiltarZida{Modul: ModulSredstva, Limit: 50}
+	sve, _, err := z.zid.Zadnji(z.ctx, glavni, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ocekivano := "Zaprimljeno|15 000 kom Vreće 50x80 cm (prazno) · Skladište Sava · iz Centralno skladište Osijek|Iva Ivić\n" +
+		"Poslano na put|1 000 kom Vreće 50x80 cm (prazno) · iz Centralno skladište Osijek · u Skladište Dalj|Ana Anić\n" +
+		"Poslano na put|15 000 kom Vreće 50x80 cm (prazno) · iz Centralno skladište Osijek · u Skladište Sava|Ana Anić\n" +
+		"Početno stanje|40 000 kom Vreće 50x80 cm (prazno) · Centralno skladište Osijek|Ana Anić"
+	if got := strings.ReplaceAll(naslovi(sve), "\u00a0", " "); got != ocekivano {
+		t.Errorf("zid:\n%s\nočekivano:\n%s", got, ocekivano)
+	}
+	if len(sve) == 4 && (sve[0].Sektor != "D" || sve[2].Sektor != "B") {
+		t.Errorf("sektori: zaprimanje %s, slanje %s", sve[0].Sektor, sve[2].Sektor)
+	}
+	var stranice []Dogadjaj
+	f.Limit = 1
+	for i := 0; i < 10; i++ {
+		dog, prije, err := z.zid.Zadnji(z.ctx, glavni, f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		stranice = append(stranice, dog...)
+		if prije == "" {
+			break
+		}
+		f.Prije = prije
+	}
+	if got, want := naslovi(stranice), naslovi(sve); got != want {
+		t.Errorf("stranice po jedan redak:\n%s\njedno čitanje:\n%s", got, want)
+	}
+}
+
+// Mjesta robe na putu bez skladišta: odredište na terenu ima ime mjesta,
+// izvor s terena je „s terena”, a skladište koje čvor ne zna ostaje bez imena
+func TestZidMjestaPuta(t *testing.T) {
+	c := &opisivac{s: &ZidService{}, ctx: context.Background(), skladista: map[string]*models.Skladiste{}}
+	if got := c.odrediste(models.Promet{PremaAreaID: 34, PremaSectionCode: "B.34.1", PremaMjesto: "kod ustave"}); got != "teren · BP 34 · B.34.1 · kod ustave" {
+		t.Errorf("odredište na terenu: %q", got)
+	}
+	if got := c.odakle(""); got != " · s terena" {
+		t.Errorf("izvor s terena: %q", got)
+	}
+	if got := c.odakle("nepoznato"); got != "" {
+		t.Errorf("nepoznato skladište: %q", got)
 	}
 }

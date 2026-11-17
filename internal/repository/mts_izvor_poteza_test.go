@@ -27,6 +27,9 @@ func TestIzvorPoteza(t *testing.T) {
 		{VrstaID: "lopata", Vrsta: models.PrometPrijenos, Sektor: "B", SkladisteID: "osijek", Kolicina: -3, VezaID: "veza-1"},
 		{VrstaID: "lopata", Vrsta: models.PrometPrijenos, Sektor: "D", SkladisteID: "sava", Kolicina: 3, VezaID: "veza-1"},
 		{VrstaID: "lopata", Vrsta: models.PrometPrimka, Sektor: "D", SkladisteID: "sava", Kolicina: 5, VezaID: "veza-2"},
+		// slanje na put s otpisom manjka na odredištu: izvor je slanje, ne otpis
+		{VrstaID: "lopata", Vrsta: models.PrometOtpis, Sektor: "D", SkladisteID: "sava", Kolicina: -1, VezaID: "veza-3"},
+		{VrstaID: "lopata", Vrsta: models.PrometPrijenos, Sektor: "B", SkladisteID: "osijek", PremaSkladisteID: "sava", Kolicina: -2, VezaID: "veza-3"},
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -52,18 +55,20 @@ func TestIzvorPoteza(t *testing.T) {
 
 	for _, k := range []struct {
 		veza, sektor, skladiste string
+		naPut                   bool
 	}{
-		{"veza-1", "B", "osijek"},
-		{"veza-2", "", ""}, // primka nema izlaza
-		{"nepoznata", "", ""},
+		{"veza-1", "B", "osijek", false},
+		{"veza-2", "", "", false}, // primka nema izlaza
+		{"veza-3", "B", "osijek", true},
+		{"nepoznata", "", "", false},
 	} {
-		sektor, skladiste, err := repo.IzvorPoteza(ctx, k.veza)
-		if err != nil || sektor != k.sektor || skladiste != k.skladiste {
-			t.Errorf("%s: %q, %q, %v; očekivano %q, %q", k.veza, sektor, skladiste, err, k.sektor, k.skladiste)
+		sektor, skladiste, naPut, err := repo.IzvorPoteza(ctx, k.veza)
+		if err != nil || sektor != k.sektor || skladiste != k.skladiste || naPut != k.naPut {
+			t.Errorf("%s: %q, %q, %v, %v; očekivano %q, %q, %v", k.veza, sektor, skladiste, naPut, err, k.sektor, k.skladiste, k.naPut)
 		}
 	}
 	baza.Close()
-	if _, _, err := repo.IzvorPoteza(ctx, "veza-1"); err == nil {
+	if _, _, _, err := repo.IzvorPoteza(ctx, "veza-1"); err == nil {
 		t.Error("zatvorena baza: očekivana greška")
 	}
 }

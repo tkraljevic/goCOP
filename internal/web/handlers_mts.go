@@ -88,6 +88,11 @@ type MtsPageData struct {
 	Od, Do          string
 	VrstaID         string
 
+	// roba na putu (sredstva_na_putu.go): na skladištu što stiže i što je
+	// poslano; obrazac zaprimanja jedne pošiljke
+	Stize, Poslano []PosiljkaNaPutu
+	Posiljka       *PosiljkaNaPutu
+
 	Kartica string // kartica modula na kojoj se stoji (sredstva_traka.go)
 	// SviSektori: pregled zbraja skladišta svih sektora (?sektor=svi); Sektor je tada prazan
 	SviSektori bool
@@ -301,6 +306,10 @@ func (h *MtsHandler) ShowSkladiste(w http.ResponseWriter, r *http.Request) {
 	}
 	data.Promet, _ = h.svc().Promet(r.Context(), repository.FiltarPrometa{SkladisteID: sk.ID, Limit: 25})
 	data.Popisi, _ = h.svc().Popisi(r.Context(), "", sk.ID, 0)
+	if err := h.naPutuSkladista(r, &data, sk.ID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	h.render(w, "skladiste.html", data)
 }
 

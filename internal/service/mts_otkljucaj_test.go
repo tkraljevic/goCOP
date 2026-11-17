@@ -87,6 +87,7 @@ func TestMtsOtkljucanaInventuraRacunaRazlikuIznova(t *testing.T) {
 		VrstaID: vrece, Oblik: models.OblikPrazno, Kolicina: 9000, Datum: dan.AddDate(0, 0, -1)}); err != nil {
 		t.Fatal(err)
 	}
+	zaprimiSve(t, s, ctx, u)
 	if k := kolicinaU(t, s, ctx, sk.ID, vrece); k != 9000 {
 		t.Fatalf("stanje vreća poslije premještaja: %v", k)
 	}
@@ -283,6 +284,7 @@ func TestMtsOtkljucavanjeDvijeInventure(t *testing.T) {
 		VrstaID: lopata, Kolicina: 3, Datum: dan.AddDate(0, 0, -12)}); err != nil {
 		t.Fatal(err)
 	}
+	zaprimiSve(t, s, ctx, u)
 
 	if err := s.OtkljucajPopis(ctx, admin, glavniAdmin, stara.ID); err == nil || !strings.Contains(err.Error(), nova.Dan.Format("2. 1. 2006.")) {
 		t.Fatalf("starija prije novije: %v", err)
