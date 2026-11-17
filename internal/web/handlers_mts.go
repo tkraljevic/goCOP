@@ -27,6 +27,7 @@ type MtsHandler struct {
 	sections   *service.SectionService
 	journals   *service.JournalService
 	structures *service.StructureService
+	org        *service.OrgService
 	tmpl       func(string) *template.Template
 }
 
@@ -73,8 +74,10 @@ type MtsPageData struct {
 	Popisi []models.Popis
 	Godina int
 
-	Objekti  []models.Structure // objekti i nasipi sektora, za mjesto na terenu
-	MjestaNa []models.Stanje    // mjesta na terenu na kojima nešto stoji
+	Objekti []models.Structure // objekti i nasipi sektora, za mjesto na terenu
+	// obrazac skladišta: izbor objekta i firme iz registra
+	ObjektiSkladista, FirmeSkladista []IzborRegistra
+	MjestaNa                         []models.Stanje // mjesta na terenu na kojima nešto stoji
 	// rečenice obrasca zahvata: stanje vrste u skladištu, što stoji na mjestu
 	// (ključ mjesta) i dan zadnje zaključene inventure skladišta
 	StanjeUSkladistu    map[string]string
@@ -342,7 +345,7 @@ func (h *MtsHandler) ShowSkladisteForm(w http.ResponseWriter, r *http.Request) {
 	}
 	data.IsEdit = true
 	data.Podrucja, _ = h.users.ListAreas(data.Sektor) // bez popisa područja ostaje upisano područje skladišta
-	h.render(w, "skladiste_form.html", data)
+	h.renderObrazacSkladista(w, r, data)
 }
 
 // obrazacNovogSkladista nudi samo područja u koja osoba smije upisati
@@ -359,7 +362,7 @@ func (h *MtsHandler) obrazacNovogSkladista(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "Skladišta upisuje uprava branjenog područja ili sektora.", http.StatusForbidden)
 		return
 	}
-	h.render(w, "skladiste_form.html", data)
+	h.renderObrazacSkladista(w, r, data)
 }
 
 // HandleSaveSkladiste upisuje skladište
@@ -407,7 +410,7 @@ func (h *MtsHandler) ponoviObrazacSkladista(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	data.Skladiste, data.Sektor, data.SmijeUrediti, data.ErrorMessage = sk, sk.Sektor, true, poruka
-	h.render(w, "skladiste_form.html", data)
+	h.renderObrazacSkladista(w, r, data)
 }
 
 // ---- promet

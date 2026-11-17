@@ -9,6 +9,9 @@
     <p class="page-desc">Po skladištima i vrstama, sa zbrojem sektora. Upisuju se na stranici skladišta; ovdje se vide zajedno i idu u
       tablicu za Glavni centar.</p>
   </div>
+  {{if .Sektor}}<div class="page-actions">
+    <a href="/sredstva/potrebe.xlsx?sektor={{.Sektor}}&amp;godina={{.Godina}}" class="btn btn-link" title="potrebe po vrstama i skladištima, zaseban izvoz">{{icon "download"}} Excel</a>
+  </div>{{end}}
 </div>
 
 {{template "sredstvaTraka" .}}

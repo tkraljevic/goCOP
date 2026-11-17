@@ -1442,10 +1442,12 @@ func (s *Server) setupRoutes() {
 	mtsH := NewMtsHandler(func() *service.MtsService { return s.mtsService }, s.userService, s.sectionService, s.journalService,
 		func(ime string) *template.Template { return s.templates[ime] })
 	mtsH.SetStructures(s.structureService)
+	mtsH.SetOrg(s.orgService)
 	s.mux.Handle("GET /sredstva", s.authMiddleware(http.HandlerFunc(mtsH.ShowPregled)))
 	s.mux.Handle("GET /sredstva/promet", s.authMiddleware(http.HandlerFunc(mtsH.ShowPromet)))
 	s.mux.Handle("GET /sredstva/mts.xlsx", s.authMiddleware(http.HandlerFunc(mtsH.IzvoziTablicu)))
 	s.mux.Handle("GET /sredstva/promet.xlsx", s.authMiddleware(http.HandlerFunc(mtsH.IzvoziPromet)))
+	s.mux.Handle("GET /sredstva/potrebe.xlsx", s.authMiddleware(http.HandlerFunc(mtsH.IzvoziPotrebe)))
 	s.mux.Handle("GET /sredstva/katalog", s.authMiddleware(http.HandlerFunc(mtsH.ShowKatalog)))
 	s.mux.Handle("POST /sredstva/katalog", s.authMiddleware(http.HandlerFunc(mtsH.HandleSaveVrsta)))
 	s.mux.Handle("POST /sredstva/katalog/{id}", s.authMiddleware(http.HandlerFunc(mtsH.HandleSaveVrsta)))

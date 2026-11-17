@@ -47,7 +47,8 @@ const probniIspis = `Sektor={{.Sektor}};IsEdit={{.IsEdit}};SmijePisati={{.SmijeP
 	`VratiUpisano={{.VratiUpisano}};Greska={{.ErrorMessage}};` +
 	`Podrucja={{len .Podrucja}};ZaInventuru={{len .ZaInventuru}};Svi={{.SviSektori}};` +
 	`Stize={{len .Stize}};Poslano={{len .Poslano}};Posiljka={{if .Posiljka}}{{.Posiljka.Slanje.VezaID}}{{end}};` +
-	`Knjiga={{len .Knjiga}}/{{.UkupnoZahvata}}/{{.ZahvataNaZaslonu}};ZahvatKnjige={{.ZahvatKnjige}};`
+	`Knjiga={{len .Knjiga}}/{{.UkupnoZahvata}}/{{.ZahvataNaZaslonu}};ZahvatKnjige={{.ZahvatKnjige}};` +
+	`ObjektiSkladista={{len .ObjektiSkladista}};FirmeSkladista={{len .FirmeSkladista}};`
 
 func probniPredlozakSredstava(stranica string) *template.Template {
 	return template.Must(template.New(stranica).Parse(`{{define "` + stranica + `"}}` + probniIspis + `{{end}}`))
@@ -112,6 +113,7 @@ func novaOkolinaSredstava(t *testing.T) *okolinaSredstava {
 
 	o.h = NewMtsHandler(func() *service.MtsService { return svc }, users, sections, journals, probniPredlozakSredstava)
 	o.h.SetStructures(service.NewStructureService(repository.NewStructureRepository(baza, rec)))
+	o.h.SetOrg(service.NewOrgService(repository.NewOrgRepository(baza, rec), nil))
 	o.mux = rutaSredstava(o.h)
 	return o
 }
@@ -137,6 +139,7 @@ func rutaSredstava(h *MtsHandler) *http.ServeMux {
 	mux.HandleFunc("GET /sredstva/skladista/{id}/potrebe", h.ShowPotrebe)
 	mux.HandleFunc("POST /sredstva/skladista/{id}/potrebe", h.HandleSavePotrebe)
 	mux.HandleFunc("GET /sredstva/potrebe", h.ShowPotrebeSektora)
+	mux.HandleFunc("GET /sredstva/potrebe.xlsx", h.IzvoziPotrebe)
 	mux.HandleFunc("GET /sredstva/promet/{veza}/potvrda.xlsx", h.IzvoziPotvrdu)
 	mux.HandleFunc("GET /sredstva/promet/{veza}/potvrda.pdf", h.IzvoziPotvrduPDF)
 	mux.HandleFunc("GET /sredstva/na-putu/{veza}", h.ShowZaprimi)
@@ -733,6 +736,21 @@ func TestPotrebeZaNabavom(t *testing.T) {
 	mora(t, o.ispis(t, promatracSredstava(), "/sredstva/potrebe?sektor=B&godina=2027"), "potrebe sektora", "Godina=2027;", "PotrebeSektora=1;", "Skladista=1;")
 	if ispis := o.ispis(t, promatracSredstava(), "/sredstva/potrebe?sektor=B"); strings.Contains(ispis, "Godina=0;") {
 		t.Errorf("potrebe sektora bez godine: %s", ispis)
+	}
+	// zaseban Excel potreba: vrsta s potrebom i stupac skladišta, bez vrsta bez potrebe
+	xl := o.zovi(t, promatracSredstava(), http.MethodGet, "/sredstva/potrebe.xlsx?sektor=B&godina=2027", nil)
+	if xl.Code != http.StatusOK || !strings.Contains(xl.Header().Get("Content-Disposition"), "MTS_potrebe_b_2027.xlsx") {
+		t.Fatalf("Excel potreba: %d %v", xl.Code, xl.Header())
+	}
+	mora(t, tekstXLSX(t, xl.Body.Bytes()), "Excel potreba", "POTREBE ZA NABAVOM SREDSTAVA U 2027.", "Lopata", o.sk.Naziv)
+	if txt := tekstXLSX(t, xl.Body.Bytes()); strings.Contains(txt, "Pijuk") || strings.Contains(txt, "Vreće") {
+		t.Error("Excel potreba ima vrste bez potrebe")
+	}
+	if bez := o.zovi(t, promatracSredstava(), http.MethodGet, "/sredstva/potrebe.xlsx?sektor=B", nil); bez.Code != http.StatusOK {
+		t.Errorf("Excel bez godine: %d", bez.Code)
+	}
+	if svi := o.zovi(t, promatracSredstava(), http.MethodGet, "/sredstva/potrebe.xlsx?sektor=svi", nil); svi.Code != http.StatusSeeOther {
+		t.Errorf("Excel za sve sektore: %d", svi.Code)
 	}
 	potrebe, err := o.svc.PotrebeSektora(context.Background(), "B", 2027)
 	if err != nil {
