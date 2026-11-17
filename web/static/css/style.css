@@ -10812,6 +10812,7 @@ td .odr-sitno { margin-top: 2px; }
 .sr-plus:hover { background: var(--surface-hover); }
 .sr-potvrda { margin-left: 0.5rem; }
 .sr-promet .reg-card-sub { display: block; }
+.sr-promet th.br, .sr-promet td.br { text-align: right; white-space: nowrap; }
 @media (max-width: 599px) {
   .sr-redak-skl { grid-template-columns: 28px minmax(0, 1fr) auto auto 32px; }
   .sr-redak-skl > span:nth-child(5) { order: 5; }
