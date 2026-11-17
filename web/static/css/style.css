@@ -10854,6 +10854,8 @@ td .odr-sitno { margin-top: 2px; }
 .sr-promet td.br .sr-niz, .tablica-kartice .sr-promet .sr-niz { align-items: flex-end; text-align: right; }
 .sr-knjiga-dno { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px 4px; color: var(--text-muted); font-size: 0.8125rem; }
 .sr-knjiga-dno p { margin: 0; }
+/* Gdje ima (crtež 19a, 5): redak zbroja ispod skladišta */
+.sr-promet tfoot .sr-zbroj td { border-top: 2px solid var(--border); font-weight: 600; }
 /* Obrazac inventure (crtež 19b, 8a): na mobitelu kartica po vrsti s velikim poljem */
 .sr-napomena-iznad { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; padding: 10px 12px; border-radius: 8px; background: var(--surface-2, var(--bg)); font-size: 0.875rem; }
 .sr-napomena-iznad .icon { width: 20px; height: 20px; flex: none; }
