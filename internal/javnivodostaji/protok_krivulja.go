@@ -21,7 +21,7 @@ import (
 type KrivuljeLetve func(ctx context.Context, sifra string) ([]models.HQKrivulja, error)
 
 // BiljeskaNaseKrivulje stoji uz protok koji je izračunao goCOP
-const BiljeskaNaseKrivulje = "izračunat iz vodostaja krivuljom iz arhive goCOP-a, izvor nije dao protok"
+const BiljeskaNaseKrivulje = models.BiljeskaNaseKrivulje
 
 // greskaKrivuljaJavljena: greška čitanja krivulja javlja se jednom, a ne za
 // svaku letvu svaki sat (čvor bez arhive inače bi zatrpao dnevnik).

@@ -921,10 +921,11 @@ func (h *ReadingsHandler) koritoUzGraf(ctx context.Context, data *ReadingHistory
 	data.Profil = &profil
 	data.Korito = crtajKoritoP(profil, *zadnji.LevelCm, sirokoKorito.sKoritom(pragovi, najn, najv).uSustavu(*data.Station))
 	data.KoritoUzak = crtajKoritoP(profil, *zadnji.LevelCm, uskoKorito.sKoritom(pragovi, najn, najv).uSustavu(*data.Station))
-	// Protok na samoj slici: izmjeren ako ga očitanje nosi, inače iz krivulje
+	// Protok na samoj slici: kako ga očitanje nosi (izmjeren ili izveden iz
+	// krivulje na izvoru), inače iz naše krivulje
 	natpis := ""
 	if zadnji.FlowM3s != nil {
-		natpis = "Q " + brojHRf(*zadnji.FlowM3s, 0) + " m³/s izmjereno"
+		natpis = "Q " + brojHRf(*zadnji.FlowM3s, 0) + " m³/s " + kratkoPodrijetlo(zadnji.FlowMethod)
 	} else if q, izvan := protokIzKrivulje(data.Krivulje, zadnji.LocalTime(), zadnji.LevelCm); q != "" {
 		natpis = "Q ≈ " + q + " m³/s iz krivulje"
 		if izvan {
@@ -1604,4 +1605,13 @@ func (d *ReadingFormData) postaviVrstuObjekta() {
 type PoljeAgregata struct {
 	Broj int
 	Sati *int
+}
+
+// kratkoPodrijetlo je odakle je protok očitanja, kratko za natpis na slici
+// korita: protok iz krivulje nije izmjeren
+func kratkoPodrijetlo(metoda string) string {
+	if metoda == models.FlowMethodKrivulja {
+		return "iz krivulje"
+	}
+	return "izmjereno"
 }

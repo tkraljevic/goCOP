@@ -116,6 +116,34 @@ func FlowMethodLabel(m string) string {
 	return m
 }
 
+// BiljeskaNaseKrivulje stoji uz protok koji je goCOP izračunao iz vodostaja
+// svojom krivuljom, jer izvor protoka nije dao (javnivodostaji)
+const BiljeskaNaseKrivulje = "izračunat iz vodostaja krivuljom iz arhive goCOP-a, izvor nije dao protok"
+
+// OpisProtoka kaže odakle je protok očitanja, za prikaz iza broja: izmjeren
+// (i čime), procijenjen ili izračunat iz krivulje. Protok iz krivulje nije
+// izmjeren, pa ga tako ni ne zove; za našu krivulju kaže kratko da je goCOP-ova.
+func OpisProtoka(metoda, biljeska string) string {
+	var opis string
+	switch metoda {
+	case FlowMethodKrivulja:
+		if biljeska == BiljeskaNaseKrivulje {
+			return "iz krivulje goCOP-a, izvor nije dao protok"
+		}
+		opis = "iz krivulje"
+	case FlowMethodProcjena:
+		opis = "procjena"
+	case "":
+		opis = "izmjereno"
+	default:
+		opis = "izmjereno, " + FlowMethodLabel(metoda)
+	}
+	if biljeska != "" {
+		opis += " (" + biljeska + ")"
+	}
+	return opis
+}
+
 // JeFlowMethod javlja je li način mjerenja s popisa
 func JeFlowMethod(m string) bool {
 	for _, x := range FlowMethods {
