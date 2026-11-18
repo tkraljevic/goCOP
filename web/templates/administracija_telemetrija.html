@@ -6,106 +6,88 @@
 {{define "sidroPomoci"}}#telemetrija{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/administracija">Administracija</a> › Telemetrija</div>
-
+{{/* Telemetrija po crtežu 18c · 1 (goCOP-m3): dvije kartice računa u
+     retku, svaka s čipom upisan / nije upisan, poljima u dva stupca i
+     gumbima dolje; tablica letava ispod. Polja lozinke ostaju prazna.
+     Stupci Sustav i Zadnji dohvat te „Provjeri sada” su novo ponašanje i
+     čekaju odluku; stupac Račun (svoj / čvorov) je maknut, jer račun po
+     letvi nigdje ne upisuje. Obrasci i adrese su isti. */}}
+<div class="adm-stranica">
+<a class="adm-natrag" href="/administracija">{{icon "arrow-left"}} Administracija</a>
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{icon "activity"}} Telemetrija letava</h1>
-    <p class="page-desc">Računi sustava iz kojih se čitaju letve bez javne stranice vodostaja. Upisuju se
-      jednom po čvoru i vrijede za sve takve letve; letva samo uključi preuzimanje u svojoj kartici.
-      Lozinke ostaju zaključane ključem ovog čvora i ne putuju razmjenom.</p>
+    <h1 class="page-title" data-naziv-stranice>Telemetrija</h1>
+    <p class="page-desc">Računi sustava iz kojih se čitaju letve bez javne stranice vodostaja. Upisuju se jednom na računalu i vrijede za sve takve letve; letva samo uključi preuzimanje u svojoj kartici. Lozinke ostaju zaključane ključem ovog računala i ne putuju razmjenom.</p>
+    <span class="adm-doseg" title="Vrijedi samo na ovom računalu i ne ide razmjenom.">R · ovo računalo</span>
   </div>
+  <div class="page-actions"><a href="/settings#uloge" class="btn btn-link">Uloge ovog računala</a></div>
 </div>
 
 {{if .Preuzima}}
-<p class="form-help">Ovaj čvor preuzima vodostaje s izvora (<a href="/settings#uloge">Ovo računalo i mreža → Uloge ovog čvora</a>), pa ovi računi trebaju ovdje.</p>
+<div class="mod-napomena">{{icon "info"}}<span>Ovo računalo preuzima vodostaje s izvora, pa računi trebaju ovdje.</span></div>
 {{else}}
-<div class="alert alert-warning">Ovaj čvor <strong>ne preuzima</strong> vodostaje s izvora: očitanja mu stižu razmjenom od čvora
-  koji ih preuzima, pa mu ovi računi ne trebaju. Upišite ih na čvoru s ulogom „Preuzima vodostaje s izvora”
-  (<a href="/settings#uloge">Ovo računalo i mreža → Uloge ovog čvora</a>), ili ovdje kad ovaj čvor preuzme tu ulogu.</div>
+<div class="dash-traka">{{icon "triangle-alert"}}<span>Ovo računalo <strong>ne preuzima</strong> vodostaje s izvora: očitanja mu stižu razmjenom od računala koje ih preuzima, pa mu ovi računi ne trebaju. Upišite ih na računalu s ulogom „Preuzima vodostaje s izvora”, ili ovdje kad ovo računalo preuzme tu ulogu.</span></div>
 {{end}}
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 
-<section class="detail-section max-w-40">
-  <h2 class="detail-section-title">Geolux HydroView — <a href="{{.Adresa}}" target="_blank" rel="noopener">{{.Adresa}}</a></h2>
-  <p class="form-help mt-0">Radarske i tlačne letve Hrvatskih voda na Geoluxovom sustavu HydroView.
-    Račun daje Geolux, odnosno Hrvatske vode za taj sustav; nije račun domene.</p>
-  <form method="post" action="/administracija/telemetrija">
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label" for="hidroview_korisnik">Korisničko ime</label>
-        <input type="text" id="hidroview_korisnik" name="hidroview_korisnik" class="form-control"
-               value="{{.Korisnik}}" autocomplete="off">
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="hidroview_lozinka">Lozinka</label>
-        <input type="password" id="hidroview_lozinka" name="hidroview_lozinka" class="form-control"
-               autocomplete="new-password"
-               placeholder="{{if .Korisnik}}upisana — ostavi prazno da ostane{{else}}lozinka za taj sustav{{end}}">
-      </div>
+<div class="tel-racuni">
+<section class="adm-kartica" aria-labelledby="tel-hv">
+  <div class="tel-glava">
+    <h2 id="tel-hv">Geolux HydroView</h2>
+    {{if .Korisnik}}<span class="rac-cip dobro">upisan</span>{{else}}<span class="rac-cip">nije upisan</span>{{end}}
+  </div>
+  <a class="tel-adresa" href="{{.Adresa}}" target="_blank" rel="noopener">{{.Adresa}}</a>
+  <p class="uv-opis">Radarske i tlačne letve Hrvatskih voda na Geoluxovom sustavu HydroView. Račun daje Geolux, odnosno Hrvatske vode za taj sustav; nije račun domene.</p>
+  <p class="tel-stanje">{{icon "user"}}<span>{{if .Korisnik}}Upisan je račun <strong>{{.Korisnik}}</strong>, od {{formatDate .Upisano}}.{{else}}Račun još nije upisan, pa letve na tom sustavu ne mogu preuzimati.{{end}}</span></p>
+  <form method="post" action="/administracija/telemetrija" class="adm-obrazac">
+    <div class="adm-polja dva">
+      <div class="form-group list-polje">{{icon "user"}}<label class="form-label" for="hidroview_korisnik">Korisničko ime</label><input type="text" id="hidroview_korisnik" name="hidroview_korisnik" class="form-control" value="{{.Korisnik}}" autocomplete="off"></div>
+      <div class="form-group list-polje">{{icon "lock"}}<label class="form-label" for="hidroview_lozinka">Lozinka</label><input type="password" id="hidroview_lozinka" name="hidroview_lozinka" class="form-control" autocomplete="new-password" placeholder="{{if .Korisnik}}upisana; ostavite prazno da ostane{{else}}lozinka za taj sustav{{end}}"></div>
     </div>
-    <div class="form-actions">
-      <button type="submit" class="btn btn-primary">{{icon "check"}} Spremi račun</button>
-      {{if .Korisnik}}<button type="submit" class="btn btn-secondary" name="radnja" value="obrisi" formnovalidate onclick="return confirm('Obrisati račun za HydroView s ovog čvora? Ovaj čvor tada prestaje preuzimati vodostaje s tog sustava.')">{{icon "trash"}} Obriši račun</button>{{end}}
+    <p class="form-help">Prijava se provjeri prije spremanja, da letva ne bi svaki sat javljala grešku koju nitko ne gleda. Lozinka vrijedi samo na ovom računalu, pa je na drugom računalu treba upisati iznova.</p>
+    <div class="tel-gumbi">
+      {{if .Korisnik}}<button type="submit" class="btn btn-link tel-brisi" name="radnja" value="obrisi" formnovalidate onclick="return confirm('Obrisati račun za HydroView s ovog računala? Ovo računalo tada prestaje preuzimati vodostaje s tog sustava.')">Obriši račun</button>{{end}}
+      <button type="submit" class="btn btn-primary">Spremi račun</button>
     </div>
   </form>
-  <p class="form-help">
-    {{if .Korisnik}}Upisan je račun <strong>{{.Korisnik}}</strong>, od {{formatDate .Upisano}}.{{else}}Račun još nije upisan, pa letve na tom sustavu
-      ne mogu preuzimati.{{end}}
-    Prijava se provjeri prije spremanja, da letva ne bi svaki sat javljala grešku koju nitko ne gleda.
-    Lozinka se sprema zaključana ključem ovog čvora: vrijedi samo na ovom računalu i ne putuje
-    razmjenom među čvorovima, pa je na drugom čvoru treba upisati iznova.
-  </p>
 </section>
 
-<section class="detail-section max-w-40">
-  <h2 class="detail-section-title">Mobilna stranica Hrvatskih voda — <a href="{{.MLetva}}" target="_blank" rel="noopener">{{.MLetva}}</a></h2>
-  <p class="form-help mt-0">Na <a href="{{.MLetva}}" target="_blank" rel="noopener">{{.MLetva}}</a>
-    su uz javne i postaje koje javnost ne vidi: istjecanje i preljev hidroelektrana na Dravi, gornja voda
-    i rep akumulacija. Prijava je računom domene, istim kao za e-poštu.</p>
-  <form method="post" action="/administracija/telemetrija/mletva">
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label" for="mletva_korisnik">Korisničko ime</label>
-        <input type="text" id="mletva_korisnik" name="mletva_korisnik" class="form-control"
-               value="{{.MLetvaKorisnik}}" autocomplete="off" placeholder="bez @voda.hr">
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="mletva_lozinka">Lozinka</label>
-        <input type="password" id="mletva_lozinka" name="mletva_lozinka" class="form-control"
-               autocomplete="new-password" placeholder="lozinka domene">
-      </div>
+<section class="adm-kartica" aria-labelledby="tel-ml">
+  <div class="tel-glava">
+    <h2 id="tel-ml">Mobilna stranica Hrvatskih voda</h2>
+    {{if .MLetvaKorisnik}}<span class="rac-cip dobro">upisan</span>{{else}}<span class="rac-cip">nije upisan</span>{{end}}
+  </div>
+  <a class="tel-adresa" href="{{.MLetva}}" target="_blank" rel="noopener">{{.MLetva}}</a>
+  <p class="uv-opis">Uz javne i postaje koje javnost ne vidi: istjecanje i preljev hidroelektrana na Dravi, gornja voda i rep akumulacija. Prijava je računom domene, istim kao za e-poštu.</p>
+  <p class="tel-stanje">{{icon "user"}}<span>{{if .MLetvaKorisnik}}Upisan je račun <strong>{{.MLetvaKorisnik}}</strong>, od {{formatDate .MLetvaUpisano}}.{{else}}Račun još nije upisan.{{end}}</span></p>
+  <form method="post" action="/administracija/telemetrija/mletva" class="adm-obrazac">
+    <div class="adm-polja dva">
+      <div class="form-group list-polje">{{icon "user"}}<label class="form-label" for="mletva_korisnik">Korisničko ime</label><input type="text" id="mletva_korisnik" name="mletva_korisnik" class="form-control" value="{{.MLetvaKorisnik}}" autocomplete="off" placeholder="bez @voda.hr"></div>
+      <div class="form-group list-polje">{{icon "lock"}}<label class="form-label" for="mletva_lozinka">Lozinka</label><input type="password" id="mletva_lozinka" name="mletva_lozinka" class="form-control" autocomplete="new-password" placeholder="lozinka domene"></div>
     </div>
-    <div class="form-actions">
-      <button type="submit" class="btn btn-primary">{{icon "check"}} Spremi račun</button>
-      <button type="submit" name="iz_poste" value="1" class="btn">{{icon "mail"}} Uzmi moj račun e-pošte</button>
-      {{if .MLetvaKorisnik}}<button type="submit" class="btn btn-secondary" name="radnja" value="obrisi" formnovalidate onclick="return confirm('Obrisati račun za mobilnu stranicu Hrvatskih voda s ovog čvora? Ovaj čvor tada prestaje preuzimati vodostaje s te stranice.')">{{icon "trash"}} Obriši račun</button>{{end}}
+    <p class="form-help">„Uzmi moj račun e-pošte” upiše vaš račun iz profila, bez „@voda.hr”. Prijava se i ovdje provjeri prije spremanja, a lozinka ostaje zaključana ključem ovog računala.</p>
+    <div class="tel-gumbi">
+      {{if .MLetvaKorisnik}}<button type="submit" class="btn btn-link tel-brisi" name="radnja" value="obrisi" formnovalidate onclick="return confirm('Obrisati račun za mobilnu stranicu Hrvatskih voda s ovog računala? Ovo računalo tada prestaje preuzimati vodostaje s te stranice.')">Obriši račun</button>{{end}}
+      <button type="submit" name="iz_poste" value="1" class="btn btn-link">Uzmi moj račun e-pošte</button>
+      <button type="submit" class="btn btn-primary">Spremi račun</button>
     </div>
   </form>
-  <p class="form-help">
-    {{if .MLetvaKorisnik}}Upisan je račun <strong>{{.MLetvaKorisnik}}</strong>, od {{formatDate .MLetvaUpisano}}.{{else}}Račun još nije upisan.{{end}}
-    „Uzmi moj račun e-pošte“ upiše tvoj račun iz profila, bez „@voda.hr“. Prijava se i ovdje provjeri
-    prije spremanja, a lozinka ostaje zaključana ključem ovog čvora.
-  </p>
 </section>
+</div>
 
 {{if .Letve}}
-<section class="detail-section max-w-40">
-  <h2 class="detail-section-title">Letve koje se odande čitaju</h2>
-  <table class="data-table">
-    <thead><tr><th>Letva</th><th>Preuzimanje</th><th>Račun</th></tr></thead>
-    <tbody>
-      {{range .Letve}}
-      <tr>
-        <td data-stupac="Letva"><a href="/stations/{{.ID}}">{{.Naziv}}</a></td>
-        <td data-stupac="Preuzimanje">{{if .Uvoz}}svaki sat{{else}}isključeno{{end}}</td>
-        <td data-stupac="Račun">{{if .Svoj}}svoj: {{.Korisnik}}{{else}}čvorov{{end}}</td>
-      </tr>
-      {{end}}
-    </tbody>
-  </table>
+<section class="adm-kartica" aria-labelledby="tel-letve">
+  <h2 id="tel-letve">Letve koje se odande čitaju</h2>
+  <p class="form-help">Preuzimanje se uključuje u kartici letve.</p>
+  <div class="uv-tablica" role="table" aria-labelledby="tel-letve">
+    <div class="uv-glava dva" role="row"><span role="columnheader">Letva</span><span role="columnheader">Preuzimanje</span></div>
+    {{range .Letve}}
+    <div class="uv-redak dva" role="row"><span role="cell"><a href="/stations/{{.ID}}">{{.Naziv}}</a></span><span role="cell">{{if .Uvoz}}<span class="rac-cip dobro">svaki sat</span>{{else}}<span class="rac-cip">isključeno</span>{{end}}</span></div>
+    {{end}}
+  </div>
 </section>
 {{end}}
+</div>
 {{end}}

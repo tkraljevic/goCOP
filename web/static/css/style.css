@@ -10831,6 +10831,7 @@ td .odr-sitno { margin-top: 2px; }
 }
 @media (max-width: 599px) {
   .dash-traka { flex-wrap: wrap; }
+  .dash-traka > span { flex-basis: calc(100% - 32px); }
   .dash-traka > .btn { margin-left: auto; }
   .dash-kartice { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .dash-card, .dash-card.pozor { display: grid; grid-template-columns: 24px minmax(0, 1fr) 24px; grid-template-areas: "ikona naslov strelica" "ikona oznake strelica"; align-items: center; gap: 2px 12px; padding: 10px 12px; border-radius: 8px; }
@@ -11044,4 +11045,18 @@ td .odr-sitno { margin-top: 2px; }
 }
 @media (max-width: 599px) {
   .baz-plocice, .baz-vrste { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Telemetrija po crtežu 18c · 1 */
+.tel-racuni { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: stretch; }
+.tel-glava { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tel-glava h2 { margin: 0; font-size: 1rem; line-height: 24px; font-weight: 500; }
+.tel-adresa { margin-top: -10px; font-size: 0.8125rem; color: var(--md-sys-color-primary); text-decoration: none; }
+.tel-stanje { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 0.875rem; }
+.tel-stanje .icon { flex: none; width: 20px; height: 20px; margin: 0; color: var(--md-sys-color-on-surface-variant); }
+.tel-gumbi { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; margin-top: auto; }
+.tel-brisi { margin-right: auto; color: var(--md-sys-color-error); }
+.tel-racuni .adm-kartica form { flex: 1; }
+@media (max-width: 1099px) {
+  .tel-racuni { grid-template-columns: minmax(0, 1fr); }
 }
