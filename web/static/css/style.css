@@ -11108,3 +11108,21 @@ td .odr-sitno { margin-top: 2px; }
 .pot-tablica th { background: transparent; font-size: 0.75rem; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--md-sys-color-on-surface-variant); }
 .pot-tablica td { font-size: 0.875rem; }
 #qr-adresa .postavke-cvora { margin: 0; }
+
+/* Obračun sati po crtežu 18d · 3 */
+.obr-radnje { white-space: nowrap; text-align: right; }
+.obr-radnje form { margin: 0; }
+.obr-godina { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.obr-godine a { text-decoration: none; }
+.obr-godine span.odabrano { border-color: transparent; background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
+.obr-dani { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.obr-dani li { padding: 1px 8px; border: 1px solid var(--md-sys-color-outline); border-radius: 6px; font-size: 0.75rem; color: var(--md-sys-color-on-surface); }
+.obr-dani li.vikend { border-color: transparent; background: var(--md-sys-color-surface-container-highest); color: var(--md-sys-color-on-surface-variant); }
+.obr-dan-mjesec { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.obr-obrazac:has(input[name="vrsta"][value="STALNI"]:checked) :is(.obr-uskrs, .obr-jednokratni),
+.obr-obrazac:has(input[name="vrsta"][value="USKRS"]:checked) :is(.obr-stalni, .obr-jednokratni),
+.obr-obrazac:has(input[name="vrsta"][value="JEDNOKRATNI"]:checked) :is(.obr-stalni, .obr-uskrs) { display: none; }
+.obr-radno { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: auto; }
+.obr-radno .form-control { border: 1px solid var(--md-sys-color-outline); border-radius: 4px; background: var(--md-sys-color-surface); }
+.obr-koef { max-width: 6rem; border: 1px solid var(--md-sys-color-outline); border-radius: 4px; background: var(--md-sys-color-surface); }
+.obr-par { align-items: start; }

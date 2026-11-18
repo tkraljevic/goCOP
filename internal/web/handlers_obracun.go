@@ -31,7 +31,8 @@ type ObracunPostavkePageData struct {
 
 	Blagdani     obracun.Pravila
 	Godina       int
-	OveGodine    []string // datumi blagdana ove godine, za provjeru pravila
+	Dani         []DanBlagdana    // datumi blagdana odabrane godine, za provjeru pravila
+	Uredi        *obracun.Pravilo // blagdan koji se uređuje (?uredi=); nil za novi
 	Koeficijenti obracun.Koeficijenti
 	RadnoVrijeme obracun.RadnoVrijeme
 	Razredi      []obracun.Razred
@@ -79,12 +80,39 @@ func (h *ObracunPostavkeHandler) ShowPostavke(w http.ResponseWriter, r *http.Req
 	if g, err := strconv.Atoi(r.URL.Query().Get("godina")); err == nil && g > 1900 && g < 2200 {
 		data.Godina = g
 	}
-	for _, d := range data.Blagdani.Blagdani(data.Godina) {
-		data.OveGodine = append(data.OveGodine, danTjednaHR(d)+" "+d.Format("2.1."))
-	}
+	data.Dani = daniBlagdana(data.Blagdani.Blagdani(data.Godina))
+	data.Uredi = urediBlagdan(data.Blagdani, r.URL.Query().Get("uredi"))
 	if err := h.tmpl.ExecuteTemplate(w, "obracun_postavke.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// DanBlagdana je datum blagdana u odabranoj godini, za čip; blagdan u
+// suboti ili nedjelji je sivi, jer ne donosi slobodan radni dan
+type DanBlagdana struct {
+	Tekst  string
+	Vikend bool
+}
+
+var kratkiDaniTjedna = [...]string{"ned", "pon", "uto", "sri", "čet", "pet", "sub"}
+
+func daniBlagdana(dani []time.Time) []DanBlagdana {
+	out := make([]DanBlagdana, 0, len(dani))
+	for _, d := range dani {
+		out = append(out, DanBlagdana{Tekst: kratkiDaniTjedna[d.Weekday()] + " " + d.Format("2. 1."),
+			Vikend: d.Weekday() == time.Saturday || d.Weekday() == time.Sunday})
+	}
+	return out
+}
+
+// urediBlagdan je pravilo koje obrazac puni za izmjenu; nil kad ga nema
+func urediBlagdan(ps obracun.Pravila, id string) *obracun.Pravilo {
+	for i := range ps {
+		if id != "" && ps[i].ID == id {
+			return &ps[i]
+		}
+	}
+	return nil
 }
 
 // HandleSpremiBlagdan upisuje novo ili izmijenjeno pravilo

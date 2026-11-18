@@ -6,130 +6,123 @@
 {{define "sidroPomoci"}}#obracun{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/administracija">Administracija</a> › Obračun sati</div>
-
+{{/* Obračun sati po crtežu 18d · 3 (goCOP-m3): u retku blagdana „Uredi” i
+     crveno „Makni”; godina se bira strelicama na istom parametru, datumi
+     su čipovi (subota i nedjelja sivo); obrazac blagdana je kartica s
+     vrstom kao tri čipa i služi i za izmjenu; radno vrijeme i
+     koeficijenti su dvije kartice u retku. Polja i adrese su ista. */}}
+<div class="adm-stranica">
+<a class="adm-natrag" href="/administracija">{{icon "arrow-left"}} Administracija</a>
 <div class="page-header">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "calculator"}} Obračun sati u obrani</h1>
-    <p class="page-desc">
-      Blagdani i koeficijenti po kojima se sati iz plana dežurstava pretvaraju u obračunske. Ovo je podatak
-      organizacije, ne pravilo programa: zakon o blagdanima se mijenja, a koeficijente određuje kolektivni ugovor.
-      Program dolazi napunjen hrvatskim zakonom i koeficijentima obrasca IORS; promjena ovdje vrijedi na svim
-      računalima mreže.
-    </p>
+    <h1 class="page-title" data-naziv-stranice>Obračun sati</h1>
+    <p class="page-desc">Blagdani, radno vrijeme i koeficijenti po kojima se sati iz plana dežurstava pretvaraju u obračunske. Ovo je podatak organizacije, ne pravilo programa: zakon o blagdanima se mijenja, a koeficijente određuje kolektivni ugovor. Program dolazi napunjen hrvatskim zakonom i koeficijentima obrasca IORS; promjena ovdje vrijedi na svim računalima mreže.</p>
+    <span class="adm-doseg" title="Vrijedi na svim računalima u mreži; promjena ide razmjenom.">M · cijela mreža</span>
   </div>
+  <div class="page-actions"><a href="/administracija/obracun#blagdan-obrazac" class="btn btn-link">Dodaj blagdan</a></div>
 </div>
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 
-<section class="detail-section">
-  <h2>{{icon "clock"}} Blagdani</h2>
-  <p class="page-desc">Ukinut blagdan ne briše se nego mu se upiše zadnja godina — prošli obračuni ostaju točni.
-    Pomični se računaju od Uskrsa; jednokratni je jedan datum, npr. dan žalosti koji Vlada proglasi neradnim.</p>
-  <div class="table-card"><div class="table-responsive">
-    <table class="data-table">
+<section class="adm-kartica" aria-labelledby="obr-blagdani">
+  <h2 id="obr-blagdani">{{icon "calendar"}} Blagdani</h2>
+  <p class="form-help">Ukinut blagdan ne briše se nego mu se upiše zadnja godina, pa prošli obračuni ostaju točni. Pomični se računaju od Uskrsa; jednokratni je jedan datum, npr. dan žalosti koji Vlada proglasi neradnim.</p>
+  <div class="table-responsive">
+    <table class="data-table pot-tablica">
       <thead><tr><th>Naziv</th><th>Kad</th><th>Vrijedi</th><th></th></tr></thead>
       <tbody>
       {{range .Blagdani}}
       <tr>
         <td>{{.Naziv}}</td>
-        <td class="mono">{{.Opis}}</td>
-        <td class="mono">{{if .OdGodine}}od {{.OdGodine}}.{{end}}{{if .DoGodine}} do {{.DoGodine}}.{{end}}{{if and (not .OdGodine) (not .DoGodine)}}uvijek{{end}}</td>
-        <td><form method="POST" action="/administracija/obracun/blagdani/{{.ID}}/makni" class="d-inline"
+        <td>{{.Opis}}</td>
+        <td>{{if .OdGodine}}od {{.OdGodine}}.{{end}}{{if .DoGodine}} do {{.DoGodine}}.{{end}}{{if and (not .OdGodine) (not .DoGodine)}}uvijek{{end}}</td>
+        <td class="obr-radnje"><a href="/administracija/obracun?uredi={{.ID}}#blagdan-obrazac" class="btn btn-link btn-sm">Uredi</a><form method="POST" action="/administracija/obracun/blagdani/{{.ID}}/makni" class="d-inline"
           onsubmit="return confirm('Maknuti blagdan {{.Naziv}}? Ukinut blagdan bolje je zatvoriti godinom do.');">
-          <button type="submit" class="btn btn-sm btn-secondary" title="Makni">{{icon "x"}}</button></form></td>
+          <button type="submit" class="btn btn-link btn-sm tel-brisi" title="Makni blagdan {{.Naziv}}">Makni</button></form></td>
       </tr>
       {{end}}
       </tbody>
     </table>
-  </div></div>
-  <p class="reading-meta mt-2">Po tim pravilima u {{.Godina}}. blagdani padaju:
-    {{range $i, $d := .OveGodine}}{{if $i}}, {{end}}{{$d}}{{end}}.
-    <a href="/administracija/obracun?godina={{.Godina}}">Provjeri drugu godinu</a> dodavanjem <code>?godina=</code>.</p>
-
-  <details class="reg-card" style="padding:0.75rem 1rem; margin-top:0.75rem;">
-    <summary>{{icon "plus"}} Dodaj blagdan</summary>
-    <form method="POST" action="/administracija/obracun/blagdani" class="mt-3">
-      <div class="form-row novi-zapis-red">
-        <div class="form-group">
-          <label class="form-label" for="b-naziv">Naziv *</label>
-          <input type="text" id="b-naziv" name="naziv" class="form-control" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="b-vrsta">Vrsta *</label>
-          <select id="b-vrsta" name="vrsta" class="form-control">
-            <option value="STALNI">stalni datum</option>
-            <option value="USKRS">po Uskrsu</option>
-            <option value="JEDNOKRATNI">jednokratni</option>
-          </select>
-        </div>
-      </div>
-      <div class="form-row novi-zapis-red">
-        <div class="form-group">
-          <label class="form-label" for="b-dan">Dan i mjesec <span class="reg-card-sub">(stalni)</span></label>
-          <div style="display:flex; gap:0.35rem;">
-            <input type="number" id="b-dan" name="dan" class="form-control" min="1" max="31" placeholder="dan">
-            <input type="number" name="mjesec" class="form-control" min="1" max="12" placeholder="mjesec">
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="b-pomak">Dana od Uskrsa <span class="reg-card-sub">(po Uskrsu)</span></label>
-          <input type="number" id="b-pomak" name="pomak" class="form-control" placeholder="0 Uskrs, 1 ponedjeljak, 60 Tijelovo">
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="b-datum">Datum <span class="reg-card-sub">(jednokratni)</span></label>
-          <input type="date" id="b-datum" name="datum" class="form-control">
-        </div>
-      </div>
-      <div class="form-row novi-zapis-red">
-        <div class="form-group">
-          <label class="form-label" for="b-od">Vrijedi od godine</label>
-          <input type="number" id="b-od" name="od_godine" class="form-control" placeholder="prazno = oduvijek">
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="b-do">do godine</label>
-          <input type="number" id="b-do" name="do_godine" class="form-control" placeholder="prazno = i dalje">
-        </div>
-      </div>
-      <div class="form-actions"><button type="submit" class="btn btn-primary">{{icon "check"}} Upiši blagdan</button></div>
-    </form>
-  </details>
+  </div>
+  <div class="obr-godina">
+    <p class="uv-opis">U {{.Godina}}. blagdani padaju</p>
+    <nav class="uni-cipovi obr-godine" aria-label="Godina">
+      <a href="/administracija/obracun?godina={{add .Godina -1}}"><span>‹ {{add .Godina -1}}.</span></a>
+      <a href="/administracija/obracun?godina={{.Godina}}" aria-current="page"><span class="odabrano">{{.Godina}}.</span></a>
+      <a href="/administracija/obracun?godina={{add .Godina 1}}"><span>{{add .Godina 1}}. ›</span></a>
+    </nav>
+  </div>
+  <ul class="obr-dani">{{range .Dani}}<li{{if .Vikend}} class="vikend"{{end}}>{{.Tekst}}</li>{{end}}</ul>
+  <p class="form-help">Blagdan koji padne u subotu ili nedjelju je sivo.</p>
 </section>
 
-<section class="detail-section">
-  <h2>{{icon "clock"}} Redovno radno vrijeme</h2>
-  <p class="page-desc">Radnim danom u uredu redovno vrijeme nije prekovremeni sat nego plaća; prije i poslije njega, od 6 do 22,
-    sat je dnevni prekovremeni, a 22–6 noćni. Sad je <strong>{{.RadnoVrijeme.Tekst}}</strong>. Promjena vrijedi za sve obračune
-    koji se od tada računaju.</p>
-  <form method="POST" action="/administracija/obracun/radno-vrijeme" class="obracun-filtar">
+<section class="adm-kartica" id="blagdan-obrazac" aria-labelledby="obr-obrazac">
+  {{$u := .Uredi}}
+  <h2 id="obr-obrazac">{{if $u}}Uredi blagdan · {{$u.Naziv}}{{else}}Novi blagdan{{end}}</h2>
+  <p class="form-help">Isti obrazac služi za novi blagdan i za izmjenu postojećeg.</p>
+  <form method="POST" action="/administracija/obracun/blagdani" class="adm-obrazac obr-obrazac">
+    {{with $u}}<input type="hidden" name="id" value="{{.ID}}">{{end}}
+    <div class="form-group list-polje">{{icon "pencil"}}<label class="form-label" for="b-naziv">Naziv</label><input type="text" id="b-naziv" name="naziv" class="form-control" required value="{{with $u}}{{.Naziv}}{{end}}"></div>
+    <div>
+      <p class="form-label pos-oznaka" id="b-vrsta-oznaka">Vrsta</p>
+      <div class="uni-cipovi" role="radiogroup" aria-labelledby="b-vrsta-oznaka">
+        <label><input type="radio" name="vrsta" value="STALNI" {{if or (not $u) (eq (printf "%s" $u.Vrsta) "STALNI")}}checked{{end}}><span>stalni datum</span></label>
+        <label><input type="radio" name="vrsta" value="USKRS" {{if and $u (eq (printf "%s" $u.Vrsta) "USKRS")}}checked{{end}}><span>po Uskrsu</span></label>
+        <label><input type="radio" name="vrsta" value="JEDNOKRATNI" {{if and $u (eq (printf "%s" $u.Vrsta) "JEDNOKRATNI")}}checked{{end}}><span>jednokratni</span></label>
+      </div>
+    </div>
+    <div class="adm-polja tri">
+      <div class="obr-stalni obr-dan-mjesec">
+        <div class="form-group list-polje"><label class="form-label" for="b-dan">Dan</label><input type="number" id="b-dan" name="dan" class="form-control" min="1" max="31" value="{{with $u}}{{if .Dan}}{{.Dan}}{{end}}{{end}}"></div>
+        <div class="form-group list-polje"><label class="form-label" for="b-mjesec">Mjesec</label><input type="number" id="b-mjesec" name="mjesec" class="form-control" min="1" max="12" value="{{with $u}}{{if .Mjesec}}{{.Mjesec}}{{end}}{{end}}"></div>
+      </div>
+      <div class="form-group list-polje obr-uskrs"><label class="form-label" for="b-pomak">Dana od Uskrsa</label><input type="number" id="b-pomak" name="pomak" class="form-control" placeholder="0 Uskrs, 1 ponedjeljak, 60 Tijelovo" value="{{with $u}}{{if .Pomak}}{{.Pomak}}{{end}}{{end}}"></div>
+      <div class="form-group list-polje obr-jednokratni">{{icon "calendar"}}<label class="form-label" for="b-datum">Datum</label><input type="date" id="b-datum" name="datum" class="form-control" value="{{with $u}}{{.Datum}}{{end}}"></div>
+      <div class="form-group list-polje">{{icon "calendar"}}<label class="form-label" for="b-od">Vrijedi od godine</label><input type="number" id="b-od" name="od_godine" class="form-control" placeholder="prazno: oduvijek" value="{{with $u}}{{if .OdGodine}}{{.OdGodine}}{{end}}{{end}}"></div>
+      <div class="form-group list-polje">{{icon "calendar"}}<label class="form-label" for="b-do">do godine</label><input type="number" id="b-do" name="do_godine" class="form-control" placeholder="prazno: i dalje" value="{{with $u}}{{if .DoGodine}}{{.DoGodine}}{{end}}{{end}}"></div>
+    </div>
+    <p class="form-help">Po Uskrsu traži broj dana od Uskrsa (0 Uskrs, 1 ponedjeljak, 60 Tijelovo); jednokratni je jedan datum, npr. dan žalosti koji Vlada proglasi neradnim.</p>
+    <div class="adm-dno">
+      {{if $u}}<a href="/administracija/obracun" class="btn btn-link">Odustani</a>{{end}}
+      <button type="submit" class="btn btn-primary">Upiši blagdan</button>
+    </div>
+  </form>
+</section>
+
+<div class="tel-racuni obr-par">
+<section class="adm-kartica" aria-labelledby="obr-radno">
+  <h2 id="obr-radno">{{icon "clock"}} Redovno radno vrijeme</h2>
+  <p class="form-help">Sad je <strong>{{.RadnoVrijeme.Tekst}}</strong>. Radnim danom u uredu redovno vrijeme nije prekovremeni sat nego plaća; prije i poslije njega, od 6 do 22, sat je dnevni prekovremeni, a 22–6 noćni. Promjena vrijedi za sve obračune koji se od tada računaju.</p>
+  <form method="POST" action="/administracija/obracun/radno-vrijeme" class="obracun-filtar obr-radno">
     <label for="rv-od">od</label>
     <input type="time" id="rv-od" name="od" class="form-control" value="{{.RadnoVrijeme.OdTekst}}" min="06:00" max="22:00" required>
     <label for="rv-do">do</label>
     <input type="time" id="rv-do" name="do" class="form-control" value="{{.RadnoVrijeme.DoTekst}}" min="06:00" max="22:00" required>
-    <button type="submit" class="btn btn-primary">{{icon "check"}} Upiši radno vrijeme</button>
+    <button type="submit" class="btn btn-primary">Upiši radno vrijeme</button>
   </form>
 </section>
 
-<section class="detail-section">
-  <h2>{{icon "calculator"}} Koeficijenti</h2>
-  <p class="page-desc">Stvarni sati puta koeficijent daju obračunske sate. Ured u redovnom radnom vremenu nosi 0 — to je
-    plaća, ne prekovremeni. Nedjelja se obračunava kao blagdan.</p>
+<section class="adm-kartica" aria-labelledby="obr-koef">
+  <h2 id="obr-koef">{{icon "calculator"}} Koeficijenti</h2>
+  <p class="form-help">Stvarni sati puta koeficijent daju obračunske sate. Ured u redovnom radnom vremenu nosi 0: to je plaća, ne prekovremeni. Nedjelja se obračunava kao blagdan.</p>
   <form method="POST" action="/administracija/obracun/koeficijenti">
-    <div class="table-card"><div class="table-responsive">
-      <table class="data-table">
+    <div class="table-responsive">
+      <table class="data-table pot-tablica">
         <thead><tr><th>Sati</th>{{range .Mjesta}}<th>{{if eq . "TEREN"}}teren{{else}}ured{{end}}</th>{{end}}</tr></thead>
         <tbody>
         {{range $r := .Razredi}}
         <tr>
           <td title="{{$r}}">{{$r.Dan}} <span class="reg-card-sub">{{$.RadnoVrijeme.Pojas $r}}</span></td>
-          {{range $m := $.Mjesta}}<td><input type="text" inputmode="decimal" name="k_{{$m}}_{{$r}}" class="form-control mono" style="max-width:6rem;" value="{{$.K $m $r}}"></td>{{end}}
+          {{range $m := $.Mjesta}}<td><input type="text" inputmode="decimal" name="k_{{$m}}_{{$r}}" class="form-control mono obr-koef" value="{{$.K $m $r}}"></td>{{end}}
         </tr>
         {{end}}
         </tbody>
       </table>
-    </div></div>
-    <div class="form-actions mt-3"><button type="submit" class="btn btn-primary">{{icon "check"}} Upiši koeficijente</button></div>
+    </div>
+    <div class="tel-gumbi"><button type="submit" class="btn btn-primary">Upiši koeficijente</button></div>
   </form>
 </section>
+</div>
+</div>
 {{end}}

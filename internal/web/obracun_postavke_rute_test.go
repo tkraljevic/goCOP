@@ -77,14 +77,14 @@ func TestPostavkeObracunaKrozRute(t *testing.T) {
 	}
 
 	mora(zovi(http.MethodGet, "/administracija/obracun?godina=2026", nil), http.StatusOK, "stranica",
-		"Nova godina", "Tijelovo", "60 dana", "do 2019.", "Četvrtak 4.6.", `value="1,85"`, `value="2,55"`)
+		"Nova godina", "Tijelovo", "60 dana", "do 2019.", "čet 4. 6.", `value="1,85"`, `value="2,55"`)
 
 	w := zovi(http.MethodPost, "/administracija/obracun/blagdani", url.Values{
 		"naziv": {"Dan žalosti"}, "vrsta": {"JEDNOKRATNI"}, "datum": {"2026-03-03"}})
 	if l := w.Header().Get("Location"); w.Code != http.StatusSeeOther || !strings.Contains(l, "success=") {
 		t.Fatalf("dan žalosti: %d %s", w.Code, l)
 	}
-	mora(zovi(http.MethodGet, "/administracija/obracun?godina=2026", nil), http.StatusOK, "s danom žalosti", "Dan žalosti", "3.3.2026.", "Utorak 3.3.")
+	mora(zovi(http.MethodGet, "/administracija/obracun?godina=2026", nil), http.StatusOK, "s danom žalosti", "Dan žalosti", "3.3.2026.", "uto 3. 3.")
 
 	obrazac := url.Values{}
 	for _, m := range []string{"URED", "TEREN"} {
@@ -124,5 +124,21 @@ func TestPostavkeObracunaKrozRute(t *testing.T) {
 	w = zovi(http.MethodPost, "/administracija/obracun/blagdani", url.Values{"naziv": {"Nešto"}, "vrsta": {"STALNI"}})
 	if l := w.Header().Get("Location"); !strings.Contains(l, "error=") {
 		t.Errorf("stalni bez dana prošao: %s", l)
+	}
+}
+
+// Čipovi godine: kratki dan tjedna, vikend posebno; „Uredi” puni obrazac
+// pravilom s tim ID-om.
+func TestDaniIUredjivanjeBlagdana(t *testing.T) {
+	d := daniBlagdana([]time.Time{time.Date(2026, 6, 4, 0, 0, 0, 0, time.UTC), time.Date(2026, 5, 30, 0, 0, 0, 0, time.UTC)})
+	if d[0] != (DanBlagdana{"čet 4. 6.", false}) || d[1] != (DanBlagdana{"sub 30. 5.", true}) {
+		t.Errorf("dani: %+v", d)
+	}
+	ps := obracun.Pravila{{ID: "a", Naziv: "Prvi"}, {ID: "b", Naziv: "Drugi"}}
+	if p := urediBlagdan(ps, "b"); p == nil || p.Naziv != "Drugi" {
+		t.Errorf("uredi b: %+v", p)
+	}
+	if urediBlagdan(ps, "") != nil || urediBlagdan(ps, "nema") != nil {
+		t.Error("bez ID-a ili s nepostojećim ID-om nema što urediti")
 	}
 }
