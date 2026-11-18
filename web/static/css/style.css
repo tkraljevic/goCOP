@@ -2349,9 +2349,14 @@ textarea {
 /* Popis očitanja: vrijednost je narasla (kote, protok) pa na telefonu mora
    prelamati. Svaki podatak ostaje cjelovit, prelama se između njih. */
 .reading-row .value > .reading-meta { white-space: nowrap; }
+/* Na svakoj širini: vrijednost se prelama unutar kartice, a olovčica ostaje
+   u svom stupcu (dugi redak s kotama i protokom izlazio je preko ruba).
+   Protok s bilješkom smije se prelamati i unutar sebe. */
+.reading-row { grid-template-columns: 7.5rem minmax(0, 1fr) auto; }
+.reading-row .value { white-space: normal; min-width: 0; }
+.reading-row .value > .reading-meta.protok { white-space: normal; }
 @media (max-width: 560px) {
   .reading-row { grid-template-columns: minmax(0, 1fr) auto; }
-  .reading-row .value { white-space: normal; min-width: 0; }
 }
 
 /* Naslov odjeljka s radnjom uz njega. Radnja koja se tiče samo jednog

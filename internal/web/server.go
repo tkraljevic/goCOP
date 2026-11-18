@@ -299,6 +299,7 @@ func templateFuncs() template.FuncMap {
 		"prosirenjeKrivulje": func() int { return models.ProsirenjeKrivuljeCm },
 		"javnaAdresa":        javnivodostaji.AdresaPostaje,
 		"flowMethod":         models.FlowMethodLabel,
+		"opisProtoka":        models.OpisProtoka,
 		"skupinaLabel":       models.SkupinaLabel,
 		"redniBrojevi":       models.RedniBrojevi,
 		"sluzbaLabel":        models.SluzbaLabel,
