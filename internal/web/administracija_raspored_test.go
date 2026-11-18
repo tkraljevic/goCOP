@@ -476,7 +476,7 @@ func TestGumbiRazmjeneSamoNaStanjuRazmjene(t *testing.T) {
 		t.Fatal(err)
 	}
 	stanje := b.String()
-	for _, ima := range []string{"<title>goCOP — Stanje razmjene", "› Stanje razmjene</div>", "Razmijeni sa svima</button>", "Pretraži lokalnu mrežu", "syncOne(", `href="/settings"`} {
+	for _, ima := range []string{"<title>goCOP — Stanje razmjene", `<a class="adm-natrag" href="/administracija">`, "Razmijeni sa svima</button>", "Pretraži lokalnu mrežu", "syncOne(", `href="/settings"`} {
 		if !strings.Contains(stanje, ima) {
 			t.Errorf("Stanje razmjene nema %q", ima)
 		}

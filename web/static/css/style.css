@@ -10971,3 +10971,36 @@ td .odr-sitno { margin-top: 2px; }
   .uv-redak, .uv-redak.dva { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; }
   .uv-redak > :nth-child(3), .uv-redak.dva > :nth-child(2) { grid-column: 1 / -1; }
 }
+
+/* Stanje razmjene po crtežu 18b · 2: pločice, kartice, Dohvatljivost i
+   Provjera veze s računalom jedna uz drugu */
+.stranica-sinkronizacija { display: flex; flex-direction: column; gap: 16px; }
+.stranica-sinkronizacija .page-header { margin-bottom: 0; }
+.stranica-sinkronizacija .page-actions .btn-link .icon, .stranica-sinkronizacija .adm-poveznica { margin-top: 8px; }
+#alerts { display: flex; flex-direction: column; gap: 8px; }
+#alerts:empty { display: none; }
+.stranica-sinkronizacija .tiles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin: 0; }
+.stranica-sinkronizacija .tile { padding: 10px 12px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px; background: var(--md-sys-color-surface-container-low); box-shadow: none; }
+.stranica-sinkronizacija .tile .n { font-size: 1.25rem; font-weight: 400; line-height: 28px; color: var(--md-sys-color-on-surface); }
+.stranica-sinkronizacija #t-last .n { font-size: 1.05rem; }
+.stranica-sinkronizacija .tile .l { font-size: 0.75rem; letter-spacing: 0; text-transform: none; color: var(--md-sys-color-on-surface-variant); }
+.stranica-sinkronizacija .adm-kartica h2 { display: flex; align-items: center; gap: 8px; }
+.stranica-sinkronizacija .adm-kartica h3 { margin: 8px 0 0; font-size: 0.875rem; font-weight: 500; }
+.stranica-sinkronizacija .adm-kartica p { margin: 0; font-size: 0.8125rem; line-height: 18px; }
+.stranica-sinkronizacija .adm-kartica .table-responsive { margin: 0 -4px; }
+.stranica-sinkronizacija .adm-kartica .data-table { background: transparent; }
+.stranica-sinkronizacija .adm-kartica .data-table th { background: transparent; font-size: 0.75rem; font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--md-sys-color-on-surface-variant); }
+.stranica-sinkronizacija .adm-kartica .data-table td { font-size: 0.8125rem; vertical-align: top; }
+.raz-lan:empty { display: none; }
+.raz-lan-red { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; padding: 8px 12px; border-radius: 8px; background: var(--md-sys-color-surface); font-size: 0.875rem; }
+.raz-par { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.raz-par:empty { display: none; }
+.raz-par .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.raz-par select.form-control { max-width: 280px; }
+@media (max-width: 1099px) {
+  .stranica-sinkronizacija .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .raz-par { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 599px) {
+  .stranica-sinkronizacija .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
