@@ -152,6 +152,29 @@ func (h *AktiHandler) HandleAdminPosta(w http.ResponseWriter, r *http.Request) {
 	redirectWith(w, r, "/administracija/posta", "success", "Slanje e-poštom je isključeno.")
 }
 
+// HandleProbnoPismo šalje administratoru probno pismo s njegova računa na
+// njegovu adresu, istim putem kojim idu ovjereni akti (Odluke (18. 11.
+// 2026.), Administracija, novo ponašanje 12). Tako se vidi radi li slanje,
+// a ne samo je li poslužitelj dostupan.
+func (h *AktiHandler) HandleProbnoPismo(w http.ResponseWriter, r *http.Request) {
+	u, _, _ := h.base(r)
+	s := h.svc(w)
+	if s == nil || u == nil {
+		return
+	}
+	err := s.PosaljiPismo(r.Context(), u, service.NovoPismo{
+		Za:      u.Email,
+		Predmet: "goCOP: probno pismo",
+		Tekst: "Ovo je probno pismo iz goCOP-a, poslano iz Administracije › E-pošta.\n\n" +
+			"Slanje s vašeg računa radi. Istim putem goCOP šalje ovjerene akte primateljima „na znanje”.",
+	})
+	if err != nil {
+		redirectWith(w, r, "/administracija/posta", "error", "Probno pismo nije poslano: "+err.Error())
+		return
+	}
+	redirectWith(w, r, "/administracija/posta", "success", "Probno pismo poslano je na "+u.Email+". Kad stigne, slanje akata e-poštom radi.")
+}
+
 // ispitajPostu ispituje poslužitelj e-pošte bez lozinke. Poslužitelj koji
 // nije spremljen ispituje se kao provjera veze, samo s ovog računala ili iz
 // lokalne mreže; izvana se ispituje samo spremljeni poslužitelj.
