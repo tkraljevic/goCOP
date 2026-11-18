@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"mime"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -59,6 +60,40 @@ type SettingsPageData struct {
 	// članstva traže lozinku računa (Odluke (30. 10. 2026.), 1)
 	Izvana bool
 	ViewAsBanner
+}
+
+// AdresaPrijave je https adresa preko koje se djelatnici prijavljuju
+// izvana: adresa tunela računala, bez puta (Odluke (18. 11. 2026.),
+// Administracija, novo ponašanje 7)
+type AdresaPrijave struct{ Racunalo, URL string }
+
+// AdresePrijaveIzvana su adrese za prijavu izvana: https adrese tunela ovog
+// i ostalih računala, svaka jednom
+func (d SettingsPageData) AdresePrijaveIzvana() []AdresaPrijave {
+	var out []AdresaPrijave
+	vidjeno := map[string]bool{}
+	dodaj := func(racunalo string, adrese []string) {
+		for _, a := range adrese {
+			u, err := url.Parse(strings.TrimSpace(a))
+			if err != nil || u.Scheme != "https" || u.Host == "" {
+				continue
+			}
+			adresa := "https://" + u.Host
+			if !vidjeno[adresa] {
+				vidjeno[adresa] = true
+				out = append(out, AdresaPrijave{Racunalo: racunalo, URL: adresa})
+			}
+		}
+	}
+	dodaj(d.Self.Name+" (ovo računalo)", d.Self.Addresses)
+	for _, p := range d.Peers {
+		ime := p.Name
+		if ime == "" {
+			ime = p.NodeID
+		}
+		dodaj(ime, p.Addresses)
+	}
+	return out
 }
 
 func (h *SettingsHandler) ShowSettings(w http.ResponseWriter, r *http.Request) {

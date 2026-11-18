@@ -319,6 +319,22 @@ type PostavkeStranice struct {
 	Starije     *StarijeIzdanjePrikaz    // samo na stranici Ovo računalo i mreža, uz Postavu
 }
 
+// Vrijednost je vrijednost postavke s kojom čvor radi, po punom ključu
+// (npr. vodostaji.minuta_preuzimanja); prazno kad je na stranici nema
+func (p *PostavkeStranice) Vrijednost(kljuc string) string {
+	if p == nil {
+		return ""
+	}
+	for _, b := range p.blokovi {
+		for _, st := range b.Stavke {
+			if st.Kljuc == kljuc {
+				return st.Prikaz
+			}
+		}
+	}
+	return ""
+}
+
 // Dio je blok s tim imenom (cvor, mreza…); nil kad ga na stranici nema
 func (p *PostavkeStranice) Dio(ime string) *BlokPostavki {
 	if p == nil {
