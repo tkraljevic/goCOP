@@ -63,11 +63,25 @@
   <h2 id="pot-kljucevi">Izdani osobni ključevi</h2>
   <p class="form-help">Svatko ključ pravi sam u svom profilu; certifikat potpiše računalo na kojem je napravljen.</p>
   {{if .Kljucevi}}
-  <div class="table-responsive"><table class="data-table pot-tablica"><thead><tr><th>Osoba</th><th>Funkcija</th><th>Sektor</th><th>Izdao</th><th>Vrijedi do</th><th>Otisak</th></tr></thead><tbody>
-  {{range .Kljucevi}}<tr><td>{{.Ime}}</td><td>{{.Funkcija}}</td><td>{{.Sektor}}</td><td>{{.Izdao}}</td><td>{{formatDate (localTime .Do)}}{{if .Istekao}} <span class="rac-cip pozor">istekao</span>{{end}}</td><td class="mono">{{.Otisak}}</td></tr>{{end}}
+  <div class="table-responsive"><table class="data-table pot-tablica"><thead><tr><th>Osoba</th><th>Funkcija</th><th>Sektor</th><th>Stanje računa</th><th>Izdao</th><th>Vrijedi do</th><th>Otisak</th></tr></thead><tbody>
+  {{range .Kljucevi}}<tr><td>{{if .UserID}}<a href="/users/{{.UserID}}">{{.Ime}}</a>{{else}}{{.Ime}}{{end}}</td><td>{{.Funkcija}}</td><td>{{.Sektor}}</td><td>{{if eq .Racun "aktivan"}}<span class="rac-cip dobro">aktivan</span>{{else if .Racun}}<span class="rac-cip pozor">{{.Racun}}</span>{{else}}—{{end}}</td><td>{{.Izdao}}</td><td>{{formatDate (localTime .Do)}}{{if .Istekao}} <span class="rac-cip pozor">istekao</span>{{end}}</td><td class="mono">{{.Otisak}}</td></tr>{{end}}
   </tbody></table></div>
+  <p class="form-help">Kad osoba ode, isključite joj prijavu na kartonu; poništavanje lozinke uklanja i ključ.</p>
   {{else}}<p class="form-help">Nitko još nije napravio ključ; svatko ga pravi sam u svom profilu.</p>{{end}}
   <p class="form-help">Privatni ključevi nisu ovdje ni igdje u čitljivom obliku: zaključani su lozinkom osobe. Administrator ključ ne može ni napraviti ni upotrijebiti umjesto osobe.</p>
+</section>
+
+<section class="adm-kartica" id="ovjeritelji" aria-labelledby="pot-ovjeritelji">
+  <h2 id="pot-ovjeritelji">Tko smije ovjeriti akte sektora</h2>
+  <p class="form-help">Ovjeravaju rukovoditelji obrane i njihovi zamjenici, po aktivnim zaduženjima. Globalni administrator smije uvijek. Mijenja se u zaduženjima osobe.</p>
+  {{range .Ovjeritelji}}
+  <h3 class="obrazac-podnaslov">{{.Sektor}}</h3>
+  {{if .Redovi}}
+  <div class="table-responsive"><table class="data-table pot-tablica"><thead><tr><th>Osoba</th><th>Zaduženje</th><th>Ovjerava</th></tr></thead><tbody>
+  {{range .Redovi}}<tr><td><a href="/users/{{.UserID}}">{{.Ime}}</a></td><td>{{.Uloga}}</td><td>{{.Doseg}}</td></tr>{{end}}
+  </tbody></table></div>
+  {{else}}<p class="form-help">Nitko u sektoru nema zaduženje koje daje ovjeru; akte zasad ovjerava samo globalni administrator.</p>{{end}}
+  {{end}}
 </section>
 </div>
 {{end}}
