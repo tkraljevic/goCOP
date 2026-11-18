@@ -21,7 +21,7 @@ func TestOdzivUSkoljci(t *testing.T) {
 // zauzet dok stranica stoji.
 func TestOdzivPreuzimanjaBezNastavka(t *testing.T) {
 	for datoteka, trazi := range map[string]string{
-		"templates/baza.html":        `action="/administracija/baza/izvoz" class="form-page d-flex gap-2 items-end flex-wrap" data-preuzimanje`,
+		"templates/baza.html":        `action="/administracija/baza/izvoz" class="baz-obrazac" data-preuzimanje`,
 		"templates/posta_pismo.html": `href="/posta/privitak?id={{.ID | urlquery}}" data-preuzimanje`,
 	} {
 		b, err := fs.ReadFile(web.Files, datoteka)

@@ -6,67 +6,61 @@
 {{define "sidroPomoci"}}#admin-baza{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/administracija">Administracija</a> › Održavanje baze</div>
-
+{{/* Održavanje baze po crtežu 18b · 4 (goCOP-m3): pločice, Datoteka baze s
+     postavkama iz gocop.toml, Knjiga verzija s hrvatskim imenima vrsta
+     (preseljena s Ovog računala i mreže) i sažimanjem, Pohrana, Paket
+     kanala s izdavanjem i ugradnjom jedno uz drugo te kanalima u
+     sklopivom retku. Obrasci i adrese su isti. „Što zauzima prostor” i
+     pregled paketa prije ugradnje su novo ponašanje i čekaju odluku. */}}
+<div class="adm-stranica">
+<a class="adm-natrag" href="/administracija">{{icon "arrow-left"}} Administracija</a>
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{icon "history"}} Održavanje baze</h1>
-    <p class="page-desc">
-      Koliko je baza velika i od čega, sažimanje knjige verzija, povrat prostora na disku, koliko se čuvaju
-      fotografije s terena, te izvoz i uvoz kanala u datoteku. Sažimanje briše samo staru povijest izmjena, a povrat prostora vraća oslobođeni prostor
-      na disku. Ni jedno ni drugo ne dira zadnje stanje zapisa. Ugradnja paketa i obnova iz knjige zapise osvježavaju.
-    </p>
+    <h1 class="page-title" data-naziv-stranice>Održavanje baze</h1>
+    <p class="page-desc">Veličina i sastav baze ovog računala, sažimanje knjige verzija, povrat prostora na disku, rok čuvanja fotografija s terena i prijenos kanala paketom. Ni sažimanje ni povrat prostora ne diraju zadnje stanje zapisa; ugradnja paketa i obnova iz knjige zapise osvježavaju.</p>
+    <span class="adm-doseg" title="Dio vrijedi samo na ovom računalu, a dio na svim računalima u mreži.">R+M · dio ovdje, dio u mreži</span>
   </div>
 </div>
 
 {{template "trakaPonovnogPokretanja" .Postavke}}
 
-<div class="reg-card p-4">
-  <dl class="reg-facts">
-    <div><dt>Datoteka baze</dt><dd class="mono wrap-anywhere">{{.DBPath}}</dd></div>
-    <div><dt>Na disku</dt><dd>{{humanBytes .SizeBytes}}{{if .WALBytes}} + WAL {{humanBytes .WALBytes}}{{end}}</dd></div>
-    <div><dt>Verzija u knjizi</dt><dd>{{.Stats.Versions}}</dd></div>
-    <div><dt>Zapisa</dt><dd>{{.Stats.Records}}</dd></div>
-    <div><dt>Spomenika</dt><dd>{{.Stats.Tombstones}}</dd></div>
-    <div><dt>Najstarija verzija</dt><dd>{{if .Stats.Oldest}}{{.Stats.Oldest.Format "02.01.2006"}}{{else}}—{{end}}</dd></div>
-    <div><dt>Očitanja</dt><dd>{{.Readings}}</dd></div>
-    <div><dt>Dnevnika</dt><dd>{{.Journals}}</dd></div>
-    <div><dt>Sesija</dt><dd>{{.Sessions}}</dd></div>
-  </dl>
-  {{if .Stats.ByEntity}}
-  <div class="reading-meta mt-2">Po vrsti: {{range $k, $v := .Stats.ByEntity}}<span class="reg-chip">{{$k}} {{$v}}</span> {{end}}</div>
-  {{end}}
+<div class="baz-plocice">
+  <div class="baz-plocica"><span class="n">{{humanBytes .SizeBytes}}</span><span class="l">baza na disku</span></div>
+  <div class="baz-plocica"><span class="n">{{.Stats.Versions}}</span><span class="l">verzija u knjizi</span></div>
+  <div class="baz-plocica"><span class="n">{{.Stats.Records}}</span><span class="l">zapisa</span></div>
+  <div class="baz-plocica"><span class="n">{{if .Stats.Oldest}}{{.Stats.Oldest.Format "2. 1. 2006."}}{{else}}—{{end}}</span><span class="l">najstarija verzija</span></div>
 </div>
 
-{{with .Postavke}}
-<section class="detail-section">
-  <h2>{{icon "file-text"}} Postavke ovog čvora (gocop.toml)</h2>
-  <p class="page-desc">Gdje su baza, arhiva i mape s datotekama, i gdje je sama datoteka postavki.</p>
-  {{template "postavkeCvora" (.Dio "baza")}}
-</section>
-{{end}}
-
-<section class="detail-section">
-  <h2>{{icon "trash"}} Sažimanje knjige</h2>
-  <p class="page-desc">
-    Svaki zapis zadržava svoju zadnju verziju, a obrisani zapisi svoj nadgrobni spomenik, da ih zakašnjeli čvor
-    ne vrati. Starije verzije istog zapisa služe samo povijesti izmjena; sažimanje ih briše kad su starije od
-    zadanog roka. Akt zadržava i zadnju verziju svake svoje ovjere, da ovjera ne nestane kad je poslije nje stigao
-    nacrt s drugog čvora. Razmjena s drugim čvorovima to ne osjeti.
-    Iznimka je dnevni list vodočuvara koji su pisala dva čvora: on se slaže iz svih svojih verzija (predan list
-    ima prednost, bilješke rukovoditelja ostaju), pa se prije sažimanja upisuje kao nova verzija kakav vrijedi.
-    List koji je predan na dva čvora ne sažima se: oba potpisa ostaju u knjizi.
-  </p>
-  <form method="GET" action="/administracija/baza" class="form-page d-flex gap-2 items-end flex-wrap">
-    <div class="form-group m-0">
-      <label class="form-label" for="days">Ostavi povijest zadnjih (dana)</label>
-      <input type="text" inputmode="numeric" id="days" name="days" class="form-control max-w-8" value="{{.KeepDays}}">
-    </div>
-    <button type="submit" class="btn btn-secondary">Preračunaj</button>
-  </form>
-  <p class="mt-3 mb-3">Uz rok od <b>{{.KeepDays}}</b> dana sažimanje bi obrisalo <b>{{.Compactable}}</b> {{uzBroj .Compactable "verziju" "verzije" "verzija"}}.{{if .BrisanjePovijesti}} Prekidač <em>Brisanje povijesti verzija</em> je uključen: rok 0 briše svu povijest odmah. <em>Obriši spomenike</em> briše spomenik samo kad obrisani zapis u knjizi više nema nijednu stariju verziju, inače bi se zapis vratio pri idućem pokretanju; zato najprije sažmite knjigu.{{else}} Prekidač <em>Brisanje povijesti verzija</em> u <a href="/administracija/opcije">Opcijama</a> otključava rok 0 i brisanje spomenika. Uključuje se samo pri čišćenju testnog čvora.{{end}}</p>
+<section class="adm-kartica" aria-labelledby="baz-datoteka">
+  <h2 id="baz-datoteka">Datoteka baze <span class="rac-doseg" title="Vrijedi samo na ovom računalu i ne ide razmjenom.">R</span></h2>
+  <dl class="baz-cinjenice">
+    <dt>Datoteka baze</dt><dd class="mono">{{.DBPath}}</dd>
+    <dt>Na disku</dt><dd>{{humanBytes .SizeBytes}}{{if .WALBytes}} + WAL {{humanBytes .WALBytes}}{{end}}</dd>
+    <dt>U bazi</dt><dd>{{.Readings}} {{uzBroj .Readings "očitanje" "očitanja" "očitanja"}} · {{.Journals}} {{uzBroj .Journals "dnevnik" "dnevnika" "dnevnika"}} · {{.Sessions}} {{uzBroj .Sessions "sesija" "sesije" "sesija"}} · {{.Spomenika}} {{uzBroj .Spomenika "spomenik" "spomenika" "spomenika"}}</dd>
+  </dl>
+  {{with .Postavke}}{{template "postavkeCvora" (.Dio "baza")}}{{end}}
   {{if .Permissions.IsGlobalAdmin}}
-  <div class="d-flex gap-2 flex-wrap">
+  <div class="adm-dno">
+    <p class="form-help">Obrisani redci oslobađaju prostor unutar datoteke; ovo ga vraća disku.</p>
+    <form method="POST" action="/administracija/baza/vacuum" onsubmit="return confirm('Sažeti datoteku na disku? Traje ovisno o veličini, program za to vrijeme radi sporije.')">
+      <button type="submit" class="btn btn-link">Vrati prostor na disku (VACUUM)</button>
+    </form>
+  </div>
+  {{end}}
+</section>
+
+<section class="adm-kartica" aria-labelledby="baz-knjiga">
+  <h2 id="baz-knjiga">Knjiga verzija <span class="rac-doseg" title="Vrijedi samo na ovom računalu i ne ide razmjenom.">R</span></h2>
+  <p class="form-help">Svaka izmjena je nova verzija iznad prethodne; to se razmjenjuje. Svaki zapis zadržava svoju zadnju verziju, a obrisani zapisi svoj spomenik, da ih zakašnjelo računalo ne vrati. Sažimanje briše samo stariju povijest izmjena. Akt zadržava i zadnju verziju svake svoje ovjere. Dnevni list vodočuvara koji su pisala dva računala prije sažimanja se upisuje kao nova verzija kakav vrijedi, a list predan na dva računala se ne sažima.</p>
+  {{with .VrsteUKnjizi}}<ul class="baz-vrste">{{range .}}<li><span>{{.Naziv}}</span><span class="broj">{{.Broj}}</span></li>{{end}}</ul>{{end}}
+  <form method="GET" action="/administracija/baza" class="baz-rok">
+    <div class="form-group list-polje">{{icon "history"}}<label class="form-label" for="days">Ostavi povijest zadnjih (dana)</label><input type="text" inputmode="numeric" id="days" name="days" class="form-control" value="{{.KeepDays}}"></div>
+    <button type="submit" class="btn btn-link">Preračunaj</button>
+  </form>
+  <p class="baz-recenica">Uz rok od <b>{{.KeepDays}}</b> dana sažimanje bi obrisalo <b>{{.Compactable}}</b> {{uzBroj .Compactable "verziju" "verzije" "verzija"}}.{{if .BrisanjePovijesti}} Prekidač <em>Brisanje povijesti verzija</em> je uključen: rok 0 briše svu povijest odmah. <em>Obriši spomenike</em> briše spomenik samo kad obrisani zapis u knjizi više nema nijednu stariju verziju, inače bi se zapis vratio pri idućem pokretanju; zato najprije sažmite knjigu.{{else}} Prekidač <em>Brisanje povijesti verzija</em> u <a href="/administracija/opcije">Opcijama</a> otključava rok 0 i brisanje spomenika. Uključuje se samo pri čišćenju testnog čvora.{{end}}</p>
+  {{if .Permissions.IsGlobalAdmin}}
+  <div class="adm-dno">
+    <p class="form-help">Obnova iz knjige ponovno upisuje zadnje stanje svakog zapisa. Treba samo kad ugradnja paketa ili arhive javi „površina nije osvježena”.</p>
     <form method="POST" action="/administracija/baza/sazmi" onsubmit="return confirm('Obrisati {{.Compactable}} {{uzBroj .Compactable "stariju verziju" "starije verzije" "starijih verzija"}}? Zadnje verzije i spomenici ostaju; povijest izmjena starija od {{.KeepDays}} dana nestaje s ovog čvora.')">
       <input type="hidden" name="days" value="{{.KeepDays}}">
       <button type="submit" class="btn btn-primary" {{if not .Compactable}}disabled{{end}}>{{icon "trash"}} Sažmi knjigu</button>
@@ -76,9 +70,6 @@
       <button type="submit" class="btn btn-secondary btn-opasno" {{if not .Spomenika}}disabled{{end}}>{{icon "trash"}} Obriši spomenike ({{.Spomenika}})</button>
     </form>
     {{end}}
-    <form method="POST" action="/administracija/baza/vacuum" onsubmit="return confirm('Sažeti datoteku na disku? Traje ovisno o veličini, program za to vrijeme radi sporije.')">
-      <button type="submit" class="btn btn-secondary">{{icon "refresh-cw"}} Vrati prostor na disku (VACUUM)</button>
-    </form>
     <form method="POST" action="/administracija/baza/obnovi" onsubmit="return confirm('Ponovno upisati zadnje stanje svih zapisa iz knjige verzija? To može potrajati.')">
       <button type="submit" class="btn btn-secondary">{{icon "history"}} Obnovi zapise iz knjige</button>
     </form>
@@ -89,19 +80,12 @@
     {{end}}
   </div>
   {{if .Neispravnih}}<div class="form-help">Neispravnih zapisa u knjizi: {{.Neispravnih}}. Razmjena ih danas ne bi primila, npr. zbog vremena iz budućnosti. Razmjena ih ne šalje dalje; brisanje ih makne iz knjige i obnovi zapise. Briše samo globalni administrator, s ovog računala ili iz lokalne mreže.</div>{{end}}
-  <div class="form-help">Obrisani redci oslobađaju prostor unutar datoteke; VACUUM ga vraća operacijskom sustavu.</div>
-  <div class="form-help">Obnova iz knjige ponovno upisuje zadnje stanje svakog zapisa iz knjige verzija. Treba samo kad ugradnja paketa ili arhive javi „površina nije osvježena”.</div>
   {{end}}
 </section>
 
-<section class="detail-section" id="pohrana">
-  <h2>{{icon "layers"}} Pohrana</h2>
-  <p class="page-desc">
-    Uz prijavu s terena vodočuvar prilaže fotografije. Program ih odmah smanji (najdulja stranica 1 000 px, JPEG) i pri
-    objavi ugradi u potpisani PDF, koji ostaje trajno i putuje među čvorovima. Izvorne smanjene slike ostaju na čvoru
-    još onoliko dana koliko je zadano niže, za pregled na stranici, a zatim se brišu. Ovo vrijedi na svim čvorovima, a promjena ostaje
-    u knjizi verzija.
-  </p>
+<section class="adm-kartica" id="pohrana" aria-labelledby="baz-pohrana">
+  <h2 id="baz-pohrana">Pohrana <span class="rac-doseg" title="Vrijedi na svim računalima u mreži; promjena ide razmjenom.">M</span></h2>
+  <p class="form-help">Fotografije s terena program odmah smanji (najdulja stranica 1 000 px, JPEG) i pri objavi ugradi u potpisani PDF prijave, koji ostaje trajno i putuje među računalima. Izvorne smanjene slike ostaju na računalu onoliko dana koliko je zadano niže, za pregled na stranici, a zatim se brišu. Vrijedi na svim računalima, a promjena ostaje u knjizi verzija.</p>
   {{if .Permissions.IsGlobalAdmin}}
   <form method="POST" action="/administracija/baza/pohrana" class="form-page">
     <div class="form-group">
@@ -124,16 +108,14 @@
   {{end}}
 </section>
 
-<section class="detail-section">
-  <h2>{{icon "download"}} Izdanje kanala kao .cop paket</h2>
-  <p class="page-desc">
-    Godina jednog područja izda se kao potpisan <span class="mono">.cop</span> paket: arhiva na disku, prijenos
-    štapićem na računalo bez mreže, ili prostor na laptopu. Paket nosi verzije kanala (dnevnike s dnevnim
-    izvješćima, prijave, očitanja), popis sadržaja po otisku i, po izboru, same PDF-ove. Isti sadržaj daje isto
-    izdanje i isti otisak; potpisuje ga ključ ovog čvora, a primatelj traži da je izdavač član mreže.
-  </p>
-  {{if .Channels}}
-  <form method="GET" action="/administracija/baza/izvoz" class="form-page d-flex gap-2 items-end flex-wrap" data-preuzimanje>
+<section class="adm-kartica" aria-labelledby="baz-paket">
+  <h2 id="baz-paket">Paket kanala <span class="rac-doseg" title="Vrijedi samo na ovom računalu i ne ide razmjenom.">R</span></h2>
+  <p class="form-help">Kanal je jedna vrsta podataka jednog područja i godine. Paket <span class="mono">.cop</span> je potpisan ključem ovog računala; isti sadržaj daje isti otisak, a primatelj traži da je izdavač član mreže. Služi za arhivu na disku, prijenos štapićem na računalo bez mreže ili za prostor na laptopu.</p>
+  <div class="baz-paketi">
+    <section class="upar-ploca" aria-labelledby="baz-izdaj">
+      <h3 id="baz-izdaj">Izdaj paket</h3>
+      {{if .Channels}}
+  <form method="GET" action="/administracija/baza/izvoz" class="baz-obrazac" data-preuzimanje>
     <div class="form-group m-0">
       <label class="form-label" for="kind">Što</label>
       <select id="kind" name="kind" class="form-control">
@@ -162,8 +144,25 @@
     <button type="submit" class="btn btn-primary">{{icon "download"}} Izdaj .cop</button>
     <button type="submit" name="oblik" value="db" class="btn btn-secondary" title="Stara SQLite arhiva bez potpisa i sadržaja">Stari oblik (.db)</button>
   </form>
-  <div class="form-help">Upišite područje, godinu ili oboje. Bez područja izdaju se sva područja te godine, a bez godine sve godine tog područja.</div>
-  <div class="table-card mt-3"><div class="table-responsive">
+      <p class="form-help">Upišite područje, godinu ili oboje. Bez područja izdaju se sva područja te godine, a bez godine sve godine tog područja. Stari oblik je SQLite arhiva bez potpisa i sadržaja.</p>
+      {{else}}<p class="form-help">Ovo računalo još ne drži nijedan kanal očitanja, dnevnika ni prijava.</p>{{end}}
+    </section>
+    <section class="upar-ploca" aria-labelledby="baz-ugradi">
+      <h3 id="baz-ugradi">Ugradi paket</h3>
+      <p class="form-help"><span class="mono">.cop</span> paket s računala iste mreže ili stara <span class="mono">.db</span> arhiva. Radi kao razmjena: dodaju se samo verzije kojih ovdje nema, ništa se ne briše. Starije izdanje istog izdavača se odbija, a ponovljena ugradnja iste datoteke ne mijenja ništa. Stara <span class="mono">.db</span> arhiva nema potpis, pa se uvozi samo kad je računalo u mreži, i to samo s ovog računala ili iz lokalne mreže. Računalo koje još nije u mreži ugrađuje samo vlastite <span class="mono">.cop</span> pakete, isto samo s ovog računala ili iz lokalne mreže.</p>
+  <form method="POST" action="/administracija/baza/uvoz" enctype="multipart/form-data" class="baz-obrazac">
+    <div class="form-group m-0">
+      <label class="form-label" for="archive">Datoteka (.cop ili .db)</label>
+      <input type="file" id="archive" name="archive" class="form-control" accept=".cop,.db,.sqlite,application/octet-stream,application/vnd.sqlite3" required>
+    </div>
+    <button type="submit" class="btn btn-primary">{{icon "download"}} Ugradi</button>
+  </form>
+    </section>
+  </div>
+  {{if .Channels}}
+  <details class="uv-terminal">
+    <summary>{{icon "table"}}<span><span class="uv-terminal-naslov">Kanali na ovom računalu</span><span class="uv-napomena">vrsta, područje, godina, verzija i pretplata</span></span><span class="rac-broj">{{len .Channels}}</span>{{icon "chevron-right"}}</summary>
+    <div class="table-responsive">
     <table class="data-table">
       <thead><tr><th>Vrsta</th><th>BP</th><th>Godina</th><th>Verzija</th><th>Pretplata</th></tr></thead>
       <tbody>
@@ -171,34 +170,14 @@
       <tr>
         <td>{{if eq .Kind "ocitanja"}}Očitanja{{else if eq .Kind "dnevnici"}}Dnevnici{{else if eq .Kind "prijave"}}Prijave{{else if eq .Kind "vodocuvarski"}}Vodočuvarski dnevnik{{else}}{{.Kind}}{{end}}</td>
         <td class="mono">{{.AreaID}}</td><td class="mono">{{.Year}}</td><td class="mono">{{.Versions}}</td>
-        <td>{{if .Wanted}}<span class="badge badge-active">prati se</span>{{else}}<span class="badge badge-inactive">ne prati se</span>{{end}}</td>
+        <td>{{if .Wanted}}<span class="rac-cip dobro">prati se</span>{{else}}<span class="rac-cip">ne prati se</span>{{end}}</td>
       </tr>
       {{end}}
       </tbody>
     </table>
-  </div></div>
-  {{else}}
-  <div class="reg-empty">Ovaj čvor još ne drži nijedan kanal očitanja, dnevnika ni prijava.</div>
+    </div>
+  </details>
   {{end}}
 </section>
-
-<section class="detail-section">
-  <h2>{{icon "file-text"}} Ugradnja paketa</h2>
-  <p class="page-desc">
-    <span class="mono">.cop</span> paket s računala iste mreže ili stara <span class="mono">.db</span> arhiva. Ugradnja radi
-    kao razmjena: provjere otiska i potpisa, pa verzije koje ovaj čvor nema uđu u knjigu, zapisi se osvježe iz
-    najnovijih, uključeni sadržaj u spremište, ostali na popis za dohvat. Starije izdanje istog izdavača se odbija;
-    ponovljena ugradnja iste datoteke ne mijenja ništa. Stara <span class="mono">.db</span> arhiva nema potpis, pa
-    se uvozi samo kad je računalo u mreži, i to samo s ovog računala ili iz lokalne mreže. Računalo koje još
-    nije u mreži ugrađuje samo vlastite <span class="mono">.cop</span> pakete, i to samo s ovog računala ili iz
-    lokalne mreže.
-  </p>
-  <form method="POST" action="/administracija/baza/uvoz" enctype="multipart/form-data" class="form-page d-flex gap-2 items-end flex-wrap">
-    <div class="form-group m-0">
-      <label class="form-label" for="archive">Datoteka (.cop ili .db)</label>
-      <input type="file" id="archive" name="archive" class="form-control" accept=".cop,.db,.sqlite,application/octet-stream,application/vnd.sqlite3" required>
-    </div>
-    <button type="submit" class="btn btn-primary">{{icon "download"}} Ugradi</button>
-  </form>
-</section>
+</div>
 {{end}}

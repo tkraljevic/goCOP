@@ -11015,3 +11015,33 @@ td .odr-sitno { margin-top: 2px; }
 .adm-kartica .uv-terminal { background: var(--md-sys-color-surface); }
 .adm-kartica select.form-control { appearance: auto; }
 .adm-kartica > h2 { display: flex; align-items: center; gap: 8px; }
+
+/* Održavanje baze po crtežu 18b · 4 */
+.baz-plocice { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.baz-plocica { display: flex; flex-direction: column; padding: 10px 12px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px; background: var(--md-sys-color-surface-container-low); }
+.baz-plocica .n { font-size: 1.25rem; line-height: 28px; color: var(--md-sys-color-on-surface); }
+.baz-plocica .l { font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); }
+.baz-cinjenice { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; margin: 0; font-size: 0.875rem; }
+.baz-cinjenice dt { font-size: 0.8125rem; color: var(--md-sys-color-on-surface-variant); }
+.baz-cinjenice dd { margin: 0; overflow-wrap: anywhere; }
+.baz-vrste { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.baz-vrste li { display: flex; justify-content: space-between; gap: 8px; padding: 8px 12px; border-radius: 8px; background: var(--md-sys-color-surface); font-size: 0.875rem; }
+.baz-vrste .broj { font-variant-numeric: tabular-nums; }
+.baz-rok { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 0; }
+.baz-rok .list-polje { flex: 0 1 280px; margin: 0; }
+.baz-recenica { margin: 0; font-size: 0.8125rem; line-height: 18px; color: var(--md-sys-color-on-surface); }
+.adm-dno form { margin: 0; }
+.baz-paketi { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+.baz-obrazac { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin: 0; }
+.baz-obrazac .form-group { flex: 1 1 140px; margin: 0; }
+.baz-obrazac .form-control { width: 100%; max-width: none; border: 1px solid var(--md-sys-color-outline); border-radius: 4px; background: var(--md-sys-color-surface); }
+.baz-obrazac .form-label { font-size: 0.75rem; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--md-sys-color-on-surface-variant); }
+#pohrana .form-page { padding: 0; border: 0; background: none; box-shadow: none; }
+.uv-terminal .rac-broj { margin-left: 0; }
+@media (max-width: 1099px) {
+  .baz-vrste { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .baz-paketi { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 599px) {
+  .baz-plocice, .baz-vrste { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
