@@ -40,6 +40,8 @@ type RoleRow struct {
 	Label   string
 	Modules map[string]bool
 	Custom  bool // administrator je promijenio zadano
+	// Zadano su zadani moduli uloge, odvojeni zarezom (gumb „Vrati zadano”)
+	Zadano string
 }
 
 // RoleMatrix vraća stvarna pravila za sve uloge koje obrazac nudi
@@ -50,7 +52,7 @@ func (s *ModuleService) RoleMatrix(ctx context.Context, roles []models.Role) ([]
 	}
 	var out []RoleRow
 	for _, r := range roles {
-		row := RoleRow{Role: r, Label: r.Label(), Modules: map[string]bool{}}
+		row := RoleRow{Role: r, Label: r.Label(), Modules: map[string]bool{}, Zadano: models.JoinModules(models.DefaultModules(r))}
 		mods, ok := rules[string(r)]
 		if !ok {
 			mods = models.DefaultModules(r)
@@ -78,6 +80,12 @@ func (s *ModuleService) SetRoleRule(ctx context.Context, perms *models.UserPermi
 // UserOverride vraća iznimku računa (nil kad je nema)
 func (s *ModuleService) UserOverride(ctx context.Context, userID string) (*models.UserModules, error) {
 	return s.repo.UserOverride(ctx, userID)
+}
+
+// IznimkeRacuna su sve iznimke računa s imenom osobe, po imenu (kartica na
+// stranici Vidljivost modula)
+func (s *ModuleService) IznimkeRacuna(ctx context.Context) ([]repository.IznimkaRacuna, error) {
+	return s.repo.IznimkeRacuna(ctx)
 }
 
 // SetUserOverride sprema iznimku računa; smije samo globalni administrator
