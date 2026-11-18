@@ -1614,6 +1614,7 @@ func (s *Server) setupRoutes() {
 		return repository.NewHidroViewRepository(s.db)
 	}, func() []byte { return s.hidroviewKljuc }, s.stationService, s.templates["administracija_telemetrija.html"])
 	telemetrijaH.preuzima = func() bool { return s.peersService == nil || s.peersService.TrenutneUloge().Preuzima }
+	telemetrijaH.stanje = s.stanjePreuzimanja
 	s.mux.Handle("GET /administracija/telemetrija", s.samoAdmin(http.HandlerFunc(telemetrijaH.Prikazi)))
 	telemetrijaH.sustavi = func() *repository.RacuniSustavaRepository {
 		if s.db == nil {
@@ -2143,6 +2144,15 @@ func (s *Server) SetPotpis(p *service.PotpisService) { s.potpis = p }
 // SetVodocuvar daje poslužitelju servis vodočuvarskog dnevnika i registar organizacije
 func (s *Server) SetVodocuvar(v *service.VodocuvarService, org *repository.OrgRepository) {
 	s.vodocuvar, s.orgRepo = v, org
+}
+
+// stanjePreuzimanja je zadnje preuzimanje letve s izvora (Telemetrija ›
+// Zadnji dohvat); laž kad uvoznika nema ili letva nije preuzimana
+func (s *Server) stanjePreuzimanja(stationID string) (javnivodostaji.StanjeLetve, bool) {
+	if s.javni == nil {
+		return javnivodostaji.StanjeLetve{}, false
+	}
+	return s.javni.Stanje(stationID)
 }
 
 // SetJavniUvoz daje poslužitelju uvoznika javnih vodostaja

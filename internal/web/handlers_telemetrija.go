@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"gocop/internal/hidroview"
+	"gocop/internal/javnivodostaji"
 	"gocop/internal/mletva"
 	"gocop/internal/models"
 	"gocop/internal/posta"
@@ -36,6 +37,9 @@ type TelemetrijaHandler struct {
 	preuzima func() bool
 	// hvAdresa zamjenjuje adresu HydroViewa samo u testovima (lažni sustav)
 	hvAdresa string
+	// stanje je zadnje preuzimanje letve (stupac Zadnji dohvat); nil dok se
+	// uvoznik ne spoji
+	stanje func(stationID string) (javnivodostaji.StanjeLetve, bool)
 }
 
 // adresaHV je adresa HydroViewa na kojoj se prijava provjerava i uz koju se
@@ -60,6 +64,10 @@ type LetvaTelemetrije struct {
 	Uvoz     bool
 	Svoj     bool // ima svoj račun, ne čvorov
 	Korisnik string
+	// Dohvat je zadnje preuzimanje od pokretanja programa; DohvatZnan je laž
+	// kad letva od pokretanja nije preuzimana (Odluke (18. 11. 2026.))
+	Dohvat     javnivodostaji.StanjeLetve
+	DohvatZnan bool
 }
 
 // TelemetrijaPageData je ono što stranica prikazuje.
@@ -129,6 +137,9 @@ func (h *TelemetrijaHandler) letve(ctx context.Context, repo *repository.HidroVi
 			continue
 		}
 		l := LetvaTelemetrije{ID: st.ID.String(), Naziv: st.Name, Uvoz: st.JavniUvoz}
+		if h.stanje != nil {
+			l.Dohvat, l.DohvatZnan = h.stanje(l.ID)
+		}
 		if repo != nil {
 			if r, err := repo.Racun(ctx, st.Code); err == nil && r != nil && r.Letva == st.Code {
 				l.Svoj, l.Korisnik = true, r.Korisnik
