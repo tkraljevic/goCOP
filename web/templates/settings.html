@@ -50,11 +50,12 @@
     {{/* isključivanje uloge traži potvrdu (Odluke (30. 10. 2026.), 13); uključivanje ne */}}
     <form method="POST" action="/settings/uloge" data-potvrda-uloga
           onsubmit="var p=this.elements.preuzima, i=this.elements.izdaje, x=[]; if (p.defaultChecked && !p.checked) x.push('Preuzima vodostaje s izvora'); if (i.defaultChecked && !i.checked) x.push('Izdaje prognozu'); return !x.length || confirm('Isključiti ulogu ovog čvora (' + x.join(', ') + ')? Ako je u mreži nema nijedan drugi čvor, vodostaji ili prognoza neće se obnavljati.')">
-      <label class="uloga-red"><input type="checkbox" name="preuzima" value="1"{{if .Uloge.Preuzima}} checked{{end}}{{if not .Permissions.IsGlobalAdmin}} disabled{{end}}>
-        <span><b>Preuzima vodostaje s izvora</b><br><span class="muted">svaki sat; računi za HydroView i mobilnu stranicu Hrvatskih voda trebaju samo ovdje</span></span></label>
-      <label class="uloga-red"><input type="checkbox" name="izdaje" value="1"{{if .Uloge.Izdaje}} checked{{end}}{{if not .Permissions.IsGlobalAdmin}} disabled{{end}}>
+      <label class="uloga-red"><input type="checkbox" name="preuzima" value="1"{{if .Uloge.Preuzima}} checked{{end}}{{if or (not .Permissions.IsGlobalAdmin) .Izvana}} disabled{{end}}>
+        <span><b>Preuzima vodostaje s izvora</b><br><span class="muted">svaki sat{{with .Postavke.Vrijednost "vodostaji.minuta_preuzimanja"}}, u {{.}}. minuti{{end}}; računi za HydroView i mobilnu stranicu Hrvatskih voda trebaju samo ovdje</span></span></label>
+      <label class="uloga-red"><input type="checkbox" name="izdaje" value="1"{{if .Uloge.Izdaje}} checked{{end}}{{if or (not .Permissions.IsGlobalAdmin) .Izvana}} disabled{{end}}>
         <span><b>Izdaje prognozu</b><br><span class="muted">tuđe prognoze, kiša, izračun i priprema modela; izdanje i model idu razmjenom</span></span></label>
-      {{if .Permissions.IsGlobalAdmin}}<div class="actions" style="margin-top:0.6rem;"><button type="submit" class="btn btn-primary">Spremi uloge</button></div>{{end}}
+      {{if and .Permissions.IsGlobalAdmin .Izvana}}<p class="rac-napomena" id="uloge-izvana">Uloge ovog računala mijenjaju se samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.</p>
+      {{else if .Permissions.IsGlobalAdmin}}<div class="actions" style="margin-top:0.6rem;"><button type="submit" class="btn btn-primary">Spremi uloge</button></div>{{end}}
     </form>
     {{if not (or .Uloge.Preuzima .Uloge.Izdaje)}}<p class="rac-napomena">Ovo računalo sve prima razmjenom. Ako u mreži nijedno računalo nema ove uloge, vodostaji i prognoza neće se obnavljati.</p>{{end}}
   </div>
@@ -90,6 +91,15 @@
     </div>
     {{end}}{{end}}
     {{if .Permissions.IsGlobalAdmin}}
+    <div class="adresa-prijave" id="adresa-prijave">
+      <h3>Adresa za prijavu izvana</h3>
+      {{with .AdresePrijaveIzvana}}
+      <p class="desc">Na ovoj adresi djelatnici otvaraju goCOP izvan lokalne mreže; to je https adresa tunela.</p>
+      {{range .}}<div class="peer-meta"><a class="mono" href="{{.URL}}" rel="noopener">{{.URL}}</a> <span class="muted">· {{.Racunalo}}</span></div>{{end}}
+      {{else}}
+      <p class="desc">Nijedno računalo nema https adresu tunela, pa se izvana ne može prijaviti. Dodajte je ispod, kao „https://domena”.</p>
+      {{end}}
+    </div>
     <div class="actions mt-3">
       <select id="addr-node" class="form-control" style="max-width:220px;">
         <option value="{{.NodeID}}">{{.Self.Name}} (ovo računalo)</option>
