@@ -11050,3 +11050,46 @@ td .odr-sitno { margin-top: 2px; }
 @media (max-width: 1099px) {
   .tel-racuni { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Unos u arhivu po crtežu 18c · 3: pregled na vrhu s plavim rubom, pet
+   čipova „Što unosite” (radio, ploča se bira s :has), ostalo u karticama */
+.uni-stablo { flex-direction: column; align-items: flex-start; }
+.uni-stablo p { margin: 0; }
+.uni-pregledi { display: flex; flex-direction: column; gap: 16px; }
+.uni-pregled { border: 2px solid var(--md-sys-color-primary); padding: 15px; }
+.uni-pregled .tel-glava h2 { overflow-wrap: anywhere; }
+.uni-dva { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+.uni-pregled .izvor-kartica { background: var(--md-sys-color-surface); }
+.uni-pregled .izvor-podnozje { justify-content: flex-end; gap: 8px; }
+.uni-cipovi { display: flex; flex-wrap: wrap; gap: 8px; }
+.uni-cipovi label { cursor: pointer; }
+.uni-cipovi input { position: absolute; opacity: 0; pointer-events: none; }
+.uni-cipovi span { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border: 1px solid var(--md-sys-color-outline); border-radius: 8px; font-size: 0.875rem; color: var(--md-sys-color-on-surface-variant); }
+.uni-cipovi input:checked + span { border-color: transparent; background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
+.uni-cipovi input:checked + span::before { content: "✓"; }
+.uni-cipovi input:focus-visible + span { outline: 2px solid var(--md-sys-color-primary); outline-offset: 2px; }
+.uni-ploca { display: flex; flex-direction: column; gap: 10px; margin: 0; }
+.uni-ploca .izvor-naziv { font-size: 0.9375rem; }
+.uni-ploca .page-desc { margin: 0; font-size: 0.8125rem; }
+.uni-unos:has(input[value="niz"]:checked) .uni-ploca:not([data-vrsta="niz"]),
+.uni-unos:has(input[value="krivulje"]:checked) .uni-ploca:not([data-vrsta="krivulje"]),
+.uni-unos:has(input[value="profili"]:checked) .uni-ploca:not([data-vrsta="profili"]),
+.uni-unos:has(input[value="izvori"]:checked) .uni-ploca:not([data-vrsta="izvori"]),
+.uni-unos:has(input[value="hidroview"]:checked) .uni-ploca:not([data-vrsta="hidroview"]) { display: none; }
+.uni-unos .izvor-napomena .form-control { border: 1px solid var(--md-sys-color-outline); border-radius: 4px; background: var(--md-sys-color-surface); }
+.uni-gradnja { background: var(--md-sys-color-surface-container-low); }
+.uni-gradnja .uvoz-dnevnik { margin: 0 12px 12px; }
+.uni-izdanja .izvor-glava, .uni-ulaganje .izvor-glava { margin: 0; }
+.uni-sirotani { border: 2px solid var(--upozorenje-tehnicko-rub); padding: 15px; }
+.uni-sirotani p { margin: 0; font-size: 0.8125rem; }
+@media (max-width: 899px) { .uni-dva { grid-template-columns: minmax(0, 1fr); } }
+.uni-pregled .part-label, .uni-unos .part-label, .uni-ulaganje .part-label, .uni-izdanja .part-label, .uni-sirotani .part-label { font-size: 0.75rem; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--md-sys-color-on-surface-variant); }
+.uni-pregled .form-control, .uni-ulaganje .form-control { border: 1px solid var(--md-sys-color-outline); border-radius: 4px; background: var(--md-sys-color-surface); }
+.uni-pregled > .izvor-kartica { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 12px; align-items: start; }
+.uni-pregled > .izvor-kartica > h2, .uni-pregled > .izvor-kartica > #zatecen-okvir, .uni-pregled > .izvor-kartica > .izvor-podnozje { grid-column: 1 / -1; }
+.uni-pregled > .izvor-kartica > .izvor-brojevi { grid-column: span 2; }
+.uni-pregled > .izvor-kartica .izvor-napomena { margin: 0; }
+@media (max-width: 899px) {
+  .uni-pregled > .izvor-kartica { grid-template-columns: minmax(0, 1fr); }
+  .uni-pregled > .izvor-kartica > .izvor-brojevi { grid-column: auto; }
+}
