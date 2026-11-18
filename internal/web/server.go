@@ -1413,6 +1413,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /posta/privitak", s.authMiddleware(http.HandlerFunc(aktiH.Privitak)))
 	s.mux.Handle("GET /administracija/posta", s.samoAdmin(http.HandlerFunc(aktiH.ShowAdminPosta)))
 	s.mux.Handle("POST /administracija/posta", s.samoAdmin(http.HandlerFunc(aktiH.HandleAdminPosta)))
+	s.mux.Handle("POST /administracija/posta/proba", s.samoAdmin(http.HandlerFunc(aktiH.HandleProbnoPismo)))
 	// račun koji s ovog čvora šalje PIN za prijavu izvana i sklopka
 	aktiH.SetDrugiKorak(func() *service.DrugiKorak { return s.drugiKorak })
 	s.mux.Handle("POST /administracija/posta/pin", s.samoAdmin(http.HandlerFunc(aktiH.HandlePINPosiljatelj)))

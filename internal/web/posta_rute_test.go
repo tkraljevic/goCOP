@@ -631,9 +631,24 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 		t.Errorf("samo vlastita adresa: %q, %s", v.Email, loc)
 	}
 
+	// probno pismo iz Administracije › E-pošta ide s vlastitog računa na
+	// vlastitu adresu (Administracija, novo ponašanje 12)
+	mux.HandleFunc("POST /administracija/posta/proba", h.HandleProbnoPismo)
+	prije := len(srv.Poruke())
+	if loc := post("/administracija/posta/proba", nil); !strings.Contains(loc, "Probno pismo poslano je na voditelj@voda.hr") {
+		t.Errorf("probno pismo: %s", loc)
+	}
+	if prim := srv.Poruke(); len(prim) != prije+1 || prim[len(prim)-1].Za != "voditelj@voda.hr" {
+		t.Errorf("probno pismo mora otići samo meni: %+v", prim[prije:])
+	}
+
 	// lozinka e-pošte briše se s ovog računala, bez brojanja upisa
 	if loc := post("/profile/posta", url.Values{"obrisi": {"1"}}); !strings.Contains(loc, "obrisana") {
 		t.Errorf("brisanje lozinke e-pošte: %s", loc)
+	}
+	// bez lozinke probno pismo ne ide, a poruka kaže zašto
+	if loc := post("/administracija/posta/proba", nil); !strings.Contains(loc, "Probno pismo nije poslano: upišite lozinku e-pošte") {
+		t.Errorf("probno pismo bez lozinke: %s", loc)
 	}
 	if n := 0; baza.QueryRow(`SELECT COUNT(*) FROM posta_racuni`).Scan(&n) != nil || n != 0 {
 		t.Errorf("lozinka e-pošte ostala: %d", n)

@@ -9,8 +9,9 @@
 {{/* E-pošta po crtežu 18d · 1 (goCOP-m3): povratak, čip dosega, kartica
      Poslužitelj e-pošte s načinom slanja kao dva čipa (Port i Šifriranje
      samo uz SMTP), istaknutom napomenom o poništavanju lozinki i gumbima
-     dolje. PIN za prijavu izvana ostaje ovdje kao zasebna kartica dok ne
-     dobije svoju stranicu (novo ponašanje). Polja i adrese su ista. */}}
+     dolje, među njima „Pošalji probno pismo meni” (Odluke (18. 11. 2026.)).
+     PIN za prijavu izvana ostaje ovdje kao zasebna kartica dok ne dobije
+     svoju stranicu (novo ponašanje). Polja i adrese su ista. */}}
 <div class="adm-stranica">
 <a class="adm-natrag" href="/administracija">{{icon "arrow-left"}} Administracija</a>
 <div class="page-header">
@@ -52,8 +53,9 @@
     <p class="form-help">Isti poslužitelj kao u postavkama e-pošte na mobitelu; prazno isključuje slanje. Exchange domenu sam objavi pri prijavi, pa goCOP kad prijava adresom ne prođe pokuša i <span class="mono">DOMENA\korisnik</span>; domenu upišite samo ako to ne radi.</p>
     <div class="dash-traka">{{icon "triangle-alert"}}<span>Drugi poslužitelj, način, port, šifriranje ili domena poništavaju spremljene lozinke e-pošte svih ljudi i račun za slanje PIN-a, pa ih treba upisati ponovno.</span></div>
     <div class="adm-dno">
-      <p class="form-help">Ispitivanje ne treba lozinku: provjeri je li poslužitelj dostupan, nudi li prijavu i koju domenu objavljuje.</p>
+      <p class="form-help">Ispitivanje ne treba lozinku: provjeri je li poslužitelj dostupan, nudi li prijavu i koju domenu objavljuje. Probno pismo ide s vašeg računa na vašu adresu, istim putem kao akti, pa treba vašu lozinku e-pošte.</p>
       <button type="submit" class="btn btn-link" name="radnja" value="ispitaj">Ispitaj poslužitelj</button>
+      <button type="submit" class="btn btn-link" formaction="/administracija/posta/proba"{{if not .Postavke.Podesena}} disabled title="Prvo upišite i spremite poslužitelj."{{end}}>{{icon "mail"}} Pošalji probno pismo meni</button>
       <button type="submit" class="btn btn-primary" onclick="return potvrdiPosluzitelj(this.form)">Spremi</button>
     </div>
   </form>
