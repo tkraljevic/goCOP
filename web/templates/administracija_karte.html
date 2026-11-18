@@ -6,41 +6,53 @@
 {{define "sidroPomoci"}}#admin-karte{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/administracija">Administracija</a> › Karte</div>
-
+{{/* Karte po crtežu 18d · 5 (goCOP-m3): Objekti na karti s vlastitim
+     ikonama uz tablicu, Podloge s običnom kartom ovog računala kao prvim
+     retkom, Karta bez interneta s učitavanjem u sklopivom retku. Polja
+     kartica Objekti i Podloge pripadaju jednom obrascu (karte-obrazac)
+     atributom form, pa se obrasci ikona i postavki računala ne gnijezde u
+     njemu. Imena polja i adrese su ista. */}}
+<div class="adm-stranica">
+<a class="adm-natrag" href="/administracija">{{icon "arrow-left"}} Administracija</a>
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{icon "map"}} Karte</h1>
-    <p class="page-desc">Kako se objekti crtaju na kartama i koje se podloge uz običnu kartu mogu upaliti. Vrijedi na svim čvorovima; mijenja samo globalni administrator, a promjena ostaje u knjizi verzija.</p>
+    <h1 class="page-title" data-naziv-stranice>Karte</h1>
+    <p class="page-desc">Kako se objekti crtaju na kartama, koje se podloge mogu upaliti i karta koja radi bez interneta. Boje, ikone i podloge vrijede na svim računalima; mijenja ih samo globalni administrator, a promjena ostaje u knjizi verzija.</p>
+    <span class="adm-doseg" title="Dio vrijedi samo na ovom računalu, a dio na svim računalima u mreži.">R+M · dio ovdje, dio u mreži</span>
   </div>
+  <div class="page-actions"><a href="/karta" class="btn btn-link">Otvori Kartu</a><button type="submit" form="karte-obrazac" name="radnja" value="zadano" class="btn btn-link" formnovalidate onclick="return confirm('Vratiti zadane boje, ikone i podloge na svim računalima? Učitane ikone se brišu.')">Vrati zadano</button></div>
 </div>
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 
-<form method="POST" action="/administracija/karte">
-<section class="detail-section" style="margin-top:0;">
-  <div class="detail-section-head"><h2>{{icon "construction"}} Objekti na karti</h2></div>
-  <p class="text-muted">Boja i debljina vrijede za crtu objekta (nasip, brana), a ikona za točku (crpna stanica, ustava). Točke stacionaže na nasipu ostaju mali krugovi.</p>
-  <div class="form-row items-end">
-    <div class="form-group">
-      <span class="form-label">Točka objekta, za sve vrste</span>
-      <label class="opcija-red"><input type="radio" name="tocka" value="ikona" {{if not .SKrugom}}checked{{end}}> Samo ikona, u boji vrste s bijelim obrubom</label>
-      <label class="opcija-red"><input type="radio" name="tocka" value="krug" {{if .SKrugom}}checked{{end}}> Bijela ikona na krugu u boji vrste</label>
+<form method="POST" action="/administracija/karte" id="karte-obrazac"></form>
+{{range .Vlastite}}<form method="POST" action="/administracija/karte/ikona/obrisi" id="ikona-obrisi-{{.Ime}}" hidden onsubmit="return confirm('Maknuti ikonu „{{.Naziv}}”? Vrste koje je koriste dobit će zadanu ikonu.')"><input type="hidden" name="ime" value="{{.Ime}}"></form>{{end}}
+
+<section class="adm-kartica" id="objekti-na-karti" aria-labelledby="kar-objekti">
+  <div class="tel-glava"><h2 id="kar-objekti">{{icon "construction"}} Objekti na karti</h2><span class="rac-doseg" title="Vrijedi na svim računalima u mreži; promjena ide razmjenom.">M</span></div>
+  <p class="form-help">Boja i debljina vrijede za crtu objekta (nasip, brana), a ikona za točku (crpna stanica, ustava). Točke stacionaže na nasipu ostaju mali krugovi.</p>
+  <div class="kar-tocka">
+    <div>
+      <p class="form-label pos-oznaka" id="kar-tocka-oznaka">Točka objekta, za sve vrste</p>
+      <div class="uni-cipovi" role="radiogroup" aria-labelledby="kar-tocka-oznaka">
+        <label><input form="karte-obrazac" type="radio" name="tocka" value="ikona" {{if not .SKrugom}}checked{{end}}><span>Samo ikona</span></label>
+        <label><input form="karte-obrazac" type="radio" name="tocka" value="krug" {{if .SKrugom}}checked{{end}}><span>Ikona na krugu</span></label>
+      </div>
     </div>
-    <div class="form-group"><label for="velicina_tocke">Veličina točke</label><input type="number" id="velicina_tocke" name="velicina_tocke" value="{{.Velicina}}" min="20" max="48" class="form-control" style="width:5rem"> px</div>
+    <div class="form-group list-polje">{{icon "ruler"}}<label class="form-label" for="velicina_tocke">Veličina točke (px)</label><input form="karte-obrazac" type="number" id="velicina_tocke" name="velicina_tocke" value="{{.Velicina}}" min="20" max="48" class="form-control"></div>
   </div>
   <div class="table-wrap">
-  <table class="table karte-stilovi">
+  <table class="data-table pot-tablica karte-stilovi">
     <thead><tr><th>Vrsta</th><th>Boja</th><th>Debljina crte</th><th>Ikona točke</th><th>Izgled</th></tr></thead>
     <tbody>
     {{range .Objekti}}
       <tr data-vrsta="{{.Kind}}">
         <td>{{.Naziv}}</td>
-        <td><input type="color" name="boja_{{.Kind}}" value="{{.BojaZaBirac}}" aria-label="Boja: {{.Naziv}}"></td>
-        <td><input type="number" name="debljina_{{.Kind}}" value="{{.Debljina}}" min="1" max="12" class="form-control" style="width:5rem" aria-label="Debljina crte: {{.Naziv}}"> px</td>
+        <td><input form="karte-obrazac" type="color" name="boja_{{.Kind}}" value="{{.BojaZaBirac}}" aria-label="Boja: {{.Naziv}}"></td>
+        <td><input form="karte-obrazac" type="number" name="debljina_{{.Kind}}" value="{{.Debljina}}" min="1" max="12" class="form-control kar-debljina" aria-label="Debljina crte: {{.Naziv}}"> px</td>
         <td>
-          <select name="ikona_{{.Kind}}" class="form-control" aria-label="Ikona točke: {{.Naziv}}">
+          <select form="karte-obrazac" name="ikona_{{.Kind}}" class="form-control" aria-label="Ikona točke: {{.Naziv}}">
             {{$izabrana := .Ikona}}{{range $.Ikone}}<option value="{{.Ime}}" {{if eq .Ime $izabrana}}selected{{end}}>{{.Naziv}}</option>{{end}}
           </select>
         </td>
@@ -50,54 +62,62 @@
     </tbody>
   </table>
   </div>
+  <div class="kar-ikone">
+    <span class="uv-opis">Vlastite ikone</span>
+    {{range .Vlastite}}<span class="kar-ikona"><span class="karte-izgled-tocka" style="background:{{$.Glavna}}"><svg class="icon" aria-hidden="true"><use href="{{$.AdresaSvojih}}#{{.Ime}}"/></svg></span>{{.Naziv}}<button type="submit" form="ikona-obrisi-{{.Ime}}" class="kar-ikona-makni" aria-label="Makni ikonu {{.Naziv}}">×</button></span>{{else}}<span class="form-help">nema ih</span>{{end}}
+  </div>
+  <details class="uv-terminal" id="ikone">
+    <summary>{{icon "upload"}}<span><span class="uv-terminal-naslov">Učitaj ikonu</span><span class="uv-napomena">SVG s crtama i oblicima na mreži 24 × 24; na karti je bijela na krugu. Ikona istog naziva zamjenjuje staru.</span></span>{{icon "chevron-right"}}</summary>
+    <p class="form-help">Program iz datoteke zadrži samo crte i oblike, a boje zamijeni bijelom. Učitavanje ponovno otvara stranicu, pa se nespremljene izmjene u tablici gube: prvo spremite.</p>
+    <form method="POST" action="/administracija/karte/ikona" enctype="multipart/form-data" class="baz-obrazac">
+      <div class="form-group list-polje">{{icon "pencil"}}<label class="form-label" for="ikona_naziv">Naziv ikone</label><input type="text" id="ikona_naziv" name="naziv" maxlength="40" required class="form-control" placeholder="Crpka velika"></div>
+      <div class="form-group list-polje">{{icon "upload"}}<label class="form-label" for="ikona_datoteka">SVG datoteka</label><input type="file" id="ikona_datoteka" name="datoteka" accept=".svg,image/svg+xml" required class="form-control"></div>
+      <button type="submit" class="btn btn-link">Učitaj ikonu</button>
+    </form>
+  </details>
+  <div class="adm-dno"><button type="submit" form="karte-obrazac" class="btn btn-primary">Spremi</button></div>
 </section>
 
-<section class="detail-section">
-  <div class="detail-section-head"><h2>{{icon "layers"}} Podloge</h2></div>
-  <p class="text-muted">Na karti se podloga bira gumbom sa slojevima, dolje desno. Prva je uvijek obična karta, a ostale vrijede na svim čvorovima.</p>
-  <fieldset class="karte-podloga">
-    <legend>Karta (OpenStreetMap), samo ovaj čvor</legend>
-    <p class="text-muted">Izvor obične karte je postavka ovog čvora u gocop.toml, jer laptop bez interneta može čitati pločice spremljene na disku (<code>/karta/{z}/{x}/{y}.png</code>).{{if .Postavke}} Sprema se zasebnim gumbom u odjeljku <a href="#obicna-karta">Obična karta ovog čvora</a>, a vrijedi nakon ponovnog pokretanja čvora.{{end}}</p>
-    {{with .Postavke}}{{template "trakaPonovnogPokretanja" .}}{{else}}<p class="text-muted">Postavke ovog čvora ovdje nisu dostupne.</p>{{end}}
-  </fieldset>
-  <p class="text-muted">Adresa pločica ima <code>{z}</code>, <code>{x}</code> i <code>{y}</code>, a ključ se u nju upisuje kao <code>{kljuc}</code>, npr. <code>https://…/tile/{z}/{y}/{x}?token={kljuc}</code>. Ključ vide svi prijavljeni korisnici, jer ga preglednik šalje uz svaku pločicu. Zato upišite ključ koji smije samo čitati podloge.</p>
+<section class="adm-kartica" aria-labelledby="kar-podloge">
+  <div class="tel-glava"><h2 id="kar-podloge">{{icon "layers"}} Podloge</h2><span class="rac-doseg" title="Obična karta vrijedi samo na ovom računalu, ostale podloge na svim računalima.">R+M</span></div>
+  <p class="form-help">Na karti se podloga bira gumbom sa slojevima, dolje desno. Prva je uvijek obična karta, a ostale vrijede na svim računalima.</p>
+  <div class="kar-obicna" id="obicna-karta">
+    <p class="uv-opis">Obična karta (OpenStreetMap) <span class="rac-doseg" title="Vrijedi samo na ovom računalu i ne ide razmjenom.">R · ovo računalo</span></p>
+    <p class="form-help">Izvor obične karte je postavka ovog računala u gocop.toml, jer laptop bez interneta može čitati pločice spremljene na disku (<code>/karta/{z}/{x}/{y}.png</code>). Vrijedi samo ovdje, i to nakon ponovnog pokretanja.</p>
+    {{with .Postavke}}{{template "trakaPonovnogPokretanja" .}}{{template "postavkeCvora" (.Dio "karte")}}{{else}}<p class="form-help">Postavke ovog računala ovdje nisu dostupne.</p>{{end}}
+  </div>
+  <p class="form-help">Adresa pločica ima <code>{z}</code>, <code>{x}</code> i <code>{y}</code>, a ključ se u nju upisuje kao <code>{kljuc}</code>, npr. <code>https://…/tile/{z}/{y}/{x}?token={kljuc}</code>. Ključ vide svi prijavljeni korisnici, jer ga preglednik šalje uz svaku pločicu. Zato upišite ključ koji smije samo čitati podloge.</p>
   {{range $i, $p := .Podloge}}
   <fieldset class="karte-podloga" {{if not (or $p.Naziv $p.URL)}}hidden data-nova{{end}}>
     <legend>{{if $p.Naziv}}{{$p.Naziv}}{{else}}Nova podloga{{end}}</legend>
-    <button type="button" class="btn btn-sm btn-secondary karte-ukloni">{{icon "trash"}} Ukloni podlogu</button>
+    <button type="button" class="btn btn-link btn-sm tel-brisi karte-ukloni">Ukloni podlogu</button>
     <div class="form-row">
-      <div class="form-group"><label for="podloga_{{$i}}_naziv">Naziv</label><input type="text" id="podloga_{{$i}}_naziv" name="podloga_{{$i}}_naziv" value="{{$p.Naziv}}" maxlength="40" class="form-control" placeholder="Satelit"></div>
+      <div class="form-group"><label for="podloga_{{$i}}_naziv">Naziv</label><input form="karte-obrazac" type="text" id="podloga_{{$i}}_naziv" name="podloga_{{$i}}_naziv" value="{{$p.Naziv}}" maxlength="40" class="form-control" placeholder="Satelit"></div>
       <div class="form-group"><label for="podloga_{{$i}}_vrsta">Vrsta</label>
-        <select id="podloga_{{$i}}_vrsta" name="podloga_{{$i}}_vrsta" class="form-control">
+        <select form="karte-obrazac" id="podloga_{{$i}}_vrsta" name="podloga_{{$i}}_vrsta" class="form-control">
           <option value="xyz" {{if eq $p.Vrsta "xyz"}}selected{{end}}>Pločice (XYZ)</option>
           <option value="wms" {{if eq $p.Vrsta "wms"}}selected{{end}}>WMS</option>
         </select></div>
-      <div class="form-group"><label for="podloga_{{$i}}_najvise_z">Najveće približavanje</label><input type="number" id="podloga_{{$i}}_najvise_z" name="podloga_{{$i}}_najvise_z" value="{{if $p.NajviseZ}}{{$p.NajviseZ}}{{end}}" min="1" max="22" class="form-control" placeholder="19"></div>
+      <div class="form-group"><label for="podloga_{{$i}}_najvise_z">Najveće približavanje</label><input form="karte-obrazac" type="number" id="podloga_{{$i}}_najvise_z" name="podloga_{{$i}}_najvise_z" value="{{if $p.NajviseZ}}{{$p.NajviseZ}}{{end}}" min="1" max="22" class="form-control" placeholder="19"></div>
     </div>
-    <div class="form-group"><label for="podloga_{{$i}}_url">Adresa</label><input type="text" id="podloga_{{$i}}_url" name="podloga_{{$i}}_url" value="{{$p.URL}}" class="form-control" spellcheck="false" placeholder="https://…/{z}/{x}/{y}"></div>
+    <div class="form-group"><label for="podloga_{{$i}}_url">Adresa</label><input form="karte-obrazac" type="text" id="podloga_{{$i}}_url" name="podloga_{{$i}}_url" value="{{$p.URL}}" class="form-control" spellcheck="false" placeholder="https://…/{z}/{x}/{y}"></div>
     <div class="form-row">
-      <div class="form-group"><label for="podloga_{{$i}}_slojevi">Slojevi (samo WMS)</label><input type="text" id="podloga_{{$i}}_slojevi" name="podloga_{{$i}}_slojevi" value="{{$p.Slojevi}}" class="form-control" spellcheck="false"></div>
-      <div class="form-group"><label for="podloga_{{$i}}_kljuc">Ključ</label><input type="text" id="podloga_{{$i}}_kljuc" name="podloga_{{$i}}_kljuc" value="{{$p.Kljuc}}" class="form-control" spellcheck="false" autocomplete="off"></div>
+      <div class="form-group"><label for="podloga_{{$i}}_slojevi">Slojevi (samo WMS)</label><input form="karte-obrazac" type="text" id="podloga_{{$i}}_slojevi" name="podloga_{{$i}}_slojevi" value="{{$p.Slojevi}}" class="form-control" spellcheck="false"></div>
+      <div class="form-group"><label for="podloga_{{$i}}_kljuc">Ključ</label><input form="karte-obrazac" type="text" id="podloga_{{$i}}_kljuc" name="podloga_{{$i}}_kljuc" value="{{$p.Kljuc}}" class="form-control" spellcheck="false" autocomplete="off"></div>
     </div>
-    <div class="form-group"><label for="podloga_{{$i}}_zasluge">Natpis o podrijetlu</label><input type="text" id="podloga_{{$i}}_zasluge" name="podloga_{{$i}}_zasluge" value="{{$p.Zasluge}}" class="form-control" placeholder="Kako davatelj traži, npr. Satelit: Esri, Maxar"></div>
+    <div class="form-group"><label for="podloga_{{$i}}_zasluge">Natpis o podrijetlu</label><input form="karte-obrazac" type="text" id="podloga_{{$i}}_zasluge" name="podloga_{{$i}}_zasluge" value="{{$p.Zasluge}}" class="form-control" placeholder="Kako davatelj traži, npr. Satelit: Esri, Maxar"></div>
   </fieldset>
   {{end}}
-  <button type="button" class="btn btn-secondary" id="karte-dodaj">{{icon "plus"}} Dodaj podlogu</button>
-  <span class="text-muted" id="karte-dosta" hidden>Uz običnu kartu može biti najviše 8 podloga.</span>
+  <button type="button" class="btn btn-link" id="karte-dodaj">Dodaj podlogu</button>
+  <span class="form-help" id="karte-dosta" hidden>Uz običnu kartu može biti najviše 8 podloga.</span>
   <p class="text-muted mt-2">Uklonjena ili dodana podloga sprema se tek gumbom Spremi.</p>
 </section>
 
-<div class="d-flex gap-2 mt-3">
-  <button type="submit" class="btn btn-primary">{{icon "check"}} Spremi</button>
-  <button type="submit" name="radnja" value="zadano" class="btn btn-secondary" formnovalidate onclick="return confirm('Vratiti zadane boje, ikone i podloge na svim čvorovima? Učitane ikone se brišu.')">Vrati zadano</button>
-</div>
-</form>
-
-<section class="detail-section" id="karta-bez-interneta">
-  <div class="detail-section-head"><h2>{{icon "download"}} Karta bez interneta</h2></div>
-  <p class="text-muted">Vektorska karta (OpenStreetMap) koju čvor drži na svom disku, pa radi i kad nema interneta. Na karti se bira kao podloga „Karta bez interneta”. Učitajte izvezenu kartu (<code>.pmtiles</code>, npr. iz Protomapsa) na jednom računalu, a ostala računala dobit će je sama razmjenom, dio po dio. Dok traje obrana, karta stiže i šalje se samo s računalima u istoj lokalnoj mreži (ista kuća ili ured). Računalu sa starijim programom učitajte njezin <code>.cop</code> paket; računalo koje još nije u mreži kartu dobije razmjenom kad uđe u mrežu.</p>
+<section class="adm-kartica" id="karta-bez-interneta" aria-labelledby="kar-bez">
+  <div class="tel-glava"><h2 id="kar-bez">{{icon "download"}} Karta bez interneta</h2><span class="rac-doseg" title="Opis karte putuje razmjenom; datoteka je na svakom računalu posebno.">M</span></div>
+  <p class="form-help">Vektorska karta (OpenStreetMap) koju čvor drži na svom disku, pa radi i kad nema interneta. Na karti se bira kao podloga „Karta bez interneta”. Učitajte izvezenu kartu (<code>.pmtiles</code>, npr. iz Protomapsa) na jednom računalu, a ostala računala dobit će je sama razmjenom, dio po dio. Dok traje obrana, karta stiže i šalje se samo s računalima u istoj lokalnoj mreži (ista kuća ili ured). Računalu sa starijim programom učitajte njezin <code>.cop</code> paket; računalo koje još nije u mreži kartu dobije razmjenom kad uđe u mrežu.</p>
   {{with .Vektorska}}
-  <table class="table" style="max-width:40rem">
+  <table class="data-table pot-tablica kar-bez-tablica">
     <tr><th>Karta</th><td>{{.Naziv}}</td></tr>
     {{if .Izvor}}<tr><th>Izvor</th><td>{{.Izvor}}</td></tr>{{end}}
     <tr><th>Područje</th><td>{{printf "%.2f" (index .Obuhvat 0)}}° do {{printf "%.2f" (index .Obuhvat 2)}}° E, {{printf "%.2f" (index .Obuhvat 1)}}° do {{printf "%.2f" (index .Obuhvat 3)}}° N, do povećanja {{.NajviseZ}}</td></tr>
@@ -113,7 +133,9 @@
     </form>{{end}}
   </div>
   {{end}}
-  <form method="POST" action="/administracija/karte/vektorska" enctype="multipart/form-data" class="mt-3">
+  <details class="uv-terminal">
+  <summary>{{icon "upload"}}<span><span class="uv-terminal-naslov">Učitaj novu kartu</span><span class="uv-napomena">naziv, izvor i datoteka .pmtiles ili paket karte .cop</span></span>{{icon "chevron-right"}}</summary>
+  <form method="POST" action="/administracija/karte/vektorska" enctype="multipart/form-data" class="kar-ucitaj">
     <div class="form-row">
       <div class="form-group"><label for="karta_naziv">Naziv karte</label><input type="text" id="karta_naziv" name="naziv" maxlength="40" class="form-control" placeholder="Sektor B"></div>
       <div class="form-group"><label for="karta_izvor">Izvor</label><input type="text" id="karta_izvor" name="izvor" maxlength="120" class="form-control" placeholder="OpenStreetMap (Protomaps, 27. 10. 2026.)"></div>
@@ -122,41 +144,11 @@
       <div class="form-group"><label for="karta_datoteka">Karta ili paket karte</label><input type="file" id="karta_datoteka" name="datoteka" accept=".pmtiles,.cop" required class="form-control"></div>
       <div class="form-group"><button type="submit" class="btn btn-primary">{{icon "upload"}} Učitaj kartu</button></div>
     </div>
-    <p class="text-muted">Naziv i izvor upisuju se samo uz <code>.pmtiles</code>; paket karte ih nosi sam. Učitavanje karte od stotinjak MB traje i do minute.</p>
+    <p class="form-help">Naziv i izvor upisuju se samo uz <code>.pmtiles</code>; paket karte ih nosi sam. Učitavanje karte od stotinjak MB traje i do minute.</p>
   </form>
+  </details>
 </section>
-
-{{with .Postavke}}
-<section class="detail-section" id="obicna-karta">
-  <div class="detail-section-head"><h2>{{icon "map"}} Obična karta ovog čvora (gocop.toml)</h2></div>
-  <p class="text-muted">Odakle ovaj čvor uzima običnu kartu. Ne vrijedi na drugim čvorovima.</p>
-  {{template "postavkeCvora" (.Dio "karte")}}
-</section>
-{{end}}
-
-<section class="detail-section" id="ikone">
-  <div class="detail-section-head"><h2>{{icon "upload"}} Vlastite ikone</h2></div>
-  <p class="text-muted">Učitajte SVG ikonu, npr. nacrtanu u Inkscapeu ili preuzetu s interneta, pa je izaberite uz vrstu objekta gore. Program iz datoteke zadrži samo crte i oblike, a boje zamijeni bijelom, pa se ikona na karti crta bijelo na krugu u boji vrste. Najbolje izgleda ikona nacrtana crtama na mreži 24 × 24. Ikona učitana pod istim nazivom zamjenjuje staru.</p>
-  {{if .Vlastite}}
-  <div class="karte-vlastite">
-    {{range .Vlastite}}
-    <div class="karte-vlastita">
-      <span class="karte-izgled-tocka" style="background:{{$.Glavna}}"><svg class="icon" aria-hidden="true"><use href="{{$.AdresaSvojih}}#{{.Ime}}"/></svg></span>
-      <span>{{.Naziv}}</span>
-      <form method="POST" action="/administracija/karte/ikona/obrisi" onsubmit="return confirm('Maknuti ikonu „{{.Naziv}}”? Vrste koje je koriste dobit će zadanu ikonu.')">
-        <input type="hidden" name="ime" value="{{.Ime}}">
-        <button type="submit" class="btn btn-sm btn-secondary" aria-label="Makni ikonu {{.Naziv}}">{{icon "trash"}}</button>
-      </form>
-    </div>
-    {{end}}
-  </div>
-  {{end}}
-  <form method="POST" action="/administracija/karte/ikona" enctype="multipart/form-data" class="form-row items-end mt-2">
-    <div class="form-group"><label for="ikona_naziv">Naziv ikone</label><input type="text" id="ikona_naziv" name="naziv" maxlength="40" required class="form-control" placeholder="Crpka velika"></div>
-    <div class="form-group"><label for="ikona_datoteka">SVG datoteka</label><input type="file" id="ikona_datoteka" name="datoteka" accept=".svg,image/svg+xml" required class="form-control"></div>
-    <div class="form-group"><button type="submit" class="btn btn-secondary">{{icon "upload"}} Učitaj ikonu</button></div>
-  </form>
-</section>
+</div>
 {{end}}
 
 {{define "scripts"}}

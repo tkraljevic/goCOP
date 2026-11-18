@@ -11137,3 +11137,21 @@ td .odr-sitno { margin-top: 2px; }
 .tema-provjere { margin: 0; font-size: 0.8125rem; }
 .tema-napomena { margin: 12px 0 0; }
 @media (max-width: 1099px) { .tema-stupci { grid-template-columns: minmax(0, 1fr); } }
+
+/* Karte po crtežu 18d · 5 */
+.kar-tocka { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 24px; }
+.kar-tocka .list-polje { flex: 0 1 220px; margin: 0; }
+.kar-debljina { width: 5rem; border: 1px solid var(--md-sys-color-outline); border-radius: 4px; background: var(--md-sys-color-surface); }
+.karte-stilovi select.form-control { border: 1px solid var(--md-sys-color-outline); border-radius: 4px; background: var(--md-sys-color-surface); }
+.kar-ikone { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 8px; background: var(--md-sys-color-surface); }
+.kar-ikona { display: inline-flex; align-items: center; gap: 6px; padding: 2px 4px 2px 2px; border: 1px solid var(--md-sys-color-outline); border-radius: 8px; font-size: 0.8125rem; }
+.kar-ikona .karte-izgled-tocka { width: 20px; height: 20px; }
+.kar-ikona-makni { padding: 0 4px; border: 0; background: none; color: var(--md-sys-color-on-surface-variant); font-size: 1rem; line-height: 1; cursor: pointer; }
+.kar-obicna { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 8px; background: var(--md-sys-color-surface); }
+.kar-obicna .uv-opis { display: flex; align-items: center; gap: 8px; }
+.kar-obicna .rac-doseg { margin-left: 0; }
+.adm-kartica .karte-podloga { margin: 0; padding: 12px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 8px; background: var(--md-sys-color-surface); }
+.adm-kartica .karte-podloga .form-control { border: 1px solid var(--md-sys-color-outline); border-radius: 4px; background: var(--md-sys-color-surface); }
+.kar-bez-tablica { max-width: 44rem; }
+.kar-ucitaj { display: flex; flex-direction: column; gap: 8px; margin: 0 12px 12px; }
+.kar-ucitaj .form-control { border: 1px solid var(--md-sys-color-outline); border-radius: 4px; background: var(--md-sys-color-surface); }
