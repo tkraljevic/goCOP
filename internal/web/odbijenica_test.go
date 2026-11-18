@@ -112,3 +112,15 @@ func TestOdbijenicaBezPredloskaSamoRecenica(t *testing.T) {
 		t.Errorf("%d %q", w.Code, w.Body.String())
 	}
 }
+
+// Stranica koja se ne da iscrtati ne smije ostaviti prazan odgovor: ide
+// rečenica, i dalje s 403
+func TestOdbijenicaKadSeNeDaIscrtatiIdeRecenica(t *testing.T) {
+	pokvaren := template.Must(template.New("base.html").Parse(`{{.NemaTogPolja}}`))
+	s := &Server{templates: map[string]*template.Template{"odbijenica.html": pokvaren}}
+	w := httptest.NewRecorder()
+	s.odbij(w, zahtjevOdbijenice("/administracija/izvori", map[string]string{"Sec-Fetch-Mode": "navigate"}, nil), Odbijenica{Poruka: porukaSamoAdmin})
+	if w.Code != http.StatusForbidden || strings.TrimSpace(w.Body.String()) != porukaSamoAdmin {
+		t.Errorf("%d %q", w.Code, w.Body.String())
+	}
+}
