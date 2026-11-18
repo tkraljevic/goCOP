@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"html/template"
 	"net/http"
 	"strings"
@@ -168,4 +169,23 @@ func (h *ModulesHandler) HandleSave(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	redirectWith(w, r, "/moduli", "success", "Vidljivost modula po ulogama je spremljena.")
+}
+
+// stanjeVidljivosti broji uloge s pravilom drukčijim od zadanog i iznimke
+// računa, za karticu Vidljivost modula na ulazu u Administraciju
+func (s *Server) stanjeVidljivosti(ctx context.Context) (prilagodjenih, iznimki int, err error) {
+	if s.moduleService == nil {
+		return 0, 0, errBezBaze
+	}
+	rows, err := s.moduleService.RoleMatrix(ctx, matrixRoles())
+	if err != nil {
+		return 0, 0, err
+	}
+	for _, r := range rows {
+		if r.Custom {
+			prilagodjenih++
+		}
+	}
+	iz, err := s.moduleService.IznimkeRacuna(ctx)
+	return prilagodjenih, len(iz), err
 }

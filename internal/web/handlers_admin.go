@@ -4,6 +4,8 @@ import (
 	"context"
 	"html/template"
 	"net/http"
+	"strings"
+	"time"
 
 	"gocop/internal/models"
 	"gocop/internal/peers"
@@ -27,6 +29,8 @@ type AdminHandler struct {
 	izvori     izvoriStanja // opcije, telemetrija i e-pošta za raspored i Prve korake
 	// prijaveNove daje broj novih prijava grešaka, za karticu; nil dok se ne spoji
 	prijaveNove func(ctx context.Context) int
+	// vidljivost broji prilagođene uloge i iznimke računa; nil dok se ne spoji
+	vidljivost func(ctx context.Context) (prilagodjenih, iznimki int, err error)
 }
 
 // SetDrugiKorak spaja ulaznu stranicu s drugim korakom prijave izvana
@@ -56,6 +60,15 @@ type AdminPageData struct {
 	PrijaveNove                       int // nove prijave grešaka, za karticu
 
 	Djelatnika int // računi bez zastavice globalnog administratora
+
+	// Brojevi na karticama Sudionici, Vidljivost modula i Nazivi (Odluke
+	// (18. 11. 2026.)); upisuje ih dodajBrojeve samo za kartice koje se vide
+	Uloga, VlastitihNaziva           int
+	NaziviProcitani                  bool
+	NazivOrganizacije                string
+	NaziviSpremljeni                 time.Time
+	VidljivostProcitana              bool
+	PrilagodjenihUloga, IznimkiRacun int
 
 	// Raspored (administracija_raspored.go): ključ kartice ili skupine → vidi
 	// li je ovaj korisnik, i gdje vrijedi ono što se na kartici mijenja
@@ -105,6 +118,7 @@ func (h *AdminHandler) ShowAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 	g.razmjena = err
 	h.dodajRaspored(ctx, &data, g)
+	h.dodajBrojeve(ctx, &data)
 	if h.prijaveNove != nil && data.Vidi["prijave"] {
 		data.PrijaveNove = h.prijaveNove(ctx)
 	}
@@ -112,6 +126,40 @@ func (h *AdminHandler) ShowAdmin(w http.ResponseWriter, r *http.Request) {
 	if err := h.tmplAdmin.ExecuteTemplate(w, "administracija.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// dodajBrojeve upisuje brojeve na kartice Sudionici, Vidljivost modula i
+// Nazivi, samo za kartice koje korisnik vidi. Što se ne da pročitati, ostaje
+// bez broja.
+func (h *AdminHandler) dodajBrojeve(ctx context.Context, data *AdminPageData) {
+	if data.Vidi["sudionici"] || data.Vidi["nazivi"] {
+		if t, err := h.org.Terms(ctx); err == nil {
+			data.NaziviProcitani = true
+			data.Uloga = len(models.RoleCatalog)
+			for _, d := range models.RoleCatalog {
+				if strings.TrimSpace(t.RoleLabels[string(d.Role)]) != "" {
+					data.VlastitihNaziva++
+				}
+			}
+			data.NazivOrganizacije, data.NaziviSpremljeni = t.OrgName, t.UpdatedAt
+		}
+	}
+	if data.Vidi["moduli"] && h.vidljivost != nil {
+		if p, i, err := h.vidljivost(ctx); err == nil {
+			data.VidljivostProcitana, data.PrilagodjenihUloga, data.IznimkiRacun = true, p, i
+		}
+	}
+}
+
+// SpremljenoNazivi je datum zadnjeg spremanja Naziva, hrvatski
+func (d AdminPageData) SpremljenoNazivi() string {
+	return d.NaziviSpremljeni.In(models.Zagreb).Format("2. 1. 2006.")
+}
+
+// SetVidljivost spaja karticu Vidljivost modula s brojem prilagođenih uloga
+// i iznimaka računa
+func (h *AdminHandler) SetVidljivost(f func(context.Context) (prilagodjenih, iznimki int, err error)) {
+	h.vidljivost = f
 }
 
 // dodajUstroj broji sektore, područja i račune; vraća koja se čitanja
