@@ -357,7 +357,8 @@ async function createNetwork() {
   const name = document.getElementById('network-name').value.trim();
   if (!name) { alert('Upišite naziv mreže.'); return; }
   if (!confirm('Osnovati mrežu "' + name + '"? Ovaj čvor dobiva ključ mreže — čuvajte datoteku data/network-key.')) return;
-  try { await api('/api/network/create', {name, lozinka_racuna: lozinkaRacuna('mreza-lozinka')}); odziv.ponovno(); } catch (e) { alert(e.message); }
+  // nova mreža je prazna: nastavlja se Prvim koracima u Administraciji
+  try { await api('/api/network/create', {name, lozinka_racuna: lozinkaRacuna('mreza-lozinka')}); odziv.idi('/administracija#prvi-koraci'); } catch (e) { alert(e.message); }
 }
 
 // pogodjeniPoruka: čvorovi čije članstvo pada s opozivom ovlasti njihova primatelja
