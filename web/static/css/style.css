@@ -11193,3 +11193,7 @@ td .odr-sitno { margin-top: 2px; }
 .mod-iznimke thead th { border-top: 0; font-size: 0.75rem; font-weight: 400; color: var(--md-sys-color-on-surface-variant); }
 .mod-iznimke tbody th { font-weight: 500; }
 .mod-iznimke td:last-child { text-align: right; white-space: nowrap; }
+
+/* Brojke u opisu kartice ulaza vode na filtrirani popis; poveznica u boji
+   nove teme, ne zelena (Odluke (18. 11. 2026.)) */
+.dash-card-desc a { color: var(--md-sys-color-primary); }

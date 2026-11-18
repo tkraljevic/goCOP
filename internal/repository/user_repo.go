@@ -303,6 +303,10 @@ const StanjeBezEposte models.AccountState = "BEZ_EPOSTE"
 // se još nisu prijavili: sve osim isključenih (AccountDisabled)
 const StanjeUkljucen models.AccountState = "UKLJUCEN"
 
+// StanjeCekaLozinku je filtar računa koji pri sljedećoj prijavi moraju
+// promijeniti lozinku (kartica Djelatnici na ulazu u Administraciju)
+const StanjeCekaLozinku models.AccountState = "CEKA_LOZINKU"
+
 // ListUsers vraća korisnike, opcionalno filtrirane po sektoru, području,
 // ulozi, stanju računa (ili StanjeBezEposte) ili tekstu pretrage. Uz
 // StanjeBezEposte domena se ne provjerava; za to je ListUsersDomena.
@@ -401,6 +405,8 @@ func uvjetStanja(status models.AccountState, domena string) (string, []any) {
 		return " AND u.is_active = 1 AND u.last_login_at IS NULL", nil
 	case models.AccountActive:
 		return " AND u.is_active = 1 AND u.last_login_at IS NOT NULL", nil
+	case StanjeCekaLozinku:
+		return " AND u.must_change_password = 1", nil
 	case StanjeBezEposte:
 		// isti uvjeti kao DrugiKorak.adresaZaPIN: prazna, tuđa domena bez
 		// potvrde administratora, zajednička s drugim aktivnim računom

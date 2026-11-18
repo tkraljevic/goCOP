@@ -1079,6 +1079,7 @@ func (s *Server) setupRoutes() {
 	adminH := NewAdminHandler(s.orgService, s.userService, s.peersService, s.templates["administracija.html"], s.templates["uvozi.html"])
 	adminH.SetDrugiKorak(func() *service.DrugiKorak { return s.drugiKorak })
 	adminH.SetIzvoriStanja(s.opcijeAdministracije, s.racunTelemetrije, s.postaPodesena)
+	adminH.SetVidljivost(s.stanjeVidljivosti)
 	s.mux.Handle("GET /administracija", s.authMiddleware(http.HandlerFunc(adminH.ShowAdmin)))
 	s.rutePrijavaGresaka(adminH, usersH)
 	s.mux.Handle("GET /administracija/uvozi", s.authMiddleware(http.HandlerFunc(adminH.ShowImports)))
