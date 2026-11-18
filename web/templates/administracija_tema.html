@@ -6,13 +6,19 @@
 {{define "sidroPomoci"}}#admin-tema{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/administracija">Administracija</a> › Tema</div>
-
+{{/* Tema po crtežu 18d · 4 (goCOP-m3): dvije kartice jedna do druge, svaka
+     s tri retka boje, pregledom i provjerama čitljivosti s čipovima;
+     „Vrati zadane boje” u glavi, „Spremi temu” dolje desno. Obrazac,
+     pregled i skripta su isti. */}}
+<div class="adm-stranica">
+<a class="adm-natrag" href="/administracija">{{icon "arrow-left"}} Administracija</a>
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{icon "sun-moon"}} Tema</h1>
-    <p class="page-desc">Boje programa. Zadane su boje Hrvatskih voda: tamnoplava i zelena. Po temi se biraju tri boje, a iz njih program sam izvodi sve nijanse: prelazak mišem, svijetle podloge, rubove, značke i traku na pločama. Boje stupnjeva obrane, upozorenja DHMZ-a i slojeva karte propisane su i ne mijenjaju se ovdje. Tema vrijedi na svim čvorovima; mijenja je samo globalni administrator, a promjena ostaje u knjizi verzija.</p>
+    <h1 class="page-title" data-naziv-stranice>Tema</h1>
+    <p class="page-desc">Boje programa. Zadane su boje Hrvatskih voda: tamnoplava i zelena. Po temi se biraju tri boje, a iz njih program sam izvodi sve nijanse: prelazak mišem, svijetle podloge, rubove, značke i traku na pločama. Boje stupnjeva obrane, upozorenja DHMZ-a i slojeva karte propisane su i ne mijenjaju se ovdje. Tema vrijedi na svim računalima; mijenja je samo globalni administrator, a promjena ostaje u knjizi verzija.</p>
+    <span class="adm-doseg" title="Vrijedi na svim računalima u mreži; promjena ide razmjenom.">M · cijela mreža</span>
   </div>
+  <div class="page-actions"><button type="submit" form="tema-obrazac" name="radnja" value="zadano" class="btn btn-link" formnovalidate onclick="return confirm('Vratiti zadane boje Hrvatskih voda na svim računalima?')">Vrati zadane boje</button></div>
 </div>
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
@@ -22,7 +28,7 @@
   <div class="tema-stupci">
     {{range .Stupci}}
     {{$k := .Kljuc}}
-    <section class="form-page tema-stupac">
+    <section class="adm-kartica tema-stupac">
       <h2 class="tema-stupac-naslov">{{if eq $k "tamna"}}{{icon "moon"}}{{else}}{{icon "sun"}}{{end}} {{.Naziv}}</h2>
 
       <div class="tema-boja">
@@ -33,7 +39,7 @@
         <div class="tema-boja-unos">
           <input type="color" value="{{.Boje.Glavna}}" data-za="{{$k}}_glavna" aria-label="Glavna boja: birač">
           <input type="text" class="form-control" id="{{$k}}_glavna" name="{{$k}}_glavna" value="{{.Boje.Glavna}}" maxlength="7" spellcheck="false" autocomplete="off" pattern="#?[0-9a-fA-F]{3}([0-9a-fA-F]{3})?">
-          <button type="button" class="btn btn-secondary btn-sm" data-zadano="{{.Zadano.Glavna}}" data-polje="{{$k}}_glavna" title="Vrati {{.Zadano.Glavna}}">Zadano</button>
+          <button type="button" class="btn btn-link btn-sm" data-zadano="{{.Zadano.Glavna}}" data-polje="{{$k}}_glavna" title="Vrati {{.Zadano.Glavna}}">Zadano</button>
         </div>
       </div>
 
@@ -45,7 +51,7 @@
         <div class="tema-boja-unos">
           <input type="color" value="{{.Boje.Naglasak}}" data-za="{{$k}}_naglasak" aria-label="Naglasak: birač">
           <input type="text" class="form-control" id="{{$k}}_naglasak" name="{{$k}}_naglasak" value="{{.Boje.Naglasak}}" maxlength="7" spellcheck="false" autocomplete="off" pattern="#?[0-9a-fA-F]{3}([0-9a-fA-F]{3})?">
-          <button type="button" class="btn btn-secondary btn-sm" data-zadano="{{.Zadano.Naglasak}}" data-polje="{{$k}}_naglasak" title="Vrati {{.Zadano.Naglasak}}">Zadano</button>
+          <button type="button" class="btn btn-link btn-sm" data-zadano="{{.Zadano.Naglasak}}" data-polje="{{$k}}_naglasak" title="Vrati {{.Zadano.Naglasak}}">Zadano</button>
         </div>
       </div>
 
@@ -57,7 +63,7 @@
         <div class="tema-boja-unos">
           <input type="color" value="{{.Boje.Gumb}}" data-za="{{$k}}_gumb" aria-label="Glavni gumb: birač">
           <input type="text" class="form-control" id="{{$k}}_gumb" name="{{$k}}_gumb" value="{{.Boje.Gumb}}" maxlength="7" spellcheck="false" autocomplete="off" pattern="#?[0-9a-fA-F]{3}([0-9a-fA-F]{3})?"{{if eq $k "svijetla"}} data-prati="{{$k}}_glavna"{{end}}>
-          <button type="button" class="btn btn-secondary btn-sm" data-zadano="{{.Zadano.Gumb}}" data-polje="{{$k}}_gumb"{{if eq $k "svijetla"}} data-prati="{{$k}}_glavna" title="Kao glavna boja"{{else}} title="Vrati {{.Zadano.Gumb}}"{{end}}>Zadano</button>
+          <button type="button" class="btn btn-link btn-sm" data-zadano="{{.Zadano.Gumb}}" data-polje="{{$k}}_gumb"{{if eq $k "svijetla"}} data-prati="{{$k}}_glavna" title="Kao glavna boja"{{else}} title="Vrati {{.Zadano.Gumb}}"{{end}}>Zadano</button>
         </div>
       </div>
 
@@ -94,12 +100,12 @@
   <p class="form-help tema-napomena">Kontrast „čitljivo” je barem 4,5:1, koliko traži običan tekst. „Slabije” (od 3:1 do 4,5:1) sprema se, ali sitni tekst postaje teži za čitanje; „nečitljivo” se ne sprema.</p>
   <p class="form-help tema-greska" id="tema-greska" hidden></p>
 
-  <div class="form-actions tema-radnje">
-    <button type="submit" name="radnja" value="zadano" class="btn btn-secondary" formnovalidate onclick="return confirm('Vratiti zadane boje Hrvatskih voda na svim čvorovima?')">Vrati zadane boje</button>
-    <button type="submit" class="btn btn-primary" id="tema-spremi">{{icon "check"}} Spremi temu</button>
+  <div class="adm-dno tema-radnje">
+    <button type="submit" class="btn btn-primary" id="tema-spremi">Spremi temu</button>
   </div>
 </form>
 
+</div>
 <style id="tema-pregled-stil">{{.PregledCSS}}</style>
 
 <script>

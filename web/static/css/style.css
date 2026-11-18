@@ -11126,3 +11126,14 @@ td .odr-sitno { margin-top: 2px; }
 .obr-radno .form-control { border: 1px solid var(--md-sys-color-outline); border-radius: 4px; background: var(--md-sys-color-surface); }
 .obr-koef { max-width: 6rem; border: 1px solid var(--md-sys-color-outline); border-radius: 4px; background: var(--md-sys-color-surface); }
 .obr-par { align-items: start; }
+
+/* Tema po crtežu 18d · 4 */
+.tema-stupci { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.tema-stupac-naslov { margin: 0; font-size: 1rem; font-weight: 500; }
+.tema-stupac-naslov .icon { color: var(--md-sys-color-on-surface-variant); }
+.tema-boja-naziv { font-weight: 400; font-size: 0.875rem; color: var(--md-sys-color-on-surface); }
+.tema-boja-unos .form-control { border: 1px solid var(--md-sys-color-outline); border-radius: 4px; background: var(--md-sys-color-surface); }
+.tema-stupac .tema-pregled { margin-top: 4px; }
+.tema-provjere { margin: 0; font-size: 0.8125rem; }
+.tema-napomena { margin: 12px 0 0; }
+@media (max-width: 1099px) { .tema-stupci { grid-template-columns: minmax(0, 1fr); } }
