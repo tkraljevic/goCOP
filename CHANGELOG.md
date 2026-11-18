@@ -4,6 +4,31 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.60-alfa — 18. 11. 2026.
+
+Administracija je u novom izgledu, sa svim podstranicama. Baza i razmjena se
+ne mijenjaju, pa se računala nadograđuju kad odgovara.
+
+- **Ulaz u Administraciju.** Kartice su u skupinama, a uz svaku piše vrijedi
+  li promjena samo na ovom računalu (R), u cijeloj mreži (M) ili dijelom
+  ovdje, dijelom u mreži (R+M). Prvi koraci pokazuju koliko je gotovo.
+- **Ustroj i ljudi.** Nazivi, Sudionici obrane, Vidljivost modula (prije
+  „Moduli”) i Uvozi podataka su po crtežu. Nazivi pokazuju znak na svijetloj
+  i tamnoj podlozi i tekst prijave kako će izgledati.
+- **Ovo računalo i mreža.** Ovo računalo je u dva stupca. Stanje razmjene,
+  Što ovo računalo prati, Održavanje baze, Uparivanje i Postavljanje su po
+  crtežu. Knjiga verzija preselila je u Održavanje baze, s hrvatskim imenima
+  vrsta zapisa.
+- **Vodostaji i arhiva.** Telemetrija, Izvori arhive i Unos u arhivu su po
+  crtežu. Unos u arhivu bira vrstu unosa čipovima, a pregled je na vrhu.
+- **Akti i izgled.** E-pošta, Elektronički potpisi, Obračun sati, Tema,
+  Karte i Opcije su po crtežu. Blagdani u Obračunu sati pišu dan u tjednu i
+  imaju „Uredi”. Probna simulacija u Opcijama je ispod upisa tuđim očima i
+  može se uključiti tek kad je on uključen.
+- **Sitnice.** Tekstovi Teme, Karata i Opcija kažu da ih mijenja globalni
+  administrator. „Makni kartu” se nudi samo na računalu na kojem je karta
+  učitana.
+
 ## 0.0.59-alfa — 17. 11. 2026.
 
 Sredstva su u novom izgledu i roba koja se premješta sad je na putu dok je
