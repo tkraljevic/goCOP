@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -105,6 +106,50 @@ func TestPreuzimanjeSJavneStraniceKrozRute(t *testing.T) {
 	zovi(http.MethodPost, putanja+"/javni")
 	if popis, _ = readingRepo.List(ctx, repository.ReadingFilter{StationID: st.ID.String()}); len(popis) != 2 {
 		t.Errorf("ponovljeno preuzimanje udvostručilo očitanja: %d", len(popis))
+	}
+
+	// „Provjeri sada” s Telemetrije vraća se onamo, s imenom letve; druga
+	// vrijednost polja natrag ne vodi nikamo drugdje
+	for natrag, zeli := range map[string]string{"telemetrija": "/administracija/telemetrija?success=Batina%3A+Preuzeto", "https://zlo.primjer": putanja + "?success="} {
+		r := httptest.NewRequest(http.MethodPost, putanja+"/javni", strings.NewReader("natrag="+natrag))
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		c := context.WithValue(context.WithValue(r.Context(), contextKeyUser, admin), contextKeyPerms, perms)
+		w = httptest.NewRecorder()
+		mux.ServeHTTP(w, r.WithContext(c))
+		if !strings.HasPrefix(w.Header().Get("Location"), zeli) {
+			t.Errorf("natrag %q: %s", natrag, w.Header().Get("Location"))
+		}
+	}
+
+	// Telemetrija: stupac Zadnji dohvat čita isto stanje preuzimanja
+	if _, ima := (&Server{}).stanjePreuzimanja(st.ID.String()); ima {
+		t.Error("bez uvoznika nema stanja preuzimanja")
+	}
+	if stanje, ima := (&Server{javni: uvoznik}).stanjePreuzimanja(st.ID.String()); !ima || stanje.Kad.IsZero() {
+		t.Error("stanje preuzimanja Batine nije pročitano")
+	}
+	tel := &TelemetrijaHandler{postaje: stations, stanje: uvoznik.Stanje}
+	hv := &models.Station{ID: uuid.New(), Code: "hv-letva", Name: "Radarska", JavniURL: "https://hdv.voda.hr/postaja/1"}
+	if err := stationRepo.CreateStation(ctx, hv); err != nil {
+		t.Fatal(err)
+	}
+	letve := tel.letve(ctx, nil)
+	if len(letve) != 1 || letve[0].Naziv != "Radarska" || letve[0].DohvatZnan {
+		t.Errorf("letve telemetrije: %+v", letve)
+	}
+	var b strings.Builder
+	d := TelemetrijaPageData{CurrentUser: admin, Permissions: perms, Letve: []LetvaTelemetrije{
+		{ID: "a", Naziv: "Radarska", Uvoz: true, DohvatZnan: true, Dohvat: javnivodostaji.StanjeLetve{Kad: time.Now(), Novih: 3}},
+		{ID: "b", Naziv: "Tlačna", DohvatZnan: true, Dohvat: javnivodostaji.StanjeLetve{Kad: time.Now(), Greska: "prijava odbijena"}},
+		{ID: "c", Naziv: "Nova"},
+	}}
+	if err := tmpl("administracija_telemetrija.html").ExecuteTemplate(&b, "base.html", d); err != nil {
+		t.Fatal(err)
+	}
+	for _, mora := range []string{"novih 3", "nije uspjelo</span> <span class=\"muted\">prijava odbijena", "nije preuzimana od pokretanja programa", `action="/readings/station/a/javni"`, `name="natrag" value="telemetrija"`} {
+		if !strings.Contains(b.String(), mora) {
+			t.Errorf("Telemetrija nema %q", mora)
+		}
 	}
 }
 

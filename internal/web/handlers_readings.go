@@ -108,7 +108,7 @@ func (h *ReadingsHandler) HandlePreuzmiJavno(w http.ResponseWriter, r *http.Requ
 		http.NotFound(w, r)
 		return
 	}
-	back := "/readings/station/" + station.ID.String()
+	back, letva := natragPreuzimanja(r, station)
 	_, perms := h.base(r)
 	if !h.readingService.CanRecordStation(perms, station) {
 		redirectWith(w, r, back, "error", "Nemate pravo upisivati očitanja na "+station.Name)
@@ -123,10 +123,20 @@ func (h *ReadingsHandler) HandlePreuzmiJavno(w http.ResponseWriter, r *http.Requ
 	}
 	s := u.Preuzmi(r.Context(), station)
 	if s.Greska != "" {
-		redirectWith(w, r, back, "error", "Preuzimanje s javne stranice nije uspjelo: "+s.Greska)
+		redirectWith(w, r, back, "error", letva+"Preuzimanje s javne stranice nije uspjelo: "+s.Greska)
 		return
 	}
-	redirectWith(w, r, back, "success", porukaPreuzimanja(s))
+	redirectWith(w, r, back, "success", letva+porukaPreuzimanja(s))
+}
+
+// natragPreuzimanja je kamo se vraća ručno preuzimanje i čime počinje
+// poruka: na stranicu letve, a s „Provjeri sada” na stranici Telemetrija
+// onamo, s imenom letve. Drugu vrijednost polja natrag ne poštuje.
+func natragPreuzimanja(r *http.Request, station *models.Station) (back, letva string) {
+	if r.FormValue("natrag") == "telemetrija" {
+		return "/administracija/telemetrija", station.Name + ": "
+	}
+	return "/readings/station/" + station.ID.String(), ""
 }
 
 // porukaPreuzimanja javlja ishod preuzimanja jedne letve; odbačene
