@@ -188,7 +188,7 @@ func (s *Service) dodajUKnjizi(ctx context.Context, ima map[string]bool, dio []l
 	if err != nil {
 		return err
 	}
-	defer rows.Close() //nolint:errcheck // samo čitanje
+	defer func() { _ = rows.Close() }() // samo čitanje
 	for rows.Next() {
 		var id string
 		if rows.Scan(&id) == nil {

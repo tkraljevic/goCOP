@@ -167,7 +167,11 @@ func TestOcistiStarePakete(t *testing.T) {
 		if err := os.WriteFile(p, []byte("x"), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		t.Cleanup(func() { _ = os.Remove(p) }) // samo testne datoteke
+		t.Cleanup(func() {
+			if err := os.Remove(p); err != nil && !os.IsNotExist(err) {
+				t.Error(err)
+			}
+		})
 	}
 	davno := time.Now().Add(-48 * time.Hour)
 	if err := os.Chtimes(star, davno, davno); err != nil {
