@@ -32,7 +32,7 @@ func TestUnosUArhivuOdjeljciZaAdministratora(t *testing.T) {
 		return iscrtaj(t, "uvoz_niza.html", d)
 	}
 	samoAdmin := []string{"Izdanja arhive", "/administracija/izdavanje", "Očitanja iz programa", "/administracija/ulaganje",
-		"/administracija/uvoz-niza/makni-niz", `<div class="breadcrumb"><a href="/administracija">`}
+		"/administracija/uvoz-niza/makni-niz", `<a class="adm-natrag" href="/administracija">`}
 	ana := stranica(false)
 	for _, s := range samoAdmin {
 		if strings.Contains(ana, s) {
@@ -281,7 +281,7 @@ func TestUnosUArhivuSKarticeLetve(t *testing.T) {
 	if d.Odabrana == nil || d.Odabrana.Kod != "primjerovo" || d.ActiveNav != "stations" {
 		t.Fatalf("Ana s kartice: %+v, izbornik %q", d.Odabrana, d.ActiveNav)
 	}
-	for _, s := range []string{`<a href="/stations/1">Primjerovo na Primjerici</a> › Unos u arhivu`, `value="primjerovo"`} {
+	for _, s := range []string{`<a class="adm-natrag" href="/stations/1">`, "Primjerovo na Primjerici</a>", `value="primjerovo"`} {
 		if !strings.Contains(html, s) {
 			t.Errorf("Ana s kartice: nema %q", s)
 		}
