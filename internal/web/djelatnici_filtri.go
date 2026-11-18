@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"gocop/internal/models"
+	"gocop/internal/repository"
 )
 
 // Filtri popisa djelatnika kao čipovi s izbornikom (crtež 20, 1): čip piše
@@ -71,6 +72,7 @@ var stanjaRacuna = []struct{ Vrijednost, Naziv string }{
 	{string(models.AccountPending), "Nije se prijavio"},
 	{string(models.AccountDisabled), "Isključen"},
 	{"BEZ_EPOSTE", "Bez adrese za PIN"},
+	{string(repository.StanjeCekaLozinku), "Čeka promjenu lozinke"},
 }
 
 // cipoviDjelatnika su čipovi Sektor, Branjeno područje, Uloga i Stanje računa

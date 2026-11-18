@@ -266,7 +266,7 @@ func TestPrviKoraciDokUstrojNijeGotov(t *testing.T) {
 	}
 	posta = true
 	html = o.prikazi(t, administrator, nil)
-	if !strings.Contains(html, "1 račun čeka promjenu lozinke") || !strings.Contains(html, "1 je isključen") {
+	if !strings.Contains(html, `>1 račun čeka</a> promjenu lozinke`) || !strings.Contains(html, `>1 je isključen</a>`) {
 		t.Error("kartica Djelatnici ne broji račune koji čekaju lozinku i isključene")
 	}
 	if strings.Contains(html, `id="prvi-koraci"`) {

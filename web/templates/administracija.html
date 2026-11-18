@@ -7,8 +7,8 @@
      redak bez opisa), čip dosega R / M / R+M i stanja u glavi kartice.
      Prvi koraci su kartica s trakom napretka (18a · 1a). Upozorenja su
      trake u boji tehničkog upozorenja s radnjom desno. Kartica PIN-a,
-     brojevi na Sudionicima, Vidljivosti i Nazivima su novo ponašanje i
-     čekaju izvedbu (plan-administracija-dizajn). Traka o uključenim testnim
+     brojevi na Sudionicima, Vidljivosti i Nazivima i brojke Djelatnika kao
+     poveznice na popis su po Odlukama (18. 11. 2026.). Traka o uključenim testnim
      opcijama je na vrhu, s poveznicom na Opcije. */}}
 {{define "content"}}
 <div class="dash-ulaz">
@@ -86,8 +86,8 @@
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">Djelatnici</h2>
-        <p class="dash-card-desc">{{if .Locked}}{{.Locked}} {{uzBroj .Locked "račun čeka" "računa čekaju" "računa čeka"}} promjenu lozinke pri prvoj prijavi.{{else}}Nijedan račun ne čeka promjenu lozinke.{{end}}
-          {{if .Inactive}} {{.Inactive}} {{uzBroj .Inactive "je isključen" "su isključena" "je isključeno"}}.{{end}}
+        <p class="dash-card-desc">{{if .Locked}}<a href="/users?status=CEKA_LOZINKU">{{.Locked}} {{uzBroj .Locked "račun čeka" "računa čekaju" "računa čeka"}}</a> promjenu lozinke pri prvoj prijavi.{{else}}Nijedan račun ne čeka promjenu lozinke.{{end}}
+          {{if .Inactive}} <a href="/users?status=DISABLED">{{.Inactive}} {{uzBroj .Inactive "je isključen" "su isključena" "je isključeno"}}</a>.{{end}}
           Lozinku poništavate na stranici osobe.</p>
       </div>
       <div class="dash-card-footer"><a href="/users" class="btn btn-link dash-btn">Otvori<span class="sr-only"> Djelatnike</span>{{icon "arrow-right"}}{{icon "chevron-right"}}</a></div>
@@ -106,7 +106,7 @@
     {{if .Vidi.sudionici}}<div class="dash-card">
       <div class="dash-card-header">
         <div class="dash-card-icon-box">{{icon "shield"}}</div>
-        <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.sudionici}}</div>
+        <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.sudionici}}{{if .NaziviProcitani}} <span class="dash-cip" id="cip-sudionici">{{.Uloga}} uloga · {{if .VlastitihNaziva}}{{.VlastitihNaziva}} {{uzBroj .VlastitihNaziva "vlastiti naziv" "vlastita naziva" "vlastitih naziva"}}{{else}}bez vlastitih naziva{{end}}</span>{{end}}</div>
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">Sudionici obrane</h2>
@@ -117,7 +117,7 @@
     {{if .Vidi.moduli}}<div class="dash-card">
       <div class="dash-card-header">
         <div class="dash-card-icon-box">{{icon "eye"}}</div>
-        <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.moduli}}</div>
+        <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.moduli}}{{if .VidljivostProcitana}} <span class="dash-cip" id="cip-vidljivost">{{if .PrilagodjenihUloga}}{{.PrilagodjenihUloga}} {{uzBroj .PrilagodjenihUloga "prilagođena uloga" "prilagođene uloge" "prilagođenih uloga"}}{{else}}sve uloge zadano{{end}} · {{if .IznimkiRacun}}{{.IznimkiRacun}} {{uzBroj .IznimkiRacun "iznimka računa" "iznimke računa" "iznimki računa"}}{{else}}bez iznimki{{end}}</span>{{end}}</div>
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">Vidljivost modula</h2>
@@ -128,7 +128,7 @@
     {{if .Vidi.nazivi}}<div class="dash-card">
       <div class="dash-card-header">
         <div class="dash-card-icon-box">{{icon "pencil"}}</div>
-        <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.nazivi}}</div>
+        <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.nazivi}}{{if .NaziviProcitani}} <span class="dash-cip" id="cip-nazivi">{{if .NaziviSpremljeni.IsZero}}nije spremljeno{{else}}{{with .NazivOrganizacije}}{{.}} · {{end}}spremljeno {{.SpremljenoNazivi}}{{end}}</span>{{end}}</div>
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">Nazivi</h2>
