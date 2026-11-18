@@ -1,0 +1,33 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — {{.NaslovStranice}}{{end}}
+
+{{/* Znak „?” vodi na početak Pomoći */}}
+{{define "sidroPomoci"}}{{end}}
+
+{{define "content"}}
+{{/* Odbijenica po crtežu 18a (goCOP-m3): izbornik ostaje, jedna kartica s
+     lokotom, rečenica tko smije i koga pitati, gumbi natrag. Isti tekst za
+     sve provjere prava (Odluke (18. 11. 2026.)). */}}
+<div class="adm-stranica odbijenica">
+  {{if .Natrag}}<a class="adm-natrag" href="/administracija">{{icon "arrow-left"}} Administracija</a>{{end}}
+  <div class="page-header">
+    <div>
+      <h1 class="page-title" data-naziv-stranice>{{.NaslovStranice}}</h1>
+    </div>
+  </div>
+
+  <section class="adm-kartica odbijenica-kartica" aria-labelledby="odb-poruka">
+    <span class="odbijenica-ikona" aria-hidden="true">{{icon "lock"}}</span>
+    <div class="odbijenica-tekst">
+      <h2 id="odb-poruka">{{.Poruka}}</h2>
+      <p class="form-help">{{if .Administrator}}Ako vam treba, javite se administratoru: {{.Administrator}}.{{else}}Ako vam treba, javite se administratoru.{{end}}</p>
+    </div>
+  </section>
+
+  <div class="adm-dno odbijenica-dno">
+    {{if .Sees "administracija"}}<a class="btn btn-secondary" href="/administracija">Na Administraciju</a>{{end}}
+    <a class="btn btn-primary" href="/">Na Naslovnu</a>
+  </div>
+</div>
+{{end}}

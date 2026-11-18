@@ -64,7 +64,7 @@ func TestArhivskeRuteOdbijajuObicnogKorisnika(t *testing.T) {
 			r := httptest.NewRequest(ruta.metoda, ruta.putanja, strings.NewReader(""))
 			r = r.WithContext(context.WithValue(r.Context(), contextKeyPerms, slucaj.perms))
 			w := httptest.NewRecorder()
-			trebaAdmina(cilj).ServeHTTP(w, r)
+			trebaAdmina(goloOdbijanje, cilj).ServeHTTP(w, r)
 
 			if slucaj.zelim == http.StatusForbidden {
 				if w.Code != http.StatusForbidden {
