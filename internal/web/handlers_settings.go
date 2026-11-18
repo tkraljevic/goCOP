@@ -50,8 +50,6 @@ type SettingsPageData struct {
 	// nula kad nije nikad
 	KopijaKljuca   time.Time
 	Members        []peers.Member
-	VersionCounts  map[string]int
-	TotalVersions  int
 	Uloge          peers.Uloge
 	Postavke       *PostavkeStranice // postavke ovog čvora iz gocop.toml; nil za ne-administratora
 	SuccessMessage string
@@ -98,12 +96,6 @@ func (h *SettingsHandler) ShowSettings(w http.ResponseWriter, r *http.Request) {
 	data.KopijaKljuca = mjesnoVrijeme(h.peers.KopijaKljucaKad(ctx))
 	if members, err := h.peers.ListMembers(ctx); err == nil {
 		data.Members = members
-	}
-	if counts, err := h.rec.Count(ctx); err == nil {
-		data.VersionCounts = counts
-		for _, n := range counts {
-			data.TotalVersions += n
-		}
 	}
 
 	if err := h.tmpl.ExecuteTemplate(w, "settings.html", data); err != nil {

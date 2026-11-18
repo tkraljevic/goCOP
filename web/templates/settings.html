@@ -69,13 +69,7 @@
 
   <div class="card">
     <h2>Knjiga verzija</h2>
-    <p class="desc">Svaka izmjena je nova verzija iznad prethodne; ništa se ne briše. Ovo je ono što se razmjenjuje.</p>
-    <dl class="kv">
-      <dt>Ukupno</dt><dd><b>{{.TotalVersions}}</b> {{uzBroj .TotalVersions "verzija" "verzije" "verzija"}}</dd>
-      {{range $entity, $n := .VersionCounts}}
-      <dt>{{$entity}}</dt><dd>{{$n}}</dd>
-      {{end}}
-    </dl>
+    <p class="desc">Koliko verzija ima koja vrsta zapisa, sažimanje knjige i povrat prostora na disku su na stranici <a href="/administracija/baza">Održavanje baze</a>.</p>
   </div>
 
 </div>
