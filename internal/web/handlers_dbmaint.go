@@ -10,6 +10,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -38,6 +40,68 @@ type DBMaintHandler struct {
 	izmijeniOpcije func(ctx context.Context, p *models.UserPermissions, izmjena func(*models.Opcije)) error
 	// gocop.toml: gdje je, kopije i putanje
 	postavkeCvora izvorPostavki
+	// arhivaPut je datoteka arhive vodostaja (kartica Što zauzima prostor);
+	// nil ili prazno kad je nema
+	arhivaPut func() string
+}
+
+// SetArhivaPut daje rukovatelju putanju arhive vodostaja
+func (h *DBMaintHandler) SetArhivaPut(f func() string) { h.arhivaPut = f }
+
+// arhiva je putanja arhive vodostaja; prazno kad nije spojena
+func (h *DBMaintHandler) arhiva() string {
+	if h.arhivaPut == nil {
+		return ""
+	}
+	return h.arhivaPut()
+}
+
+// DatotekaProstora je jedan redak kartice „Što zauzima prostor”: datoteka
+// ovog računala s WAL-om, veličina i gdje se njome upravlja (Odluke
+// (18. 11. 2026.), Administracija, novo ponašanje 9)
+type DatotekaProstora struct {
+	Naziv, Put        string
+	Bajtova           int64
+	Postotak          int // širina trake prema najvećoj datoteci, 1–100
+	Poveznica, Natpis string
+}
+
+// prostorDatoteka su datoteke koje čvor puni, od najveće: baza i datoteke
+// uz nju (sadržaj, prognoze, oborine) i arhiva vodostaja. Datoteke koje ne
+// postoje se ne nabrajaju.
+func prostorDatoteka(dbPath, arhivaPut string) []DatotekaProstora {
+	dir := filepath.Dir(dbPath)
+	if arhivaPut == "" {
+		arhivaPut = filepath.Join(dir, "vodostaji.db")
+	}
+	var out []DatotekaProstora
+	var najvise int64
+	for _, d := range []DatotekaProstora{
+		{Naziv: "Arhiva vodostaja", Put: arhivaPut, Poveznica: "/administracija/uvoz-niza", Natpis: "Unos u arhivu"},
+		{Naziv: "Prognoze", Put: filepath.Join(dir, "prognoze.db")},
+		{Naziv: "Baza", Put: dbPath, Poveznica: "#baz-knjiga", Natpis: "Knjiga verzija"},
+		{Naziv: "Sadržaj, PDF-ovi i slike", Put: filepath.Join(dir, "sadrzaj.db"), Poveznica: "#pohrana", Natpis: "Pohrana"},
+		{Naziv: "Oborine", Put: filepath.Join(dir, "oborine.db")},
+	} {
+		fi, err := os.Stat(d.Put)
+		if err != nil {
+			continue
+		}
+		d.Bajtova = fi.Size()
+		if wal, err := os.Stat(d.Put + "-wal"); err == nil {
+			d.Bajtova += wal.Size()
+		}
+		najvise = max(najvise, d.Bajtova)
+		out = append(out, d)
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Bajtova > out[j].Bajtova })
+	for i := range out {
+		out[i].Postotak = 1
+		if najvise > 0 {
+			out[i].Postotak = max(1, int(out[i].Bajtova*100/najvise))
+		}
+	}
+	return out
 }
 
 // SetOpcije daje rukovatelju uvid u opće prekidače
@@ -110,6 +174,7 @@ type DBMaintPageData struct {
 	Permissions *models.UserPermissions
 
 	DBPath            string
+	Prostor           []DatotekaProstora
 	SizeBytes         int64
 	WALBytes          int64
 	Stats             ledger.Stats
@@ -165,6 +230,7 @@ func (h *DBMaintHandler) ShowMaintenance(w http.ResponseWriter, r *http.Request)
 	if fi, err := os.Stat(data.DBPath + "-wal"); err == nil {
 		data.WALBytes = fi.Size()
 	}
+	data.Prostor = prostorDatoteka(data.DBPath, h.arhiva())
 	data.Neispravnih, _, _ = h.rec.NeispravneUKnjizi(ctx, time.Now(), 0) // bez broja se gumb za čišćenje ne pokaže
 	if st, err := h.rec.Stats(ctx); err == nil {
 		data.Stats = st
