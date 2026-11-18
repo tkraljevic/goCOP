@@ -1,0 +1,61 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Pregled paketa{{end}}
+
+{{/* Znak „?” vodi na odjeljak Pomoći o Održavanju baze */}}
+{{define "sidroPomoci"}}#admin-baza{{end}}
+
+{{define "content"}}
+{{/* Pregled paketa kanala prije ugradnje (crtež 18b · B7b; Odluke
+     (18. 11. 2026.)): što paket nosi, što bi ugradnja donijela po kanalu i
+     gumbi Ugradi i Odustani. Ništa se ne upisuje dok se ne pritisne
+     Ugradi. */}}
+<div class="adm-stranica">
+<a class="adm-natrag" href="/administracija/baza">{{icon "arrow-left"}} Održavanje baze</a>
+<div class="page-header">
+  <div>
+    <h1 class="page-title" data-naziv-stranice>Pregled paketa</h1>
+    <p class="page-desc">Što paket <span class="mono">{{.Datoteka}}</span> nosi i što bi ugradnja donijela ovom računalu. Ništa još nije ugrađeno.</p>
+  </div>
+</div>
+
+{{with .Pregled}}
+{{if .Odbija}}<div class="alert alert-error" id="paket-odbija">Paket se ne može ugraditi: {{.Odbija}}.</div>{{end}}
+
+<section class="adm-kartica" aria-labelledby="pak-paket">
+  <h2 id="pak-paket">Paket</h2>
+  <dl class="baz-cinjenice">
+    <dt>Izdalo računalo</dt><dd>{{.Manifest.Izdao}}</dd>
+    <dt>Izdanje</dt><dd>{{.Manifest.Izdanje}}, napravljeno {{formatDate (localTime .Manifest.Nastalo)}}</dd>
+    <dt>Obuhvat</dt><dd class="mono">{{.Manifest.Obuhvat.Kljuc}}</dd>
+    <dt>Zapisa</dt><dd>{{.Manifest.Zapisa}}{{if .Manifest.Sadrzaja}} · dokumenata i slika {{.Manifest.Sadrzaja}}, od toga u paketu {{.Manifest.Ukljuceno}}{{end}}</dd>
+  </dl>
+</section>
+
+{{if not .Odbija}}
+<section class="adm-kartica" aria-labelledby="pak-donosi">
+  <h2 id="pak-donosi">Što bi ugradnja donijela</h2>
+  <p class="form-help" id="paket-sazetak">Od {{.Verzija}} {{uzBroj .Verzija "zapisa" "zapisa" "zapisa"}} ovo računalo prima {{.Prima}} (po svojoj pretplati i ogradi), a od njih {{if .Novih}}<strong>{{.Novih}}</strong> još nema ovdje{{else}}nijedan nije nov: sve je već ovdje{{end}}.{{if .Neispravnih}} {{.Neispravnih}} {{uzBroj .Neispravnih "zapis je neispravan" "zapisa su neispravna" "zapisa je neispravno"}} i ne bi se upisali.{{end}} Ništa se ne briše.</p>
+  {{if .Kanali}}
+  <div class="table-responsive"><table class="data-table">
+    <thead><tr><th>Kanal</th><th>U paketu</th><th>Prima</th><th>Novih</th></tr></thead>
+    <tbody>{{range .Kanali}}<tr><td class="mono">{{.Kanal}}</td><td>{{.Verzija}}</td><td>{{.Prima}}</td><td>{{if .Novih}}<strong>{{.Novih}}</strong>{{else}}0{{end}}</td></tr>{{end}}</tbody>
+  </table></div>
+  {{end}}
+</section>
+{{end}}
+{{end}}
+
+<div class="adm-dno">
+  {{if .Pregled.Odbija}}
+  <a href="/administracija/baza" class="btn btn-primary">Natrag</a>
+  {{else}}
+  <form method="POST" action="/administracija/baza/uvoz/ugradi" class="d-flex gap-2">
+    <input type="hidden" name="paket" value="{{.Paket}}">
+    <button type="submit" class="btn btn-link" name="radnja" value="odustani" formnovalidate>Odustani</button>
+    <button type="submit" class="btn btn-primary" name="radnja" value="ugradi">{{icon "download"}} Ugradi</button>
+  </form>
+  {{end}}
+</div>
+</div>
+{{end}}

@@ -63,6 +63,7 @@ var pravilaRuta = map[string]pravilo{
 
 	// primanje datoteka
 	"POST /administracija/baza/uvoz":              {dugo: true, tijelo: 2<<30 + 1<<20}, // .cop do 2 GiB (peers.najveciCop) ili cijela baza
+	"POST /administracija/baza/uvoz/ugradi":       {dugo: true},                        // ugradnja paketa nakon pregleda
 	"POST /stations/{id}/paket/pregled":           {dugo: true, tijelo: najveciPaket + 1<<20},
 	"POST /administracija/uvoz-niza/pregled":      {dugo: true, tijelo: najveciUvoz + 1<<20},
 	"POST /administracija/uvoz-izvora/pregled":    {dugo: true, tijelo: najveciUvozIzvora + 1<<20},
