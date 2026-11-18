@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"gocop/internal/models"
+	"gocop/internal/repository"
 	"gocop/internal/service"
 )
 
@@ -30,11 +31,41 @@ type ModulesPageData struct {
 	// retci uloga pod međunaslovom svoje skupine
 	Stupci  []StupacModula
 	Skupine []SkupinaUloga
+	// Iznimke su iznimke pojedinih računa (uređuju se na kartonu osobe)
+	Iznimke []IznimkaPrikaz
 
 	SuccessMessage string
 	ErrorMessage   string
 	ActiveNav      string
 	ViewAsBanner
+}
+
+// IznimkaPrikaz je redak kartice iznimaka: osoba i moduli koje joj iznimka
+// prikazuje ili skriva, imenima kao u izborniku
+type IznimkaPrikaz struct {
+	UserID, Ime         string
+	Prikazano, Skriveno string
+}
+
+// iznimkePrikaz slaže iznimke računa za karticu; račun kojeg više nema
+// zove se „nepoznat račun”
+func iznimkePrikaz(iznimke []repository.IznimkaRacuna) []IznimkaPrikaz {
+	nazivi := func(mods []string) string {
+		out := make([]string, 0, len(mods))
+		for _, m := range mods {
+			out = append(out, models.ModuleLabel(m))
+		}
+		return strings.Join(out, ", ")
+	}
+	out := make([]IznimkaPrikaz, 0, len(iznimke))
+	for _, i := range iznimke {
+		ime := i.Ime
+		if ime == "" {
+			ime = "nepoznat račun"
+		}
+		out = append(out, IznimkaPrikaz{UserID: i.UserID, Ime: ime, Prikazano: nazivi(i.Shown), Skriveno: nazivi(i.Hidden)})
+	}
+	return out
 }
 
 // StupacModula je stupac tablice vidljivosti: modul s ikonom iz izbornika
@@ -106,6 +137,11 @@ func (h *ModulesHandler) ShowMatrix(w http.ResponseWriter, r *http.Request) {
 		data.ErrorMessage = err.Error()
 	}
 	data.Rows, data.Stupci, data.Skupine = rows, stupciModula(), skupineUloga(rows)
+	iznimke, err := h.moduleService.IznimkeRacuna(r.Context())
+	if err != nil {
+		data.ErrorMessage = "Iznimke računa nisu pročitane: " + err.Error()
+	}
+	data.Iznimke = iznimkePrikaz(iznimke)
 	if err := h.tmpl.ExecuteTemplate(w, "moduli.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

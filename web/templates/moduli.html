@@ -3,9 +3,10 @@
 {{define "title"}}goCOP — Vidljivost modula{{end}}
 
 {{/* Vidljivost modula po crtežu 18a · 4 (goCOP-m3): stupci modula s
-     ikonom, međunaslovi po skupinama uloga, opis modula u kartici. „Vrati
-     zadano” po retku i kartica iznimaka računa su novo ponašanje i čekaju
-     odluku. Imena polja i adresa obrasca su ista. */}}
+     ikonom, međunaslovi po skupinama uloga, opis modula u kartici. Uz
+     prilagođenu ulogu „Vrati zadano” vraća kvačice retka na zadano, a sprema
+     se gumbom „Spremi pravila”; kartica iznimaka nabraja iznimke računa
+     (Odluke (18. 11. 2026.)). Imena polja i adresa obrasca su ista. */}}
 {{define "content"}}
 <div class="adm-stranica">
   <a class="adm-natrag" href="/administracija">{{icon "arrow-left"}} Administracija</a>
@@ -35,7 +36,7 @@
             <tr class="mod-skupina"><th colspan="{{add (len $.Stupci) 1}}" scope="rowgroup">{{.Group}}</th></tr>
             {{range .Rows}}{{$row := .}}
             <tr>
-              <th scope="row">{{.Label}}{{if .Custom}} <span class="mod-cip" title="administrator je promijenio zadano">prilagođeno</span>{{end}}</th>
+              <th scope="row">{{.Label}}{{if .Custom}} <span class="mod-cip" title="administrator je promijenio zadano">prilagođeno</span> <button type="button" class="btn btn-link mod-vrati" data-zadano="{{.Zadano}}" title="Vrati kvačice ove uloge na zadano; spremaju se gumbom Spremi pravila">Vrati zadano</button>{{end}}</th>
               {{range $.Stupci}}<td><label><input type="checkbox" name="m" value="{{$row.Role}}:{{.ID}}" {{if index $row.Modules .ID}}checked{{end}}><span class="sr-only">{{$row.Label}}: {{.Label}}</span></label></td>{{end}}
             </tr>
             {{end}}
@@ -43,6 +44,29 @@
           {{end}}
         </table>
       </div>
+    </section>
+
+    <section class="adm-kartica" aria-labelledby="mod-iznimke">
+      <h2 id="mod-iznimke">Iznimke za pojedine račune</h2>
+      {{if .Iznimke}}
+      <div class="mod-omot">
+        <table class="mod-iznimke">
+          <thead><tr><th scope="col">Osoba</th><th scope="col">Prikazano</th><th scope="col">Skriveno</th><th scope="col"><span class="sr-only">Uredi</span></th></tr></thead>
+          <tbody>
+            {{range .Iznimke}}
+            <tr>
+              <th scope="row">{{.Ime}}</th>
+              <td>{{with .Prikazano}}{{.}}{{else}}—{{end}}</td>
+              <td>{{with .Skriveno}}{{.}}{{else}}—{{end}}</td>
+              <td><a href="/users/{{.UserID}}#os-moduli" class="btn btn-link">Uredi na kartonu{{icon "arrow-right"}}</a></td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+      {{else}}
+      <p class="form-help">Nijedan račun nema iznimku: svatko vidi module svoje uloge. Iznimka se radi na kartonu osobe.</p>
+      {{end}}
     </section>
 
     <section class="adm-kartica" aria-labelledby="mod-sadrzaj">
@@ -58,4 +82,19 @@
     </div>
   </form>
 </div>
+<script>
+// „Vrati zadano” vraća kvačice retka na zadane module uloge; promjena se
+// sprema gumbom „Spremi pravila”, kao i svaka druga u tablici
+document.querySelectorAll('.mod-vrati').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var zadano = (b.getAttribute('data-zadano') || '').split(',');
+    b.closest('tr').querySelectorAll('input[name="m"]').forEach(function (k) {
+      k.checked = zadano.indexOf(k.value.split(':')[1]) >= 0;
+    });
+    var cip = b.parentNode.querySelector('.mod-cip');
+    if (cip) { cip.textContent = 'zadano, spremite'; }
+    b.remove();
+  });
+});
+</script>
 {{end}}

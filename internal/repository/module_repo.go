@@ -80,6 +80,35 @@ func (r *ModuleRepository) UserOverride(ctx context.Context, userID string) (*mo
 	return &um, nil
 }
 
+// IznimkaRacuna je iznimka vidljivosti modula za jedan račun, s imenom osobe
+type IznimkaRacuna struct {
+	models.UserModules
+	Ime string
+}
+
+// IznimkeRacuna vraća sve iznimke računa s imenom osobe, po imenu. Iznimka
+// računa kojeg više nema u tablici korisnika ide s praznim imenom.
+func (r *ModuleRepository) IznimkeRacuna(ctx context.Context) ([]IznimkaRacuna, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT um.user_id, um.shown, um.hidden, um.updated_at, COALESCE(u.full_name, '')
+		FROM user_modules um LEFT JOIN users u ON u.id = um.user_id
+		ORDER BY COALESCE(u.full_name, '') COLLATE NOCASE, um.user_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []IznimkaRacuna
+	for rows.Next() {
+		var i IznimkaRacuna
+		var shown, hidden string
+		if err := rows.Scan(&i.UserID, &shown, &hidden, &i.UpdatedAt, &i.Ime); err != nil {
+			return nil, err
+		}
+		i.Shown, i.Hidden = models.SplitModules(shown), models.SplitModules(hidden)
+		out = append(out, i)
+	}
+	return out, rows.Err()
+}
+
 // SetUserOverride zapisuje iznimku računa; prazna iznimka se briše
 func (r *ModuleRepository) SetUserOverride(ctx context.Context, userID string, shown, hidden []string) error {
 	um := models.UserModules{UserID: userID, Shown: models.SplitModules(models.JoinModules(shown)),
