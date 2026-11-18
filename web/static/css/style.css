@@ -11169,3 +11169,13 @@ td .odr-sitno { margin-top: 2px; }
 .opc-uvucena:has(input:disabled) { opacity: 0.6; }
 .opc-uvucena .form-help { margin: 0; }
 @media (max-width: 599px) { .opc-redci { grid-template-columns: minmax(0, 1fr); } .opc-redci dd { margin-bottom: 6px; } }
+
+/* Odbijenica po crtežu 18a: jedna kartica s lokotom, rečenica tko smije i
+   koga pitati, gumbi natrag (Odluke (18. 11. 2026.)) */
+.odbijenica { max-width: 640px; }
+.odbijenica-kartica { flex-direction: row; align-items: flex-start; gap: 16px; }
+.odbijenica-ikona { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 40px; width: 40px; height: 40px; border-radius: 50%; background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface-variant); }
+.odbijenica-ikona .icon { width: 20px; height: 20px; margin: 0; }
+.odbijenica-tekst { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.odbijenica-tekst h2 { margin: 0; font-size: 1rem; line-height: 24px; font-weight: 500; color: var(--md-sys-color-on-surface); }
+.odbijenica-dno { justify-content: flex-start; }

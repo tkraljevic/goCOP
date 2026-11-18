@@ -624,7 +624,7 @@ func NewServer(
 	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "station_history.html", "station_history_form.html", "paket_pregled.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "slivovi.html", "kisomjer_form.html", "kisomjer.html", "karta.html", "structures.html", "structure_detail.html", "structure_form.html", "povezanost_objekata.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
 		"administracija.html", "administracija_prijave.html", "administracija_prijava.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html", "izvori.html", "uvoz_niza.html",
 		"dnevnici.html", "dnevnici_izbor.html", "administracija_potpisi.html", "prijave.html", "prijava_form.html", "prijava.html", "vodocuvar.html", "vodocuvar_list.html", "vodocuvar_kalendar.html", "posao.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_cop.html", "dnevnik_cop_form.html", "dnevnik_list.html", "dnevnik_obracun.html", "dnevnik_dezurstva.html", "dnevnik_iors.html", "izvjesca.html", "izvjesce_form.html", "izvjesce.html", "sektorsko_form.html", "sektorsko.html", "obracun_postavke.html",
-		"sredstva.html", "katalog.html", "skladiste.html", "zaprimi.html", "potrebe_form.html", "potrebe.html", "dogadjanja.html", "skladiste_form.html", "promet_form.html", "promet.html", "gdje_ima.html", "na_terenu.html", "popisi.html", "popis_form.html", "popis.html", "pomoc.html", "prognoze.html", "prognoze_vrijeme.html", "prognoze_metoda.html", "prognoze_postavke.html", "akti.html", "akt_form.html", "akt.html", "primatelji.html", "spranca.html", "posta_racun.html", "administracija_posta.html", "posta_sanducic.html", "posta_pismo.html", "posta_novo.html", "posta_potpis.html", "sektor.html", "administracija_opcije.html", "administracija_tema.html", "administracija_karte.html", "administracija_telemetrija.html", "imenik_exchange.html", "county_detail.html", "djelatnici_dezurstva.html"} {
+		"sredstva.html", "katalog.html", "skladiste.html", "zaprimi.html", "potrebe_form.html", "potrebe.html", "dogadjanja.html", "skladiste_form.html", "promet_form.html", "promet.html", "gdje_ima.html", "na_terenu.html", "popisi.html", "popis_form.html", "popis.html", "pomoc.html", "prognoze.html", "prognoze_vrijeme.html", "prognoze_metoda.html", "prognoze_postavke.html", "akti.html", "akt_form.html", "akt.html", "primatelji.html", "spranca.html", "posta_racun.html", "administracija_posta.html", "posta_sanducic.html", "posta_pismo.html", "posta_novo.html", "posta_potpis.html", "sektor.html", "administracija_opcije.html", "administracija_tema.html", "administracija_karte.html", "administracija_telemetrija.html", "imenik_exchange.html", "county_detail.html", "djelatnici_dezurstva.html", "odbijenica.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, DijeloviPredloska(page)...)
 		if err != nil {
 			return nil, fmt.Errorf("greška pri parsiranju predloška %s: %w", page, err)
@@ -1745,16 +1745,19 @@ func (s *Server) rutePrijavaGresaka(adminH *AdminHandler, usersH *UsersHandler) 
 }
 
 func (s *Server) samoAdmin(next http.Handler) http.Handler {
-	return s.authMiddleware(trebaAdmina(next))
+	return s.authMiddleware(trebaAdmina(s.odbij, next))
 }
 
+// porukaSamoAdmin je rečenica odbijenice za stranice globalnog administratora
+const porukaSamoAdmin = "Ovo radi globalni administrator."
+
 // trebaAdmina je sama provjera prava, odvojena od prijave da se može ispitati
-// bez baze i sesije.
-func trebaAdmina(next http.Handler) http.Handler {
+// bez baze i sesije (s goloOdbijanje).
+func trebaAdmina(odbij odbijanje, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
 		if perms == nil || !perms.IsGlobalAdmin {
-			http.Error(w, "Ovo radi samo administrator", http.StatusForbidden)
+			odbij(w, r, Odbijenica{Poruka: porukaSamoAdmin})
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -1843,7 +1846,7 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 		upisiTudjim := s.upisiTudjimOcima(r, view)
 		if view.Viewing && !readOnlyRequest(r) {
 			if !upisiTudjim {
-				http.Error(w, porukaSamoCitanje(view), http.StatusForbidden)
+				s.odbij(w, s.zaOdbijenicu(r, view, sessionID, upisiTudjim), Odbijenica{Poruka: porukaSamoCitanje(view)})
 				return
 			}
 			log.Printf("upis tuđim očima: %s piše kao %s (%s %s)", view.RealUser.Username, view.User.Username, r.Method, r.URL.Path)
@@ -1852,7 +1855,7 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 		// za čitanje (otvoreno pismo označi se pročitanim na poslužitelju).
 		// Isto vrijedi za tuđi potpis e-pošte i sken vlastoručnog potpisa.
 		if poruka := zatvorenoTudjimOcima(r.URL.Path); view.Viewing && poruka != "" {
-			http.Error(w, poruka, http.StatusForbidden)
+			s.odbij(w, s.zaOdbijenicu(r, view, sessionID, upisiTudjim), Odbijenica{Poruka: poruka})
 			return
 		}
 		if view.Viewing {
@@ -1867,20 +1870,13 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			http.Error(w, "Greška pri čitanju vidljivosti modula: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
+		r = r.WithContext(kontekstPrijave(r.Context(), view, visible, upisiTudjim, sessionID))
 		if mod := s.zatvorenModul(r, view.User, visible); mod != "" {
-			http.Error(w, "Modul „"+models.ModuleLabel(mod)+"“ nije uključen za vaš račun. Ako vam treba, javite se administratoru.", http.StatusForbidden)
+			s.odbij(w, r, Odbijenica{Naslov: models.ModuleLabel(mod), Poruka: "Modul „" + models.ModuleLabel(mod) + "“ nije uključen za vaš račun."})
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), contextKeyUser, view.User)
-		ctx = context.WithValue(ctx, contextKeyModules, visible)
-		ctx = context.WithValue(ctx, contextKeyPerms, view.Perms)
-		ctx = context.WithValue(ctx, contextKeyRealUsr, view.RealUser)
-		ctx = context.WithValue(ctx, contextKeyViewing, view.Viewing)
-		ctx = context.WithValue(ctx, contextKeyUpisiTudjim, upisiTudjim)
-		ctx = context.WithValue(ctx, contextKeySession, sessionID)
-
-		next.ServeHTTP(w, r.WithContext(ctx))
+		next.ServeHTTP(w, r)
 	})
 }
 
@@ -2000,6 +1996,31 @@ func podPutanjom(path, prefix string) bool {
 // modula vrijede samo tako, bez datoteka uz putanju
 func samoPodPutanjom(path, prefix string) bool {
 	return path == prefix || strings.HasPrefix(path, prefix+"/")
+}
+
+// kontekstPrijave nosi prijavljenog djelatnika, njegova prava i module
+// rukovateljima i izborniku
+func kontekstPrijave(ctx context.Context, view *service.SessionView, visible models.Visibility, upisiTudjim bool, sessionID uuid.UUID) context.Context {
+	ctx = context.WithValue(ctx, contextKeyUser, view.User)
+	ctx = context.WithValue(ctx, contextKeyModules, visible)
+	ctx = context.WithValue(ctx, contextKeyPerms, view.Perms)
+	ctx = context.WithValue(ctx, contextKeyRealUsr, view.RealUser)
+	ctx = context.WithValue(ctx, contextKeyViewing, view.Viewing)
+	ctx = context.WithValue(ctx, contextKeyUpisiTudjim, upisiTudjim)
+	return context.WithValue(ctx, contextKeySession, sessionID)
+}
+
+// zaOdbijenicu je zahtjev s kontekstom prijave za odbijenicu prije provjere
+// modula, da stranica ima izbornik. Moduli se čitaju samo kad se mogu; bez
+// njih izbornik ima samo stavke koje vide svi.
+func (s *Server) zaOdbijenicu(r *http.Request, view *service.SessionView, sessionID uuid.UUID, upisiTudjim bool) *http.Request {
+	visible := models.Visibility{}
+	if s.moduleService != nil {
+		if v, err := s.moduleService.Visibility(r.Context(), view.User, view.Perms); err == nil {
+			visible = v
+		}
+	}
+	return r.WithContext(kontekstPrijave(r.Context(), view, visible, upisiTudjim, sessionID))
 }
 
 // zatvorenoTudjimOcima je poruka za putanju koja se tuđim očima ne otvara
