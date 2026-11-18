@@ -601,7 +601,7 @@ func TestTablicaKanalaUzPaketArhive(t *testing.T) {
 	if strings.Contains(stranica, porukaTabliceKanala) || !strings.Contains(redakKanala(stranica, "Prijave s terena"), "Obriši s računala") {
 		t.Error("uz paket arhive tablica ne nudi brisanje prijave")
 	}
-	if redakKanala(stranica, "arhiva") != "" || !strings.Contains(stranica, `Što računalo drži <span class="reg-chip">1</span>`) {
+	if redakKanala(stranica, "arhiva") != "" || !strings.Contains(stranica, `Što računalo drži <span class="rac-broj">1 kanal</span>`) {
 		t.Error("paket arhive je u tablici")
 	}
 }

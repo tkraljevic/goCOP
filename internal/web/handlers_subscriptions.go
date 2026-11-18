@@ -69,6 +69,9 @@ func (h *SubscriptionsHandler) ShowSubscriptions(w http.ResponseWriter, r *http.
 		SuccessMessage: r.URL.Query().Get("success"), ErrorMessage: r.URL.Query().Get("error"),
 		ActiveNav: "profile", ViewAsBanner: viewBanner(r),
 	}
+	if perms != nil && perms.IsGlobalAdmin { // administrator dolazi iz Administracije
+		data.ActiveNav = "admin"
+	}
 	data.Rules, _ = h.peers.ListSubscriptions(ctx)
 	data.PovijestMjeseci = repository.MjeseciPovijestiOcitanja()
 	if ch, err := h.kanaliStranice(r, data.PovijestMjeseci); err == nil {

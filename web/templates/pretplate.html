@@ -3,12 +3,16 @@
 {{define "title"}}goCOP — Što ovo računalo prati{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/profile">Profil</a> › Što ovo računalo prati</div>
-
+{{/* Što ovo računalo prati po crtežu 18b · 3 (goCOP-m3): povratak, čip
+     računala ispod naslova, Pretplate s prijedlogom iz zaduženja kao
+     trakom, Nova pretplata kao zasebna kartica s „Kako odabrati”
+     sklopljenim, Što računalo drži. Postavke iz gocop.toml ostaju uz
+     obavijest Prati sve, na koju upućuje. Obrasci su isti. */}}
+<div class="adm-stranica">
+{{if .Permissions.IsGlobalAdmin}}<a class="adm-natrag" href="/administracija">{{icon "arrow-left"}} Administracija</a>{{else}}<a class="adm-natrag" href="/profile">{{icon "arrow-left"}} Profil</a>{{end}}
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{icon "download"}} Što ovo računalo prati</h1>
-    <p class="page-desc"><b>Ovo računalo: {{.Cvor}}</b></p>
+    <h1 class="page-title" data-naziv-stranice>Što ovo računalo prati</h1>
     <p class="page-desc">
       Neki podaci stižu na svako računalo, npr. ustroj, registri, djelatnici, akti, dnevnik COP-a, prognoze i
       očitanja letvi koje nisu ni u jednom području. Očitanja, vodočuvarski dnevnik, prijave s terena i dnevnici
@@ -17,65 +21,66 @@
       stiglo s drugih računala, a vraća se razmjenom čim ga opet počnete pratiti. Ono što je nastalo na ovom računalu
       ne briše se.{{if .PovijestMjeseci}} Tuđa očitanja starija od {{.PovijestMjeseci}} {{uzBroj .PovijestMjeseci "mjeseca" "mjeseca" "mjeseci"}} ne vraćaju se, osim za letve koje pratite, jer je tako postavljena povijest tuđih očitanja.{{end}}
     </p>
+    <div class="rac-cipovi">
+      <span class="adm-doseg" title="Vrijedi samo na ovom računalu i ne ide razmjenom.">R · ovo računalo</span>
+      <span class="rac-cip">Ovo računalo: {{.Cvor}}</span>
+    </div>
   </div>
 </div>
 
-{{with .Zabrana}}<div class="alert alert-info">{{icon "info"}} {{.}}</div>{{end}}
+{{with .Zabrana}}<div class="mod-napomena">{{icon "info"}}<span>{{.}}</span></div>{{end}}
 
 {{template "trakaPonovnogPokretanja" .Postavke}}
 
 {{if .All}}
-<div class="alert alert-warning">Ovaj čvor prati <b>sve</b>: očitanja, vodočuvarski dnevnik, prijave s terena, dnevnike radova i arhivu vodostaja svih područja i godina, s cijelim sadržajem (postavka <span class="mono">sve = true</span> u gocop.toml). Pravila ispod tada ne vrijede.{{if .Postavke}} <a href="#postavke-cvora">Promijeni postavku Prati sve</a>{{end}}</div>
+<div class="dash-traka">{{icon "triangle-alert"}}<span>Ovaj čvor prati <b>sve</b>: očitanja, vodočuvarski dnevnik, prijave s terena, dnevnike radova i arhivu vodostaja svih područja i godina, s cijelim sadržajem (postavka <span class="mono">sve = true</span> u gocop.toml). Pravila ispod tada ne vrijede.</span>{{if .Postavke}}<a href="#postavke-cvora" class="btn btn-link">Promijeni postavku Prati sve</a>{{end}}</div>
 {{end}}
 
 {{with .Postavke}}
-<section class="detail-section">
-  <h2>{{icon "settings"}} Postavke ovog čvora (gocop.toml)</h2>
+<section class="adm-kartica pre-postavke">
+  <h2>Postavke ovog računala (gocop.toml) <span class="rac-doseg" title="Vrijedi samo na ovom računalu i ne ide razmjenom.">R</span></h2>
   {{template "postavkeCvora" (.Dio "pretplate")}}
 </section>
 {{end}}
 
-<section class="detail-section">
-  <h2>{{icon "check"}} Pretplate <span class="reg-chip">{{len .Rules}}</span></h2>
-  {{if .Rules}}
-  <div class="table-card"><div class="table-responsive">
-    <table class="data-table">
-      <thead><tr><th>Pravilo</th>{{if not $.Zabrana}}<th></th>{{end}}</tr></thead>
-      <tbody>
-      {{range .Rules}}
-      <tr>
-        <td>{{.Label}}</td>
-        {{if not $.Zabrana}}
-        <td class="nowrap text-right">
-          <form method="POST" action="/pretplate/ukloni" class="d-inline">
-            <input type="hidden" name="id" value="{{.ID}}">
-            <button type="submit" class="btn btn-sm btn-secondary" title="Pravilo prestaje vrijediti, a ništa se ne briše">Makni</button>
-          </form>
-        </td>
-        {{end}}
-      </tr>
-      {{end}}
-      </tbody>
-    </table>
-  </div></div>
-  {{else}}
-  <div class="reg-empty">Bez pretplate ovo računalo prima samo ono što stiže svakom računalu.</div>
-  {{end}}
-
+<section class="adm-kartica" aria-labelledby="pre-pretplate">
+  <h2 id="pre-pretplate">Pretplate <span class="rac-broj">{{len .Rules}}</span></h2>
   {{if not .Zabrana}}
   {{with .Predlog}}
-  <form method="POST" action="/pretplate/dodaj" class="alert alert-info d-flex gap-3 items-center flex-wrap mt-4">
+  <form method="POST" action="/pretplate/dodaj" class="mod-napomena pre-predlog">{{icon "info"}}
     <input type="hidden" name="predlog" value="1"><input type="hidden" name="area_id" value="{{.AreaID}}"><input type="hidden" name="year_from" value="{{.YearFrom}}"><input type="hidden" name="razina" value="{{.Razina}}"><input type="hidden" name="drzi_dana" value="{{.DrziDana}}">
     <span>Prijedlog iz vašeg zaduženja, {{term "bp"}} {{.AreaID}}: pratiti <b>{{.Sto}}</b> od godine {{.YearFrom}}.{{if .SaSlikama}} Uz zapise stižu slike, bez PDF-ova, a primljene slike ostaju na ovom računalu {{.DrziDana}} {{uzBroj .DrziDana "dan" "dana" "dana"}}.{{end}}</span>
-    <button type="submit" name="sync" value="1" class="btn btn-primary btn-sm">{{icon "download"}} Dodaj i preuzmi</button>
+    <button type="submit" name="sync" value="1" class="btn btn-link">Dodaj i preuzmi</button>
   </form>
   {{end}}
+  {{end}}
+  {{if .Rules}}
+  <ul class="pre-pravila">
+    {{range .Rules}}
+    <li>
+      <span>{{.Label}}</span>
+      {{if not $.Zabrana}}
+      <form method="POST" action="/pretplate/ukloni">
+        <input type="hidden" name="id" value="{{.ID}}">
+        <button type="submit" class="btn btn-link btn-sm" title="Pravilo prestaje vrijediti, a ništa se ne briše">Makni</button>
+      </form>
+      {{end}}
+    </li>
+    {{end}}
+  </ul>
+  {{if not $.Zabrana}}<p class="form-help">Makni: pravilo prestaje vrijediti, a ništa se ne briše. Što je već stiglo, briše se u kartici Što računalo drži.</p>{{end}}
+  {{else}}
+  <p class="form-help">Bez pretplate ovo računalo prima samo ono što stiže svakom računalu.</p>
+  {{end}}
+</section>
 
-  <form class="form-page mt-4" method="POST" action="/pretplate/dodaj">
-    <h3 style="font-size:0.95rem; margin:0 0 0.5rem;">Nova pretplata</h3>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label" for="kind">Što</label>
+  {{if not .Zabrana}}
+<section class="adm-kartica" aria-labelledby="pre-nova">
+
+  <h2 id="pre-nova">Nova pretplata</h2>
+  <form class="adm-obrazac" method="POST" action="/pretplate/dodaj">
+    <div class="adm-polja tri">
+      <div class="form-group list-polje">{{icon "list"}}<label class="form-label" for="kind">Što</label>
         <select id="kind" name="kind" class="form-control">
           <option value="">Sve vrste: očitanja, vodočuvarski dnevnik, prijave s terena, dnevnici radova i arhiva vodostaja</option>
           <option value="ocitanja">Samo očitanja vodostaja</option>
@@ -85,60 +90,51 @@
           <option value="arhiva">Arhiva vodostaja (.cop paketi letvi, cijela povijest)</option>
         </select>
       </div>
-      <div class="form-group">
-        <label class="form-label" for="sector_id">{{term "sektor"}}</label>
+      <div class="form-group list-polje">{{icon "building"}}<label class="form-label" for="sector_id">{{term "sektor"}}</label>
         <select id="sector_id" name="sector_id" class="form-control">
           <option value="">Svi: {{terml "sektori"}}</option>
           {{range .Sectors}}<option value="{{.ID}}">{{.ID}}: {{.Name}}</option>{{end}}
         </select>
       </div>
-      <div class="form-group">
-        <label class="form-label" for="area_id">{{term "podrucje"}}</label>
+      <div class="form-group list-polje">{{icon "map-pin"}}<label class="form-label" for="area_id">{{term "podrucje"}}</label>
         <select id="area_id" name="area_id" class="form-control">
           <option value="0">Sva područja sektora</option>
           {{range .Areas}}<option value="{{.ID}}">{{.ID}}: {{.Name}} ({{.SectorID}})</option>{{end}}
         </select>
       </div>
     </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label" for="year_from">Od godine</label>
-        <input type="text" inputmode="numeric" id="year_from" name="year_from" class="form-control" value="{{.OdGodine}}" placeholder="prazno = od početka">
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="year_to">Do godine</label>
-        <input type="text" inputmode="numeric" id="year_to" name="year_to" class="form-control" placeholder="prazno = i ubuduće">
-      </div>
+    <div class="adm-polja tri">
+      <div class="form-group list-polje">{{icon "calendar"}}<label class="form-label" for="year_from">Od godine</label><input type="text" inputmode="numeric" id="year_from" name="year_from" class="form-control" value="{{.OdGodine}}" placeholder="prazno = od početka"></div>
+      <div class="form-group list-polje">{{icon "calendar"}}<label class="form-label" for="year_to">Do godine</label><input type="text" inputmode="numeric" id="year_to" name="year_to" class="form-control" placeholder="prazno = i ubuduće"></div>
     </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label" for="razina">Sadržaj uz zapise</label>
+    <div class="adm-polja tri">
+      <div class="form-group list-polje">{{icon "file-text"}}<label class="form-label" for="razina">Sadržaj uz zapise</label>
         <select id="razina" name="razina" class="form-control">
           <option value="sve">Sve: PDF-ovi i slike</option>
           <option value="pregled">Samo pregledi: slike, bez PDF-ova</option>
           <option value="kazalo">Samo kazalo: zna da dokument postoji</option>
         </select>
       </div>
-      <div class="form-group">
-        <label class="form-label" for="drzi_dana">Primljeni sadržaj drži (dana)</label>
-        <input type="text" inputmode="numeric" id="drzi_dana" name="drzi_dana" class="form-control" placeholder="prazno = trajno">
-      </div>
+      <div class="form-group list-polje">{{icon "history"}}<label class="form-label" for="drzi_dana">Primljeni sadržaj drži (dana)</label><input type="text" inputmode="numeric" id="drzi_dana" name="drzi_dana" class="form-control" placeholder="prazno = trajno"></div>
     </div>
-    <div class="form-help">Godina je ona na koju se podatak odnosi: dan mjerenja, dan lista ili dan događaja prijave. Za laptop na terenu dovoljno je vlastito područje od prošle godine, s pregledima i rokom od 90 dana. Prazna godina znači bez ograde. Zapisi uvijek stižu cijeli. Razina vrijedi samo za PDF-ove i slike uz zapise, a rok i za pakete arhive vodostaja. Što je nastalo na ovom računalu ne otpušta se. Arhiva vodostaja nema godina: pravilo samo za arhivu i pravilo za sve vrste donose pakete letvi s cijelom poviješću, uz bilo koju razinu. Pravilo za sve vrste i sva područja tako donosi cijelu arhivu, sa stranim i meteorološkim letvama. Kad rok otpusti paket, arhiva na ovom računalu ostaje.</div>
-    <div class="form-actions">
-      <button type="submit" name="sync" value="1" class="btn btn-primary">{{icon "download"}} Dodaj i preuzmi sada</button>
-      <button type="submit" class="btn btn-secondary">Samo dodaj</button>
+    <details class="uv-terminal">
+      <summary>{{icon "info"}}<span><span class="uv-terminal-naslov">Kako odabrati</span><span class="uv-napomena">Godina je dan mjerenja, lista ili događaja. Za terenski laptop: vlastito područje od prošle godine, samo pregledi, 90 dana.</span></span>{{icon "chevron-right"}}</summary>
+      <p class="form-help">Godina je ona na koju se podatak odnosi: dan mjerenja, dan lista ili dan događaja prijave. Za laptop na terenu dovoljno je vlastito područje od prošle godine, s pregledima i rokom od 90 dana. Prazna godina znači bez ograde. Zapisi uvijek stižu cijeli. Razina vrijedi samo za PDF-ove i slike uz zapise, a rok i za pakete arhive vodostaja. Što je nastalo na ovom računalu ne otpušta se. Arhiva vodostaja nema godina: pravilo samo za arhivu i pravilo za sve vrste donose pakete letvi s cijelom poviješću, uz bilo koju razinu. Pravilo za sve vrste i sva područja tako donosi cijelu arhivu, sa stranim i meteorološkim letvama. Kad rok otpusti paket, arhiva na ovom računalu ostaje.</p>
+    </details>
+    <div class="adm-dno">
+      <button type="submit" class="btn btn-link">Samo dodaj</button>
+      <button type="submit" name="sync" value="1" class="btn btn-primary">Dodaj i preuzmi sada</button>
     </div>
   </form>
-  {{end}}
 </section>
+  {{end}}
 
-<section class="detail-section">
-  <h2>{{icon "activity"}} Što računalo drži <span class="reg-chip">{{len .Channels}}</span></h2>
-  <p class="page-desc">Po vrsti, području i godini. Što pretplata više ne pokriva, {{if .Zabrana}}s ovog računala briše administrator{{else}}možete obrisati s ovog računala{{end}}. Briše se samo ono što je stiglo s drugih računala; ono što je nastalo ovdje ostaje.</p>
+<section class="adm-kartica" aria-labelledby="pre-drzi">
+  <h2 id="pre-drzi">Što računalo drži <span class="rac-broj">{{len .Channels}} {{uzBroj (len .Channels) "kanal" "kanala" "kanala"}}</span></h2>
+  <p class="form-help">Po vrsti, području i godini. Što pretplata više ne pokriva, {{if .Zabrana}}s ovog računala briše administrator{{else}}možete obrisati s ovog računala{{end}}. Briše se samo ono što je stiglo s drugih računala; ono što je nastalo ovdje ostaje.</p>
   {{if .Channels}}
-  <div class="table-card"><div class="table-responsive">
-    <table class="data-table">
+  <div class="table-responsive">
+    <table class="data-table pre-tablica">
       <thead><tr><th>Vrsta</th><th>{{term "bp"}}</th><th>Godina</th><th>Verzija</th><th>Pretplata</th><th></th></tr></thead>
       <tbody>
       {{range .Channels}}
@@ -147,7 +143,7 @@
         <td class="mono">{{.AreaID}}</td>
         <td class="mono">{{.Year}}</td>
         <td class="mono">{{.Versions}}</td>
-        <td>{{if .Wanted}}<span class="badge badge-active">prati se</span>{{else}}<span class="badge badge-inactive">ne prati se</span>{{end}}</td>
+        <td>{{if .Wanted}}<span class="rac-cip dobro">prati se</span>{{else}}<span class="rac-cip">ne prati se</span>{{end}}</td>
         <td class="text-right">
           {{if not .Wanted}}
           {{if .Brisanje}}
@@ -158,7 +154,7 @@
           {{if and .ImaZaBrisanje (not $.Zabrana)}}
           <form method="POST" action="/pretplate/obrisi" class="d-inline" onsubmit="return confirm({{.Potvrda}})">
             <input type="hidden" name="channel" value="{{.Channel}}">
-            <button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Obriši s računala</button>
+            <button type="submit" class="btn btn-sm btn-brisi">{{icon "trash"}} Obriši s računala</button>
           </form>
           {{end}}
           {{end}}
@@ -167,10 +163,12 @@
       {{end}}
       </tbody>
     </table>
-  </div></div>
+  </div>
   {{else}}
-  <div class="reg-empty">Računalo još ne drži ništa od onoga što se prati po područjima.</div>
+  <p class="form-help">Računalo još ne drži ništa od onoga što se prati po područjima.</p>
   {{end}}
+  <a class="adm-poveznica" href="/administracija/baza">Koliko što zauzima na disku: Održavanje baze {{icon "arrow-right"}}</a>
 </section>
+</div>
 
 {{end}}
