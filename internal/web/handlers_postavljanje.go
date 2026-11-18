@@ -151,6 +151,10 @@ func (h *PostavljanjeHandler) Prikazi(w http.ResponseWriter, r *http.Request) {
 	_ = h.tmpl.ExecuteTemplate(w, "postavljanje.html", d)
 }
 
+// adresaPrvihKoraka je kamo vodi osnivanje nove mreže: Prvi koraci na
+// ulazu u Administraciju
+const adresaPrvihKoraka = "/administracija#prvi-koraci"
+
 // Osnuj je POST /postavljanje: nova mreža i prvi administrator
 func (h *PostavljanjeHandler) Osnuj(w http.ResponseWriter, r *http.Request) {
 	if !h.Svjez() || !klijentIz(r).IzLokalneMreze() {
@@ -221,7 +225,9 @@ func (h *PostavljanjeHandler) Osnuj(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	postaviSesiju(w, r, sesija.ID.String(), sesija.ExpiresAt)
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	// Nova mreža je prazna: administrator nastavlja Prvim koracima
+	// (Odluke (18. 11. 2026.), Administracija, novo ponašanje 6)
+	http.Redirect(w, r, adresaPrvihKoraka, http.StatusSeeOther)
 }
 
 // NoviZahtjev je POST /postavljanje/zahtjev: novi zahtjev za primanje na

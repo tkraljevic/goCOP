@@ -157,7 +157,7 @@ func TestPostavljanjeNoveMreze(t *testing.T) {
 	}
 
 	w := o.post(lokalno, obrazac())
-	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/" || kolacicSesije(w) == nil {
+	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != adresaPrvihKoraka || kolacicSesije(w) == nil {
 		t.Fatalf("osnivanje: %d %q %v", w.Code, w.Body.String(), w.Header())
 	}
 	u, err := o.repo.GetUserByUsername("pperic")
