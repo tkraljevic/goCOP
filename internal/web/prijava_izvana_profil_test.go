@@ -614,13 +614,13 @@ func TestStranicaPosteSklopkaIStanjePosiljatelja(t *testing.T) {
 	admin := o.racun("uprava", "upravina-lozinka", "uprava@voda.hr", true)
 	ctx := context.Background()
 	templatesFS, _ := fs.Sub(webassets.Files, "templates")
-	tp, err := template.New("base.html").Funcs(templateFuncs()).ParseFS(templatesFS, DijeloviPredloska("administracija_posta.html")...)
+	tp, err := template.New("base.html").Funcs(templateFuncs()).ParseFS(templatesFS, DijeloviPredloska("administracija_prijava_izvana.html")...)
 	if err != nil {
 		t.Fatal(err)
 	}
 	stranicaZ := func(z zahtjevIzvana) string {
 		t.Helper()
-		r := httptest.NewRequest(http.MethodGet, "/administracija/posta", nil)
+		r := httptest.NewRequest(http.MethodGet, "/administracija/prijava-izvana", nil)
 		r.RemoteAddr = "192.168.1.50:40000"
 		r.Host = adresaCvoraTesta
 		if z.izvana {
@@ -638,8 +638,8 @@ func TestStranicaPosteSklopkaIStanjePosiljatelja(t *testing.T) {
 			t.Fatal(err)
 		}
 		var b strings.Builder
-		d := AdminPostaData{CurrentUser: admin, Permissions: &models.UserPermissions{User: *admin, IsGlobalAdmin: true}, PIN: p}
-		if err := tp.ExecuteTemplate(&b, "administracija_posta.html", d); err != nil {
+		d := PrijavaIzvanaData{CurrentUser: admin, Permissions: &models.UserPermissions{User: *admin, IsGlobalAdmin: true}, PIN: p, Uvjeti: uvjetiPINa(p, true)}
+		if err := tp.ExecuteTemplate(&b, "administracija_prijava_izvana.html", d); err != nil {
 			t.Fatal(err)
 		}
 		return b.String()

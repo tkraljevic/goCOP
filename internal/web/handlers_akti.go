@@ -31,6 +31,7 @@ type AktiHandler struct {
 	tmplSpranca                                  *template.Template
 	postavkeCvora                                izvorPostavki // gocop.toml na stranici Karte (obična karta)
 	tmplPosta, tmplPostaAdmin                    *template.Template
+	tmplPIN                                      *template.Template // Prijava izvana (PIN)
 	tmplSanducic, tmplPismo, tmplNovoPismo       *template.Template
 	tmplImenik                                   *template.Template
 	poslovi                                      *poslovi.Registar

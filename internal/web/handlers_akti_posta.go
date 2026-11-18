@@ -99,11 +99,6 @@ type AdminPostaData struct {
 	Postavke   posta.Postavke
 	Spremljene bool // spremljene u programu, ne samo u gocop.toml
 	Nalaz      string
-
-	// PIN je račun koji s ovog čvora šalje PIN za prijavu izvana i sklopka;
-	// nil kad drugi korak nije spojen
-	PIN       *PINStanje
-	PINGreska string
 }
 
 // ShowAdminPosta prikazuje postavke poslužitelja e-pošte
@@ -117,11 +112,6 @@ func (h *AktiHandler) ShowAdminPosta(w http.ResponseWriter, r *http.Request) {
 	d := AdminPostaData{CurrentUser: u, Permissions: perms, ActiveNav: "admin", ViewAsBanner: viewBanner(r),
 		SuccessMessage: q.Get("success"), ErrorMessage: q.Get("error"), Nalaz: q.Get("nalaz"),
 		Postavke: s.Posta(r.Context()), Spremljene: s.PostaSpremljena(r.Context())}
-	if p, err := h.pinStanje(r); err != nil {
-		d.PINGreska = err.Error()
-	} else {
-		d.PIN = p
-	}
 	if err := h.tmplPostaAdmin.ExecuteTemplate(w, "administracija_posta.html", d); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

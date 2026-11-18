@@ -89,7 +89,7 @@ func TestAdministracijaSkupineRedom(t *testing.T) {
 		prije = i
 	}
 	kartice := map[string][]string{
-		"skupina-ustroj":    {"/organizacija", "/users", "/administracija/sudionici", "/moduli", "/administracija/nazivi"},
+		"skupina-ustroj":    {"/organizacija", "/users", "/administracija/prijava-izvana", "/administracija/sudionici", "/moduli", "/administracija/nazivi"},
 		"skupina-mreza":     {"/settings", "/sinkronizacija", "/pretplate", "/administracija/baza", "/administracija/prijave-gresaka"},
 		"skupina-vodostaji": {"/administracija/telemetrija", "/administracija/izvori", "/administracija/uvoz-niza", "/prognoze/postavke"},
 		"skupina-akti":      {"/administracija/posta", "/administracija/zig", "/administracija/potpisi", "/administracija/obracun"},
@@ -163,7 +163,7 @@ func TestAdministracijaKarticePratePrava(t *testing.T) {
 	for _, href := range []string{"/administracija/telemetrija", "/administracija/izvori", "/administracija/uvoz-niza", "/moduli",
 		"/administracija/nazivi", "/administracija/sudionici", "/administracija/opcije", "/administracija/tema", "/administracija/karte",
 		"/administracija/posta", "/administracija/obracun", "/administracija/potpisi", "/administracija/zig", "/administracija/uvozi",
-		"/prognoze/postavke", "/organizacija", "/users"} {
+		"/prognoze/postavke", "/organizacija", "/users", "/administracija/prijava-izvana"} {
 		if strings.Contains(html, `href="`+href+`"`) {
 			t.Errorf("Ana vidi karticu %s", href)
 		}
