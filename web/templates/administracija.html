@@ -7,8 +7,9 @@
      redak bez opisa), čip dosega R / M / R+M i stanja u glavi kartice.
      Prvi koraci su kartica s trakom napretka (18a · 1a). Upozorenja su
      trake u boji tehničkog upozorenja s radnjom desno. Kartica PIN-a,
-     brojevi na Sudionicima, Vidljivosti i Nazivima te traka ponovnog
-     pokretanja su novo ponašanje i čekaju odluku (plan-administracija-dizajn). */}}
+     brojevi na Sudionicima, Vidljivosti i Nazivima su novo ponašanje i
+     čekaju izvedbu (plan-administracija-dizajn). Traka o uključenim testnim
+     opcijama je na vrhu, s poveznicom na Opcije. */}}
 {{define "content"}}
 <div class="dash-ulaz">
   <div class="page-header">
@@ -18,6 +19,12 @@
     </div>
   </div>
 
+  {{with .TestneUkljucene}}
+  <div class="dash-traka" id="traka-testnih" role="status">
+    {{icon "triangle-alert"}}{{template "tekstTestnih" .}}
+    <a href="/administracija/opcije" class="btn btn-link">Otvori Opcije</a>
+  </div>
+  {{end}}
   {{if and (eq .Sectors 0) (not .PrviKoraci)}}
   <div class="dash-traka" role="status">
     {{icon "triangle-alert"}}<span>Ovo računalo još nema nijedan {{terml "sektor"}}. Dok ustroja nema, nema ni dionica ni zaduženja. Počnite novim sektorom, pa mu dodajte {{terml "podrucja"}}.</span>

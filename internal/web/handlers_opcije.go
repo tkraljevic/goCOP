@@ -21,6 +21,9 @@ type OpcijeData struct {
 	Opcije models.Opcije
 }
 
+// Ukljucene su imena uključenih testnih prekidača (traka na vrhu)
+func (d OpcijeData) Ukljucene() []string { return ukljuceneTestne(d.Opcije) }
+
 // SetOpcije daje rukovatelju predložak stranice opcija
 func (h *AktiHandler) SetOpcije(t *template.Template) { h.tmplOpcije = t }
 

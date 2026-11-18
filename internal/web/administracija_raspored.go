@@ -227,14 +227,27 @@ func ustrojGotov(koraci []KorakUstroja) bool {
 }
 
 // ukljucenihTestnih broji uključene prekidače sa stranice Opcije
-func ukljucenihTestnih(o models.Opcije) int {
-	n := 0
-	for _, b := range []bool{o.BrisanjeOvjerenihAkata, o.BrisanjePovijestiVerzija, o.BrisanjeSOglasnePloce, o.UpisTudjimOcima, o.SimulacijaKljuca} {
-		if b {
-			n++
+func ukljucenihTestnih(o models.Opcije) int { return len(ukljuceneTestne(o)) }
+
+// ukljuceneTestne su imena uključenih testnih prekidača, redom kao na
+// stranici Opcije (traka upozorenja na Opcijama i ulazu u Administraciju)
+func ukljuceneTestne(o models.Opcije) []string {
+	var imena []string
+	for _, p := range []struct {
+		ukljucen bool
+		ime      string
+	}{
+		{o.BrisanjeOvjerenihAkata, "Trajno brisanje ovjerenih rješenja i obavijesti"},
+		{o.BrisanjePovijestiVerzija, "Brisanje povijesti verzija"},
+		{o.BrisanjeSOglasnePloce, "Brisanje zapisa s oglasne ploče"},
+		{o.UpisTudjimOcima, "Upisi tuđim očima"},
+		{o.SimulacijaKljuca, "Simulacija potpisnog ključa"},
+	} {
+		if p.ukljucen {
+			imena = append(imena, p.ime)
 		}
 	}
-	return n
+	return imena
 }
 
 var errBezBaze = errors.New("baza nije otvorena")

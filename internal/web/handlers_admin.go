@@ -64,8 +64,10 @@ type AdminPageData struct {
 	Doseg   map[string]DosegKartice
 	// PrviKoraci: samo administratoru, dok ustroj nije gotov
 	PrviKoraci []KorakUstroja
-	// TestnihUkljuceno: koliko je prekidača na stranici Opcije uključeno
+	// TestnihUkljuceno: koliko je prekidača na stranici Opcije uključeno,
+	// a TestneUkljucene njihova imena (traka na vrhu)
 	TestnihUkljuceno int
+	TestneUkljucene  []string
 	// Napredak: traka napretka Prvih koraka
 	Napredak NapredakKoraka
 
@@ -154,7 +156,8 @@ func (h *AdminHandler) dodajRaspored(ctx context.Context, data *AdminPageData, g
 			data.PrviKoraci, data.Napredak = k, napredakKoraka(k)
 		}
 		if h.izvori.opcije != nil {
-			data.TestnihUkljuceno = ukljucenihTestnih(h.izvori.opcije(ctx))
+			data.TestneUkljucene = ukljuceneTestne(h.izvori.opcije(ctx))
+			data.TestnihUkljuceno = len(data.TestneUkljucene)
 		}
 	}
 	data.Vidi, data.Skupina, data.Doseg = rasporedKartica(p, data.PrviKoraci != nil)

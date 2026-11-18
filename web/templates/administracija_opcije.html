@@ -10,8 +10,9 @@
      prekidačem, čipom (uključeno crveno, isključeno zeleno) i retcima Što
      radi, Što ne radi, Kada uključiti; Simulacija potpisnog ključa je
      uvučena u Upise tuđim očima i zaključana dok su oni isključeni.
-     Traka o uključenim testnim opcijama i prozor potvrde su novo
-     ponašanje i čekaju odluku. Imena polja su ista. */}}
+     Traka o uključenim testnim opcijama stoji na vrhu, a uključivanje
+     opasne opcije traži potvrdu (Odluke (18. 11. 2026.)). Imena polja su
+     ista. */}}
 <div class="adm-stranica">
 <a class="adm-natrag" href="/administracija">{{icon "arrow-left"}} Administracija</a>
 <div class="page-header">
@@ -21,6 +22,8 @@
     <span class="adm-doseg" title="Vrijedi na svim računalima u mreži; promjena ide razmjenom.">M · cijela mreža</span>
   </div>
 </div>
+
+{{with .Ukljucene}}<div class="dash-traka" id="traka-testnih" role="status">{{icon "triangle-alert"}}{{template "tekstTestnih" .}}</div>{{end}}
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
@@ -97,6 +100,21 @@
   var upis = document.querySelector('input[name="upis_tudjim_ocima"]'), sim = document.querySelector('input[name="simulacija_kljuca"]');
   if (!upis || !sim) return;
   upis.addEventListener('change', function () { sim.disabled = !upis.checked; });
+})();
+// Uključivanje opasne opcije traži potvrdu: pri spremanju se nabroje opcije
+// koje su bile isključene, a sad su uključene
+(function () {
+  var f = document.getElementById('opcije-obrazac');
+  if (!f) return;
+  var kvacice = Array.prototype.slice.call(f.querySelectorAll('.opc-glava input[type="checkbox"]'));
+  var bilo = kvacice.map(function (k) { return k.checked; });
+  f.addEventListener('submit', function (e) {
+    var nove = kvacice.filter(function (k, i) { return k.checked && !bilo[i] && !k.disabled; })
+      .map(function (k) { return '• ' + k.parentNode.querySelector('.opcija-naziv').textContent.trim(); });
+    if (nove.length && !window.confirm('Uključiti ' + (nove.length === 1 ? 'opciju' : 'opcije') + ' za testno okruženje?\n\n' + nove.join('\n') + '\n\nVrijedi na svim računalima u mreži. U operativnom radu ostaje isključeno.')) {
+      e.preventDefault();
+    }
+  });
 })();
 </script>
 {{end}}

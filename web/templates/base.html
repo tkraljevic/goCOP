@@ -209,6 +209,10 @@
 
 {{/* Okno za prijavu greške ili prijedloga; otvara ga kukac u gornjoj traci
      (js/prijava-greske.js). Stranicu, izdanje i preglednik doda program. */}}
+{{/* Tekst trake o uključenim testnim prekidačima, za Opcije i ulaz u
+     Administraciju (Odluke (18. 11. 2026.)). Prima popis imena. */}}
+{{define "tekstTestnih"}}<span><strong>{{uzBroj (len .) "Uključena je testna opcija" "Uključene su testne opcije" "Uključeno je testnih opcija"}}:</strong> {{range $i, $o := .}}{{if $i}}, {{end}}{{$o}}{{end}}. U operativnom radu {{uzBroj (len .) "je" "ih" "ih"}} isključite.</span>{{end}}
+
 {{define "prijavaGreskeOkno"}}
 <dialog class="pg-okno" id="prijava-greske" aria-labelledby="pg-naslov">
   <form method="dialog" class="pg-dio-obrazac" novalidate>
