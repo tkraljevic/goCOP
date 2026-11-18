@@ -11207,3 +11207,14 @@ td .odr-sitno { margin-top: 2px; }
 /* Brojke u opisu kartice ulaza vode na filtrirani popis; poveznica u boji
    nove teme, ne zelena (Odluke (18. 11. 2026.)) */
 .dash-card-desc a { color: var(--md-sys-color-primary); }
+
+/* Telemetrija: letve sa stupcem Zadnji dohvat i gumbom Provjeri sada
+   (Odluke (18. 11. 2026.)); na mobitelu dohvat ide u svoj red */
+.uv-glava.tel-cetiri, .uv-redak.tel-cetiri { grid-template-columns: minmax(0, 1.2fr) auto minmax(0, 2fr) auto; }
+.uv-redak.tel-cetiri form { margin: 0; }
+.tel-dohvat { font-size: 0.8125rem; }
+@media (max-width: 699px) {
+  .uv-glava.tel-cetiri { display: none; }
+  .uv-redak.tel-cetiri { grid-template-columns: minmax(0, 1fr) auto; }
+  .uv-redak.tel-cetiri > .tel-dohvat { grid-column: 1 / -1; }
+}

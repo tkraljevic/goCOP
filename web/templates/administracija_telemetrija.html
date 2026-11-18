@@ -9,9 +9,9 @@
 {{/* Telemetrija po crtežu 18c · 1 (goCOP-m3): dvije kartice računa u
      retku, svaka s čipom upisan / nije upisan, poljima u dva stupca i
      gumbima dolje; tablica letava ispod. Polja lozinke ostaju prazna.
-     Stupci Sustav i Zadnji dohvat te „Provjeri sada” su novo ponašanje i
-     čekaju odluku; stupac Račun (svoj / čvorov) je maknut, jer račun po
-     letvi nigdje ne upisuje. Obrasci i adrese su isti. */}}
+     Stupac Zadnji dohvat i „Provjeri sada” su po Odlukama (18. 11. 2026.);
+     stupac Sustav otpada (mletva je stala), a stupac Račun (svoj / čvorov)
+     je maknut, jer račun po letvi nigdje ne upisuje. Obrasci i adrese su isti. */}}
 <div class="adm-stranica">
 <a class="adm-natrag" href="/administracija">{{icon "arrow-left"}} Administracija</a>
 <div class="page-header">
@@ -82,9 +82,11 @@
   <h2 id="tel-letve">Letve koje se odande čitaju</h2>
   <p class="form-help">Preuzimanje se uključuje u kartici letve.</p>
   <div class="uv-tablica" role="table" aria-labelledby="tel-letve">
-    <div class="uv-glava dva" role="row"><span role="columnheader">Letva</span><span role="columnheader">Preuzimanje</span></div>
+    <div class="uv-glava tel-cetiri" role="row"><span role="columnheader">Letva</span><span role="columnheader">Preuzimanje</span><span role="columnheader">Zadnji dohvat</span><span role="columnheader"><span class="sr-only">Provjeri</span></span></div>
     {{range .Letve}}
-    <div class="uv-redak dva" role="row"><span role="cell"><a href="/stations/{{.ID}}">{{.Naziv}}</a></span><span role="cell">{{if .Uvoz}}<span class="rac-cip dobro">svaki sat</span>{{else}}<span class="rac-cip">isključeno</span>{{end}}</span></div>
+    <div class="uv-redak tel-cetiri" role="row"><span role="cell"><a href="/stations/{{.ID}}">{{.Naziv}}</a></span><span role="cell">{{if .Uvoz}}<span class="rac-cip dobro">svaki sat</span>{{else}}<span class="rac-cip">isključeno</span>{{end}}</span>
+      <span role="cell" class="tel-dohvat">{{if not .DohvatZnan}}<span class="muted">nije preuzimana od pokretanja programa</span>{{else if .Dohvat.Greska}}<span class="rac-cip pozor">{{satHR .Dohvat.Kad}} nije uspjelo</span> <span class="muted">{{.Dohvat.Greska}}</span>{{else}}{{satHR .Dohvat.Kad}} · novih {{.Dohvat.Novih}}{{if not .Dohvat.ZadnjeKad.IsZero}} · najnovije {{formatDate (localTime .Dohvat.ZadnjeKad)}}{{end}}{{end}}</span>
+      <span role="cell"><form method="post" action="/readings/station/{{.ID}}/javni"><input type="hidden" name="natrag" value="telemetrija"><button type="submit" class="btn btn-link btn-sm">Provjeri sada</button></form></span></div>
     {{end}}
   </div>
 </section>
