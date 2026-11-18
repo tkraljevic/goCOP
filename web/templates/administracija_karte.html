@@ -11,7 +11,7 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">{{icon "map"}} Karte</h1>
-    <p class="page-desc">Kako se objekti crtaju na kartama i koje se podloge uz običnu kartu mogu upaliti. Vrijedi na svim čvorovima; mijenja samo uprava organizacije, a promjena ostaje u knjizi verzija.</p>
+    <p class="page-desc">Kako se objekti crtaju na kartama i koje se podloge uz običnu kartu mogu upaliti. Vrijedi na svim čvorovima; mijenja samo globalni administrator, a promjena ostaje u knjizi verzija.</p>
   </div>
 </div>
 
@@ -105,10 +105,12 @@
     <tr><th>Na ovom računalu</th><td>{{if $.VektorskaOvdje}}<span class="badge badge-active">učitana</span>{{else}}<span class="badge badge-warning">nije učitana</span> {{$.PrijenosKarte}}{{end}}</td></tr>
   </table>
   <div class="d-flex gap-2 mt-2">
-    {{if $.VektorskaOvdje}}<a class="btn btn-secondary" href="/administracija/karte/vektorska.cop">{{icon "download"}} Preuzmi .cop za druga računala</a>{{end}}
-    <form method="POST" action="/administracija/karte/vektorska/makni" onsubmit="return confirm({{if $.VektorskaOvdje}}'Maknuti kartu bez interneta? Na svim čvorovima prestaje biti podloga, a s ovog računala se briše.'{{else}}'Maknuti kartu bez interneta sa svih čvorova? Na svim čvorovima prestaje biti podloga. Ovo računalo je nema, pa se s njega ništa ne briše.'{{end}})">
+    {{/* Makni kartu samo gdje je karta učitana: inače bi se podloga mogla
+         maknuti sa svih računala s onoga koje je nikad nije ni imalo */}}
+    {{if $.VektorskaOvdje}}<a class="btn btn-secondary" href="/administracija/karte/vektorska.cop">{{icon "download"}} Preuzmi .cop za druga računala</a>
+    <form method="POST" action="/administracija/karte/vektorska/makni" onsubmit="return confirm('Maknuti kartu bez interneta? Na svim čvorovima prestaje biti podloga, a s ovog računala se briše.')">
       <button type="submit" class="btn btn-secondary">{{icon "trash"}} Makni kartu</button>
-    </form>
+    </form>{{end}}
   </div>
   {{end}}
   <form method="POST" action="/administracija/karte/vektorska" enctype="multipart/form-data" class="mt-3">
