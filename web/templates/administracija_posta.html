@@ -6,59 +6,56 @@
 {{define "sidroPomoci"}}#admin-eposta{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/administracija">Administracija</a> › E-pošta</div>
-
+{{/* E-pošta po crtežu 18d · 1 (goCOP-m3): povratak, čip dosega, kartica
+     Poslužitelj e-pošte s načinom slanja kao dva čipa (Port i Šifriranje
+     samo uz SMTP), istaknutom napomenom o poništavanju lozinki i gumbima
+     dolje. PIN za prijavu izvana ostaje ovdje kao zasebna kartica dok ne
+     dobije svoju stranicu (novo ponašanje). Polja i adrese su ista. */}}
+<div class="adm-stranica">
+<a class="adm-natrag" href="/administracija">{{icon "arrow-left"}} Administracija</a>
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{icon "mail"}} Poslužitelj e-pošte</h1>
-    <p class="page-desc">Preko njega goCOP šalje ovjerene akte primateljima "na znanje" i čita korisnikov sandučić. Šalje se s adrese i računa prijavljenog korisnika; lozinku svatko upisuje u <a href="/profile/posta">svom profilu</a>. Postavke vrijede na svim čvorovima. Jedino PIN za prijavu izvana šalje račun sustava, upisan na svakom čvoru posebno (dolje).</p>
+    <h1 class="page-title" data-naziv-stranice>E-pošta</h1>
+    <p class="page-desc">Preko poslužitelja e-pošte tvrtke goCOP šalje ovjerene akte primateljima „na znanje” i čita korisnikov sandučić. Šalje se s adrese i računa prijavljenog korisnika; lozinku svatko upisuje u svom profilu. Postavke poslužitelja vrijede na svim računalima. Jedino PIN za prijavu izvana šalje račun sustava, upisan na svakom računalu posebno.</p>
+    <span class="adm-doseg" title="Dio vrijedi samo na ovom računalu, a dio na svim računalima u mreži.">R+M · dio ovdje, dio u mreži</span>
   </div>
+  <div class="page-actions"><a href="/profile/posta" class="btn btn-link">Moja lozinka e-pošte</a><a href="/posta" class="btn btn-link">Sandučić</a></div>
 </div>
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
-{{if .Nalaz}}<div class="alert alert-info">{{icon "check"}} {{.Nalaz}}</div>{{end}}
-{{if not .Spremljene}}{{if .Postavke.Podesena}}<div class="alert alert-info">Postavke su zasad iz datoteke <span class="mono">gocop.toml</span> ovog čvora. Spremite ih ovdje da vrijede svugdje.</div>{{end}}{{end}}
+{{if .Nalaz}}<div class="mod-napomena">{{icon "info"}}<span>{{.Nalaz}}</span></div>{{end}}
+{{if not .Spremljene}}{{if .Postavke.Podesena}}<div class="mod-napomena">{{icon "info"}}<span>Postavke su zasad iz datoteke <span class="mono">gocop.toml</span> ovog računala. Spremite ih ovdje da vrijede svugdje.</span></div>{{end}}{{end}}
 
-<section class="detail-section max-w-40">
-  <form method="POST" action="/administracija/posta" id="posta-obrazac">
-    <div class="form-group">
-      <label class="form-label" for="nacin">Način slanja</label>
-      <select class="form-control" id="nacin" name="nacin">
-        <option value="ews" {{if ne .Postavke.Nacin "smtp"}}selected{{end}}>Exchange Web Services (kao Outlook, preporučeno)</option>
-        <option value="smtp" {{if eq .Postavke.Nacin "smtp"}}selected{{end}}>SMTP (port 587 ili 465)</option>
-      </select>
-      <div class="form-help">Exchange Web Services radi i izvan mreže tvrtke, prijavljuje se kao Outlook (sustav Windows) i sprema poslano u korisnikovu mapu Poslano. SMTP treba otvoren port na poslužitelju.</div>
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="posluzitelj">Poslužitelj</label>
-      <input class="form-control" id="posluzitelj" name="posluzitelj" value="{{.Postavke.Posluzitelj}}" placeholder="npr. owa.voda.hr" autocapitalize="off" spellcheck="false">
-      <div class="form-help">Isti poslužitelj kao u postavkama računa e-pošte na mobitelu. Prazno isključuje slanje.</div>
-    </div>
-    <div class="form-row d-flex gap-4 flex-wrap">
-      <div class="form-group" style="flex:1; min-width:10rem;">
-        <label class="form-label" for="port">Port (samo SMTP)</label>
-        <input class="form-control" id="port" name="port" type="number" min="0" max="65535" value="{{if .Postavke.Port}}{{.Postavke.Port}}{{end}}" placeholder="587">
+<section class="adm-kartica" aria-labelledby="pos-posluzitelj">
+  <div class="tel-glava"><h2 id="pos-posluzitelj">{{icon "mail"}} Poslužitelj e-pošte</h2><span class="rac-doseg" title="Vrijedi na svim računalima u mreži; promjena ide razmjenom.">M</span></div>
+  <form method="POST" action="/administracija/posta" id="posta-obrazac" class="adm-obrazac pos-obrazac">
+    <div>
+      <p class="form-label pos-oznaka" id="nacin-oznaka">Način slanja</p>
+      <div class="uni-cipovi" role="radiogroup" aria-labelledby="nacin-oznaka">
+        <label><input type="radio" name="nacin" value="ews" {{if ne .Postavke.Nacin "smtp"}}checked{{end}}><span>Exchange Web Services (kao Outlook, preporučeno)</span></label>
+        <label><input type="radio" name="nacin" value="smtp" {{if eq .Postavke.Nacin "smtp"}}checked{{end}}><span>SMTP (port 587 ili 465)</span></label>
       </div>
-      <div class="form-group" style="flex:1; min-width:10rem;">
-        <label class="form-label" for="sigurnost">Šifriranje (samo SMTP)</label>
-        <select class="form-control" id="sigurnost" name="sigurnost">
+      <p class="form-help">Exchange Web Services radi i izvan mreže tvrtke, prijavljuje se kao Outlook (sustav Windows) i sprema poslano u korisnikovu mapu Poslano. SMTP treba otvoren port na poslužitelju; uz njega se pokažu i polja Port i Šifriranje.</p>
+    </div>
+    <div class="adm-polja dva">
+      <div class="form-group list-polje">{{icon "mail"}}<label class="form-label" for="posluzitelj">Poslužitelj</label><input class="form-control" id="posluzitelj" name="posluzitelj" value="{{.Postavke.Posluzitelj}}" placeholder="npr. owa.voda.hr" autocapitalize="off" spellcheck="false"></div>
+      <div class="form-group list-polje">{{icon "building"}}<label class="form-label" for="domena">Domena sustava Windows</label><input class="form-control" id="domena" name="domena" value="{{.Postavke.Domena}}" placeholder="obično prazno" autocapitalize="off" spellcheck="false"></div>
+    </div>
+    <div class="adm-polja dva pos-smtp">
+      <div class="form-group list-polje"><label class="form-label" for="port">Port</label><input class="form-control" id="port" name="port" type="number" min="0" max="65535" value="{{if .Postavke.Port}}{{.Postavke.Port}}{{end}}" placeholder="587"></div>
+      <div class="form-group list-polje"><label class="form-label" for="sigurnost">Šifriranje</label><select class="form-control" id="sigurnost" name="sigurnost">
           <option value="starttls" {{if ne .Postavke.Sigurnost "tls"}}selected{{end}}>STARTTLS (587)</option>
           <option value="tls" {{if eq .Postavke.Sigurnost "tls"}}selected{{end}}>TLS (465)</option>
-        </select>
-      </div>
+        </select></div>
     </div>
-    <div class="form-group">
-      <label class="form-label" for="domena">Domena sustava Windows</label>
-      <input class="form-control" id="domena" name="domena" value="{{.Postavke.Domena}}" placeholder="obično prazno" autocapitalize="off" spellcheck="false">
-      <div class="form-help">Exchange domenu sam objavi pri prijavi, pa goCOP kad prijava adresom ne prođe pokuša i <span class="mono">DOMENA\korisnik</span>. Upišite samo ako to ne radi.</div>
+    <p class="form-help">Isti poslužitelj kao u postavkama e-pošte na mobitelu; prazno isključuje slanje. Exchange domenu sam objavi pri prijavi, pa goCOP kad prijava adresom ne prođe pokuša i <span class="mono">DOMENA\korisnik</span>; domenu upišite samo ako to ne radi.</p>
+    <div class="dash-traka">{{icon "triangle-alert"}}<span>Drugi poslužitelj, način, port, šifriranje ili domena poništavaju spremljene lozinke e-pošte svih ljudi i račun za slanje PIN-a, pa ih treba upisati ponovno.</span></div>
+    <div class="adm-dno">
+      <p class="form-help">Ispitivanje ne treba lozinku: provjeri je li poslužitelj dostupan, nudi li prijavu i koju domenu objavljuje.</p>
+      <button type="submit" class="btn btn-link" name="radnja" value="ispitaj">Ispitaj poslužitelj</button>
+      <button type="submit" class="btn btn-primary" onclick="return potvrdiPosluzitelj(this.form)">Spremi</button>
     </div>
-    <div class="form-actions d-flex gap-2 flex-wrap">
-      <button type="submit" class="btn btn-primary" onclick="return potvrdiPosluzitelj(this.form)">{{icon "check"}} Spremi</button>
-      <button type="submit" class="btn btn-secondary" name="radnja" value="ispitaj">{{icon "search"}} Ispitaj poslužitelj</button>
-    </div>
-    <p class="form-help">Ispitivanje ne treba lozinku: provjeri je li poslužitelj dostupan, nudi li prijavu i koju domenu objavljuje.</p>
-    <p class="form-help">Drugi poslužitelj, način, port, šifriranje ili domena poništavaju spremljene lozinke e-pošte svih ljudi i račun za slanje PIN-a, pa ih treba upisati ponovno.</p>
   </form>
   <script>
   (function () {
@@ -81,8 +78,8 @@
 
 {{if .PINGreska}}<div class="alert alert-error" id="pin">Stanje PIN-a za prijavu izvana nije pročitano: {{.PINGreska}}</div>{{end}}
 {{with .PIN}}
-<section class="detail-section max-w-40" id="pin">
-  <h2 class="detail-section-title">{{icon "shield"}} PIN za prijavu izvana</h2>
+<section class="adm-kartica" id="pin">
+  <div class="tel-glava"><h2>{{icon "lock"}} PIN za prijavu izvana</h2><span class="rac-doseg" title="Sklopka vrijedi na svim računalima, a račun za slanje samo na ovom.">R+M</span></div>
   {{if .BezPosiljatelja}}
   <div class="alert alert-error d-block" id="pin-bez-posiljatelja">
     <strong>{{icon "triangle-alert"}} PIN izvana je uključen, a ovaj čvor nema ispravnog računa za slanje PIN-a.</strong>
@@ -109,7 +106,7 @@
     <a href="/users?status=BEZ_EPOSTE">Pogledajte djelatnike bez adrese za PIN.</a>
   </p>
 
-  <h3 class="obrazac-podnaslov">Račun koji šalje PIN s ovog čvora</h3>
+  <h3 class="obrazac-podnaslov">Račun koji šalje PIN s ovog računala</h3>
   {{if .Posiljatelj}}
     {{if .Posiljatelj.NeispravanOd}}
     <div class="alert alert-error">Poslužitelj e-pošte odbio je lozinku računa <span class="mono">{{.Posiljatelj.Korisnik}}</span> {{vrijemeHR (derefTime .Posiljatelj.NeispravanOd)}}.
@@ -125,26 +122,19 @@
   {{else}}
   <p class="form-help">Na ovom čvoru još nije upisan račun za slanje PIN-a.</p>
   {{end}}
-  <form method="POST" action="/administracija/posta/pin" autocomplete="off">
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label" for="pin_korisnik">Korisničko ime</label>
-        <input type="text" id="pin_korisnik" name="korisnik" class="form-control" value="{{with .Posiljatelj}}{{.Korisnik}}{{end}}" autocapitalize="off" spellcheck="false" placeholder="kao za e-poštu na mobitelu">
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="pin_lozinka">Lozinka</label>
-        <input type="password" id="pin_lozinka" name="lozinka" class="form-control" autocomplete="new-password" placeholder="lozinka domene">
-      </div>
+  <form method="POST" action="/administracija/posta/pin" autocomplete="off" class="adm-obrazac">
+    <div class="adm-polja tri">
+      <div class="form-group list-polje">{{icon "user"}}<label class="form-label" for="pin_korisnik">Korisničko ime</label><input type="text" id="pin_korisnik" name="korisnik" class="form-control" value="{{with .Posiljatelj}}{{.Korisnik}}{{end}}" autocapitalize="off" spellcheck="false" placeholder="kao za e-poštu na mobitelu"></div>
+      <div class="form-group list-polje">{{icon "lock"}}<label class="form-label" for="pin_lozinka">Lozinka</label><input type="password" id="pin_lozinka" name="lozinka" class="form-control" autocomplete="new-password" placeholder="lozinka domene"></div>
+      <div class="form-group list-polje">{{icon "mail"}}<label class="form-label" for="pin_adresa">Adresa pošiljatelja</label><input type="email" id="pin_adresa" name="adresa" class="form-control" value="{{with .Posiljatelj}}{{.Adresa}}{{end}}" placeholder="prazno: potraži u adresaru tvrtke" autocapitalize="off" spellcheck="false"></div>
     </div>
-    <div class="form-group">
-      <label class="form-label" for="pin_adresa">Adresa pošiljatelja</label>
-      <input type="email" id="pin_adresa" name="adresa" class="form-control" value="{{with .Posiljatelj}}{{.Adresa}}{{end}}" placeholder="prazno: potraži u adresaru tvrtke" autocapitalize="off" spellcheck="false">
+    <div>
       <div class="form-help">Korisničko ime često nije adresa (npr. <span class="mono">ivan.horvat</span> i <span class="mono">Ivan.Horvat@voda.hr</span>), a Exchange ne šalje s tuđe adrese. Prazno: goCOP je potraži u adresaru.</div>
     </div>
     <div class="form-actions d-flex gap-2 flex-wrap">
       <button type="submit" class="btn btn-primary" name="radnja" value="spremi">{{icon "check"}} Provjeri i spremi</button>
       <button type="submit" class="btn btn-secondary" name="radnja" value="iz_poste" formnovalidate>{{icon "mail"}} Uzmi moj račun e-pošte</button>
-      {{if .Posiljatelj}}<button type="submit" class="btn btn-secondary" name="radnja" value="obrisi" formnovalidate onclick="return confirm('Obrisati račun za slanje PIN-a s ovog čvora?')">{{icon "trash"}} Obriši</button>{{end}}
+      {{if .Posiljatelj}}<button type="submit" class="btn btn-secondary" name="radnja" value="obrisi" formnovalidate onclick="return confirm('Obrisati račun za slanje PIN-a s ovog računala?')">{{icon "trash"}} Obriši</button>{{end}}
     </div>
     <p class="form-help">Prijava se provjeri na poslužitelju prije spremanja; lozinka ostaje zaključana ključem ovog čvora i ne putuje razmjenom.
       PIN-ovi se šalju bez kopije u mapi Poslano.</p>
@@ -158,10 +148,9 @@
   {{end}}
 
   <h3 class="obrazac-podnaslov">Sklopka</h3>
-  <form method="POST" action="/administracija/posta/pin/sklopka">
-    <div class="form-group">
-      <label class="form-label" for="pin_domena">Dopuštena domena</label>
-      <input type="text" id="pin_domena" name="domena" class="form-control" value="{{.Opcije.Domena}}" autocapitalize="off" spellcheck="false">
+  <form method="POST" action="/administracija/posta/pin/sklopka" class="adm-obrazac">
+    <div class="form-group pos-domena">
+      <div class="list-polje">{{icon "building"}}<label class="form-label" for="pin_domena">Dopuštena domena</label><input type="text" id="pin_domena" name="domena" class="form-control" value="{{.Opcije.Domena}}" autocapitalize="off" spellcheck="false"></div>
       <div class="form-help">PIN ide na adrese u ovoj domeni, a izvan nje samo na adresu koju je globalni administrator potvrdio u uređivanju djelatnika. Osobe same mijenjaju adresu samo na ovu domenu.</div>
     </div>
     <div class="form-actions d-flex gap-2 flex-wrap">
@@ -178,4 +167,5 @@
   </form>
 </section>
 {{end}}
+</div>
 {{end}}
