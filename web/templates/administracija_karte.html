@@ -117,13 +117,13 @@
   <div class="tel-glava"><h2 id="kar-bez">{{icon "download"}} Karta bez interneta</h2><span class="rac-doseg" title="Opis karte putuje razmjenom; datoteka je na svakom računalu posebno.">M</span></div>
   <p class="form-help">Vektorska karta (OpenStreetMap) koju čvor drži na svom disku, pa radi i kad nema interneta. Na karti se bira kao podloga „Karta bez interneta”. Učitajte izvezenu kartu (<code>.pmtiles</code>, npr. iz Protomapsa) na jednom računalu, a ostala računala dobit će je sama razmjenom, dio po dio. Dok traje obrana, karta stiže i šalje se samo s računalima u istoj lokalnoj mreži (ista kuća ili ured). Računalu sa starijim programom učitajte njezin <code>.cop</code> paket; računalo koje još nije u mreži kartu dobije razmjenom kad uđe u mrežu.</p>
   {{with .Vektorska}}
-  <table class="data-table pot-tablica kar-bez-tablica">
-    <tr><th>Karta</th><td>{{.Naziv}}</td></tr>
-    {{if .Izvor}}<tr><th>Izvor</th><td>{{.Izvor}}</td></tr>{{end}}
-    <tr><th>Područje</th><td>{{printf "%.2f" (index .Obuhvat 0)}}° do {{printf "%.2f" (index .Obuhvat 2)}}° E, {{printf "%.2f" (index .Obuhvat 1)}}° do {{printf "%.2f" (index .Obuhvat 3)}}° N, do povećanja {{.NajviseZ}}</td></tr>
-    <tr><th>Veličina</th><td>{{humanBytes .Bajtova}}</td></tr>
-    <tr><th>Na ovom računalu</th><td>{{if $.VektorskaOvdje}}<span class="badge badge-active">učitana</span>{{else}}<span class="badge badge-warning">nije učitana</span> {{$.PrijenosKarte}}{{end}}</td></tr>
-  </table>
+  <dl class="baz-cinjenice kar-bez-cinjenice">
+    <dt>Karta</dt><dd>{{.Naziv}}</dd>
+    {{if .Izvor}}<dt>Izvor</dt><dd>{{.Izvor}}</dd>{{end}}
+    <dt>Područje</dt><dd>{{printf "%.2f" (index .Obuhvat 0)}}° do {{printf "%.2f" (index .Obuhvat 2)}}° E, {{printf "%.2f" (index .Obuhvat 1)}}° do {{printf "%.2f" (index .Obuhvat 3)}}° N, do povećanja {{.NajviseZ}}</dd>
+    <dt>Veličina</dt><dd>{{humanBytes .Bajtova}}</dd>
+    <dt>Na ovom računalu</dt><dd>{{if $.VektorskaOvdje}}<span class="badge badge-active">učitana</span>{{else}}<span class="badge badge-warning">nije učitana</span> {{$.PrijenosKarte}}{{end}}</dd>
+  </dl>
   <div class="d-flex gap-2 mt-2">
     {{/* Makni kartu samo gdje je karta učitana: inače bi se podloga mogla
          maknuti sa svih računala s onoga koje je nikad nije ni imalo */}}
