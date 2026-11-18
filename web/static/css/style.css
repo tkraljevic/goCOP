@@ -3575,41 +3575,31 @@ body.karta-puni-zaslon-otvoren { overflow: hidden; }
    promjena jednog ne dira ostale. Tablica je ovdje bila kriva dvaput —
    polja preuska za uređivanje, a <form> unutar <tr> preglednik izbacuje
    iz tablice, pa su se vrijednosti gubile. */
-.izvori-mreza {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr));
-  gap: 0.875rem;
-}
-.izvor-kartica {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding: 1rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-}
-.izvor-kartica.izvor-iskljucen { border-style: dashed; }
-.izvor-glava { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
-.izvor-naziv { margin: 0; font-size: 1rem; font-weight: 600; overflow-wrap: anywhere; }
-.izvor-obujam { margin: 0.15rem 0 0; font-size: 0.8125rem; color: var(--text-muted); }
-
-.izvor-sklopka { display: flex; gap: 0.5rem; align-items: flex-start; cursor: pointer; }
-.izvor-sklopka input { margin-top: 0.2rem; flex: none; }
-.izvor-sklopka span { display: block; font-size: 0.875rem; line-height: 1.3; }
-.izvor-sklopka small { display: block; color: var(--text-muted); font-size: 0.75rem; }
-
-.izvor-brojevi { display: grid; grid-template-columns: 1fr 1fr; gap: 0.625rem; }
-.izvor-brojevi label, .izvor-napomena { display: block; }
-.izvor-brojevi .part-label, .izvor-napomena .part-label { display: block; margin-bottom: 0.2rem; }
-.izvor-brojevi input { width: 100%; text-align: right; }
-.izvor-brojevi small { display: block; margin-top: 0.2rem; color: var(--text-muted); font-size: 0.7rem; }
-.izvor-napomena input { width: 100%; }
-
-.izvor-letve > summary { cursor: pointer; font-size: 0.8125rem; color: var(--text-muted); }
-.izvor-letve > p { margin: 0.35rem 0 0; font-size: 0.8125rem; color: var(--text-muted); overflow-wrap: anywhere; }
+.izvori-mreza { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.izvor-kartica { --list-podloga: var(--md-sys-color-surface-container-low); display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px; background: var(--md-sys-color-surface-container-low); }
+.izvor-kartica.izvor-iskljucen { opacity: 0.6; }
+.izvor-kartica.izvor-iskljucen:focus-within { opacity: 1; }
+.izvor-glava { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.izvor-naziv { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; font-size: 0.875rem; font-weight: 600; overflow-wrap: anywhere; }
+.izvor-naziv .rac-cip { font-weight: 400; }
+.izvor-obujam { margin: 2px 0 0; font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); }
+.izvor-sklopka { display: flex; justify-content: space-between; align-items: center; gap: 8px; cursor: pointer; font-size: 0.875rem; }
+.izvor-sklopka span { order: -1; }
+.izvor-sklopka input { appearance: none; flex: none; position: relative; width: 44px; height: 24px; margin: 0; border: 2px solid var(--md-sys-color-outline); border-radius: 12px; background: var(--md-sys-color-surface-container-highest); cursor: pointer; transition: background-color 0.15s ease; }
+.izvor-sklopka input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--md-sys-color-outline); transition: transform 0.15s ease; }
+.izvor-sklopka input:checked { border-color: var(--md-sys-color-primary); background: var(--md-sys-color-primary); }
+.izvor-sklopka input:checked::after { transform: translateX(20px); background: var(--md-sys-color-on-primary); }
+.izvor-sklopka input:focus-visible { outline: 2px solid var(--md-sys-color-primary); outline-offset: 2px; }
+.izvor-brojevi { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.izvor-kartica .list-polje { margin: 0; }
+.izvor-letve { border-radius: 8px; background: var(--md-sys-color-surface); }
+.izvor-letve > summary { cursor: pointer; padding: 8px 12px; font-size: 0.8125rem; color: var(--md-sys-color-on-surface); }
+.izvor-letve > p { margin: 0; padding: 0 12px 10px; font-size: 0.8125rem; color: var(--md-sys-color-on-surface-variant); overflow-wrap: anywhere; }
 .izvor-podnozje { display: flex; justify-content: flex-end; margin-top: auto; }
-.izvor-disk { display: block; margin-top: 0.25rem; color: var(--text-muted); font-size: 0.7rem; overflow-wrap: anywhere; }
+.izvor-disk { display: block; color: var(--md-sys-color-on-surface-variant); font-size: 0.7rem; overflow-wrap: anywhere; }
+.izvor-napomena .izvor-disk { padding: 0 12px 6px 16px; }
+@media (max-width: 1099px) { .izvori-mreza { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 699px) { .izvori-mreza { grid-template-columns: minmax(0, 1fr); } }
 .uvoz-dnevnik { margin: 0; max-height: 18rem; overflow: auto; font-size: 0.75rem; line-height: 1.45; white-space: pre; }
 .uvoz-uzorak { font-size: 0.75rem; }
 .uvoz-uzorak td, .uvoz-uzorak th { padding: 0.25rem 0.4rem; }

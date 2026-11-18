@@ -6,11 +6,16 @@
 {{define "sidroPomoci"}}#arhiva-izvori{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/administracija">Administracija</a> › Izvori arhive</div>
-
+{{/* Izvori arhive po crtežu 18c · 2 (goCOP-m3): drugi odlomak opisa kao
+     sklopiv redak, traka upozorenja zanemarenih zapisa, kartice izvora u
+     tri stupca sa sklopkom „Ulazi u spojeni niz”, točnošću i redom u
+     jednom retku; isključen izvor bljeđi. Čipovi filtra s brojem i
+     „Pokaži” su novo ponašanje i čekaju odluku. Obrasci su isti. */}}
+<div class="adm-stranica">
+<a class="adm-natrag" href="/administracija">{{icon "arrow-left"}} Administracija</a>
 <div class="page-header">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{icon "radio-tower"}} Izvori arhive</h1>
+    <h1 class="page-title" data-naziv-stranice>Izvori arhive</h1>
     <p class="page-desc">
       Tko javlja vodostaj, koliko mu se vjeruje i ulazi li u spojeni niz. Spajanje uzima svaku vrijednost iz
       najtočnijeg izvora koji je taj trenutak pokrio; kad su dva jednako točna, odlučuje red povjerenja.
@@ -18,22 +23,28 @@
       u koliko se centimetara drži 68 % vrijednosti tog izvora. Ovo vrijedi za arhivu ovog računala; druga
       računala imaju svoje izvore.
     </p>
-    <p class="page-desc">
+    <span class="adm-doseg" title="Vrijedi samo na ovom računalu i ne ide razmjenom.">R · ovo računalo</span>
+    {{if .Zabrana}}<p class="page-desc">{{.Zabrana}} Ovdje ih možete samo pregledati.</p>{{end}}
+  </div>
+  {{if not .Zabrana}}<div class="page-actions"><a href="/administracija/uvoz-niza" class="btn btn-link">Unos u arhivu</a></div>{{end}}
+</div>
+
+<details class="uv-terminal izv-kako">
+  <summary>{{icon "info"}}<span><span class="uv-terminal-naslov">Kako se svrstavaju izvori</span><span class="uv-napomena">ovjereno (red do 10) · s letve (11–19) · operativno (20 i više); unutar skupine odlučuje točnost</span></span>{{icon "chevron-right"}}</summary>
+    <p class="form-help">
       Red povjerenja svrstava izvor u jednu od tri skupine: <strong>ovjereno</strong> (do 10) su službeni,
       revidirani nizovi; <strong>s letve</strong> (11–19) je ono što je čovjek očitao — ovjereni niz je zaglađen
       i takve trenutke zna izgubiti; <strong>operativno</strong> (20 i više) su dojave automatike. Unutar skupine
       odlučuje točnost. Sitniji poredak ne treba: izmjereno je da ondje gdje se dvije dojave razilaze, ovjereni
       niz je gotovo uvijek ondje i odlučuje.
     </p>
-    {{if .Zabrana}}<p class="page-desc">{{.Zabrana}} Ovdje ih možete samo pregledati.</p>{{end}}
-  </div>
-</div>
+</details>
 
 
 {{if .Zanemareno}}
-<div class="alert alert-warning">
+<div class="dash-traka">{{icon "triangle-alert"}}<span>
   <strong>{{brojHR .Zanemareno}} {{uzBroj .Zanemareno "zapis" "zapisa" "zapisa"}}</strong> {{uzBroj .Zanemareno "leži u arhivi, a ne ulazi u spojeni niz, pa se nigdje ne vidi" "leže u arhivi, a ne ulaze u spojeni niz, pa se nigdje ne vide" "leži u arhivi, a ne ulazi u spojeni niz, pa se nigdje ne vidi"}}.
-  Ako je to namjera, upišite to u napomenu da se poslije zna.
+  Ako je to namjera, upišite to u napomenu da se poslije zna.</span>
 </div>
 {{end}}
 
@@ -45,7 +56,7 @@
 
     <div class="izvor-glava">
       <div>
-        <h2 class="izvor-naziv mono">{{.Naziv}} <span class="badge badge-inactive">{{.Skupina}}</span></h2>
+        <h2 class="izvor-naziv"><span class="mono">{{.Naziv}}</span> <span class="rac-cip">{{.Skupina}}</span></h2>
         <p class="izvor-obujam">
           {{if .Nizova}}{{brojHR .Zapisa}} {{uzBroj .Zapisa "zapis" "zapisa" "zapisa"}} ·
             {{.Nizova}} {{uzBroj .Nizova "niz" "niza" "nizova"}} ·
@@ -53,42 +64,35 @@
           {{else}}nema podataka u arhivi{{end}}
         </p>
       </div>
-      {{if .Neiskoristen}}<span class="badge badge-unknown" title="Podaci su u arhivi, ali se nigdje ne vide">ne vidi se</span>{{end}}
+      {{if .Neiskoristen}}<span class="rac-cip pozor" title="Podaci su u arhivi, ali se nigdje ne vide">ne vidi se</span>{{end}}
     </div>
 
     <label class="izvor-sklopka">
       <input type="checkbox" name="ukljucen" value="1" {{if .Ukljucen}}checked{{end}}{{if $.Zabrana}} disabled{{end}}>
-      <span><strong>Ulazi u spojeni niz</strong></span>
+      <span>Ulazi u spojeni niz</span>
     </label>
 
     <div class="izvor-brojevi">
-      <label>
-        <span class="part-label">Točnost ±</span>
-        <input type="text" inputmode="decimal" name="tocnost" value="{{brojHRf .Tocnost 0}}" class="form-control mono"{{if $.Zabrana}} disabled{{end}}>
-        <small>68 % vrijednosti</small>
-      </label>
-      <label>
-        <span class="part-label">Red povjerenja</span>
-        <input type="text" inputmode="numeric" name="red" value="{{.Red}}" class="form-control mono"{{if $.Zabrana}} disabled{{end}}>
-        <small>manji broj ide prvi</small>
-      </label>
+      <label class="form-group list-polje">{{icon "ruler"}}<span class="form-label">Točnost ± cm</span><input type="text" inputmode="decimal" name="tocnost" value="{{brojHRf .Tocnost 0}}" class="form-control"{{if $.Zabrana}} disabled{{end}}></label>
+      <label class="form-group list-polje">{{icon "list"}}<span class="form-label">Red povjerenja</span><input type="text" inputmode="numeric" name="red" value="{{.Red}}" class="form-control"{{if $.Zabrana}} disabled{{end}}></label>
     </div>
+    <small class="izvor-disk">68 % vrijednosti · manji red ide prvi</small>
 
-    <label class="izvor-napomena">
-      <span class="part-label">Mapa s datotekama</span>
+    <label class="izvor-napomena form-group list-polje">
+      <span class="form-label">Mapa s datotekama</span>
       <input type="text" name="mapa" value="{{.Mapa}}" class="form-control mono"
              placeholder="{{if $.PodaciDir}}{{$.PodaciDir}}{{else}}zajedničko stablo arhive{{end}}"{{if $.Zabrana}} disabled{{end}}>
       <small class="izvor-disk">
         {{if not .Stablo}}Nije zadano gdje datoteke stoje.
-        {{else if not .Dostupno}}<span class="badge badge-unknown">{{.GreskaPut}}</span> {{.Stablo}}
+        {{else if not .Dostupno}}<span class="rac-cip pozor">{{.GreskaPut}}</span> {{.Stablo}}
         {{else}}{{brojHR .Datoteka}} {{uzBroj .Datoteka "datoteka" "datoteke" "datoteka"}} u
           <span class="mono">{{.Stablo}}</span>{{if not .Vlastito}} (zajedničko){{end}}
         {{end}}
       </small>
     </label>
 
-    <label class="izvor-napomena">
-      <span class="part-label">Napomena</span>
+    <label class="izvor-napomena form-group list-polje">
+      <span class="form-label">Napomena</span>
       <input type="text" name="napomena" value="{{.Napomena}}" class="form-control"
              placeholder="zašto je tako odlučeno"{{if $.Zabrana}} disabled{{end}}>
     </label>
@@ -102,24 +106,23 @@
 
     {{if not $.Zabrana}}
     <div class="izvor-podnozje">
-      <button type="submit" class="btn btn-sm btn-primary">{{icon "check"}} Spremi</button>
+      <button type="submit" class="btn btn-primary">Spremi</button>
     </div>
     {{end}}
   </form>
   {{end}}
 </div>
 
-<div class="table-card" style="padding:0.875rem 1.25rem; margin-top:1rem;">
-  <div class="part-label" style="margin:0 0 0.4rem;">Što se događa pri spremanju</div>
-  <p class="reading-meta m-0">
+<section class="adm-kartica" aria-labelledby="izv-spremanje">
+  <h2 id="izv-spremanje">Što se događa pri spremanju</h2>
+  <p class="form-help">
     Promjena točnosti, reda ili uključenosti mijenja spojeni niz, pa se letve tog izvora <strong>odmah ponovno
     spajaju</strong> — na velikoj letvi to traje nekoliko sekundi. Promjena samo napomene ne dira nijedan broj.
     Izvorni nizovi se pritom ne diraju: spoj se uvijek iznova računa iz njih, pa se svaka odluka može i poništiti.
   </p>
-</div>
+</section>
 {{else}}
-<div class="reg-card" style="padding:1.5rem; text-align:center;">
-  <p class="reg-card-sub m-0">Arhiva nema popis izvora. Pojavit će se čim se arhiva izgradi ili ugradi paket.</p>
-</div>
+<section class="adm-kartica"><p class="form-help">Arhiva nema popis izvora. Pojavit će se čim se arhiva izgradi ili ugradi paket.</p></section>
 {{end}}
+</div>
 {{end}}
