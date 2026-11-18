@@ -11185,6 +11185,16 @@ td .odr-sitno { margin-top: 2px; }
 .odbijenica-tekst h2 { margin: 0; font-size: 1rem; line-height: 24px; font-weight: 500; color: var(--md-sys-color-on-surface); }
 .odbijenica-dno { justify-content: flex-start; }
 
+/* Prijava izvana: kvačice uvjeta za uključivanje PIN-a (Odluke
+   (18. 11. 2026.)); ispunjen uvjet zeleno, neispunjen sivo */
+.pin-uvjeti { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; font-size: 0.875rem; }
+.pin-uvjeti li { display: flex; align-items: flex-start; gap: 8px; color: var(--md-sys-color-on-surface-variant); }
+.pin-uvjeti li .icon { flex: none; width: 18px; height: 18px; margin: 1px 0 0; }
+.pin-uvjeti li.ispunjen { color: var(--md-sys-color-on-surface); }
+.pin-uvjeti li.ispunjen .icon { color: var(--success); }
+.pin-uvjeti a, #pin-bez-adrese a { color: var(--md-sys-color-primary); }
+#pin-bez-adrese { margin: 0; }
+
 /* Vidljivost modula: „Vrati zadano” uz prilagođenu ulogu i kartica iznimaka
    računa (Odluke (18. 11. 2026.)) */
 .mod-vrati { min-height: 0; padding: 0 4px; font-size: 0.75rem; font-weight: 500; vertical-align: baseline; }

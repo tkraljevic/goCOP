@@ -106,6 +106,7 @@ const (
 var karticeAdministracije = []karticaAdministracije{
 	{"organizacija", skupinaUstroj, DosegMreza, uzModul(models.ModuleRegisters)},
 	{"djelatnici", skupinaUstroj, DosegMreza, uzModul(models.ModuleUsers)},
+	{"pin", skupinaUstroj, DosegOboje, samoAdministrator},
 	{"sudionici", skupinaUstroj, DosegMreza, samoAdministrator},
 	{"moduli", skupinaUstroj, DosegMreza, samoAdministrator},
 	{"nazivi", skupinaUstroj, DosegMreza, samoAdministrator},

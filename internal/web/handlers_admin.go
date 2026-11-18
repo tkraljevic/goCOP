@@ -55,6 +55,9 @@ type AdminPageData struct {
 	// PINBezPosiljatelja: PIN izvana je uključen, a ovaj čvor nema
 	// ispravnog računa za slanje PIN-a, pa se izvana ulazi samo kodovima
 	PINBezPosiljatelja bool
+	// PINUkljucen: sklopka PIN-a za prijavu izvana (kartica Prijava izvana);
+	// PINProcitan je laž kad drugi korak nije spojen
+	PINUkljucen, PINProcitan bool
 
 	SyncOnline, SyncTotal, SyncAlerts int // sažetak razmjene za karticu Stanje razmjene
 	PrijaveNove                       int // nove prijave grešaka, za karticu
@@ -110,7 +113,9 @@ func (h *AdminHandler) ShowAdmin(w http.ResponseWriter, r *http.Request) {
 		data.NoContact = true
 	}
 	if h.drugiKorak != nil {
-		data.PINBezPosiljatelja = h.drugiKorak().BezPosiljatelja(ctx)
+		dk := h.drugiKorak()
+		data.PINBezPosiljatelja = dk.BezPosiljatelja(ctx)
+		data.PINUkljucen, data.PINProcitan = dk.Ukljuceno(ctx), true
 	}
 	st, err := h.peers.Status(ctx, false)
 	if err == nil {

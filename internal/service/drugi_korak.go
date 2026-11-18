@@ -733,7 +733,7 @@ func (d *DrugiKorak) upozoriBezPosiljatelja(ctx context.Context) {
 	}
 	d.upozorenoKad = sad
 	d.mu.Unlock()
-	log.Printf("prijava izvana: UPOZORENJE: PIN izvana je uključen, a ovaj čvor nema ispravnog računa za slanje PIN-a; prijava izvana kroz njega prolazi samo rezervnim i privremenim kodovima (Administracija › E-pošta)")
+	log.Printf("prijava izvana: UPOZORENJE: PIN izvana je uključen, a ovaj čvor nema ispravnog računa za slanje PIN-a; prijava izvana kroz njega prolazi samo rezervnim i privremenim kodovima (Administracija › Prijava izvana)")
 }
 
 // SpremiPosiljatelja provjeri prijavu na poslužitelj e-pošte i spremi račun

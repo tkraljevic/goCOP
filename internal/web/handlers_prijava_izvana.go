@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"gocop/internal/models"
+	"gocop/internal/repository"
 	"gocop/internal/service"
 )
 
@@ -336,7 +337,68 @@ func (h *AktiHandler) pinStanje(r *http.Request) (*PINStanje, error) {
 	return p, nil
 }
 
-const natragPIN = "/administracija/posta#pin"
+const natragPIN = "/administracija/prijava-izvana"
+
+// PrijavaIzvanaData je stranica Administracija › Prijava izvana (PIN)
+type PrijavaIzvanaData struct {
+	CurrentUser *models.User
+	Permissions *models.UserPermissions
+	ActiveNav   string
+	ViewAsBanner
+	SuccessMessage string
+	ErrorMessage   string
+
+	// PIN je stanje sklopke i računa za slanje s ovog računala; nil kad
+	// drugi korak nije spojen
+	PIN       *PINStanje
+	PINGreska string
+	// Uvjeti su kvačice uvjeta za uključivanje PIN-a
+	Uvjeti []UvjetPINa
+	// BezPINa: aktivni djelatnici bez adrese na koju PIN smije ići
+	BezPINa          int
+	BezPINaProcitano bool
+}
+
+// UvjetPINa je jedna kvačica na stranici Prijava izvana
+type UvjetPINa struct {
+	Tekst, Poveznica, Natpis string
+	Ispunjen                 bool
+}
+
+// uvjetiPINa su uvjeti za uključivanje PIN-a, redom kojim se ispunjavaju
+// (Odluke (18. 11. 2026.), Administracija, novo ponašanje 1)
+func uvjetiPINa(p *PINStanje, postaPodesena bool) []UvjetPINa {
+	ispravan := p.Posiljatelj != nil && p.Posiljatelj.NeispravanOd == nil && !p.Posiljatelj.ZaDrugiPosluzitelj
+	return []UvjetPINa{
+		{Tekst: "Poslužitelj e-pošte je upisan.", Poveznica: "/administracija/posta", Natpis: "E-pošta", Ispunjen: postaPodesena},
+		{Tekst: "Na ovom računalu upisan je ispravan račun koji šalje PIN.", Ispunjen: ispravan},
+		{Tekst: "Probni PIN s tim računom je stigao.", Ispunjen: p.ProbaUspjela},
+		{Tekst: "Stranica je otvorena izvana preko HTTPS-a (kroz tunel); samo se tako PIN uključuje.", Ispunjen: p.Izvana && !p.BezHTTPS},
+	}
+}
+
+// SetPrijavaIzvana daje rukovatelju predložak stranice Prijava izvana
+func (h *AktiHandler) SetPrijavaIzvana(t *template.Template) { h.tmplPIN = t }
+
+// ShowPrijavaIzvana je stranica PIN-a za prijavu izvana
+func (h *AktiHandler) ShowPrijavaIzvana(w http.ResponseWriter, r *http.Request) {
+	u, perms, base := h.base(r)
+	d := PrijavaIzvanaData{CurrentUser: u, Permissions: perms, ActiveNav: "admin", ViewAsBanner: viewBanner(r),
+		SuccessMessage: base.SuccessMessage, ErrorMessage: base.ErrorMessage}
+	if p, err := h.pinStanje(r); err != nil {
+		d.PINGreska = err.Error()
+	} else if p != nil {
+		d.PIN = p
+		s := h.akti()
+		d.Uvjeti = uvjetiPINa(p, s != nil && s.PostaPodesena(r.Context()))
+	}
+	if bez, err := h.users.ListUsers("", 0, "", "", string(repository.StanjeBezEposte)); err == nil {
+		d.BezPINa, d.BezPINaProcitano = len(bez), true
+	}
+	if err := h.tmplPIN.ExecuteTemplate(w, "administracija_prijava_izvana.html", d); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
 
 // porukaUkljuciBezHTTPS: posrednik ne javlja HTTPS, pa bi se uz uključen
 // PIN svaka prijava izvana odbila

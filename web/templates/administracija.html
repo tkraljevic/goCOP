@@ -35,7 +35,7 @@
   <div class="dash-traka" id="pin-bez-posiljatelja" role="status">
     {{icon "triangle-alert"}}<span><strong>PIN izvana je uključen, a ovo računalo nema ispravnog računa za slanje PIN-a.</strong>
     Tko se preko njega prijavljuje izvana, ulazi samo rezervnim ili privremenim kodom. Upišite račun i pošaljite probni PIN.</span>
-    <a href="/administracija/posta#pin" class="btn btn-link">Otvori E-poštu</a>
+    <a href="/administracija/prijava-izvana" class="btn btn-link">Otvori Prijavu izvana</a>
   </div>
   {{end}}
   {{if .NoContact}}
@@ -91,6 +91,17 @@
           Lozinku poništavate na stranici osobe.</p>
       </div>
       <div class="dash-card-footer"><a href="/users" class="btn btn-link dash-btn">Otvori<span class="sr-only"> Djelatnike</span>{{icon "arrow-right"}}{{icon "chevron-right"}}</a></div>
+    </div>{{end}}
+    {{if .Vidi.pin}}<div class="dash-card{{if .PINBezPosiljatelja}} pozor{{end}}">
+      <div class="dash-card-header">
+        <div class="dash-card-icon-box">{{icon "lock"}}</div>
+        <div class="dash-card-oznake">{{template "dosegKartice" .Doseg.pin}}{{if .PINProcitan}} <span class="dash-cip{{if .PINBezPosiljatelja}} pozor{{end}}" id="cip-pin">PIN {{if .PINUkljucen}}uključen{{else}}isključen{{end}}</span>{{end}}</div>
+      </div>
+      <div class="dash-card-body">
+        <h2 class="dash-card-title">Prijava izvana (PIN)</h2>
+        <p class="dash-card-desc">PIN na službenu e-poštu za prijavu izvana: sklopka i domena za cijelu mrežu, a račun koji šalje PIN na svakom računalu posebno.</p>
+      </div>
+      <div class="dash-card-footer"><a href="/administracija/prijava-izvana" class="btn btn-link dash-btn">Otvori<span class="sr-only"> Prijavu izvana</span>{{icon "arrow-right"}}{{icon "chevron-right"}}</a></div>
     </div>{{end}}
     {{if .Vidi.sudionici}}<div class="dash-card">
       <div class="dash-card-header">
