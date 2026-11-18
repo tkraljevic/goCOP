@@ -52,7 +52,7 @@ func TestAdresaZaQRNaStraniciPotpisa(t *testing.T) {
 	h.ShowAdministracija(w, zahtjevPostavki(http.MethodGet, "/administracija/potpisi", nil, kaoAdmin))
 	html := w.Body.String()
 	for _, mora := range []string{`id="qr-adresa"`, "Adresa za QR kod na dokumentima", `name="postavka.javna_adresa"`, "https://cop.primjer.hr",
-		`action="/administracija/potpisi/postavke-cvora#postavke-cvora"`, "Izdavatelj ovog čvora"} {
+		`action="/administracija/potpisi/postavke-cvora#postavke-cvora"`, "Izdavatelj ovog računala"} {
 		if !strings.Contains(html, mora) {
 			t.Errorf("stranica potpisa nema %q", mora)
 		}

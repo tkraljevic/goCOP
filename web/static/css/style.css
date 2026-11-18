@@ -11102,3 +11102,9 @@ td .odr-sitno { margin-top: 2px; }
 #pin .form-actions { display: flex; justify-content: flex-end; }
 .pos-domena { display: flex; flex-direction: column; gap: 4px; max-width: 560px; margin: 0; }
 .tel-glava h2 .icon { width: 20px; height: 20px; margin-right: 6px; vertical-align: -3px; color: var(--md-sys-color-on-surface-variant); }
+
+/* Elektronički potpisi po crtežu 18d · 2 */
+.pot-tablica { background: transparent; }
+.pot-tablica th { background: transparent; font-size: 0.75rem; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--md-sys-color-on-surface-variant); }
+.pot-tablica td { font-size: 0.875rem; }
+#qr-adresa .postavke-cvora { margin: 0; }
