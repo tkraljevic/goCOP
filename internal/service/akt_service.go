@@ -626,6 +626,80 @@ func razinaPodrucja(perms *models.UserPermissions, a *models.Akt) bool {
 	return false
 }
 
+// Ovjeritelj je osoba koja smije ovjeriti akte sektora, po istim
+// pravilima kao SmijeOvjeriti (kartica u Administraciji › Potpisi)
+type Ovjeritelj struct {
+	Ime, Uloga string
+	UserID     string
+	AreaID     int  // 0: cijeli sektor
+	SveFaze    bool // i izvanrednu obranu; rukovoditelj područja nju ne ovjerava
+}
+
+// OvjeriteljiSektora su aktivni računi s aktivnom dužnošću koja daje ovjeru
+// akata sektora: razina sektora za cijeli sektor, zamjenik za područje i
+// rukovoditelji područja za svoje područje. Globalni administrator smije
+// uvijek, pa se ovdje ne nabraja. Redom: cijeli sektor, pa po području i
+// imenu.
+func OvjeriteljiSektora(users []models.User, sektor string, podrucja map[int]bool) []Ovjeritelj {
+	var out []Ovjeritelj
+	for _, u := range users {
+		if !u.IsActive {
+			continue
+		}
+		for _, d := range aktivnaZaduzenja(&models.UserPermissions{User: u}) {
+			podrucje, sveFaze, ovjerava := dosegOvjere(d, sektor, podrucja)
+			if !ovjerava {
+				continue
+			}
+			uloga := d.Title
+			if uloga == "" {
+				uloga = d.Role.Label()
+			}
+			out = append(out, Ovjeritelj{Ime: u.FullName, Uloga: uloga, UserID: u.ID.String(), AreaID: podrucje, SveFaze: sveFaze})
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool { return manjiOvjeritelj(out[i], out[j]) })
+	return out
+}
+
+// Razine ovjere po ulozi, kao razinaSektora i razinaPodrucja: razina
+// sektora za cijeli sektor, zamjenik za područje sve za svoje područje,
+// rukovoditelj područja bez izvanredne obrane
+const (
+	ovjeraSektor = iota + 1
+	ovjeraZamjenikPodrucja
+	ovjeraPodrucje
+)
+
+var razinaOvjere = map[models.Role]int{
+	models.RoleSectorLeader: ovjeraSektor, models.RoleSectorDeputy: ovjeraSektor, models.RoleSectorMainDeputy: ovjeraSektor,
+	models.RoleSectorAreaDeputy: ovjeraZamjenikPodrucja,
+	models.RoleAreaLeader:       ovjeraPodrucje, models.RoleAreaDeputy: ovjeraPodrucje,
+}
+
+// dosegOvjere kaže daje li dužnost ovjeru akata sektora, za koje područje
+// (0: cijeli sektor) i uz izvanrednu obranu
+func dosegOvjere(d models.Duty, sektor string, podrucja map[int]bool) (podrucje int, sveFaze, ovjerava bool) {
+	switch razinaOvjere[d.Role] {
+	case 0:
+		return 0, false, false
+	case ovjeraSektor:
+		return 0, true, d.SectorID != nil && *d.SectorID == sektor
+	}
+	if d.AreaID == nil || !podrucja[*d.AreaID] {
+		return 0, false, false
+	}
+	return *d.AreaID, razinaOvjere[d.Role] == ovjeraZamjenikPodrucja, true
+}
+
+// manjiOvjeritelj: cijeli sektor prvi, pa po području i imenu
+func manjiOvjeritelj(a, b Ovjeritelj) bool {
+	if a.AreaID != b.AreaID {
+		return a.AreaID < b.AreaID
+	}
+	return a.Ime < b.Ime
+}
+
 // osnovaEpizode je po čemu je obrana proglašena, za epizodu na dionici
 func osnovaEpizode(a *models.Akt) string {
 	if a.Prognoza != "" {

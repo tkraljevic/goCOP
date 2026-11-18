@@ -396,8 +396,9 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 		t.Errorf("geokod: %s", w.Body.String())
 	}
 	// administracija potpisa: izdavatelj ovog čvora i dva izdana ključa; rukovoditelj BP onamo ne ulazi
-	if w := zovi(admin, http.MethodGet, "/administracija/potpisi", nil); !strings.Contains(w.Body.String(), "goCOP cop-osijek") || strings.Count(w.Body.String(), "<tr><td>") != 3 {
-		t.Errorf("administracija potpisa: %d, %d redaka", w.Code, strings.Count(w.Body.String(), "<tr><td>"))
+	// (retci izdavatelja i ključeva, bez kartice ovjeritelja ispod njih)
+	if w := zovi(admin, http.MethodGet, "/administracija/potpisi", nil); !strings.Contains(w.Body.String(), "goCOP cop-osijek") || strings.Count(strings.SplitN(w.Body.String(), `id="ovjeritelji"`, 2)[0], "<tr><td>") != 3 {
+		t.Errorf("administracija potpisa: %d, %d redaka", w.Code, strings.Count(strings.SplitN(w.Body.String(), `id="ovjeritelji"`, 2)[0], "<tr><td>"))
 	}
 	if w := zovi(anic, http.MethodGet, "/administracija/potpisi", nil); w.Code != http.StatusForbidden {
 		t.Errorf("rukovoditelj BP u administraciji potpisa: %d", w.Code)

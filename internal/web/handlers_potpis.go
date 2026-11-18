@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"net/http"
 	"slices"
+	"strconv"
 	"time"
 
 	"gocop/internal/models"
@@ -31,6 +32,10 @@ func NewPotpisHandler(svc func() *service.PotpisService, users *service.UserServ
 
 // PodaciKljuca je što profil pokazuje o ključu osobe
 type PodaciKljuca struct {
+	// UserID i Racun: čiji je ključ i je li mu prijava uključena (stupac
+	// Stanje računa u Administraciji › Potpisi); Racun je prazan kad se ne zna
+	UserID   string
+	Racun    string
 	Ima      bool
 	Ime      string
 	Funkcija string
@@ -55,7 +60,7 @@ func (h *PotpisHandler) Podaci(ctx context.Context, userID string) PodaciKljuca 
 }
 
 func podaciKljuca(k *models.PotpisniKljuc) PodaciKljuca {
-	p := PodaciKljuca{Ima: true, Ime: k.Ime, Izdao: k.Izdao, Otisak: potpis.Otisak(k.Cert)}
+	p := PodaciKljuca{UserID: k.UserID, Ima: true, Ime: k.Ime, Izdao: k.Izdao, Otisak: potpis.Otisak(k.Cert)}
 	if c, err := x509.ParseCertificate(k.Cert); err == nil {
 		p.Od, p.Do = c.NotBefore, c.NotAfter
 		p.Istekao = time.Now().After(c.NotAfter)
@@ -137,7 +142,10 @@ type PotpisiPageData struct {
 	IzdavateljOt   string
 	Izdavatelji    []IzdavateljRed
 	Kljucevi       []PodaciKljuca
-	Postavke       *PostavkeStranice // adresa za QR kod iz gocop.toml; nil za ne-administratora
+	// Ovjeritelji su po sektoru ljudi koji smiju ovjeriti akte (Odluke
+	// (18. 11. 2026.), Administracija, novo ponašanje 13)
+	Ovjeritelji []SektorOvjeritelja
+	Postavke    *PostavkeStranice // adresa za QR kod iz gocop.toml; nil za ne-administratora
 }
 
 // redoviIzdavatelja slaže popis izdavatelja svih čvorova; ovaj je
@@ -188,10 +196,68 @@ func (h *PotpisHandler) ShowAdministracija(w http.ResponseWriter, r *http.Reques
 		d.IzdavateljOt = potpis.Otisak(d.Izdavatelj.Raw)
 	}
 	d.Izdavatelji = redoviIzdavatelja(d.Izdavatelj, s.Izdavatelji(r.Context()))
+	racuni := map[string]bool{}
+	svi, errRacuna := h.users.ListUsers("", 0, "", "", "")
+	for _, x := range svi {
+		racuni[x.ID.String()] = x.IsActive
+	}
 	for _, k := range s.Svi(r.Context()) {
-		d.Kljucevi = append(d.Kljucevi, podaciKljuca(&k))
+		p := podaciKljuca(&k)
+		if aktivan, ima := racuni[k.UserID]; ima && errRacuna == nil {
+			p.Racun = map[bool]string{true: "aktivan", false: "prijava isključena"}[aktivan]
+		}
+		d.Kljucevi = append(d.Kljucevi, p)
+	}
+	if errRacuna == nil {
+		d.Ovjeritelji = h.ovjeritelji(svi)
 	}
 	if err := h.tmpl.ExecuteTemplate(w, "administracija_potpisi.html", d); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// SektorOvjeritelja je jedan sektor na kartici „Tko smije ovjeriti akte
+// sektora”
+type SektorOvjeritelja struct {
+	Sektor string
+	Redovi []RedOvjeritelja
+}
+
+// RedOvjeritelja je jedna osoba s dužnošću koja daje ovjeru
+type RedOvjeritelja struct {
+	UserID, Ime, Uloga, Doseg string
+}
+
+// ovjeritelji slaže karticu po sektorima, bez krovne razine (Direkcija);
+// sektor bez ijednog ovjeritelja stoji s praznim popisom
+func (h *PotpisHandler) ovjeritelji(users []models.User) []SektorOvjeritelja {
+	sektori, err := h.users.ListSectors()
+	if err != nil {
+		return nil
+	}
+	var out []SektorOvjeritelja
+	for _, sk := range sektori {
+		if sk.IsLevel1() {
+			continue
+		}
+		podrucja := map[int]bool{}
+		if areas, err := h.users.ListAreas(sk.ID); err == nil {
+			for _, a := range areas {
+				podrucja[a.ID] = true
+			}
+		}
+		so := SektorOvjeritelja{Sektor: sk.Name}
+		for _, o := range service.OvjeriteljiSektora(users, sk.ID, podrucja) {
+			doseg := "cijeli sektor, sva stanja"
+			if o.AreaID != 0 {
+				doseg = "BP " + strconv.Itoa(o.AreaID) + ", sva stanja"
+				if !o.SveFaze {
+					doseg = "BP " + strconv.Itoa(o.AreaID) + ", osim izvanredne obrane"
+				}
+			}
+			so.Redovi = append(so.Redovi, RedOvjeritelja{UserID: o.UserID, Ime: o.Ime, Uloga: o.Uloga, Doseg: doseg})
+		}
+		out = append(out, so)
+	}
+	return out
 }
