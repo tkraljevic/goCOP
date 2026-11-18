@@ -11093,3 +11093,12 @@ td .odr-sitno { margin-top: 2px; }
   .uni-pregled > .izvor-kartica { grid-template-columns: minmax(0, 1fr); }
   .uni-pregled > .izvor-kartica > .izvor-brojevi { grid-column: auto; }
 }
+
+/* E-pošta po crtežu 18d · 1 */
+.pos-oznaka { margin: 0 0 6px; font-size: 0.75rem; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--md-sys-color-on-surface-variant); }
+.pos-obrazac:has(input[name="nacin"][value="ews"]:checked) .pos-smtp { display: none; }
+#pin .obrazac-podnaslov { margin: 8px 0 0; font-size: 0.875rem; font-weight: 500; }
+#pin .form-help, #pin .profil-stanje { margin: 0; }
+#pin .form-actions { display: flex; justify-content: flex-end; }
+.pos-domena { display: flex; flex-direction: column; gap: 4px; max-width: 560px; margin: 0; }
+.tel-glava h2 .icon { width: 20px; height: 20px; margin-right: 6px; vertical-align: -3px; color: var(--md-sys-color-on-surface-variant); }
