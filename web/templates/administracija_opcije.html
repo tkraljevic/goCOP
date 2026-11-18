@@ -6,82 +6,97 @@
 {{define "sidroPomoci"}}#admin-opcije{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/administracija">Administracija</a> › Opcije</div>
-
+{{/* Opcije po crtežu 18d · 6 (goCOP-m3): svaka opcija je kartica s
+     prekidačem, čipom (uključeno crveno, isključeno zeleno) i retcima Što
+     radi, Što ne radi, Kada uključiti; Simulacija potpisnog ključa je
+     uvučena u Upise tuđim očima i zaključana dok su oni isključeni.
+     Traka o uključenim testnim opcijama i prozor potvrde su novo
+     ponašanje i čekaju odluku. Imena polja su ista. */}}
+<div class="adm-stranica">
+<a class="adm-natrag" href="/administracija">{{icon "arrow-left"}} Administracija</a>
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{icon "settings"}} Opcije</h1>
-    <p class="page-desc">Opći prekidači programa. Svaki nosi objašnjenje što uključuje i kada ga treba držati isključenim. Vrijede na svim čvorovima; mijenja ih samo globalni administrator, a promjena ostaje u knjizi verzija. Rok čuvanja fotografija s terena je na stranici <a href="/administracija/baza#pohrana">Održavanje baze</a>, u dijelu Pohrana.</p>
+    <h1 class="page-title" data-naziv-stranice>Opcije</h1>
+    <p class="page-desc">Opći prekidači programa. Svaki nosi objašnjenje što uključuje i kada ga treba držati isključenim. Vrijede na svim računalima; mijenja ih samo globalni administrator, a promjena ostaje u knjizi verzija. Rok čuvanja fotografija s terena je na stranici <a href="/administracija/baza#pohrana">Održavanje baze</a>, u dijelu Pohrana.</p>
+    <span class="adm-doseg" title="Vrijedi na svim računalima u mreži; promjena ide razmjenom.">M · cijela mreža</span>
   </div>
 </div>
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 
-<section class="detail-section" style="margin-top:0; max-width:48rem;">
-  <form method="POST" action="/administracija/opcije">
-    <div class="opcija">
-      <label class="opcija-red">
+<form method="POST" action="/administracija/opcije" class="adm-obrazac" id="opcije-obrazac">
+    <section class="adm-kartica opc-kartica">
+      <label class="izvor-sklopka opc-glava">
         <input type="checkbox" name="brisanje_ovjerenih_akata" value="1" {{if .Opcije.BrisanjeOvjerenihAkata}}checked{{end}}>
         <span class="opcija-naziv">Trajno brisanje ovjerenih rješenja i obavijesti</span>
-        <span class="badge {{if .Opcije.BrisanjeOvjerenihAkata}}badge-danger{{else}}badge-active{{end}}">{{if .Opcije.BrisanjeOvjerenihAkata}}uključeno{{else}}isključeno{{end}}</span>
+        <span class="rac-cip {{if .Opcije.BrisanjeOvjerenihAkata}}opc-ukljuceno{{else}}dobro{{end}}">{{if .Opcije.BrisanjeOvjerenihAkata}}uključeno{{else}}isključeno{{end}}</span>
       </label>
-      <div class="opcija-opis">
-        <p><strong>Što radi:</strong> na ovjerenom aktu uprava organizacije i uprava sektora dobivaju gumb „Obriši trajno”. Briše se akt, njegov izvornik (PDF s ovjerom, žigom i potpisom) i dnevnik slanja primateljima. Brisanje ostaje zabilježeno u knjizi verzija, s imenom i vremenom.</p>
-        <p><strong>Što ne radi:</strong> ne povlači pisma koja su već poslana primateljima i ne vraća stanje obrane na dionicama koje je akt proglasio; to se po potrebi zaključuje ručno. Redni brojevi akata ostaju s prazninom.</p>
-        <p><strong>Kada uključiti:</strong> samo u testnom okruženju, dok se program isprobava probnim aktima. <strong>U operativnom radu držite isključeno:</strong> ovjereno rješenje ili obavijest ima pravni učinak i mora ostati u evidenciji, pa se ispravlja novim aktom, ne brisanjem.</p>
-      </div>
-    </div>
-    <div class="opcija">
-      <label class="opcija-red">
+      <dl class="opc-redci">
+        <dt>Što radi</dt><dd>na ovjerenom aktu uprava organizacije i uprava sektora dobivaju gumb „Obriši trajno”. Briše se akt, njegov izvornik (PDF s ovjerom, žigom i potpisom) i dnevnik slanja primateljima. Brisanje ostaje zabilježeno u knjizi verzija, s imenom i vremenom.</dd>
+        <dt>Što ne radi</dt><dd>ne povlači pisma koja su već poslana primateljima i ne vraća stanje obrane na dionicama koje je akt proglasio; to se po potrebi zaključuje ručno. Redni brojevi akata ostaju s prazninom.</dd>
+        <dt>Kada uključiti</dt><dd>samo u testnom okruženju, dok se program isprobava probnim aktima. <strong>U operativnom radu držite isključeno:</strong> ovjereno rješenje ili obavijest ima pravni učinak i mora ostati u evidenciji, pa se ispravlja novim aktom, ne brisanjem.</dd>
+      </dl>
+    </section>
+    <section class="adm-kartica opc-kartica">
+      <label class="izvor-sklopka opc-glava">
         <input type="checkbox" name="brisanje_povijesti_verzija" value="1" {{if .Opcije.BrisanjePovijestiVerzija}}checked{{end}}>
         <span class="opcija-naziv">Brisanje povijesti verzija</span>
-        <span class="badge {{if .Opcije.BrisanjePovijestiVerzija}}badge-danger{{else}}badge-active{{end}}">{{if .Opcije.BrisanjePovijestiVerzija}}uključeno{{else}}isključeno{{end}}</span>
+        <span class="rac-cip {{if .Opcije.BrisanjePovijestiVerzija}}opc-ukljuceno{{else}}dobro{{end}}">{{if .Opcije.BrisanjePovijestiVerzija}}uključeno{{else}}isključeno{{end}}</span>
       </label>
-      <div class="opcija-opis">
-        <p><strong>Što radi:</strong> u Administraciji › Održavanje baze otključava rok 0 dana (briše svu povijest izmjena odmah, ostaju samo zadnje verzije, a uz akt i zadnja verzija svake njegove ovjere) i gumb „Obriši spomenike”, koji briše zapise o brisanju onih zapisa kojima je sažimanje već obrisalo sve starije verzije. Bez prekidača sažimanje čuva najmanje jedan dan povijesti i sve spomenike.</p>
-        <p><strong>Što ne radi:</strong> ne dira zadnju verziju nijednog zapisa, pa podaci u programu ostaju isti. Briše samo na ovom čvoru; drugi čvorovi zadržavaju što su primili.</p>
-        <p><strong>Kada uključiti:</strong> pri čišćenju testnog čvora. <strong>U operativnom radu držite isključeno:</strong> povijest izmjena je dokaz tko je što promijenio, a spomenici sprječavaju da zakašnjeli čvor vrati obrisani zapis.</p>
-      </div>
-    </div>
-    <div class="opcija">
-      <label class="opcija-red">
+      <dl class="opc-redci">
+        <dt>Što radi</dt><dd>u Administraciji › Održavanje baze otključava rok 0 dana (briše svu povijest izmjena odmah, ostaju samo zadnje verzije, a uz akt i zadnja verzija svake njegove ovjere) i gumb „Obriši spomenike”, koji briše zapise o brisanju onih zapisa kojima je sažimanje već obrisalo sve starije verzije. Bez prekidača sažimanje čuva najmanje jedan dan povijesti i sve spomenike.</dd>
+        <dt>Što ne radi</dt><dd>ne dira zadnju verziju nijednog zapisa, pa podaci u programu ostaju isti. Briše samo na ovom čvoru; drugi čvorovi zadržavaju što su primili.</dd>
+        <dt>Kada uključiti</dt><dd>pri čišćenju testnog čvora. <strong>U operativnom radu držite isključeno:</strong> povijest izmjena je dokaz tko je što promijenio, a spomenici sprječavaju da zakašnjeli čvor vrati obrisani zapis.</dd>
+      </dl>
+    </section>
+    <section class="adm-kartica opc-kartica">
+      <label class="izvor-sklopka opc-glava">
         <input type="checkbox" name="brisanje_s_oglasne_ploce" value="1" {{if .Opcije.BrisanjeSOglasnePloce}}checked{{end}}>
         <span class="opcija-naziv">Brisanje zapisa s oglasne ploče</span>
-        <span class="badge {{if .Opcije.BrisanjeSOglasnePloce}}badge-danger{{else}}badge-active{{end}}">{{if .Opcije.BrisanjeSOglasnePloce}}uključeno{{else}}isključeno{{end}}</span>
+        <span class="rac-cip {{if .Opcije.BrisanjeSOglasnePloce}}opc-ukljuceno{{else}}dobro{{end}}">{{if .Opcije.BrisanjeSOglasnePloce}}uključeno{{else}}isključeno{{end}}</span>
       </label>
-      <div class="opcija-opis">
-        <p><strong>Što radi:</strong> uprava organizacije na stranici Događanja dobiva uz svaki zapis gumb za brisanje. Oglasna ploča čita knjigu verzija, pa se briše ta verzija iz knjige na ovom čvoru.</p>
-        <p><strong>Što ne radi:</strong> zadnja verzija zapisa ne može se obrisati (program to odbije), da podaci i knjiga ostanu usklađeni; živ zapis briše se na svom mjestu u programu. Isto vrijedi za zapis o brisanju, npr. „Maknuto dežurstvo”: bez njega bi se obrisani zapis vratio. Ne briše se ni ono što je jedno računalo zadnje upisalo u neku vrstu podataka za jedno područje i godinu, jer bi ga razmjena vratila. Primjer je objava prijave s terenskog laptopa nakon koje s tog laptopa nije stigla nijedna nova prijava ni izmjena prijave za to područje i godinu. Očitanja i dnevni listovi s istog laptopa tu ne pomažu. Takav se zapis može obrisati kad to računalo upiše nešto novije iste vrste za isto područje i godinu. Kod zajedničkih podataka, npr. ustroja ili registara, dovoljan je bilo koji noviji upis tog računala u te podatke. Zapis koji je drugi čvor već primio ondje ostaje.</p>
-        <p><strong>Kada uključiti:</strong> za čišćenje probnih zapisa s ploče. <strong>U operativnom radu držite isključeno:</strong> ploča je dnevnik rada i ne smije se prepravljati.</p>
-      </div>
-    </div>
-    <div class="opcija">
-      <label class="opcija-red">
+      <dl class="opc-redci">
+        <dt>Što radi</dt><dd>uprava organizacije na stranici Događanja dobiva uz svaki zapis gumb za brisanje. Oglasna ploča čita knjigu verzija, pa se briše ta verzija iz knjige na ovom čvoru.</dd>
+        <dt>Što ne radi</dt><dd>zadnja verzija zapisa ne može se obrisati (program to odbije), da podaci i knjiga ostanu usklađeni; živ zapis briše se na svom mjestu u programu. Isto vrijedi za zapis o brisanju, npr. „Maknuto dežurstvo”: bez njega bi se obrisani zapis vratio. Ne briše se ni ono što je jedno računalo zadnje upisalo u neku vrstu podataka za jedno područje i godinu, jer bi ga razmjena vratila. Primjer je objava prijave s terenskog laptopa nakon koje s tog laptopa nije stigla nijedna nova prijava ni izmjena prijave za to područje i godinu. Očitanja i dnevni listovi s istog laptopa tu ne pomažu. Takav se zapis može obrisati kad to računalo upiše nešto novije iste vrste za isto područje i godinu. Kod zajedničkih podataka, npr. ustroja ili registara, dovoljan je bilo koji noviji upis tog računala u te podatke. Zapis koji je drugi čvor već primio ondje ostaje.</dd>
+        <dt>Kada uključiti</dt><dd>za čišćenje probnih zapisa s ploče. <strong>U operativnom radu držite isključeno:</strong> ploča je dnevnik rada i ne smije se prepravljati.</dd>
+      </dl>
+    </section>
+    <section class="adm-kartica opc-kartica">
+      <label class="izvor-sklopka opc-glava">
         <input type="checkbox" name="upis_tudjim_ocima" value="1" {{if .Opcije.UpisTudjimOcima}}checked{{end}}>
         <span class="opcija-naziv">Upisi tuđim očima</span>
-        <span class="badge {{if .Opcije.UpisTudjimOcima}}badge-danger{{else}}badge-active{{end}}">{{if .Opcije.UpisTudjimOcima}}uključeno{{else}}isključeno{{end}}</span>
+        <span class="rac-cip {{if .Opcije.UpisTudjimOcima}}opc-ukljuceno{{else}}dobro{{end}}">{{if .Opcije.UpisTudjimOcima}}uključeno{{else}}isključeno{{end}}</span>
       </label>
-      <div class="opcija-opis">
-        <p><strong>Što radi:</strong> administrator koji gleda program očima drugog djelatnika (Djelatnici › „Pogledaj kao”) može u tom pogledu i upisivati: otvoriti dnevni list vodočuvara, upisati očitanje, predati list, kao da za tipkovnicom sjedi taj djelatnik. Zapis nastaje pod imenom djelatnika čijim se očima gleda; u dnevnik poslužitelja upisuje se tko je stvarno pisao.</p>
-        <p><strong>Što ne radi:</strong> ne daje administratoru više prava nego što ih ima taj djelatnik; ovlasti su njegove. Bez prekidača se tuđim očima samo čita. Račun kojemu je prijava isključena i uz prekidač se tuđim očima samo čita, pa pod imenom osobe koja se ne smije prijaviti zapis ne nastaje; isključi li se račun usred pregleda, pregled od idućeg koraka samo čita.</p>
-        <p><strong>Kada uključiti:</strong> pri testiranju i uvođenju, da se tok isproba bez prijave na tuđi račun. <strong>U operativnom radu držite isključeno:</strong> potpis na listu mora biti djelatnikov, ne administratorov.</p>
-      </div>
-    </div>
-    <div class="opcija">
-      <label class="opcija-red">
-        <input type="checkbox" name="simulacija_kljuca" value="1" {{if .Opcije.SimulacijaKljuca}}checked{{end}}>
-        <span class="opcija-naziv">Simulacija potpisnog ključa</span>
-        <span class="badge {{if .Opcije.SimulacijaKljuca}}badge-danger{{else}}badge-active{{end}}">{{if .Opcije.SimulacijaKljuca}}uključeno{{else}}isključeno{{end}}</span>
-      </label>
-      <div class="opcija-opis">
-        <p><strong>Što radi:</strong> administrator koji gleda tuđim očima (uz uključene „Upise tuđim očima”, na računu koji nije isključen) može u ime tog djelatnika potpisati dokument, npr. predati ili ovjeriti dnevni list, bez lozinke i bez pravog ključa. Program u tom trenutku napravi jednokratni simulirani ključ: certifikat nosi ime djelatnika s oznakom <strong>SIMULACIJA</strong>, blok potpisa je crven i piše „SIMULIRANI POTPIS · BEZVRIJEDNO”, a preko stranice PDF-a stoji pečat <strong>SIMULACIJA · BEZVRIJEDNO</strong> koji je dio potpisanog sadržaja pa se ne može ukloniti.</p>
-        <p><strong>Što ne radi:</strong> ne dira pravi ključ djelatnika ni njegovu lozinku; simulirani potpis se u programu i u čitaču PDF-a jasno razlikuje od pravog i nema nikakvu vrijednost. Bez pogleda tuđim očima prekidač ne mijenja ništa: svatko potpisuje samo svojim ključem i lozinkom.</p>
-        <p><strong>Kada uključiti:</strong> pri testiranju i uvođenju, da se cijeli tok potpisivanja (predaja, ovjera, izvornik, provjera) isproba bez tuđih lozinki. <strong>U operativnom radu držite isključeno.</strong></p>
-      </div>
-    </div>
-    <div class="form-actions"><button type="submit" class="btn btn-primary">{{icon "check"}} Spremi opcije</button></div>
-  </form>
-</section>
-
+      <dl class="opc-redci">
+        <dt>Što radi</dt><dd>administrator koji gleda program očima drugog djelatnika (Djelatnici › „Pogledaj kao”) može u tom pogledu i upisivati: otvoriti dnevni list vodočuvara, upisati očitanje, predati list, kao da za tipkovnicom sjedi taj djelatnik. Zapis nastaje pod imenom djelatnika čijim se očima gleda; u dnevnik poslužitelja upisuje se tko je stvarno pisao.</dd>
+        <dt>Što ne radi</dt><dd>ne daje administratoru više prava nego što ih ima taj djelatnik; ovlasti su njegove. Bez prekidača se tuđim očima samo čita. Račun kojemu je prijava isključena i uz prekidač se tuđim očima samo čita, pa pod imenom osobe koja se ne smije prijaviti zapis ne nastaje; isključi li se račun usred pregleda, pregled od idućeg koraka samo čita.</dd>
+        <dt>Kada uključiti</dt><dd>pri testiranju i uvođenju, da se tok isproba bez prijave na tuđi račun. <strong>U operativnom radu držite isključeno:</strong> potpis na listu mora biti djelatnikov, ne administratorov.</dd>
+      </dl>
+    <section class="opc-kartica opc-uvucena">
+        <label class="izvor-sklopka opc-glava">
+          <input type="checkbox" name="simulacija_kljuca" value="1" {{if .Opcije.SimulacijaKljuca}}checked{{end}} {{if not .Opcije.UpisTudjimOcima}}disabled{{end}}>
+          <span class="opcija-naziv">Simulacija potpisnog ključa</span>
+          <span class="rac-cip {{if .Opcije.SimulacijaKljuca}}opc-ukljuceno{{else}}dobro{{end}}">{{if .Opcije.SimulacijaKljuca}}uključeno{{else}}isključeno{{end}}</span>
+        </label>
+        <p class="form-help">Radi samo uz Upise tuđim očima; dok su oni isključeni, ova je kvačica zaključana.</p>
+        <dl class="opc-redci">
+          <dt>Što radi</dt><dd>administrator koji gleda tuđim očima (uz uključene „Upise tuđim očima”, na računu koji nije isključen) može u ime tog djelatnika potpisati dokument, npr. predati ili ovjeriti dnevni list, bez lozinke i bez pravog ključa. Program u tom trenutku napravi jednokratni simulirani ključ: certifikat nosi ime djelatnika s oznakom <strong>SIMULACIJA</strong>, blok potpisa je crven i piše „SIMULIRANI POTPIS · BEZVRIJEDNO”, a preko stranice PDF-a stoji pečat <strong>SIMULACIJA · BEZVRIJEDNO</strong> koji je dio potpisanog sadržaja pa se ne može ukloniti.</dd>
+          <dt>Što ne radi</dt><dd>ne dira pravi ključ djelatnika ni njegovu lozinku; simulirani potpis se u programu i u čitaču PDF-a jasno razlikuje od pravog i nema nikakvu vrijednost. Bez pogleda tuđim očima prekidač ne mijenja ništa: svatko potpisuje samo svojim ključem i lozinkom.</dd>
+          <dt>Kada uključiti</dt><dd>pri testiranju i uvođenju, da se cijeli tok potpisivanja (predaja, ovjera, izvornik, provjera) isproba bez tuđih lozinki. <strong>U operativnom radu držite isključeno.</strong></dd>
+        </dl>
+      </section>
+    </section>
+  <div class="adm-dno"><button type="submit" class="btn btn-primary">Spremi opcije</button></div>
+</form>
+</div>
+<script>
+// Simulacija potpisnog ključa radi samo uz Upise tuđim očima: kvačica se
+// otključa čim se oni uključe, a zaključa kad se isključe
+(function () {
+  var upis = document.querySelector('input[name="upis_tudjim_ocima"]'), sim = document.querySelector('input[name="simulacija_kljuca"]');
+  if (!upis || !sim) return;
+  upis.addEventListener('change', function () { sim.disabled = !upis.checked; });
+})();
+</script>
 {{end}}

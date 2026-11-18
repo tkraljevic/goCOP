@@ -11155,3 +11155,17 @@ td .odr-sitno { margin-top: 2px; }
 .kar-bez-tablica { max-width: 44rem; }
 .kar-ucitaj { display: flex; flex-direction: column; gap: 8px; margin: 0 12px 12px; }
 .kar-ucitaj .form-control { border: 1px solid var(--md-sys-color-outline); border-radius: 4px; background: var(--md-sys-color-surface); }
+
+/* Opcije po crtežu 18d · 6 */
+.opc-glava { justify-content: flex-start; gap: 12px; }
+.opc-glava span.opcija-naziv { order: 0; font-size: 1rem; font-weight: 500; color: var(--md-sys-color-on-surface); }
+.opc-glava input { order: -1; }
+.opc-glava .rac-cip { order: 1; margin-left: auto; }
+.rac-cip.opc-ukljuceno { border-color: var(--md-sys-color-error); color: var(--md-sys-color-error); }
+.opc-redci { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; margin: 0; font-size: 0.8125rem; line-height: 18px; }
+.opc-redci dt { font-weight: 600; color: var(--md-sys-color-on-surface); }
+.opc-redci dd { margin: 0; color: var(--md-sys-color-on-surface-variant); }
+.opc-uvucena { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; padding: 12px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 8px; background: var(--md-sys-color-surface); }
+.opc-uvucena:has(input:disabled) { opacity: 0.6; }
+.opc-uvucena .form-help { margin: 0; }
+@media (max-width: 599px) { .opc-redci { grid-template-columns: minmax(0, 1fr); } .opc-redci dd { margin-bottom: 6px; } }
