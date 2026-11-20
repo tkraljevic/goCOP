@@ -4,6 +4,48 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.61-alfa — 20. 11. 2026.
+
+Administracija je dobila novo ponašanje iz crteža: odbijenicu, stranicu
+Prijave izvana, pregled paketa prije ugradnje i niz manjih pomoći. Baza
+dobiva jedan stupac, koji program doda sam pri pokretanju, a razmjena samo
+jedan podatak za prikaz koji stariji program zanemari, pa se računala
+nadograđuju kad odgovara.
+
+- **Odbijenica.** Tko otvori stranicu za koju nema prava, dobije stranicu
+  s izbornikom, rečenicom tko to smije i imenom administratora koga pitati,
+  umjesto gole poruke.
+- **Prijava izvana (PIN)** ima svoju stranicu i karticu u Ustroju i
+  ljudima. Na vrhu su kvačice što treba prije uključivanja i broj
+  djelatnika bez adrese za PIN.
+- **Ulaz u Administraciju.** Sudionici obrane, Vidljivost modula i Nazivi
+  pokazuju broj, brojke na kartici Djelatnici vode na popis tih ljudi, a
+  popis djelatnika ima filtar „Čeka promjenu lozinke”. Kad su uključene
+  testne opcije, traka to kaže na Opcijama i na ulazu, a uključivanje
+  opasne opcije traži potvrdu. Nakon osnivanja mreže program vodi na Prve
+  korake.
+- **Vidljivost modula.** Prilagođena uloga ima „Vrati zadano”, a nova
+  kartica nabraja iznimke pojedinih računa.
+- **Ovo računalo i mreža.** Kartica Adrese pokazuje adresu za prijavu
+  izvana. Izvana su kvačice uloga zaključane i piše zašto. Uz preuzimanje
+  vodostaja piše minuta u satu.
+- **Stanje razmjene.** Uloge računala su čipovi u svom stupcu, ispod puta
+  zadnje razmjene piše zašto ide tim putem, a novi stupac kaže ima li
+  računalo kartu bez interneta. Svako „Upari” vodi u čarobnjak s
+  upisanom adresom.
+- **Održavanje baze.** Kartica „Što zauzima prostor” nabraja datoteke od
+  najveće. Paket kanala se prije ugradnje pregleda: tko ga je izdao, po
+  kanalu koliko zapisa nosi i koliko ih još nema; ugrađuje se tek gumbom
+  „Ugradi”.
+- **Telemetrija, Izvori arhive, E-pošta, Potpisi.** Telemetrija pokazuje
+  zadnji dohvat po letvi i ima „Provjeri sada”. Izvori arhive imaju čipove
+  filtra s brojem. E-pošta ima „Pošalji probno pismo meni”. Potpisi
+  pokazuju stanje računa uz ključ i tko smije ovjeriti akte sektora.
+- **Očitanja.** Protok izračunat iz krivulje više ne piše „izmjereno”, a
+  dugi redak s kotama i protokom ostaje u kartici.
+- **Naslovna.** Prijave prenesene iz ranije evidencije više nisu u „Za
+  riješiti”. Kartica Jače oborine govori isto u oznaci, traci i porastu.
+
 ## 0.0.60-alfa — 18. 11. 2026.
 
 Administracija je u novom izgledu, sa svim podstranicama. Baza i razmjena se
