@@ -10,8 +10,9 @@
      postavkama iz gocop.toml, Knjiga verzija s hrvatskim imenima vrsta
      (preseljena s Ovog računala i mreže) i sažimanjem, Pohrana, Paket
      kanala s izdavanjem i ugradnjom jedno uz drugo te kanalima u
-     sklopivom retku. Obrasci i adrese su isti. „Što zauzima prostor” i
-     pregled paketa prije ugradnje su novo ponašanje i čekaju odluku. */}}
+     sklopivom retku. Obrasci i adrese su isti. „Što zauzima prostor” je
+     po Odlukama (18. 11. 2026.); pregled paketa prije ugradnje dolazi
+     zasebno. */}}
 <div class="adm-stranica">
 <a class="adm-natrag" href="/administracija">{{icon "arrow-left"}} Administracija</a>
 <div class="page-header">
@@ -48,6 +49,20 @@
   </div>
   {{end}}
 </section>
+
+{{if .Prostor}}
+<section class="adm-kartica" id="prostor" aria-labelledby="baz-prostor">
+  <h2 id="baz-prostor">Što zauzima prostor <span class="rac-doseg" title="Vrijedi samo na ovom računalu i ne ide razmjenom.">R</span></h2>
+  <ul class="baz-prostor">
+    {{range .Prostor}}<li>
+      <span class="baz-prostor-naziv" title="{{.Put}}">{{.Naziv}}{{if .Poveznica}} <a href="{{.Poveznica}}">{{.Natpis}}</a>{{end}}</span>
+      <span class="baz-prostor-traka" aria-hidden="true"><span style="width: {{.Postotak}}%"></span></span>
+      <span class="baz-prostor-velicina">{{humanBytes .Bajtova}}</span>
+    </li>{{end}}
+  </ul>
+  <p class="form-help">Veličina je s pripadnim WAL-om. Arhiva smije na drugi, veći disk (postavka u Datoteci baze).</p>
+</section>
+{{end}}
 
 <section class="adm-kartica" aria-labelledby="baz-knjiga">
   <h2 id="baz-knjiga">Knjiga verzija <span class="rac-doseg" title="Vrijedi samo na ovom računalu i ne ide razmjenom.">R</span></h2>

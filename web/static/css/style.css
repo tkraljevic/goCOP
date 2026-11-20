@@ -11208,6 +11208,19 @@ td .odr-sitno { margin-top: 2px; }
    nove teme, ne zelena (Odluke (18. 11. 2026.)) */
 .dash-card-desc a { color: var(--md-sys-color-primary); }
 
+/* Održavanje baze: Što zauzima prostor, traka po datoteci (Odluke
+   (18. 11. 2026.)) */
+.baz-prostor { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.baz-prostor li { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 2fr) 5.5rem; gap: 12px; align-items: center; font-size: 0.875rem; }
+.baz-prostor-naziv a { color: var(--md-sys-color-primary); font-size: 0.8125rem; }
+.baz-prostor-traka { height: 8px; border-radius: 4px; background: var(--md-sys-color-surface-container-high); overflow: hidden; }
+.baz-prostor-traka > span { display: block; height: 100%; border-radius: 4px; background: var(--md-sys-color-primary); }
+.baz-prostor-velicina { font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+@media (max-width: 599px) {
+  .baz-prostor li { grid-template-columns: minmax(0, 1fr) 5.5rem; }
+  .baz-prostor-traka { grid-column: 1 / -1; grid-row: 2; }
+}
+
 /* Telemetrija: letve sa stupcem Zadnji dohvat i gumbom Provjeri sada
    (Odluke (18. 11. 2026.)); na mobitelu dohvat ide u svoj red */
 .uv-glava.tel-cetiri, .uv-redak.tel-cetiri { grid-template-columns: minmax(0, 1.2fr) auto minmax(0, 2fr) auto; }
