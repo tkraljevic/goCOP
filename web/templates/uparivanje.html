@@ -194,6 +194,8 @@ async function sync() {
   $('sync-btn').disabled = false;
 }
 api('/api/uparivanje/status').then(show).catch(() => {});
+// adresa s Stanja razmjene (poveznica „Upari”) upiše se u polje
+{ const a = new URLSearchParams(location.search).get('adresa'); if (a && $('addr')) $('addr').value = a; }
 </script>
 </body>
 </html>

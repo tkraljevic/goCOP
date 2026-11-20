@@ -218,7 +218,7 @@ func TestPrviKoraciDokUstrojNijeGotov(t *testing.T) {
 		t.Fatalf("svjež čvor, Prvi koraci:\n%s", koraci)
 	}
 	for _, href := range []string{"/administracija/nazivi", "/organizacija", "/users", "/administracija/uvozi", "/settings#uloge",
-		"/administracija/telemetrija", "/administracija/posta", "/settings#uparivanje"} {
+		"/administracija/telemetrija", "/administracija/posta", "/uparivanje"} {
 		if !strings.Contains(koraci, `href="`+href+`"`) {
 			t.Errorf("Prvi koraci nemaju %s", href)
 		}
@@ -482,8 +482,9 @@ func TestGumbiRazmjeneSamoNaStanjuRazmjene(t *testing.T) {
 		}
 	}
 	// nepoznato računalo iz lokalne mreže administrator uparuje jednim klikom:
-	// poveznica nosi njegovu adresu na Uparivanje
-	if !strings.Contains(stanje, `IS_ADMIN && f.addr ? ' · <a href="/settings?upari=' + encodeURIComponent(f.addr) + '#uparivanje">Upari</a>'`) ||
+	// poveznica nosi njegovu adresu u čarobnjak za uparivanje (Odluke
+	// (18. 11. 2026.): uparivanje na jednom mjestu)
+	if !strings.Contains(stanje, `IS_ADMIN && f.addr ? ' · <a href="/uparivanje?adresa=' + encodeURIComponent(f.addr) + '">Upari</a>'`) ||
 		!strings.Contains(stanje, "nije upareno' + upariPoveznica(f)") {
 		t.Error("uz nepoznato računalo u lokalnoj mreži nema poveznice Upari")
 	}

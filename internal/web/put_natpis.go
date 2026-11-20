@@ -46,3 +46,16 @@ func razlogRijecima(r razmjena.RazlogPuta, naziv string) string {
 	}
 	return ""
 }
+
+// recenicePuta su rečenice razloga po razlogu, s %s na mjestu fraze puta,
+// za skriptu stranice Stanje razmjene (predložak „recenicePuta”)
+func recenicePuta() map[string]string {
+	out := make(map[string]string, len(recenicaRazloga))
+	for r, t := range recenicaRazloga {
+		out[string(r)] = t
+	}
+	return out
+}
+
+// frazePuta su fraze puta po nazivu, za istu skriptu (predložak „frazePuta”)
+func frazePuta() map[string]string { return frazaPuta }

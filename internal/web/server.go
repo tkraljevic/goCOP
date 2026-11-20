@@ -206,6 +206,8 @@ func templateFuncs() template.FuncMap {
 		"rasponDana":    rasponDana,
 		"danNaZaslonu":  danNaZaslonu,
 		"statika":       statickaAdresa,
+		"recenicePuta":  recenicePuta,
+		"frazePuta":     frazePuta,
 		// svjeze daje oznaku za poveznicu na izvoz: svako učitavanje stranice
 		// daje novu adresu, pa preglednik ne može dati staru spremljenu datoteku
 		"svjeze":             func() int64 { return time.Now().Unix() },
