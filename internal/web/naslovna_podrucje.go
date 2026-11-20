@@ -485,11 +485,16 @@ func karticaZaRijesitiPodrucja(area int, sektor string, s stavkePodrucja, sad ti
 }
 
 // redoviPrijava: nove prijave svaka u svom retku, starije neriješene u
-// jednom
+// jednom. Prijave prenesene iz ranije evidencije (Rekonstrukcija) ne idu u
+// Za riješiti: povijest su i nitko ih neće riješiti, kao ni prenesene
+// dnevne listove.
 func redoviPrijava(prijave []models.PrijavaSTerena, sektor string, sad time.Time) []RedakKartice {
 	var out []RedakKartice
 	var starije []models.PrijavaSTerena
 	for _, p := range prijave {
+		if p.Rekonstrukcija {
+			continue
+		}
 		if sad.Sub(objavljenaPrijava(p)) <= NovePrijave {
 			out = append(out, redakPrijave(p, sad))
 		} else {
