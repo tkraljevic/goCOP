@@ -91,7 +91,7 @@ func grafKise(s SlivUKisi, izdano time.Time) GrafKise {
 		g.Zbroj += " · " + p
 	}
 	g.Opis = g.Naziv + ": " + g.Zbroj
-	if p := pragRetka(s.Pragovi.Dan3[0]); p != "" {
+	if p := pragZa(s.Pragovi.Dan3[0], "72 h"); p != "" {
 		g.Opis += "; " + p
 	}
 	return g

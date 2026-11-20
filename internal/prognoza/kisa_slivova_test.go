@@ -129,3 +129,15 @@ func TestKisaSlivaPoDanima(t *testing.T) {
 		t.Errorf("bez sutrašnjeg dana očekivano se ne zbraja: 72 h %v, 48 h %v", st.Palo72, st.Dolazi48)
 	}
 }
+
+// Treći dan unaprijed ne ulazi u očekivanih 48 h ni u razinu, ali se pamti,
+// da kartica može reći da kiša dolazi odmah iza 48 sati
+func TestKisaSlivaPoslije48(t *testing.T) {
+	st := kisaSliva(DnevniNiz{-2: 1, -1: 0, 0: 24, 1: 0, 2: 0, 3: 25.04})
+	if st.Dolazi48 != 0 || st.Poslije48 != 25 || !st.ImaPoslije48 {
+		t.Errorf("48 h %v, poslije %v (%v)", st.Dolazi48, st.Poslije48, st.ImaPoslije48)
+	}
+	if st := kisaSliva(DnevniNiz{0: 1, 1: 2}); st.ImaPoslije48 {
+		t.Error("bez trećeg dana nema ni kiše poslije 48 h")
+	}
+}
