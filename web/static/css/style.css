@@ -6449,7 +6449,7 @@ h3.kis-podnaslov { margin:1rem 0 0.4rem; display:flex; align-items:center; gap:0
 .kisa-redak.kisa-narancasto > a { border-left-color: var(--faza-i-crta); }
 .kisa-redak.kisa-crveno > a { border-left-color: var(--faza-s-crta); }
 .kisa-redak > a:hover { background: var(--surface-hover); }
-.kisa-redak-glava { display: flex; align-items: center; gap: 8px; }
+.kisa-redak-glava { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
 .kisa-redak-ime { flex: 1; font-size: 14px; line-height: 20px; font-weight: 500; }
 .kisa-redak-glava .badge { flex: none; }
 .kisa-traka { position: relative; display: block; height: 22px; }

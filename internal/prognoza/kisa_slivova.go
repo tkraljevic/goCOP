@@ -42,6 +42,11 @@ type StanjeSliva struct {
 	// na desetinku), a ImaDan kaže koji dan niz ima
 	Dani   [5]float64
 	ImaDan [5]bool
+	// Poslije48 je kiša od 48. do 72. sata unaprijed (ključ 3 niza): ne ulazi
+	// u razinu, ali kartica je spominje, da „0 mm u 48 h” ne sakrije kišu
+	// koja dolazi odmah iza toga
+	Poslije48    float64
+	ImaPoslije48 bool
 }
 
 // PragoviIzNiza računa pragove iz dnevnog niza međusliva. Prag koji se iz
@@ -124,7 +129,8 @@ func PragoviSlivova(arhiva *sql.DB, tocke []OborinskaTocka) (map[string]PragoviK
 }
 
 // StanjeSlivova uspoređuje kišu oko sada (OborineOkoSada: ključ 0 su 24 sata
-// do sada, -1 i -2 dani prije, 1 i 2 sljedeća 24 i 48 sati) s pragovima.
+// do sada, -1 i -2 dani prije, 1 i 2 sljedeća 24 i 48 sati, 3 treći dan) s
+// pragovima.
 // Međuslivovi idu redom kako se pojavljuju u dnevnom modelu (A, B, C…), a
 // letve redom niz tok.
 func StanjeSlivova(oborine map[string]DnevniNiz, pragovi map[string]PragoviKise) []StanjeSliva {
@@ -163,6 +169,7 @@ func kisaSliva(n DnevniNiz) StanjeSliva {
 	if ok0 && ok1 && ok2 {
 		st.Palo72 = math.Round((v0+v1+v2)*10) / 10
 	}
+	st.Poslije48, st.ImaPoslije48 = naDesetinku(n, 3)
 	if okf1 {
 		st.Dolazi48 = f1
 		if okf2 {
@@ -171,6 +178,12 @@ func kisaSliva(n DnevniNiz) StanjeSliva {
 		st.Dolazi48 = math.Round(st.Dolazi48*10) / 10
 	}
 	return st
+}
+
+// naDesetinku je kiša dana k niza na desetinku milimetra i ima li je niz
+func naDesetinku(n DnevniNiz, k int64) (float64, bool) {
+	v, ok := n[k]
+	return math.Round(v*10) / 10, ok
 }
 
 // razinaKise vraća najvišu razinu čiji je prag prijeđen (0 kad nijedan nije),

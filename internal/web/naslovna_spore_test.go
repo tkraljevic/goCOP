@@ -76,7 +76,7 @@ func TestKarticaJacihOborina(t *testing.T) {
 		{StanjeSliva: prognoza.StanjeSliva{Sliv: "vuka", Palo24: 12, Razina: 1}},
 		{StanjeSliva: prognoza.StanjeSliva{Sliv: "drava-dm", Palo24: 0, Palo72: 52, Dolazi48: 15, Razina: 2,
 			Zasto: "palo u zadnja 72 sata", Ucestalost: "toliko padne u prosjeku jednom godišnje"},
-			Naziv: "Drava: Donji Miholjac – Osijek", Letve: []PorastLetve{{Naziv: "Bez", Ima: false}, {Naziv: "Osijek", Cm: 45, Dan: 2, Ima: true,
+			Naziv: "Drava: Donji Miholjac – Osijek", Letve: []PorastLetve{{Naziv: "Bez", Ima: false}, {Naziv: "Osijek", Cm: 45, Dan: 2, Ima: true, Od: -170,
 				Kad: time.Date(2026, 11, 16, 12, 0, 0, 0, models.Zagreb)}}},
 	}}
 	k := karticaJacihOborina(p, sadNaslovne)
@@ -84,7 +84,7 @@ func TestKarticaJacihOborina(t *testing.T) {
 	// razdoblja i razdoblje u kojem je prag prijeđen
 	if len(k.Redovi) != 2 || k.Redovi[0].Glavno != "Drava: Donji Miholjac – Osijek" ||
 		k.Redovi[0].Sporedno != "palo 52 mm u 72 h, 0 mm u 24 h · očekivano 15 mm u 48 h · "+
-			"toliko padne u prosjeku jednom godišnje (palo u 72 h) · porast u prognozi: Osijek +45 cm u pon. 16. 11." ||
+			"toliko padne u prosjeku jednom godišnje (palo u 72 h) · u prognozi Osijek raste s −170 na −125 cm do pon. 16. 11." ||
 		!k.Redovi[0].Hitno || k.Redovi[0].Istaknuto != "kisa" || k.Redovi[1].Glavno != "vuka" || k.Redovi[1].Hitno ||
 		k.Redovi[1].Sporedno != "palo 12 mm u 24 h" {
 		t.Errorf("redovi: %+v", k.Redovi)
@@ -240,7 +240,8 @@ func TestKarticaJacihOborinaLanacITraka(t *testing.T) {
 		return SlivUKisi{StanjeSliva: st, Naziv: "međusliv " + o, Klasa: razineKise[razina][0]}
 	}
 	d := sliv("D", 2, [5]float64{18, 33, 1, 0, 15})
-	d.Letve = []PorastLetve{{Naziv: "Terezino Polje", Cm: 35, Dan: 3, Ima: true}}
+	d.Zasto = "palo u zadnja 72 sata"
+	d.Letve = []PorastLetve{{Naziv: "Terezino Polje", Cm: 35, Dan: 3, Ima: true, Od: -340}}
 	p := kisaSlivovaPodaci{Izdano: izdano, Slivovi: []SlivUKisi{sliv("A", 0, [5]float64{10, 13, 0, 0, 4}), sliv("B", 0, [5]float64{}), d}}
 	for _, o := range []string{"E", "F", "I", "J", "H"} {
 		p.Upozorenja = append(p.Upozorenja, sliv(o, 1, [5]float64{20, 20, 1, 0, 5}))
@@ -274,9 +275,10 @@ func TestKarticaJacihOborinaLanacITraka(t *testing.T) {
 		t.Errorf("polje obojeno palom kišom ne pokazuje očekivanu: %+v", drava[2])
 	}
 	r := tijelo.Retci[0]
-	if r.Naziv != "međusliv D" || r.Rijetko != "jednom godišnje" ||
-		r.Palo != "palo 52 mm u 72 h: čet 18 mm · pet 33 mm · danas 1 mm" || r.Ocekivano != "očekivano 15 mm u 48 h: ned 0 mm · pon 15 mm" ||
-		r.Porast != "porast u prognozi: Terezino Polje +35 cm (3. dan)" {
+	if r.Naziv != "međusliv D" || r.Rijetko != "jednom godišnje u 72 h" ||
+		r.Palo != "palo 52 mm u 72 h: čet 18 mm · pet 33 mm · zadnja 24 h 1 mm" ||
+		r.Ocekivano != "očekivano 15 mm u 48 h: do ned 14 h 0 mm · do pon 14 h 15 mm" ||
+		r.Porast != "u prognozi Terezino Polje raste s −340 na −305 cm do 3. dana" {
 		t.Errorf("redak %+v", r)
 	}
 	// mjerilo je najviši prag uz 12 % zraka: 66 · 1,12 = 73,92 mm
@@ -326,10 +328,61 @@ func TestPorastOdVodostajaUSatuIzdanja(t *testing.T) {
 	if cm, dan, ok := najveciPorast(d, -53, true); cm != 64 || dan != 6 || !ok {
 		t.Errorf("od vodostaja u satu izdanja: %v cm, %d. dan, %v", cm, dan, ok)
 	}
+	if od := polazistePorasta(d, -53, true); od != -53 {
+		t.Errorf("polazište u satu izdanja: %v", od)
+	}
+	if od := polazistePorasta(d, 0, false); od != -67 {
+		t.Errorf("polazište bez vodostaja je dan 0: %v", od)
+	}
+	if od := polazistePorasta(d[1:], 0, false); od != 0 {
+		t.Errorf("bez dana 0 nema polazišta: %v", od)
+	}
 	if cm, _, _ := najveciPorast(d, 0, false); cm != 78 {
 		t.Errorf("bez vodostaja od dana 0: %v cm", cm)
 	}
 	if cm, dan, _ := najveciPorast(d, 20, true); cm != 0 || dan != 0 {
 		t.Errorf("voda iznad cijele prognoze nema porasta: %v cm, %d. dan", cm, dan)
+	}
+}
+
+// Kad razinu da kiša zadnja 24 h, oznaka to kaže, a traka pokazuje samo tu
+// kišu i pragove za 24 h: 20. 11. 2026. „jednom godišnje” stajalo je uz traku
+// za 72 h koja nije dosegla nijednu crticu. Kiša iza 48 h ne smije nestati
+// iza „0 mm u 48 h”.
+func TestKarticaKisaU24hIIza48h(t *testing.T) {
+	izdano := time.Date(2026, 11, 20, 13, 0, 0, 0, models.Zagreb) // petak
+	s := SlivUKisi{StanjeSliva: prognoza.StanjeSliva{Sliv: "I", Ima: true, Razina: 2, Zasto: zasto24,
+		Ucestalost: ucestalostIme[2], Palo24: 24, Palo72: 26, Dani: [5]float64{2, 0, 24, 0, 0},
+		ImaDan: [5]bool{true, true, true, true, true}, Poslije48: 15, ImaPoslije48: true,
+		Pragovi: prognoza.PragoviKise{Dan1: [3]float64{14, 20, 30}, Dan3: [3]float64{42, 51, 66}}},
+		Naziv: "Budimpešta → Mohács", Klasa: razineKise[2][0],
+		Letve: []PorastLetve{{Letva: "batina", Naziv: "Batina", Cm: 91, Dan: 6, Ima: true, Od: -55,
+			Kad: time.Date(2026, 11, 26, 13, 0, 0, 0, models.Zagreb)}}}
+	r := redakKise(s, izdano)
+	if r.Rijetko != "jednom godišnje u 24 h" {
+		t.Errorf("oznaka %q", r.Rijetko)
+	}
+	// samo zadnja 24 h, mjerilo 30 · 1,12 = 33,6 mm: 24 mm je iza crtice od 20 mm
+	if len(r.Dijelovi) != 1 || r.Dijelovi[0].Naslov != "zadnja 24 h 24 mm" || len(r.Crtice) != 3 ||
+		r.Crtice[1].Naslov != "prag za 24 h: jednom godišnje, 20 mm" ||
+		r.Dijelovi[0].Lijevo+r.Dijelovi[0].Sirina <= r.Crtice[1].Lijevo {
+		t.Errorf("traka %+v %+v", r.Dijelovi, r.Crtice)
+	}
+	if r.Ocekivano != "očekivano 0 mm u 48 h: do sub 13 h 0 mm · do ned 13 h 0 mm, zatim do pon 13 h 15 mm" {
+		t.Errorf("očekivano %q", r.Ocekivano)
+	}
+	if r.Porast != "u prognozi Batina raste s −55 na 36 cm do čet. 26. 11." {
+		t.Errorf("porast %q", r.Porast)
+	}
+	if !strings.HasSuffix(r.Opis, "prag za 24 h 14 mm") {
+		t.Errorf("opis %q", r.Opis)
+	}
+	// bez kiše iza 48 h nema „zatim”, a ni „−0”
+	s.Poslije48 = 0.4
+	if r := redakKise(s, izdano); strings.Contains(r.Ocekivano, "zatim") {
+		t.Errorf("kiša ispod 1 mm iza 48 h: %q", r.Ocekivano)
+	}
+	if cmSPredznakom(-0.4) != "0" || cmSPredznakom(-55.2) != "−55" {
+		t.Errorf("predznak: %q %q", cmSPredznakom(-0.4), cmSPredznakom(-55.2))
 	}
 }

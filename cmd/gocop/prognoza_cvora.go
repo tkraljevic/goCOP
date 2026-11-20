@@ -187,7 +187,7 @@ func kisaSlivova(osvjezivac *prognoza.Osvjezivac, arhivaRO, pb *sql.DB, peersSer
 			return nil, nil, err
 		}
 		ziva := func() (map[string]prognoza.DnevniNiz, error) {
-			return prognoza.OborineOkoSada(ob, time.Now().Unix()/3600, 3, 2)
+			return prognoza.OborineOkoSada(ob, time.Now().Unix()/3600, 3, 3)
 		}
 		oborine, izdano, err := kisaZaStanje(ctx, pb, ziva, peersService.TrenutneUloge().Izdaje)
 		if err != nil {

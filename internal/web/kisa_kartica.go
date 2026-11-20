@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -46,8 +47,17 @@ type PoljeKise struct {
 }
 
 // zastoOcekivano je razlog razine kad prag prijeđe pala kiša zajedno s
-// očekivanom (prognoza.razinaKise)
-const zastoOcekivano = "palo i očekuje se u 72 sata"
+// očekivanom, a zasto24 kad ga prijeđe već kiša zadnja 24 h
+// (prognoza.razinaKise)
+const (
+	zastoOcekivano = "palo i očekuje se u 72 sata"
+	zasto24        = "palo u zadnja 24 sata"
+)
+
+// prozoriOznake kratko kažu iz kojeg je razdoblja razina na oznaci retka:
+// bez toga „jednom godišnje” uz traku za 72 h koja ne doseže nijednu crticu
+// izgleda kao greška (oznaku je dala kiša u 24 h)
+var prozoriOznake = map[string]string{zasto24: "u 24 h", "palo u zadnja 72 sata": "u 72 h", zastoOcekivano: "u 72 h s prognozom"}
 
 // RijekaKise je red lanca na kartici
 type RijekaKise struct {
@@ -62,7 +72,8 @@ type DioTrake struct {
 	Naslov         string
 }
 
-// CrticaTrake je prag za 72 h na traci
+// CrticaTrake je prag na traci: za 72 h, a za 24 h kad je razinu dala kiša
+// zadnja 24 h
 type CrticaTrake struct {
 	Lijevo        float64
 	Klasa, Naslov string
@@ -91,6 +102,21 @@ func danKise(d int, izdano time.Time) string {
 		return "danas"
 	}
 	return [...]string{"ned", "pon", "uto", "sri", "čet", "pet", "sub"}[izdano.AddDate(0, 0, d).In(models.Zagreb).Weekday()]
+}
+
+// oznakaProzora je oznaka prozora od 24 h u retku kartice: prošli dani
+// kraticom dana, zadnja 24 h tako, a sljedeći satom kraja („do ned 13 h”).
+// Prozor ne završava u ponoć, pa je „ned 0 mm” zvučalo kao da u nedjelju
+// neće kišiti, a kiša je dolazila u nedjelju navečer.
+func oznakaProzora(d int, izdano time.Time) string {
+	switch {
+	case d == 0:
+		return "zadnja 24 h"
+	case d < 0:
+		return danKise(d, izdano)
+	}
+	kraj := izdano.Add(time.Duration(24*d) * time.Hour).In(models.Zagreb)
+	return "do " + danKise(d, izdano) + " " + strconv.Itoa(kraj.Hour()) + " h"
 }
 
 // lanacKise slaže lanac iz svih međuslivova, i onih bez razine
@@ -175,18 +201,19 @@ func imeSliva(s SlivUKisi) string {
 // redakKise slaže redak međusliva iznad praga
 func redakKise(s SlivUKisi, izdano time.Time) RedakJaceKise {
 	r := RedakJaceKise{Naziv: imeSliva(s), URL: "/slivovi#sliv-" + s.Sliv, Klasa: s.Klasa,
-		Rijetko: strings.TrimPrefix(s.Ucestalost, "toliko padne u prosjeku ")}
+		Rijetko: spoji(" ", strings.TrimPrefix(s.Ucestalost, "toliko padne u prosjeku "), prozoriOznake[s.Zasto])}
 	r.Dijelovi, r.Crtice = trakaKise(s, izdano)
 	r.Palo, r.Ocekivano = kisaRetka(s, izdano)
 	r.Porast = porastRetka(s)
-	r.Opis = strings.Join(slices.DeleteFunc([]string{r.Palo, r.Ocekivano, pragRetka(s.Pragovi.Dan3[0])},
+	r.Opis = strings.Join(slices.DeleteFunc([]string{r.Palo, r.Ocekivano, pragRetka(s)},
 		func(t string) bool { return t == "" }), "; ")
 	return r
 }
 
-// kisaRetka: „palo 52 mm u 72 h: čet 18 mm · pet 33 mm · danas 1 mm” i
-// „očekivano 15 mm u 48 h: ned 0 mm · pon 15 mm”; bez jučer ili prekjučer samo 24 h, bez
-// sutra ništa očekivano
+// kisaRetka: „palo 52 mm u 72 h: čet 18 mm · pet 33 mm · zadnja 24 h 1 mm” i
+// „očekivano 15 mm u 48 h: do ned 14 h 0 mm · do pon 14 h 15 mm”, a uz kišu
+// iza 48 h još „, zatim do uto 14 h 25 mm”; bez jučer ili prekjučer samo
+// 24 h, bez sutra ništa očekivano
 func kisaRetka(s SlivUKisi, izdano time.Time) (palo, ocekivano string) {
 	palo = "palo " + brojHRf(s.Palo24, 0) + " mm u 24 h"
 	if s.ImaDan[0] && s.ImaDan[1] {
@@ -194,16 +221,19 @@ func kisaRetka(s SlivUKisi, izdano time.Time) (palo, ocekivano string) {
 	}
 	if s.ImaDan[3] {
 		ocekivano = "očekivano " + brojHRf(s.Dolazi48, 0) + " mm u 48 h: " + daniKise(s, 1, 2, izdano)
+		if s.ImaPoslije48 && s.Poslije48 >= 1 {
+			ocekivano += ", zatim " + oznakaProzora(3, izdano) + " " + brojHRf(s.Poslije48, 0) + " mm"
+		}
 	}
 	return palo, ocekivano
 }
 
-// daniKise: „čet 18 mm · pet 33 mm · danas 1 mm” za dane od–do koje niz ima
+// daniKise: „čet 18 mm · pet 33 mm · zadnja 24 h 1 mm” za dane od–do koje niz ima
 func daniKise(s SlivUKisi, od, do int, izdano time.Time) string {
 	var d []string
 	for i := od; i <= do; i++ {
 		if s.ImaDan[i+2] {
-			d = append(d, danKise(i, izdano)+" "+brojHRf(s.Dani[i+2], 0)+" mm")
+			d = append(d, oznakaProzora(i, izdano)+" "+brojHRf(s.Dani[i+2], 0)+" mm")
 		}
 	}
 	return strings.Join(d, " · ")
@@ -238,57 +268,100 @@ func porastRetka(s SlivUKisi) string {
 	return ""
 }
 
-// opisPorasta: „porast u prognozi: Aljmaš +45 cm u ned. 22. 11.”, a ispod
-// 1 cm ništa
+// opisPorasta: „u prognozi Batina raste s −55 na 36 cm do čet. 26. 11.”, a
+// ispod 1 cm ništa. Kaže od čega se broji i do čega dolazi, a ne „porast u
+// prognozi: Batina +91 cm”: uz međusliv je to zvučalo kao da je toliko
+// podigla njegova kiša, a porast nosi i voda odozgo.
 func opisPorasta(l PorastLetve) string {
 	if l.Cm < 1 {
 		return ""
 	}
-	return "porast u prognozi: " + l.Opis()
+	kada := "do " + strconv.Itoa(l.Dan) + ". dana"
+	if !l.Kad.IsZero() {
+		kada = "do " + strings.TrimPrefix(l.Kada(), "u ")
+	}
+	return "u prognozi " + l.Naziv + " raste s " + cmSPredznakom(l.Od) + " na " + cmSPredznakom(l.Od+l.Cm) + " cm " + kada
 }
 
-// pragRetka: najniži prag za 72 h riječima, za čitač zaslona
-func pragRetka(p float64) string {
+// cmSPredznakom: cijeli centimetri s pravim minusom („−55”), bez „−0”
+func cmSPredznakom(v float64) string {
+	r := math.Round(v)
+	if r == 0 {
+		return "0"
+	}
+	return strings.Replace(brojHRf(r, 0), "-", "−", 1)
+}
+
+// pragRetka: najniži prag razdoblja trake riječima, za čitač zaslona
+func pragRetka(s SlivUKisi) string {
+	if s.Zasto == zasto24 {
+		return pragZa(s.Pragovi.Dan1[0], "24 h")
+	}
+	return pragZa(s.Pragovi.Dan3[0], "72 h")
+}
+
+// pragZa: „prag za 72 h 42 mm”; bez praga ništa
+func pragZa(p float64, za string) string {
 	if p <= 0 {
 		return ""
 	}
-	return "prag za 72 h " + brojHRf(p, 0) + " mm"
+	return "prag za " + za + " " + brojHRf(p, 0) + " mm"
 }
 
 // trakaKise: dani jedan za drugim (palo pa očekivano) i crtice pragova za
-// 72 h; mjerilo je najviši prag uz malo zraka, ili zbroj dana kad je veći
+// 72 h; mjerilo je najviši prag uz malo zraka, ili zbroj dana kad je veći.
+// Kad je razinu dala kiša zadnja 24 h, traka pokazuje samo nju i pragove za
+// 24 h, da crtica koju je prešla bude ispod kraja trake.
 func trakaKise(s SlivUKisi, izdano time.Time) ([]DioTrake, []CrticaTrake) {
+	pragovi, za, dani := razdobljeTrake(s)
 	zbroj := 0.0
-	for i, v := range s.Dani {
+	for i := dani[0]; i <= dani[1]; i++ {
 		if s.ImaDan[i] {
-			zbroj += v
+			zbroj += s.Dani[i]
 		}
 	}
-	mjerilo := math.Max(najveciPrag(s.Pragovi.Dan3)*1.12, zbroj)
+	mjerilo := math.Max(najveciPrag(pragovi)*1.12, zbroj)
 	if mjerilo <= 0 {
 		return nil, nil
 	}
 	posto := func(v float64) float64 { return math.Round(v/mjerilo*1000) / 10 }
-	var dijelovi []DioTrake
-	lijevo := 0.0
-	for i, v := range s.Dani {
-		if !s.ImaDan[i] || v <= 0 {
-			continue
-		}
-		d := i - 2
-		dijelovi = append(dijelovi, DioTrake{Lijevo: posto(lijevo), Sirina: posto(v), Ocekivano: d > 0,
-			Naslov: danKise(d, izdano) + " " + brojHRf(v, 0) + " mm"})
-		lijevo += v
-	}
+	dijelovi := dijeloviTrake(s, dani, izdano, posto)
 	var crtice []CrticaTrake
-	for j, p := range s.Pragovi.Dan3 {
+	for j, p := range pragovi {
 		if p <= 0 {
 			continue // prag 0 mm znači da praga nema
 		}
 		crtice = append(crtice, CrticaTrake{Lijevo: posto(p), Klasa: razineKise[j+1][0],
-			Naslov: "prag za 72 h: " + rijecimaRazine[j] + ", " + brojHRf(p, 0) + " mm"})
+			Naslov: "prag za " + za + ": " + rijecimaRazine[j] + ", " + brojHRf(p, 0) + " mm"})
 	}
 	return dijelovi, crtice
+}
+
+// razdobljeTrake: pragovi, njihovo razdoblje i dani (indeksi u Dani) koje
+// traka pokazuje: svi dani i pragovi za 72 h, a samo zadnja 24 h i pragovi
+// za 24 h kad je razinu dala kiša zadnja 24 h
+func razdobljeTrake(s SlivUKisi) ([3]float64, string, [2]int) {
+	if s.Zasto == zasto24 {
+		return s.Pragovi.Dan1, "24 h", [2]int{2, 2}
+	}
+	return s.Pragovi.Dan3, "72 h", [2]int{0, len(s.Dani) - 1}
+}
+
+// dijeloviTrake: dani razdoblja jedan za drugim, bez dana bez kiše
+func dijeloviTrake(s SlivUKisi, dani [2]int, izdano time.Time, posto func(float64) float64) []DioTrake {
+	var out []DioTrake
+	lijevo := 0.0
+	for i := dani[0]; i <= dani[1]; i++ {
+		v := s.Dani[i]
+		if !s.ImaDan[i] || v <= 0 {
+			continue
+		}
+		d := i - 2
+		out = append(out, DioTrake{Lijevo: posto(lijevo), Sirina: posto(v), Ocekivano: d > 0,
+			Naslov: oznakaProzora(d, izdano) + " " + brojHRf(v, 0) + " mm"})
+		lijevo += v
+	}
+	return out
 }
 
 var rijecimaRazine = [3]string{"tri puta godišnje", "jednom godišnje", "jednom u pet godina"}
