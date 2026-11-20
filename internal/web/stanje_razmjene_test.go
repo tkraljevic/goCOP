@@ -26,7 +26,7 @@ func TestRecenicePutaZaStanjeRazmjene(t *testing.T) {
 		t.Fatal(err)
 	}
 	html := b.String()
-	for _, mora := range []string{"<th>Uloge</th>", `const RECENICE_PUTA = {`, `"nije-se-javio":"Računalo se ne javlja u lokalnoj mreži; podaci idu %s."`, `href="/uparivanje?adresa=`} {
+	for _, mora := range []string{"<th>Uloge</th>", `const RECENICE_PUTA = {`, `"nije-se-javio":"Računalo se ne javlja u lokalnoj mreži; podaci idu %s."`, `href="/uparivanje?adresa=`, "<th>Karta bez interneta</th>", "karta(s.karta, st.karta)", ">druga karta</span>"} {
 		if !strings.Contains(html, mora) {
 			t.Errorf("stranica nema %q", mora)
 		}

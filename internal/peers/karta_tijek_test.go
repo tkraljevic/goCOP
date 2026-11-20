@@ -53,10 +53,10 @@ func dijeloviDrugog(k models.VektorskaKarta, b []byte, redom ...int) potez {
 
 // tokKarte je pravilan razgovor s drugom stranom s oznakom: čvor (s v1)
 // pošalje svoje želje i sadržaj, druga strana d1, svoje želje i sadržaj
-func tokKarte(pozivatelj bool, granicaDruge frontierMsg, zeljeC, sadrzajC string, zeljeD, sadrzajD potez) []potez {
+func tokKarte(pozivatelj bool, granicaC string, granicaDruge frontierMsg, zeljeC, sadrzajC string, zeljeD, sadrzajD potez) []potez {
 	if pozivatelj {
 		return []potez{
-			cita(granicaV1), salje(kindFrontier, granicaDruge),
+			cita(granicaC), salje(kindFrontier, granicaDruge),
 			cita(deltaV1), salje(kindDelta, deltaMsg{Versions: []ledger.Version{dolaznaD1}}),
 			cita(zeljeC), zeljeD,
 			cita(sadrzajC), sadrzajD,
@@ -64,12 +64,23 @@ func tokKarte(pozivatelj bool, granicaDruge frontierMsg, zeljeC, sadrzajC string
 		}
 	}
 	return []potez{
-		salje(kindFrontier, granicaDruge), cita(granicaV1),
+		salje(kindFrontier, granicaDruge), cita(granicaC),
 		salje(kindDelta, deltaMsg{Versions: []ledger.Version{dolaznaD1}}), cita(deltaV1),
 		zeljeD, cita(zeljeC),
 		sadrzajD, cita(sadrzajC),
 		salje(kindDone, doneMsg{Applied: 1}), cita(krajCvora(1)), cita(krajVeze),
 	}
+}
+
+// granicaSKartomCvora je granica čvora (v1) s kartom bez interneta u znanju:
+// otisak i broj dijelova, a uz složenu kartu i koliko ih ima (samo za
+// prikaz na Stanju razmjene druge strane)
+func granicaSKartomCvora(k models.VektorskaKarta, slozena bool) string {
+	karta := fmt.Sprintf(`{"otisak":"%s","svih":%d}`, k.Otisak, len(k.Dijelovi))
+	if slozena {
+		karta = fmt.Sprintf(`{"otisak":"%s","slozena":true,"dijelova":%d,"svih":%d}`, k.Otisak, len(k.Dijelovi), len(k.Dijelovi))
+	}
+	return odCvora(kindFrontier, `{"frontier":{"laptop-baranja|ocitanja/16/2026":"`+tijekV1+`"},"wants":{"all":true},`+programCvora+`,"mogucnosti":`+naseOznake+`,"karta":`+karta+`}`)
 }
 
 // kartaCvora je redak zapisa: koliko dijelova karte čvor ima i je li složena
@@ -96,11 +107,11 @@ func TestTijekDijeloviKarte(t *testing.T) {
 		daje := func() { s.PostaviKarte(izvor, o.citaj, nil) }
 		provjeriSlucajeve(t, a, s, pozivatelj, []slucaj{
 			{ime: "čvor traži", pripremi: trazi, nakon: kartaCvora(s), ishod: append(ishod, "karta 8 od 8, složena true"),
-				potezi: tokKarte(pozivatelj, granicaSKartom, zeljeDijelovaCvora(k.Dijelovi), sadrzajPrazan, salje(kindZelje, zeljeMsg{}), dijeloviDrugog(k, b, sviDijelovi...))},
+				potezi: tokKarte(pozivatelj, granicaSKartomCvora(k, false), granicaSKartom, zeljeDijelovaCvora(k.Dijelovi), sadrzajPrazan, salje(kindZelje, zeljeMsg{}), dijeloviDrugog(k, b, sviDijelovi...))},
 			{ime: "čvor daje", pripremi: daje, nakon: kartaCvora(s), ishod: append(ishod, "karta 8 od 8, složena true"),
-				potezi: tokKarte(pozivatelj, granicaSKartom, zeljePrazne, dijeloviCvora(k, b, 0, 7), salje(kindZelje, zeljeMsg{Otisci: []string{k.Dijelovi[0], k.Dijelovi[7]}}), salje(kindSadrzaj, sadrzajMsg{}))},
+				potezi: tokKarte(pozivatelj, granicaSKartomCvora(k, true), granicaSKartom, zeljePrazne, dijeloviCvora(k, b, 0, 7), salje(kindZelje, zeljeMsg{Otisci: []string{k.Dijelovi[0], k.Dijelovi[7]}}), salje(kindSadrzaj, sadrzajMsg{}))},
 			{ime: "druga strana šalje netraženo i krivo", pripremi: trazi, nakon: kartaCvora(s), ishod: append(ishod, "karta 1 od 8, složena false"),
-				potezi: tokKarte(pozivatelj, granicaSKartom, zeljeDijelovaCvora(k.Dijelovi), sadrzajPrazan, salje(kindZelje, zeljeMsg{}),
+				potezi: tokKarte(pozivatelj, granicaSKartomCvora(k, false), granicaSKartom, zeljeDijelovaCvora(k.Dijelovi), sadrzajPrazan, salje(kindZelje, zeljeMsg{}),
 					salje(kindSadrzaj, sadrzajMsg{Stavke: []stavkaSadrzaja{
 						{Otisak: k.Dijelovi[0], Vrsta: VrstaDijelaKarte, Podaci: dio(k, b, 1)},
 						{Otisak: strings.Repeat("ab", 32), Vrsta: VrstaDijelaKarte, Podaci: dio(k, b, 1)},
@@ -122,10 +133,10 @@ func TestTijekBezOznakeNemaDijelovaKarte(t *testing.T) {
 		provjeriSlucajeve(t, a, s, pozivatelj, []slucaj{
 			{ime: "čvor kartu treba", pripremi: func() { s.PostaviKarte(t.TempDir(), o.citaj, nil) }, nakon: kartaCvora(s),
 				ishod:  append(nakonDelte("nil"), "karta 0 od 8, složena false"),
-				potezi: tokKarte(pozivatelj, granicaDrugog, zeljePrazne, sadrzajPrazan, salje(kindZelje, zeljeMsg{}), salje(kindSadrzaj, sadrzajMsg{}))},
+				potezi: tokKarte(pozivatelj, granicaSKartomCvora(k, false), granicaDrugog, zeljePrazne, sadrzajPrazan, salje(kindZelje, zeljeMsg{}), salje(kindSadrzaj, sadrzajMsg{}))},
 			{ime: "čvor kartu ima", pripremi: func() { s.PostaviKarte(izvor, o.citaj, nil) }, nakon: kartaCvora(s),
 				ishod:  append(nakonDelte("nil"), "karta 8 od 8, složena true"),
-				potezi: tokKarte(pozivatelj, granicaDrugog, zeljePrazne, sadrzajPrazan, salje(kindZelje, zeljeMsg{Otisci: k.Dijelovi[:2]}), salje(kindSadrzaj, sadrzajMsg{}))},
+				potezi: tokKarte(pozivatelj, granicaSKartomCvora(k, true), granicaDrugog, zeljePrazne, sadrzajPrazan, salje(kindZelje, zeljeMsg{Otisci: k.Dijelovi[:2]}), salje(kindSadrzaj, sadrzajMsg{}))},
 		})
 	}
 }

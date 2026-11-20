@@ -60,6 +60,9 @@ type SyncState struct {
 	// (razmjena.UlogaIzdaje, UlogaPreuzima), samo za prikaz na Stanju
 	// razmjene; prazno: nema nijednu ili ih stariji program ne javlja
 	Uloge []string `json:"uloge,omitempty"`
+	// Karta je karta bez interneta koju drugi čvor javlja (samo za prikaz);
+	// nil: ne javlja je (stariji program ili prijenos karata nije postavljen)
+	Karta *razmjena.ZnanjeKarte `json:"karta,omitempty"`
 	// Put je put zadnje razmjene i brojači od tada (put_razmjene.go)
 	Put PutRazmjene `json:"put"`
 }
@@ -145,10 +148,10 @@ func (s *Service) zapamtiZnanje(ctx context.Context, nodeID string, o syncOutcom
 		return
 	}
 	z := o.znanje.Ocisceno()
-	if _, err := s.db.ExecContext(ctx, `INSERT INTO peer_sync (node_id, mogucnosti, vrste, ceka_nadogradnju, mogucnosti_poznate, uloge) VALUES (?, ?, ?, ?, 1, ?)
+	if _, err := s.db.ExecContext(ctx, `INSERT INTO peer_sync (node_id, mogucnosti, vrste, ceka_nadogradnju, mogucnosti_poznate, uloge, karta) VALUES (?, ?, ?, ?, 1, ?, ?)
 		ON CONFLICT(node_id) DO UPDATE SET mogucnosti = excluded.mogucnosti, vrste = excluded.vrste,
-			ceka_nadogradnju = excluded.ceka_nadogradnju, mogucnosti_poznate = 1, uloge = excluded.uloge`,
-		nodeID, uStupac(z.Mogucnosti), uStupac(z.Vrste), z.CekaNadogradnju, uStupac(z.Uloge)); err != nil {
+			ceka_nadogradnju = excluded.ceka_nadogradnju, mogucnosti_poznate = 1, uloge = excluded.uloge, karta = excluded.karta`,
+		nodeID, uStupac(z.Mogucnosti), uStupac(z.Vrste), z.CekaNadogradnju, uStupac(z.Uloge), uStupac(z.Karta)); err != nil {
 		log.Printf("razmjena: što zna čvor %s nije spremljeno: %v", nodeID, err)
 	}
 }
@@ -174,7 +177,7 @@ func uStupac(v any) string {
 // syncStates čita stanje razmjene za sve čvorove
 func (s *Service) syncStates(ctx context.Context) (map[string]SyncState, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT node_id, their_frontier, last_attempt, last_ok, last_error, applied, sent, duration_ms, fails, program, gradnja, program_poznat, tailscale,
-		mogucnosti, vrste, ceka_nadogradnju, mogucnosti_poznate, adrese, uloge,
+		mogucnosti, vrste, ceka_nadogradnju, mogucnosti_poznate, adrese, uloge, karta,
 		put, put_privatna, rtt_ms, put_od, put_razlog, put_pokusaji, put_uspjesi, put_neuspjesi, put_primljeno, put_poslano, zadnji_zvao,
 		priprema_pokusaji, priprema_uspjesi, priprema_neuspjesi FROM peer_sync`)
 	if err != nil {
@@ -184,12 +187,12 @@ func (s *Service) syncStates(ctx context.Context) (map[string]SyncState, error) 
 	out := map[string]SyncState{}
 	pauze := s.pripreme.pauzeDo(time.Now()) // dok je par u pauzi, pločica kaže kad WEB sync pokušava ponovno
 	for rows.Next() {
-		var id, frontier, ts, mogucnosti, vrste, adrese, uloge string
+		var id, frontier, ts, mogucnosti, vrste, adrese, uloge, karta string
 		var st SyncState
 		var attempt, ok, od sql.NullTime
 		p := &st.Put
 		if err := rows.Scan(&id, &frontier, &attempt, &ok, &st.LastError, &st.Applied, &st.Sent, &st.DurationMs, &st.Fails, &st.Program, &st.Gradnja, &st.ProgramPoznat, &ts,
-			&mogucnosti, &vrste, &st.CekaNadogradnju, &st.MogucnostiPoznate, &adrese, &uloge,
+			&mogucnosti, &vrste, &st.CekaNadogradnju, &st.MogucnostiPoznate, &adrese, &uloge, &karta,
 			&p.Put, &p.Privatna, &p.RTTMs, &od, &p.Razlog, &p.Pokusaji, &p.Uspjesi, &p.Neuspjesi, &p.Primljeno, &p.Poslano, &p.ZadnjiZvao,
 			&p.PripremaPokusaji, &p.PripremaUspjesi, &p.PripremaNeuspjesi); err != nil {
 			return nil, err
@@ -201,6 +204,7 @@ func (s *Service) syncStates(ctx context.Context) (map[string]SyncState, error) 
 		_ = json.Unmarshal([]byte(mogucnosti), &st.Mogucnosti) // prazno: druga strana nije javila ništa
 		_ = json.Unmarshal([]byte(vrste), &st.Vrste)
 		_ = json.Unmarshal([]byte(uloge), &st.Uloge) // prazno: nema uloga ili ih ne javlja
+		_ = json.Unmarshal([]byte(karta), &st.Karta) // prazno: ne javlja kartu
 		st.Naucene = adreseNaucenih(naucenaIz(adrese))
 		out[id] = st
 	}
@@ -357,6 +361,8 @@ type Status struct {
 	Alerts        []string     `json:"alerts"`
 	GeneratedAt   time.Time    `json:"generated_at"`
 	LanDiscovered []Discovered `json:"lan,omitempty"`
+	// Karta je karta bez interneta ovog računala, za usporedbu s drugima
+	Karta *razmjena.ZnanjeKarte `json:"karta,omitempty"`
 }
 
 // Status slaže nadzornu ploču: tko je na mreži, koliko ih odgovara, tko
@@ -367,6 +373,7 @@ func (s *Service) Status(ctx context.Context, lan bool) (*Status, error) {
 	st := &Status{NodeID: s.node.ID, NodeName: s.node.Name, Network: s.NetworkInfo(),
 		IntervalSec: int(every.Seconds()), AutoSync: s.autoSync(), GeneratedAt: now}
 	st.Program, st.Gradnja = s.Program()
+	st.Karta = s.znanjeKarte()
 
 	if counts, err := s.rec.Count(ctx); err == nil {
 		for _, n := range counts {

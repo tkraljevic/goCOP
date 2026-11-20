@@ -1873,6 +1873,8 @@ func migrateSchema(database *sql.DB) error {
 		// samo za prikaz na Stanju razmjene (Odluke (30. 10. 2026.), 13);
 		// prazno = nema nijednu ili ih stariji program ne javlja
 		{"peer_sync", "uloge", "TEXT NOT NULL DEFAULT ''"},
+		// karta bez interneta drugog čvora, iz znanja u razgovoru (samo prikaz)
+		{"peer_sync", "karta", "TEXT NOT NULL DEFAULT ''"},
 		// Adrese drugog računala koje je ovo računalo naučilo (JSON, adresa i
 		// vrijeme zadnjeg uspjeha): ovo računalo nazvalo je tu adresu, a ne
 		// ona njega, i druga strana je dokazala svoj ključ. Ostaju na ovom
