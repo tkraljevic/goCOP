@@ -45,6 +45,8 @@ nadograđuju kad odgovara.
   dugi redak s kotama i protokom ostaje u kartici.
 - **Naslovna.** Prijave prenesene iz ranije evidencije više nisu u „Za
   riješiti”. Kartica Jače oborine govori isto u oznaci, traci i porastu.
+- **Uvoz iz HIS2000.** Krivulje protoka i snimke korita s hrvatskim
+  zapisom datuma („17.8.1977.”) više se ne preskaču.
 
 ## 0.0.60-alfa — 18. 11. 2026.
 
