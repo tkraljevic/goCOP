@@ -33,6 +33,7 @@ type PorastLetve struct {
 	Cm    float64
 	Dan   int
 	Ima   bool
+	Od    float64   // vodostaj od kojega se porast broji (sat izdanja ili dan 0)
 	Kad   time.Time // kraj dana najvećeg porasta (dnevna u 7 h); nula kad se ne zna
 }
 
@@ -192,6 +193,7 @@ func slivUKisi(st prognoza.StanjeSliva, naziv string, nazivLetve map[string]stri
 		}
 		polaziste, imaPolaziste := polazista[l]
 		pl.Cm, pl.Dan, pl.Ima = najveciPorast(dnevne[l], polaziste, imaPolaziste)
+		pl.Od = polazistePorasta(dnevne[l], polaziste, imaPolaziste)
 		pl.Kad = krajDana(dnevne[l], pl.Dan)
 		if izdano.IsZero() && len(dnevne[l]) > 0 {
 			*izdano = time.Unix(dnevne[l][0].Izdano*3600, 0) // izdanje je isto za sve letve
@@ -210,6 +212,20 @@ func krajDana(d []prognoza.DnevnaIzdana, dan int) time.Time {
 		}
 	}
 	return time.Time{}
+}
+
+// polazistePorasta je vodostaj od kojega najveciPorast broji: u satu
+// izdanja kad ga ima, inače dan 0
+func polazistePorasta(d []prognoza.DnevnaIzdana, polaziste float64, imaPolaziste bool) float64 {
+	if imaPolaziste {
+		return polaziste
+	}
+	for _, x := range d {
+		if x.Dan == 0 {
+			return x.Vrijednost
+		}
+	}
+	return 0
 }
 
 // najveciPorast vraća najveći porast u dnevnoj prognozi i dan na koji pada.
