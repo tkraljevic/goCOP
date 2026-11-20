@@ -49,6 +49,7 @@ import (
 	"time"
 
 	"gocop/internal/models"
+	"gocop/internal/razmjena"
 )
 
 // VrstaDijelaKarte je vrsta stavke sadržaja koja nosi dio karte
@@ -826,4 +827,22 @@ func (d *dijeloviKarte) stanje() StanjeKarte {
 // obrana javlja je li na ovom računalu proglašen stadij obrane
 func (d *dijeloviKarte) obrana(ctx context.Context) bool {
 	return d.uObrani != nil && d.uObrani(ctx)
+}
+
+// znanjeKarte je stanje karte bez interneta za znanje u razgovoru (samo za
+// prikaz na Stanju razmjene druge strane): nil kad prijenos karata nije
+// postavljen, prazan otisak kad karte nema ili je opis odbačen
+func (s *Service) znanjeKarte() *razmjena.ZnanjeKarte {
+	d := s.karte.Load()
+	if d == nil {
+		return nil
+	}
+	st := d.stanje()
+	d.mu.Lock()
+	k := d.k
+	d.mu.Unlock()
+	if k == nil || st.Los {
+		return &razmjena.ZnanjeKarte{}
+	}
+	return &razmjena.ZnanjeKarte{Otisak: k.Otisak, Slozena: st.Slozena, Dijelova: st.Dijelova, Svih: st.Svih}
 }

@@ -103,6 +103,37 @@ type Znanje struct {
 	// prima ili šalje, pa ne trebaju oznaku; stariji program ih ne šalje i
 	// zanemari.
 	Uloge []string `json:"uloge,omitempty"`
+	// Karta je stanje karte bez interneta kod pošiljatelja, isto samo za
+	// prikaz na Stanju razmjene (Odluke (18. 11. 2026.), Administracija 8):
+	// ne mijenja razgovor, pa ne treba oznaku; stariji program je ne šalje.
+	// Prazan otisak znači da pošiljatelj karte nema.
+	Karta *ZnanjeKarte `json:"karta,omitempty"`
+}
+
+// ZnanjeKarte je karta bez interneta kod pošiljatelja: otisak datoteke,
+// je li složena i koliko dijelova ima od koliko
+type ZnanjeKarte struct {
+	Otisak   string `json:"otisak"`
+	Slozena  bool   `json:"slozena,omitempty"`
+	Dijelova int    `json:"dijelova,omitempty"`
+	Svih     int    `json:"svih,omitempty"`
+}
+
+// najviseDijelovaZnanja ograđuje brojeve u znanju o karti (kao
+// models.NajviseDijelovaKarte; razmjena ne uvozi models)
+const najviseDijelovaZnanja = 4096
+
+// ocisceneKarta je znanje o karti uz otisak od 64 heksadekadna znaka i
+// brojeve unutar granica; ostalo otpada (nil)
+func ocisceneKarta(k *ZnanjeKarte) *ZnanjeKarte {
+	if k == nil {
+		return nil
+	}
+	if k.Otisak != "" && (len(k.Otisak) != 64 || !samoZnakovi(k.Otisak, "0123456789abcdef", 64)) {
+		return nil
+	}
+	svih := min(max(k.Svih, 0), najviseDijelovaZnanja)
+	return &ZnanjeKarte{Otisak: k.Otisak, Slozena: k.Slozena && k.Otisak != "", Dijelova: min(max(k.Dijelova, 0), svih), Svih: svih}
 }
 
 // Uloge računala koje se javljaju u znanju; mijenjaju se samo na samom
@@ -164,7 +195,7 @@ func Dogovor(moje, njihove []string) map[string]int {
 // poznate.
 func (z Znanje) Ocisceno() Znanje {
 	return Znanje{Mogucnosti: ocisceneOznake(z.Mogucnosti), Vrste: ocisceneVrste(z.Vrste), CekaNadogradnju: max(z.CekaNadogradnju, 0),
-		Uloge: ocisceneUloge(z.Uloge)}
+		Uloge: ocisceneUloge(z.Uloge), Karta: ocisceneKarta(z.Karta)}
 }
 
 // ocisceneUloge su poznate uloge druge strane, poredane i bez ponavljanja;
