@@ -269,3 +269,37 @@ func (h *IzvoriHandler) SpremiIzvor(w http.ResponseWriter, r *http.Request) {
 	}
 	redirectWith(w, r, "/administracija/izvori", "success", poruka)
 }
+
+// CipIzvora je čip filtra iznad kartica izvora: ključ, natpis i koliko
+// izvora pokazuje (Odluke (18. 11. 2026.), Administracija, novo ponašanje 11)
+type CipIzvora struct {
+	Kljuc, Naziv string
+	Broj         int
+}
+
+// Cipovi su čipovi filtra: svi, po skupini povjerenja (redom ovjereno, s
+// letve, operativno, preračun), isključeni i oni čiji se podaci nigdje ne
+// vide. Skupina, isključeni ili nevidljivi bez ijednog izvora nemaju čipa.
+func (d IzvoriPageData) Cipovi() []CipIzvora {
+	broj := map[string]int{}
+	for _, i := range d.Izvori {
+		broj[i.Skupina()]++
+		if !i.Ukljucen {
+			broj["iskljuceni"]++
+		}
+		if i.Neiskoristen() {
+			broj["nevidi"]++
+		}
+	}
+	out := []CipIzvora{{Kljuc: "sve", Naziv: "Svi", Broj: len(d.Izvori)}}
+	for _, c := range []CipIzvora{
+		{Kljuc: models.SkupinaOvjereno, Naziv: "Ovjereno"}, {Kljuc: models.SkupinaSLetve, Naziv: "S letve"},
+		{Kljuc: models.SkupinaOperativno, Naziv: "Operativno"}, {Kljuc: models.SkupinaPreracun, Naziv: "Preračun"},
+		{Kljuc: "iskljuceni", Naziv: "Isključeni"}, {Kljuc: "nevidi", Naziv: "Ne vidi se"},
+	} {
+		if c.Broj = broj[c.Kljuc]; c.Broj > 0 {
+			out = append(out, c)
+		}
+	}
+	return out
+}
