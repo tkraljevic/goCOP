@@ -66,7 +66,7 @@ func TestNadogradnjaPostavomNaCvoruBezKljuca(t *testing.T) {
 	if err := os.Rename(bazaZaOporavak(t), m.BazaCvora()); err != nil {
 		t.Fatal(err)
 	}
-	port := slobodanPort(t)
+	port := portIzvanPrivremenih(t)
 	postavke := fmt.Sprintf("addr = '127.0.0.1:%d'\n\n[node]\nid = 'pperic-thinkpad'\n\n[sync]\nexchange_port = 0\npair_port = 0\ndiscovery_port = 0\nauto_sync = '0'\n", port)
 	if err := os.WriteFile(m.PostavkeCvora(), []byte(postavke), 0o644); err != nil {
 		t.Fatal(err)
