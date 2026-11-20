@@ -29,7 +29,7 @@ func TestCvorBezKljucaPodPostavomCekaZatvaranjeUlaza(t *testing.T) {
 	put := bazaZaOporavak(t)
 	dir := filepath.Dir(put)
 	dnevnik := dnevnikTesta(t)
-	adresa := fmt.Sprintf("127.0.0.1:%d", slobodanPort(t))
+	adresa := fmt.Sprintf("127.0.0.1:%d", portIzvanPrivremenih(t))
 	citac, pisac := io.Pipe()
 	t.Cleanup(func() { pisac.Close() })
 	gotovo := make(chan int, 1)
@@ -107,7 +107,7 @@ func TestOdbijeniCvorIzlaziNaGasenje(t *testing.T) {
 	t.Cleanup(func() { pisac.Close() })
 	ctx, otkazi := context.WithCancel(context.Background())
 	otkazi()
-	adresa := fmt.Sprintf("127.0.0.1:%d", slobodanPort(t))
+	adresa := fmt.Sprintf("127.0.0.1:%d", portIzvanPrivremenih(t))
 	if kod := odbijPokretanje(ctx, true, adresa, errors.New("odbijeno"), citac); kod != 1 {
 		t.Errorf("izlazni kod %d", kod)
 	}

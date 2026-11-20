@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math/rand/v2"
 	"net"
 	"net/http"
 	"os"
@@ -142,6 +143,27 @@ func TestZatvorenUlazNeBlokiraKadGasenjeVecCeka(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("čekanje ulaza je blokiralo na punom kanalu gašenja")
 	}
+}
+
+// portIzvanPrivremenih je slobodan port ispod raspona iz kojeg sustav daje
+// portove za ":0" (Linux od 32768, macOS i Windows od 49152). Za testove koji
+// na kraju provjeravaju da je port zatvoren: port iz slobodanPort smije za to
+// vrijeme dobiti drugi test koji sluša na ":0", pa bi spajanje uspjelo na
+// tuđem portu.
+func portIzvanPrivremenih(t *testing.T) int {
+	t.Helper()
+	pocetak := 20000 + rand.IntN(10000)
+	for i := 0; i < 500; i++ {
+		port := 20000 + (pocetak-20000+i)%10000
+		l, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+		if err != nil {
+			continue
+		}
+		_ = l.Close() // samo provjera da je slobodan
+		return port
+	}
+	t.Fatal("nema slobodnog porta od 20000 do 29999")
+	return 0
 }
 
 func slobodanPort(t *testing.T) int {
