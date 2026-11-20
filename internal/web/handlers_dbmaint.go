@@ -34,7 +34,9 @@ type DBMaintHandler struct {
 	peers  *peers.Service
 	dbPath func() string
 	tmpl   *template.Template
-	opcije func(ctx context.Context) models.Opcije // nil = sve isključeno
+	// tmplPregled je stranica pregleda paketa prije ugradnje
+	tmplPregled *template.Template
+	opcije      func(ctx context.Context) models.Opcije // nil = sve isključeno
 	// izmijeniOpcije sprema dio „Pohrana”: rok čuvanja fotografija s terena
 	// stoji u općim opcijama, pa se mijenjaju samo njegova polja
 	izmijeniOpcije func(ctx context.Context, p *models.UserPermissions, izmjena func(*models.Opcije)) error
@@ -405,17 +407,23 @@ func (h *DBMaintHandler) HandleImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer file.Close()
+	ocistiStarePakete()
 	tmp := h.peers.TempArchivePath(header.Filename)
-	defer os.Remove(tmp)
 	out, err := os.Create(tmp)
 	if err != nil {
 		redirectWith(w, r, "/administracija/baza", "error", err.Error())
 		return
 	}
 	if _, err := spremiUcitano(out, file); err != nil {
+		_ = os.Remove(tmp) // privremena datoteka; ako ostane, ocistiStarePakete je pobriše
 		redirectWith(w, r, "/administracija/baza", "error", err.Error())
 		return
 	}
+	if jeCop(tmp) && h.tmplPregled != nil {
+		h.pregledajCop(w, r, tmp, header.Filename) // paket čeka ugradnju
+		return
+	}
+	defer os.Remove(tmp) //nolint:errcheck // privremena datoteka; ako ostane, ocistiStarePakete je pobriše
 	if jeCop(tmp) {
 		h.uveziCop(w, r, tmp)
 		return
