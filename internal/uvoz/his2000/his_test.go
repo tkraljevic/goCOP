@@ -291,3 +291,41 @@ func TestPotencijskiOdsjecakUlaziSPomakom(t *testing.T) {
 		t.Errorf("polinom: %+v — koeficijenti idu redom kako stoje, a p4 ostaje prazan", pol)
 	}
 }
+
+// Windows na kojem radi HIS od studenog 2026. piše datume hrvatski
+// („17.8.1977.”), a ne „8/17/1977”. Krivulje i snimke korita Donje Dubrave
+// izvezene 20. 11. 2026. tada su se tiho preskakale.
+func TestHrvatskiZapisDatuma(t *testing.T) {
+	krivulje := "Krivulje protoka\r\nŠifra;Podsifra;Stare šifre;Naziv;Vodotok;Kota \"0\";Širina;Dužina;\r\n" +
+		"5115;1;;DONJA DUBRAVA;DRAVA;129,70;46 18 32;16 48 55;\r\n\r\n" +
+		"1.1.1978. - 31.12.1979.\r\nTip;H1;H2;A;B;C;D;\r\n0;0,0000;600,0000;124,0000;0,4700;1,6800;0,0000;\r\n\r\n" +
+		"1.7.1981. - 31.12.1981.\r\nKrivulja vrijedi od  1. 7.  do  31. 12.\r\nTip;H1;H2;A;B;C;D;\r\n" +
+		"0;0,0000;500,0000;74,7600;0,9700;1,9040;0,0000;\r\n"
+	s, err := Procitaj("Krivulje.csv", cp(krivulje))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s.Krivulje) != 2 || !s.Krivulje[0].Do.Equal(time.Date(1979, 12, 31, 0, 0, 0, 0, time.UTC)) ||
+		!s.Krivulje[1].Od.Equal(time.Date(1981, 7, 1, 0, 0, 0, 0, time.UTC)) || len(s.Krivulje[1].Odsjecci) != 1 {
+		t.Fatalf("krivulje: %+v", s.Krivulje)
+	}
+
+	profil := "Mjerenje poprečnog profila korita;\r\n" +
+		"Šifra;Podsifra;Stare šifre;Naziv;Vodotok;Kota \"0\";Širina;Dužina;Vodostaj;Datum mjerenja;\r\n" +
+		"5115;1;;DONJA DUBRAVA;DRAVA;129,70;46 18 32;16 48 55;110;17.8.1977.;\r\n\r\n" +
+		"Stacionaža;Visina\r\n0,00;133,26;\r\n4,00;133,30;\r\n9,50;131,10;\r\n"
+	p, err := Procitaj("profil1.csv", cp(profil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !p.Profil.Datum.Equal(time.Date(1977, 8, 17, 0, 0, 0, 0, time.UTC)) || p.Profil.Vodostaj != 110 {
+		t.Errorf("snimka: %+v", p.Profil)
+	}
+	// bez točke na kraju i s razmakom iza točke
+	if d, ok := datumIzvoza(" 5. 3.2006"); !ok || !d.Equal(time.Date(2006, 3, 5, 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("datum bez završne točke: %v %v", d, ok)
+	}
+	if _, ok := datumIzvoza("2006-03-05"); ok {
+		t.Error("nepoznat zapis datuma ne smije proći")
+	}
+}

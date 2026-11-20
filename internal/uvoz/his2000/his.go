@@ -97,10 +97,42 @@ var (
 	reDnevni = regexp.MustCompile(`(?i)^Dnevni podaci postaje\s+(.+?),\s+(\p{L}+)`)
 	reRedSat = regexp.MustCompile(`^\s*(\d{1,2})\.\s*(\d{1,2})\.(\d{4})\s+(\d{1,2});([^;]*);`)
 	// dnevni redak: 01.01.1962;176; ili 01/01/1962;176;
-	reRedDan  = regexp.MustCompile(`^\s*(\d{1,2})[./](\d{1,2})[./](\d{4});([^;]*);`)
+	reRedDan = regexp.MustCompile(`^\s*(\d{1,2})[./](\d{1,2})[./](\d{4});([^;]*);`)
+	// Datum krivulje i snimke korita HIS piše kako je namješten Windows na
+	// kojem radi: američki „8/17/1977” (mjesec/dan) ili hrvatski
+	// „17.8.1977.” (dan.mjesec.). Kosa crta i točka kažu koji je koji, pa
+	// zamjene dana i mjeseca nema.
 	reRazdob  = regexp.MustCompile(`^(\d{1,2})/(\d{1,2})/(\d{4})\s*-\s*(\d{1,2})/(\d{1,2})/(\d{4})`)
+	reRazdobH = regexp.MustCompile(`^(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})\.?\s*-\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})\.?`)
 	reDatumUS = regexp.MustCompile(`^(\d{1,2})/(\d{1,2})/(\d{4})$`)
+	reDatumH  = regexp.MustCompile(`^(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})\.?$`)
 )
+
+// datumIzvoza čita datum snimke korita u oba zapisa (reDatumUS, reDatumH)
+func datumIzvoza(s string) (time.Time, bool) {
+	s = strings.TrimSpace(s)
+	if m := reDatumUS.FindStringSubmatch(s); m != nil {
+		return time.Date(broj(m[3]), time.Month(broj(m[1])), broj(m[2]), 0, 0, 0, 0, time.UTC), true
+	}
+	if m := reDatumH.FindStringSubmatch(s); m != nil {
+		return time.Date(broj(m[3]), time.Month(broj(m[2])), broj(m[1]), 0, 0, 0, 0, time.UTC), true
+	}
+	return time.Time{}, false
+}
+
+// citajRazdoblje čita „1/1/2001 - 12/31/2009” ili „1.1.2001. - 31.12.2009.”
+func citajRazdoblje(r string) (od, do time.Time, ok bool) {
+	r = strings.TrimSpace(r)
+	if m := reRazdob.FindStringSubmatch(r); m != nil {
+		return time.Date(broj(m[3]), time.Month(broj(m[1])), broj(m[2]), 0, 0, 0, 0, time.UTC),
+			time.Date(broj(m[6]), time.Month(broj(m[4])), broj(m[5]), 0, 0, 0, 0, time.UTC), true
+	}
+	if m := reRazdobH.FindStringSubmatch(r); m != nil {
+		return time.Date(broj(m[3]), time.Month(broj(m[2])), broj(m[1]), 0, 0, 0, 0, time.UTC),
+			time.Date(broj(m[6]), time.Month(broj(m[5])), broj(m[4]), 0, 0, 0, 0, time.UTC), true
+	}
+	return time.Time{}, time.Time{}, false
+}
 
 // velicine preslikava naziv iz zaglavlja u ono kako se veličina zove kod nas.
 // Dnevna vrijednost vodostaja, protoka i temperature je srednjak — provjereno
@@ -357,14 +389,11 @@ func citajKrivulje(redci []string) ([]Krivulja, Postaja, error) {
 			}
 			continue
 		}
-		if m := reRazdob.FindStringSubmatch(strings.TrimSpace(r)); m != nil {
+		if od, do, ok := citajRazdoblje(r); ok {
 			if tek != nil {
 				out = append(out, *tek)
 			}
-			tek = &Krivulja{
-				Od: time.Date(broj(m[3]), time.Month(broj(m[1])), broj(m[2]), 0, 0, 0, 0, time.UTC),
-				Do: time.Date(broj(m[6]), time.Month(broj(m[4])), broj(m[5]), 0, 0, 0, 0, time.UTC),
-			}
+			tek = &Krivulja{Od: od, Do: do}
 			continue
 		}
 		d := strings.Split(r, ";")
@@ -415,8 +444,8 @@ func citajProfil(redci []string) (*Profil, error) {
 			if len(d) >= 10 {
 				p.KotaNule = strings.TrimSpace(d[5])
 				p.Vodostaj = cijeli(d[8])
-				if m := reDatumUS.FindStringSubmatch(strings.TrimSpace(d[9])); m != nil {
-					p.Datum = time.Date(broj(m[3]), time.Month(broj(m[1])), broj(m[2]), 0, 0, 0, 0, time.UTC)
+				if t, ok := datumIzvoza(d[9]); ok {
+					p.Datum = t
 				}
 			}
 			continue
