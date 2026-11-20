@@ -213,7 +213,7 @@ func prviKoraci(s stanjeUstroja) []KorakUstroja {
 		korak("Uloge ovog čvora", "/settings#uloge", "Preuzima li ovo računalo vodostaje s izvora i izdaje li prognozu.", nil),
 		korak("Telemetrija", "/administracija/telemetrija", "Računi za HydroView i mobilnu stranicu Hrvatskih voda. Trebaju samo računalu koje preuzima vodostaje s izvora.", s.telemetrija),
 		korak("E-pošta", "/administracija/posta", "Poslužitelj preko kojeg se šalju akti i PIN za prijavu izvana.", s.posta),
-		korak("Uparivanje", "/settings#uparivanje", "Drugo računalo uparite s ovim, da podaci imaju kamo ići razmjenom. Kvačica stoji kad ovo računalo zna barem jedno drugo.", s.uparen),
+		korak("Uparivanje", "/uparivanje", "Drugo računalo uparite s ovim, da podaci imaju kamo ići razmjenom. Kvačica stoji kad ovo računalo zna barem jedno drugo.", s.uparen),
 	}
 }
 
