@@ -9,8 +9,8 @@
 {{/* Izvori arhive po crtežu 18c · 2 (goCOP-m3): drugi odlomak opisa kao
      sklopiv redak, traka upozorenja zanemarenih zapisa, kartice izvora u
      tri stupca sa sklopkom „Ulazi u spojeni niz”, točnošću i redom u
-     jednom retku; isključen izvor bljeđi. Čipovi filtra s brojem i
-     „Pokaži” su novo ponašanje i čekaju odluku. Obrasci su isti. */}}
+     jednom retku; isključen izvor bljeđi. Čipovi filtra s brojem su po
+     Odlukama (18. 11. 2026.). Obrasci su isti. */}}
 <div class="adm-stranica">
 <a class="adm-natrag" href="/administracija">{{icon "arrow-left"}} Administracija</a>
 <div class="page-header">
@@ -49,9 +49,14 @@
 {{end}}
 
 {{if .Izvori}}
+{{/* Čipovi filtra (Odluke (18. 11. 2026.)): filtrira se u pregledniku, po
+     skupini povjerenja, isključenima i onima čiji se podaci nigdje ne vide */}}
+<div class="uni-cipovi izv-filtar" role="radiogroup" aria-label="Pokaži izvore">
+  {{range .Cipovi}}<label><input type="radio" name="izv-filtar" value="{{.Kljuc}}"{{if eq .Kljuc "sve"}} checked{{end}}><span>{{.Naziv}} <b>{{.Broj}}</b></span></label>{{end}}
+</div>
 <div class="izvori-mreza">
   {{range .Izvori}}
-  <form method="POST" action="/administracija/izvori" class="izvor-kartica{{if not .Ukljucen}} izvor-iskljucen{{end}}">
+  <form method="POST" action="/administracija/izvori" class="izvor-kartica{{if not .Ukljucen}} izvor-iskljucen{{end}}" data-skupina="{{.Skupina}}"{{if not .Ukljucen}} data-iskljucen{{end}}{{if .Neiskoristen}} data-nevidi{{end}}>
     <input type="hidden" name="naziv" value="{{.Naziv}}">
 
     <div class="izvor-glava">
@@ -125,4 +130,16 @@
 <section class="adm-kartica"><p class="form-help">Arhiva nema popis izvora. Pojavit će se čim se arhiva izgradi ili ugradi paket.</p></section>
 {{end}}
 </div>
+<script>
+// čip ostavi samo svoje kartice; „Svi” pokaže sve
+document.querySelectorAll('.izv-filtar input').forEach(function (c) {
+  c.addEventListener('change', function () {
+    document.querySelectorAll('.izvori-mreza .izvor-kartica').forEach(function (k) {
+      var v = c.value;
+      k.hidden = !(v === 'sve' || (v === 'iskljuceni' && k.hasAttribute('data-iskljucen')) ||
+        (v === 'nevidi' && k.hasAttribute('data-nevidi')) || k.getAttribute('data-skupina') === v);
+    });
+  });
+});
+</script>
 {{end}}

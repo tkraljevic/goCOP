@@ -11231,3 +11231,8 @@ td .odr-sitno { margin-top: 2px; }
   .uv-redak.tel-cetiri { grid-template-columns: minmax(0, 1fr) auto; }
   .uv-redak.tel-cetiri > .tel-dohvat { grid-column: 1 / -1; }
 }
+
+/* Izvori arhive: čipovi filtra s brojem (Odluke (18. 11. 2026.)) */
+.izv-filtar { margin-bottom: 12px; }
+.izv-filtar b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.izvori-mreza > .izvor-kartica[hidden] { display: none; }
