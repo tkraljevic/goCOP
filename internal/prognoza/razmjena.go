@@ -66,8 +66,15 @@ type PaketModela struct {
 	Tablice map[string]Tablica `json:"tablice"`
 }
 
-// tabliceModela su tablice namještenog modela, redom upisa
-var tabliceModela = []string{"pojasi", "ulazi", "promasaji", "operateri", "operater"}
+// tabliceModela su tablice namještenog modela, redom upisa. Zadnja je zapis
+// modela po letvi (ZapisLetve): putuje s ostalima, pa Ukloni na izdavaču briše
+// redak i na primatelju. Stariji primatelj je ne zna i preskače je, a paket
+// starijeg izdavača je nema, pa primatelju ostaje (PrimiModel).
+var tabliceModela = []string{"pojasi", "ulazi", "promasaji", "operateri", "operater", tablicaZapisa}
+
+// tablicaZapisa je tablica zapisa modela po letvi. Prazna ne ulazi u otisak
+// modela, pa nadogradnja izdavača ne objavi model dok prvi zapis ne nastane.
+const tablicaZapisa = "model_letve"
 
 // Omotnica je sadržaj zapisa u knjizi: sažeti paket i ono što se o njemu
 // vidi bez raspakiravanja.
@@ -310,6 +317,9 @@ func SastaviModel(db *sql.DB) (PaketModela, string, error) {
 			return p, "", fmt.Errorf("%s: %w", ime, err)
 		}
 		p.Tablice[ime] = t
+		if ime == tablicaZapisa && len(t.Redci) == 0 {
+			continue
+		}
 		b, _ := json.Marshal(t)
 		h.Write([]byte(ime))
 		h.Write(b)
