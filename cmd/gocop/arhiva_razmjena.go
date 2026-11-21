@@ -20,8 +20,10 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"time"
 
@@ -400,6 +402,71 @@ func (r *razmjenaArhive) stanje(ctx context.Context) stanjeArhive {
 	return st
 }
 
+// pospremanjeSvakih je razmak između dva pospremanja starih paketa u
+// spremištu sadržaja
+const pospremanjeSvakih = 6 * time.Hour
+
+// paketiKojiOstaju su otisci paketa koje spremište zadržava: po letvi
+// paketi zadnjih arhiva.ZadrziIzdanja izdanja iz kazala u knjizi. Nema li
+// kazala, vraća nil, pa se ništa ne briše.
+func (r *razmjenaArhive) paketiKojiOstaju(ctx context.Context) (map[string]bool, error) {
+	zadnje, err := r.rec.LatestOf(ctx, []string{EntitetArhive})
+	if err != nil || len(zadnje) == 0 {
+		return nil, err
+	}
+	ostaju := map[string]bool{}
+	for _, v := range zadnje {
+		povijest, err := r.rec.History(ctx, EntitetArhive, v.EntityID)
+		if err != nil {
+			return nil, err
+		}
+		for _, o := range zadnjaIzdanja(povijest) {
+			ostaju[o] = true
+		}
+	}
+	return ostaju, nil
+}
+
+// zadnjaIzdanja su otisci paketa zadnjih arhiva.ZadrziIzdanja izdanja iz
+// povijesti kazala jedne letve (od najnovije verzije prema starijima)
+func zadnjaIzdanja(povijest []ledger.Version) []string {
+	izdanja := map[int]string{}
+	for _, h := range povijest {
+		var p paketUKnjizi
+		if json.Unmarshal(h.Payload, &p) == nil && p.Sadrzaj != "" && izdanja[p.Izdanje] == "" {
+			izdanja[p.Izdanje] = p.Sadrzaj
+		}
+	}
+	brojevi := slices.Sorted(maps.Keys(izdanja))
+	var out []string
+	for _, b := range brojevi[max(0, len(brojevi)-arhiva.ZadrziIzdanja):] {
+		out = append(out, izdanja[b])
+	}
+	return out
+}
+
+// pospremi briše iz spremišta sadržaja pakete starijih izdanja, na svakom
+// čvoru: i one koje je izdao i one koje je primio
+func (r *razmjenaArhive) pospremi(ctx context.Context) {
+	if r.sp == nil {
+		return
+	}
+	ostaju, err := r.paketiKojiOstaju(ctx)
+	if err != nil || ostaju == nil {
+		if err != nil {
+			log.Printf("arhiva: pospremanje starih paketa: %v", err)
+		}
+		return
+	}
+	n, err := r.sp.PospremiVrstu(ctx, VrstaPaketa, EntitetArhive, ostaju)
+	switch {
+	case err != nil:
+		log.Printf("arhiva: pospremanje starih paketa: %v", err)
+	case n > 0:
+		log.Printf("arhiva: obrisano %d starih paketa; ostaju zadnja %d izdanja svake letve", n, arhiva.ZadrziIzdanja)
+	}
+}
+
 // primljeno javlja da su razmjenom stigle verzije; kazalo arhive pokreće krug
 func (r *razmjenaArhive) primljeno(verzije []ledger.Version) {
 	for _, v := range verzije {
@@ -419,10 +486,12 @@ func (r *razmjenaArhive) potakniKrug() {
 }
 
 // vrti objavljuje i prima: odmah, na poticaj i svake dvije minute (sadržaj
-// stiže u krugovima razmjene, do 48 MB po krugu).
+// stiže u krugovima razmjene, do 48 MB po krugu). Stare pakete pospremi
+// odmah nakon pokretanja i zatim svakih šest sati.
 func (r *razmjenaArhive) vrti(ctx context.Context) {
 	t := time.NewTicker(2 * time.Minute)
 	defer t.Stop()
+	var pospremljeno time.Time
 	for {
 		r.mu.Lock()
 		if n, err := r.objavi(ctx); err != nil {
@@ -431,6 +500,10 @@ func (r *razmjenaArhive) vrti(ctx context.Context) {
 			log.Printf("arhiva: u kazalo za razmjenu upisano %d paketa", n)
 		}
 		r.primi(ctx)
+		if time.Since(pospremljeno) >= pospremanjeSvakih {
+			r.pospremi(ctx)
+			pospremljeno = time.Now()
+		}
 		r.mu.Unlock()
 		select {
 		case <-ctx.Done():

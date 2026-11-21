@@ -254,7 +254,9 @@ Portovi se mijenjaju u `gocop.toml`.
   verzija. Izdanja su ondje dostupna sedam dana, a u lokalnoj bazi prognoza ostaju.
   Kazalo arhive također putuje razmjenom, a `.cop` paketi dohvaćaju se prema
   pretplati. Čvor koji izdaje prognozu i drži izvorno stablo nakon noćnog
-  ulaganja kiše sam izdaje promijenjene pakete.
+  ulaganja kiše sam izdaje promijenjene pakete. Od svake letve ostaju zadnja
+  dva izdanja, i u mapi `pakete/` i u spremištu sadržaja svakog čvora; starija
+  program briše sam.
 - **Osobni podaci.** Registar djelatnika sadrži imena, funkcije, telefone i
   e-mail adrese djelatnika i sudionika obrane od poplava, kako ih
   organizacija unese ili uveze iz svog imenika. Tretirati mapu `data/` kao
