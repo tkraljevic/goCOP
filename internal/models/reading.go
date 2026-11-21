@@ -25,6 +25,10 @@ type Reading struct {
 
 	LevelCm  *int `json:"level_cm,omitempty"`  // vodostaj; na ustavi uzvodni
 	Level2Cm *int `json:"level2_cm,omitempty"` // nizvodni vodostaj na ustavi
+	// SirovoCm je vodostaj kako ga je poslao mjerni uređaj, kad je preuzeto
+	// očitanje ispravljeno po ručnom (IspravakTelemetrije). LevelCm je tada
+	// ispravljena vrijednost; prazno znači da očitanje nije ispravljano.
+	SirovoCm *int `json:"sirovo_cm,omitempty"`
 
 	// Uz vodostaj se na letvi zna očitati i temperatura vode, a pri
 	// hidrometrijskom mjerenju i protok. Izmjereni protok je mjerenje, za
@@ -380,4 +384,97 @@ func (g GaugeSummary) Stale() bool { return g.Latest != nil && g.Age() > 36*time
 // IsMeasured govori smije li se očitanje predstaviti kao mjerenje svoje letve.
 func (r Reading) IsMeasured() bool {
 	return r.Quality == "" || r.Quality == QualityMeasured
+}
+
+// Granice ispravka telemetrije po ručnom očitanju (Odluke (21. 11. 2026.)).
+const (
+	// TocnostTelemetrije je razlika prema ručnom očitanju koja se ne
+	// ispravlja: unutar je točnosti izvora, pa bi ispravak glumio preciznost
+	// koju niz nema.
+	TocnostTelemetrije = 5
+	// SlicanIspravak je koliko se dvije razlike smiju razlikovati da bi se
+	// druga uzela kao potvrda prve. Jedna tipkarska greška tako ne pomiče
+	// telemetriju.
+	SlicanIspravak = 10
+	// VelikiIspravak je ispravak od kojeg mjerni uređaj treba ispraviti na
+	// terenu.
+	VelikiIspravak = 10
+)
+
+// OpisIspravka kaže, uz ispravljeno očitanje, što je pokazao mjerni uređaj i
+// za koliko je ispravljeno; prazno kad očitanje nije ispravljano.
+func (r Reading) OpisIspravka() string {
+	if r.IspravakCm() == 0 {
+		return ""
+	}
+	return fmt.Sprintf("uređaj %d cm, ispravljeno %+d cm po ručnom očitanju", *r.SirovoCm, r.IspravakCm())
+}
+
+// IspravakCm je za koliko je preuzeto očitanje ispravljeno po ručnom: nula
+// kad nije ispravljano.
+func (r Reading) IspravakCm() int {
+	if r.LevelCm == nil || r.SirovoCm == nil {
+		return 0
+	}
+	return *r.LevelCm - *r.SirovoCm
+}
+
+// UpisanoOcitanje je vodostaj koji letva već ima, onoliko koliko ispravak
+// telemetrije treba znati o njemu.
+type UpisanoOcitanje struct {
+	ID         uuid.UUID
+	Kad        time.Time
+	Cm         int
+	SirovoCm   *int   // vrijednost mjernog uređaja, kad je očitanje ispravljeno
+	Rucno      bool   // upisao ga je čovjek (ReadingSourceManual)
+	Podrijetlo string // Origin: s kojeg je izvora preuzeto
+}
+
+// Sirovo je vrijednost kako ju je dao izvor: prije ispravka, ako ga je bilo.
+func (u UpisanoOcitanje) Sirovo() int {
+	if u.SirovoCm != nil {
+		return *u.SirovoCm
+	}
+	return u.Cm
+}
+
+// IspravljenoOcitanje je nova vrijednost već upisanog preuzetog očitanja
+// nakon što se ispravak promijenio. SirovoCm nil znači da ispravka više nema.
+type IspravljenoOcitanje struct {
+	ID       uuid.UUID
+	LevelCm  int
+	SirovoCm *int
+}
+
+// StanjeIspravka je ono što se o ispravku telemetrije zna na jednoj letvi.
+type StanjeIspravka struct {
+	// PomakCm je ispravak zadnjeg preuzetog očitanja; nula kad ga nema.
+	PomakCm int
+	// Zadnje ručno očitanje iz zadnjih deset dana i vrijednost mjernog
+	// uređaja uz njega; ImaRucno je netočno kad jednog od toga nema.
+	ImaRucno bool
+	RucnoKad time.Time
+	RucnoCm  int
+	SirovoCm int
+}
+
+// TrebaTeren javlja da je ispravak toliki da mjerni uređaj treba ispraviti
+// na terenu.
+func (s StanjeIspravka) TrebaTeren() bool { return apsCm(s.PomakCm) >= VelikiIspravak }
+
+// CekaPotvrdu javlja da zadnje ručno očitanje odstupa od mjernog uređaja, a
+// ispravak ga još ne prati: čeka se sljedeće ručno očitanje.
+func (s StanjeIspravka) CekaPotvrdu() bool {
+	if !s.ImaRucno {
+		return false
+	}
+	razlika := s.RucnoCm - s.SirovoCm
+	return apsCm(razlika) > TocnostTelemetrije && (s.PomakCm == 0 || apsCm(razlika-s.PomakCm) > SlicanIspravak)
+}
+
+func apsCm(v int) int {
+	if v < 0 {
+		return -v
+	}
+	return v
 }

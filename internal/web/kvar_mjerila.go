@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
@@ -70,6 +71,47 @@ type ZnakLetve struct {
 	Kvar    string // rečenica o kvaru koji traje; prazno kad ga nema
 	NaDnu   bool   // to nije kvar, nego je voda vjerojatno ispod dosega mjerila
 	Skokova int    // odbačenih skokova u zadnjih CestiSkokoviDana dana, kad ih je barem CestiSkokovi
+	// Teren je rečenica koliko mjerni uređaj odstupa od ručnog očitanja, kad
+	// ga zbog toga treba ispraviti na terenu; prazno kad ne treba
+	Teren string
+}
+
+// IspravakLetve je ono što stranica letve kaže o ispravku telemetrije po
+// ručnom očitanju (Odluke (21. 11. 2026.)).
+type IspravakLetve struct {
+	Teren  bool   // ispravak je toliki da mjerni uređaj treba ispraviti na terenu
+	Ceka   bool   // ručno očitanje odstupa, a ispravak još čeka potvrdu
+	Tekst  string // rečenice iza naslova okvira
+	Naslov string
+}
+
+// odstupanjeUredjaja kaže koliko mjerni uređaj pokazuje više ili manje od
+// ručnog očitanja; pomak je ispravak, dakle ručno minus uređaj.
+func odstupanjeUredjaja(pomak int) string {
+	if pomak < 0 {
+		return fmt.Sprintf("Pokazuje %d cm više od ručnog očitanja.", -pomak)
+	}
+	return fmt.Sprintf("Pokazuje %d cm manje od ručnog očitanja.", pomak)
+}
+
+// ispravakLetve slaže okvir o ispravku telemetrije; nil kad se nema što reći.
+func ispravakLetve(s models.StanjeIspravka) *IspravakLetve {
+	switch {
+	case s.TrebaTeren():
+		return &IspravakLetve{Teren: true, Naslov: "Mjerni uređaj treba ispraviti na terenu.",
+			Tekst: odstupanjeUredjaja(s.PomakCm) + fmt.Sprintf(" Dok se ne ispravi, program njegova očitanja ispravlja za %+d cm, a uz svako čuva i vrijednost uređaja. "+
+				"Ispravak prestaje sam kad se ručno očitanje i uređaj opet slože.", s.PomakCm)}
+	case s.PomakCm != 0:
+		return &IspravakLetve{Naslov: "Očitanja mjernog uređaja se ispravljaju.",
+			Tekst: odstupanjeUredjaja(s.PomakCm) + fmt.Sprintf(" Program ih zato ispravlja za %+d cm, a uz svako čuva i vrijednost uređaja.", s.PomakCm)}
+	case s.CekaPotvrdu():
+		t := s.RucnoKad.In(models.Zagreb)
+		return &IspravakLetve{Ceka: true, Naslov: "Ručno očitanje odstupa od mjernog uređaja.",
+			Tekst: fmt.Sprintf("Ručno očitanje od %d. %d. u %s je %d cm, a uređaj je tada pokazivao %d cm. "+
+				"Program počinje ispravljati očitanja uređaja kad razliku potvrdi sljedeće ručno očitanje.",
+				t.Day(), int(t.Month()), t.Format("15:04"), s.RucnoCm, s.SirovoCm)}
+	}
+	return nil
 }
 
 // upozorenjaMjerila priprema okvire o kvaru mjerila i čestim skokovima za
@@ -78,6 +120,10 @@ func (h *ReadingsHandler) upozorenjaMjerila(ctx context.Context, data *ReadingHi
 	if st == nil {
 		return
 	}
+	// Ispravak po ručnom očitanju vrijedi i za letve izuzete iz provjere
+	// kvara: razinu akumulacije vodi čovjek, ali je mjeri uređaj koji zna
+	// odlutati.
+	data.Ispravak = ispravakLetve(h.readingService.StanjeIspravka(ctx, st.ID.String(), time.Now()))
 	m := h.mjerila()
 	if m != nil && m.Izuzeta(ctx, st.Code) {
 		return
@@ -128,10 +174,15 @@ func (h *ReadingsHandler) znakoviMjerila(ctx context.Context, letve []models.Gau
 	if err != nil {
 		log.Printf("skokovi letvi se ne daju pročitati: %v", err)
 	}
+	ispravci := h.readingService.IspravciTelemetrije(ctx)
 	m := h.mjerila()
 	out := map[string]ZnakLetve{}
 	for _, g := range letve {
-		if z := h.znakLetve(ctx, m, g, broj[g.Key]); z != (ZnakLetve{}) {
+		z := h.znakLetve(ctx, m, g, broj[g.Key])
+		if s := (models.StanjeIspravka{PomakCm: ispravci[g.StationID]}); g.StationID != "" && s.TrebaTeren() {
+			z.Teren = odstupanjeUredjaja(s.PomakCm)
+		}
+		if z != (ZnakLetve{}) {
 			out[g.Key] = z
 		}
 	}

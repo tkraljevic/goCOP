@@ -24,6 +24,7 @@ type RedakLetve struct {
 	Kvar    string // rečenica za korisnika kad mjerni uređaj vjerojatno ne radi
 	KvarZa  string // dulji opis kvara (title)
 	Skokova int
+	Teren   string // koliko mjerni uređaj odstupa, kad ga treba ispraviti na terenu
 	Odabran bool
 }
 
@@ -72,7 +73,7 @@ func smjerTrenda(g models.GaugeSummary) string {
 // redakOcitanja slaže redak za letvu iz zadnjeg očitanja, protoka i znakova
 // mjernog uređaja
 func redakOcitanja(g models.GaugeSummary, protok ProtokLetve, znak ZnakLetve, sad time.Time) RedakLetve {
-	r := RedakLetve{G: g, Trend: smjerTrenda(g), Skokova: znak.Skokova, KvarZa: znak.Kvar}
+	r := RedakLetve{G: g, Trend: smjerTrenda(g), Skokova: znak.Skokova, KvarZa: znak.Kvar, Teren: znak.Teren}
 	if znak.Kvar != "" {
 		r.Kvar = "Mjerni uređaj je vjerojatno u kvaru."
 		if znak.NaDnu {

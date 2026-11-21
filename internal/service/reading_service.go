@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"sort"
 	"strings"
 	"time"
@@ -68,6 +69,28 @@ func (s *ReadingService) MjerenjaPreuzimanih(ctx context.Context, od, do time.Ti
 // lažni skok od trenutka od
 func (s *ReadingService) BrojNedavnihSkokova(ctx context.Context, od time.Time) (map[string]int, error) {
 	return s.repo.BrojNedavnihSkokova(ctx, od)
+}
+
+// IspravciTelemetrije vraća, po postaji, ispravak po ručnom očitanju koji
+// vrijedi na letvama s preuzimanjem; letve bez ispravka nisu u mapi. Kad se
+// ne da pročitati, stranica ostaje bez znakova, a greška ide u dnevnik.
+func (s *ReadingService) IspravciTelemetrije(ctx context.Context) map[string]int {
+	ispravci, err := s.repo.IspravciTelemetrije(ctx)
+	if err != nil {
+		log.Printf("ispravci telemetrije se ne daju pročitati: %v", err)
+	}
+	return ispravci
+}
+
+// StanjeIspravka vraća stanje ispravka telemetrije jedne letve; kad se ne da
+// pročitati, prazno stanje, a greška ide u dnevnik.
+func (s *ReadingService) StanjeIspravka(ctx context.Context, stationID string, sada time.Time) models.StanjeIspravka {
+	stanje, err := s.repo.StanjeIspravka(ctx, stationID, sada)
+	if err != nil {
+		log.Printf("ispravak telemetrije letve %s se ne da pročitati: %v", stationID, err)
+		return models.StanjeIspravka{}
+	}
+	return stanje
 }
 
 func hasAnyWriteRight(perms *models.UserPermissions) bool {

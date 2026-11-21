@@ -20,7 +20,10 @@ const EntityReadings = "readings"
 const readingColumns = `id, station_id, structure_id, measured_at, level_cm, level2_cm, temp_c, flow_m3s, temp_note, flow_method, flow_note, source, origin, source_ref,
 	quality, derived_from, method,
 	observer, user_id, structure_state, gate, gate_pct, ag_hours_1, ag_hours_2, ag_hours_3, note, vrsta_biljeske, izdanje,
-	created_at, updated_at`
+	created_at, updated_at, sirovo_cm`
+
+// readingMjesta su upitnici za readingColumns
+const readingMjesta = `?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?`
 
 // ReadingRepository čuva očitanja vodostaja. Svaki upis ostavlja verziju u
 // knjizi — i uvoz, jer uvoz radi jedan čvor, a očitanja trebaju svi.
@@ -54,24 +57,26 @@ func readingArgs(rd *models.Reading) []any {
 		rd.TempNote, rd.FlowMethod, rd.FlowNote, rd.Source, rd.Origin, rd.SourceRef, rd.Quality, rd.DerivedFrom, rd.Method,
 		rd.Observer, rd.UserID, rd.StructureState, rd.Gate, rd.GatePct,
 		rd.AgHours1, rd.AgHours2, rd.AgHours3, rd.Note, rd.VrstaBiljeske, rd.Izdanje, rd.CreatedAt.UTC(), rd.UpdatedAt.UTC(),
+		rd.SirovoCm,
 	}
 }
 
 func scanReading(scanner interface{ Scan(...any) error }) (models.Reading, error) {
 	var rd models.Reading
 	var id string
-	var level, level2, gatePct, ag1, ag2, ag3 sql.NullInt64
+	var level, level2, gatePct, ag1, ag2, ag3, sirovo sql.NullInt64
 	var temp, flow sql.NullFloat64
 	err := scanner.Scan(&id, &rd.StationID, &rd.StructureID, &rd.MeasuredAt, &level, &level2, &temp, &flow,
 		&rd.TempNote, &rd.FlowMethod, &rd.FlowNote, &rd.Source, &rd.Origin, &rd.SourceRef, &rd.Quality, &rd.DerivedFrom, &rd.Method,
 		&rd.Observer, &rd.UserID, &rd.StructureState, &rd.Gate, &gatePct,
-		&ag1, &ag2, &ag3, &rd.Note, &rd.VrstaBiljeske, &rd.Izdanje, &rd.CreatedAt, &rd.UpdatedAt)
+		&ag1, &ag2, &ag3, &rd.Note, &rd.VrstaBiljeske, &rd.Izdanje, &rd.CreatedAt, &rd.UpdatedAt, &sirovo)
 	if err != nil {
 		return rd, err
 	}
 	rd.ID, _ = uuid.Parse(id)
 	rd.LevelCm = nullInt(level)
 	rd.Level2Cm = nullInt(level2)
+	rd.SirovoCm = nullInt(sirovo)
 	rd.GatePct = nullInt(gatePct)
 	rd.AgHours1 = nullInt(ag1)
 	rd.AgHours2 = nullInt(ag2)
@@ -278,7 +283,7 @@ func (r *ReadingRepository) Create(ctx context.Context, rd *models.Reading) erro
 	}
 	defer tx.Rollback()
 	if _, err := tx.ExecContext(ctx, `INSERT INTO readings (`+readingColumns+`)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, readingArgs(rd)...); err != nil {
+		VALUES (`+readingMjesta+`)`, readingArgs(rd)...); err != nil {
 		return fmt.Errorf("greška pri upisu očitanja: %w", err)
 	}
 	if _, err := r.zabiljeziUTx(ctx, tx, rd.ID.String()); err != nil {
@@ -318,6 +323,45 @@ func (r *ReadingRepository) Update(ctx context.Context, rd *models.Reading) erro
 		return err
 	}
 	return tx.Commit()
+}
+
+// IspraviTelemetriju mijenja vodostaj već upisanih preuzetih očitanja kad se
+// promijeni ispravak po ručnom očitanju, i bilježi verziju. Ručno upisano
+// očitanje i ono kojeg više nema preskače.
+func (r *ReadingRepository) IspraviTelemetriju(ctx context.Context, ispravci []models.IspravljenoOcitanje) error {
+	if len(ispravci) == 0 {
+		return nil
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	sada := time.Now().UTC()
+	for _, i := range ispravci {
+		if err := r.ispraviPreuzeto(ctx, tx, i, sada); err != nil {
+			return fmt.Errorf("greška pri ispravku očitanja: %w", err)
+		}
+	}
+	return tx.Commit()
+}
+
+// ispraviPreuzeto mijenja jedno preuzeto očitanje i bilježi verziju.
+func (r *ReadingRepository) ispraviPreuzeto(ctx context.Context, tx *sql.Tx, i models.IspravljenoOcitanje, sada time.Time) error {
+	var izvor string
+	err := tx.QueryRowContext(ctx, `SELECT source FROM readings WHERE id = ?`, i.ID.String()).Scan(&izvor)
+	if err == sql.ErrNoRows || (err == nil && izvor != models.ReadingSourceImport) {
+		return nil // očitanje je u međuvremenu obrisano ili ga je čovjek upisao
+	}
+	if err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE readings SET level_cm = ?, sirovo_cm = ?, updated_at = ? WHERE id = ?`,
+		i.LevelCm, i.SirovoCm, sada, i.ID.String()); err != nil {
+		return err
+	}
+	_, err = r.zabiljeziUTx(ctx, tx, i.ID.String())
+	return err
 }
 
 // Delete briše očitanje i arhivira verziju
@@ -377,7 +421,7 @@ func (r *ReadingRepository) ImportBatch(ctx context.Context, readings []models.R
 	}
 	defer tx.Rollback()
 	stmt, err := tx.PrepareContext(ctx, `INSERT OR IGNORE INTO readings (`+readingColumns+`)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+		VALUES (`+readingMjesta+`)`)
 	if err != nil {
 		return 0, err
 	}

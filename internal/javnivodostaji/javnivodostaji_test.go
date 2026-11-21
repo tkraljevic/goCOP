@@ -53,6 +53,20 @@ type probnoSpremiste struct {
 	odbaceno        []models.OdbacenaVrijednost
 	greskaRazina    error
 	greskaOdbacenih error
+	// vodostaji su očitanja koja letva već ima, za ispravak po ručnom;
+	// ispravljeno ono što je preuzimanje naknadno uskladilo
+	vodostaji       []models.UpisanoOcitanje
+	ispravljeno     []models.IspravljenoOcitanje
+	greskaVodostaja error
+	greskaIspravka  error
+}
+
+func (p *probnoSpremiste) Vodostaji(context.Context, string, time.Time, time.Time) ([]models.UpisanoOcitanje, error) {
+	return p.vodostaji, p.greskaVodostaja
+}
+func (p *probnoSpremiste) Ispravi(_ context.Context, i []models.IspravljenoOcitanje) error {
+	p.ispravljeno = append(p.ispravljeno, i...)
+	return p.greskaIspravka
 }
 
 func (p *probnoSpremiste) LetveZaPreuzimanje(context.Context) ([]models.Station, error) {

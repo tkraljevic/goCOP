@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/google/uuid"
+
 	"gocop/internal/models"
 )
 
@@ -89,6 +91,42 @@ func (s *JavniSpremiste) Razine(ctx context.Context, stationID string, od, do ti
 		out[t.UTC().Unix()] = cm
 	}
 	return out, rows.Err()
+}
+
+// Vodostaji vraća vodostaje koje letva ima u razdoblju, redom mjerenja, i
+// zadnji preuzeti prije njega: po njemu se zna koliki je ispravak vrijedio
+// na početku razdoblja (javnivodostaji, ispravak telemetrije).
+func (s *JavniSpremiste) Vodostaji(ctx context.Context, stationID string, od, do time.Time) ([]models.UpisanoOcitanje, error) {
+	const stupci = `id, measured_at, level_cm, sirovo_cm, source, origin`
+	rows, err := s.db.QueryContext(ctx, `SELECT * FROM (SELECT `+stupci+` FROM readings
+		WHERE station_id = ? AND measured_at < ? AND level_cm IS NOT NULL AND source = ?
+		ORDER BY measured_at DESC LIMIT 1)
+		UNION ALL SELECT `+stupci+` FROM readings
+		WHERE station_id = ? AND measured_at BETWEEN ? AND ? AND level_cm IS NOT NULL
+		ORDER BY measured_at`,
+		stationID, od.UTC(), models.ReadingSourceImport, stationID, od.UTC(), do.UTC())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []models.UpisanoOcitanje
+	for rows.Next() {
+		var u models.UpisanoOcitanje
+		var id, izvor string
+		var sirovo sql.NullInt64
+		if err := rows.Scan(&id, &u.Kad, &u.Cm, &sirovo, &izvor, &u.Podrijetlo); err != nil {
+			return nil, err
+		}
+		u.ID, _ = uuid.Parse(id) // oznaka koju je upisao program uvijek je valjana
+		u.Kad, u.SirovoCm, u.Rucno = u.Kad.UTC(), nullInt(sirovo), izvor == models.ReadingSourceManual
+		out = append(out, u)
+	}
+	return out, rows.Err()
+}
+
+// Ispravi mijenja vodostaj već upisanih preuzetih očitanja, s verzijom u knjizi
+func (s *JavniSpremiste) Ispravi(ctx context.Context, ispravci []models.IspravljenoOcitanje) error {
+	return s.readings.IspraviTelemetriju(ctx, ispravci)
 }
 
 // ZabiljeziOdbacene bilježi vrijednosti koje preuzimanje nije upisalo jer

@@ -284,8 +284,11 @@ type Postaja struct {
 type Redak struct {
 	Kad     time.Time
 	LevelCm *int
-	TempC   *float64
-	FlowM3s *float64
+	// SirovoCm je vrijednost mjernog uređaja kad je LevelCm ispravljen po
+	// ručnom očitanju (ispravak.go); izvor ga ne puni.
+	SirovoCm *int
+	TempC    *float64
+	FlowM3s  *float64
 	// Kako je protok nastao kod onoga tko ga objavljuje. Izvor koji to zna
 	// neka to i kaže: preuzet protok inače poslije izgleda kao mjeren.
 	FlowMetoda   string
@@ -410,6 +413,7 @@ func Ocitanje(station *models.Station, r Redak, podrijetlo string) models.Readin
 		StationID:  station.ID.String(),
 		MeasuredAt: r.Kad.UTC(),
 		LevelCm:    r.LevelCm,
+		SirovoCm:   r.SirovoCm,
 		TempC:      r.TempC,
 		FlowM3s:    r.FlowM3s,
 		FlowMethod: r.FlowMetoda,
@@ -436,6 +440,12 @@ type Spremiste interface {
 	// ZabiljeziOdbacene bilježi vrijednosti odbačene kao lažni skok, za
 	// stranicu letve
 	ZabiljeziOdbacene(ctx context.Context, odbacene []models.OdbacenaVrijednost) error
+	// Vodostaji vraća vodostaje koje letva ima u razdoblju i zadnji preuzeti
+	// prije njega: iz njih se računa ispravak po ručnom očitanju
+	Vodostaji(ctx context.Context, stationID string, od, do time.Time) ([]models.UpisanoOcitanje, error)
+	// Ispravi mijenja vodostaj već upisanih preuzetih očitanja kad se ispravak
+	// promijeni
+	Ispravi(ctx context.Context, ispravci []models.IspravljenoOcitanje) error
 }
 
 // StanjeLetve je što se zadnje dogodilo s preuzimanjem jedne letve
@@ -898,6 +908,11 @@ func (u *Uvoznik) Preuzmi(ctx context.Context, st *models.Station) StanjeLetve {
 	}
 	if len(redci) == 0 && len(rezerva) == 0 {
 		s.Greska = "izvor trenutačno nema valjano očitanje"
+		return s
+	}
+	if err := u.ispraviPoRucnom(cctx, st, izvor.Naziv(), redci); err != nil {
+		s.Greska = err.Error()
+		u.Zapisnik("javni vodostaji: %s: ispravak po ručnom očitanju: %v", st.Name, err)
 		return s
 	}
 	u.protokIzKrivulje(cctx, st, redci, rezerva)

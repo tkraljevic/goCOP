@@ -79,7 +79,8 @@ func stranicaKvara(t *testing.T, kvarovi KvaroviMjerila) (*http.ServeMux, *model
 	mux.HandleFunc("GET /readings/station/{id}", h.ShowHistory)
 	mux.HandleFunc("GET /readings", h.ShowOverview)
 	ctx := context.Background()
-	donji := &models.Station{ID: uuid.New(), Code: "donji-brod", Name: "Donji Brod"}
+	donji := &models.Station{ID: uuid.New(), Code: "donji-brod", Name: "Donji Brod",
+		JavniURL: "https://vodostaji.voda.hr/Home/PregledVodostajaPostaje?postajaID=1", JavniUvoz: true}
 	srednji := &models.Station{ID: uuid.New(), Code: "srednji-brod", Name: "Srednji Brod"}
 	for _, s := range []*models.Station{donji, srednji} {
 		if err := stationRepo.CreateStation(ctx, s); err != nil {

@@ -351,7 +351,9 @@ type ReadingHistoryData struct {
 	// KvarMjerila je kvar mjerila koji traje, a CestiSkokovi odbačeni
 	// skokovi zadnjeg tjedna kad ih je dosta; okviri na vrhu stranice
 	// (kvar_mjerila.go). Nil kad ih nema.
-	KvarMjerila  *KvarLetve
+	KvarMjerila *KvarLetve
+	// Ispravak je okvir o ispravku telemetrije po ručnom očitanju
+	Ispravak     *IspravakLetve
 	CestiSkokovi *CestiSkokovi
 
 	SuccessMessage string

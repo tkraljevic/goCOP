@@ -81,7 +81,7 @@
   <div class="pomoc-skupina">
     <h3>Svaki dan</h3>
     <a class="pomoc-tema" href="#dashboard">{{icon "house"}}<span>Naslovna</span><small>8 podnaslova</small>{{icon "chevron-right"}}</a>
-    <a class="pomoc-tema" href="#readings">{{icon "ruler"}}<span>Očitanja</span><small>7 podnaslova</small>{{icon "chevron-right"}}</a>
+    <a class="pomoc-tema" href="#readings">{{icon "ruler"}}<span>Očitanja</span><small>8 podnaslova</small>{{icon "chevron-right"}}</a>
     <a class="pomoc-tema" href="#prognoze">{{icon "chart-column"}}<span>Prognoze</span><small>5 podnaslova</small>{{icon "chevron-right"}}</a>
     <a class="pomoc-tema" href="#karta">{{icon "map"}}<span>Karta</span>{{icon "chevron-right"}}</a>
     <a class="pomoc-tema" href="#obilazak">{{icon "ruler"}}<span>Obilazak letava</span>{{icon "chevron-right"}}</a>
@@ -825,13 +825,14 @@
   <h2>{{icon "ruler"}} Očitanja</h2>
   <div class="pomoc-poglavlje">
   <details class="pomoc-podnaslovi" data-pomoc-podnaslovi open>
-    <summary><small>U ovom poglavlju</small><span>7 podnaslova</span>{{icon "chevron-down"}}</summary>
+    <summary><small>U ovom poglavlju</small><span>8 podnaslova</span>{{icon "chevron-down"}}</summary>
     <nav aria-label="U ovom poglavlju: Očitanja">
       <a href="#ocitanja-zadnje">Zadnje očitanje</a>
       <a href="#ocitanja-graf">Kretanje vodostaja</a>
       <a href="#ocitanja-popis">Upis i popis očitanja</a>
       <a href="#ocitanja-raspon">Vrijednosti izvan raspona</a>
       <a href="#ocitanja-kvar">Kvar mjernog uređaja</a>
+      <a href="#ocitanja-rucno">Ispravak po ručnom očitanju</a>
       <a href="#ocitanja-skupno">Unos više odjednom</a>
       <a href="#ocitanja-ispravak">Provjera i ispravak u tablici</a>
     </nav>
@@ -967,6 +968,22 @@
     <p>Mjerni uređaj koji u tjedan dana barem tri puta lažno odskoči i vrati se dobije okvir
       <em>Mjerni uređaj često odskoči</em> s popisom odbačenih skokova. Ustave, crpne stanice, elektrane i
       akumulacije se ne provjeravaju, jer njihovu razinu vodi čovjek ili elektrana.</p>
+
+    <h3 id="ocitanja-rucno">Ispravak po ručnom očitanju</h3>
+    <p>Mjerni uređaj s vremenom zna odlutati, pa pokazuje više ili manje nego što stoji na letvi.
+      Ručno očitanje je mjerodavno. Kad ga upišeš na letvi koja se preuzima automatski, program ga
+      usporedi s onim što je uređaj pokazao u isto vrijeme.</p>
+    <p>Razliku do 5 cm program ne dira, jer je to unutar točnosti uređaja. Veću razliku ispravlja tek
+      kad je potvrde dva uzastopna ručna očitanja koja se slažu na 10 cm. Jedna pogrešno upisana
+      znamenka tako ne pomiče ništa. Od tada svako preuzeto očitanje dobiva tu razliku, sve do
+      sljedećeg ručnog očitanja. Uz ispravljeno očitanje piše što je pokazao uređaj i za koliko je
+      ispravljeno, npr. <em>uređaj 355 cm, ispravljeno −43 cm po ručnom očitanju</em>.</p>
+    <p>Kad je ispravak 10 cm ili veći, na vrhu stranice letve stoji okvir <em>Mjerni uređaj treba
+      ispraviti na terenu</em>, a u popisu Očitanja uz letvu ista rečenica. To je znak ekipi koja
+      održava uređaje. Ispravak prestaje sam kad se ručno očitanje i uređaj opet slože na 5 cm.</p>
+    <p>Dok razliku još nije potvrdilo drugo očitanje, okvir kaže <em>Ručno očitanje odstupa od mjernog
+      uređaja</em>. Ako je očitanje krivo upisano, ispravi ga; program tada sam ponovno izračuna
+      preuzeta očitanja poslije njega.</p>
 
     <h3 id="ocitanja-skupno">Unos više odjednom</h3>
     <p>Unos više očitanja, izvoz i ispravak u tablici su na kartici letve <strong>Uvoz i

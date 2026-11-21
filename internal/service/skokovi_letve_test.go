@@ -27,3 +27,34 @@ func TestNedavniSkokoviKrozServis(t *testing.T) {
 		t.Errorf("broj %v %v", b, err)
 	}
 }
+
+// Stanje ispravka telemetrije čita se kroz servis; kad baza ne odgovara,
+// stranica dobije prazno stanje umjesto greške.
+func TestIspravakTelemetrijeKrozServis(t *testing.T) {
+	o := novaOkolinaCitanja(t)
+	ctx := context.Background()
+	sada := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
+	if _, err := o.baza.Exec(`INSERT INTO stations (id, code, name, javni_url, javni_uvoz, created_at, updated_at)
+		VALUES ('jezero-id', 'jezero', 'Jezero', 'https://vodostaji.voda.hr/Home/PregledVodostajaPostaje?postajaID=1', 1, ?, ?)`, sada, sada); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := o.baza.Exec(`INSERT INTO readings (id, station_id, measured_at, level_cm, sirovo_cm, source, created_at, updated_at)
+		VALUES ('o1', 'jezero-id', ?, 312, 355, ?, ?, ?)`, sada.Add(-time.Hour), models.ReadingSourceImport, sada, sada); err != nil {
+		t.Fatal(err)
+	}
+	if i := o.rs.IspravciTelemetrije(ctx); len(i) != 1 || i["jezero-id"] != -43 {
+		t.Errorf("ispravci: %v", i)
+	}
+	if s := o.rs.StanjeIspravka(ctx, "jezero-id", sada); s.PomakCm != -43 || !s.TrebaTeren() {
+		t.Errorf("stanje: %+v", s)
+	}
+	if err := o.baza.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if i := o.rs.IspravciTelemetrije(ctx); len(i) != 0 {
+		t.Errorf("zatvorena baza: ispravci %v", i)
+	}
+	if s := o.rs.StanjeIspravka(ctx, "jezero-id", sada); s != (models.StanjeIspravka{}) {
+		t.Errorf("zatvorena baza: stanje %+v", s)
+	}
+}
