@@ -162,6 +162,11 @@ type User struct {
 	PINAdresuPotvrdio     string     `json:"pin_adresa_potvrdio,omitempty"` // ime administratora
 	PINAdresaPotvrdenaKad *time.Time `json:"pin_adresa_potvrdena_kad,omitempty"`
 
+	// Odlazak iz službe i dan odlaska (models.RazlogOdlaska); prazno dok
+	// osoba radi. Ponovno uključen račun ih briše.
+	Odlazak    RazlogOdlaska `json:"odlazak,omitempty"`
+	OdlazakDan *time.Time    `json:"odlazak_dan,omitempty"`
+
 	// Sve aktivne funkcije i zaduženja osobe (i stalna i privremena ispomoć)
 	Duties []Duty `json:"duties,omitempty"`
 }

@@ -1128,6 +1128,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /users/duties/{duty}/edit", s.authMiddleware(http.HandlerFunc(usersH.ShowDutyEditForm)))
 	s.mux.Handle("POST /users/duties/{duty}/update", s.authMiddleware(http.HandlerFunc(usersH.HandleUpdateDuty)))
 	s.mux.Handle("POST /users/delete", s.authMiddleware(http.HandlerFunc(usersH.HandleDeleteUser)))
+	s.mux.Handle("POST /users/{id}/odlazak", s.authMiddleware(http.HandlerFunc(usersH.HandleOdlazak)))
 	s.mux.Handle("POST /users/{id}/reset-password", s.authMiddleware(http.HandlerFunc(usersH.HandleResetPassword)))
 	s.mux.Handle("POST /users/{id}/kod-prijave", s.authMiddleware(http.HandlerFunc(usersH.HandleKodPrijave)))
 	s.mux.Handle("POST /profile/change-password", s.authMiddleware(http.HandlerFunc(authH.HandleChangePassword)))

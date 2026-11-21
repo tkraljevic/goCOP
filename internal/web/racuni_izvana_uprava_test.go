@@ -235,8 +235,9 @@ func TestObrasciUpraveIzvanaPoljeLozinke(t *testing.T) {
 			data     UserPageData
 			polja    int
 		}{
-			// poništenje, opoziv dužnosti razine 1 i brisanje
-			{"user_detail.html", UserPageData{CurrentUser: adminIvic, Permissions: admin, User: zamjenik, CanManage: true, CanDelete: true, PravoAdministratora: true, Izvana: izvana}, 3},
+			// poništenje, opoziv dužnosti razine 1, odlazak iz službe i brisanje
+			{"user_detail.html", UserPageData{CurrentUser: adminIvic, Permissions: admin, User: zamjenik, CanManage: true, CanDelete: true, PravoAdministratora: true, Izvana: izvana,
+				RazloziOdlaska: models.RazloziOdlaska, Danas: "2026-11-21"}, 4},
 			{"duty_form.html", UserPageData{CurrentUser: adminIvic, Permissions: admin, User: zamjenik, Duty: duznost, Roles: roleOptions(), Izvana: izvana}, 1},
 			{"user_form.html", UserPageData{CurrentUser: adminIvic, Permissions: admin, User: &models.User{}, Roles: roleOptions(), Izvana: izvana}, 1},
 		} {

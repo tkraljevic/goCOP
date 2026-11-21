@@ -71,6 +71,9 @@ type UserPageData struct {
 	VidiImenik  bool // ima modul „Djelatnici”; bez njega vidi samo svoj karton
 	IsEdit      bool
 	CanDelete   bool // račun se nitko nije prijavio, pa se smije obrisati
+	// RazloziOdlaska i Danas (2006-01-02) su za obrazac „Odlazak iz službe”
+	RazloziOdlaska []models.RazlogOdlaska
+	Danas          string
 
 	// VidiAdministraciju: ima modul „Administracija” (Stanje razmjene je u njemu)
 	VidiAdministraciju bool
@@ -321,6 +324,7 @@ func (h *UsersHandler) showUser(w http.ResponseWriter, r *http.Request, u *model
 	data.AdresaPIN = h.stanjeAdrese(r, data.Permissions, u)
 	data.PotvrdaAdrese = service.SmijePotvrditiAdresu(data.Permissions, u.ID, data.Viewing)
 	data.CanDelete = deletable(u)
+	data.RazloziOdlaska, data.Danas = models.RazloziOdlaska, time.Now().In(models.Zagreb).Format("2006-01-02")
 	data.Prijasnja, _ = h.userService.PastDuties(u.ID)
 	data.IzvoriIsteka = h.userService.IzvoriIsteka(u.Duties)
 	if h.moduleService != nil && data.Permissions != nil && data.Permissions.IsGlobalAdmin && !u.IsGlobalAdmin {

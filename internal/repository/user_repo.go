@@ -30,6 +30,17 @@ type UserRepository struct {
 	// potpis: na računalu s ključem mreže izmjena računa ili dužnosti
 	// dobiva potvrdu potpisanu ključem mreže (apply_potvrda_prava.go)
 	potpis PotpisMreze
+	// tko je osoba koja mijenja (Kao); verzije računa i zaduženja to nose u
+	// knjizi, za Događanja. Prazno kad mijenja program sam (istek roka).
+	tko uuid.UUID
+}
+
+// Kao vraća repozitorij čije verzije računa i zaduženja nose da ih je
+// napisala osoba tko (models.IzmjenaZapisa)
+func (r *UserRepository) Kao(tko uuid.UUID) *UserRepository {
+	k := *r
+	k.tko = tko
+	return &k
 }
 
 // NewUserRepository traži Recorder: korisnici i zaduženja se sinkroniziraju
@@ -57,7 +68,7 @@ func (r *UserRepository) arhiviraj(ctx context.Context, tx *sql.Tx, entitet, id 
 
 func (r *UserRepository) uKnjigu(ctx context.Context, tx *sql.Tx, upis func(context.Context, ledger.Execer, string, string, any) (string, error),
 	entitet, id string, sadrzaj any) (string, error) {
-	oznaka, err := upis(ctx, tx, entitet, id, sadrzaj)
+	oznaka, err := upis(ctx, tx, entitet, id, r.sIzmjenom(sadrzaj))
 	if err == nil {
 		err = zapamtiVlastitu(ctx, tx, oznaka)
 	}
@@ -65,6 +76,26 @@ func (r *UserRepository) uKnjigu(ctx context.Context, tx *sql.Tx, upis func(cont
 		err = potvrdiIzmjenu(ctx, tx, r.rec, r.potpis, oznaka)
 	}
 	return oznaka, err
+}
+
+// sIzmjenom dodaje verziji računa ili zaduženja tko ju je napisao. Polje
+// ide i u verziju bez osobe (prazno), da ga knjiga zna kao poznato i ne
+// prepiše iz prethodne verzije (ledger.spojiNepoznata).
+func (r *UserRepository) sIzmjenom(sadrzaj any) any {
+	var izmjena *models.IzmjenaZapisa
+	if r.tko != uuid.Nil {
+		izmjena = &models.IzmjenaZapisa{Tko: r.tko, Kad: time.Now().UTC()}
+	}
+	switch x := sadrzaj.(type) {
+	case userVersion:
+		x.Izmjena = izmjena
+		return x
+	case models.Duty:
+		return dutyVersion{Duty: x, Izmjena: izmjena}
+	case *models.Duty:
+		return dutyVersion{Duty: *x, Izmjena: izmjena}
+	}
+	return sadrzaj
 }
 
 type rowQuerier interface {
@@ -76,7 +107,7 @@ type rowQuerier interface {
 const userColumns = `id, username, password_hash, full_name, title, is_global_admin,
 	must_change_password, org_type, org_name, phone, mobile_phone, short_phone, short_mobile, email,
 	is_active, last_login_at, created_at, updated_at,
-	pin_adresa_potvrdena, pin_adresa_potvrdio, pin_adresa_potvrdena_kad`
+	pin_adresa_potvrdena, pin_adresa_potvrdio, pin_adresa_potvrdena_kad, odlazak, odlazak_dan`
 
 // userColumnsOf vraća isti popis s prefiksom tablice, za upite sa spajanjem
 func userColumnsOf(prefix string) string {
@@ -97,13 +128,14 @@ func scanUser(row rowScanner) (models.User, error) {
 	var idStr, orgType string
 	var title, orgName, phone, mobile, short, shortMobile, email sql.NullString
 	var isAdmin, mustChange, isActive int
-	var lastLogin, potvrdeno sql.NullTime
+	var lastLogin, potvrdeno, odlazakDan sql.NullTime
+	var odlazak string
 
 	err := row.Scan(
 		&idStr, &u.Username, &u.PasswordHash, &u.FullName, &title, &isAdmin,
 		&mustChange, &orgType, &orgName, &phone, &mobile, &short, &shortMobile, &email,
 		&isActive, &lastLogin, &u.CreatedAt, &u.UpdatedAt,
-		&u.PINAdresaPotvrdena, &u.PINAdresuPotvrdio, &potvrdeno)
+		&u.PINAdresaPotvrdena, &u.PINAdresuPotvrdio, &potvrdeno, &odlazak, &odlazakDan)
 	if err != nil {
 		return u, err
 	}
@@ -121,6 +153,11 @@ func scanUser(row rowScanner) (models.User, error) {
 		t := potvrdeno.Time.UTC()
 		u.PINAdresaPotvrdenaKad = &t
 	}
+	u.Odlazak = models.RazlogOdlaska(odlazak)
+	if odlazakDan.Valid {
+		t := odlazakDan.Time.UTC()
+		u.OdlazakDan = &t
+	}
 	return u, nil
 }
 
@@ -133,6 +170,15 @@ func scanUser(row rowScanner) (models.User, error) {
 type userVersion struct {
 	models.User
 	PasswordHash string `json:"password_hash"`
+	// Izmjena je tko je napisao ovu verziju (models.IzmjenaZapisa)
+	Izmjena *models.IzmjenaZapisa `json:"izmjena,omitempty"`
+}
+
+// dutyVersion je oblik zaduženja u knjizi verzija: zaduženje i tko je
+// napisao verziju
+type dutyVersion struct {
+	models.Duty
+	Izmjena *models.IzmjenaZapisa `json:"izmjena,omitempty"`
 }
 
 func versionOfUser(u models.User) userVersion {
@@ -396,18 +442,10 @@ func (r *UserRepository) ListUsersDomena(sectorID string, areaID int, role, sear
 // uvjetStanja je uvjet SQL-a za filtar stanja računa: isti izraz kao
 // models.User.AccountState, uz StanjeBezEposte i StanjeUkljucen
 func uvjetStanja(status models.AccountState, domena string) (string, []any) {
-	switch status {
-	case models.AccountDisabled:
-		return " AND u.is_active = 0", nil
-	case StanjeUkljucen:
-		return " AND u.is_active = 1", nil
-	case models.AccountPending:
-		return " AND u.is_active = 1 AND u.last_login_at IS NULL", nil
-	case models.AccountActive:
-		return " AND u.is_active = 1 AND u.last_login_at IS NOT NULL", nil
-	case StanjeCekaLozinku:
-		return " AND u.must_change_password = 1", nil
-	case StanjeBezEposte:
+	if u, ok := uvjetiStanja[status]; ok {
+		return u, nil
+	}
+	if status == StanjeBezEposte {
 		// isti uvjeti kao DrugiKorak.adresaZaPIN: prazna, tuđa domena bez
 		// potvrde administratora, zajednička s drugim aktivnim računom
 		dom := strings.ToLower(strings.TrimSpace(domena))
@@ -419,6 +457,16 @@ func uvjetStanja(status models.AccountState, domena string) (string, []any) {
 				AND lower(trim(o.email)) = lower(trim(u.email))))`, []any{dom, dom, dom}
 	}
 	return "", nil
+}
+
+// uvjetiStanja su uvjeti SQL-a za stanja računa bez parametara
+var uvjetiStanja = map[models.AccountState]string{
+	models.AccountDisabled: " AND u.is_active = 0",
+	StanjeIzvanSluzbe:      " AND u.is_active = 0 AND u.odlazak <> ''",
+	StanjeUkljucen:         " AND u.is_active = 1",
+	models.AccountPending:  " AND u.is_active = 1 AND u.last_login_at IS NULL",
+	models.AccountActive:   " AND u.is_active = 1 AND u.last_login_at IS NOT NULL",
+	StanjeCekaLozinku:      " AND u.must_change_password = 1",
 }
 
 // poAbecedi slaže osobe po hrvatskoj abecedi: SQLite slaže po bajtovima, pa
@@ -487,13 +535,13 @@ func (r *UserRepository) CreateUser(u *models.User, initialDuty *models.Duty) er
 			id, username, password_hash, full_name, title, is_global_admin,
 			must_change_password, org_type, org_name, phone, mobile_phone, short_phone, short_mobile, email,
 			is_active, created_at, updated_at,
-			pin_adresa_potvrdena, pin_adresa_potvrdio, pin_adresa_potvrdena_kad
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			pin_adresa_potvrdena, pin_adresa_potvrdio, pin_adresa_potvrdena_kad, odlazak, odlazak_dan
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		u.ID.String(), u.Username, u.PasswordHash, u.FullName, u.Title, isAdminInt,
 		mustChangeInt, string(u.OrgType), u.OrgName, u.Phone, u.MobilePhone, u.ShortPhone, u.ShortMobile, u.Email,
 		isActiveInt, u.CreatedAt, u.UpdatedAt,
-		u.PINAdresaPotvrdena, u.PINAdresuPotvrdio, nullTime(u.PINAdresaPotvrdenaKad),
+		u.PINAdresaPotvrdena, u.PINAdresuPotvrdio, nullTime(u.PINAdresaPotvrdenaKad), string(u.Odlazak), nullTime(u.OdlazakDan),
 	)
 	if err != nil {
 		return fmt.Errorf("greška pri unosu korisnika: %w", err)
@@ -574,7 +622,7 @@ func (r *UserRepository) UpdateUser(u *models.User) error {
 				is_global_admin = ?, org_type = ?, org_name = ?, phone = ?,
 				mobile_phone = ?, short_phone = ?, short_mobile = ?, email = ?, is_active = ?, updated_at = ?,
 				pin_adresa_potvrdena = ?, pin_adresa_potvrdio = ?, pin_adresa_potvrdena_kad = ?,
-				must_change_password = ?
+				must_change_password = ?, odlazak = ?, odlazak_dan = ?
 			WHERE id = ?
 		`
 		args = []any{
@@ -582,7 +630,7 @@ func (r *UserRepository) UpdateUser(u *models.User) error {
 			isAdminInt, string(u.OrgType), u.OrgName, u.Phone,
 			u.MobilePhone, u.ShortPhone, u.ShortMobile, u.Email, isActiveInt, u.UpdatedAt,
 			u.PINAdresaPotvrdena, u.PINAdresuPotvrdio, nullTime(u.PINAdresaPotvrdenaKad),
-			mustChangeInt, u.ID.String(),
+			mustChangeInt, string(u.Odlazak), nullTime(u.OdlazakDan), u.ID.String(),
 		}
 	} else {
 		query = `
@@ -591,7 +639,7 @@ func (r *UserRepository) UpdateUser(u *models.User) error {
 				is_global_admin = ?, org_type = ?, org_name = ?, phone = ?,
 				mobile_phone = ?, short_phone = ?, short_mobile = ?, email = ?, is_active = ?, updated_at = ?,
 				pin_adresa_potvrdena = ?, pin_adresa_potvrdio = ?, pin_adresa_potvrdena_kad = ?,
-				must_change_password = ?
+				must_change_password = ?, odlazak = ?, odlazak_dan = ?
 			WHERE id = ?
 		`
 		args = []any{
@@ -599,7 +647,7 @@ func (r *UserRepository) UpdateUser(u *models.User) error {
 			isAdminInt, string(u.OrgType), u.OrgName, u.Phone,
 			u.MobilePhone, u.ShortPhone, u.ShortMobile, u.Email, isActiveInt, u.UpdatedAt,
 			u.PINAdresaPotvrdena, u.PINAdresuPotvrdio, nullTime(u.PINAdresaPotvrdenaKad),
-			mustChangeInt, u.ID.String(),
+			mustChangeInt, string(u.Odlazak), nullTime(u.OdlazakDan), u.ID.String(),
 		}
 	}
 

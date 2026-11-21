@@ -11,7 +11,7 @@
     <h1 class="page-title" data-naziv-stranice="Djelatnik">{{.User.FullName}}</h1>
     <p class="page-desc">{{with .User.Title}}{{.}} · {{end}}@{{.User.Username}} · {{orgLabel .User.OrgType}}{{if .User.OrgName}} · {{.User.OrgName}}{{end}}</p>
     <div class="os-znacke">
-      <span class="oznaka-stanja{{if eq (print $state) "ACTIVE"}} obrub{{else if eq (print $state) "DISABLED"}} dj-iskljucen{{end}}">{{$state.Label}}</span>
+      {{if .User.IzvanSluzbe}}<span class="oznaka-stanja dj-iskljucen">Izvan službe · {{.User.OpisOdlaska}}</span>{{else}}<span class="oznaka-stanja{{if eq (print $state) "ACTIVE"}} obrub{{else if eq (print $state) "DISABLED"}} dj-iskljucen{{end}}">{{$state.Label}}</span>{{end}}
       {{if .User.LastLoginAt}}<span class="oznaka-stanja obrub">zadnja prijava {{.User.LastLoginAt.Format "02.01.2006."}}</span>{{end}}
       {{if .User.MustChangePassword}}<span class="oznaka-stanja obrub">čeka promjenu lozinke</span>{{end}}
       {{if .User.IsGlobalAdmin}}<span class="oznaka-stanja obrub">globalni administrator</span>{{end}}
@@ -169,6 +169,32 @@
     {{end}}
     <div class="os-spremi"><button type="submit" class="btn btn-primary">Spremi vidljivost</button></div>
   </form>
+</section>
+{{end}}
+
+{{if and .CanManage (not .IsSelf)}}
+<section class="os-kartica" aria-labelledby="os-odlazak">
+  <h2 id="os-odlazak">Odlazak iz službe</h2>
+  <div>
+    {{if .User.IzvanSluzbe}}
+    <p style="margin:0; font-size:0.9rem;"><strong>{{.User.OpisOdlaska}}</strong> Račun ostaje s isključenom prijavom, da očitanja i upisi zadrže ime. Ako se osoba vrati, uključite joj prijavu u uređivanju profila i dodijelite zaduženja iznova.</p>
+    {{else}}
+    <p style="margin:0 0 0.75rem; font-size:0.9rem;">Kad osoba ode u mirovinu ili iz službe, ovdje to zabilježite: prijava se isključi, a sva zaduženja opozovu. Račun i njezini upisi ostaju, a u Događanjima se vidi tko je i kada zabilježio odlazak.</p>
+    <form method="POST" action="/users/{{.User.ID}}/odlazak" class="d-flex flex-wrap gap-2 items-end" onsubmit="return confirm('Zabilježiti odlazak: {{.User.FullName}} se više neće moći prijaviti, a sva zaduženja bit će opozvana?')">
+      <label class="form-label m-0">Razlog
+        <select name="razlog" class="form-control" required>
+          <option value="">Odaberite</option>
+          {{range .RazloziOdlaska}}<option value="{{.}}">{{.Label}}</option>{{end}}
+        </select>
+      </label>
+      <label class="form-label m-0">Dan odlaska
+        <input type="date" name="dan" class="form-control" value="{{.Danas}}" max="{{.Danas}}" required>
+      </label>
+      {{if and .Izvana .PravoAdministratora}}<input type="password" name="lozinka_racuna" class="form-control" placeholder="Lozinka vašeg računa" autocomplete="current-password" aria-label="Lozinka vašeg računa" title="Izvana se odlazak osobe s pravom globalnog administratora bilježi samo uz lozinku vašeg računa" style="max-width:220px;" required>{{end}}
+      <button type="submit" class="btn btn-sm btn-secondary min-h-40">{{icon "log-out"}} Zabilježi odlazak</button>
+    </form>
+    {{end}}
+  </div>
 </section>
 {{end}}
 
