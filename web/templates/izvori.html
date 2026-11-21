@@ -38,6 +38,10 @@
       odlučuje točnost. Sitniji poredak ne treba: izmjereno je da ondje gdje se dvije dojave razilaze, ovjereni
       niz je gotovo uvijek ondje i odlučuje.
     </p>
+    <p class="form-help">
+      <strong>Preračun</strong> s druge letve nije ni u jednoj skupini: ulazi uvijek, na kraju, samo za dane za
+      koje nema nikakvog mjerenja. Zato nema kvačice ni reda; od dva preračuna za isti dan ulazi točniji.
+    </p>
 </details>
 
 
@@ -55,8 +59,8 @@
   {{range .Cipovi}}<label><input type="radio" name="izv-filtar" value="{{.Kljuc}}"{{if eq .Kljuc "sve"}} checked{{end}}><span>{{.Naziv}} <b>{{.Broj}}</b></span></label>{{end}}
 </div>
 <div class="izvori-mreza">
-  {{range .Izvori}}
-  <form method="POST" action="/administracija/izvori" class="izvor-kartica{{if not .Ukljucen}} izvor-iskljucen{{end}}" data-skupina="{{.Skupina}}"{{if not .Ukljucen}} data-iskljucen{{end}}{{if .Neiskoristen}} data-nevidi{{end}}>
+  {{range .Izvori}}{{$zak := or $.Zabrana .NijeNaPopisu}}
+  <form method="POST" action="/administracija/izvori" class="izvor-kartica{{if .Iskljucen}} izvor-iskljucen{{end}}" data-skupina="{{.Skupina}}"{{if .Iskljucen}} data-iskljucen{{end}}{{if .Neiskoristen}} data-nevidi{{end}}>
     <input type="hidden" name="naziv" value="{{.Naziv}}">
 
     <div class="izvor-glava">
@@ -72,21 +76,26 @@
       {{if .Neiskoristen}}<span class="rac-cip pozor" title="Podaci su u arhivi, ali se nigdje ne vide">ne vidi se</span>{{end}}
     </div>
 
+    {{if .Preracun}}
+    <p class="form-help">Ulazi uvijek, samo za dane bez mjerenja.{{if .NijeNaPopisu}} Nije na popisu izvora, pa vrijedi zadana točnost i ne mijenja se odavde.{{end}}</p>
+    {{else}}
     <label class="izvor-sklopka">
-      <input type="checkbox" name="ukljucen" value="1" {{if .Ukljucen}}checked{{end}}{{if $.Zabrana}} disabled{{end}}>
+      <input type="checkbox" name="ukljucen" value="1" {{if .Ukljucen}}checked{{end}}{{if $zak}} disabled{{end}}>
       <span>Ulazi u spojeni niz</span>
     </label>
+    {{end}}
 
     <div class="izvor-brojevi">
-      <label class="form-group list-polje">{{icon "ruler"}}<span class="form-label">Točnost ± cm</span><input type="text" inputmode="decimal" name="tocnost" value="{{brojHRf .Tocnost 0}}" class="form-control"{{if $.Zabrana}} disabled{{end}}></label>
-      <label class="form-group list-polje">{{icon "list"}}<span class="form-label">Red povjerenja</span><input type="text" inputmode="numeric" name="red" value="{{.Red}}" class="form-control"{{if $.Zabrana}} disabled{{end}}></label>
+      <label class="form-group list-polje">{{icon "ruler"}}<span class="form-label">Točnost ± cm</span><input type="text" inputmode="decimal" name="tocnost" value="{{brojHRf .Tocnost 0}}" class="form-control"{{if $zak}} disabled{{end}}></label>
+      {{if .Preracun}}<input type="hidden" name="red" value="{{.Red}}">{{else}}
+      <label class="form-group list-polje">{{icon "list"}}<span class="form-label">Red povjerenja</span><input type="text" inputmode="numeric" name="red" value="{{.Red}}" class="form-control"{{if $zak}} disabled{{end}}></label>{{end}}
     </div>
-    <small class="izvor-disk">68 % vrijednosti · manji red ide prvi</small>
+    <small class="izvor-disk">68 % vrijednosti · {{if .Preracun}}od dva preračuna za isti dan ulazi točniji{{else}}manji red ide prvi{{end}}</small>
 
     <label class="izvor-napomena form-group list-polje">
       <span class="form-label">Mapa s datotekama</span>
       <input type="text" name="mapa" value="{{.Mapa}}" class="form-control mono"
-             placeholder="{{if $.PodaciDir}}{{$.PodaciDir}}{{else}}zajedničko stablo arhive{{end}}"{{if $.Zabrana}} disabled{{end}}>
+             placeholder="{{if $.PodaciDir}}{{$.PodaciDir}}{{else}}zajedničko stablo arhive{{end}}"{{if $zak}} disabled{{end}}>
       <small class="izvor-disk">
         {{if not .Stablo}}Nije zadano gdje datoteke stoje.
         {{else if not .Dostupno}}<span class="rac-cip pozor">{{.GreskaPut}}</span> {{.Stablo}}
@@ -99,7 +108,7 @@
     <label class="izvor-napomena form-group list-polje">
       <span class="form-label">Napomena</span>
       <input type="text" name="napomena" value="{{.Napomena}}" class="form-control"
-             placeholder="zašto je tako odlučeno"{{if $.Zabrana}} disabled{{end}}>
+             placeholder="zašto je tako odlučeno"{{if $zak}} disabled{{end}}>
     </label>
 
     {{if .Letve}}
@@ -109,7 +118,7 @@
     </details>
     {{end}}
 
-    {{if not $.Zabrana}}
+    {{if not $zak}}
     <div class="izvor-podnozje">
       <button type="submit" class="btn btn-primary">Spremi</button>
     </div>

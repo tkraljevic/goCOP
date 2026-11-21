@@ -48,6 +48,10 @@ type IzvorURedu struct {
 	Dostupno  bool
 	Datoteka  int
 	GreskaPut string
+
+	// NijeNaPopisu je preračun koji ima nizove, a popis izvora ga nema: ulazi
+	// u spoj sa zadanom točnošću i ne može se urediti, jer nema što spremiti
+	NijeNaPopisu bool
 }
 
 // Skupina svrstava izvor po redu povjerenja — ovjereno, s letve, operativno.
@@ -59,7 +63,15 @@ func (i IzvorURedu) ImaPodatke() bool { return i.Nizova > 0 }
 
 // Neiskoristen je izvor koji ima podatke a ne ulazi u spoj — dakle nešto što
 // leži u bazi i nigdje se ne vidi.
-func (i IzvorURedu) Neiskoristen() bool { return i.Nizova > 0 && !i.Ukljucen }
+func (i IzvorURedu) Neiskoristen() bool { return i.Nizova > 0 && i.Iskljucen() }
+
+// Preracun je izvor preračunat s druge letve: ulazi uvijek, na kraj, samo
+// ondje gdje mjerenja nema, pa nema kvačice ni reda povjerenja.
+func (i IzvorURedu) Preracun() bool { return arhiva.JePreracun(i.Naziv) }
+
+// Iskljucen je izvor koji ne ulazi u spoj. Preračun nikad nije isključen,
+// kako god mu stoji kvačica u popisu.
+func (i IzvorURedu) Iskljucen() bool { return !i.Ukljucen && !i.Preracun() }
 
 type IzvoriPageData struct {
 	CurrentUser *models.User
@@ -112,6 +124,12 @@ func (h *IzvoriHandler) ShowIzvori(w http.ResponseWriter, r *http.Request) {
 // citajIzvoreZaStranicu spaja popis izvora s onim što o njima piše u nizovima.
 // Namjerno ne broji vrijednosti u spoju: to je prolaz kroz šest milijuna
 // redaka, a odgovor je ionako u stupcu "uključen".
+// statIzvora je ono što arhiva ima od jednog izvora
+type statIzvora struct {
+	nizova, zapisa int
+	letve          []string
+}
+
 func citajIzvoreZaStranicu(put, podaciDir string) ([]IzvorURedu, int, error) {
 	db, err := sql.Open("sqlite", gocopdb.SamoZaCitanje(put)+"&_pragma=busy_timeout(3000)")
 	if err != nil {
@@ -123,11 +141,7 @@ func citajIzvoreZaStranicu(put, podaciDir string) ([]IzvorURedu, int, error) {
 	if err != nil {
 		return nil, 0, err
 	}
-	type stat struct {
-		nizova, zapisa int
-		letve          []string
-	}
-	stanje := map[string]*stat{}
+	stanje := map[string]*statIzvora{}
 	rows, err := db.Query(`SELECT izvor, letva, zapisa FROM nizovi`)
 	if err != nil {
 		return nil, 0, err
@@ -141,7 +155,7 @@ func citajIzvoreZaStranicu(put, podaciDir string) ([]IzvorURedu, int, error) {
 		}
 		s := stanje[izvor]
 		if s == nil {
-			s = &stat{}
+			s = &statIzvora{}
 			stanje[izvor] = s
 		}
 		s.nizova++
@@ -171,8 +185,27 @@ func citajIzvoreZaStranicu(put, podaciDir string) ([]IzvorURedu, int, error) {
 		}
 		red.Dostupno, red.Datoteka, red.GreskaPut = stanjeNaDisku(red.Stablo, i.Naziv)
 		out = append(out, red)
+		delete(stanje, i.Naziv)
 	}
-	return out, zanemareno, nil
+	return append(out, preracuniIzvanPopisa(stanje, podaciDir)...), zanemareno, nil
+}
+
+// preracuniIzvanPopisa su preračuni koji imaju nizove, a popis izvora ih nema
+// (gradnja ih na popis ne upisuje): i oni ulaze u spoj, pa se moraju vidjeti
+func preracuniIzvanPopisa(stanje map[string]*statIzvora, podaciDir string) []IzvorURedu {
+	var out []IzvorURedu
+	for naziv, s := range stanje {
+		if !arhiva.JePreracun(naziv) {
+			continue
+		}
+		sort.Strings(s.letve)
+		red := IzvorURedu{Izvor: arhiva.Izvor{Naziv: naziv, Tocnost: arhiva.ZadanaTocnost(naziv)},
+			Nizova: s.nizova, Zapisa: s.zapisa, Letve: s.letve, Stablo: podaciDir, NijeNaPopisu: true}
+		red.Dostupno, red.Datoteka, red.GreskaPut = stanjeNaDisku(podaciDir, naziv)
+		out = append(out, red)
+	}
+	sort.Slice(out, func(a, b int) bool { return out[a].Naziv < out[b].Naziv })
+	return out
 }
 
 // stanjeNaDisku broji datoteke tog izvora u stablu. Naziv datoteke je ugovor —
@@ -284,7 +317,7 @@ func (d IzvoriPageData) Cipovi() []CipIzvora {
 	broj := map[string]int{}
 	for _, i := range d.Izvori {
 		broj[i.Skupina()]++
-		if !i.Ukljucen {
+		if i.Iskljucen() {
 			broj["iskljuceni"]++
 		}
 		if i.Neiskoristen() {
