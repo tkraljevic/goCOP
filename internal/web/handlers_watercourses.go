@@ -130,6 +130,7 @@ type watercourseForm struct {
 	Kind         string `json:"kind"`
 	Category     string `json:"category"`
 	Subcategory  string `json:"subcategory"`
+	Red          string `json:"red"`
 	WikiSlug     string `json:"wiki_slug"`
 	LengthKm     string `json:"length_km"`
 	BasinKm2     string `json:"basin_km2"`
@@ -156,6 +157,7 @@ func (f watercourseForm) toWatercourse() models.Watercourse {
 		Kind:         strings.TrimSpace(f.Kind),
 		Category:     strings.TrimSpace(f.Category),
 		Subcategory:  strings.TrimSpace(f.Subcategory),
+		Red:          strings.TrimSpace(f.Red),
 		WikiSlug:     models.WikiNaslov(f.WikiSlug),
 		LengthKm:     parseOptionalFloat(f.LengthKm),
 		BasinKm2:     parseOptionalFloat(f.BasinKm2),
@@ -186,6 +188,7 @@ func decodeWatercourseForm(r *http.Request) (watercourseForm, error) {
 	form.Kind = r.FormValue("kind")
 	form.Category = r.FormValue("category")
 	form.Subcategory = r.FormValue("subcategory")
+	form.Red = r.FormValue("red")
 	form.WikiSlug = r.FormValue("wiki_slug")
 	form.LengthKm = r.FormValue("length_km")
 	form.BasinKm2 = r.FormValue("basin_km2")

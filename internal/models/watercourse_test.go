@@ -41,6 +41,10 @@ func TestRedVode(t *testing.T) {
 		{Watercourse{Subcategory: "Kanal III. reda"}, RedTreciCetvrti},
 		{Watercourse{Subcategory: "potok IV. reda"}, RedTreciCetvrti},
 		{Watercourse{Kind: "potok"}, ""},
+		{Watercourse{Red: "II", Subcategory: "vodotoci"}, RedDrugi},
+		{Watercourse{Red: "IV"}, RedTreciCetvrti},
+		{Watercourse{Red: "I", Category: "MEĐUDRŽAVNE VODE"}, RedMedudrzavni},
+		{Watercourse{Red: "III", Subcategory: "kanal II. reda"}, RedTreciCetvrti},
 	} {
 		if got := s.w.RedVode(); got != s.htio {
 			t.Errorf("%+v: %q, htio %q", s.w, got, s.htio)
@@ -55,5 +59,29 @@ func TestJePovrsina(t *testing.T) {
 		if got := (Watercourse{Kind: kind}).JePovrsina(); got != htio {
 			t.Errorf("%q: %v", kind, got)
 		}
+	}
+}
+
+// Obrazac pokazuje upisani red, a stariji zapis red iz kategorije ili skupine.
+// Kategorija prikaza bez Odluke kaže upisani red.
+func TestRedZaObrazac(t *testing.T) {
+	for _, s := range []struct {
+		w    Watercourse
+		htio string
+	}{
+		{Watercourse{Red: "III"}, "III"},
+		{Watercourse{Category: "DRUGE VEĆE VODE I KANALI"}, "I"},
+		{Watercourse{Subcategory: "kanal IV. reda"}, "IV"},
+		{Watercourse{Subcategory: "Kanal III. reda"}, "III"},
+		{Watercourse{Subcategory: "kanal II. reda"}, "II"},
+		{Watercourse{Subcategory: "kanal I. reda"}, "I"},
+		{Watercourse{Subcategory: "vodotoci"}, ""},
+	} {
+		if got := s.w.RedZaObrazac(); got != s.htio {
+			t.Errorf("%+v: %q, htio %q", s.w, got, s.htio)
+		}
+	}
+	if got := (Watercourse{Red: "II", Subcategory: "vodotoci"}).CategoryLabel(); got != "voda II. reda" {
+		t.Errorf("kategorija prikaza: %q", got)
 	}
 }

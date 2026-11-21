@@ -18,6 +18,10 @@ type Watercourse struct {
 	Kind         string `json:"kind"`          // rijeka, potok, kanal, jezero, akumulacija...
 	Category     string `json:"category"`      // MEĐUDRŽAVNE VODE, DRUGE VEĆE VODE I KANALI...
 	Subcategory  string `json:"subcategory"`   // vodotoci, kanali, ponornice, akumulacije i retencije...
+	// Red je red vode (I, II, III ili IV), kako ga dijeli ugovor o održavanju
+	// (A.02.01.16: vode I. i II. reda; A.3: III. i IV. reda). Prazno kad nije
+	// upisan; tada se red izvodi iz kategorije i skupine (RedVode).
+	Red string `json:"red,omitempty"`
 	WikiSlug     string `json:"wiki_slug"`
 
 	// Origin govori odakle zapis dolazi. Vode koje Odluka ne navodi nisu izmišljene
@@ -145,9 +149,46 @@ const (
 	RedTreciCetvrti = "iii-iv"
 )
 
-// RedVode vraća red vode iz kategorije s popisa voda I. reda ili iz upisane
-// skupine („kanal II. reda”, „potok III. reda”)
+// RedoviVoda su redovi vode koje obrazac vodotoka nudi
+var RedoviVoda = []string{"I", "II", "III", "IV"}
+
+// SkupineVoda su skupine vode po ugovoru o održavanju (A.02.01.16), iste za
+// svaki red: vodotoci, akumulacije, bujični tokovi i melioracijski kanali.
+var SkupineVoda = []string{"vodotoci", "akumulacije, retencije i jezera", "bujični tokovi",
+	"osnovne melioracijske građevine za odvodnju, oteretni, lateralni, spojni kanali i hidrotehnički tuneli"}
+
+// RedZaObrazac je red koji obrazac pokazuje: upisani, a kod starijeg zapisa
+// onaj koji se vidi iz kategorije ili skupine.
+func (w Watercourse) RedZaObrazac() string {
+	if w.Red != "" {
+		return w.Red
+	}
+	skupina := strings.ToLower(w.Subcategory)
+	switch {
+	case w.Category != "":
+		return "I"
+	case strings.Contains(skupina, "iv. reda"):
+		return "IV"
+	case strings.Contains(skupina, "iii. reda"):
+		return "III"
+	case strings.Contains(skupina, "ii. reda"):
+		return "II"
+	case strings.Contains(skupina, "i. reda"):
+		return "I"
+	}
+	return ""
+}
+
+// redKarte je sloj Karte za upisani red
+var redKarte = map[string]string{"I": RedPrvi, "II": RedDrugi, "III": RedTreciCetvrti, "IV": RedTreciCetvrti}
+
+// RedVode vraća red vode za Kartu: međudržavna voda, pa upisani red, pa red
+// iz kategorije s popisa voda I. reda ili iz upisane skupine („kanal II.
+// reda”, „potok III. reda”)
 func (w Watercourse) RedVode() string {
+	if r, ima := redKarte[w.Red]; ima && w.Category != "MEĐUDRŽAVNE VODE" {
+		return r
+	}
 	if w.Category == "MEĐUDRŽAVNE VODE" {
 		return RedMedudrzavni
 	}
@@ -172,6 +213,9 @@ func (w Watercourse) RedVode() string {
 func (w Watercourse) CategoryLabel() string {
 	switch w.Category {
 	case "":
+		if w.Red != "" {
+			return "voda " + w.Red + ". reda"
+		}
 		if s := strings.TrimSpace(w.Subcategory); s != "" {
 			return s
 		}

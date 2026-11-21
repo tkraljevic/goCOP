@@ -12,7 +12,7 @@ import (
 // i letava.
 func TestObrazacVodePoCrtezu(t *testing.T) {
 	polja := []string{"official_name", "name", "wiki_slug", "kind", "category", "source", "mouth", "flows_into",
-		"length_km", "basin_km2", "avg_flow_m3s", "notes", "napomena_toka", "extra_station_ids", "link_station_ids", "code", "subcategory"}
+		"length_km", "basin_km2", "avg_flow_m3s", "notes", "napomena_toka", "extra_station_ids", "link_station_ids", "code", "subcategory", "red"}
 	d := WatercoursePageData{
 		CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true}, CanEdit: true,
 		Water: models.Watercourse{Code: "potok-proba", Name: "Proba", OfficialName: "potok Proba"}, IsEdit: true, NapomenaTokaUredljiva: true,
@@ -34,5 +34,26 @@ func TestObrazacVodePoCrtezu(t *testing.T) {
 	d.Water.SectionCount = 2
 	if html = iscrtaj(t, "watercourse_form.html", d); strings.Contains(html, "obrisi-vodu") {
 		t.Error("voda s dionicama nudi brisanje")
+	}
+}
+
+// Red i skupina u obrascu: zapis iz uvoza sa skupinom „kanal II. reda” ima
+// odabran II. red i zadržava svoju skupinu uz skupine iz ugovora.
+func TestObrazacVodeRedISkupina(t *testing.T) {
+	d := WatercoursePageData{
+		CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true}, CanEdit: true,
+		Water: models.Watercourse{Code: "kanal-proba", Name: "Proba", OfficialName: "kanal Proba", Subcategory: "kanal II. reda"}, IsEdit: true,
+	}
+	html := iscrtaj(t, "watercourse_form.html", d)
+	for _, want := range []string{`<option value="II" selected>II. red</option>`, `<option value="IV" >IV. red</option>`,
+		`<option value="kanal II. reda" selected>kanal II. reda</option>`, `<option value="bujični tokovi" >bujični tokovi</option>`,
+		"Pravna kategorija (samo I. red)"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("obrazac nema %q", want)
+		}
+	}
+	d.Water.Subcategory = "vodotoci"
+	if n := len(d.SkupineObrasca()); n != len(models.SkupineVoda) {
+		t.Errorf("skupina iz ugovora se ponavlja: %d", n)
 	}
 }

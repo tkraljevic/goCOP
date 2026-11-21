@@ -8,6 +8,7 @@ import (
 	"html/template"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 
 	"gocop/internal/models"
@@ -60,6 +61,20 @@ type WatercoursePageData struct {
 	// CanEdit pali alat karte i učitavanje GeoJSON-a; registar voda (pa i
 	// tok na karti) uređuje samo globalni administrator
 	CanEdit bool
+}
+
+// RedoviVoda su redovi vode koje obrazac nudi (I. do IV.)
+func (WatercoursePageData) RedoviVoda() []string { return models.RedoviVoda }
+
+// SkupineObrasca su skupine vode po ugovoru o održavanju, uz zatečenu skupinu
+// zapisa koja nije među njima (npr. „kanal II. reda” iz uvoza), da se izmjenom
+// ne izgubi.
+func (d WatercoursePageData) SkupineObrasca() []string {
+	s := strings.TrimSpace(d.Water.Subcategory)
+	if s == "" || slices.Contains(models.SkupineVoda, s) {
+		return models.SkupineVoda
+	}
+	return append(slices.Clone(models.SkupineVoda), s)
 }
 
 // watercourseKinds su vrste voda koje obrazac nudi

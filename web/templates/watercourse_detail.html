@@ -95,8 +95,9 @@
   <dl class="vodocuvar-dl">
     {{if ne $w.OfficialName $w.Name}}<dt>Naziv</dt><dd>{{$w.Name}}</dd>{{end}}
     {{if $w.Kind}}<dt>Vrsta</dt><dd>{{$w.Kind}}</dd>{{end}}
+    {{with $w.RedZaObrazac}}<dt>Red</dt><dd>{{.}}. red</dd>{{end}}
     <dt>Kategorija</dt><dd>{{if $w.IsFirstOrder}}<span title="{{$w.Category}}">{{$w.CategoryLabel}}</span>{{else}}{{$w.CategoryLabel}}{{end}}</dd>
-    {{if and $w.IsFirstOrder $w.Subcategory}}<dt>Skupina u Odluci</dt><dd>{{$w.Subcategory}}</dd>{{end}}
+    {{if $w.Subcategory}}<dt>{{if $w.IsFirstOrder}}Skupina u Odluci{{else}}Skupina{{end}}</dt><dd>{{$w.Subcategory}}</dd>{{end}}
     {{if $w.FlowsInto}}<dt>Ulijeva se u</dt><dd>{{$w.FlowsInto}}</dd>{{end}}
     {{if $w.Mouth}}<dt>Ušće</dt><dd>{{$w.Mouth}}</dd>{{end}}
     {{if $w.Source}}<dt>Izvor</dt><dd>{{$w.Source}}</dd>{{end}}
