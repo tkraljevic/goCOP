@@ -63,8 +63,19 @@ type WatercoursePageData struct {
 	CanEdit bool
 }
 
-// RedoviVoda su redovi vode koje obrazac nudi (I. do IV.)
-func (WatercoursePageData) RedoviVoda() []string { return models.RedoviVoda }
+// IzboriRedaObrasca su stavke izbornika Red vode, uz zatečeni red zapisa koji
+// nije među njima (npr. I. red bez kategorije), da se izmjenom ne izgubi.
+func (d WatercoursePageData) IzboriRedaObrasca() []models.IzborReda {
+	izbor := d.Water.IzborRedaZaObrazac()
+	if izbor == "" || slices.ContainsFunc(models.IzboriReda, func(i models.IzborReda) bool { return i.Vrijednost == izbor }) {
+		return models.IzboriReda
+	}
+	natpis := d.Water.RedZaObrazac() + ". red"
+	if d.Water.Category != "" {
+		natpis += " – " + d.Water.Category
+	}
+	return append(slices.Clone(models.IzboriReda), models.IzborReda{Vrijednost: izbor, Natpis: natpis})
+}
 
 // SkupineObrasca su skupine vode po ugovoru o održavanju, uz zatečenu skupinu
 // zapisa koja nije među njima (npr. „kanal II. reda” iz uvoza), da se izmjenom
