@@ -1777,6 +1777,15 @@ func zadanaTocnost(izvor string) float64 {
 	return 20
 }
 
+// JePreracun javlja je li izvor preračun s druge letve. Preračun ne ulazi u
+// red spajanja nego uvijek na kraj, samo ondje gdje mjerenja nema, pa mu
+// uključenost ništa ne mijenja; vrijedi samo točnost.
+func JePreracun(izvor string) bool { return strings.HasPrefix(izvor, "preracun-") }
+
+// ZadanaTocnost je točnost izvora koji nije na popisu izvora (vidi
+// zadanaTocnost); stranica Izvora njome opisuje preračun kojeg popis nema.
+func ZadanaTocnost(izvor string) float64 { return zadanaTocnost(izvor) }
+
 // upisiZadaneIzvore puni tablicu prvi put i dopunjuje ju izvorima koji su se
 // u međuvremenu pojavili u nizovima. Novi izvor ulazi **isključen**: bolje da
 // čeka odluku nego da tiho promijeni brojeve po kojima se brani od poplave.
@@ -1836,13 +1845,14 @@ func PostaviIzvor(db *sql.DB, i Izvor) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("izvor %q: %w", i.Naziv, err)
 	}
+	i = zaUpis(prije, i)
 	if _, err := db.Exec(`UPDATE izvori SET tocnost=?, red=?, ukljucen=?, mapa=?, napomena=? WHERE naziv=?`,
 		i.Tocnost, i.Red, i.Ukljucen, i.Mapa, i.Napomena, i.Naziv); err != nil {
 		return nil, fmt.Errorf("upis izvora %q: %w", i.Naziv, err)
 	}
 	// Napomena ne mijenja nijedan broj, a mapa ga ne mijenja dok se arhiva
 	// ponovno ne izgradi — spoj se računa iz onoga što je već u bazi.
-	if prije.Tocnost == i.Tocnost && prije.Red == i.Red && prije.Ukljucen == i.Ukljucen {
+	if !mijenjaSpoj(prije, i) {
 		return nil, nil
 	}
 	rows, err := db.Query(`SELECT DISTINCT letva FROM nizovi WHERE izvor=? ORDER BY letva`, i.Naziv)
@@ -1859,6 +1869,21 @@ func PostaviIzvor(db *sql.DB, i Izvor) ([]string, error) {
 		letve = append(letve, l)
 	}
 	return letve, rows.Err()
+}
+
+// zaUpis je izvor kako se upisuje: preračunu kvačica ostaje kakva je bila,
+// jer je spajanje ne čita, a stranica je i ne šalje
+func zaUpis(prije, i Izvor) Izvor {
+	if JePreracun(i.Naziv) {
+		i.Ukljucen = prije.Ukljucen
+	}
+	return i
+}
+
+// mijenjaSpoj javlja mijenja li izmjena izvora spojeni niz. Napomena ne
+// mijenja nijedan broj, a mapa ga ne mijenja dok se arhiva ponovno ne izgradi.
+func mijenjaSpoj(prije, i Izvor) bool {
+	return prije.Tocnost != i.Tocnost || prije.Red != i.Red || prije.Ukljucen != i.Ukljucen
 }
 
 // Spoji ponovno gradi spojeni niz jedne letve iz onoga što je već u arhivi.

@@ -512,13 +512,19 @@ func RazlikeIzvora(db *sql.DB, s *Sadrzaj) ([]RazlikaIzvora, error) {
 			out = append(out, RazlikaIzvora{Naziv: p.Naziv, Nepoznat: true, Paket: paket})
 			continue
 		}
-		r := RazlikaIzvora{Naziv: p.Naziv, Paket: paket, Nas: nas,
-			Tocnost: nas.Tocnost != p.Tocnost, Red: nas.Red != p.Red, Ukljucen: nas.Ukljucen != p.Ukljucen}
-		if r.Vazna() {
+		if r := razlikaIzvora(nas, paket); r.Vazna() {
 			out = append(out, r)
 		}
 	}
 	return out, nil
+}
+
+// razlikaIzvora uspoređuje postavke izvora ovog čvora i paketa. Kvačica
+// preračuna ne mijenja nijedan broj (vidi JePreracun), pa nije razlika.
+func razlikaIzvora(nas, paket Izvor) RazlikaIzvora {
+	return RazlikaIzvora{Naziv: paket.Naziv, Paket: paket, Nas: nas,
+		Tocnost: nas.Tocnost != paket.Tocnost, Red: nas.Red != paket.Red,
+		Ukljucen: nas.Ukljucen != paket.Ukljucen && !JePreracun(paket.Naziv)}
 }
 
 func upisiDio(z *zip.Writer, ime string, sadrzaj []byte) error {
