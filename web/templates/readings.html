@@ -92,6 +92,7 @@
             {{if and .G.Latest .G.Phase.InForce}}<span class="badge {{.G.Phase.BadgeClass}} ocitanja-faza">{{.G.Phase.Label}}</span>{{end}}
             {{if .Kvar}}<span class="ocitanja-kvar" title="{{.KvarZa}}" data-znak-kvara>{{.Kvar}}</span>{{end}}
             {{if .Skokova}}<span class="ocitanja-kvar" title="Broj lažnih skokova u zadnjih {{$.SkokoviDana}} dana: {{.Skokova}}." data-znak-skokova>Česti lažni skokovi mjernog uređaja.</span>{{end}}
+            {{if .Teren}}<span class="ocitanja-kvar" title="{{.Teren}}" data-znak-terena>Mjerni uređaj treba ispraviti na terenu.</span>{{end}}
           </span>
           {{if .Vrijed}}<span class="ocitanja-vrijednost">{{.Vrijed}}</span>{{end}}
         </a>

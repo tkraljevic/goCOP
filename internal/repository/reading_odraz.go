@@ -61,7 +61,7 @@ func (r *ReadingRepository) odraziStranu(ctx context.Context, tx *sql.Tx, rd *mo
 		Source: rd.Source, Origin: rd.Origin, SourceRef: models.IzvorOdrazaObjekta + rd.ID.String(),
 		Observer: rd.Observer, UserID: rd.UserID, CreatedAt: rd.CreatedAt, UpdatedAt: rd.UpdatedAt}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO readings (`+readingColumns+`)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES (`+readingMjesta+`)
 		ON CONFLICT(id) DO UPDATE SET measured_at = excluded.measured_at, level_cm = excluded.level_cm,
 			source = excluded.source, observer = excluded.observer, updated_at = excluded.updated_at`, readingArgs(&o)...); err != nil {
 		return err

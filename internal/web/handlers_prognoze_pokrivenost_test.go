@@ -47,6 +47,10 @@ func (*spremisteKruga) Razine(context.Context, string, time.Time, time.Time) (ma
 func (*spremisteKruga) ZabiljeziOdbacene(context.Context, []models.OdbacenaVrijednost) error {
 	return nil
 }
+func (*spremisteKruga) Vodostaji(context.Context, string, time.Time, time.Time) ([]models.UpisanoOcitanje, error) {
+	return nil, nil
+}
+func (*spremisteKruga) Ispravi(context.Context, []models.IspravljenoOcitanje) error { return nil }
 
 // primi čeka vrijednost s kanala do roka. Rok je samo ograda da test padne,
 // a ne visi, kad krug zapne; ishod o njemu ne ovisi.

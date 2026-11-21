@@ -38,6 +38,11 @@
   Očitanja se ne brišu, a okvir nestane sam kad mjerni uređaj opet radi.{{end}}
 </div>
 {{end}}
+{{with .Ispravak}}
+<div class="alert {{if .Teren}}alert-warning{{else}}alert-info{{end}}" data-ispravak-telemetrije>
+  <strong>{{icon "triangle-alert"}} {{.Naslov}}</strong> {{.Tekst}}
+</div>
+{{end}}
 {{with .CestiSkokovi}}
 <div class="alert alert-warning" data-cesti-skokovi>
   <strong>{{icon "triangle-alert"}} Mjerni uređaj često odskoči.</strong> Broj lažnih skokova u zadnjih {{.Dana}} dana: {{.Broj}}.
@@ -69,7 +74,7 @@
       {{if .Latest.StructureState}} · {{.Latest.StateLabel}}{{end}}
       {{if .Latest.Gate}} · zapornica {{.Latest.GateLabel}}{{end}}
       {{if .Latest.Observer}} · očitao {{.Latest.Observer}}{{end}}
-      · {{.Latest.SourceLabel}}{{with .Latest.OriginLabel}} ({{.}}){{end}}
+      · {{.Latest.SourceLabel}}{{with .Latest.OriginLabel}} ({{.}}){{end}}{{with .Latest.OpisIspravka}} · {{.}}{{end}}
     </div>
     {{if and .Station .Latest.LevelCm}}
     <div class="letva-plocice">
@@ -232,6 +237,7 @@
         {{if not .IsMeasured}} · <span class="badge badge-inactive" title="{{.DerivedFrom}}{{if .Method}} — {{.Method}}{{end}}">{{qualityLabel .Quality}}{{if .DerivedFrom}}: {{.DerivedFrom}}{{end}}</span>{{end}}
         {{if ne .Source "RUČNO"}} · {{.SourceLabel}}{{end}}
         {{with .OriginLabel}} · {{.}}{{end}}
+        {{with .OpisIspravka}} · {{.}}{{end}}
         {{if .JeOdrazObjekta}} · upisano na objektu, ondje se i ispravlja{{end}}
       </span>
       {{end}}
