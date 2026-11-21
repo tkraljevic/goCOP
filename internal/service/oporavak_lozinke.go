@@ -209,7 +209,7 @@ var tabliceOporavka = []string{"users", "sessions", "record_versions",
 
 // stupciOporavka su najnoviji stupci koje čitaju upiti računa (tablica,
 // stupac); bez njih je bazu pripremilo starije izdanje
-var stupciOporavka = [][2]string{{"users", "pin_adresa_potvrdena"}}
+var stupciOporavka = [][2]string{{"users", "pin_adresa_potvrdena"}, {"users", "odlazak"}, {"users", "odlazak_dan"}}
 
 // PonistiLozinkuNaCvoru sastavlja ono malo servisa što poništenje treba i
 // poništava lozinku računa u bazi čvora. Shemu ne stvara ni ne mijenja: baza

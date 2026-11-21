@@ -25,14 +25,15 @@ import (
 
 // Moduli zida, redom kojim se nude kao filtar
 const (
-	ModulDnevnik   = "dnevnik"
-	ModulDezurstva = "dezurstva"
-	ModulIzvjesca  = "izvjesca"
-	ModulObrana    = "obrana"
-	ModulSredstva  = "sredstva"
-	ModulOcitanja  = "ocitanja"
-	ModulRegistar  = "registar"
-	ModulPrijave   = "prijave"
+	ModulDnevnik    = "dnevnik"
+	ModulDezurstva  = "dezurstva"
+	ModulIzvjesca   = "izvjesca"
+	ModulObrana     = "obrana"
+	ModulSredstva   = "sredstva"
+	ModulOcitanja   = "ocitanja"
+	ModulRegistar   = "registar"
+	ModulPrijave    = "prijave"
+	ModulDjelatnici = "djelatnici"
 )
 
 // ModuliZida su moduli s nazivom i ikonom
@@ -45,6 +46,7 @@ var ModuliZida = []struct{ ID, Naziv, Ikona string }{
 	{ModulSredstva, "Sredstva", "package"},
 	{ModulOcitanja, "Očitanja", "activity"},
 	{ModulRegistar, "Registri", "book-open"},
+	{ModulDjelatnici, "Djelatnici", "users"},
 }
 
 // ModulNaziv je naziv modula zida
@@ -173,14 +175,15 @@ func NewZidService(rec *ledger.Recorder, journals *repository.JournalRepository,
 
 // entitetiModula su entiteti knjige koji ulaze u zid, po modulu
 var entitetiModula = map[string][]string{
-	ModulDnevnik:   {repository.EntityJournalEntries, repository.EntityJournals},
-	ModulDezurstva: {repository.EntityDezurstva},
-	ModulIzvjesca:  {repository.EntityDnevnaIzvjesca, repository.EntitySektorskaIzvjesca},
-	ModulPrijave:   {repository.EntityPrijave},
-	ModulObrana:    {repository.EntityEpisodes},
-	ModulSredstva:  {repository.EntityMtsPromet, repository.EntityMtsPopisi, repository.EntityMtsPotrebe},
-	ModulOcitanja:  {repository.EntityReadings},
-	ModulRegistar:  {repository.EntitySections, repository.EntityMtsSkladista, repository.EntityStations, repository.EntityStructures},
+	ModulDnevnik:    {repository.EntityJournalEntries, repository.EntityJournals},
+	ModulDezurstva:  {repository.EntityDezurstva},
+	ModulIzvjesca:   {repository.EntityDnevnaIzvjesca, repository.EntitySektorskaIzvjesca},
+	ModulPrijave:    {repository.EntityPrijave},
+	ModulObrana:     {repository.EntityEpisodes},
+	ModulSredstva:   {repository.EntityMtsPromet, repository.EntityMtsPopisi, repository.EntityMtsPotrebe},
+	ModulOcitanja:   {repository.EntityReadings},
+	ModulRegistar:   {repository.EntitySections, repository.EntityMtsSkladista, repository.EntityStations, repository.EntityStructures},
+	ModulDjelatnici: {repository.EntityUsers, repository.EntityDuties},
 }
 
 // modulPrograma je modul programa koji nosi modul zida; obrana nije ni u
@@ -189,6 +192,7 @@ var modulPrograma = map[string]string{
 	ModulDnevnik: models.ModuleJournals, ModulDezurstva: models.ModuleJournals, ModulIzvjesca: models.ModuleJournals,
 	ModulSredstva: models.ModuleRegisters, ModulRegistar: models.ModuleRegisters,
 	ModulOcitanja: models.ModuleReadings, ModulPrijave: models.ModuleField,
+	ModulDjelatnici: models.ModuleUsers,
 }
 
 // SkriveniModuliZida su moduli zida čiji modul programa račun ne vidi:
@@ -681,6 +685,8 @@ var opisiPoEntitetu = map[string]func(c *opisivac, d *Dogadjaj, v ledger.Version
 	repository.EntityMtsSkladista:      (*opisivac).novoSkladiste,
 	repository.EntityStations:          (*opisivac).novaPostaja,
 	repository.EntityStructures:        (*opisivac).noviObjekt,
+	repository.EntityUsers:             (*opisivac).racun,
+	repository.EntityDuties:            (*opisivac).zaduzenje,
 }
 
 // zapisDnevnika: zapis u dnevnik COP-a na zidu je kad je upisan i kad je
@@ -1339,12 +1345,14 @@ func (s StanjeObrane) Mirno() bool {
 
 // ErrNijeSPloce: verzija ne pripada nijednom zapisu koji oglasna ploča
 // prikazuje, pa se s nje ni ne briše
-var ErrNijeSPloce = errors.New("s oglasne ploče brišu se samo zapisi koji se na njoj prikazuju")
+var ErrNijeSPloce = errors.New("s oglasne ploče brišu se samo zapisi koji se na njoj prikazuju, i to ne promjene računa i zaduženja")
 
 // ObrisiDogadjaj briše zapis s oglasne ploče, tj. tu verziju iz knjige;
 // smije uprava organizacije, i samo kad je prekidač uključen (provjerava
 // rukovatelj). Briše se samo verzija zapisa koji ploča prikazuje, a ne bilo
-// koja verzija iz knjige.
+// koja verzija iz knjige. Verzije računa i zaduženja (modul Djelatnici) se
+// ne brišu: iz njih se slaže povijest zaduženja i tko je kada imao koju
+// ulogu.
 func (s *ZidService) ObrisiDogadjaj(ctx context.Context, perms *models.UserPermissions, versionID string) error {
 	if perms == nil || !perms.IsGlobalAdmin {
 		return ErrUnauthorized
@@ -1353,7 +1361,7 @@ func (s *ZidService) ObrisiDogadjaj(ctx context.Context, perms *models.UserPermi
 	if err != nil {
 		return err
 	}
-	if len(v) > 0 && modulEntiteta(v[0].Entity) == "" {
+	if len(v) > 0 && (modulEntiteta(v[0].Entity) == "" || modulEntiteta(v[0].Entity) == ModulDjelatnici) {
 		return ErrNijeSPloce
 	}
 	return s.rec.DeleteVersion(ctx, versionID)

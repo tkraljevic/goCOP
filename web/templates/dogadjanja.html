@@ -10,7 +10,7 @@
 <div class="page-header list-glava dog-glava">
   <div>
     <h1 class="page-title" data-naziv-stranice>Događanja</h1>
-    <p class="page-desc">Kronologija iz knjige verzija: dnevnik, dežurstva, izvješća, prijave s terena, obrana, sredstva i očitanja iznad praga, s vremenom i osobom.</p>
+    <p class="page-desc">Kronologija iz knjige verzija: dnevnik, dežurstva, izvješća, prijave s terena, obrana, sredstva, očitanja iznad praga i promjene ovlasti djelatnika, s vremenom i osobom.</p>
   </div>
   <div class="page-actions"><a href="{{.IzvozURL}}" class="btn btn-link" title="Kronologija po istim filtrima, A4">Excel</a></div>
 </div>
@@ -66,7 +66,7 @@
         {{if .Tekst}}<p class="dog-tekst">{{.Tekst}}</p>{{end}}
         {{if .Tko}}<p class="dog-tko">{{.Tko}}</p>{{end}}
       </div>
-      {{if $.SmijeBrisati}}<form method="POST" action="/dogadjanja/obrisi" class="dog-obrisi" onsubmit="return confirm('Obrisati ovaj zapis s oglasne ploče? Briše se ta verzija iz knjige na ovom čvoru.')"><input type="hidden" name="verzija" value="{{.VersionID}}"><button type="submit" class="dog-obrisi-gumb" title="Obriši s ploče" aria-label="Obriši s ploče">{{icon "trash"}}</button></form>{{end}}
+      {{if and $.SmijeBrisati (ne .Modul "djelatnici")}}<form method="POST" action="/dogadjanja/obrisi" class="dog-obrisi" onsubmit="return confirm('Obrisati ovaj zapis s oglasne ploče? Briše se ta verzija iz knjige na ovom čvoru.')"><input type="hidden" name="verzija" value="{{.VersionID}}"><button type="submit" class="dog-obrisi-gumb" title="Obriši s ploče" aria-label="Obriši s ploče">{{icon "trash"}}</button></form>{{end}}
     </li>
     {{end}}
   </ol>

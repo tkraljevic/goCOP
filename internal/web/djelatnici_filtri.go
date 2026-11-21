@@ -71,6 +71,7 @@ var stanjaRacuna = []struct{ Vrijednost, Naziv string }{
 	{string(models.AccountActive), "Aktivan"},
 	{string(models.AccountPending), "Nije se prijavio"},
 	{string(models.AccountDisabled), "Isključen"},
+	{string(repository.StanjeIzvanSluzbe), "Izvan službe"},
 	{"BEZ_EPOSTE", "Bez adrese za PIN"},
 	{string(repository.StanjeCekaLozinku), "Čeka promjenu lozinke"},
 }

@@ -162,6 +162,10 @@ func (h *DashboardHandler) stanjeIZid(r *http.Request, perms *models.UserPermiss
 	}
 	data.Stanja = zid.Stanje(r.Context(), perms, sektori, izv, mts)
 	f := service.FiltarZida{Modul: r.URL.Query().Get("modul"), Limit: 40, Skriveni: service.SkriveniModuliZida(vis.Sees)}
+	if f.Modul == "" {
+		// promjene ovlasti su u Događanjima, a zid na početnoj ostaje za obranu
+		f.Skriveni = append(f.Skriveni, service.ModulDjelatnici)
+	}
 	data.Zid, _, _ = zid.Zadnji(r.Context(), perms, f) // bez knjige zid ostane prazan, a početna se i dalje prikaže
 }
 

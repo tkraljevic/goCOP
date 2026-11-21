@@ -127,8 +127,8 @@ func primijeniKorisnika(ctx context.Context, tx *sql.Tx, v ledger.Version) error
 		INSERT INTO users (id, username, password_hash, full_name, title, is_global_admin,
 			must_change_password, org_type, org_name, phone, mobile_phone, short_phone, short_mobile, email,
 			is_active, last_login_at, created_at, updated_at,
-			pin_adresa_potvrdena, pin_adresa_potvrdio, pin_adresa_potvrdena_kad)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			pin_adresa_potvrdena, pin_adresa_potvrdio, pin_adresa_potvrdena_kad, odlazak, odlazak_dan)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			username = excluded.username,
 			password_hash = CASE WHEN excluded.password_hash = '' THEN users.password_hash
@@ -141,11 +141,13 @@ func primijeniKorisnika(ctx context.Context, tx *sql.Tx, v ledger.Version) error
 			                    COALESCE(users.last_login_at, excluded.last_login_at)),
 			updated_at = excluded.updated_at,
 			pin_adresa_potvrdena = excluded.pin_adresa_potvrdena, pin_adresa_potvrdio = excluded.pin_adresa_potvrdio,
-			pin_adresa_potvrdena_kad = excluded.pin_adresa_potvrdena_kad
+			pin_adresa_potvrdena_kad = excluded.pin_adresa_potvrdena_kad,
+			odlazak = excluded.odlazak, odlazak_dan = excluded.odlazak_dan
 	`, u.ID.String(), u.Username, u.PasswordHash, u.FullName, u.Title, boolToInt(u.IsGlobalAdmin),
 		boolToInt(u.MustChangePassword), string(u.OrgType), u.OrgName, u.Phone, u.MobilePhone, u.ShortPhone, u.ShortMobile, u.Email,
 		boolToInt(u.IsActive), nullTime(u.LastLoginAt), u.CreatedAt.UTC(), u.UpdatedAt.UTC(),
-		u.PINAdresaPotvrdena, u.PINAdresuPotvrdio, nullTime(u.PINAdresaPotvrdenaKad))
+		u.PINAdresaPotvrdena, u.PINAdresuPotvrdio, nullTime(u.PINAdresaPotvrdenaKad),
+		string(u.Odlazak), nullTime(u.OdlazakDan))
 	return err
 }
 

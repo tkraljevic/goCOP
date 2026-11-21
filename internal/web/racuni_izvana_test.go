@@ -82,6 +82,7 @@ func novaOkolinaRacuna(t *testing.T) *okolinaRacuna {
 	mux.HandleFunc("POST /users/duties/{duty}/update", h.HandleUpdateDuty)
 	mux.HandleFunc("POST /users/duty/revoke", h.HandleRevokeDuty)
 	mux.HandleFunc("POST /users/delete", h.HandleDeleteUser)
+	mux.HandleFunc("POST /users/{id}/odlazak", h.HandleOdlazak)
 	ponovnaLozinka = newLoginLimiter()
 	t.Cleanup(func() { ponovnaLozinka = newLoginLimiter() })
 	return &okolinaRacuna{t: t, baza: baza, repo: repo, ana: ana, perms: &models.UserPermissions{IsGlobalAdmin: true, User: *ana},

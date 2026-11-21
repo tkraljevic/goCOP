@@ -651,7 +651,9 @@ func InitSchema(database *sql.DB) error {
 			updated_at DATETIME NOT NULL,
 			pin_adresa_potvrdena TEXT NOT NULL DEFAULT '',
 			pin_adresa_potvrdio TEXT NOT NULL DEFAULT '',
-			pin_adresa_potvrdena_kad DATETIME
+			pin_adresa_potvrdena_kad DATETIME,
+			odlazak TEXT NOT NULL DEFAULT '',
+			odlazak_dan DATETIME
 		);`,
 		// Računi iz prvog punjenja čiji popis privremenih lozinki još nije
 		// preuzet, sa sažetkom koji su tada dobili i vremenom prvog punjenja
@@ -1841,6 +1843,10 @@ func migrateSchema(database *sql.DB) error {
 		{"users", "pin_adresa_potvrdena", "TEXT NOT NULL DEFAULT ''"},
 		{"users", "pin_adresa_potvrdio", "TEXT NOT NULL DEFAULT ''"},
 		{"users", "pin_adresa_potvrdena_kad", "DATETIME"},
+		// Odlazak iz službe (mirovina, odlazak, premještaj, drugo) i dan
+		// odlaska: račun ostaje s isključenom prijavom, bez zaduženja
+		{"users", "odlazak", "TEXT NOT NULL DEFAULT ''"},
+		{"users", "odlazak_dan", "DATETIME"},
 		// Vrijeme prvog punjenja uz popis privremenih lozinki; popis bez
 		// njega dobije ga pri pokretanju (db.IstekniPocetneLozinke)
 		{"pocetne_lozinke_cekaju", "napunjeno", "DATETIME"},
