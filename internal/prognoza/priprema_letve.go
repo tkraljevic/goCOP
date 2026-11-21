@@ -21,10 +21,11 @@ import (
 
 // Letva izvan lanca najčešće ima kraću arhivu nego letve glavnog računa. Ove
 // granice nisu izmjerene: dovoljne su da se razina ne namješta na šumu, a natpis
-// uz račun kaže na kojoj je vodi učio.
+// uz račun kaže na kojoj je vodi učio. Stranica „Model prognoze” po istim
+// brojevima kaže što letvi fali.
 const (
-	najmanjeSatiZapisa = 1000
-	najmanjeSatiRazine = 500
+	NajmanjeSatiZapisa = 1000 // sati u kojima su izmjereni letva i svi ulazi
+	NajmanjeSatiRazine = 500  // toliko ih treba svaka razina vode
 )
 
 // PripremaLetve je ono što je priprema dala.
@@ -50,7 +51,7 @@ func PripremiLetvu(arhiva, baza *sql.DB, z ZapisLetve, o OkvirModela) (PripremaL
 		return PripremaLetve{}, errors.New("namještanje modela već traje; pokušaj kad završi")
 	}
 	defer namjestanjeTraje.Unlock()
-	defer postaviGraniceSati(najmanjeSatiZapisa, najmanjeSatiRazine)()
+	defer postaviGraniceSati(NajmanjeSatiZapisa, NajmanjeSatiRazine)()
 	s, err := novaPriprema(arhiva, baza, z, o)
 	if err != nil {
 		return PripremaLetve{}, err

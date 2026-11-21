@@ -41,7 +41,7 @@ func porukaIma(err error, dio string) bool { return err != nil && strings.Contai
 // Zapis bez razina dobiva zadane razine, spojene odozgo koliko traži duljina niza:
 // svaka ima dosta sati, a najviša voda iz niza ima svoj račun.
 func TestKratkomNizuManjeRazina(t *testing.T) {
-	postavi(t, &NajmanjeSatiPojasa, najmanjeSatiRazine)
+	postavi(t, &NajmanjeSatiPojasa, NajmanjeSatiRazine)
 	for sati, razina := range map[int]int{600: 1, 1000: 1, 1800: 3, 5000: 4, 10000: 5, 100000: 5} {
 		poredani := make([]float64, sati)
 		for i := range poredani {
