@@ -18,7 +18,13 @@ type Watercourse struct {
 	Kind         string `json:"kind"`          // rijeka, potok, kanal, jezero, akumulacija...
 	Category     string `json:"category"`      // MEĐUDRŽAVNE VODE, DRUGE VEĆE VODE I KANALI...
 	Subcategory  string `json:"subcategory"`   // vodotoci, kanali, ponornice, akumulacije i retencije...
-	WikiSlug     string `json:"wiki_slug"`
+	// Red je red vode (I, II, III ili IV) po programu održavanja: I. i II. red
+	// održavaju se programom A.02 (vode I. i II. reda, čl. 35. Zakona o vodama),
+	// III. i IV. red programom A.03 (kanali detaljne melioracijske odvodnje,
+	// čl. 25.). Prazno kad nije upisan; tada se red izvodi iz kategorije i
+	// skupine (RedVode).
+	Red      string `json:"red,omitempty"`
+	WikiSlug string `json:"wiki_slug"`
 
 	// Origin govori odakle zapis dolazi. Vode koje Odluka ne navodi nisu izmišljene
 	// nego preuzete iz dokumentacije dionica — nisu I. reda, ali postoje.
@@ -145,9 +151,78 @@ const (
 	RedTreciCetvrti = "iii-iv"
 )
 
-// RedVode vraća red vode iz kategorije s popisa voda I. reda ili iz upisane
-// skupine („kanal II. reda”, „potok III. reda”)
+// RedoviVoda su redovi vode po programu održavanja (I. i II. red A.02, III. i
+// IV. red A.03)
+var RedoviVoda = []string{"I", "II", "III", "IV"}
+
+// IzborReda je stavka izbornika Red vode u obrascu. Pravna kategorija iz
+// Odluke dijeli samo vode I. reda, pa je izbornik jedan: I. red po
+// kategoriji, zatim II., III. i IV. red.
+type IzborReda struct{ Vrijednost, Natpis string }
+
+// IzboriReda su stavke izbornika Red vode; vrijednost je red i kategorija
+// odvojeni crtom („I|MEĐUDRŽAVNE VODE”), ili samo red
+var IzboriReda = []IzborReda{
+	{"I|MEĐUDRŽAVNE VODE", "I. red – međudržavne vode"},
+	{"I|PRIOBALNE VODE", "I. red – priobalne vode"},
+	{"I|DRUGE VEĆE VODE I KANALI", "I. red – druge veće vode i kanali"},
+	{"I|BUJIČNE VODE VEĆE SNAGE", "I. red – bujične vode veće snage"},
+	{"II", "II. red"},
+	{"III", "III. red"},
+	{"IV", "IV. red"},
+}
+
+// IzborRedaZaObrazac je stavka izbornika Red vode za ovaj zapis
+func (w Watercourse) IzborRedaZaObrazac() string {
+	if w.Category != "" {
+		return "I|" + w.Category
+	}
+	return w.RedZaObrazac()
+}
+
+// RazdvojiIzborReda vraća red i kategoriju iz stavke izbornika Red vode
+func RazdvojiIzborReda(izbor string) (red, kategorija string) {
+	red, kategorija, _ = strings.Cut(strings.TrimSpace(izbor), "|")
+	return red, kategorija
+}
+
+// SkupineVoda su skupine vode po ugovoru o održavanju (A.02.01.16), iste za
+// svaki red: vodotoci, akumulacije, bujični tokovi i melioracijski kanali.
+var SkupineVoda = []string{"vodotoci", "akumulacije, retencije i jezera", "bujični tokovi",
+	"osnovne melioracijske građevine za odvodnju, oteretni, lateralni, spojni kanali i hidrotehnički tuneli"}
+
+// RedZaObrazac je red koji obrazac pokazuje: upisani, a kod starijeg zapisa
+// onaj koji se vidi iz kategorije ili skupine.
+func (w Watercourse) RedZaObrazac() string {
+	if w.Red != "" {
+		return w.Red
+	}
+	skupina := strings.ToLower(w.Subcategory)
+	switch {
+	case w.Category != "":
+		return "I"
+	case strings.Contains(skupina, "iv. reda"):
+		return "IV"
+	case strings.Contains(skupina, "iii. reda"):
+		return "III"
+	case strings.Contains(skupina, "ii. reda"):
+		return "II"
+	case strings.Contains(skupina, "i. reda"):
+		return "I"
+	}
+	return ""
+}
+
+// redKarte je sloj Karte za upisani red
+var redKarte = map[string]string{"I": RedPrvi, "II": RedDrugi, "III": RedTreciCetvrti, "IV": RedTreciCetvrti}
+
+// RedVode vraća red vode za Kartu: međudržavna voda, pa upisani red, pa red
+// iz kategorije s popisa voda I. reda ili iz upisane skupine („kanal II.
+// reda”, „potok III. reda”)
 func (w Watercourse) RedVode() string {
+	if r, ima := redKarte[w.Red]; ima && w.Category != "MEĐUDRŽAVNE VODE" {
+		return r
+	}
 	if w.Category == "MEĐUDRŽAVNE VODE" {
 		return RedMedudrzavni
 	}
@@ -172,6 +247,9 @@ func (w Watercourse) RedVode() string {
 func (w Watercourse) CategoryLabel() string {
 	switch w.Category {
 	case "":
+		if w.Red != "" {
+			return "voda " + w.Red + ". reda"
+		}
 		if s := strings.TrimSpace(w.Subcategory); s != "" {
 			return s
 		}

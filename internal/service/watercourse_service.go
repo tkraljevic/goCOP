@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"gocop/internal/geometrija"
@@ -249,6 +250,21 @@ func requireGlobalAdmin(perms *models.UserPermissions, action string) error {
 	return nil
 }
 
+// provjeriRedVode: red je jedan od ponuđenih, a pravna kategorija iz Odluke
+// vrijedi samo za vodu I. reda. Zapis s kategorijom bez reda je I. reda.
+func provjeriRedVode(w *models.Watercourse) error {
+	if w.Red != "" && !slices.Contains(models.RedoviVoda, w.Red) {
+		return fmt.Errorf("red vode %q ne postoji; izaberi I., II., III. ili IV. red", w.Red)
+	}
+	switch {
+	case w.Category != "" && w.Red == "":
+		w.Red = "I"
+	case w.Category != "" && w.Red != "I":
+		return fmt.Errorf("pravna kategorija iz Odluke vrijedi samo za vode I. reda; za %s. red ostavi je praznom", w.Red)
+	}
+	return nil
+}
+
 func validateWatercourse(w *models.Watercourse) error {
 	if w == nil {
 		return fmt.Errorf("podaci o vodnom tijelu nedostaju")
@@ -258,6 +274,9 @@ func validateWatercourse(w *models.Watercourse) error {
 	}
 	if strings.TrimSpace(w.Name) == "" {
 		w.Name = w.OfficialName
+	}
+	if err := provjeriRedVode(w); err != nil {
+		return err
 	}
 	for _, m := range []struct {
 		label string

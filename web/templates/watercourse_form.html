@@ -19,7 +19,6 @@
 
 <form class="form-page form-wide" onsubmit="return spremiLetve()" method="POST" action="{{if .IsEdit}}/api/watercourses/update{{else}}/api/watercourses/create{{end}}">
   {{if .IsEdit}}<input type="hidden" name="code" value="{{.Water.Code}}">{{end}}
-  <input type="hidden" name="subcategory" value="{{.Water.Subcategory}}">
 
   <section class="list-kartica">
   <h3>Naziv i vrsta</h3>
@@ -54,15 +53,20 @@
       </select>
     </div>
     <div class="form-group">
-      <label class="form-label" for="category">Pravna kategorija</label>
-      <select id="category" name="category" class="form-control">
-        <option value="">Nije voda I. reda</option>
-        <option value="MEĐUDRŽAVNE VODE" {{if eq .Water.Category "MEĐUDRŽAVNE VODE"}}selected{{end}}>Međudržavne vode</option>
-        <option value="PRIOBALNE VODE" {{if eq .Water.Category "PRIOBALNE VODE"}}selected{{end}}>Priobalne vode</option>
-        <option value="DRUGE VEĆE VODE I KANALI" {{if eq .Water.Category "DRUGE VEĆE VODE I KANALI"}}selected{{end}}>Druge veće vode i kanali</option>
-        <option value="BUJIČNE VODE VEĆE SNAGE" {{if eq .Water.Category "BUJIČNE VODE VEĆE SNAGE"}}selected{{end}}>Bujične vode veće snage</option>
+      <label class="form-label" for="red">Red vode</label>
+      <select id="red" name="red" class="form-control">
+        <option value="">—</option>
+        {{$izbor := .Water.IzborRedaZaObrazac}}{{range .IzboriRedaObrasca}}<option value="{{.Vrijednost}}" {{if eq .Vrijednost $izbor}}selected{{end}}>{{.Natpis}}</option>{{end}}
       </select>
+      <div class="form-help">I. i II. red održavaju se programom A.02, III. i IV. red programom A.03.</div>
     </div>
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="subcategory">Skupina</label>
+    <select id="subcategory" name="subcategory" class="form-control">
+      <option value="">—</option>
+      {{range .SkupineObrasca}}<option value="{{.}}" {{if eq . $.Water.Subcategory}}selected{{end}}>{{.}}</option>{{end}}
+    </select>
   </div>
 
   </section>

@@ -1733,6 +1733,8 @@ func migrateSchema(database *sql.DB) error {
 		// temperatura vode i izmjereni protok uz očitanje vodostaja
 		// veza letve s javnom stranicom vodostaji.voda.hr i satno preuzimanje
 		{"watercourses", "extra_station_ids", "TEXT NOT NULL DEFAULT ''"},
+		// red vode (I, II, III, IV) po ugovoru o održavanju; prazno kad nije upisan
+		{"watercourses", "red", "TEXT NOT NULL DEFAULT ''"},
 		{"stations", "javni_url", "TEXT NOT NULL DEFAULT ''"},
 		{"stations", "javni_uvoz", "INTEGER NOT NULL DEFAULT 0"},
 		// Letva koja nema javnu stranicu čita se s telemetrije: šifra njezine
