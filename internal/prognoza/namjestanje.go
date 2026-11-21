@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 )
 
@@ -226,7 +227,7 @@ var (
 // lomi. Ostali ulaze pravocrtno, svaki sa svojim kašnjenjem.
 func NamjestiLetvu(arhiva *sql.DB, ciljna, vel string, izvori []Izvor) ([]Pojas, error) {
 	return namjestiPoRazinama(arhiva, ciljna, vel, izvori, &UcenjeRacuna{},
-		func(poredani []float64) ([]float64, error) { return Cvorovi(poredani), nil })
+		func(poredani []float64) ([]float64, error) { return Cvorovi(poredani), nil }, nil)
 }
 
 // UcenjeRacuna kaže na kojoj je vodi i u kojem vremenu račun učio. Račun učen
@@ -257,9 +258,10 @@ func (u *UcenjeRacuna) dodaj(cilj map[int64]float64, ulazi []ulazNiz, lagovi, si
 
 // namjestiPoRazinama je NamjestiLetvu s razinama koje zadaje pozivatelj: razine
 // od poredanih vrijednosti glavnog ulaza daju čvorove, a greška prekida račun. U
-// ucenje upisuje vodu i vrijeme na kojima je račun učio.
+// ucenje upisuje vodu i vrijeme na kojima je račun učio. Rucno je kašnjenje
+// glavnog ulaza po razini koje je stručnjak upisao; ta razina ga ne traži.
 func namjestiPoRazinama(arhiva *sql.DB, ciljna, vel string, izvori []Izvor, ucenje *UcenjeRacuna,
-	razine func(poredani []float64) ([]float64, error)) ([]Pojas, error) {
+	razine func(poredani []float64) ([]float64, error), rucno map[int]int) ([]Pojas, error) {
 	cilj, ulazi, err := nizoviRacuna(arhiva, ciljna, vel, izvori)
 	if err != nil {
 		return nil, err
@@ -290,7 +292,7 @@ func namjestiPoRazinama(arhiva *sql.DB, ciljna, vel string, izvori []Izvor, ucen
 	if globalni == nil {
 		return nil, fmt.Errorf("%s: kašnjenja se nisu dala izmjeriti", ciljna)
 	}
-	pojasi := satiPoPojasima(cilj, ulazi, sati, cvorovi, pocetni[0], globalni, globalneSirine)
+	pojasi := satiPoPojasima(cilj, ulazi, sati, cvorovi, pocetni[0], globalni, globalneSirine, rucno)
 	if len(pojasi) == 0 {
 		return nil, fmt.Errorf("%s: nijedan pojas nije dao račun", ciljna)
 	}
@@ -384,22 +386,36 @@ type pojasSati struct {
 
 // satiPoPojasima dijeli sate po pojasima i traži kašnjenje glavnog toka. Širina
 // prozora je svojstvo dionice, ne vodnosti, pa ostaje kakvu je dao opći prolaz.
-// Pojas bez dosta sati otpada.
+// Pojas bez dosta sati otpada. Pojas s ručnim kašnjenjem (rucno, po indeksu
+// pojasa) ga ne traži.
 func satiPoPojasima(cilj map[int64]float64, ulazi []ulazNiz, sati []int64, cvorovi []float64,
-	pocetni int, globalni, globalneSirine []int) []pojasSati {
+	pocetni int, globalni, globalneSirine []int, rucno map[int]int) []pojasSati {
 	var pojasi []pojasSati
 	for i := 0; i+1 < len(cvorovi); i++ {
 		uPojasu := satiPojasa(ulazi[0], sati, pocetni, cvorovi[i], cvorovi[i+1], i+2 == len(cvorovi))
 		if len(uPojasu) < NajmanjeSatiPojasa {
 			continue
 		}
-		lagovi, _ := najboljiLagovi(cilj, ulazi, uPojasu, globalni, globalneSirine, []int{0})
+		lagovi := lagoviPojasa(cilj, ulazi, uPojasu, globalni, globalneSirine, rucno, i)
 		if lagovi == nil {
 			continue
 		}
 		pojasi = append(pojasi, pojasSati{od: cvorovi[i], do: cvorovi[i+1], lagovi: lagovi, sati: uPojasu})
 	}
 	return pojasi
+}
+
+// lagoviPojasa su kašnjenja ulaza u jednom pojasu: glavnom upisano ili traženo,
+// a sporednima opća.
+func lagoviPojasa(cilj map[int64]float64, ulazi []ulazNiz, uPojasu []int64, globalni, sirine []int,
+	rucno map[int]int, pojas int) []int {
+	if sati, ima := rucno[pojas]; ima {
+		lagovi := slices.Clone(globalni)
+		lagovi[0] = sati
+		return lagovi
+	}
+	lagovi, _ := najboljiLagovi(cilj, ulazi, uPojasu, globalni, sirine, []int{0})
+	return lagovi
 }
 
 func satiPojasa(glavni ulazNiz, sati []int64, pocetni int, od, do float64, zadnji bool) []int64 {
