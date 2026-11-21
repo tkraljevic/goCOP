@@ -6,7 +6,8 @@ package prognoza
 // može pokazati i poslije upisati. Glavnom lancu se ne mijenja ništa: Pripremi
 // model ne prolazi ovuda.
 //
-// Ručne vrijednosti (Racun.Rucno) ovdje se još ne primjenjuju.
+// Ručno upisano kašnjenje razine vrijedi umjesto namještenog, a ručni nagib
+// daje račun bez dosta arhive (priprema_rucna.go).
 
 import (
 	"context"
@@ -110,8 +111,7 @@ func (s *pripremaRacuna) pripremi() (PripremaLetve, error) {
 		return PripremaLetve{}, err
 	}
 	razine := &razdiobaRazina{razine: s.z.Racun.Razine}
-	var ucenje UcenjeRacuna
-	glavna, err := namjestiPoRazinama(s.arhiva, s.z.Letva, s.z.Velicina, izvori, &ucenje, razine.razdijeli)
+	glavna, ucenje, napomenaRucnog, err := s.glavnaInacica(izvori, razine)
 	if err != nil {
 		return PripremaLetve{}, err
 	}
@@ -128,7 +128,8 @@ func (s *pripremaRacuna) pripremi() (PripremaLetve, error) {
 	if err := provjeriUpis(s.zapisi, s.pokvareni, z, s.okvir); err != nil {
 		return PripremaLetve{}, err
 	}
-	return PripremaLetve{Zapis: z, Ucenje: ucenje, Napomene: append(razine.napomene(glavna), napomene...)}, nil
+	return PripremaLetve{Zapis: z, Ucenje: ucenje,
+		Napomene: append(append(napomenaRucnog, razine.napomene(glavna)...), napomene...)}, nil
 }
 
 // izvori su ulazi s veličinom. Ulaz koji ima račun uzima se u veličini tog računa,
@@ -168,7 +169,7 @@ func (s *pripremaRacuna) dodajRezerve(glavna []Pojas) ([][]Pojas, []string, erro
 	var napomene []string
 	for _, ulazi := range s.z.Racun.Rezerve {
 		razine := &razdiobaRazina{razine: RazineLetve{Postoci: s.z.Racun.Razine.Postoci}}
-		p, err := namjestiPoRazinama(s.arhiva, s.z.Letva, s.z.Velicina, s.izvori(ulazi), &UcenjeRacuna{}, razine.razdijeli)
+		p, err := namjestiPoRazinama(s.arhiva, s.z.Letva, s.z.Velicina, s.izvori(ulazi), &UcenjeRacuna{}, razine.razdijeli, nil)
 		if errors.Is(err, ErrArhiva) {
 			return nil, nil, err
 		}
