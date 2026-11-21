@@ -3,8 +3,8 @@ package web
 // Stranica „Model prognoze” (plan uređivanja modela, PR 4, prvi ekran; crtež
 // 13b · Prognoze · uređivanje modela, „1 · Izbor vodotoka i što fali”): sektor,
 // vodotoci sektora sa stanjem prognoze i, za odabrani vodotok, što njegovim
-// letvama fali u arhivi da bi dobile račun. Vide je svi prijavljeni. Slaganje
-// računa dolazi poslije, pa stranica zasad ništa ne mijenja.
+// letvama fali u arhivi da bi dobile račun. Vide je svi prijavljeni. Račun se
+// slaže na stranici „Slaganje računa” (prognoze_racun.go), na koju vodi gumb.
 
 import (
 	"context"
@@ -81,6 +81,8 @@ type ModelPrognozePageData struct {
 	OtvoriSve bool
 	Odabran   *VodotokModela
 	Letve     []LetvaModela
+	// Racuni je adresa stranice na kojoj se letvama odabranog vodotoka slaže račun
+	Racuni string
 }
 
 // stanjaModela je ono što stranica zna o računima: letve iz zadnjeg izdanja,
@@ -101,6 +103,7 @@ func (h *PrognozeHandler) ShowModel(w http.ResponseWriter, r *http.Request) {
 	h.odaberiModel(r, &data, skupine, h.stanjaModela())
 	if data.Odabran != nil {
 		data.Letve = h.letveModela(r.Context(), data.Odabran.Letve, postaje, time.Now())
+		data.Racuni = adresaRacuna(data.Sektor.ID, data.Odabran.Oznaka, "")
 	}
 	if err := h.modelTmpl.ExecuteTemplate(w, "prognoze_model.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

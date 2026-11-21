@@ -251,6 +251,12 @@ CREATE TABLE IF NOT EXISTS model_letve (
 	proba   TEXT NOT NULL DEFAULT '',  -- otisak definicije i brojeva koje je Probaj mjerio
 	sadrzaj TEXT NOT NULL              -- JSON
 ) WITHOUT ROWID;
+-- Nacrt računa letve, dok ga stručnjak slaže (NacrtLetve). Ostaje na ovom
+-- računalu: nije među tablicama modela, pa ne putuje i izdanje ga ne čita.
+CREATE TABLE IF NOT EXISTS model_nacrt (
+	letva   TEXT PRIMARY KEY,
+	sadrzaj TEXT NOT NULL              -- JSON
+) WITHOUT ROWID;
 `
 
 // Otvori otvara bazu prognoza i slaže shemu ako je nema.

@@ -148,7 +148,8 @@ func TestStranicaModelaPrognoze(t *testing.T) {
 		`<span>Brodska rijeka</span><span class="rac-cip dobro">Radi</span>`,
 		`<span>Potok Lug</span><span class="rac-cip">Još nema prognoze</span>`,
 		`<h2 id="mod-odabran-naslov">Brodska rijeka</h2>`, "Sektor B · 1 letva", "Što letvama fali",
-		"Donji Brod", "2.500", `<span class="rac-cip dobro">Spremno</span>`, `href="/administracija/uvoz-niza?letva=donji-miholjac">Uvoz</a>`)
+		"Donji Brod", "2.500", `<span class="rac-cip dobro">Spremno</span>`, `href="/administracija/uvoz-niza?letva=donji-miholjac">Uvoz</a>`,
+		`href="/prognoze/model/racun?sektor=B&amp;vodotok=brodska-rijeka" class="btn btn-primary">Računi letvi</a>`)
 	if strings.Contains(html, "Brana Lug") || !strings.Contains(html, `class="mod-mreza ima-odabran"`) {
 		t.Error("brana je na popisu ili odabrani vodotok nije označen")
 	}

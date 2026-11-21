@@ -158,7 +158,8 @@ func pokreniPrognozu(o ovisnostiPrognoze) *sql.DB {
 	}
 	javniUvoznik.NakonPreuzimanja = krug.vrti
 	javniUvoznik.Nedovrseno = krug.bezIzdanja
-	server.SetPripremaModela(pripremaModela(peersService, arhivaRO, pb, javniUvoznik, osvjezivac, objaviIzdanje))
+	ukljuciModel(server, pripremaModela(peersService, arhivaRO, pb, javniUvoznik, osvjezivac, objaviIzdanje),
+		&urednikModela{pb: pb, arhiva: arhivaRO, ocitanja: ocitanjaRO, mreza: peersService})
 	return pb
 }
 

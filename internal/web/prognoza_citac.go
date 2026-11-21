@@ -274,6 +274,19 @@ func (c *CitacPrognoza) ZapisiModela() map[string]prognoza.ZapisLetve {
 	return z
 }
 
+// NacrtiModela su nacrti računa po letvi (model_nacrt); nil kad baze nema ili
+// se ne čita.
+func (c *CitacPrognoza) NacrtiModela() map[string]prognoza.NacrtLetve {
+	if c == nil || c.db == nil {
+		return nil
+	}
+	n, err := prognoza.Nacrti(c.db)
+	if err != nil {
+		return nil
+	}
+	return n
+}
+
 // Izbor vraća letve koje su u zadanom izdanju računate iz rezerve.
 func (c *CitacPrognoza) Izbor(izdano time.Time) map[string]prognoza.Izbor {
 	if c == nil || c.db == nil {
