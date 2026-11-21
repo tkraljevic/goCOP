@@ -32,6 +32,32 @@ type OpcijeProvjere struct {
 	Udjeli   []float64 // uz tablicu ispiši polovinu raspona za zadane udjele
 	CSV      io.Writer // svaki par prognoza–mjerenje na dosezima iz tablice
 	Dnevnik  io.Writer
+	// Mjera, kad nije nil, primi promašaj prognoze i promašaj bez modela po
+	// letvi i dosegu, za sve što se i zapisuje.
+	Mjera MjereProvjere
+}
+
+// MjeraProvjere je promašaj prognoze i promašaj bez modela na jednom dosegu,
+// oboje istom mjerom: korijen srednjeg kvadrata promašaja, bez ispravka pomakom
+// i bez glačanja. Bez modela znači da se drži mjerenje iz sata izdavanja.
+type MjeraProvjere struct {
+	Promasaj   float64
+	BezModela  float64
+	Slucaja    int
+	SlucajaBez int // izdanja u kojima je mjerenje u satu izdavanja postojalo
+}
+
+// MjereProvjere su mjere po letvi i veličini, pa po dosegu u satima.
+type MjereProvjere map[Izvor]map[int]MjeraProvjere
+
+func (m MjereProvjere) zabiljezi(iz Izvor, doseg int, z *zbrojProvjere) {
+	if m == nil {
+		return
+	}
+	if m[iz] == nil {
+		m[iz] = map[int]MjeraProvjere{}
+	}
+	m[iz][doseg] = MjeraProvjere{Promasaj: z.rms(), BezModela: z.rmsP(), Slucaja: z.n, SlucajaBez: z.np}
 }
 
 // ZadaneOpcijeProvjere su postavke s kojima se promašaji zapisuju za živu
@@ -234,6 +260,7 @@ func ProvjeriUnatrag(arhiva, baza *sql.DB, o OpcijeProvjere) (zapisano int, err 
 			if z.n < 100 {
 				continue // premalo slučaja da bi brojka išta značila
 			}
+			o.Mjera.zabiljezi(Izvor{Letva: letva, Velicina: pojasi[letva][0].Velicina}, d, z)
 			upis = append(upis, Promasaj{
 				Letva: letva, Velicina: pojasi[letva][0].Velicina, DosegH: d,
 				Pomak: z.pomak(), Rasap: z.odstupanje(),

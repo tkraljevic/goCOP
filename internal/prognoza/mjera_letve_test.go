@@ -43,22 +43,51 @@ func mjeri(t *testing.T, arhiva, baza *sql.DB, z ZapisLetve, o OpcijeProvjere) M
 	return m
 }
 
-func TestOcijeniPromasaj(t *testing.T) {
+func TestOcijeniMjeru(t *testing.T) {
 	for _, c := range []struct {
 		ime   string
-		p     Promasaj
+		m     MjeraProvjere
 		zelim StanjeMjere
 	}{
-		{"bez promašaja", Promasaj{}, MjeraNijeProvjereno},
-		{"99 slučajeva", Promasaj{Rasap: 1, Postojanost: 9, Slucaja: 99}, MjeraNijeProvjereno},
-		{"100 slučajeva", Promasaj{Rasap: 1, Postojanost: 9, Slucaja: 100}, MjeraBolje},
-		{"lošije", Promasaj{Rasap: 9, Postojanost: 1, Slucaja: 100}, MjeraLosije},
-		{"jednako nije bolje", Promasaj{Rasap: 5, Postojanost: 5, Slucaja: 100}, MjeraLosije},
-		{"bez čega usporediti", Promasaj{Rasap: 1, Slucaja: 100}, MjeraNijeProvjereno},
+		{"bez mjere", MjeraProvjere{}, MjeraNijeProvjereno},
+		{"99 slučajeva", MjeraProvjere{Promasaj: 1, BezModela: 9, Slucaja: 99, SlucajaBez: 99}, MjeraNijeProvjereno},
+		{"bez čega usporediti", MjeraProvjere{Promasaj: 1, BezModela: 9, Slucaja: 100, SlucajaBez: 99}, MjeraNijeProvjereno},
+		{"100 slučajeva", MjeraProvjere{Promasaj: 1, BezModela: 9, Slucaja: 100, SlucajaBez: 100}, MjeraBolje},
+		{"lošije", MjeraProvjere{Promasaj: 9, BezModela: 1, Slucaja: 100, SlucajaBez: 100}, MjeraLosije},
+		{"jednako", MjeraProvjere{Promasaj: 5, BezModela: 5, Slucaja: 100, SlucajaBez: 100}, MjeraIsto},
+		{"9 % manje nije bolje", MjeraProvjere{Promasaj: 9.1, BezModela: 10, Slucaja: 100, SlucajaBez: 100}, MjeraIsto},
+		{"9 % više nije lošije", MjeraProvjere{Promasaj: 10.9, BezModela: 10, Slucaja: 100, SlucajaBez: 100}, MjeraIsto},
+		{"11 % manje", MjeraProvjere{Promasaj: 8.9, BezModela: 10, Slucaja: 100, SlucajaBez: 100}, MjeraBolje},
+		{"11 % više", MjeraProvjere{Promasaj: 11.1, BezModela: 10, Slucaja: 100, SlucajaBez: 100}, MjeraLosije},
+		{"voda stoji, račun promašuje", MjeraProvjere{Promasaj: 2, Slucaja: 100, SlucajaBez: 100}, MjeraLosije},
+		{"voda stoji, račun pogađa", MjeraProvjere{Slucaja: 100, SlucajaBez: 100}, MjeraIsto},
 	} {
-		if s := OcijeniPromasaj(c.p); s != c.zelim {
+		if s := OcijeniMjeru(c.m); s != c.zelim {
 			t.Errorf("%s: %q, želim %q", c.ime, s, c.zelim)
 		}
+	}
+}
+
+// Račun iz ulaza koji s letvom nema veze ne zna ništa više od zadnjeg mjerenja, pa ne
+// smije dobiti „Bolje”. Po rasponu iz zapisa, koji je uži od promašaja bez modela, prije
+// ga je dobivao.
+func TestRacunBezVezeNijeBolji(t *testing.T) {
+	arhiva := arhivaSatnih(t, map[string]map[int64]float64{
+		"potok-vrh:vodostaj":  satniNiz(0, satiPotoka, func(h int64) float64 { return 50 }),
+		"potok-dole:vodostaj": satniNiz(0, satiPotoka, func(h int64) float64 { return 2*valUlaza(h-5) + 3 }),
+	})
+	z := zapisMjere("potok-vrh")
+	z.Brojevi.Inacice[0][0].Ulazi[0].Nagib, z.Brojevi.Inacice[0][0].Odsjecak = 0, 200
+	m := mjeri(t, arhiva, otvoriProbnu(t, "p.db"), z, opcijeMjere())
+	d := m.Dosezi[0]
+	if d.Stanje == MjeraBolje || d.Stanje == MjeraNijeProvjereno {
+		t.Errorf("doseg %+v: račun bez veze s letvom", d)
+	}
+	if d.Promasaj <= 0 || d.BezModela <= 0 {
+		t.Errorf("doseg %+v: obje mjere moraju biti izmjerene", d)
+	}
+	if p := m.Promasaji[5]; p.Rasap >= p.Postojanost {
+		t.Errorf("zapis %+v: test više ne pokazuje slučaj u kojem je staro pravilo griješilo", p)
 	}
 }
 
@@ -72,7 +101,7 @@ func TestMjeriLetvu(t *testing.T) {
 		t.Fatalf("dosezi %+v, želim jedino doseg računa", m.Dosezi)
 	}
 	d := m.Dosezi[0]
-	if d.Stanje != MjeraBolje || d.Slucaja < 100 || d.BezModela <= 0 {
+	if d.Stanje != MjeraBolje || d.Slucaja < 100 || d.BezModela <= 0 || d.Promasaj <= 0 || d.Promasaj >= d.BezModela {
 		t.Errorf("doseg %+v", d)
 	}
 	if d.Pomak <= 0 {
