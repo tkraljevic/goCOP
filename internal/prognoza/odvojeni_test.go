@@ -279,7 +279,8 @@ func TestPrviVodotok(t *testing.T) {
 	if err := o.Zapisi(i); err != nil {
 		t.Fatal(err)
 	}
-	// Zapis ostaje nakon pripreme modela (Spremi) i ne ulazi u otisak modela.
+	// Zapis ostaje nakon pripreme modela (Spremi) i ulazi u otisak modela, jer
+	// putuje s njim.
 	_, otisakPrije, err := SastaviModel(o.Baza)
 	if err != nil {
 		t.Fatal(err)
@@ -291,8 +292,8 @@ func TestPrviVodotok(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if otisakPrije != otisakBez {
-		t.Error("zapis je ušao u otisak modela prije nego što putuje")
+	if otisakPrije == otisakBez {
+		t.Error("zapis nije u otisku modela, pa izmjena ne bi otputovala")
 	}
 }
 

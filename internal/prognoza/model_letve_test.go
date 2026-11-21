@@ -172,8 +172,7 @@ func TestIskljucivanjeIdeNizvodno(t *testing.T) {
 	}
 }
 
-// Pripremi model (Spremi) i primanje modela razmjenom ne diraju zapis, a zapis
-// zasad ne putuje s paketom modela.
+// Pripremi model (Spremi) ne dira zapis, a zapis putuje s paketom modela.
 func TestZapisPrezivljavaPripremuModela(t *testing.T) {
 	db := bazaModela(t)
 	if err := SpremiZapisLetve(db, zapisPotoka("potok-dole", "potok-vrh", 2), "", OkvirModela{}); err != nil {
@@ -186,14 +185,17 @@ func TestZapisPrezivljavaPripremuModela(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ima := p.Tablice["model_letve"]; ima {
-		t.Error("zapis je u paketu modela")
+	if len(p.Tablice["model_letve"].Redci) != 1 {
+		t.Errorf("zapis nije u paketu modela: %+v", p.Tablice["model_letve"])
 	}
-	if err := PrimiModel(db, p); err != nil {
+	primatelj := bazaModela(t)
+	if err := PrimiModel(primatelj, p); err != nil {
 		t.Fatal(err)
 	}
-	if zapisi, _, err := ZapisiLetvi(db); err != nil || len(zapisi) != 1 {
-		t.Errorf("zapisi: %v, %v", zapisi, err)
+	for _, baza := range []*sql.DB{db, primatelj} {
+		if zapisi, _, err := ZapisiLetvi(baza); err != nil || len(zapisi) != 1 {
+			t.Errorf("zapisi: %v, %v", zapisi, err)
+		}
 	}
 }
 
