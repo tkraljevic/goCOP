@@ -14,10 +14,13 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync/atomic"
 	"time"
 
@@ -624,6 +627,43 @@ func (s *Spremiste) Otpusti(ctx context.Context, otisak string) error {
 		return errors.New("sadržaj je nastao ovdje ili ga nema")
 	}
 	return nil
+}
+
+// PospremiVrstu briše sadržaj zadane vrste koji nije u zadrzi, i želju za
+// njim. Sadržaju se prije toga odvežu veze zadanog entiteta; ostaje onaj
+// koji drži neki drugi zapis. Briše i ono što je nastalo ovdje: pozivatelj
+// odlučuje što od te vrste još treba. Vraća koliko je sadržaja obrisano.
+func (s *Spremiste) PospremiVrstu(ctx context.Context, vrsta, entitet string, zadrzi map[string]bool) (int, error) {
+	ostaju, _ := json.Marshal(slices.Collect(maps.Keys(zadrzi))) // popis otisaka uvijek se da zapisati
+	const izvan = ` NOT IN (SELECT value FROM json_each(?))`
+	koraci := []struct {
+		upit string
+		args []any
+	}{
+		{`DELETE FROM sadrzaj_veze WHERE entitet = ? AND otisak` + izvan + `
+			AND otisak IN (SELECT otisak FROM sadrzaj WHERE vrsta = ? UNION SELECT otisak FROM sadrzaj_zeljen WHERE vrsta = ?)`,
+			[]any{entitet, string(ostaju), vrsta, vrsta}},
+		{`DELETE FROM sadrzaj WHERE vrsta = ? AND otisak` + izvan + `
+			AND NOT EXISTS (SELECT 1 FROM sadrzaj_veze v WHERE v.otisak = sadrzaj.otisak)`, []any{vrsta, string(ostaju)}},
+		{`DELETE FROM sadrzaj_zeljen WHERE vrsta = ? AND otisak` + izvan + `
+			AND NOT EXISTS (SELECT 1 FROM sadrzaj_veze v WHERE v.otisak = sadrzaj_zeljen.otisak)`, []any{vrsta, string(ostaju)}},
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	var obrisano int64
+	for i, k := range koraci {
+		res, err := tx.ExecContext(ctx, k.upit, k.args...)
+		if err != nil {
+			return 0, err
+		}
+		if i == 1 {
+			obrisano, _ = res.RowsAffected() // SQLite ga uvijek zna
+		}
+	}
+	return int(obrisano), tx.Commit()
 }
 
 // Dio je jedan dio sadržaja za prijenos

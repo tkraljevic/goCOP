@@ -256,6 +256,9 @@ func Izdaj(db *sql.DB, uMapu, izdao, samo string, probno bool, uMrezi UMrezi, za
 	if err := zapisiKatalog(uMapu, novi); err != nil {
 		return iz, err
 	}
+	// Izdanje je gotovo i katalog zapisan; stari paket koji se ne da
+	// obrisati ne kvari ga, a PospremiMapu to javlja u zapisi.
+	_, _ = PospremiMapu(uMapu, novi, zapisi) // greška je javljena u dnevniku izdavanja
 	return iz, nil
 }
 
