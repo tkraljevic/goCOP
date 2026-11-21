@@ -19,14 +19,16 @@ import (
 	"golang.org/x/text/language"
 
 	"gocop/internal/models"
+	"gocop/internal/prognoza"
 )
 
-// Granice za stupac „Što fali”. Za jednu razinu vode namještanje traži 2.000
-// sati (prognoza.NajmanjeSatiPojasa); arhiva bez novog sata dva mjeseca je
-// stara, jer se tako ne vidi zadnja voda.
+// Granice za stupac „Što fali”. Sati su isti koje traži priprema računa nove
+// letve (prognoza.NajmanjeSatiZapisa): manje od toga daje samo ručni račun.
+// Arhiva je stara kad godinu dana nema novog sata. Izvoz iz HIS-2000 kasni oko
+// pola godine, pa kraća granica proglasi starim i niz izvezen danas.
 const (
-	satiZaRazinu   = 2000
-	staraArhivaDan = 60
+	satiZaRacun    = prognoza.NajmanjeSatiZapisa
+	staraArhivaDan = 365
 	// najviseVidljivih je koliko vodotoka popis pokazuje odmah; ostali bez
 	// prognoze su pod „Prikaži svih” (crtež: „Prikaži svih 48 vodotoka”)
 	najviseVidljivih = 12
@@ -78,7 +80,7 @@ type ModelPrognozePageData struct {
 	Skriveni  []VodotokModela
 	OtvoriSve bool
 	Odabran   *VodotokModela
-	Letve    []LetvaModela
+	Letve     []LetvaModela
 }
 
 // stanjaModela je ono što stranica zna o računima: letve iz zadnjeg izdanja,
@@ -294,7 +296,7 @@ func staDaFali(sati int, kraj, sada time.Time) StanjeModela {
 	switch {
 	case sati == 0:
 		return oznakaNemaSati
-	case sati < satiZaRazinu:
+	case sati < satiZaRacun:
 		return oznakaMaloSati
 	case sada.Sub(kraj) > staraArhivaDan*24*time.Hour:
 		return oznakaStara

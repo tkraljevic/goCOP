@@ -31,8 +31,11 @@ func TestStaDaFali(t *testing.T) {
 		want StanjeModela
 	}{
 		{0, time.Time{}, oznakaNemaSati},
-		{1200, sada.AddDate(0, -6, 0), oznakaMaloSati},
-		{9800, sada.AddDate(0, -3, 0), oznakaStara},
+		{999, sada.AddDate(0, 0, -20), oznakaMaloSati},
+		{800, sada.AddDate(-2, 0, 0), oznakaMaloSati},
+		{1000, sada.AddDate(0, 0, -20), oznakaSpremno}, // toliko traži i priprema računa
+		{9800, sada.AddDate(0, 0, -366), oznakaStara},
+		{9800, sada.AddDate(0, -6, 0), oznakaSpremno}, // izvoz iz HIS-2000 kasni pola godine
 		{18400, sada.AddDate(0, 0, -20), oznakaSpremno},
 	} {
 		if got := staDaFali(s.sati, s.kraj, sada); got != s.want {
