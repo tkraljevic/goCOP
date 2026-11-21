@@ -2,8 +2,8 @@ package prognoza
 
 // Mjera računa nove letve: ista provjera unatrag kao za glavni lanac, na privremenoj
 // bazi u kojoj su samo ovaj račun i računi uzvodno od njega. Rezultat kaže po dosegu
-// je li račun bolji nego bez modela. Promašaj koji nije izmjeren ne znači da je račun
-// dobar, nego da nije provjeren.
+// je li račun bolji nego bez modela, tj. nego kad se samo drži zadnje mjerenje. Promašaj
+// koji nije izmjeren ne znači da je račun dobar, nego da nije provjeren.
 
 import (
 	"database/sql"
@@ -18,6 +18,7 @@ type StanjeMjere string
 
 const (
 	MjeraBolje          StanjeMjere = "Bolje nego bez modela"
+	MjeraIsto           StanjeMjere = "Kao bez modela"
 	MjeraLosije         StanjeMjere = "Lošije nego bez modela"
 	MjeraNijeProvjereno StanjeMjere = "Nije provjereno"
 )
@@ -35,21 +36,31 @@ const najmanjeSlucajeva = 100
 // godineMjere je koliko se najviše mjeri unatrag, kao u zadanoj provjeri.
 const godineMjere = 3
 
-// OcijeniPromasaj kaže što promašaj na jednom dosegu znači, istim pravilom kao sivi
-// stupac na stranici prognoza. Prazan promašaj i onaj bez izmjerene vrijednosti bez
-// modela nisu provjereni, jer nema s čime usporediti.
+// istoKaoBezModela je razlika ispod koje se račun i držanje zadnjeg mjerenja ne
+// razlikuju: promašaj unutar 10 % onoga bez modela nije ni bolji ni lošiji. Mjeri se
+// na istim godinama na kojima je račun učio, pa i račun iz ulaza koji s letvom nema
+// veze ispadne nekoliko postotaka bolji.
+const istoKaoBezModela = 0.10
+
+// OcijeniMjeru kaže što promašaj na jednom dosegu znači. Račun i držanje zadnjeg
+// mjerenja uspoređuju se istom mjerom, korijenom srednjeg kvadrata promašaja na istim
+// izdanjima. Raspon iz zapisa (Promasaj.Rasap) tu ne služi: mjeri se oko srednjeg
+// promašaja, brojanjem i gladi se, pa je uz njega „Bolje” dobivao i račun koji samo
+// drži zadnje mjerenje.
 //
-// To pravilo nije pošteno: rasap se mjeri oko srednjeg promašaja i gladi, a promašaj bez
-// modela je korijen srednjeg kvadrata, pa „Bolje” dobije i račun koji samo drži zadnje
-// mjerenje. Natpis ne smije na stranicu dok se ne odluči po čemu se uspoređuje.
-func OcijeniPromasaj(p Promasaj) StanjeMjere {
-	switch {
-	case p.Slucaja < najmanjeSlucajeva || p.Postojanost <= 0:
+// Premalo izdanja, ili premalo izdanja s mjerenjem u satu izdavanja, nije provjereno,
+// jer nema s čime usporediti.
+func OcijeniMjeru(m MjeraProvjere) StanjeMjere {
+	if m.Slucaja < najmanjeSlucajeva || m.SlucajaBez < najmanjeSlucajeva {
 		return MjeraNijeProvjereno
-	case p.BoljaOdPostojanosti():
-		return MjeraBolje
 	}
-	return MjeraLosije
+	switch razlika := m.Promasaj - m.BezModela; {
+	case razlika < -istoKaoBezModela*m.BezModela:
+		return MjeraBolje
+	case razlika > istoKaoBezModela*m.BezModela:
+		return MjeraLosije
+	}
+	return MjeraIsto
 }
 
 // MjeraDosega je jedan redak rezultata probe.
@@ -57,7 +68,8 @@ type MjeraDosega struct {
 	Doseg     int
 	Pomak     float64
 	Rasap     float64
-	BezModela float64 // promašaj kad se samo drži zadnje mjerenje
+	Promasaj  float64 // korijen srednjeg kvadrata promašaja računa
+	BezModela float64 // ista mjera kad se samo drži zadnje mjerenje
 	Slucaja   int
 	Stanje    StanjeMjere
 }
@@ -99,7 +111,7 @@ func MjeriLetvu(arhiva, baza, privremena *sql.DB, z ZapisLetve, o OpcijeProvjere
 	if err != nil {
 		return MjeraRacuna{}, err
 	}
-	o.Zapisi, o.Ispravi = true, false
+	o.Zapisi, o.Ispravi, o.Mjera = true, false, MjereProvjere{}
 	o.Najdalje = min(o.Najdalje, z.Racun.Doseg)
 	if _, err := ProvjeriUnatrag(arhiva, privremena, o); err != nil {
 		return MjeraRacuna{}, err
@@ -108,7 +120,8 @@ func MjeriLetvu(arhiva, baza, privremena *sql.DB, z ZapisLetve, o OpcijeProvjere
 	if err != nil {
 		return MjeraRacuna{}, err
 	}
-	return slozenaMjera(z, svi[Izvor{Letva: z.Letva, Velicina: z.Velicina}], uzvodno, o), nil
+	iz := Izvor{Letva: z.Letva, Velicina: z.Velicina}
+	return slozenaMjera(z, svi[iz], o.Mjera[iz], uzvodno, o), nil
 }
 
 // provjeriNovuBazu odbija bazu koja već ima model. Mjera bi joj obrisala račune i
@@ -214,14 +227,14 @@ func prepisiOperatere(baza, privremena *sql.DB) error {
 	return nil
 }
 
-func slozenaMjera(z ZapisLetve, izmjereno map[int]Promasaj, uzvodno map[string]bool, o OpcijeProvjere) MjeraRacuna {
+func slozenaMjera(z ZapisLetve, izmjereno map[int]Promasaj, mjere map[int]MjeraProvjere, uzvodno map[string]bool, o OpcijeProvjere) MjeraRacuna {
 	bezDnevnog := dnevniUzvodno(uzvodno)
 	m := MjeraRacuna{Promasaji: promasajiZaZapis(izmjereno, bezDnevnog),
 		Razdoblje: []string{o.Od.Format(time.DateOnly), o.Do.Format(time.DateOnly)}}
 	for _, d := range doseziMjere(z.Racun.Doseg) {
-		p := izmjereno[d]
-		m.Dosezi = append(m.Dosezi, MjeraDosega{Doseg: d, Pomak: p.Pomak, Rasap: p.Rasap, BezModela: p.Postojanost,
-			Slucaja: p.Slucaja, Stanje: OcijeniPromasaj(p)})
+		p, mj := izmjereno[d], mjere[d]
+		m.Dosezi = append(m.Dosezi, MjeraDosega{Doseg: d, Pomak: p.Pomak, Rasap: p.Rasap, Promasaj: mj.Promasaj,
+			BezModela: mj.BezModela, Slucaja: mj.Slucaja, Stanje: OcijeniMjeru(mj)})
 	}
 	if bezDnevnog {
 		m.Natpisi = append(m.Natpisi, NatpisBezDnevnog)
