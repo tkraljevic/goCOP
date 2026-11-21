@@ -529,8 +529,8 @@ func krivuljeUArhivi(db Izvrsitelj, samo string) ([]Sirotan, error) {
 }
 
 // snimkeBezDatoteke traži snimke korita kojima u stablu nema datoteke. Sudi
-// samo o letvama koje u stablu imaju mapu: snimke letve primljene paketom,
-// bez mape u ovom stablu, ne javljaju se.
+// samo o letvama koje u stablu imaju mapu i koje nisu stigle paketom: snimke
+// letve primljene paketom ne javljaju se, ni kad letva u stablu ima mapu.
 //
 // Datoteka snimke koja se ne da pročitati ide na popis kao zaseban redak, a
 // snimke te letve iz arhive ne: ne zna se koju od njih ta datoteka drži, pa bi
@@ -604,13 +604,16 @@ func datumSnimke(put string) (string, error) {
 	return datum, err
 }
 
-// snimkeUArhivi vraća snimke korita koje arhiva ima, s brojem točaka.
+// snimkeUArhivi vraća snimke korita koje arhiva ima, s brojem točaka, bez
+// letvi koje su stigle paketom: kao ni krivulje, njihove snimke nisu nastale
+// iz ovog stabla (krivuljeUArhivi).
 func snimkeUArhivi(db *sql.DB, samo string) ([]Sirotan, error) {
 	q := `SELECT p.letva, p.datum, count(t.profil) FROM profili p
-		LEFT JOIN profil_tocke t ON t.profil = p.id`
+		LEFT JOIN profil_tocke t ON t.profil = p.id
+		WHERE NOT EXISTS (SELECT 1 FROM primljena_izdanja i WHERE i.letva = p.letva)`
 	var args []any
 	if samo != "" {
-		q += ` WHERE p.letva = ?`
+		q += ` AND p.letva = ?`
 		args = append(args, samo)
 	}
 	rows, err := db.Query(q+` GROUP BY p.id ORDER BY p.letva, p.datum`, args...)
@@ -642,10 +645,14 @@ func nadiSirotane(db *sql.DB, nizovi map[string]*niz, samo string,
 		uStablu[n.letva+"|"+n.izvor+"|"+n.velicina+"|"+n.vrsta] = true
 		letve[n.letva] = true
 	}
-	q := `SELECT letva, izvor, velicina, vrsta, zapisa FROM nizovi WHERE izvor <> 'spoj'`
+	// Niz koji je stigao paketom nije nastao iz ovog stabla, pa mu ni datoteka
+	// nije nestala; stoji onako kako ga je paket upisao, s vremenom nastanka
+	// paketa (Ugradi), sve dok ga gradnja ne izgradi iz vlastite datoteke.
+	q := `SELECT n.letva, n.izvor, n.velicina, n.vrsta, n.zapisa FROM nizovi n WHERE n.izvor <> 'spoj'
+		AND NOT EXISTS (SELECT 1 FROM primljena_izdanja p WHERE p.letva = n.letva AND n.osvjezeno <= p.primljeno)`
 	var args []any
 	if samo != "" {
-		q += ` AND letva = ?`
+		q += ` AND n.letva = ?`
 		args = append(args, samo)
 	}
 	rows, err := db.Query(q, args...)
