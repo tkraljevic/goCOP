@@ -4,7 +4,7 @@
 
 {{define "content"}}
 {{/* Raspored po dizajnu (goCOP-m3, 13 · Prognoze · Postavke): kartice M3 redom
-     Satni ili dnevni model, Model po branjenim područjima, Generiranje,
+     Satni ili dnevni model, Model prognoze, Generiranje,
      Ranija prognoza, Napomena o podacima i Priprema modela. */}}
 <a href="/prognoze" class="povratna-poveznica">← Prognoze</a>
 <div class="prog-str-glava">
@@ -48,15 +48,10 @@
   </form>
 </section>
 
-<section class="letva-ploca prog-ploca" id="podrucja">
-  <h2>Model po branjenim područjima</h2>
-  {{if .Podrucja}}
-  <p>Branjena područja s letvama u prognozi. Uređivanje modela po branjenim područjima je u izradi.</p>
-  <ul class="prog-podrucja">
-    {{range .Podrucja}}<li><span>BP {{.Broj}} · {{.Naziv}}</span><span class="prog-bp-oznaka">U izradi</span></li>
-    {{end}}
-  </ul>
-  {{else}}<p>Uređivanje modela po branjenim područjima je u izradi.</p>{{end}}
+<section class="letva-ploca prog-ploca" id="model">
+  <h2>Model prognoze</h2>
+  <p>Po sektorima: koji vodotoci imaju prognozu i što letvama fali u arhivi da bi je dobile.</p>
+  <div class="prog-postavke-gumbi"><a href="/prognoze/model" class="btn prog-obrub">Otvori model prognoze</a></div>
 </section>
 
 {{if .MozeGenerirati}}
