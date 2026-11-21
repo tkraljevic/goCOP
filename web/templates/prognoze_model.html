@@ -1,0 +1,84 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Model prognoze{{end}}
+
+{{define "content"}}
+{{/* Raspored po crtežu goCOP-m3, 13b · Prognoze · uređivanje modela,
+     „1 · Izbor vodotoka i što fali”. Slaganje računa dolazi poslije. */}}
+<a href="/prognoze/postavke" class="povratna-poveznica">← Postavke prognoze</a>
+<div class="prog-str-glava">
+  <div>
+    <h1>Model prognoze{{if .Sektor.ID}} · {{if .Sektor.Ostale}}{{.Sektor.Ime}}{{else}}Sektor {{.Sektor.ID}} — {{.Sektor.Ime}}{{end}}{{end}}</h1>
+    <p class="prog-str-podnaslov">Odaberi vodotok i pogledaj što letvama fali. Vodotok se crta na Karti, a ovdje mu se slaže model.</p>
+  </div>
+</div>
+
+{{if .Sektori}}
+<div class="prog-cipovi prog-sektori">
+  {{range .Sektori}}<a href="{{.URL}}" class="uzd-cip prog-cip"{{if .Odabran}} aria-current="true"{{end}}>{{.Naziv}}</a>
+  {{end}}
+</div>
+{{end}}
+
+<div class="mod-mreza{{if .Odabran}} ima-odabran{{end}}">
+<section class="letva-ploca prog-ploca mod-vodotoci" aria-labelledby="mod-vodotoci-naslov">
+  <h2 id="mod-vodotoci-naslov">{{if .Sektor.ID}}{{if .Sektor.Ostale}}Vodotoci letvi bez sektora{{else}}Vodotoci sektora {{.Sektor.ID}}{{end}}{{else}}Vodotoci{{end}}</h2>
+  {{if .Vodotoci}}
+  <p>Stanje svakog vodotoka s letvama. Odaberi onaj kojem želiš složiti model.</p>
+  <ul class="mod-popis">
+    {{range .Vodotoci}}{{template "mod-vodotok" .}}{{end}}
+  </ul>
+  {{if .Skriveni}}
+  <details class="mod-ostali"{{if .OtvoriSve}} open{{end}}>
+    <summary>Prikaži svih {{add (len .Vodotoci) (len .Skriveni)}} vodotoka</summary>
+    <ul class="mod-popis">
+      {{range .Skriveni}}{{template "mod-vodotok" .}}{{end}}
+    </ul>
+  </details>
+  {{end}}
+  {{else if .Sektor.ID}}
+  <p>Ovaj sektor u registru nema nijednu letvu. Letva dobiva sektor preko dionice ili u svom obrascu.</p>
+  {{else}}
+  <p>Registar nema sektora s branjenim područjima, pa se vodotoci ne mogu složiti po sektoru.</p>
+  {{end}}
+  <p class="mod-podnozje">Vodotoka nema na popisu? Ucrtaj ga na Karti ili uvezi, pa se vrati.
+    <a href="/karta">Otvori Kartu</a></p>
+</section>
+
+<section class="letva-ploca prog-ploca mod-vodotok-ploca" aria-labelledby="mod-odabran-naslov">
+  {{with .Odabran}}
+  <div class="mod-glava">
+    <div>
+      <h2 id="mod-odabran-naslov">{{.Ime}}</h2>
+      <p class="reg-card-sub">{{if $.Sektor.Ostale}}{{$.Sektor.Ime}}{{else}}Sektor {{$.Sektor.ID}}{{end}} · {{len .Letve}} {{uzBroj (len .Letve) "letva" "letve" "letvi"}}</p>
+    </div>
+    <span class="rac-cip{{with .Stanje.Klasa}} {{.}}{{end}}">{{.Stanje.Natpis}}</span>
+  </div>
+  <h3 class="mod-podnaslov">Što letvama fali</h3>
+  <p>Model uči iz satnih vodostaja u arhivi. Za jednu razinu vode treba oko 2.000 sati. Što fali, dopuni na stranici
+    Uvoz, s već izabranom letvom.</p>
+  <div class="uv-tablica mod-tablica" role="table" aria-label="Što letvama fali">
+    <div class="uv-glava mod-red" role="row"><span role="columnheader">Letva</span><span role="columnheader">Sati</span>
+      <span role="columnheader">Arhiva završava</span><span role="columnheader">Što fali</span><span role="columnheader"></span></div>
+    {{range $.Letve}}<div class="uv-redak mod-red" role="row">
+      <span role="cell">{{.Ime}}</span>
+      <span role="cell" class="mod-broj" data-naslov="Sati">{{if .Sati}}{{brojHR .Sati}}{{else}}—{{end}}</span>
+      <span role="cell" data-naslov="Arhiva završava">{{if .Kraj}}{{.Kraj}}{{else}}—{{end}}</span>
+      <span role="cell"><span class="rac-cip{{with .Fali.Klasa}} {{.}}{{end}}">{{.Fali.Natpis}}</span></span>
+      <span role="cell" class="mod-poveznice">{{if .Kartica}}<a href="{{.Kartica}}">Kartica</a>{{end}}{{if and .Kartica $.Permissions}}{{if $.Permissions.IsGlobalAdmin}} · {{end}}{{end}}{{if $.Permissions}}{{if $.Permissions.IsGlobalAdmin}}<a href="{{.Uvoz}}">Uvoz</a>{{end}}{{end}}</span>
+    </div>
+    {{end}}
+  </div>
+  <p class="mod-podnozje">Letva s malo sati može računati i s ručno upisanim vremenom, ali tada nosi natpis
+    „Račun nije provjeren”. Slaganje modela na ovoj stranici je u izradi.</p>
+  {{else}}
+  <h2 id="mod-odabran-naslov">Odaberi vodotok</h2>
+  <p>{{if .Vodotoci}}Odaberi vodotok s popisa, pa se ovdje vidi što njegovim letvama fali za model.{{else}}Kad sektor dobije letve, ovdje se vidi što im fali za model.{{end}}</p>
+  {{end}}
+</section>
+</div>
+{{end}}
+
+{{define "mod-vodotok"}}<li><a href="{{.URL}}" class="mod-vodotok"{{if .Odabran}} aria-current="true"{{end}}>
+  <span>{{.Ime}}</span><span class="rac-cip{{with .Stanje.Klasa}} {{.}}{{end}}">{{.Stanje.Natpis}}</span></a></li>
+{{end}}

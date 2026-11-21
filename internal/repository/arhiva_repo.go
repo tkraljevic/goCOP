@@ -977,6 +977,22 @@ func (r *ArhivaRepository) SpojOtisak(ctx context.Context, letva, velicina strin
 	return n, time.Unix(zadnje.Int64, 0).UTC()
 }
 
+// SatniVodostaj vraća koliko sati ima spojeni satni vodostaj letve i kad je
+// zadnji. Iz njega model prognoze uči, pa stranica „Model prognoze” po tome
+// kaže što letvi fali. Sat s više očitanja broji se jednom.
+func (r *ArhivaRepository) SatniVodostaj(ctx context.Context, letva string) (int, time.Time) {
+	if r == nil {
+		return 0, time.Time{}
+	}
+	var n int
+	var zadnje sql.NullInt64
+	if err := r.db.QueryRowContext(ctx, `SELECT COUNT(DISTINCT vrijeme / 3600), MAX(vrijeme) FROM spoj
+		WHERE letva = ? AND velicina = 'vodostaj' AND korak = 'satni'`, letva).Scan(&n, &zadnje); err != nil || !zadnje.Valid {
+		return 0, time.Time{}
+	}
+	return n, time.Unix(zadnje.Int64, 0).UTC()
+}
+
 // StanjeLetve je kratak opis onoga što arhiva o letvi već drži — koliko
 // nizova i zapisa, i koje razdoblje. Služi da se prije ugradnje vidi što
 // odlazi, jer izdanje zamjenjuje sve.

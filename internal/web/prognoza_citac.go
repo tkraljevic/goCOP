@@ -261,6 +261,19 @@ func (c *CitacPrognoza) Namjesteno() (map[string][]prognoza.Pojas, map[prognoza.
 	return pojasi, promasaji
 }
 
+// ZapisiModela su zapisi modela po letvi (model_letve); nil kad baze nema ili
+// se ne čita. Pokvaren redak se izostavlja.
+func (c *CitacPrognoza) ZapisiModela() map[string]prognoza.ZapisLetve {
+	if c == nil || c.db == nil {
+		return nil
+	}
+	z, _, err := prognoza.ZapisiLetvi(c.db)
+	if err != nil {
+		return nil
+	}
+	return z
+}
+
 // Izbor vraća letve koje su u zadanom izdanju računate iz rezerve.
 func (c *CitacPrognoza) Izbor(izdano time.Time) map[string]prognoza.Izbor {
 	if c == nil || c.db == nil {

@@ -302,6 +302,15 @@ func TestArhivaSpojeniNiz(t *testing.T) {
 	if n, zadnje := r.SpojOtisak(ctx, "ilok", "vodostaj"); n != 0 || !zadnje.IsZero() {
 		t.Errorf("otisak bez niza: %d, %v", n, zadnje)
 	}
+	if n, zadnje := r.SatniVodostaj(ctx, "batina"); n != 6 || !zadnje.Equal(time.Unix(satArhive(2022, 2, 1, 0), 0)) {
+		t.Errorf("satni vodostaj: %d, %v", n, zadnje)
+	}
+	if n, zadnje := r.SatniVodostaj(ctx, "ilok"); n != 0 || !zadnje.IsZero() {
+		t.Errorf("satni vodostaj bez niza: %d, %v", n, zadnje)
+	}
+	if n, zadnje := (*ArhivaRepository)(nil).SatniVodostaj(ctx, "batina"); n != 0 || !zadnje.IsZero() {
+		t.Errorf("satni vodostaj bez arhive: %d, %v", n, zadnje)
+	}
 
 	v, kad, ok := r.NajviseIzmjereno(ctx, "batina")
 	if !ok || v != 420 || !kad.Equal(time.Unix(satArhive(2020, 6, 3, 10), 0)) {
@@ -526,6 +535,9 @@ func TestStarijaArhiva(t *testing.T) {
 	}
 	if n, kad := r.SpojOtisak(ctx, "osijek", "vodostaj"); n != 0 || !kad.IsZero() {
 		t.Errorf("otisak bez spoja: %d %v", n, kad)
+	}
+	if n, kad := r.SatniVodostaj(ctx, "osijek"); n != 0 || !kad.IsZero() {
+		t.Errorf("satni vodostaj bez spoja: %d %v", n, kad)
 	}
 	if _, _, ok := r.NajviseIzmjereno(ctx, "osijek"); ok {
 		t.Error("najviše izmjereno bez spoja")

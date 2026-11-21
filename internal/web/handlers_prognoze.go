@@ -56,6 +56,7 @@ type PrognozeHandler struct {
 
 	metodaTmpl   *template.Template // stranica „O prognozi”
 	postavkeTmpl *template.Template // stranica „Postavke prognoze”
+	modelTmpl    *template.Template // stranica „Model prognoze”
 
 	pricuvno func(ctx context.Context) (prognoza.PricuvniPodaci, bool) // pričuvni Excel
 
@@ -403,10 +404,6 @@ type PrognozePageData struct {
 	Generira        bool   // krug upravo traje
 	ZadnjiKrug      string // kad je zadnji krug prošao i što je donio
 	Napredak        javnivodostaji.Napredak
-
-	// Podrucja su branjena područja s letvama iz zadnjeg izdanja, za
-	// karticu „Model po branjenim područjima” na postavkama (samo čitanje).
-	Podrucja []PodrucjeModela
 }
 
 // TablicaPrognoza je jedna voda na pregledu, letve od uzvodne prema nizvodnoj.
@@ -437,9 +434,7 @@ func (h *PrognozeHandler) ShowPostavke(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/prognoze", http.StatusSeeOther)
 		return
 	}
-	var letve []PregledLetve
-	data.Izdano, letve = h.zadnjeIzdanje()
-	data.Podrucja = h.podrucjaPrognoze(r.Context(), letve)
+	data.Izdano, _ = h.zadnjeIzdanje()
 	data.Opcije = h.nacini(r.Context())
 	data.SmijeMijenjati = h.izmijeniOpcije != nil && data.Permissions != nil && data.Permissions.IsGlobalAdmin
 	if data.SmijeNapomenu {

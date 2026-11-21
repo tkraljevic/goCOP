@@ -5463,12 +5463,37 @@ details.letva-ploca.prog-sklop { padding-left: 20px; }
 .prog-postavke-polje select { width: 520px; max-width: 100%; min-height: 48px; padding: 10px 12px 10px 16px; font-size: 1rem; }
 .prog-postavke-gumbi { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 0; }
 .prog-postavke-gumbi .reg-card-sub, .prog-postavke-gumbi p { margin: 0; }
-.prog-podrucja { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.prog-podrucja li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px;
-  min-height: 48px; padding: 8px 16px; border-radius: 8px; font-size: 0.875rem;
-  background: var(--md-sys-color-surface, var(--surface)); color: var(--md-sys-color-on-surface, var(--text)); }
-.prog-bp-oznaka { display: inline-flex; align-items: center; height: 24px; padding: 0 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 500;
-  border: 1px solid var(--md-sys-color-outline-variant, var(--border)); color: var(--md-sys-color-on-surface-variant, var(--text-secondary)); }
+/* Model prognoze po crtežu 13b · 1 · Izbor vodotoka i što fali */
+.mod-mreza { display: grid; grid-template-columns: minmax(0, 380px) minmax(0, 1fr); gap: 16px; align-items: start; margin-top: 16px; }
+.mod-popis { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.mod-popis > li { display: block; width: 100%; }
+.mod-vodotok { display: flex; width: 100%; box-sizing: border-box; align-items: center; justify-content: space-between; gap: 8px 12px;
+  min-height: 40px; padding: 6px 12px; border-radius: 8px; background: var(--md-sys-color-surface); color: var(--md-sys-color-on-surface);
+  font-size: 0.875rem; text-decoration: none; }
+.mod-vodotok .rac-cip { flex: none; }
+.mod-vodotok:hover, .mod-vodotok[aria-current="true"] { background: var(--md-sys-color-surface-container-highest, var(--md-sys-color-surface)); }
+.mod-vodotok[aria-current="true"] { color: var(--md-sys-color-primary); }
+.mod-ostali > summary { padding: 4px 0; color: var(--md-sys-color-primary); font-size: 0.875rem; cursor: pointer; }
+.mod-ostali[open] > summary { margin-bottom: 6px; }
+.mod-poveznice a, .mod-podnozje a { color: var(--md-sys-color-primary); text-decoration: none; }
+.mod-poveznice a:hover, .mod-podnozje a:hover { text-decoration: underline; }
+.mod-podnozje { padding-top: 8px; border-top: 1px solid var(--md-sys-color-outline-variant); }
+.mod-glava { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px 12px; }
+.mod-glava .reg-card-sub { margin: 2px 0 0; }
+.mod-podnaslov { margin: 8px 0 0; font-size: 1rem; font-weight: 400; }
+.mod-tablica .mod-red { grid-template-columns: minmax(0, 1.3fr) 80px 120px minmax(0, 1.4fr) minmax(0, 1fr); }
+.mod-broj { font-variant-numeric: tabular-nums; }
+.mod-poveznice { text-align: right; }
+@media (max-width: 900px) {
+  .mod-mreza { grid-template-columns: minmax(0, 1fr); }
+  .mod-mreza.ima-odabran .mod-vodotok-ploca { order: -1; }
+}
+@media (max-width: 600px) {
+  .mod-tablica .uv-glava { display: none; }
+  .mod-tablica .mod-red { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 8px 12px; }
+  .mod-tablica .mod-red > [data-naslov]::before { content: attr(data-naslov) ": "; color: var(--md-sys-color-on-surface-variant); }
+  .mod-poveznice { text-align: left; }
+}
 .prog-generiraj-red { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
 .prog-generiraj-obrazac { margin: 0; }
 .prog-napredak { flex: 1 1 16rem; min-width: 0; }
