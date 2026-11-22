@@ -255,3 +255,18 @@ func TestProvjeraDnevnogZapisa(t *testing.T) {
 		t.Error("neispravan zapis se ne smije spremiti")
 	}
 }
+
+// Stranica prognoza čita satne brojeve letvi iz zapisa. Zapis s dnevnim modelom
+// ih nema, pa ga taj prikaz mora preskočiti, a ne pasti na njemu.
+func TestPrikazOdvojenihPreskaceDnevni(t *testing.T) {
+	baza := otvoriProbnu(t, "p.db")
+	upisiZapis(t, baza, dnevniZapis(t, "donja", []string{"gornja"}, nil))
+	if p := OdvojeniZaPrikaz(baza); len(p.Pojasi)+len(p.Promasaji)+len(p.Vrhovi) != 0 {
+		t.Errorf("prikaz samo s dnevnim zapisom: %+v", p)
+	}
+	upisiZapis(t, baza, zapisPotoka("potok-dole", "potok-vrh", 2))
+	p := OdvojeniZaPrikaz(baza)
+	if len(p.Pojasi) != 1 || p.Pojasi["potok-dole"] == nil || !p.Vrhovi["potok-vrh"] {
+		t.Errorf("prikaz uz satni i dnevni zapis: %+v", p)
+	}
+}

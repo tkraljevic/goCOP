@@ -799,6 +799,9 @@ type PrikazOdvojenih struct {
 func OdvojeniZaPrikaz(db *sql.DB) PrikazOdvojenih {
 	p := PrikazOdvojenih{Pojasi: map[string][]Pojas{}, Promasaji: map[Izvor]map[int]Promasaj{}, Vrhovi: map[string]bool{}}
 	zapisi, pokvareni, err := ZapisiLetvi(db)
+	// Letva s dnevnim modelom nema satni račun ni njegove brojeve; na stranici
+	// stoji po dnevnim vrijednostima izdanja.
+	maps.DeleteFunc(zapisi, func(_ string, z ZapisLetve) bool { return z.Metoda == MetodaDnevni })
 	if err != nil || len(zapisi) == 0 {
 		return p
 	}
