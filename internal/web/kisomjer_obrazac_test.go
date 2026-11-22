@@ -84,3 +84,31 @@ func TestObrazacKisomjeraVracaIsteBrojeve(t *testing.T) {
 		}
 	}
 }
+
+// Izbor letve vidi se samo uz stvarni kišomjer, s izabranom letvom, i vraća
+// se nepromijenjen iz obrasca.
+func TestObrazacKisomjeraUzLetvu(t *testing.T) {
+	d := SlivoviPageData{
+		CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Tocka: models.Kisomjer{Code: "kis-proba", Naziv: "Proba", Vrsta: models.KisomjerStvarni, Letva: "lipa"},
+		Letve: []models.Station{{Code: "brod", Name: "Brodski"}, {Code: "lipa", Name: "Lipovac"}},
+	}
+	html := iscrtaj(t, "kisomjer_form.html", d)
+	for _, want := range []string{`<select class="form-control" id="letva" name="letva">`, `<option value="lipa" selected>Lipovac</option>`,
+		`<option value="brod">Brodski</option>`, "— ne stoji uz letvu —"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("obrazac nema %q", want)
+		}
+	}
+	d.Tocka.Vrsta = models.KisomjerIzvedeni
+	if strings.Contains(iscrtaj(t, "kisomjer_form.html", d), `name="letva"`) {
+		t.Error("izvedena točka ima izbor letve")
+	}
+
+	r := httptest.NewRequest("POST", "/api/slivovi/kisomjer/update", strings.NewReader(url.Values{"letva": {"lipa"}}.Encode()))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	k, err := kisomjerIzZahtjeva(r)
+	if err != nil || k.Letva != "lipa" {
+		t.Fatalf("iz obrasca = %+v, %v", k, err)
+	}
+}

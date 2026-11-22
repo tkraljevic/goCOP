@@ -99,6 +99,7 @@ type SlivoviPageData struct {
 	// obrazac
 	Tocka   models.Kisomjer
 	Slivovi []models.Sliv
+	Letve   []models.Station // za izbor letve uz koju stvarni kišomjer stoji
 	IsEdit  bool
 }
 
@@ -251,6 +252,16 @@ func (h *SlivoviHandler) imenaLetvi(r *http.Request) map[string]string {
 	return out
 }
 
+// sveLetve je popis letvi za izbor u obrascu kišomjera; bez popisa izbor
+// ostaje prazan.
+func (h *SlivoviHandler) sveLetve(r *http.Request) []models.Station {
+	if h.stations == nil {
+		return nil
+	}
+	letve, _ := h.stations.ListStations(r.Context(), "", "", "", false) // greška = prazan izbor, obrazac i dalje radi
+	return letve
+}
+
 // vrstaZaKartu: zapis bez vrste je izvedena točka
 func vrstaZaKartu(t models.Kisomjer) string {
 	if t.JeStvarni() {
@@ -377,6 +388,7 @@ func (h *SlivoviHandler) ShowKisomjerForm(w http.ResponseWriter, r *http.Request
 		return
 	}
 	data.Slivovi, _ = svc.ListSlivovi(r.Context())
+	data.Letve = h.sveLetve(r)
 	data.Tocka.Aktivan = true
 	if code := r.PathValue("code"); code != "" {
 		t, err := svc.GetKisomjer(r.Context(), code)
@@ -424,6 +436,7 @@ func kisomjerIzZahtjeva(r *http.Request) (*models.Kisomjer, error) {
 	k.Izvor = r.FormValue("izvor")
 	k.IzvorSifra = r.FormValue("izvor_sifra")
 	k.Korak = r.FormValue("korak")
+	k.Letva = r.FormValue("letva")
 	k.Aktivan = r.FormValue("aktivan") != "" && r.FormValue("aktivan") != "0"
 	broj := func(ime string) (float64, bool, error) {
 		v := strings.TrimSpace(strings.ReplaceAll(r.FormValue(ime), ",", "."))

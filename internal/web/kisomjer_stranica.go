@@ -95,6 +95,7 @@ type KisomjerStranica struct {
 
 	Tocka         models.Kisomjer
 	SlivNaziv     string
+	LetvaNaziv    string // ime letve uz koju kišomjer stoji
 	Stranica      string // ocitanja | historijat
 	Procjena      bool   // izvedena točka: brojke su model, ne mjerenje
 	UPrognozi     bool   // dnevni model čita kišu ove točke
@@ -175,6 +176,7 @@ func (h *KisomjerStranicaHandler) podaci(w http.ResponseWriter, r *http.Request)
 	if p.UPrognozi {
 		p.PrognozaLetve = strings.Join(slivovi[t.Sliv], ", ")
 	}
+	p.LetvaNaziv = svc.ImeLetve(ctx, t.Letva)
 	if t.Sliv != "" {
 		if sl, err := svc.ListSlivovi(ctx); err == nil {
 			for _, s := range sl {
