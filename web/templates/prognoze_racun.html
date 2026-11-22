@@ -4,7 +4,7 @@
 
 {{define "content"}}
 {{/* Raspored po crtežu goCOP-m3, 13b · Prognoze · uređivanje modela,
-     „2 · Slaganje računa”. Priprema, proba i Primijeni dolaze poslije. */}}
+     „2 · Slaganje računa”. Proba i Primijeni dolaze poslije. */}}
 <a href="{{.Natrag}}" class="povratna-poveznica">← Model prognoze · {{if .Sektor.Ostale}}{{.Sektor.Ime}}{{else}}Sektor {{.Sektor.ID}}{{end}}</a>
 <div class="prog-str-glava">
   <div>
@@ -85,17 +85,47 @@
       <div class="form-group">
         <label class="form-label" for="rac-razine">Granice između razina</label>
         <input type="text" id="rac-razine" name="razine" class="form-control" value="{{.Razine}}" placeholder="npr. 40, 90, 150" autocomplete="off" inputmode="decimal">
-        <div class="form-help">Brojevi odvojeni zarezom, od najniže prema najvišoj. Tri granice daju četiri razine. Uz zadane razine polje ostaje prazno, a program ih sam složi po broju sati u arhivi.</div>
+        <div class="form-help">Razine se mjere na ulazu: granice su vodostaj ili protok ulazne letve, ili postotak njezinih sati u arhivi. Brojevi odvojeni zarezom, od najniže prema najvišoj. Tri granice daju četiri razine. Uz zadane razine polje ostaje prazno, a program ih sam složi po broju sati u arhivi.</div>
       </div>
     </fieldset>
+
+    {{if .Redci}}
+    <fieldset class="rac-skupina"{{if not $.SmijeUrediti}} disabled{{end}}>
+      <legend class="mod-podnaslov">Razine i vrijeme propagacije</legend>
+      <input type="hidden" name="razina" value="{{len .Redci}}">
+      <div class="uv-tablica mod-tablica rac-tablica" role="table" aria-label="Razine i vrijeme propagacije">
+        <div class="uv-glava mod-red rac-red" role="row"><span role="columnheader">Razina (voda na ulazu)</span><span role="columnheader">Kašnjenje</span>
+          <span role="columnheader">Ručno (h)</span><span role="columnheader">Prozor</span><span role="columnheader">Slaganje (R)</span>
+          <span role="columnheader">Sati</span><span role="columnheader">Računa</span></div>
+        {{range $i, $r := .Redci}}<div class="uv-redak mod-red rac-red" role="row">
+          <span role="cell">{{$r.Broj}}. {{$r.Granica}}</span>
+          {{if $r.BezRacuna}}<span role="cell" class="rac-bez">Nema račun: premalo sati. Računa susjedna razina.</span>
+          {{else}}
+          <span role="cell" class="mod-broj" data-naslov="Kašnjenje">{{$r.Kasnjenje}}</span>
+          <span role="cell" data-naslov="Ručno (h)"><input type="number" name="rucno_{{$i}}" value="{{$r.Rucno}}" min="0" max="240" step="1" class="form-control rac-rucno" aria-label="Ručno kašnjenje razine {{$r.Broj}} u satima" placeholder="—"></span>
+          <span role="cell" class="mod-broj" data-naslov="Prozor">{{$r.Prozor}}</span>
+          <span role="cell" class="mod-broj" data-naslov="Slaganje (R)">{{$r.Slaganje}}</span>
+          <span role="cell" class="mod-broj" data-naslov="Sati">{{brojHR $r.Sati}}</span>
+          <span role="cell" data-naslov="Računa"><input type="hidden" name="ima_racun_{{$i}}" value="1"><input type="checkbox" name="racuna" value="{{$i}}"{{if $r.Racuna}} checked{{end}} aria-label="Razina {{$r.Broj}} računa"></span>
+          {{end}}
+        </div>
+        {{end}}
+      </div>
+      <div class="form-help">Razina je voda na ulazu, a uz dva ulaza na prvom. Kašnjenje je vrijeme za koje voda stigne od ulaza, a namjestila ga je priprema. Ručno upisani sati vrijede umjesto njega; prazno polje ostavlja namješteno. Prozor kaže koliko se sati ulaza uzima u prosjek. Slaganje (R) kaže koliko se račun poklapa s izmjerenim; 1 znači potpuno. Razina bez kvačice ne izdaje prognozu.{{if .Doseg}} Račun računa do {{.Doseg}} h unaprijed.{{end}}</div>
+      {{if .Ucenje}}<div class="form-help">{{.Ucenje}}{{if .Pripremljen}} Pripremljeno {{.Pripremljen}}.{{end}}</div>{{end}}
+      {{range .Napomene}}<div class="form-help rac-napomena">{{.}}</div>{{end}}
+    </fieldset>
+    {{end}}
 
     {{if $.SmijeUrediti}}
     <div class="rac-gumbi">
       <button type="submit" name="radnja" value="spremi" class="btn btn-primary">Spremi nacrt</button>
+      <button type="submit" name="radnja" value="pripremi" class="btn prog-obrub">{{if .Pripremljen}}Pripremi ponovno{{else}}Pripremi{{end}}</button>
       {{if .Kad}}<button type="submit" name="radnja" value="odbaci" class="btn btn-link" formnovalidate>Odbaci nacrt</button>{{end}}
     </div>
+    <p>Pripremi sprema nacrt i iz arhive namjesti kašnjenje po razinama; traje do nekoliko sekundi po letvi. Kad promijeniš račun, pripremi ga ponovno.</p>
     {{end}}
-    <p class="mod-podnozje">Nacrt ostaje na ovom računalu. Priprema modela, proba i Primijeni na ovoj stranici su u izradi.</p>
+    <p class="mod-podnozje">Nacrt ostaje na ovom računalu i prognozu ne mijenja. Proba i Primijeni na ovoj stranici su u izradi.</p>
   </form>
   {{end}}
   {{else}}

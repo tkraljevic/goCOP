@@ -8,6 +8,7 @@ package prognoza
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 )
 
@@ -17,6 +18,17 @@ type NacrtLetve struct {
 	Zapis ZapisLetve `json:"zapis"`
 	Tko   string     `json:"tko"`
 	Kad   string     `json:"kad"`
+	// Priprema je ono što je priprema dala za ovu definiciju; brojevi i doseg su
+	// tada u zapisu. Nema je dok se nacrt ne pripremi i čim se definicija promijeni.
+	Priprema *PripremaNacrta `json:"priprema,omitempty"`
+}
+
+// PripremaNacrta je ishod pripreme uz nacrt, koliko ga stranica pokazuje.
+type PripremaNacrta struct {
+	Kad      string       `json:"kad"`
+	Cvorovi  []float64    `json:"cvorovi"`
+	Ucenje   UcenjeRacuna `json:"ucenje"`
+	Napomene []string     `json:"napomene"`
 }
 
 // ProvjeriNacrt gleda sve što se o definiciji zna prije pripreme, istim provjerama
@@ -29,11 +41,57 @@ func ProvjeriNacrt(baza *sql.DB, z ZapisLetve, o OkvirModela) error {
 	return z.provjeriPrijePripreme(o)
 }
 
-// SpremiNacrt provjeri definiciju i upiše nacrt letve umjesto zatečenog.
+// SpremiNacrt provjeri definiciju i upiše nacrt letve umjesto zatečenog. Ono što
+// je priprema dala ostaje dok se definicija ne promijeni; promijenjenu treba
+// pripremiti iznova.
 func SpremiNacrt(baza *sql.DB, n NacrtLetve, o OkvirModela) error {
 	if err := ProvjeriNacrt(baza, n.Zapis, o); err != nil {
 		return err
 	}
+	stari, err := Nacrti(baza)
+	if err != nil {
+		return err
+	}
+	n.Zapis.Racun.Doseg, n.Zapis.Brojevi, n.Priprema = 0, BrojeviLetve{}, nil
+	if s, ima := stari[n.Zapis.Letva]; ima && s.Priprema != nil && istaDefinicija(s.Zapis, n.Zapis) {
+		n.Zapis.Racun.Doseg, n.Zapis.Brojevi, n.Priprema = s.Zapis.Racun.Doseg, s.Zapis.Brojevi, s.Priprema
+	}
+	return upisiNacrt(baza, n)
+}
+
+// istaDefinicija javlja slažu li se dva zapisa u onome što stručnjak slaže:
+// veličini, ulazima, rezervama, razinama i ručnim vrijednostima. Doseg i brojeve
+// daje priprema, pa se ne gledaju.
+func istaDefinicija(a, b ZapisLetve) bool {
+	a.Racun.Doseg, b.Racun.Doseg = 0, 0
+	ja, errA := json.Marshal(a.Racun)
+	jb, errB := json.Marshal(b.Racun)
+	return errA == nil && errB == nil && a.Velicina == b.Velicina && a.Metoda == b.Metoda && string(ja) == string(jb)
+}
+
+// PripremiNacrt namjesti račun iz nacrta letve i upiše u isti nacrt što je
+// priprema dala. Model i prognoza se ne mijenjaju. kad je vrijeme za prikaz.
+func PripremiNacrt(arhiva, baza *sql.DB, letva, kad string, o OkvirModela) (NacrtLetve, error) {
+	nacrti, err := Nacrti(baza)
+	if err != nil {
+		return NacrtLetve{}, err
+	}
+	n, ima := nacrti[letva]
+	if !ima {
+		return NacrtLetve{}, errors.New("letva nema nacrt; složi račun i spremi ga, pa pripremi")
+	}
+	z := n.Zapis
+	z.Racun.Doseg, z.Brojevi = 0, BrojeviLetve{}
+	p, err := PripremiLetvu(arhiva, baza, z, o)
+	if err != nil {
+		return NacrtLetve{}, err
+	}
+	n.Zapis = p.Zapis
+	n.Priprema = &PripremaNacrta{Kad: kad, Cvorovi: p.Cvorovi, Ucenje: p.Ucenje, Napomene: p.Napomene}
+	return n, upisiNacrt(baza, n)
+}
+
+func upisiNacrt(baza *sql.DB, n NacrtLetve) error {
 	sadrzaj, err := json.Marshal(n)
 	if err != nil {
 		return fmt.Errorf("%s: nacrt modela: %w", n.Zapis.Letva, err)

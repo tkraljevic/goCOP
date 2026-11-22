@@ -5,8 +5,9 @@ package web
 // redom i, za odabranu, njezin račun: vodostaj ili protok, ulazi, rezerve i
 // razine vode. Što je složeno vide svi prijavljeni. Nacrt sprema i odbacuje
 // globalni administrator, svojim očima, na računalu koje izdaje prognozu.
-// Nacrt ostaje na tom računalu i prognozu ne mijenja; priprema, proba i
-// Primijeni dolaze poslije.
+// Nacrt ostaje na tom računalu i prognozu ne mijenja. Pripremi namjesti račun
+// iz arhive kao posao i u nacrt upiše brojeve po razini; uz razinu se zatim
+// upisuje ručno kašnjenje ili se razina isključi. Proba i Primijeni dolaze poslije.
 
 import (
 	"errors"
@@ -20,6 +21,7 @@ import (
 	"time"
 
 	"gocop/internal/models"
+	"gocop/internal/poslovi"
 	"gocop/internal/prognoza"
 )
 
@@ -30,6 +32,8 @@ type UrednikModela interface {
 	Izdaje() bool
 	SpremiNacrt(n prognoza.NacrtLetve) error
 	ObrisiNacrt(letva string) error
+	// PripremiNacrt namjesti račun iz spremljenog nacrta; traje, pa ide kao posao.
+	PripremiNacrt(letva string, p *poslovi.Posao) error
 }
 
 // Načini zadavanja razina u obrascu.
@@ -83,8 +87,28 @@ type ObrazacRacuna struct {
 	NacinRazina string
 	Razine      string // granice između razina, odvojene zarezom
 	Tko, Kad    string // tko je i kad spremio nacrt
+	// Pripremljen je kad je priprema dala brojeve; prazno dok nacrt nije pripremljen.
+	Pripremljen string
+	Doseg       int
+	Ucenje      string
+	Napomene    []string
+	Redci       []RazinaRacuna
 	// Zakljucano kaže zašto se račun ove letve ovdje ne slaže; prazno kad se slaže.
 	Zakljucano string
+}
+
+// RazinaRacuna je redak tablice razina: što je priprema dala i što se uz razinu
+// upisuje ručno.
+type RazinaRacuna struct {
+	Broj      int    // redni broj razine, od 1
+	Granica   string // „do 40”, „40–90”, „iznad 150”
+	Kasnjenje string // po ulazu, npr. „9 h + 30 h”
+	Rucno     string // ručno upisano kašnjenje, prazno kad ga nema
+	Prozor    string
+	Slaganje  string
+	Sati      int
+	Racuna    bool // razina izdaje prognozu
+	BezRacuna bool // priprema joj nije dala račun: premalo sati
 }
 
 // RacunPrognozePageData je stranica „Slaganje računa”.
@@ -265,12 +289,18 @@ func (rm racuniModela) obrazac(kod, ime string) ObrazacRacuna {
 		o.Zakljucano = porukaULancu
 		return o
 	}
+	var cvorovi []float64
 	if n, ima := rm.nacrti[kod]; ima {
 		o.Tko, o.Kad = n.Tko, n.Kad
+		if p := n.Priprema; p != nil {
+			o.Pripremljen, o.Napomene, cvorovi = p.Kad, p.Napomene, p.Cvorovi
+			o.Ucenje = opisUcenja(p.Ucenje, z.Velicina)
+		}
 	}
 	if len(z.Racun.Ulazi) == 0 {
 		return o
 	}
+	o.Doseg, o.Redci = z.Racun.Doseg, razineRacuna(z, cvorovi)
 	o.Velicina = z.Velicina
 	copy(o.Ulazi, z.Racun.Ulazi)
 	for i, r := range z.Racun.Rezerve {
@@ -280,6 +310,94 @@ func (rm racuniModela) obrazac(kod, ime string) ObrazacRacuna {
 	}
 	o.NacinRazina, o.Razine = razineUObrascu(z.Racun.Razine)
 	return o
+}
+
+// jedinicaRacuna je jedinica veličine u kojoj račun radi.
+func jedinicaRacuna(velicina string) string {
+	if velicina == "protok" {
+		return "m³/s"
+	}
+	return "cm"
+}
+
+// opisUcenja kaže na kojoj je vodi i na koliko sati račun učio.
+func opisUcenja(u prognoza.UcenjeRacuna, velicina string) string {
+	if u.Sati == 0 {
+		return ""
+	}
+	return fmt.Sprintf("Račun je učio na %s sati, na vodi od %.0f do %.0f %s.", brojHR(u.Sati), u.Od, u.Do, jedinicaRacuna(velicina))
+}
+
+// razineRacuna slaže tablicu razina iz glavne inačice računa. Razine se mjere
+// na prvom ulazu, pa su i granice u njegovoj vodi. Granice daje priprema; kad ih
+// nema (primijenjeni model, ručni račun), razine su sami pojasi. Razina bez
+// pojasa nije dobila račun.
+func razineRacuna(z prognoza.ZapisLetve, cvorovi []float64) []RazinaRacuna {
+	if len(z.Brojevi.Inacice) == 0 {
+		return nil
+	}
+	glavna := z.Brojevi.Inacice[0]
+	if len(cvorovi) < 2 {
+		cvorovi = nil
+		for _, p := range glavna {
+			cvorovi = append(cvorovi, p.Od)
+		}
+		if len(glavna) > 0 {
+			cvorovi = append(cvorovi, glavna[len(glavna)-1].Do)
+		}
+	}
+	rucno := map[int]int{}
+	for _, k := range z.Racun.Rucno.Kasnjenje {
+		rucno[k.Razina] = k.Sati
+	}
+	jedinica := jedinicaRacuna(velicinaUlaza(glavna, z.Velicina))
+	var out []RazinaRacuna
+	for i := 0; i+1 < len(cvorovi); i++ {
+		r := RazinaRacuna{Broj: i + 1, Granica: granicaRazine(cvorovi, i, jedinica), BezRacuna: true}
+		if sati, ima := rucno[i]; ima {
+			r.Rucno = strconv.Itoa(sati)
+		}
+		if j := slices.IndexFunc(glavna, func(p prognoza.Pojas) bool { return p.Od == cvorovi[i] }); j >= 0 {
+			popuniRazinu(&r, glavna[j])
+		}
+		out = append(out, r)
+	}
+	return out
+}
+
+// velicinaUlaza je veličina u kojoj se vodi prvi ulaz; kad pojasa nema, veličina
+// računa.
+func velicinaUlaza(glavna []prognoza.Pojas, velicina string) string {
+	if len(glavna) > 0 && len(glavna[0].Ulazi) > 0 && glavna[0].Ulazi[0].Velicina != "" {
+		return glavna[0].Ulazi[0].Velicina
+	}
+	return velicina
+}
+
+// popuniRazinu upisuje u redak ono što je priprema namjestila za pojas.
+func popuniRazinu(r *RazinaRacuna, p prognoza.Pojas) {
+	var kasnjenja, prozori []string
+	for _, u := range p.Ulazi {
+		kasnjenja = append(kasnjenja, strconv.Itoa(u.PomakH)+" h")
+		prozori = append(prozori, strconv.Itoa(u.Sirina)+" h")
+	}
+	r.BezRacuna, r.Racuna, r.Sati = false, !p.Nepovezan, p.Sati
+	r.Kasnjenje, r.Prozor = strings.Join(kasnjenja, " + "), strings.Join(prozori, " + ")
+	r.Slaganje = strings.Replace(strconv.FormatFloat(p.R, 'f', 2, 64), ".", ",", 1)
+}
+
+// granicaRazine je natpis granica razine i: najniža je „do”, najviša „iznad”.
+func granicaRazine(cvorovi []float64, i int, jedinica string) string {
+	od, do := strconv.FormatFloat(cvorovi[i], 'f', 0, 64), strconv.FormatFloat(cvorovi[i+1], 'f', 0, 64)
+	switch {
+	case len(cvorovi) == 2:
+		return "sva voda"
+	case i == 0:
+		return "do " + do + " " + jedinica
+	case i+2 == len(cvorovi):
+		return "iznad " + od + " " + jedinica
+	}
+	return od + "–" + do + " " + jedinica
 }
 
 // razineUObrascu su način i granice kako ih obrazac pokazuje. Postoci u zapisu
@@ -356,7 +474,29 @@ func (h *PrognozeHandler) SpremiRacun(w http.ResponseWriter, r *http.Request) {
 		redirectWith(w, r, natrag, "error", velikoPrvo(err.Error())+".")
 		return
 	}
+	if r.PostForm.Get("radnja") == "pripremi" && h.poslovi != nil && h.tmplPosao != nil {
+		h.pokreniPripremuNacrta(w, r, letva, natrag)
+		return
+	}
 	redirectWith(w, r, natrag, "success", poruka)
+}
+
+// pokreniPripremuNacrta pokreće pripremu upravo spremljenog nacrta kao posao i
+// pokazuje stranicu koja ga prati; kad završi, vraća na račun letve.
+func (h *PrognozeHandler) pokreniPripremuNacrta(w http.ResponseWriter, r *http.Request, letva, natrag string) {
+	u, _ := r.Context().Value(contextKeyUser).(*models.User)
+	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
+	korisnik := ""
+	if u != nil {
+		korisnik = u.ID.String()
+	}
+	p := h.poslovi.Pokreni("Priprema računa: "+imeLetve(h.postaje(r.Context()), letva), korisnik, natrag,
+		func(p *poslovi.Posao) error { return h.urednik.PripremiNacrt(letva, p) })
+	d := PosaoData{CurrentUser: u, Permissions: perms, ActiveNav: "prognoze", ViewAsBanner: viewBanner(r),
+		PosaoID: p.ID, PosaoNaziv: p.Naziv, Natrag: natrag}
+	if err := h.tmplPosao.ExecuteTemplate(w, "posao.html", d); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 // izvrsiRadnjuRacuna odbaci nacrt ili ga složi iz obrasca i spremi; vraća poruku
@@ -395,25 +535,57 @@ func velikoPrvo(s string) string {
 func zapisIzObrasca(f url.Values, letva string, stari prognoza.ZapisLetve) (prognoza.ZapisLetve, error) {
 	z := prognoza.ZapisLetve{Oblik: prognoza.OblikModelaLetve, Letva: letva, Metoda: prognoza.MetodaLanac,
 		Velicina: strings.TrimSpace(f.Get("velicina"))}
-	for _, u := range f["ulaz"] {
-		if u = strings.TrimSpace(u); u != "" {
-			z.Racun.Ulazi = append(z.Racun.Ulazi, u)
-		}
-	}
-	for _, r := range f["rezerva"] {
-		if r = strings.TrimSpace(r); r != "" {
-			z.Racun.Rezerve = append(z.Racun.Rezerve, []string{r})
-		}
+	z.Racun.Ulazi = odabraneLetve(f["ulaz"])
+	for _, r := range odabraneLetve(f["rezerva"]) {
+		z.Racun.Rezerve = append(z.Racun.Rezerve, []string{r})
 	}
 	razine, err := razineIzObrasca(f.Get("razine_nacin"), f.Get("razine"))
 	if err != nil {
 		return z, err
 	}
 	z.Racun.Razine = razine
-	if slices.Equal(razine.Postoci, stari.Racun.Razine.Postoci) && slices.Equal(razine.Granice, stari.Racun.Razine.Granice) {
-		z.Racun.Razine.Iskljucene, z.Racun.Rucno = stari.Racun.Razine.Iskljucene, stari.Racun.Rucno
+	if !slices.Equal(razine.Postoci, stari.Racun.Razine.Postoci) || !slices.Equal(razine.Granice, stari.Racun.Razine.Granice) {
+		return z, nil
 	}
-	return z, nil
+	z.Racun.Razine.Iskljucene, z.Racun.Rucno = stari.Racun.Razine.Iskljucene, stari.Racun.Rucno
+	redaka, err := strconv.Atoi(f.Get("razina"))
+	if err != nil || redaka < 1 || redaka > 20 {
+		return z, nil // tablica razina nije bila na stranici
+	}
+	z.Racun.Razine.Iskljucene, z.Racun.Rucno.Kasnjenje, err = razineIzTablice(f, redaka)
+	return z, err
+}
+
+// odabraneLetve su neprazna polja izbora, redom kojim stoje u obrascu.
+func odabraneLetve(polja []string) []string {
+	var out []string
+	for _, p := range polja {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// razineIzTablice čita tablicu razina: razina bez kvačice „Računa” je isključena,
+// a upisani sati su ručno kašnjenje te razine.
+func razineIzTablice(f url.Values, redaka int) (iskljucene []int, kasnjenja []prognoza.RucnoKasnjenje, err error) {
+	for i := range redaka {
+		broj := strconv.Itoa(i)
+		if !slices.Contains(f["racuna"], broj) && f.Get("ima_racun_"+broj) == "1" {
+			iskljucene = append(iskljucene, i)
+		}
+		upisano := strings.TrimSpace(f.Get("rucno_" + broj))
+		if upisano == "" {
+			continue
+		}
+		sati, err := strconv.Atoi(upisano)
+		if err != nil || sati < 0 {
+			return nil, nil, fmt.Errorf("kašnjenje razine %d nije cijeli broj sati", i+1)
+		}
+		kasnjenja = append(kasnjenja, prognoza.RucnoKasnjenje{Razina: i, Sati: sati})
+	}
+	return iskljucene, kasnjenja, nil
 }
 
 // razineIzObrasca čita način i granice između razina. Postocima se dodaju
@@ -473,6 +645,13 @@ func (u urednikPosluzitelja) ObrisiNacrt(letva string) error {
 		return errBezUrednika
 	}
 	return u.s.urednikModela.ObrisiNacrt(letva)
+}
+
+func (u urednikPosluzitelja) PripremiNacrt(letva string, p *poslovi.Posao) error {
+	if u.s.urednikModela == nil {
+		return errBezUrednika
+	}
+	return u.s.urednikModela.PripremiNacrt(letva, p)
 }
 
 var errBezUrednika = errors.New("baza prognoza nije otvorena na ovom računalu")

@@ -4,8 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"time"
 
+	"gocop/internal/models"
 	"gocop/internal/peers"
+	"gocop/internal/poslovi"
 	"gocop/internal/prognoza"
 	"gocop/internal/web"
 )
@@ -47,6 +51,35 @@ func (u *urednikModela) ObrisiNacrt(letva string) error {
 		return errNeIzdaje
 	}
 	return prognoza.ObrisiNacrt(u.pb, letva)
+}
+
+// pripremiNacrt namješta račun iz nacrta; testovi ga zamjenjuju, jer pravi traži
+// arhivu sa satnim nizovima.
+var pripremiNacrt = prognoza.PripremiNacrt
+
+// PripremiNacrt namjesti račun iz spremljenog nacrta letve i upiše brojeve u
+// nacrt. Model i prognoza se ne mijenjaju.
+func (u *urednikModela) PripremiNacrt(letva string, p *poslovi.Posao) error {
+	if !u.Izdaje() {
+		return errNeIzdaje
+	}
+	p.Korak("namještanje računa iz arhive", 0, 0)
+	n, err := pripremiNacrt(u.arhiva, u.pb, letva, time.Now().In(models.Zagreb).Format("2. 1. 2006. 15:04"), u.okvir())
+	if err != nil {
+		return err
+	}
+	p.Zavrsi(opisPripremeNacrta(n), nil)
+	return nil
+}
+
+// opisPripremeNacrta je rečenica na kraju posla: koliko razina računa i dokle.
+func opisPripremeNacrta(n prognoza.NacrtLetve) string {
+	razina := 0
+	if len(n.Zapis.Brojevi.Inacice) > 0 {
+		razina = len(n.Zapis.Brojevi.Inacice[0])
+	}
+	return fmt.Sprintf("Račun je pripremljen: razina s računom %d, računa do %d h unaprijed. Prognoza se ne mijenja dok se model ne primijeni.",
+		razina, n.Zapis.Racun.Doseg)
 }
 
 // posluziteljModela je dio poslužitelja kojem se uključuje rad s modelom.
