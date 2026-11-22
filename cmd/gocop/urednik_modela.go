@@ -50,6 +50,16 @@ func (u *urednikModela) PrimijeniNacrt(letva, tko, razlog string) error {
 	return prognoza.PrimijeniNacrt(u.pb, letva, promjena, u.okvir())
 }
 
+// VratiPrethodni vraća prethodni model letve umjesto sadašnjeg, s imenom,
+// vremenom i razlogom.
+func (u *urednikModela) VratiPrethodni(letva, tko, razlog string) error {
+	if err := u.smijeMijenjatiModel(); err != nil {
+		return err
+	}
+	promjena := prognoza.PromjenaLetve{Kad: time.Now().In(models.Zagreb).Format("2. 1. 2006. 15:04"), Tko: tko, Razlog: razlog}
+	return prognoza.VratiPrethodniZapis(u.pb, letva, promjena, u.okvir())
+}
+
 // UkloniModel briše primijenjeni model letve.
 func (u *urednikModela) UkloniModel(letva string) error {
 	if err := u.smijeMijenjatiModel(); err != nil {

@@ -203,11 +203,13 @@ func TestUrednikPrimjenaIUklanjanje(t *testing.T) {
 	defer pb.Close()
 	uloge, krug := &probneUloge{}, &probniKrug{traje: true}
 	u := &urednikModela{pb: pb, mreza: uloge, krug: krug}
-	if u.PrimijeniNacrt("potok-dole", "Iva Proba", "proba") != errNeIzdaje || u.UkloniModel("potok-dole") != errNeIzdaje {
+	if u.PrimijeniNacrt("potok-dole", "Iva Proba", "proba") != errNeIzdaje || u.UkloniModel("potok-dole") != errNeIzdaje ||
+		u.VratiPrethodni("potok-dole", "Iva Proba", "proba") != errNeIzdaje {
 		t.Error("računalo koje ne izdaje ne smije mijenjati model")
 	}
 	uloge.izdaje = true
-	if u.PrimijeniNacrt("potok-dole", "Iva Proba", "proba") != errKrugTraje || u.UkloniModel("potok-dole") != errKrugTraje {
+	if u.PrimijeniNacrt("potok-dole", "Iva Proba", "proba") != errKrugTraje || u.UkloniModel("potok-dole") != errKrugTraje ||
+		u.VratiPrethodni("potok-dole", "Iva Proba", "proba") != errKrugTraje {
 		t.Error("dok satni krug traje, model se ne mijenja")
 	}
 	krug.traje = false
@@ -240,6 +242,23 @@ func TestUrednikPrimjenaIUklanjanje(t *testing.T) {
 	}
 	if p := zapisi["potok-dole"].Promjene[0]; p.Tko != "Iva Proba" || p.Razlog != "prvi model potoka" || len(p.Kad) < len("1. 1. 2026. 00:00") {
 		t.Errorf("promjena %+v", p)
+	}
+	if err := u.VratiPrethodni("potok-dole", "Iva Proba", "nema na što"); err == nil || !strings.Contains(err.Error(), "nema prethodnu inačicu") {
+		t.Errorf("povratak prvog modela: %v", err)
+	}
+	// druga primjena istog nacrta ostavlja prethodni, pa se na njega može vratiti
+	if _, err := pb.Exec(`INSERT INTO model_nacrt (letva, sadrzaj) VALUES ('potok-dole', ?)`, string(sadrzaj)); err != nil {
+		t.Fatal(err)
+	}
+	if err := u.PrimijeniNacrt("potok-dole", "Marko Primjer", "druga primjena"); err != nil {
+		t.Fatal(err)
+	}
+	if err := u.VratiPrethodni("potok-dole", "Iva Proba", "povratak na prvi"); err != nil {
+		t.Fatal(err)
+	}
+	zapisi, _, err = prognoza.ZapisiLetvi(pb)
+	if err != nil || len(zapisi["potok-dole"].Promjene) != 3 || zapisi["potok-dole"].Promjene[2].Razlog != "povratak na prvi" {
+		t.Errorf("vraćen model: %+v, %v", zapisi["potok-dole"].Promjene, err)
 	}
 	if err := u.UkloniModel("potok-dole"); err != nil {
 		t.Fatal(err)
