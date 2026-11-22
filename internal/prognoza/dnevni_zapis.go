@@ -46,7 +46,7 @@ func (z ZapisLetve) DnevniBlok() (DnevniLetve, error) {
 // DnevniCiljZapisa je cilj dnevnog modela složen iz zapisa.
 func (z ZapisLetve) DnevniCiljZapisa() (DnevniCilj, error) {
 	d, err := z.DnevniBlok()
-	return DnevniCilj{Letva: z.Letva, Ulazi: d.Ulazi, Slivovi: d.Slivovi}, err
+	return DnevniCilj{Letva: z.Letva, Ulazi: d.Ulazi, Slivovi: d.Slivovi, NajmanjeDana: NajmanjeDanaZapisa}, err
 }
 
 // provjeriDnevni odbija zapis dnevnog modela koji se ne smije računati.
