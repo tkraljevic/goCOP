@@ -190,6 +190,19 @@
       {{range .Promjene}}<li><span>{{.Kad}}{{if .Tko}} · {{.Tko}}{{end}}</span><span>{{.Razlog}}</span></li>
       {{end}}
     </ul>{{else}}<p>Model nema zapisanih promjena.</p>{{end}}
+    {{if and $.SmijeUrediti .ImaPrethodni}}
+    <form method="POST" action="/prognoze/model/racun" class="rac-vrati">
+      <input type="hidden" name="sektor" value="{{$.Sektor.ID}}">
+      <input type="hidden" name="vodotok" value="{{$.Vodotok.Oznaka}}">
+      <input type="hidden" name="letva" value="{{.Kod}}">
+      <div class="form-group">
+        <label class="form-label" for="rac-razlog-vrati">Razlog povratka *</label>
+        <input type="text" id="rac-razlog-vrati" name="razlog" class="form-control" required maxlength="300" autocomplete="off">
+        <div class="form-help">Model čuva jednu prethodnu inačicu. Povratak vrijedi odmah, bez pripreme i probe, jer je ta inačica već bila u radu. Sadašnja tada postaje prethodna.</div>
+      </div>
+      <button type="submit" name="radnja" value="vrati" class="btn prog-obrub">Vrati prethodni model</button>
+    </form>
+    {{end}}
     {{if $.SmijeUrediti}}
     <form method="POST" action="/prognoze/model/racun" onsubmit="return confirm('Ukloniti model letve {{.Ime}}? Letva tada radi kao prije njega.');">
       <input type="hidden" name="sektor" value="{{$.Sektor.ID}}">

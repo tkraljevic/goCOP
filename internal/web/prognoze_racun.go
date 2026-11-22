@@ -43,6 +43,8 @@ type UrednikModela interface {
 	PrimijeniNacrt(letva, tko, razlog string) error
 	// UkloniModel briše primijenjeni model letve.
 	UkloniModel(letva string) error
+	// VratiPrethodni vraća prethodni model letve umjesto sadašnjeg; razlog je obavezan.
+	VratiPrethodni(letva, tko, razlog string) error
 }
 
 // Načini zadavanja razina u obrascu.
@@ -110,6 +112,8 @@ type ObrazacRacuna struct {
 	// zašto mijenjao, od najnovije.
 	ImaModel bool
 	Promjene []prognoza.PromjenaLetve
+	// ImaPrethodni kaže da model čuva prethodnu inačicu na koju se može vratiti.
+	ImaPrethodni bool
 	// Zakljucano kaže zašto se račun ove letve ovdje ne slaže; prazno kad se slaže.
 	Zakljucano string
 }
@@ -325,7 +329,7 @@ func (rm racuniModela) obrazac(kod, ime string) ObrazacRacuna {
 		return o
 	}
 	if model, ima := rm.zapisi[kod]; ima {
-		o.ImaModel, o.Promjene = true, slices.Clone(model.Promjene)
+		o.ImaModel, o.Promjene, o.ImaPrethodni = true, slices.Clone(model.Promjene), prognoza.ImaPrethodniZapis(model)
 		slices.Reverse(o.Promjene)
 	}
 	var cvorovi []float64
@@ -618,6 +622,9 @@ func (h *PrognozeHandler) izvrsiRadnjuRacuna(r *http.Request, letva string) (str
 	case "primijeni":
 		return "Model letve " + ime + " je primijenjen. Prva prognoza stiže pri sljedećem računu prognoze.",
 			h.urednik.PrimijeniNacrt(letva, tko, strings.TrimSpace(r.PostForm.Get("razlog")))
+	case "vrati":
+		return "Prethodni model letve " + ime + " je vraćen. Vrijedi od sljedećeg računa prognoze.",
+			h.urednik.VratiPrethodni(letva, tko, strings.TrimSpace(r.PostForm.Get("razlog")))
 	case "ukloni":
 		return "Model letve " + ime + " je uklonjen. Od sljedećeg računa prognoze letva radi kao prije njega.", h.urednik.UkloniModel(letva)
 	}
@@ -817,6 +824,13 @@ func (u urednikPosluzitelja) UkloniModel(letva string) error {
 		return errBezUrednika
 	}
 	return u.s.urednikModela.UkloniModel(letva)
+}
+
+func (u urednikPosluzitelja) VratiPrethodni(letva, tko, razlog string) error {
+	if u.s.urednikModela == nil {
+		return errBezUrednika
+	}
+	return u.s.urednikModela.VratiPrethodni(letva, tko, razlog)
 }
 
 var errBezUrednika = errors.New("baza prognoza nije otvorena na ovom računalu")

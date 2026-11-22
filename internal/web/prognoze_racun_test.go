@@ -31,6 +31,7 @@ type probniUrednik struct {
 	pripremljeni chan string
 	primijenjeni []string
 	uklonjeni    []string
+	vraceni      []string
 }
 
 func (u *probniUrednik) Izdaje() bool { return u.izdaje }
@@ -53,6 +54,10 @@ func (u *probniUrednik) PrimijeniNacrt(letva, tko, razlog string) error {
 }
 func (u *probniUrednik) UkloniModel(letva string) error {
 	u.uklonjeni = append(u.uklonjeni, letva)
+	return u.greska
+}
+func (u *probniUrednik) VratiPrethodni(letva, tko, razlog string) error {
+	u.vraceni = append(u.vraceni, letva+"|"+tko+"|"+razlog)
 	return u.greska
 }
 func (u *probniUrednik) ProbajNacrt(letva string, p *poslovi.Posao) error {
@@ -351,7 +356,7 @@ func TestSitniceSlaganjaRacuna(t *testing.T) {
 	u := urednikIliNista(&Server{})
 	if u.Izdaje() || u.SpremiNacrt(prognoza.NacrtLetve{}) != errBezUrednika || u.ObrisiNacrt("a") != errBezUrednika ||
 		u.PripremiNacrt("a", nil) != errBezUrednika || u.ProbajNacrt("a", nil) != errBezUrednika ||
-		u.PrimijeniNacrt("a", "", "") != errBezUrednika || u.UkloniModel("a") != errBezUrednika {
+		u.PrimijeniNacrt("a", "", "") != errBezUrednika || u.UkloniModel("a") != errBezUrednika || u.VratiPrethodni("a", "", "") != errBezUrednika {
 		t.Error("poslužitelj bez urednika ne izdaje i ne sprema")
 	}
 	p := &probniUrednik{izdaje: true, pripremljeni: make(chan string, 1)}
@@ -361,7 +366,8 @@ func TestSitniceSlaganjaRacuna(t *testing.T) {
 	posao := poslovi.NoviRegistar().Pokreni("proba", "", "/", func(*poslovi.Posao) error { return nil })
 	if !u.Izdaje() || u.SpremiNacrt(prognoza.NacrtLetve{}) != nil || u.ObrisiNacrt("a") != nil || len(p.spremljeni) != 1 || len(p.obrisani) != 1 ||
 		u.PripremiNacrt("a", posao) != nil || <-p.pripremljeni != "a" || u.ProbajNacrt("a", posao) != nil || <-p.pripremljeni != "proba a" ||
-		u.PrimijeniNacrt("a", "Iva", "razlog") != nil || u.UkloniModel("a") != nil || len(p.primijenjeni) != 1 || len(p.uklonjeni) != 1 {
+		u.PrimijeniNacrt("a", "Iva", "razlog") != nil || u.UkloniModel("a") != nil || len(p.primijenjeni) != 1 || len(p.uklonjeni) != 1 ||
+		u.VratiPrethodni("a", "Iva", "razlog") != nil || len(p.vraceni) != 1 {
 		t.Error("poslužitelj s urednikom predaje dalje")
 	}
 }
@@ -618,6 +624,12 @@ func TestPrimijeniIUkloniModel(t *testing.T) {
 	if lok := posaljiRacun(h, f, &models.UserPermissions{}, false); !strings.Contains(lok, porukaNijeAdmin) || len(u.uklonjeni) != 1 {
 		t.Errorf("korisnik ne smije ukloniti model: %q", lok)
 	}
+	f.Set("radnja", "vrati")
+	f.Set("razlog", " ručno kašnjenje se pokazalo lošijim ")
+	if lok := posaljiRacun(h, f, admin, false); !strings.Contains(lok, "Prethodni model letve Srednji Lug je vraćen.") ||
+		!slices.Equal(u.vraceni, []string{"potok-srednji|Ana Anić|ručno kašnjenje se pokazalo lošijim"}) {
+		t.Errorf("vrati: %q, %v", lok, u.vraceni)
+	}
 }
 
 // Probani nacrt ima obrazac Primijeni s razlogom i, kad je račun negdje lošiji,
@@ -636,8 +648,25 @@ func TestStranicaPrimjeneModela(t *testing.T) {
 		Promjene: []prognoza.PromjenaLetve{{Kad: "21. 11. 2026. 09:00", Tko: "Iva Proba", Razlog: "početni račun"},
 			{Kad: "22. 11. 2026. 10:00", Tko: "Marko Primjer", Razlog: "ručno kašnjenje"}}}}, glavni: map[string]bool{}}
 	o := rm.obrazac("a", "Srednji Lug")
-	if !o.ImaModel || len(o.Promjene) != 2 || o.Promjene[0].Tko != "Marko Primjer" || rm.zapisi["a"].Promjene[0].Tko != "Iva Proba" {
+	if !o.ImaModel || o.ImaPrethodni || len(o.Promjene) != 2 || o.Promjene[0].Tko != "Marko Primjer" || rm.zapisi["a"].Promjene[0].Tko != "Iva Proba" {
 		t.Fatalf("povijest modela %+v", o.Promjene)
+	}
+	if strings.Contains(func() string {
+		w := httptest.NewRecorder()
+		d := RacunPrognozePageData{PrognozePageData: h.zaglavlje(r), SmijeUrediti: true, Obrazac: &o}
+		if err := h.racunTmpl.ExecuteTemplate(w, "prognoze_racun.html", d); err != nil {
+			t.Fatal(err)
+		}
+		return w.Body.String()
+	}(), `value="vrati"`) {
+		t.Error("model bez prethodne inačice nema gumb za povratak")
+	}
+	sPrethodnim := rm.zapisi["a"]
+	sPrethodnim.Prethodni = []byte(`{"letva":"a"}`)
+	rm.zapisi["a"] = sPrethodnim
+	o = rm.obrazac("a", "Srednji Lug")
+	if !o.ImaPrethodni {
+		t.Fatal("model s prethodnom inačicom")
 	}
 	o.Kad, o.Pripremljen, o.Proba = "08:00", "08:01", proba
 	o.Redci = []RazinaRacuna{{Broj: 1, Granica: "sva voda", Kasnjenje: "9 h", Racuna: true}}
@@ -649,13 +678,13 @@ func TestStranicaPrimjeneModela(t *testing.T) {
 	}
 	redom(t, w.Body.String(), "Na 1 dosegu račun je lošiji nego bez modela.", `name="razlog" class="form-control" required`,
 		`value="primijeni" class="btn btn-primary">Primijeni model`, "Primijenjeni model", "22. 11. 2026. 10:00 · Marko Primjer", "ručno kašnjenje",
-		"21. 11. 2026. 09:00 · Iva Proba", "početni račun", `value="ukloni"`)
+		"21. 11. 2026. 09:00 · Iva Proba", "početni račun", "Razlog povratka", `value="vrati" class="btn prog-obrub">Vrati prethodni model`, `value="ukloni"`)
 	data.SmijeUrediti = false
 	w = httptest.NewRecorder()
 	if err := h.racunTmpl.ExecuteTemplate(w, "prognoze_racun.html", data); err != nil {
 		t.Fatal(err)
 	}
-	if html := w.Body.String(); strings.Contains(html, `value="primijeni"`) || strings.Contains(html, `value="ukloni"`) ||
+	if html := w.Body.String(); strings.Contains(html, `value="primijeni"`) || strings.Contains(html, `value="ukloni"`) || strings.Contains(html, `value="vrati"`) ||
 		!strings.Contains(html, "22. 11. 2026. 10:00 · Marko Primjer") {
 		t.Error("tko ne smije uređivati vidi povijest, ali ne i gumbe")
 	}

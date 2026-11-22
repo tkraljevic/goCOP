@@ -79,6 +79,37 @@ func otisakProbe(z ZapisLetve) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
+// VratiPrethodniZapis vraća prethodni model letve umjesto sadašnjeg. Sadašnji
+// postaje prethodni, pa se povratak može i poništiti. Razlog je obavezan. Model je
+// već bio u radu s tim brojevima, pa se ne priprema ni ne proba iznova.
+func VratiPrethodniZapis(baza *sql.DB, letva string, promjena PromjenaLetve, o OkvirModela) error {
+	if strings.TrimSpace(promjena.Razlog) == "" {
+		return errors.New("upiši razlog; ostaje uz model")
+	}
+	var err error
+	if o.Glavne, err = SveInacice(baza); err != nil {
+		return err
+	}
+	zapisi, _, err := ZapisiLetvi(baza)
+	if err != nil {
+		return err
+	}
+	sadasnji := zapisi[letva]
+	var prethodni ZapisLetve
+	if !ImaPrethodniZapis(sadasnji) || json.Unmarshal(sadasnji.Prethodni, &prethodni) != nil || prethodni.Letva != letva {
+		return errors.New("model nema prethodnu inačicu na koju bi se vratio")
+	}
+	prethodni.Promjene = nil
+	z := zapisZaPrimjenu(prethodni, zapisi, promjena)
+	return SpremiZapisLetve(baza, z, otisakProbe(z), o)
+}
+
+// ImaPrethodniZapis javlja nosi li zapis prethodnu inačicu; prazno polje se iz
+// baze čita kao null.
+func ImaPrethodniZapis(z ZapisLetve) bool {
+	return len(z.Prethodni) > 0 && string(z.Prethodni) != "null"
+}
+
 // UkloniZapisLetve briše model letve, pa letva radi kao prije njega: iz računa u
 // programu, ako ga ima, inače se samo mjeri. Letva koja iz nje računa ostaje:
 // ulaz bez računa je vrh lanca, pa ona računa iz izmjerenog, s kraćim dosegom.

@@ -22,9 +22,6 @@ func probaniNacrt(t *testing.T, arhiva, baza *sql.DB, z ZapisLetve) {
 	}
 }
 
-// imaPrethodni javlja nosi li zapis prethodni model; prazno polje se čita kao null.
-func imaPrethodni(z ZapisLetve) bool { return len(z.Prethodni) > 0 && string(z.Prethodni) != "null" }
-
 // Primijeni upiše probani račun kao model s razlogom i odbaci nacrt. Druga
 // primjena čuva prethodni model i nastavlja promjene. Što nije probano ili nema
 // razlog, ne primjenjuje se.
@@ -66,7 +63,7 @@ func TestPrimijeniNacrt(t *testing.T) {
 		return zapisi["potok-dole"]
 	}
 	z := procitaj()
-	if len(z.Promjene) != 1 || z.Promjene[0] != prva || imaPrethodni(z) || z.Racun.Doseg != 5 ||
+	if len(z.Promjene) != 1 || z.Promjene[0] != prva || ImaPrethodniZapis(z) || z.Racun.Doseg != 5 ||
 		len(z.Brojevi.Inacice) != 1 || len(z.Brojevi.Promasaji) == 0 {
 		t.Errorf("primijenjen model %+v", z)
 	}
@@ -91,7 +88,7 @@ func TestPrimijeniNacrt(t *testing.T) {
 		t.Errorf("izmijenjen model %+v", z2)
 	}
 	var prethodni ZapisLetve
-	if err := json.Unmarshal(z2.Prethodni, &prethodni); err != nil || len(prethodni.Promjene) != 1 || imaPrethodni(prethodni) ||
+	if err := json.Unmarshal(z2.Prethodni, &prethodni); err != nil || len(prethodni.Promjene) != 1 || ImaPrethodniZapis(prethodni) ||
 		len(prethodni.Racun.Rucno.Kasnjenje) != 0 {
 		t.Errorf("prethodni model %+v, %v", prethodni, err)
 	}
@@ -154,5 +151,92 @@ func TestPrimjenaUzNecitljiveTablice(t *testing.T) {
 		if err := PrimijeniNacrt(baza, "potok-dole", PromjenaLetve{Razlog: "proba"}, OkvirModela{}); err == nil {
 			t.Errorf("%s koji se ne da pročitati mora prekinuti primjenu", opis)
 		}
+	}
+}
+
+// Vrati prethodni zamjenjuje sadašnji model prethodnim i bilježi tko, kad i
+// zašto. Sadašnji postaje prethodni, pa se povratak može poništiti. Model bez
+// prethodne inačice se ne vraća.
+func TestVratiPrethodniZapis(t *testing.T) {
+	postavi(t, &NajveciPomak, 8)
+	arhiva, baza := arhivaPotoka(t, nil), otvoriProbnu(t, "p.db")
+	vrati := PromjenaLetve{Kad: "22. 11. 2026. 11:00", Tko: "Iva Proba", Razlog: "ručno kašnjenje se pokazalo lošijim"}
+	if err := VratiPrethodniZapis(baza, "potok-dole", vrati, OkvirModela{}); !porukaIma(err, "nema prethodnu inačicu") {
+		t.Errorf("povratak bez modela: %v", err)
+	}
+	probaniNacrt(t, arhiva, baza, zapisZaPripremu("potok-vrh"))
+	if err := PrimijeniNacrt(baza, "potok-dole", PromjenaLetve{Tko: "Iva Proba", Razlog: "prvi model"}, OkvirModela{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := VratiPrethodniZapis(baza, "potok-dole", vrati, OkvirModela{}); !porukaIma(err, "nema prethodnu inačicu") {
+		t.Errorf("povratak prvog modela: %v", err)
+	}
+	izmjena := zapisZaPripremu("potok-vrh")
+	izmjena.Racun.Rucno.Kasnjenje = []RucnoKasnjenje{{Razina: 0, Sati: 4}}
+	probaniNacrt(t, arhiva, baza, izmjena)
+	if err := PrimijeniNacrt(baza, "potok-dole", PromjenaLetve{Tko: "Marko Primjer", Razlog: "ručno kašnjenje"}, OkvirModela{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := VratiPrethodniZapis(baza, "potok-dole", PromjenaLetve{Razlog: " "}, OkvirModela{}); !porukaIma(err, "razlog") {
+		t.Errorf("povratak bez razloga: %v", err)
+	}
+	if err := VratiPrethodniZapis(baza, "potok-dole", vrati, OkvirModela{ImaSektor: func(string) bool { return false }}); !porukaIma(err, "nema sektor") {
+		t.Errorf("povratak letve bez sektora: %v", err)
+	}
+	if err := VratiPrethodniZapis(baza, "potok-dole", vrati, OkvirModela{}); err != nil {
+		t.Fatal(err)
+	}
+	procitaj := func() ZapisLetve {
+		t.Helper()
+		zapisi, pokvareni, err := ZapisiLetvi(baza)
+		if err != nil || len(pokvareni) != 0 {
+			t.Fatalf("zapisi: %v, %v", pokvareni, err)
+		}
+		return zapisi["potok-dole"]
+	}
+	z := procitaj()
+	if len(z.Racun.Rucno.Kasnjenje) != 0 || len(z.Promjene) != 3 || z.Promjene[2] != vrati || !ImaPrethodniZapis(z) {
+		t.Fatalf("vraćen model %+v", z.Promjene)
+	}
+	var prethodni ZapisLetve
+	if err := json.Unmarshal(z.Prethodni, &prethodni); err != nil || len(prethodni.Racun.Rucno.Kasnjenje) != 1 || ImaPrethodniZapis(prethodni) {
+		t.Errorf("prethodni nakon povratka: %+v, %v", prethodni.Racun.Rucno, err)
+	}
+	// povratak se može poništiti
+	if err := VratiPrethodniZapis(baza, "potok-dole", PromjenaLetve{Razlog: "ipak ručno"}, OkvirModela{}); err != nil {
+		t.Fatal(err)
+	}
+	if z := procitaj(); len(z.Racun.Rucno.Kasnjenje) != 1 || len(z.Promjene) != 4 {
+		t.Errorf("poništen povratak: %+v, promjena %d", z.Racun.Rucno, len(z.Promjene))
+	}
+	// prethodni koji nosi drugu letvu ili se ne da pročitati ne vraća se
+	for _, los := range []string{`{"letva":"druga"}`, `{`} {
+		z := procitaj()
+		z.Prethodni = json.RawMessage(los)
+		sadrzaj, err := json.Marshal(z)
+		if los == "{" {
+			sadrzaj, err = []byte(`{"letva":"potok-dole","prethodni":"x"}`), nil
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := baza.Exec(`UPDATE model_letve SET sadrzaj = ? WHERE letva = 'potok-dole'`, string(sadrzaj)); err != nil {
+			t.Fatal(err)
+		}
+		if err := VratiPrethodniZapis(baza, "potok-dole", vrati, OkvirModela{}); !porukaIma(err, "nema prethodnu inačicu") {
+			t.Errorf("prethodni %s: %v", los, err)
+		}
+	}
+	if _, err := baza.Exec(`DROP TABLE model_letve; CREATE TABLE model_letve (letva TEXT)`); err != nil {
+		t.Fatal(err)
+	}
+	if err := VratiPrethodniZapis(baza, "potok-dole", vrati, OkvirModela{}); err == nil {
+		t.Error("model koji se ne da pročitati mora javiti grešku")
+	}
+	if err := baza.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := VratiPrethodniZapis(baza, "potok-dole", vrati, OkvirModela{}); err == nil {
+		t.Error("zatvorena baza mora javiti grešku")
 	}
 }
