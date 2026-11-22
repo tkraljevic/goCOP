@@ -8,7 +8,7 @@ package web
 // Nacrt ostaje na tom računalu i prognozu ne mijenja. Pripremi namjesti račun
 // iz arhive kao posao i u nacrt upiše brojeve po razini; uz razinu se zatim
 // upisuje ručno kašnjenje ili se razina isključi. Probaj mjeri pripremljeni račun
-// unatrag i po dosegu kaže je li bolji nego bez modela. Primijeni upiše probani
+// unatrag i po dosegu kaže je li pouzdaniji od zadnjeg mjerenja. Primijeni upiše probani
 // račun kao model letve, uz obavezan razlog; od tada ga izdanje računa i model
 // putuje razmjenom. Ukloni briše model.
 
@@ -138,11 +138,12 @@ type ProbaRacuna struct {
 	Jedinica       string
 	Dosezi         []DosegProbe
 	Natpisi        []string
-	// Losijih je na koliko je dosega račun lošiji nego bez modela.
+	// Losijih je na koliko je dosega zadnje mjerenje pouzdanije od računa.
 	Losijih int
 }
 
-// DosegProbe je redak tablice probe: promašaj računa i promašaj bez modela.
+// DosegProbe je redak tablice probe: promašaj računa i promašaj kad se kao
+// prognoza uzme zadnje mjerenje (BezModela).
 type DosegProbe struct {
 	Doseg            int
 	Racun, BezModela string

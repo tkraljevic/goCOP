@@ -139,17 +139,17 @@
       <h3 class="mod-podnaslov" id="rac-proba-naslov">Proba</h3>
       <div class="uv-tablica mod-tablica rac-tablica" role="table" aria-label="Proba računa po dosegu">
         <div class="uv-glava mod-red rac-proba-red" role="row"><span role="columnheader">Doseg</span><span role="columnheader">Račun ({{.Jedinica}})</span>
-          <span role="columnheader">Bez modela ({{.Jedinica}})</span><span role="columnheader">Slučajeva</span><span role="columnheader">Ocjena</span></div>
+          <span role="columnheader">Zadnje mjerenje ({{.Jedinica}})</span><span role="columnheader">Slučajeva</span><span role="columnheader">Ocjena</span></div>
         {{$j := .Jedinica}}{{range .Dosezi}}<div class="uv-redak mod-red rac-proba-red" role="row">
           <span role="cell">+{{.Doseg}} h</span>
           <span role="cell" class="mod-broj" data-naslov="Račun ({{$j}})">{{.Racun}}</span>
-          <span role="cell" class="mod-broj" data-naslov="Bez modela ({{$j}})">{{.BezModela}}</span>
+          <span role="cell" class="mod-broj" data-naslov="Zadnje mjerenje ({{$j}})">{{.BezModela}}</span>
           <span role="cell" class="mod-broj" data-naslov="Slučajeva">{{brojHR .Slucaja}}</span>
           <span role="cell"><span class="rac-cip{{with .Ocjena.Klasa}} {{.}}{{end}}">{{.Ocjena.Natpis}}</span></span>
         </div>
         {{end}}
       </div>
-      <div class="form-help">Promašaj je izmjeren unatrag, na izdanjima svakih 12 sati{{if .Razdoblje}} ({{.Razdoblje}}){{end}}. „Bez modela” znači da se samo drži zadnje mjerenje. Oba su promašaja ista mjera: što je broj manji, to bolje. Razlika manja od 10 % ne znači ništa, pa piše „Kao bez modela”. Ispod 100 slučajeva račun nije provjeren.{{if .Kad}} Probano {{.Kad}}.{{end}}</div>
+      <div class="form-help">Promašaj je izmjeren unatrag, na izdanjima svakih 12 sati{{if .Razdoblje}} ({{.Razdoblje}}){{end}}. „Račun” je koliko promaši prognoza iz računa, a „Zadnje mjerenje” koliko bi se promašilo da se kao prognoza uzme zadnji izmjereni vodostaj, tj. da voda stoji. Oba su promašaja ista mjera: što je broj manji, to bolje. Razlika manja od 10 % ne znači ništa, pa piše „Kao zadnje mjerenje”. Ispod 100 slučajeva račun nije provjeren.{{if .Kad}} Probano {{.Kad}}.{{end}}</div>
       {{range .Natpisi}}<div class="form-help rac-napomena">{{.}}.</div>{{end}}
     </section>
     {{end}}
@@ -161,7 +161,7 @@
       {{if .Pripremljen}}<button type="submit" name="radnja" value="probaj" class="btn prog-obrub">{{if .Proba}}Probaj ponovno{{else}}Probaj{{end}}</button>{{end}}
       {{if .Kad}}<button type="submit" name="radnja" value="odbaci" class="btn btn-link" formnovalidate>Odbaci nacrt</button>{{end}}
     </div>
-    <p>Pripremi sprema nacrt i iz arhive namjesti kašnjenje po razinama; traje do nekoliko sekundi po letvi. Kad promijeniš račun, pripremi ga ponovno. Probaj mjeri pripremljeni račun unatrag i kaže je li bolji nego bez modela.</p>
+    <p>Pripremi sprema nacrt i iz arhive namjesti kašnjenje po razinama; traje do nekoliko sekundi po letvi. Kad promijeniš račun, pripremi ga ponovno. Probaj mjeri pripremljeni račun unatrag i kaže je li pouzdaniji od zadnjeg mjerenja.</p>
     {{end}}
     <p class="mod-podnozje">Nacrt ostaje na ovom računalu i prognozu ne mijenja dok ga ne primijeniš.</p>
   </form>
@@ -171,7 +171,7 @@
     <input type="hidden" name="vodotok" value="{{$.Vodotok.Oznaka}}">
     <input type="hidden" name="letva" value="{{.Kod}}">
     <h3 class="mod-podnaslov">Primijeni</h3>
-    {{if .Proba.Losijih}}<p class="rac-lose" role="alert">Na {{.Proba.Losijih}} {{uzBroj .Proba.Losijih "dosegu" "dosega" "dosega"}} račun je lošiji nego bez modela. Primijeni ga samo ako znaš zašto, i to napiši u razlog.</p>{{end}}
+    {{if .Proba.Losijih}}<p class="rac-lose" role="alert">Na {{.Proba.Losijih}} {{uzBroj .Proba.Losijih "dosegu" "dosega" "dosega"}} zadnje mjerenje je pouzdanije od računa. Primijeni ga samo ako znaš zašto, i to napiši u razlog.</p>{{end}}
     <div class="form-group">
       <label class="form-label" for="rac-razlog">Razlog *</label>
       <input type="text" id="rac-razlog" name="razlog" class="form-control" required maxlength="300" autocomplete="off" placeholder="npr. prvi model Vuke, kašnjenja po mjerenju vala iz 2023.">

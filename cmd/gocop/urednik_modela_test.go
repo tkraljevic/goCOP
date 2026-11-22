@@ -162,7 +162,7 @@ func TestUrednikProbaNacrta(t *testing.T) {
 		t.Errorf("računalo koje ne izdaje: %+v", st)
 	}
 	uloge.izdaje = true
-	if st := posao(); st.Greska != "" || !strings.Contains(st.Sazetak, "bolji nego bez modela na 2 od 3 dosega") {
+	if st := posao(); st.Greska != "" || !strings.Contains(st.Sazetak, "pouzdaniji od zadnjeg mjerenja na 2 od 3 dosega") {
 		t.Errorf("proba: %+v", st)
 	}
 	if putPrivremene == "" {
