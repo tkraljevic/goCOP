@@ -11277,7 +11277,6 @@ td .odr-sitno { margin-top: 2px; }
 .rac-tablica .rac-red { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 96px minmax(0, 0.8fr) 90px 80px 70px; }
 .rac-tablica .rac-bez { grid-column: 2 / -1; color: var(--md-sys-color-on-surface-variant); }
 .rac-rucno { width: 84px; min-height: 36px; padding: 4px 8px; }
-.rac-napomena { color: var(--md-sys-color-on-surface); }
 @media (max-width: 600px) {
   .rac-tablica .rac-red { grid-template-columns: minmax(0, 1fr) auto; }
   .rac-tablica .rac-red > :first-child, .rac-tablica .rac-bez { grid-column: 1 / -1; }
