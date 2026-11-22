@@ -70,6 +70,17 @@
       <input class="form-control font-mono" type="text" id="izvor_sifra" name="izvor_sifra" value="{{.Tocka.IzvorSifra}}">
     </div>
   </div>
+  {{if .Tocka.JeStvarni}}
+  <div class="form-group">
+    <label class="form-label" for="letva">Uz letvu</label>
+    <select class="form-control" id="letva" name="letva">
+      <option value="">— ne stoji uz letvu —</option>
+      {{range .Letve}}<option value="{{.Code}}"{{if eq .Code $.Tocka.Letva}} selected{{end}}>{{.Name}}</option>
+      {{end}}
+    </select>
+    <p class="form-help">Kiša ovog kišomjera upisuje se uz očitanje te letve.</p>
+  </div>
+  {{end}}
   </section>
 
   <section class="list-kartica">

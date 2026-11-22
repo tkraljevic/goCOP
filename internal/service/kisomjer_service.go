@@ -46,6 +46,9 @@ func (s *KisomjerService) CreateKisomjer(ctx context.Context, perms *models.User
 	if err := validateKisomjer(k); err != nil {
 		return err
 	}
+	if err := s.provjeriLetvu(ctx, k); err != nil {
+		return err
+	}
 	if postojeci, err := s.repo.GetKisomjer(ctx, k.Code); err != nil {
 		return err
 	} else if postojeci != nil {
@@ -61,6 +64,9 @@ func (s *KisomjerService) UpdateKisomjer(ctx context.Context, perms *models.User
 	}
 	k.Code = strings.TrimSpace(strings.ToLower(k.Code))
 	if err := validateKisomjer(k); err != nil {
+		return err
+	}
+	if err := s.provjeriLetvu(ctx, k); err != nil {
 		return err
 	}
 	postojeci, err := s.repo.GetKisomjer(ctx, k.Code)
@@ -161,6 +167,7 @@ func validateKisomjer(k *models.Kisomjer) error {
 	k.Izvor = strings.TrimSpace(strings.ToLower(k.Izvor))
 	k.IzvorSifra = strings.TrimSpace(k.IzvorSifra)
 	k.Korak = strings.TrimSpace(k.Korak)
+	k.Letva = strings.TrimSpace(k.Letva)
 	switch k.Vrsta {
 	case "":
 		k.Vrsta = models.KisomjerIzvedeni
@@ -190,3 +197,38 @@ func koordinateValjane(lat, lon float64) bool {
 }
 
 func round6(v float64) float64 { return math.Round(v*1e6) / 1e6 }
+
+// ImeLetve je ime letve uz koju kišomjer stoji, za prikaz.
+func (s *KisomjerService) ImeLetve(ctx context.Context, letva string) string {
+	if letva == "" {
+		return ""
+	}
+	ime, _ := s.repo.ImeLetve(ctx, letva) // bez imena stranica pokaže šifru letve
+	return ime
+}
+
+// provjeriLetvu odbija letvu koje nema u registru i letvu uz koju već stoji
+// drugi kišomjer: kiša s očitanja mora znati na koji kišomjer ide.
+func (s *KisomjerService) provjeriLetvu(ctx context.Context, k *models.Kisomjer) error {
+	if k.Letva == "" {
+		return nil
+	}
+	if !k.JeStvarni() {
+		return fmt.Errorf("uz letvu može stajati samo stvarni kišomjer")
+	}
+	ime, err := s.repo.ImeLetve(ctx, k.Letva)
+	if err != nil {
+		return err
+	}
+	if ime == "" {
+		return fmt.Errorf("letve %q nema u registru", k.Letva)
+	}
+	drugi, err := s.repo.KisomjerUzLetvu(ctx, k.Letva, k.Code)
+	if err != nil {
+		return err
+	}
+	if drugi != "" {
+		return fmt.Errorf("uz tu letvu već stoji kišomjer %q; jedna letva ima najviše jedan kišomjer", drugi)
+	}
+	return nil
+}

@@ -875,6 +875,7 @@ func InitSchema(database *sql.DB) error {
 			izvor TEXT NOT NULL DEFAULT '',
 			izvor_sifra TEXT NOT NULL DEFAULT '',
 			korak TEXT NOT NULL DEFAULT '',
+			letva TEXT NOT NULL DEFAULT '',
 			created_at DATETIME NOT NULL,
 			updated_at DATETIME NOT NULL
 		);`,
@@ -1806,6 +1807,8 @@ func migrateSchema(database *sql.DB) error {
 		{"kisomjeri", "izvor", "TEXT NOT NULL DEFAULT ''"},
 		{"kisomjeri", "izvor_sifra", "TEXT NOT NULL DEFAULT ''"},
 		{"kisomjeri", "korak", "TEXT NOT NULL DEFAULT ''"},
+		// Letva uz koju stvarni kišomjer stoji; kiša se upisuje uz njezino očitanje
+		{"kisomjeri", "letva", "TEXT NOT NULL DEFAULT ''"},
 		// Inačica programa na kojoj drugi čvor radi, kako ju je javio u
 		// razmjeni; prazno = stariji program koji je ne javlja
 		{"peer_sync", "program", "TEXT NOT NULL DEFAULT ''"},

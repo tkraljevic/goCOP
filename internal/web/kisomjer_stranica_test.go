@@ -56,8 +56,12 @@ func TestStranicaKisomjera(t *testing.T) {
 	svc := service.NewKisomjerService(repository.NewKisomjerRepository(baza, ledger.New(baza, "test")))
 	ctx := context.Background()
 	admin := &models.UserPermissions{IsGlobalAdmin: true}
+	if _, err := baza.Exec(`INSERT INTO stations (id, code, name, created_at, updated_at)
+		VALUES ('orah-id', 'orahovica', 'Orahovica letva', ?, ?)`, time.Now(), time.Now()); err != nil {
+		t.Fatal(err)
+	}
 	for _, k := range []models.Kisomjer{
-		{Code: "dhmz-orahovica", Naziv: "Orahovica", Vrsta: models.KisomjerStvarni, Izvor: "dhmz", IzvorSifra: "1", Korak: "satni",
+		{Code: "dhmz-orahovica", Naziv: "Orahovica", Vrsta: models.KisomjerStvarni, Izvor: "dhmz", IzvorSifra: "1", Korak: "satni", Letva: "orahovica",
 			Latitude: 45.54, Longitude: 17.88, Aktivan: true},
 		{Code: "k-e-pobrde", Naziv: "Papuk pobrđe", Sliv: "E", Latitude: 45.6, Longitude: 17.8, Aktivan: true},
 		{Code: "k-a-daleko", Naziv: "Koruška", Sliv: "A", Latitude: 46.7, Longitude: 13.8, Aktivan: true},
@@ -137,6 +141,7 @@ func TestStranicaKisomjera(t *testing.T) {
 	s := kisomjerZahtjev(h.ShowOcitanja, "/slivovi/kisomjer/dhmz-orahovica", "dhmz-orahovica")
 	for _, zeli := range []string{
 		"Zadnja 24 h", ">24,0 <small>mm</small>", // 24 sata po 1 mm, bez 12-satnog termina
+		"<dt>Uz letvu</dt><dd>Orahovica letva</dd>",
 		"Prognoza 24 h", ">12,0 <small>mm</small>", // 24 sata po 0,5 mm
 		"najbližu izvedenu\n    točku <strong>Papuk pobrđe</strong>",
 		`class="graf-kise"`, "kišomjer DHMZ-a",

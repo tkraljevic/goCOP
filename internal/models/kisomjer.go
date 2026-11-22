@@ -41,6 +41,9 @@ type Kisomjer struct {
 	Izvor      string `json:"izvor,omitempty"`       // tko daje podatke: open-meteo, dhmz…
 	IzvorSifra string `json:"izvor_sifra,omitempty"` // šifra postaje kod izvora
 	Korak      string `json:"korak,omitempty"`       // satni, 12-satni, dnevni
+	// Letva je šifra letve uz koju stvarni kišomjer stoji: njegova se kiša
+	// tada upisuje uz očitanje te letve. Prazno kad ne stoji uz letvu.
+	Letva string `json:"letva,omitempty"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
