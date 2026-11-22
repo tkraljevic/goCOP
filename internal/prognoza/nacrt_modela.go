@@ -6,10 +6,12 @@ package prognoza
 // izdanje je ne čita. Dok se nacrt ne primijeni, prognoza se ne mijenja.
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 )
 
 // NacrtLetve je nacrt računa jedne letve: zapis kakav bi išao u pripremu, tko ga
@@ -29,10 +31,12 @@ type NacrtLetve struct {
 // ProbaNacrta je ishod probe uz nacrt: po dosegu promašaj računa i promašaj bez
 // modela, s ocjenom.
 type ProbaNacrta struct {
-	Kad       string        `json:"kad"`
-	Dosezi    []MjeraDosega `json:"dosezi"`
-	Natpisi   []string      `json:"natpisi"`
-	Razdoblje []string      `json:"razdoblje"`
+	Kad    string        `json:"kad"`
+	Dosezi []MjeraDosega `json:"dosezi"`
+	// Dani su mjera dnevnog modela, po danu unaprijed; uz satni račun ih nema.
+	Dani      []MjeraDana `json:"dani,omitempty"`
+	Natpisi   []string    `json:"natpisi"`
+	Razdoblje []string    `json:"razdoblje"`
 }
 
 // PripremaNacrta je ishod pripreme uz nacrt, koliko ga stranica pokazuje.
@@ -49,6 +53,9 @@ func ProvjeriNacrt(baza *sql.DB, z ZapisLetve, o OkvirModela) error {
 	var err error
 	if o.Glavne, err = SveInacice(baza); err != nil {
 		return err
+	}
+	if z.Metoda == MetodaDnevni {
+		return z.provjeriDnevni(o)
 	}
 	if err := z.provjeriPrijePripreme(o); err != nil {
 		return err
@@ -71,20 +78,30 @@ func SpremiNacrt(baza *sql.DB, n NacrtLetve, o OkvirModela) error {
 		return err
 	}
 	n.Zapis.Racun.Doseg, n.Zapis.Brojevi, n.Priprema, n.Proba = 0, BrojeviLetve{}, nil, nil
-	if s, ima := stari[n.Zapis.Letva]; ima && s.Priprema != nil && istaDefinicija(s.Zapis, n.Zapis) {
+	if s, ima := stari[n.Zapis.Letva]; ima && (s.Priprema != nil || s.Proba != nil) && istaDefinicija(s.Zapis, n.Zapis) {
 		n.Zapis.Racun.Doseg, n.Zapis.Brojevi, n.Priprema, n.Proba = s.Zapis.Racun.Doseg, s.Zapis.Brojevi, s.Priprema, s.Proba
 	}
 	return upisiNacrt(baza, n)
 }
 
 // istaDefinicija javlja slažu li se dva zapisa u onome što stručnjak slaže:
-// veličini, ulazima, rezervama, razinama i ručnim vrijednostima. Doseg i brojeve
-// daje priprema, pa se ne gledaju.
+// veličini, ulazima, rezervama, razinama, ručnim vrijednostima i dnevnom modelu.
+// Doseg i brojeve daje priprema, pa se ne gledaju.
 func istaDefinicija(a, b ZapisLetve) bool {
 	a.Racun.Doseg, b.Racun.Doseg = 0, 0
 	ja, errA := json.Marshal(a.Racun)
 	jb, errB := json.Marshal(b.Racun)
-	return errA == nil && errB == nil && a.Velicina == b.Velicina && a.Metoda == b.Metoda && string(ja) == string(jb)
+	return errA == nil && errB == nil && a.Velicina == b.Velicina && a.Metoda == b.Metoda && string(ja) == string(jb) &&
+		bytes.Equal(dnevniBezNull(a.Dnevni), dnevniBezNull(b.Dnevni))
+}
+
+// dnevniBezNull svodi prazan blok dnevnog modela na jedno: iz baze se čita kao
+// null, a iz obrasca stiže prazan.
+func dnevniBezNull(d json.RawMessage) []byte {
+	if string(d) == "null" {
+		return nil
+	}
+	return d
 }
 
 // PripremiNacrt namjesti račun iz nacrta letve i upiše u isti nacrt što je
@@ -178,4 +195,71 @@ func procitajNacrt(letva, sadrzaj string) (NacrtLetve, bool) {
 func ObrisiNacrt(baza *sql.DB, letva string) error {
 	_, err := baza.Exec(`DELETE FROM model_nacrt WHERE letva = ?`, letva)
 	return err
+}
+
+// godineProbeDnevnog je koliko se zadnjih godina arhive ostavlja za probu
+// dnevnog modela; na svemu prije toga model uči. Kad uz dvije godine ne ostane
+// dosta dana za učenje, proba se mjeri na zadnjoj godini.
+var godineProbeDnevnog = []int64{2, 1}
+
+// ProbajDnevniNacrt proba dnevni model iz nacrta letve: nauči ga na arhivi do
+// dvije godine prije njezina kraja (ili godinu, kad dana nema dosta), izmjeri na
+// ostatku i upiše u nacrt što je izmjerio. tocke su kišomjeri registra (OborinskeTocke). Model i prognoza se
+// ne mijenjaju.
+func ProbajDnevniNacrt(arhiva, baza *sql.DB, tocke []OborinskaTocka, letva, kad string) (NacrtLetve, error) {
+	nacrti, err := Nacrti(baza)
+	if err != nil {
+		return NacrtLetve{}, err
+	}
+	n, ima := nacrti[letva]
+	if !ima || n.Zapis.Metoda != MetodaDnevni {
+		return NacrtLetve{}, errors.New("letva nema nacrt dnevnog modela; složi ga i spremi, pa probaj")
+	}
+	c, err := n.Zapis.DnevniCiljZapisa()
+	if err != nil {
+		return NacrtLetve{}, err
+	}
+	nizovi, err := DnevniNizoviCilja(arhiva, tocke, c)
+	if err != nil {
+		return NacrtLetve{}, err
+	}
+	m, granica, kraj, err := probajNaKrajuArhive(nizovi, c)
+	if err != nil {
+		return NacrtLetve{}, err
+	}
+	dan := func(d int64) string { return time.Unix(d*86400, 0).UTC().Format(time.DateOnly) }
+	n.Proba = &ProbaNacrta{Kad: kad, Dani: m.Dani, Natpisi: m.Natpisi, Razdoblje: []string{dan(granica), dan(kraj - 1)}}
+	return n, upisiNacrt(baza, n)
+}
+
+// probajNaKrajuArhive uči model na arhivi bez zadnjih godina i mjeri ga na njima:
+// na dvije, a kad uz njih nema dosta dana za učenje, na jednoj. Vraća i granice
+// razdoblja probe.
+func probajNaKrajuArhive(nizovi map[string]DnevniNiz, c DnevniCilj) (m MjeraDnevnog, granica, kraj int64, err error) {
+	kraj = zadnjiDan(nizovi[c.Letva]) + 1
+	for _, godina := range godineProbeDnevnog {
+		granica = kraj - godina*365
+		if m, err = ProvjeriDnevni(nizovi, c, granica, kraj); err == nil {
+			break
+		}
+	}
+	return m, granica, kraj, err
+}
+
+// zadnjiDan je zadnji dan dnevnog niza; nula kad je niz prazan.
+func zadnjiDan(n DnevniNiz) int64 {
+	var zadnji int64
+	for d := range n {
+		zadnji = max(zadnji, d)
+	}
+	return zadnji
+}
+
+// MetodaNacrta je metoda nacrta letve; prazno kad nacrta nema ili se ne da pročitati.
+func MetodaNacrta(baza *sql.DB, letva string) string {
+	nacrti, err := Nacrti(baza)
+	if err != nil {
+		return ""
+	}
+	return nacrti[letva].Zapis.Metoda
 }

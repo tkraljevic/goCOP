@@ -11282,7 +11282,7 @@ td .odr-sitno { margin-top: 2px; }
   .rac-tablica .rac-red > :first-child, .rac-tablica .rac-bez { grid-column: 1 / -1; }
   .rac-tablica .rac-red > :first-child { font-weight: 500; }
 }
-.rac-tablica .rac-proba-red { grid-template-columns: 90px minmax(0, 1fr) minmax(0, 1fr) 100px minmax(0, 1.6fr); }
+.rac-tablica .rac-proba-red { grid-template-columns: 80px minmax(0, 0.8fr) minmax(0, 0.9fr) 90px minmax(250px, 1.8fr); }
 @media (max-width: 600px) {
   .rac-tablica .rac-proba-red { grid-template-columns: minmax(0, 1fr) auto; }
   .rac-tablica .rac-proba-red > :first-child { grid-column: 1 / -1; font-weight: 500; }
@@ -11298,3 +11298,6 @@ td .odr-sitno { margin-top: 2px; }
 .rac-rucni .form-row { max-width: 420px; }
 .rac-vrati { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
 .rac-vrati .form-group { width: 100%; }
+/* Način računa: satni račun ili dnevni model s kišom; polja drugoga se ne vide. */
+.rac-obrazac:has(input[name="metoda"][value="dnevni"]:checked) .rac-samo-satni { display: none; }
+.rac-obrazac:has(input[name="metoda"][value="lanac"]:checked) .rac-samo-dnevni { display: none; }

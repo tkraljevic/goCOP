@@ -14,9 +14,13 @@ import (
 
 	"github.com/google/uuid"
 
+	"gocop/internal/db"
+	"gocop/internal/ledger"
 	"gocop/internal/models"
 	"gocop/internal/poslovi"
 	"gocop/internal/prognoza"
+	"gocop/internal/repository"
+	"gocop/internal/service"
 )
 
 // Letve, vodotoci i osobe u ovim testovima su izmišljeni.
@@ -569,10 +573,10 @@ func TestProbaNaStraniciRacuna(t *testing.T) {
 		t.Fatalf("proba %+v", p)
 	}
 	for i, zelim := range []DosegProbe{
-		{6, "3,0", "3,0", 1916, StanjeModela{"Kao zadnje mjerenje", ""}},
-		{24, "5,2", "6,4", 1914, StanjeModela{"Pouzdanije od zadnjeg mjerenja", "dobro"}},
-		{48, "9,0", "7,0", 1910, StanjeModela{"Zadnje mjerenje je pouzdanije", "pozor"}},
-		{72, "—", "—", 40, StanjeModela{"Nije provjereno", ""}},
+		{0, 6, "3,0", "3,0", 1916, StanjeModela{"Kao zadnje mjerenje", ""}},
+		{0, 24, "5,2", "6,4", 1914, StanjeModela{"Pouzdanije od zadnjeg mjerenja", "dobro"}},
+		{0, 48, "9,0", "7,0", 1910, StanjeModela{"Zadnje mjerenje je pouzdanije", "pozor"}},
+		{0, 72, "—", "—", 40, StanjeModela{"Nije provjereno", ""}},
 	} {
 		if p.Dosezi[i] != zelim {
 			t.Errorf("doseg %d: %+v, želim %+v", i, p.Dosezi[i], zelim)
@@ -595,7 +599,7 @@ func TestProbaNaStraniciRacuna(t *testing.T) {
 	redom(t, w.Body.String(), `id="rac-proba-naslov">Proba</h3>`, "Račun (m³/s)", "Zadnje mjerenje (m³/s)", "+6 h", "3,0", "1.916",
 		`<span class="rac-cip">Kao zadnje mjerenje</span>`, "+24 h", `<span class="rac-cip dobro">Pouzdanije od zadnjeg mjerenja</span>`,
 		`<span class="rac-cip pozor">Zadnje mjerenje je pouzdanije</span>`, "Nije provjereno", "31.5.2023. – 31.5.2026.",
-		"Probano 22. 11. 2026. 09:00.", "Premalo slučajeva za najvišu vodu.", `value="probaj" class="btn prog-obrub">Probaj ponovno`)
+		"Probano 22. 11. 2026. 09:00.", "Premalo slučajeva za najvišu vodu.", `value="probaj" class="btn prog-obrub rac-samo-satni">Probaj ponovno`)
 }
 
 // Primijeni predaje uredniku letvu, ime osobe i razlog, a Ukloni letvu. Greška
@@ -721,5 +725,125 @@ func TestRucniRacunUObrascu(t *testing.T) {
 	rm.zapisi["b"] = prognoza.ZapisLetve{Racun: prognoza.RacunLetve{Ulazi: []string{"a"}, Rucno: prognoza.RucnoLetve{Nagib: &nagib}}}
 	if o := rm.obrazac("b", "B"); o.RucniNagib != "2" || o.RucnoKasnjenje != "" {
 		t.Errorf("nagib bez kašnjenja: %q, %q", o.RucniNagib, o.RucnoKasnjenje)
+	}
+}
+
+// Dnevni model u obrascu: način računa, ulazi i slivovi kiše idu u blok „dnevni”
+// zapisa, a polja satnog računa se ne čitaju. Letva s dnevnim modelom na popisu
+// nosi opis, a obrazac pokazuje što je izabrano.
+func TestDnevniModelUObrascu(t *testing.T) {
+	f := url.Values{"metoda": {"dnevni"}, "ulaz": {"potok-gornji", "donji-miholjac"}, "sliv": {"Z", ""}, "velicina": {"protok"},
+		"rezerva": {"belisce"}, "razine_nacin": {"granice"}, "razine": {"40"}, "rucni_nagib": {"0,8"}, "rucno_kasnjenje": {"6"}}
+	z, err := zapisIzObrasca(f, "potok-srednji", prognoza.ZapisLetve{})
+	if err != nil || z.Metoda != prognoza.MetodaDnevni || z.Velicina != "vodostaj" || len(z.Racun.Ulazi)+len(z.Racun.Rezerve) != 0 ||
+		z.Racun.Rucno.Nagib != nil {
+		t.Fatalf("zapis dnevnog modela: %+v, %v", z, err)
+	}
+	d, err := z.DnevniBlok()
+	if err != nil || !slices.Equal(d.Ulazi, []string{"potok-gornji", "donji-miholjac"}) || !slices.Equal(d.Slivovi, []string{"Z"}) {
+		t.Errorf("blok dnevnog modela: %+v, %v", d, err)
+	}
+	if err := z.Provjeri(prognoza.OkvirModela{}); err != nil {
+		t.Errorf("zapis iz obrasca mora proći provjeru: %v", err)
+	}
+	rm := racuniModela{zapisi: map[string]prognoza.ZapisLetve{"potok-srednji": z}, glavni: map[string]bool{}}
+	if opis := rm.opis("potok-srednji", nil); opis != "dnevni model · ulaz: potok-gornji + donji-miholjac · kiša sliva Z" {
+		t.Errorf("opis %q", opis)
+	}
+	o := rm.obrazac("potok-srednji", "Srednji Lug")
+	if !o.Dnevni || !slices.Equal(o.Ulazi, []string{"potok-gornji", "donji-miholjac"}) || !slices.Equal(o.Slivovi, []string{"Z", ""}) || len(o.Redci) != 0 {
+		t.Errorf("obrazac dnevnog modela: %+v", o)
+	}
+	// samo kiša, bez ulaza: jezero koje puni kiša
+	samoKisa, err := zapisIzObrasca(url.Values{"metoda": {"dnevni"}, "sliv": {"Z"}}, "jezero", prognoza.ZapisLetve{})
+	if err != nil || samoKisa.Provjeri(prognoza.OkvirModela{}) != nil {
+		t.Errorf("dnevni model samo s kišom: %v", err)
+	}
+	rm.zapisi["jezero"] = samoKisa
+	if opis := rm.opis("jezero", nil); opis != "dnevni model · kiša sliva Z" {
+		t.Errorf("opis samo s kišom %q", opis)
+	}
+}
+
+// Proba dnevnog modela na stranici: redci su dani, uz isto objašnjenje ocjene, a
+// obrazac nudi sliv kiše iz registra i gumb Probaj bez pripreme.
+func TestStranicaDnevnogModela(t *testing.T) {
+	p := probaRacuna(&prognoza.ProbaNacrta{Kad: "22. 11. 2026. 12:00", Razdoblje: []string{"2024-06-01", "2026-05-31"},
+		Natpisi: []string{prognoza.NatpisTocnaKisa}, Dani: []prognoza.MjeraDana{
+			{Dan: 1, Promasaj: 2.9, BezModela: 4.7, Slucaja: 730, Stanje: prognoza.MjeraBolje},
+			{Dan: 2, Promasaj: 9, BezModela: 8.9, Slucaja: 730, Stanje: prognoza.MjeraIsto},
+			{Dan: 3, Promasaj: 14, BezModela: 12.7, Slucaja: 730, Stanje: prognoza.MjeraLosije},
+			{Dan: 4, Slucaja: 12, Stanje: prognoza.MjeraNijeProvjereno}}}, "vodostaj")
+	if !p.Dnevna || len(p.Dosezi) != 4 || p.Losijih != 1 || p.Dosezi[0].Dan != 1 || p.Dosezi[0].Racun != "2,9" ||
+		p.Dosezi[3].Racun != "—" || p.Dosezi[3].Ocjena.Natpis != "Nije provjereno" {
+		t.Fatalf("proba dnevnog modela: %+v", p)
+	}
+	h, _ := rukovateljRacuna(t)
+	h.SetSlivovi(func(context.Context) []models.Sliv { return []models.Sliv{{Oznaka: "Z", Naziv: "Potok Lug do ušća"}} })
+	if izbor := h.sliviIzbora(context.Background()); len(izbor) != 1 || izbor[0].Ime != "Z · Potok Lug do ušća" {
+		t.Errorf("slivovi u izboru: %+v", izbor)
+	}
+	if (&PrognozeHandler{}).sliviIzbora(context.Background()) != nil {
+		t.Error("bez registra slivova nema izbora")
+	}
+	r := zahtjevOsobe(http.MethodGet, "/prognoze/model/racun", "", &models.UserPermissions{IsGlobalAdmin: true})
+	data := RacunPrognozePageData{PrognozePageData: h.zaglavlje(r), Sektor: SektorPrognoze{ID: "B"}, Vodotok: VodotokPrognoze{Ime: "Potok Lug"},
+		SmijeUrediti: true, SliviIzbora: h.sliviIzbora(context.Background()),
+		Obrazac: &ObrazacRacuna{Kod: "potok-srednji", Ime: "Srednji Lug", Dnevni: true, Velicina: "vodostaj", Ulazi: []string{"a", ""},
+			Rezerve: []string{"", ""}, Slivovi: []string{"Z", ""}, NacinRazina: razineZadane, Kad: "11:00", Proba: p}}
+	w := httptest.NewRecorder()
+	if err := h.racunTmpl.ExecuteTemplate(w, "prognoze_racun.html", data); err != nil {
+		t.Fatal(err)
+	}
+	redom(t, w.Body.String(), `name="metoda" value="lanac"> satni račun`, `name="metoda" value="dnevni" checked> dnevni model s kišom`,
+		`<option value="Z" selected>Z · Potok Lug do ušća</option>`, `role="columnheader">Dan</span>`, "1. dan", "2,9", "4,7",
+		"Pouzdanije od zadnjeg mjerenja", "3. dan", "Zadnje mjerenje je pouzdanije", "4. dan", "Nije provjereno",
+		"Model je naučen na arhivi prije razdoblja probe", "1.6.2024. – 31.5.2026.", "Mjereno uz kišu koja je stvarno pala",
+		`value="probaj" class="btn prog-obrub rac-samo-dnevni">Probaj ponovno`, "Na 1 dosegu zadnje mjerenje je pouzdanije od računa.")
+}
+
+// Međuslivovi za izbor kiše čitaju se iz registra kišomjera; bez registra ili kad
+// se ne da pročitati izbora nema.
+func TestSlivoviZaModel(t *testing.T) {
+	if (&Server{}).slivoviZaModel(context.Background()) != nil {
+		t.Error("bez registra kišomjera nema slivova")
+	}
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "op.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := baza.Exec(`INSERT INTO slivovi (oznaka, naziv) VALUES ('Z', 'Potok Lug do ušća')`); err != nil {
+		t.Fatal(err)
+	}
+	s := &Server{}
+	s.SetKisomjeri(service.NewKisomjerService(repository.NewKisomjerRepository(baza, ledger.New(baza, "test"))))
+	slivovi := s.slivoviZaModel(context.Background())
+	if !slices.ContainsFunc(slivovi, func(x models.Sliv) bool { return x.Oznaka == "Z" && x.Naziv == "Potok Lug do ušća" }) {
+		t.Errorf("slivovi iz registra: %+v", slivovi)
+	}
+	if err := baza.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if s.slivoviZaModel(context.Background()) != nil {
+		t.Error("registar koji se ne da pročitati ne daje slivove")
+	}
+}
+
+// Obrazac pripremljenog i probanog nacrta nosi što su priprema i proba dale:
+// kad je pripremljeno, na čemu je učeno, napomene, granice razina i probu.
+func TestObrazacPripremljenogNacrta(t *testing.T) {
+	z := prognoza.ZapisLetve{Velicina: "vodostaj", Racun: prognoza.RacunLetve{Ulazi: []string{"a"}, Doseg: 9},
+		Brojevi: prognoza.BrojeviLetve{Inacice: [][]prognoza.Pojas{{{Od: 10, Do: 40, Sati: 3100, Ulazi: []prognoza.Ulaz{{Letva: "a", PomakH: 9, Sirina: 3}}}}}}}
+	rm := racuniModela{glavni: map[string]bool{}, nacrti: map[string]prognoza.NacrtLetve{"b": {Zapis: z, Tko: "Iva Proba", Kad: "08:00",
+		Priprema: &prognoza.PripremaNacrta{Kad: "08:01", Cvorovi: []float64{10, 40, 90}, Napomene: []string{"Razina od 40 do 90 nema račun."},
+			Ucenje: prognoza.UcenjeRacuna{Sati: 3100, Od: 12, Do: 250}},
+		Proba: &prognoza.ProbaNacrta{Kad: "08:02", Dosezi: []prognoza.MjeraDosega{{Doseg: 6, Slucaja: 500, Stanje: prognoza.MjeraBolje}}}}}}
+	o := rm.obrazac("b", "B")
+	if o.Tko != "Iva Proba" || o.Kad != "08:00" || o.Pripremljen != "08:01" || len(o.Napomene) != 1 ||
+		o.Ucenje != "Račun je učio na 3.100 sati, na vodi od 12 do 250 cm." || o.Proba == nil || o.Proba.Kad != "08:02" {
+		t.Errorf("obrazac pripremljenog nacrta: %+v", o)
+	}
+	if len(o.Redci) != 2 || o.Redci[0].Granica != "do 40 cm" || !o.Redci[1].BezRacuna || o.Doseg != 9 {
+		t.Errorf("razine iz pripreme: %+v", o.Redci)
 	}
 }

@@ -139,6 +139,9 @@ func (u *urednikModela) ProbajNacrt(letva string, p *poslovi.Posao) error {
 	if !u.Izdaje() {
 		return errNeIzdaje
 	}
+	if u.pb != nil && prognoza.MetodaNacrta(u.pb, letva) == prognoza.MetodaDnevni {
+		return u.probajDnevni(letva, p)
+	}
 	privremena, pocisti, err := privremenaBazaPrognoza()
 	if err != nil {
 		return err
@@ -151,6 +154,43 @@ func (u *urednikModela) ProbajNacrt(letva string, p *poslovi.Posao) error {
 	}
 	p.Zavrsi(opisProbeNacrta(n), nil)
 	return nil
+}
+
+// probajDnevniNacrt proba dnevni model iz nacrta; testovi ga zamjenjuju, jer
+// pravi traži arhivu s dnevnim nizovima.
+var probajDnevniNacrt = prognoza.ProbajDnevniNacrt
+
+// probajDnevni proba dnevni model iz nacrta letve: uči ga na arhivi bez zadnje
+// dvije godine i mjeri na njima. Kišomjeri se čitaju iz registra.
+func (u *urednikModela) probajDnevni(letva string, p *poslovi.Posao) error {
+	var tocke []prognoza.OborinskaTocka
+	if u.ocitanja != nil {
+		var err error
+		if tocke, err = prognoza.OborinskeTocke(u.ocitanja); err != nil {
+			return fmt.Errorf("kišomjeri iz registra: %w", err)
+		}
+	}
+	p.Korak("učenje i mjerenje dnevnog modela", 0, 0)
+	n, err := probajDnevniNacrt(u.arhiva, u.pb, tocke, letva, time.Now().In(models.Zagreb).Format("2. 1. 2006. 15:04"))
+	if err != nil {
+		return err
+	}
+	p.Zavrsi(opisProbeDnevnog(n), nil)
+	return nil
+}
+
+// opisProbeDnevnog je rečenica na kraju probe dnevnog modela.
+func opisProbeDnevnog(n prognoza.NacrtLetve) string {
+	if n.Proba == nil {
+		return "Proba je gotova."
+	}
+	bolje := 0
+	for _, d := range n.Proba.Dani {
+		if d.Stanje == prognoza.MjeraBolje {
+			bolje++
+		}
+	}
+	return fmt.Sprintf("Proba je gotova: dnevni model je pouzdaniji od zadnjeg mjerenja na %d od %d dana.", bolje, len(n.Proba.Dani))
 }
 
 // privremenaBazaPrognoza otvara novu, praznu bazu prognoza u privremenoj mapi i

@@ -13,6 +13,8 @@ package web
 // putuje razmjenom. Ukloni briše model.
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
@@ -59,6 +61,7 @@ const (
 const (
 	najviseUlazaObrasca   = 2
 	najviseRezerviObrasca = 2
+	najviseSlivovaObrasca = 2
 )
 
 var (
@@ -90,8 +93,12 @@ type SkupinaIzbora struct {
 
 // ObrazacRacuna je račun odabrane letve, kako stoji u obrascu.
 type ObrazacRacuna struct {
-	Kod, Ime    string
-	Stanje      StanjeModela
+	Kod, Ime string
+	Stanje   StanjeModela
+	// Dnevni kaže da letva računa dnevnim modelom s kišom, a ne satnim računom;
+	// Slivovi su tada međuslivovi čija kiša ulazi (uvijek najviseSlivovaObrasca polja).
+	Dnevni      bool
+	Slivovi     []string
 	Velicina    string
 	Ulazi       []string // uvijek najviseUlazaObrasca polja; prvi je obavezan
 	Rezerve     []string // uvijek najviseRezerviObrasca polja, prazno je „bez rezerve”
@@ -140,11 +147,14 @@ type ProbaRacuna struct {
 	Natpisi        []string
 	// Losijih je na koliko je dosega zadnje mjerenje pouzdanije od računa.
 	Losijih int
+	// Dnevna kaže da je proban dnevni model: redci su dani, a ne dosezi u satima.
+	Dnevna bool
 }
 
 // DosegProbe je redak tablice probe: promašaj računa i promašaj kad se kao
 // prognoza uzme zadnje mjerenje (BezModela).
 type DosegProbe struct {
+	Dan              int // dan unaprijed u probi dnevnog modela; 0 uz satni račun
 	Doseg            int
 	Racun, BezModela string
 	Slucaja          int
@@ -154,12 +164,14 @@ type DosegProbe struct {
 // RacunPrognozePageData je stranica „Slaganje računa”.
 type RacunPrognozePageData struct {
 	PrognozePageData
-	Sektor       SektorPrognoze
-	Vodotok      VodotokPrognoze
-	Natrag       string
-	Letve        []LetvaRacuna
-	Obrazac      *ObrazacRacuna
-	Ulazi        []SkupinaIzbora
+	Sektor  SektorPrognoze
+	Vodotok VodotokPrognoze
+	Natrag  string
+	Letve   []LetvaRacuna
+	Obrazac *ObrazacRacuna
+	Ulazi   []SkupinaIzbora
+	// SliviIzbora su međuslivovi registra koji se mogu izabrati za kišu.
+	SliviIzbora  []IzborLetve
 	SmijeUrediti bool
 	ZastoNe      string
 }
@@ -221,11 +233,27 @@ func (h *PrognozeHandler) ShowRacun(w http.ResponseWriter, r *http.Request) {
 		o := racuni.obrazac(odabrana, imeLetve(postaje, odabrana))
 		data.Obrazac = &o
 		data.Ulazi = izborUlaza(postaje, odabrana, vodotok.Ime)
+		data.SliviIzbora = h.sliviIzbora(r.Context())
 	}
 	data.SmijeUrediti, data.ZastoNe = h.smijeUreditiModel(r)
 	if err := h.racunTmpl.ExecuteTemplate(w, "prognoze_racun.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// SetSlivovi daje stranici popis međuslivova registra, za izbor kiše.
+func (h *PrognozeHandler) SetSlivovi(f func(context.Context) []models.Sliv) { h.slivoviRegistra = f }
+
+// sliviIzbora su međuslivovi registra po oznaci, s nazivom.
+func (h *PrognozeHandler) sliviIzbora(ctx context.Context) []IzborLetve {
+	if h.slivoviRegistra == nil {
+		return nil
+	}
+	var out []IzborLetve
+	for _, s := range h.slivoviRegistra(ctx) {
+		out = append(out, IzborLetve{Kod: s.Oznaka, Ime: s.Oznaka + " · " + s.Naziv})
+	}
+	return out
 }
 
 // nadjiVodotok traži vodotok sektora po oznakama iz adrese.
@@ -302,9 +330,6 @@ func (rm racuniModela) opis(kod string, postaje map[string]models.Station) strin
 	if s == oznakaULancu {
 		return "računa se u glavnom lancu"
 	}
-	if len(z.Racun.Ulazi) == 0 {
-		return ""
-	}
 	imena := func(kodovi []string) string {
 		out := make([]string, 0, len(kodovi))
 		for _, k := range kodovi {
@@ -312,9 +337,40 @@ func (rm racuniModela) opis(kod string, postaje map[string]models.Station) strin
 		}
 		return strings.Join(out, " + ")
 	}
+	if d, err := z.DnevniBlok(); err == nil && z.Metoda == prognoza.MetodaDnevni {
+		return opisDnevnogRacuna(d, imena)
+	}
+	if len(z.Racun.Ulazi) == 0 {
+		return ""
+	}
 	dijelovi := []string{z.Velicina, "ulaz: " + imena(z.Racun.Ulazi)}
 	for _, r := range z.Racun.Rezerve {
 		dijelovi = append(dijelovi, "rezerva: "+imena(r))
+	}
+	return strings.Join(dijelovi, " · ")
+}
+
+// popuniIzNacrta upisuje u obrazac tko je i kad spremio nacrt te što su priprema i
+// proba dale; vraća granice razina iz pripreme. Letva bez nacrta ne mijenja ništa.
+func (o *ObrazacRacuna) popuniIzNacrta(n prognoza.NacrtLetve, velicina string) []float64 {
+	o.Tko, o.Kad = n.Tko, n.Kad
+	o.Proba = probaRacuna(n.Proba, velicina)
+	p := n.Priprema
+	if p == nil {
+		return nil
+	}
+	o.Pripremljen, o.Napomene, o.Ucenje = p.Kad, p.Napomene, opisUcenja(p.Ucenje, velicina)
+	return p.Cvorovi
+}
+
+// opisDnevnogRacuna je redak ispod imena letve s dnevnim modelom.
+func opisDnevnogRacuna(d prognoza.DnevniLetve, imena func([]string) string) string {
+	dijelovi := []string{"dnevni model"}
+	if len(d.Ulazi) > 0 {
+		dijelovi = append(dijelovi, "ulaz: "+imena(d.Ulazi))
+	}
+	if len(d.Slivovi) > 0 {
+		dijelovi = append(dijelovi, "kiša sliva "+strings.Join(d.Slivovi, ", "))
 	}
 	return strings.Join(dijelovi, " · ")
 }
@@ -324,7 +380,8 @@ func (rm racuniModela) opis(kod string, postaje map[string]models.Station) strin
 func (rm racuniModela) obrazac(kod, ime string) ObrazacRacuna {
 	z, s := rm.definicija(kod)
 	o := ObrazacRacuna{Kod: kod, Ime: ime, Stanje: s, Velicina: "vodostaj", NacinRazina: razineZadane,
-		Ulazi: make([]string, najviseUlazaObrasca), Rezerve: make([]string, najviseRezerviObrasca)}
+		Ulazi: make([]string, najviseUlazaObrasca), Rezerve: make([]string, najviseRezerviObrasca),
+		Slivovi: make([]string, najviseSlivovaObrasca)}
 	if s == oznakaULancu {
 		o.Zakljucano = porukaULancu
 		return o
@@ -333,14 +390,12 @@ func (rm racuniModela) obrazac(kod, ime string) ObrazacRacuna {
 		o.ImaModel, o.Promjene, o.ImaPrethodni = true, slices.Clone(model.Promjene), prognoza.ImaPrethodniZapis(model)
 		slices.Reverse(o.Promjene)
 	}
-	var cvorovi []float64
-	if n, ima := rm.nacrti[kod]; ima {
-		o.Tko, o.Kad = n.Tko, n.Kad
-		if p := n.Priprema; p != nil {
-			o.Pripremljen, o.Napomene, cvorovi = p.Kad, p.Napomene, p.Cvorovi
-			o.Ucenje = opisUcenja(p.Ucenje, z.Velicina)
-		}
-		o.Proba = probaRacuna(n.Proba, z.Velicina)
+	cvorovi := o.popuniIzNacrta(rm.nacrti[kod], z.Velicina)
+	if d, err := z.DnevniBlok(); err == nil && z.Metoda == prognoza.MetodaDnevni {
+		o.Dnevni = true
+		copy(o.Ulazi, d.Ulazi)
+		copy(o.Slivovi, d.Slivovi)
+		return o
 	}
 	if len(z.Racun.Ulazi) == 0 {
 		return o
@@ -394,6 +449,16 @@ func probaRacuna(p *prognoza.ProbaNacrta, velicina string) *ProbaRacuna {
 	out := &ProbaRacuna{Kad: p.Kad, Jedinica: jedinicaRacuna(velicina), Natpisi: p.Natpisi}
 	if len(p.Razdoblje) == 2 {
 		out.Razdoblje = datumHR(p.Razdoblje[0]) + " – " + datumHR(p.Razdoblje[1])
+	}
+	for _, d := range p.Dani {
+		r := DosegProbe{Dan: d.Dan, Slucaja: d.Slucaja, Ocjena: oznakaOcjene(d.Stanje), Racun: "—", BezModela: "—"}
+		if d.Stanje != prognoza.MjeraNijeProvjereno {
+			r.Racun, r.BezModela = decimalaHR(d.Promasaj), decimalaHR(d.BezModela)
+		}
+		if d.Stanje == prognoza.MjeraLosije {
+			out.Losijih++
+		}
+		out.Dosezi, out.Dnevna = append(out.Dosezi, r), true
 	}
 	for _, d := range p.Dosezi {
 		r := DosegProbe{Doseg: d.Doseg, Slucaja: d.Slucaja, Ocjena: oznakaOcjene(d.Stanje), Racun: "—", BezModela: "—"}
@@ -656,6 +721,9 @@ func velikoPrvo(s string) string {
 // razine staroga računa ostaju samo dok se razine ne promijene, jer se vode po
 // rednom broju razine.
 func zapisIzObrasca(f url.Values, letva string, stari prognoza.ZapisLetve) (prognoza.ZapisLetve, error) {
+	if f.Get("metoda") == prognoza.MetodaDnevni {
+		return dnevniZapisIzObrasca(f, letva)
+	}
 	z := prognoza.ZapisLetve{Oblik: prognoza.OblikModelaLetve, Letva: letva, Metoda: prognoza.MetodaLanac,
 		Velicina: strings.TrimSpace(f.Get("velicina"))}
 	z.Racun.Ulazi = odabraneLetve(f["ulaz"])
@@ -672,6 +740,15 @@ func zapisIzObrasca(f url.Values, letva string, stari prognoza.ZapisLetve) (prog
 		return z, err
 	}
 	return z, rucnoPoRazinama(f, &z, stari)
+}
+
+// dnevniZapisIzObrasca slaže zapis dnevnog modela: ulazi i međuslivovi čija kiša
+// ulazi. Ostala polja obrasca pripadaju satnom računu i ne čitaju se.
+func dnevniZapisIzObrasca(f url.Values, letva string) (prognoza.ZapisLetve, error) {
+	z := prognoza.ZapisLetve{Oblik: prognoza.OblikModelaLetve, Letva: letva, Metoda: prognoza.MetodaDnevni, Velicina: "vodostaj"}
+	blok, err := json.Marshal(prognoza.DnevniLetve{Ulazi: odabraneLetve(f["ulaz"]), Slivovi: odabraneLetve(f["sliv"])})
+	z.Dnevni = blok
+	return z, err
 }
 
 // rucnoPoRazinama upisuje isključene razine i ručna kašnjenja računa koji se

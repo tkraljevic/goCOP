@@ -270,3 +270,121 @@ func TestPrikazOdvojenihPreskaceDnevni(t *testing.T) {
 		t.Errorf("prikaz uz satni i dnevni zapis: %+v", p)
 	}
 }
+
+// Nacrt dnevnog modela se sprema, proba na zadnje dvije godine arhive i primjenjuje
+// bez pripreme: model se uči u samoj probi. Što nije probano, ne primjenjuje se.
+func TestNacrtDnevnogModela(t *testing.T) {
+	arhiva, _ := arhivaUDatoteci(t)
+	upisiDnevne(t, arhiva, "gornja", "vodostaj", 4600, valIzmisljeni)
+	upisiDnevne(t, arhiva, "donja", "vodostaj", 4600, func(d int64) float64 { return valIzmisljeni(d-2) + 20 })
+	upisiDnevne(t, arhiva, "kratka", "vodostaj", 900, valIzmisljeni)
+	baza := otvoriProbnu(t, "p.db")
+	nacrt := NacrtLetve{Zapis: dnevniZapis(t, "donja", []string{"gornja"}, nil), Tko: "Iva Proba", Kad: "09:00"}
+
+	if _, err := ProbajDnevniNacrt(arhiva, baza, nil, "donja", "sada"); !porukaIma(err, "nema nacrt dnevnog modela") {
+		t.Errorf("proba bez nacrta: %v", err)
+	}
+	if MetodaNacrta(baza, "donja") != "" {
+		t.Error("letva bez nacrta nema metodu")
+	}
+	if err := SpremiNacrt(baza, NacrtLetve{Zapis: dnevniZapis(t, "donja", nil, nil)}, OkvirModela{}); !porukaIma(err, "ni ulaz ni sliv") {
+		t.Errorf("neispravan nacrt: %v", err)
+	}
+	if err := SpremiNacrt(baza, nacrt, OkvirModela{}); err != nil {
+		t.Fatal(err)
+	}
+	if MetodaNacrta(baza, "donja") != MetodaDnevni {
+		t.Error("metoda nacrta")
+	}
+	promjena := PromjenaLetve{Kad: "22. 11. 2026. 12:00", Tko: "Iva Proba", Razlog: "dnevni model potoka"}
+	if err := PrimijeniNacrt(baza, "donja", promjena, OkvirModela{}); !porukaIma(err, "nije proban") {
+		t.Errorf("primjena bez probe: %v", err)
+	}
+	n, err := ProbajDnevniNacrt(arhiva, baza, nil, "donja", "22. 11. 2026. 11:00")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n.Proba == nil || len(n.Proba.Dani) != DnevniDosezi || n.Proba.Dani[0].Stanje != MjeraBolje || n.Proba.Dani[0].Slucaja < 600 ||
+		len(n.Proba.Razdoblje) != 2 || n.Proba.Razdoblje[1] != "1982-08-05" || n.Proba.Kad != "22. 11. 2026. 11:00" {
+		t.Fatalf("proba dnevnog modela: %+v", n.Proba)
+	}
+	// ista definicija čuva probu, promijenjena je briše
+	if err := SpremiNacrt(baza, nacrt, OkvirModela{}); err != nil {
+		t.Fatal(err)
+	}
+	svi, err := Nacrti(baza)
+	if err != nil || svi["donja"].Proba == nil {
+		t.Fatalf("ista definicija mora zadržati probu: %v", err)
+	}
+	drugi := NacrtLetve{Zapis: dnevniZapis(t, "donja", []string{"gornja", "kratka"}, nil)}
+	if err := SpremiNacrt(baza, drugi, OkvirModela{}); err != nil {
+		t.Fatal(err)
+	}
+	if svi, err := Nacrti(baza); err != nil || svi["donja"].Proba != nil {
+		t.Errorf("promijenjena definicija mora izgubiti probu: %v", err)
+	}
+	// uz dvije godine odvojene za mjerenje srednja nema dosta dana, pa se mjeri na jednoj
+	upisiDnevne(t, arhiva, "srednja", "vodostaj", 3400, func(d int64) float64 { return valIzmisljeni(d-1) + 7 })
+	if err := SpremiNacrt(baza, NacrtLetve{Zapis: dnevniZapis(t, "srednja", []string{"gornja"}, nil)}, OkvirModela{}); err != nil {
+		t.Fatal(err)
+	}
+	godinu, err := ProbajDnevniNacrt(arhiva, baza, nil, "srednja", "sada")
+	if err != nil || godinu.Proba.Dani[0].Slucaja > 365 || godinu.Proba.Dani[0].Slucaja < 300 {
+		t.Errorf("proba na zadnjoj godini: %+v, %v", godinu.Proba, err)
+	}
+	// ulaz s malo dana: proba javlja da nema dosta dana za učenje
+	if _, err := ProbajDnevniNacrt(arhiva, baza, nil, "donja", "sada"); !porukaIma(err, "dana sa svim ulazima") {
+		t.Errorf("premalo dana: %v", err)
+	}
+	if err := SpremiNacrt(baza, nacrt, OkvirModela{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ProbajDnevniNacrt(arhiva, baza, nil, "donja", "11:30"); err != nil {
+		t.Fatal(err)
+	}
+	if err := PrimijeniNacrt(baza, "donja", promjena, OkvirModela{}); err != nil {
+		t.Fatal(err)
+	}
+	zapisi, _, err := ZapisiLetvi(baza)
+	if err != nil || zapisi["donja"].Metoda != MetodaDnevni || len(zapisi["donja"].Promjene) != 1 {
+		t.Fatalf("primijenjen dnevni model: %+v, %v", zapisi["donja"], err)
+	}
+	if c, err := zapisi["donja"].DnevniCiljZapisa(); err != nil || !slices.Equal(c.Ulazi, []string{"gornja"}) {
+		t.Errorf("cilj primijenjenog modela: %+v, %v", c, err)
+	}
+	// satni nacrt se ne proba kao dnevni; pokvaren blok i nečitljiva arhiva javljaju grešku
+	if err := SpremiNacrt(baza, nacrtPotoka(), OkvirModela{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ProbajDnevniNacrt(arhiva, baza, nil, "potok-dole", "sada"); !porukaIma(err, "nema nacrt dnevnog modela") {
+		t.Errorf("satni nacrt: %v", err)
+	}
+	los, err := json.Marshal(NacrtLetve{Zapis: ZapisLetve{Letva: "losa", Metoda: MetodaDnevni, Dnevni: json.RawMessage(`"x"`)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := baza.Exec(`INSERT INTO model_nacrt (letva, sadrzaj) VALUES ('losa', ?)`, string(los)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ProbajDnevniNacrt(arhiva, baza, nil, "losa", "sada"); !porukaIma(err, "ne da pročitati") {
+		t.Errorf("pokvaren blok: %v", err)
+	}
+	if err := SpremiNacrt(baza, nacrt, OkvirModela{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := arhiva.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ProbajDnevniNacrt(arhiva, baza, nil, "donja", "sada"); err == nil {
+		t.Error("zatvorena arhiva mora javiti grešku")
+	}
+	if err := baza.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ProbajDnevniNacrt(arhiva, baza, nil, "donja", "sada"); err == nil || MetodaNacrta(baza, "donja") != "" {
+		t.Error("zatvorena baza mora javiti grešku i nema metode")
+	}
+	if zadnjiDan(nil) != 0 {
+		t.Error("prazan niz nema zadnjeg dana")
+	}
+}

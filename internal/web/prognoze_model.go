@@ -184,7 +184,8 @@ func (h *PrognozeHandler) stanjaModela() stanjaModela {
 	}
 	for letva, z := range c.ZapisiModela() {
 		s.racun[letva] = true
-		if len(z.Brojevi.Promasaji) == 0 {
+		// dnevni model nema brojeve u zapisu, a bez probe se ne da primijeniti
+		if len(z.Brojevi.Promasaji) == 0 && z.Metoda != prognoza.MetodaDnevni {
 			s.neprovjerene[letva] = true
 		}
 	}

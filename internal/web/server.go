@@ -1026,6 +1026,7 @@ func (s *Server) setupRoutes() {
 	prognozeH.SetPostavke(s.templates["prognoze_postavke.html"])
 	prognozeH.SetModel(s.templates["prognoze_model.html"])
 	prognozeH.SetUrednikModela(urednikIliNista(s), s.templates["prognoze_racun.html"])
+	prognozeH.SetSlivovi(s.slivoviZaModel)
 	prognozeH.SetOpcije(s.opcije, func(ctx context.Context, p *models.UserPermissions, izmjena func(*models.Opcije)) error {
 		if s.akti == nil {
 			return fmt.Errorf("opcije se ne mogu spremiti na ovom čvoru")
@@ -2208,6 +2209,19 @@ func (s *Server) Arhiva() *repository.ArhivaRepository {
 // Prognoze vraća čitača baze prognoza, ili nil kad baze nema. Prognoza je
 // račun, ne zapis: program mora raditi i bez nje, samo bez crte koja ide dalje
 // od zadnjeg očitanja.
+// slivoviZaModel su međuslivovi registra; prazno dok registar kišomjera nije
+// postavljen ili se ne da pročitati.
+func (s *Server) slivoviZaModel(ctx context.Context) []models.Sliv {
+	if s.kisomjeri == nil {
+		return nil
+	}
+	slivovi, err := s.kisomjeri.ListSlivovi(ctx)
+	if err != nil {
+		return nil
+	}
+	return slivovi
+}
+
 // SetUrednikModela uključuje slaganje modela prognoze na ovom čvoru.
 func (s *Server) SetUrednikModela(u UrednikModela) { s.urednikModela = u }
 

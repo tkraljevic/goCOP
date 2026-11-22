@@ -59,6 +59,8 @@ type PrognozeHandler struct {
 	modelTmpl    *template.Template // stranica „Model prognoze”
 	racunTmpl    *template.Template // stranica „Slaganje računa”
 	urednik      UrednikModela      // sprema nacrte računa; nil kad baze prognoza nema
+	// slivoviRegistra daje međuslivove registra za izbor kiše u dnevnom modelu
+	slivoviRegistra func(context.Context) []models.Sliv
 
 	pricuvno func(ctx context.Context) (prognoza.PricuvniPodaci, bool) // pričuvni Excel
 

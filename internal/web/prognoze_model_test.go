@@ -248,3 +248,30 @@ func TestStanjaModelaIzBaze(t *testing.T) {
 		t.Error("zatvorena baza prognoza")
 	}
 }
+
+// Letva s dnevnim modelom iz zapisa nije „neprovjerena”: brojeva u zapisu nema, a
+// bez probe se model ne da primijeniti.
+func TestDnevniZapisNijeNeprovjeren(t *testing.T) {
+	put := filepath.Join(t.TempDir(), "prognoze.db")
+	pb, err := prognoza.Otvori(put)
+	if err != nil {
+		t.Fatal(err)
+	}
+	z := prognoza.ZapisLetve{Oblik: prognoza.OblikModelaLetve, Letva: "potok-dole", Metoda: prognoza.MetodaDnevni, Velicina: "vodostaj",
+		Dnevni: []byte(`{"ulazi":["potok-vrh"],"slivovi":[]}`)}
+	if err := prognoza.SpremiZapisLetve(pb, z, "", prognoza.OkvirModela{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := pb.Close(); err != nil {
+		t.Fatal(err)
+	}
+	c, err := OtvoriPrognoze(put)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	h := &PrognozeHandler{citac: func() *CitacPrognoza { return c }}
+	if s := h.stanjaModela(); !s.racun["potok-dole"] || s.neprovjerene["potok-dole"] {
+		t.Errorf("zapis s dnevnim modelom: %+v", s)
+	}
+}

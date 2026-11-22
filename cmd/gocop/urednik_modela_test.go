@@ -267,3 +267,75 @@ func TestUrednikPrimjenaIUklanjanje(t *testing.T) {
 		t.Errorf("model nije uklonjen: %v, %v", zapisi, err)
 	}
 }
+
+// Nacrt s dnevnim modelom proba se dnevnom probom, s kišomjerima iz registra.
+// Registar koji se ne da pročitati i greška probe su greška posla.
+func TestUrednikProbaDnevnogModela(t *testing.T) {
+	pb, err := prognoza.Otvori(filepath.Join(t.TempDir(), "prognoze.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pb.Close()
+	n := prognoza.NacrtLetve{Zapis: prognoza.ZapisLetve{Oblik: prognoza.OblikModelaLetve, Letva: "potok-dole", Metoda: prognoza.MetodaDnevni,
+		Velicina: "vodostaj", Dnevni: json.RawMessage(`{"ulazi":["potok-vrh"],"slivovi":["Z"]}`)}}
+	sadrzaj, err := json.Marshal(n)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pb.Exec(`INSERT INTO model_nacrt (letva, sadrzaj) VALUES ('potok-dole', ?)`, string(sadrzaj)); err != nil {
+		t.Fatal(err)
+	}
+	registar, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "registar.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer registar.Close()
+	if _, err := registar.Exec(`CREATE TABLE kisomjeri (code TEXT, sliv TEXT, tezina REAL, aktivan INTEGER, vrsta TEXT);
+		INSERT INTO kisomjeri VALUES ('k-z-1', 'Z', 1, 1, 'izvedeni')`); err != nil {
+		t.Fatal(err)
+	}
+	stara := probajDnevniNacrt
+	t.Cleanup(func() { probajDnevniNacrt = stara })
+	var tocaka int
+	var greska error
+	ishod := prognoza.NacrtLetve{Proba: &prognoza.ProbaNacrta{Dani: []prognoza.MjeraDana{
+		{Dan: 1, Stanje: prognoza.MjeraBolje}, {Dan: 2, Stanje: prognoza.MjeraBolje}, {Dan: 3, Stanje: prognoza.MjeraIsto}}}}
+	probajDnevniNacrt = func(_, _ *sql.DB, tocke []prognoza.OborinskaTocka, letva, kad string) (prognoza.NacrtLetve, error) {
+		tocaka = len(tocke)
+		return ishod, greska
+	}
+	u := &urednikModela{pb: pb, ocitanja: registar, mreza: &probneUloge{izdaje: true}}
+	posao := func() poslovi.Pogled {
+		t.Helper()
+		p := poslovi.NoviRegistar().Pokreni("proba", "", "/", func(p *poslovi.Posao) error { return u.ProbajNacrt("potok-dole", p) })
+		for range 400 {
+			if !p.Traje() {
+				break
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+		return p.Stanje()
+	}
+	if st := posao(); st.Greska != "" || tocaka != 1 || !strings.Contains(st.Sazetak, "pouzdaniji od zadnjeg mjerenja na 2 od 3 dana") {
+		t.Errorf("proba dnevnog modela: %+v, točaka %d", st, tocaka)
+	}
+	greska = errors.New("potok-dole: samo 900 dana sa svim ulazima")
+	if st := posao(); !strings.Contains(st.Greska, "samo 900 dana") {
+		t.Errorf("greška probe: %+v", st)
+	}
+	greska = nil
+	u.ocitanja = nil // bez registra proba ide bez kišomjera
+	if st := posao(); st.Greska != "" || tocaka != 0 {
+		t.Errorf("proba bez registra: %+v, točaka %d", st, tocaka)
+	}
+	u.ocitanja = registar
+	if _, err := registar.Exec(`DROP TABLE kisomjeri`); err != nil {
+		t.Fatal(err)
+	}
+	if st := posao(); !strings.Contains(st.Greska, "kišomjeri iz registra") {
+		t.Errorf("registar koji se ne da pročitati: %+v", st)
+	}
+	if s := opisProbeDnevnog(prognoza.NacrtLetve{}); s != "Proba je gotova." {
+		t.Errorf("opis bez probe: %q", s)
+	}
+}
