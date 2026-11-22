@@ -74,6 +74,8 @@ func probaniGlavniNacrt(baza *sql.DB, letva string) (NacrtLetve, error) {
 // brojeva, s poviješću. Prije prvog retka prethodni je račun iz programa.
 func zapisZaGlavnu(z ZapisLetve, zapisi map[string]ZapisLetve, promjena PromjenaLetve) ZapisLetve {
 	z.Brojevi, z.Racun.Doseg = BrojeviLetve{}, najveciDosegZapisa
+	// dnevni blok letve ide svojim putem, pa ostaje kakav je u retku
+	z.Dnevni = zapisi[z.Letva].Dnevni
 	stari := maps.Clone(zapisi)
 	if _, ima := stari[z.Letva]; !ima {
 		stari[z.Letva], _ = ZapisIzLanca(z.Letva)

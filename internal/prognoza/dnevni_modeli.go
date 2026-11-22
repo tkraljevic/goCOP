@@ -105,7 +105,7 @@ func danUcenja(t time.Time) string { return t.In(models.Zagreb).Format("2006-01-
 // nedostaje javlja ima li dnevni cilj inačicu koja nije naučena, a mogla bi
 // se naučiti.
 func nedostaje(modeli map[string][]*DnevniModel, oborine *OborinskiIzvor) bool {
-	for _, c := range DnevniCiljevi {
+	for _, c := range CiljeviDnevnog() {
 		in := modeli[c.Letva]
 		for i, cilj := range c.Inacice() {
 			if (i >= len(in) || in[i] == nil) && mozeUciti(cilj, oborine) {
@@ -134,7 +134,7 @@ func imaKisomjera(oborine *OborinskiIzvor) bool {
 // dobio prošli put.
 func (u *ucenjeDnevnih) nauci(staro map[string][]*DnevniModel) (map[string][]*DnevniModel, map[string]error) {
 	modeli, greske := map[string][]*DnevniModel{}, map[string]error{}
-	for _, c := range DnevniCiljevi {
+	for _, c := range CiljeviDnevnog() {
 		in, err := u.inacice(c, staro[c.Letva])
 		modeli[c.Letva] = in
 		if err != nil {

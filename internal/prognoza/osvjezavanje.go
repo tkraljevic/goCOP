@@ -159,6 +159,7 @@ func (i *Ishod) Zaostatak(sada time.Time) time.Duration {
 // pa bi ponovni upis bio samo trošak.
 func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 	ctx = sBiljeznikomKvarova(sBiljeznikomSkokova(uKrugu(ctx)))
+	o.ucitajDnevneIzZapisa()
 	inacice, err := SveInacice(o.Baza)
 	if err != nil {
 		return nil, err
@@ -455,7 +456,7 @@ func (o *Osvjezivac) dnevniNizovi(ctx context.Context, sada int64, od time.Time,
 	}
 	modeli, _ := o.dnevniModeliZaDanas(ctx)
 	oborine := o.oborineZaDnevni(sada)
-	for _, c := range DnevniCiljevi {
+	for _, c := range CiljeviDnevnog() {
 		if vel, treba := velicina[c.Letva]; treba {
 			if n, ok := o.prviNizCilja(ctx, c, modeli[c.Letva], oborine, sada, od, vel, samoSKisom); ok {
 				out[Izvor{Letva: c.Letva, Velicina: vel}] = n
@@ -618,7 +619,7 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 	}
 	sKisom, bezKise := 0, 0
 	var out []DnevnaIzdana
-	for _, c := range DnevniCiljevi {
+	for _, c := range CiljeviDnevnog() {
 		in := modeli[c.Letva]
 		if len(in) == 0 {
 			continue
@@ -714,7 +715,7 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 	// (Kotoriba) dobivaju mjerenje u satu izdavanja, da na pregledu stoje.
 	var sidra []Izdana
 	sidrene := DnevniUlazi()
-	for _, c := range DnevniCiljevi {
+	for _, c := range CiljeviDnevnog() {
 		sidrene = append(sidrene, c.Letva)
 	}
 	for _, l := range sidrene {

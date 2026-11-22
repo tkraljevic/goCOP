@@ -268,12 +268,9 @@ var probajDnevniNacrt = prognoza.ProbajDnevniNacrt
 // probajDnevni proba dnevni model iz nacrta letve: uči ga na arhivi bez zadnje
 // dvije godine i mjeri na njima. Kišomjeri se čitaju iz registra.
 func (u *urednikModela) probajDnevni(letva string, p *poslovi.Posao) error {
-	var tocke []prognoza.OborinskaTocka
-	if u.ocitanja != nil {
-		var err error
-		if tocke, err = prognoza.TockeSKisomjerima(u.ocitanja); err != nil {
-			return fmt.Errorf("kišomjeri iz registra: %w", err)
-		}
+	tocke, err := u.tockeRegistra()
+	if err != nil {
+		return err
 	}
 	p.Korak("učenje i mjerenje dnevnog modela", 0, 0)
 	n, err := probajDnevniNacrt(u.arhiva, u.pb, tocke, letva, time.Now().In(models.Zagreb).Format("2. 1. 2006. 15:04"))
@@ -282,6 +279,96 @@ func (u *urednikModela) probajDnevni(letva string, p *poslovi.Posao) error {
 	}
 	p.Zavrsi(opisProbeDnevnog(n), nil)
 	return nil
+}
+
+// tockeRegistra su kišomjeri registra iz kojih dnevni model uči kišu; bez
+// registra ih nema.
+func (u *urednikModela) tockeRegistra() ([]prognoza.OborinskaTocka, error) {
+	if u.ocitanja == nil {
+		return nil, nil
+	}
+	tocke, err := prognoza.TockeSKisomjerima(u.ocitanja)
+	if err != nil {
+		return nil, fmt.Errorf("kišomjeri iz registra: %w", err)
+	}
+	return tocke, nil
+}
+
+// SpremiDnevni sprema nacrt dnevnog bloka letve dnevnog modela Drave i Dunava.
+func (u *urednikModela) SpremiDnevni(letva string, blok prognoza.DnevniLetve, tko string) error {
+	if !u.Izdaje() {
+		return errNeIzdaje
+	}
+	return prognoza.SpremiDnevniNacrt(u.pb, prognoza.NacrtDnevnog{Letva: letva, Blok: blok, Tko: tko,
+		Kad: time.Now().In(models.Zagreb).Format("2. 1. 2006. 15:04")})
+}
+
+// ObrisiDnevniNacrt odbacuje nacrt dnevnog bloka letve.
+func (u *urednikModela) ObrisiDnevniNacrt(letva string) error {
+	if !u.Izdaje() {
+		return errNeIzdaje
+	}
+	return prognoza.ObrisiDnevniNacrt(u.pb, letva)
+}
+
+// probajDnevniGlavni proba dnevni blok iz nacrta; testovi ga zamjenjuju, jer
+// pravi traži arhivu s dnevnim nizovima.
+var probajDnevniGlavni = prognoza.ProbajDnevniGlavni
+
+// ProbajDnevniGlavni proba dnevni blok iz nacrta letve: mjeri nove ulaze i
+// sadašnje na zadnjim godinama arhive. Model i prognoza se ne mijenjaju.
+func (u *urednikModela) ProbajDnevniGlavni(letva string, p *poslovi.Posao) error {
+	if !u.Izdaje() {
+		return errNeIzdaje
+	}
+	tocke, err := u.tockeRegistra()
+	if err != nil {
+		return err
+	}
+	p.Korak("učenje i mjerenje dnevnog modela", 0, 0)
+	n, err := probajDnevniGlavni(u.arhiva, u.pb, tocke, letva, time.Now().In(models.Zagreb).Format("2. 1. 2006. 15:04"))
+	if err != nil {
+		return err
+	}
+	p.Zavrsi(opisProbeBloka(n), nil)
+	return nil
+}
+
+// opisProbeBloka je rečenica na kraju probe dnevnog bloka.
+func opisProbeBloka(n prognoza.NacrtDnevnog) string {
+	if n.Proba == nil {
+		return "Proba je gotova."
+	}
+	bolje := 0
+	for _, d := range n.Proba.Dani {
+		if d.Stanje == prognoza.MjeraBolje {
+			bolje++
+		}
+	}
+	return fmt.Sprintf("Proba je gotova: dnevni model je pouzdaniji od zadnjeg mjerenja na %d od %d dana. Prognoza se ne mijenja dok se model ne primijeni.",
+		bolje, len(n.Proba.Dani))
+}
+
+// PrimijeniDnevni upiše probani dnevni blok u model letve.
+func (u *urednikModela) PrimijeniDnevni(letva, tko, razlog string) error {
+	if err := u.smijeMijenjatiModel(); err != nil {
+		return err
+	}
+	return prognoza.PrimijeniDnevniGlavni(u.pb, letva, u.promjena(tko, razlog))
+}
+
+// UkloniDnevni miče dnevni blok iz modela letve, pa se njezin dnevni model opet
+// uči iz programa.
+func (u *urednikModela) UkloniDnevni(letva, tko, razlog string) error {
+	if err := u.smijeMijenjatiModel(); err != nil {
+		return err
+	}
+	return prognoza.UkloniDnevniGlavni(u.pb, letva, u.promjena(tko, razlog))
+}
+
+// promjena je zapis o tome tko, kad i zašto mijenja model.
+func (u *urednikModela) promjena(tko, razlog string) prognoza.PromjenaLetve {
+	return prognoza.PromjenaLetve{Kad: time.Now().In(models.Zagreb).Format("2. 1. 2006. 15:04"), Tko: tko, Razlog: razlog}
 }
 
 // opisProbeDnevnog je rečenica na kraju probe dnevnog modela.

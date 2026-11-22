@@ -111,6 +111,7 @@ func pokreniPrognozu(o ovisnostiPrognoze) *sql.DB {
 		log.Printf("Prognoza se neće obnavljati: %v", err)
 		return nil
 	}
+	prognoza.OsvjeziDnevnuPostavu(pb)
 	ocitanjaRO, err := sql.Open("sqlite", db.SamoZaCitanje(dbPath))
 	if err != nil {
 		log.Printf("Prognoza se neće obnavljati: očitanja: %v", err)

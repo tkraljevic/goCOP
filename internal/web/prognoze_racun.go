@@ -202,8 +202,11 @@ type RacunPrognozePageData struct {
 	// KisomjeriIzbora su stvarni kišomjeri čija se kiša može izabrati umjesto
 	// kiše međusliva ili uz nju.
 	KisomjeriIzbora []IzborLetve
-	SmijeUrediti    bool
-	ZastoNe         string
+	// Dnevni je obrazac dnevnog modela odabrane letve; nil kad letva nije cilj
+	// dnevnog modela Drave i Dunava.
+	Dnevni       *ObrazacDnevnog
+	SmijeUrediti bool
+	ZastoNe      string
 }
 
 // IzborSOdabranim je izbor letvi s onom koja je u polju već odabrana.
@@ -266,6 +269,7 @@ func (h *PrognozeHandler) ShowRacun(w http.ResponseWriter, r *http.Request) {
 		data.Ulazi = izborUlaza(postaje, odabrana, vodotok.Ime)
 		data.SliviIzbora = h.sliviIzbora(r.Context())
 		data.KisomjeriIzbora = h.kisomjeriIzbora(r.Context())
+		data.Dnevni = h.obrazacDnevnog(odabrana, postaje, h.sliviIzbora(r.Context()))
 	}
 	data.SmijeUrediti, data.ZastoNe = h.smijeUreditiModel(r)
 	if err := h.racunTmpl.ExecuteTemplate(w, "prognoze_racun.html", data); err != nil {
@@ -772,6 +776,10 @@ func (h *PrognozeHandler) posaoNacrta(radnja string) (string, func(string, *posl
 		return "Priprema računa", h.urednik.PripremiNacrt
 	case "probaj":
 		return "Proba računa", h.urednik.ProbajNacrt
+	case "dnevni-probaj":
+		if u, err := h.urednikDnevnog(); err == nil {
+			return "Proba dnevnog modela", u.ProbajDnevniGlavni
+		}
 	}
 	return "", nil
 }
@@ -803,6 +811,9 @@ func (h *PrognozeHandler) izvrsiRadnjuRacuna(r *http.Request, letva string) (str
 	tko := ""
 	if u != nil {
 		tko = u.FullName
+	}
+	if poruka, obradena, err := h.izvrsiRadnjuDnevnog(r.PostForm, letva, ime, tko); obradena {
+		return poruka, err
 	}
 	switch r.PostForm.Get("radnja") {
 	case "odbaci":

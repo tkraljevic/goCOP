@@ -515,3 +515,97 @@ func TestIzdavanjePrimijenjenimModelom(t *testing.T) {
 		t.Error("račun bez modela mora javiti grešku")
 	}
 }
+
+// Urednik sprema, proba, primjenjuje i miče dnevni blok letve dnevnog modela
+// Drave i Dunava. Računalo koje ne izdaje prognozu ne mijenja ništa.
+func TestUrednikDnevnogBloka(t *testing.T) {
+	pb, err := prognoza.Otvori(filepath.Join(t.TempDir(), "prognoze.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pb.Close()
+	t.Cleanup(func() { prognoza.OsvjeziDnevnuPostavu(pb) })
+	stara := probajDnevniGlavni
+	t.Cleanup(func() { probajDnevniGlavni = stara })
+	var greska error
+	probajDnevniGlavni = func(_, baza *sql.DB, tocke []prognoza.OborinskaTocka, letva, kad string) (prognoza.NacrtDnevnog, error) {
+		if greska != nil {
+			return prognoza.NacrtDnevnog{}, greska
+		}
+		// proba upiše ishod u nacrt, kao prava
+		if _, err := baza.Exec(`UPDATE model_nacrt SET sadrzaj = json_set(sadrzaj, '$.proba', json('{"kad":"18:05","dani":[]}')) WHERE letva = ?`, "dnevni:"+letva); err != nil {
+			t.Fatal(err)
+		}
+		return prognoza.NacrtDnevnog{Letva: letva, Proba: &prognoza.ProbaDnevnogBloka{Dani: []prognoza.MjeraDana{
+			{Dan: 1, Stanje: prognoza.MjeraBolje}, {Dan: 2, Stanje: prognoza.MjeraIsto}}}}, nil
+	}
+	uloge := &probneUloge{izdaje: true}
+	u := &urednikModela{pb: pb, mreza: uloge}
+	blok := prognoza.DnevniLetve{Ulazi: []string{"terezino-polje", "botovo"}, Slivovi: []string{"A", "B"}}
+	if err := u.SpremiDnevni("donji-miholjac", blok, "Iva Proba"); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := prognoza.DnevniNacrti(pb); err != nil || n["donji-miholjac"].Tko != "Iva Proba" || n["donji-miholjac"].Kad == "" {
+		t.Fatalf("nacrt dnevnog bloka: %+v, %v", n, err)
+	}
+	posao := func() poslovi.Pogled {
+		t.Helper()
+		p := poslovi.NoviRegistar().Pokreni("proba", "", "/", func(p *poslovi.Posao) error { return u.ProbajDnevniGlavni("donji-miholjac", p) })
+		for range 400 {
+			if !p.Traje() {
+				break
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+		return p.Stanje()
+	}
+	if st := posao(); st.Greska != "" || !strings.Contains(st.Sazetak, "pouzdaniji od zadnjeg mjerenja na 1 od 2 dana") {
+		t.Errorf("proba dnevnog bloka: %+v", st)
+	}
+	if err := u.PrimijeniDnevni("donji-miholjac", "Iva Proba", "bliže izmjerenom"); err != nil {
+		t.Fatal(err)
+	}
+	if !prognoza.DnevniRacunIzZapisa("donji-miholjac") {
+		t.Error("primijenjeni dnevni blok mora odmah vrijediti")
+	}
+	if err := u.UkloniDnevni("donji-miholjac", "Iva Proba", "natrag na program"); err != nil || prognoza.DnevniRacunIzZapisa("donji-miholjac") {
+		t.Errorf("uklanjanje dnevnog bloka: %v", err)
+	}
+	if err := u.SpremiDnevni("donji-miholjac", blok, "Iva Proba"); err != nil {
+		t.Fatal(err)
+	}
+	if err := u.ObrisiDnevniNacrt("donji-miholjac"); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := prognoza.DnevniNacrti(pb); err != nil || len(n) != 0 {
+		t.Errorf("nacrt nakon odbacivanja: %v, %v", n, err)
+	}
+	greska = errors.New("donji-miholjac: samo 900 dana sa svim ulazima")
+	if st := posao(); !strings.Contains(st.Greska, "samo 900 dana") {
+		t.Errorf("greška probe: %+v", st)
+	}
+	registar, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "registar.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer registar.Close()
+	u.ocitanja = registar // registar bez tablice kišomjera
+	if st := posao(); !strings.Contains(st.Greska, "kišomjeri iz registra") {
+		t.Errorf("registar koji se ne da pročitati: %+v", st)
+	}
+	if s := opisProbeBloka(prognoza.NacrtDnevnog{}); s != "Proba je gotova." {
+		t.Errorf("opis bez probe: %q", s)
+	}
+	uloge.izdaje = false
+	for ime, err := range map[string]error{
+		"spremi":    u.SpremiDnevni("donji-miholjac", blok, "Iva Proba"),
+		"odbaci":    u.ObrisiDnevniNacrt("donji-miholjac"),
+		"proba":     u.ProbajDnevniGlavni("donji-miholjac", &poslovi.Posao{}),
+		"primijeni": u.PrimijeniDnevni("donji-miholjac", "Iva Proba", "razlog"),
+		"ukloni":    u.UkloniDnevni("donji-miholjac", "Iva Proba", "razlog"),
+	} {
+		if !errors.Is(err, errNeIzdaje) {
+			t.Errorf("%s na računalu koje ne izdaje: %v", ime, err)
+		}
+	}
+}

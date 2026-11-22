@@ -292,7 +292,7 @@ func dnevneLetve(d []DnevnaIzdana) map[string]bool {
 // BezDnevne: greška učenja glavnog modela ostaje i kad rezerva računa.
 func dnevniBezUlaza(ishod *Ishod, ima map[string]bool) map[string]*NepotpuniDani {
 	out := map[string]*NepotpuniDani{}
-	for _, c := range DnevniCiljevi {
+	for _, c := range CiljeviDnevnog() {
 		var nd *NepotpuniDani
 		if ima[c.Letva] || !errors.As(ishod.BezDnevne[c.Letva], &nd) {
 			continue
@@ -307,7 +307,7 @@ func dnevniBezUlaza(ishod *Ishod, ima map[string]bool) map[string]*NepotpuniDani
 func upozorenjaDnevnog(ishod *Ishod, pokriveno, ima map[string]bool) []Upozorenje {
 	po := map[string][]string{}
 	var razlozi []string
-	for _, c := range DnevniCiljevi {
+	for _, c := range CiljeviDnevnog() {
 		if ima[c.Letva] || pokriveno[c.Letva] {
 			continue
 		}
@@ -354,7 +354,7 @@ func preneseneBezDnevne(ciljevi []string, ima map[string]bool) []string {
 // sviDnevniCiljevi javlja jesu li sve letve ciljevi dnevnog modela.
 func sviDnevniCiljevi(letve []string) bool {
 	return !slices.ContainsFunc(letve, func(l string) bool {
-		return !slices.ContainsFunc(DnevniCiljevi, func(c DnevniCilj) bool { return c.Letva == l })
+		return !slices.ContainsFunc(CiljeviDnevnog(), func(c DnevniCilj) bool { return c.Letva == l })
 	})
 }
 
@@ -443,7 +443,7 @@ func vrstaSatnog(inacica int) string {
 // ciljeviSKisom su ciljevi dnevnog modela s kišom koji u izdanju imaju dane.
 func ciljeviSKisom(ima map[string]bool) []string {
 	var out []string
-	for _, c := range DnevniCiljevi {
+	for _, c := range CiljeviDnevnog() {
 		if len(c.Slivovi) > 0 && ima[c.Letva] {
 			out = append(out, c.Letva)
 		}
@@ -481,7 +481,7 @@ func upozorenjaRekonstrukcije(ishod *Ishod, pojasi map[string][]Pojas, ima map[s
 // izdanju kojima je letva ulaz.
 func dnevniCiljeviSUlazom(letva string, ima map[string]bool) []string {
 	var out []string
-	for _, c := range DnevniCiljevi {
+	for _, c := range CiljeviDnevnog() {
 		if ima[c.Letva] && slices.Contains(c.Ulazi, letva) {
 			out = append(out, c.Letva)
 		}

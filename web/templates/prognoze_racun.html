@@ -278,6 +278,111 @@
   </section>
   {{end}}
   {{end}}
+  {{with $.Dnevni}}
+  <section class="rac-obrazac rac-primjena" aria-labelledby="rac-dnevni-naslov">
+    <h3 class="mod-podnaslov" id="rac-dnevni-naslov">Dnevni model (dani do šestog)</h3>
+    <p>Ova letva ima i dnevni model Drave i Dunava: iz uzvodnih letvi i kiše međuslivova daje vodostaj za dane do šestog. {{if .IzZapisa}}Sada se uči iz zapisa u modelu.{{else}}Sada se uči iz ulaza i slivova koji dolaze s programom.{{end}} Mijenja se neovisno o satnom računu iznad.{{if .Kad}} Nacrt je spremljen {{.Kad}}{{if .Tko}}, {{.Tko}}{{end}}.{{end}}</p>
+    <form method="POST" action="/prognoze/model/racun" class="rac-obrazac rac-dnevni">
+      <input type="hidden" name="sektor" value="{{$.Sektor.ID}}">
+      <input type="hidden" name="vodotok" value="{{$.Vodotok.Oznaka}}">
+      <input type="hidden" name="letva" value="{{.Kod}}">
+      <fieldset class="rac-skupina"{{if not $.SmijeUrediti}} disabled{{end}}>
+        <legend class="mod-podnaslov">Ulazi dnevnog modela</legend>
+        <div class="rac-kvacice">
+          {{range .Ulazi}}<label><input type="checkbox" name="d_ulaz" value="{{.Kod}}"{{if .Odabran}} checked{{end}}> {{.Ime}}</label>
+          {{end}}
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="rac-d-ulaz-jos">Još jedan ulaz</label>
+          <select id="rac-d-ulaz-jos" name="d_ulaz_jos" class="form-control">
+            <option value="">— bez dodatnog ulaza —</option>
+            {{template "rac-izbor-letve" ($.IzborZa "")}}
+          </select>
+          <div class="form-help">Letva koja nije na popisu iznad. Model uči samo na danima u kojima su izmjerene ova letva i svi ulazi, a treba ih barem 3.000.</div>
+        </div>
+      </fieldset>
+      <fieldset class="rac-skupina"{{if not $.SmijeUrediti}} disabled{{end}}>
+        <legend class="mod-podnaslov">Kiša međuslivova</legend>
+        <div class="rac-kvacice">
+          {{range .Slivovi}}<label><input type="checkbox" name="d_sliv" value="{{.Kod}}"{{if .Odabran}} checked{{end}}> {{.Ime}}</label>
+          {{end}}
+        </div>
+      </fieldset>
+      <fieldset class="rac-skupina"{{if not $.SmijeUrediti}} disabled{{end}}>
+        <legend class="mod-podnaslov">Od kojeg dana vrijedi dnevni model</legend>
+        <div class="rac-tri-polja">
+          <div class="form-group">
+            <label class="form-label" for="rac-d-od-dana">Pri visokoj vodi, od dana</label>
+            <input type="number" id="rac-d-od-dana" name="d_od_dana" class="form-control" value="{{.OdDana}}" min="1" max="6" step="1">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="rac-d-od-dana-niska">Pri niskoj i srednjoj vodi, od dana</label>
+            <input type="number" id="rac-d-od-dana-niska" name="d_od_dana_niska" class="form-control" value="{{.OdDanaNiska}}" min="1" max="6" step="1">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="rac-d-visoka-voda">Visoka voda je iznad (cm)</label>
+            <input type="text" id="rac-d-visoka-voda" name="d_visoka_voda" class="form-control" value="{{.VisokaVoda}}" inputmode="decimal" autocomplete="off">
+          </div>
+        </div>
+        <div class="form-help">Do tog dana na pregledu stoji satni lanac, a od njega dnevni model. Prazno polje ostavlja ono što dolazi s programom. Letve Dunava kojima se dnevni model spaja sa satnim lancem od prvog dana nemaju dan prijelaza.</div>
+      </fieldset>
+      {{with .Proba}}
+      <section class="rac-skupina" aria-labelledby="rac-d-proba-naslov">
+        <h4 class="mod-podnaslov" id="rac-d-proba-naslov">Proba dnevnog modela</h4>
+        <div class="uv-tablica mod-tablica rac-tablica" role="table" aria-label="Proba dnevnog modela po danu">
+          <div class="uv-glava mod-red rac-proba-red rac-proba-lanac" role="row"><span role="columnheader">Dan</span><span role="columnheader">S izmjenom (cm)</span>
+            <span role="columnheader">Sada (cm)</span><span role="columnheader">Zadnje mjerenje (cm)</span><span role="columnheader">Slučajeva</span><span role="columnheader">Ocjena</span></div>
+          {{range .Dosezi}}<div class="uv-redak mod-red rac-proba-red rac-proba-lanac" role="row">
+            <span role="cell">{{.Dan}}. dan</span>
+            <span role="cell" class="mod-broj" data-naslov="S izmjenom (cm)">{{.Racun}}</span>
+            <span role="cell" class="mod-broj" data-naslov="Sada (cm)">{{.Sada}}</span>
+            <span role="cell" class="mod-broj" data-naslov="Zadnje mjerenje (cm)">{{.BezModela}}</span>
+            <span role="cell" class="mod-broj" data-naslov="Slučajeva">{{brojHR .Slucaja}}</span>
+            <span role="cell"><span class="rac-cip{{with .Ocjena.Klasa}} {{.}}{{end}}">{{.Ocjena.Natpis}}</span></span>
+          </div>
+          {{end}}
+        </div>
+        <div class="form-help">Model je naučen na arhivi prije razdoblja probe, a promašaj je izmjeren na svakom danu toga razdoblja{{if .Razdoblje}} ({{.Razdoblje}}){{end}}. „S izmjenom” je model s ulazima i slivovima iz nacrta, „Sada” model kakav danas radi, a „Zadnje mjerenje” promašaj kad bi se kao prognoza uzeo zadnji izmjereni vodostaj. Što je broj manji, to bolje.{{if .Kad}} Probano {{.Kad}}.{{end}}</div>
+        {{range .Natpisi}}<div class="form-help rac-napomena">{{.}}.</div>{{end}}
+      </section>
+      {{end}}
+      {{if $.SmijeUrediti}}
+      <div class="rac-gumbi">
+        <button type="submit" name="radnja" value="dnevni-probaj" class="btn btn-primary">{{if .Proba}}Probaj ponovno{{else}}Probaj dnevni model{{end}}</button>
+        {{if .Kad}}<button type="submit" name="radnja" value="dnevni-odbaci" class="btn btn-link" formnovalidate>Odbaci nacrt</button>{{end}}
+      </div>
+      <p>Probaj sprema nacrt, nauči dnevni model na arhivi bez zadnje dvije godine i izmjeri ga na njima, s novim i sa sadašnjim ulazima. Prognoza se pritom ne mijenja.</p>
+      {{end}}
+    </form>
+    {{if and $.SmijeUrediti .Proba}}
+    <form method="POST" action="/prognoze/model/racun" class="rac-vrati">
+      <input type="hidden" name="sektor" value="{{$.Sektor.ID}}">
+      <input type="hidden" name="vodotok" value="{{$.Vodotok.Oznaka}}">
+      <input type="hidden" name="letva" value="{{.Kod}}">
+      {{if .Proba.Losijih}}<p class="rac-lose" role="alert">Na {{.Proba.Losijih}} {{uzBroj .Proba.Losijih "danu" "dana" "dana"}} zadnje mjerenje je pouzdanije od ovog modela. Primijeni ga samo ako znaš zašto, i to napiši u razlog.</p>{{end}}
+      <div class="form-group">
+        <label class="form-label" for="rac-d-razlog">Razlog *</label>
+        <input type="text" id="rac-d-razlog" name="razlog" class="form-control" required maxlength="300" autocomplete="off">
+        <div class="form-help">Ostaje uz model, s tvojim imenom i vremenom. Primjenjuje se dnevni model kakav je proban.</div>
+      </div>
+      <button type="submit" name="radnja" value="dnevni-primijeni" class="btn btn-primary">Primijeni dnevni model</button>
+      <p>Od sljedećeg računa prognoze dnevni model ove letve uči se iz ovih ulaza i slivova, a model putuje i na ostala računala.</p>
+    </form>
+    {{end}}
+    {{if and $.SmijeUrediti .IzZapisa}}
+    <form method="POST" action="/prognoze/model/racun" class="rac-vrati">
+      <input type="hidden" name="sektor" value="{{$.Sektor.ID}}">
+      <input type="hidden" name="vodotok" value="{{$.Vodotok.Oznaka}}">
+      <input type="hidden" name="letva" value="{{.Kod}}">
+      <div class="form-group">
+        <label class="form-label" for="rac-d-razlog-ukloni">Razlog povratka *</label>
+        <input type="text" id="rac-d-razlog-ukloni" name="razlog" class="form-control" required maxlength="300" autocomplete="off">
+      </div>
+      <button type="submit" name="radnja" value="dnevni-ukloni" class="btn prog-obrub">Vrati dnevni model iz programa</button>
+    </form>
+    {{end}}
+  </section>
+  {{end}}
   {{else}}
   <h2 id="rac-obrazac-naslov">Vodotok nema letvi</h2>
   <p>Letva se dodaje u registru, a vodotok joj se upisuje u obrascu letve.</p>

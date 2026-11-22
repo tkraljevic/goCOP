@@ -306,7 +306,7 @@ func (c DnevniCilj) BezOborine() bool {
 	if len(c.Slivovi) > 0 {
 		return false
 	}
-	for _, g := range DnevniCiljevi {
+	for _, g := range CiljeviDnevnog() {
 		if g.Letva == c.Letva {
 			return len(g.Slivovi) > 0
 		}
@@ -447,23 +447,24 @@ func Ugadja(letva string) bool {
 // DnevnaOdDanaZa vraća od kojeg dana dnevni model daje vrijednost, prema
 // vodostaju letve u satu izdavanja (imaSada false: kao pri visokoj vodi).
 func DnevnaOdDanaZa(letva string, sada float64, imaSada bool) int {
-	if g, ima := VisokaVoda[letva]; ima && imaSada && sada <= g {
-		if d, ima := DnevnaOdDanaNiska[letva]; ima {
+	if g, ima := VisokaVodaLetve(letva); ima && imaSada && sada <= g {
+		if d, ima := OdDanaNiskeLetve(letva); ima {
 			return d
 		}
 	}
-	return DnevnaOdDana[letva]
+	d, _ := DnevnaOdDanaLetve(letva)
+	return d
 }
 
 // DnevniUlazi su letve koje dnevni model čita, a koje nisu i same njegov cilj.
 func DnevniUlazi() []string {
 	cilj := map[string]bool{}
-	for _, c := range DnevniCiljevi {
+	for _, c := range CiljeviDnevnog() {
 		cilj[c.Letva] = true
 	}
 	vidjeno := map[string]bool{}
 	var out []string
-	for _, c := range DnevniCiljevi {
+	for _, c := range CiljeviDnevnog() {
 		for _, in := range c.Inacice() {
 			for _, u := range in.Ulazi {
 				if !cilj[u] && !vidjeno[u] {
@@ -679,7 +680,7 @@ type OborinskaTocka struct {
 // za svaki, letve kojima ulazi, redom kako voda teče.
 func SlivoviUPrognozi() map[string][]string {
 	out := map[string][]string{}
-	for _, c := range DnevniCiljevi {
+	for _, c := range CiljeviDnevnog() {
 		for _, s := range c.Slivovi {
 			out[s] = append(out[s], c.Letva)
 		}

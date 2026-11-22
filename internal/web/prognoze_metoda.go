@@ -534,7 +534,7 @@ func dnevniOd(kod string) string {
 	if prognoza.Ugadja(kod) {
 		return "ds do 96. sata"
 	}
-	if d, ima := prognoza.DnevnaOdDana[kod]; ima {
+	if d, ima := prognoza.DnevnaOdDanaLetve(kod); ima {
 		return tekstBroja(d) + ". dana"
 	}
 	return ""
@@ -550,7 +550,7 @@ func daniDnevnogDrave() string {
 func daniDnevnogZa(letve ...string) string {
 	naj, vrh := 99, 0
 	for _, l := range letve {
-		if d, ima := prognoza.DnevnaOdDana[l]; ima {
+		if d, ima := prognoza.DnevnaOdDanaLetve(l); ima {
 			naj, vrh = min(naj, d), max(vrh, d)
 		}
 	}
@@ -575,7 +575,7 @@ func letveMetode(tablice []TablicaPrognoza, postaje map[string]models.Station,
 		return kod
 	}
 	dnevni := map[string][]string{}
-	for _, c := range prognoza.DnevniCiljevi {
+	for _, c := range prognoza.CiljeviDnevnog() {
 		dnevni[c.Letva] = c.Ulazi
 	}
 	var out []LetvaMetode
