@@ -73,3 +73,54 @@ func TestPaliUpisSeNeBroji(t *testing.T) {
 		t.Errorf("uvoz: upisano %d, greška %v; očekivano 2", n, err)
 	}
 }
+
+// Izmjerena kiša po satima: satni kišomjer ulazi satima, a dnevni zbroj koji
+// uz njih javlja se ne broji drugi put; kišomjer koji javlja samo dan dijeli
+// se jednako na 24 sata, a sati izvan traženog razdoblja ne ulaze.
+func TestIzmjerenaKisaPoSatima(t *testing.T) {
+	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "oborine.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &Spremiste{DB: baza}
+	if err := s.Pripremi(); err != nil {
+		t.Fatal(err)
+	}
+	const sat = int64(490000)
+	kraj := func(h int64) time.Time { return time.Unix(h*3600, 0) }
+	if _, err := s.Upisi(context.Background(), []Mjerenje{
+		{Kisomjer: "km-satni", Kraj: kraj(sat), Sati: 1, Oborina: 2, Izvor: "kisomjer-dhmz"},
+		{Kisomjer: "km-satni", Kraj: kraj(sat - 1), Sati: 1, Oborina: 3, Izvor: "kisomjer-dhmz"},
+		{Kisomjer: "km-satni", Kraj: kraj(sat), Sati: 24, Oborina: 40, Izvor: "kisomjer-dhmz"},
+		{Kisomjer: "km-dnevni", Kraj: kraj(sat + 2), Sati: 24, Oborina: 12, Izvor: "kisomjer-hv"},
+		{Kisomjer: "km-stari", Kraj: kraj(sat - 100), Sati: 1, Oborina: 9, Izvor: "kisomjer-dhmz"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	m, err := s.PoSatima(sat-5, sat)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := m["km-satni"]; len(n) != 2 || n[sat] != 2 || n[sat-1] != 3 {
+		t.Errorf("satni kišomjer: %v", n)
+	}
+	if n := m["km-dnevni"]; len(n) != 6 || n[sat] != 0.5 || n[sat-5] != 0.5 {
+		t.Errorf("dnevni kišomjer: %v", n)
+	}
+	if _, ima := m["km-stari"]; ima {
+		t.Error("mjerenje izvan razdoblja ne ulazi")
+	}
+	if _, err := baza.Exec(`DROP TABLE izmjerene; CREATE TABLE izmjerene (kisomjer, kraj, sati, oborina);
+		INSERT INTO izmjerene VALUES ('km', ?, 'nije broj', 1)`, sat*3600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.PoSatima(sat-5, sat); err == nil {
+		t.Error("nečitljiv redak mora javiti grešku")
+	}
+	if err := baza.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.PoSatima(sat-5, sat); err == nil {
+		t.Error("zatvorena baza mora javiti grešku")
+	}
+}

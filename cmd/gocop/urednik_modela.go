@@ -166,7 +166,7 @@ func (u *urednikModela) probajDnevni(letva string, p *poslovi.Posao) error {
 	var tocke []prognoza.OborinskaTocka
 	if u.ocitanja != nil {
 		var err error
-		if tocke, err = prognoza.OborinskeTocke(u.ocitanja); err != nil {
+		if tocke, err = prognoza.TockeSKisomjerima(u.ocitanja); err != nil {
 			return fmt.Errorf("kišomjeri iz registra: %w", err)
 		}
 	}

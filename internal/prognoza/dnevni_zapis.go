@@ -154,7 +154,7 @@ func (o *Osvjezivac) dnevniModelZapisa(c DnevniCilj, sada time.Time) (*DnevniMod
 func (o *Osvjezivac) nauciDnevniZapisa(c DnevniCilj) (*DnevniModel, error) {
 	var tocke []OborinskaTocka
 	if o.Oborine != nil {
-		tocke = o.Oborine.Tocke
+		tocke = slices.Concat(o.Oborine.Tocke, o.Oborine.Kisomjeri)
 	}
 	if len(c.Slivovi) > 0 && len(tocke) == 0 {
 		return nil, errors.New("oborine nisu uključene, a dnevni model letve računa s kišom")

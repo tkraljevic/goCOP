@@ -189,8 +189,8 @@ func (k *satniKrug) preuzmiOborine(ctx context.Context) {
 	}
 	otkazi()
 	// registar se mogao promijeniti (nova ili premještena točka)
-	if tocke, err := prognoza.OborinskeTocke(database); err == nil && len(tocke) > 0 {
-		osvjezivac.Oborine = &prognoza.OborinskiIzvor{Tocke: tocke, Satne: oborineUvoznik.Satne}
+	if iz, err := izvorOborina(database, oborineUvoznik); err == nil && iz != nil {
+		osvjezivac.Oborine = iz
 	}
 }
 

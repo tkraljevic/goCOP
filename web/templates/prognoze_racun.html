@@ -88,15 +88,19 @@
       <legend class="mod-podnaslov">Kiša</legend>
       {{range $i, $sliv := .Slivovi}}
       <div class="form-group">
-        <label class="form-label" for="rac-sliv-{{$i}}">{{if $i}}Drugi sliv{{else}}Sliv{{end}}</label>
+        <label class="form-label" for="rac-sliv-{{$i}}">{{if $i}}Druga kiša{{else}}Kiša{{end}}</label>
         <select id="rac-sliv-{{$i}}" name="sliv" class="form-control">
-          <option value="">{{if $i}}— bez drugog sliva —{{else}}— bez kiše —{{end}}</option>
+          <option value="">{{if $i}}— bez druge kiše —{{else}}— bez kiše —{{end}}</option>
+          <optgroup label="Kiša međusliva">
           {{range $.SliviIzbora}}<option value="{{.Kod}}"{{if eq .Kod $sliv}} selected{{end}}>{{.Ime}}</option>
-          {{end}}
+          {{end}}</optgroup>
+          {{if $.KisomjeriIzbora}}<optgroup label="Kiša jednog kišomjera">
+          {{range $.KisomjeriIzbora}}<option value="{{.Kod}}"{{if eq .Kod $sliv}} selected{{end}}>{{.Ime}}</option>
+          {{end}}</optgroup>{{end}}
         </select>
       </div>
       {{end}}
-      <div class="form-help">Međusliv čija kiša diže vodu na letvi. Sliv i njegovi kišomjeri uređuju se na stranici <a href="/slivovi">Slivovi</a>. Model treba barem 900 dana dnevnih vodostaja letve i ulaza u arhivi.</div>
+      <div class="form-help">Međusliv čija kiša diže vodu na letvi. Sliv i njegovi kišomjeri uređuju se na stranici <a href="/slivovi">Slivovi</a>. Akumulaciji ili rječici uz koju stoji kišomjer može pristajati kiša tog kišomjera: model tada uzima kišu koju je kišomjer izmjerio, a za iduće dane prognozu kiše međusliva u kojem stoji. Model treba barem 900 dana dnevnih vodostaja letve i ulaza u arhivi, a uz kišomjer i toliko dana njegove kiše.</div>
     </fieldset>
 
     <fieldset class="rac-skupina rac-samo-satni"{{if not $.SmijeUrediti}} disabled{{end}}>

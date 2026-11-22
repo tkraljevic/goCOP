@@ -670,6 +670,9 @@ type OborinskaTocka struct {
 	Code   string
 	Sliv   string
 	Tezina float64
+	// SlivMjesta je, kod stvarnog kišomjera (KisomjeriKise), međusliv u kojem
+	// kišomjer stoji; iz njega je kiša za sate bez mjerenja i za iduće dane.
+	SlivMjesta string
 }
 
 // SlivoviUPrognozi vraća međuslivove čija oborina ulazi u dnevnu prognozu i,
@@ -689,7 +692,7 @@ func SlivoviUPrognozi() map[string][]string {
 func UlaziUPrognozu(stvarni, aktivan bool, sliv string, tezina float64, slivovi map[string][]string) (bool, string) {
 	switch {
 	case stvarni:
-		return false, "pravi kišomjer služi za usporedbu; model čita izvedene točke"
+		return false, "pravi kišomjer ne ulazi u kišu međusliva; model letve ga može uzeti zasebno (Prognoze, Model, Računi letvi)"
 	case !aktivan:
 		return false, "točka nije aktivna"
 	case sliv == "":
@@ -728,6 +731,11 @@ type OborinskiIzvor struct {
 	Tocke []OborinskaTocka
 	// Satne vraća oborinu po kišomjeru i satu (mm) za sate od–do, uključivo.
 	Satne func(od, do int64) (map[string]map[int64]float64, error)
+	// Kisomjeri su stvarni kišomjeri (KisomjeriKise) koje model letve iz zapisa
+	// smije uzeti kao ulaz, a Izmjerene njihova izmjerena kiša po kišomjeru i
+	// satu (mm) za sate od–do. Bez njih kiše kišomjera nema.
+	Kisomjeri []OborinskaTocka
+	Izmjerene func(od, do int64) (map[string]map[int64]float64, error)
 }
 
 // OborineOkoSada slaže dnevnu oborinu međuslivova za živu prognozu, kao
@@ -790,6 +798,7 @@ func OborineOkoSada(iz *OborinskiIzvor, sada int64, unatrag, unaprijed int) (map
 		}
 		out[OborinaKljuc(sliv)] = n
 	}
+	iz.dodajKisomjere(out, satne, sada, unatrag, unaprijed)
 	return out, nil
 }
 

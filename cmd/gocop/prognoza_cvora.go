@@ -247,13 +247,29 @@ func pripremiOborine(database *sql.DB, dbPath string, node *peers.Node, server *
 				Citaci: map[string]kisomjeri.Citac{"pljusak": &kisomjeri.Pljusak{}, "dhmz": &kisomjeri.Letva{Racun: letvaRacun}}}
 			server.SetKisomjeriMjerenja(kisSpremiste)
 		}
-		if tocke, err := prognoza.OborinskeTocke(database); err != nil {
+		if iz, err := izvorOborina(database, oborineUvoznik); err != nil {
 			log.Printf("Oborine: registar: %v", err)
-		} else if len(tocke) > 0 {
-			osvjezivac.Oborine = &prognoza.OborinskiIzvor{Tocke: tocke, Satne: oborineUvoznik.Satne}
+		} else if iz != nil {
+			osvjezivac.Oborine = iz
 		}
 	}
 	return oborineUvoznik, kisUvoznik, oborineDB
+}
+
+// izvorOborina slaže odakle prognoza uzima kišu: izvedene točke i stvarne
+// kišomjere iz registra, satnu kišu točaka i mjerenja kišomjera iz baze
+// oborina. nil kad registar nema nijedne izvedene točke.
+func izvorOborina(registar *sql.DB, u *oborine.Uvoznik) (*prognoza.OborinskiIzvor, error) {
+	tocke, err := prognoza.OborinskeTocke(registar)
+	if err != nil || len(tocke) == 0 {
+		return nil, err
+	}
+	stvarni, err := prognoza.KisomjeriKise(registar)
+	if err != nil {
+		return nil, err
+	}
+	return &prognoza.OborinskiIzvor{Tocke: tocke, Satne: u.Satne, Kisomjeri: stvarni,
+		Izmjerene: (&kisomjeri.Spremiste{DB: u.DB}).PoSatima}, nil
 }
 
 // zaboraviDnevneModele baca naučene dnevne modele, pa ih idući krug uči

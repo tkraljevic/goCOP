@@ -89,7 +89,7 @@ func TestStranicaSlivovaKrozPosluzitelj(t *testing.T) {
 		`id="sliv-B"`, "Mura do Goričana", "10.500 km²", "izmišljeni opis",
 		"ulazi u dnevnu prognozu za:", "mursko-sredisce, Goričan, letenye", "iz 2 izvedene točke",
 		`id="sliv-Z"`, "Kiša ovog međusliva zasad ne ulazi u dnevnu prognozu.", "kiša međusliva Z ne ulazi u dnevnu prognozu",
-		"Bez međusliva", "Lutalica", "točka nije aktivna", "pravi kišomjer služi za usporedbu",
+		"Bez međusliva", "Lutalica", "točka nije aktivna", "pravi kišomjer ne ulazi u kišu međusliva",
 		"Σ težina 0,90</span>", `class="reg-chip empty"`,
 		`class="karta-slivovi"`, `data-plocice="https://plocice.primjer/{z}/{x}/{y}.png"`,
 		`"code":"b-b1-ravnica"`, `"edit_url":"/slivovi/kisomjer/b-b1-ravnica/edit"`, `"vrsta":"stvarni"`, `"izvor":"dhmz"`,
