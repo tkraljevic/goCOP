@@ -82,7 +82,7 @@
     <h3>Svaki dan</h3>
     <a class="pomoc-tema" href="#dashboard">{{icon "house"}}<span>Naslovna</span><small>8 podnaslova</small>{{icon "chevron-right"}}</a>
     <a class="pomoc-tema" href="#readings">{{icon "ruler"}}<span>Očitanja</span><small>8 podnaslova</small>{{icon "chevron-right"}}</a>
-    <a class="pomoc-tema" href="#prognoze">{{icon "chart-column"}}<span>Prognoze</span><small>5 podnaslova</small>{{icon "chevron-right"}}</a>
+    <a class="pomoc-tema" href="#prognoze">{{icon "chart-column"}}<span>Prognoze</span><small>6 podnaslova</small>{{icon "chevron-right"}}</a>
     <a class="pomoc-tema" href="#karta">{{icon "map"}}<span>Karta</span>{{icon "chevron-right"}}</a>
     <a class="pomoc-tema" href="#obilazak">{{icon "ruler"}}<span>Obilazak letava</span>{{icon "chevron-right"}}</a>
   </div>
@@ -1199,13 +1199,14 @@
   <h2>{{icon "chart-column"}} Prognoze</h2>
   <div class="pomoc-poglavlje">
   <details class="pomoc-podnaslovi" data-pomoc-podnaslovi open>
-    <summary><small>U ovom poglavlju</small><span>5 podnaslova</span>{{icon "chevron-down"}}</summary>
+    <summary><small>U ovom poglavlju</small><span>6 podnaslova</span>{{icon "chevron-down"}}</summary>
     <nav aria-label="U ovom poglavlju: Prognoze">
       <a href="#prognoze-citanje">Kako čitati prognozu</a>
       <a href="#prognoze-ranija">Ranija prognoza</a>
       <a href="#prognoze-profil">Uzdužni profil</a>
       <a href="#prognoze-metoda">Kako nastaje</a>
       <a href="#prognoze-ogranicenja">Ograničenja i provjera</a>
+      <a href="#prognoze-model">Model za novu letvu</a>
     </nav>
   </details>
   <div class="reg-card pomoc-tekst">
@@ -1398,6 +1399,42 @@
       ne upisuje; upiše ih kad mu se uloga isključi. Uz izdanje stižu i mjerenja kišomjera
       zadnjih 48 sati te satna kiša i prognozirane oborine po točkama slivova. Čvor koji prima
       upisuje ih u svoju bazu oborina.</p>
+
+    <h3 id="prognoze-model">Model za novu letvu</h3>
+    <p>Letva izvan glavnog lanca Drave i Dunava, na primjer na rječici ili kanalu, može dobiti svoju
+      prognozu bez novog izdanja programa. Model joj slaže globalni administrator, na računalu koje
+      izdaje prognozu, na stranici <a href="/prognoze/model">Model prognoze</a>. Ostali vide što je
+      složeno, ali ne mogu mijenjati.</p>
+    <p>Prvo odaberi sektor i vodotok. Tablica kaže koliko koja letva ima satnih vodostaja u arhivi i
+      što joj fali; letva treba barem 1.000 sati. Gumb <strong>Računi letvi</strong> vodi na
+      slaganje računa. Ondje su letve vodotoka redom, kako voda teče, a za odabranu letvu biraš:</p>
+    <ul>
+      <li><strong>ulaz</strong>: uzvodnu letvu iz koje se ova računa;</li>
+      <li><strong>drugi ulaz</strong>, kad vodu diže i uspor rijeke u koju se vodotok ulijeva: tada
+        ovdje ide letva na toj rijeci;</li>
+      <li><strong>rezerve</strong>: letve iz kojih se računa kad ulaz ne javlja;</li>
+      <li><strong>razine vode</strong>: zadane, ili s granicama koje upišeš. Razine se mjere na
+        ulaznoj letvi, ne na letvi koju računaš.</li>
+    </ul>
+    <p>Rad ide u četiri koraka i svaki ima svoj gumb.</p>
+    <ol>
+      <li><strong>Spremi nacrt.</strong> Nacrt ostaje na tom računalu i prognozu ne mijenja.</li>
+      <li><strong>Pripremi.</strong> Program iz arhive namjesti koliko voda kasni od ulaza na svakoj
+        razini. U tablici zatim možeš upisati svoje kašnjenje u satima ili razini maknuti kvačicu
+        „Računa”, pa ona ne izdaje prognozu.</li>
+      <li><strong>Probaj.</strong> Program pusti račun unatrag kroz zadnje godine i za svaki doseg
+        kaže koliko promašuje. Uz to stoji koliko bi se promašilo bez modela, tj. kad bi se samo
+        držalo zadnje mjerenje. Ocjena je „Bolje nego bez modela”, „Kao bez modela” (razlika je manja
+        od 10 %) ili „Lošije nego bez modela”. Ispod 100 slučajeva piše „Nije provjereno”.</li>
+      <li><strong>Primijeni model.</strong> Upiši razlog; ostaje uz model s tvojim imenom i vremenom.
+        Račun koji je negdje lošiji nego bez modela program dopušta primijeniti, ali te na to
+        upozori. Prva prognoza stiže pri sljedećem računu prognoze, a model putuje i na ostala
+        računala.</li>
+    </ol>
+    <p>Kad promijeniš račun, pripremi ga i probaj ponovno; stara priprema i proba više ne vrijede.
+      Primijenjeni model mijenja se istim putem, a <strong>Ukloni model</strong> ga briše, pa letva
+      radi kao prije njega. Dok traje satni krug prognoze, model se ne može primijeniti ni ukloniti;
+      pokušaj za minutu.</p>
   </div>
   </div>
   {{template "pomocPoglavljeNav" (list "Arhiva vodostaja" "#arhiva" "Dokumenti" "#journals")}}
