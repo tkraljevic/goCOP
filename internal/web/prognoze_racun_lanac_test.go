@@ -1,15 +1,19 @@
 package web
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"gocop/internal/models"
+	"gocop/internal/poslovi"
 	"gocop/internal/prognoza"
 )
 
@@ -210,4 +214,188 @@ func TestPrimjenaGlavneLetveNaStranici(t *testing.T) {
 	}
 	redom(t, w.Body.String(), "Primijeni", "Na 1 letvi nizvodno promašaj je s ovom izmjenom veći nego sada", `name="razlog"`,
 		`value="primijeni" class="btn btn-primary">Primijeni model`, "prognoza se odmah izdaje iznova, za sve letve")
+}
+
+// probniUrednikDnevnog je probni urednik koji zna i dnevne blokove.
+type probniUrednikDnevnog struct {
+	*probniUrednik
+	blokovi []prognoza.DnevniLetve
+	radnje  []string
+}
+
+func (u *probniUrednikDnevnog) SpremiDnevni(letva string, blok prognoza.DnevniLetve, tko string) error {
+	u.blokovi = append(u.blokovi, blok)
+	u.radnje = append(u.radnje, "spremi "+letva+" "+tko)
+	return u.greska
+}
+func (u *probniUrednikDnevnog) ObrisiDnevniNacrt(letva string) error {
+	u.radnje = append(u.radnje, "odbaci "+letva)
+	return u.greska
+}
+func (u *probniUrednikDnevnog) ProbajDnevniGlavni(letva string, p *poslovi.Posao) error {
+	u.pripremljeni <- "dnevna proba " + letva
+	p.Zavrsi("Proba je gotova.", nil)
+	return nil
+}
+func (u *probniUrednikDnevnog) PrimijeniDnevni(letva, tko, razlog string) error {
+	u.radnje = append(u.radnje, "primijeni "+letva+" "+razlog)
+	return u.greska
+}
+func (u *probniUrednikDnevnog) UkloniDnevni(letva, tko, razlog string) error {
+	u.radnje = append(u.radnje, "ukloni "+letva+" "+razlog)
+	return u.greska
+}
+
+// Letva koja je cilj dnevnog modela Drave i Dunava ima na stranici zaseban
+// obrazac dnevnog modela: ulazi i slivovi s kvačicama i dani prijelaza iz
+// programa. Radnje tog obrasca idu uredniku dnevnih blokova.
+func TestDnevniModelGlavneLetveNaStranici(t *testing.T) {
+	h, stari := rukovateljRacuna(t)
+	u := &probniUrednikDnevnog{probniUrednik: stari}
+	h.urednik = u
+	h.SetSlivovi(func(context.Context) []models.Sliv {
+		return []models.Sliv{{Oznaka: "A", Naziv: "Drava do Borla"}, {Oznaka: "Q", Naziv: "Novi sliv"}}
+	})
+	admin := &models.UserPermissions{IsGlobalAdmin: true}
+	adresa := "?sektor=B&vodotok=" + oznakaImena("Brodska rijeka") + "&letva=donji-miholjac"
+	html := stranicaRacuna(t, h, adresa, admin)
+	redom(t, html, "Dnevni model (dani do šestog)", "Sada se uči iz ulaza i slivova koji dolaze s programom",
+		`name="d_ulaz" value="terezino-polje" checked`, `name="d_ulaz" value="osijek"> `, `name="d_ulaz_jos"`,
+		`name="d_sliv" value="A" checked> A · Drava do Borla`, `name="d_sliv" value="Q"> Q · Novi sliv`,
+		`name="d_od_dana"`, `value="dnevni-probaj" class="btn btn-primary">Probaj dnevni model`)
+	for _, nema := range []string{`name="d_ulaz" value="donji-miholjac"`, `value="dnevni-primijeni"`, `value="dnevni-ukloni"`, `value="dnevni-odbaci"`} {
+		if strings.Contains(html, nema) {
+			t.Errorf("obrazac dnevnog modela bez nacrta i zapisa ne smije imati %q", nema)
+		}
+	}
+	if strings.Contains(stranicaRacuna(t, h, "?sektor=B&vodotok="+oznakaImena("Potok Lug")+"&letva=potok-gornji", admin), "Dnevni model (dani do šestog)") {
+		t.Error("letva izvan dnevnog modela nema njegov obrazac")
+	}
+
+	polja := func(radnja string) url.Values {
+		return url.Values{"sektor": {"B"}, "vodotok": {oznakaImena("Brodska rijeka")}, "letva": {"donji-miholjac"}, "radnja": {radnja},
+			"razlog": {"pritoka"}, "d_ulaz": {"terezino-polje", "botovo"}, "d_ulaz_jos": {" botovo ", "barcs"}, "d_sliv": {"A", "D"},
+			"d_od_dana": {"4"}, "d_od_dana_niska": {""}, "d_visoka_voda": {"312,5"}}
+	}
+	h.SetPripremaModela(nil, nil, poslovi.NoviRegistar(), predlozakStranice(t, "posao.html"))
+	w := httptest.NewRecorder()
+	h.SpremiRacun(w, zahtjevOsobe(http.MethodPost, "/prognoze/model/racun", polja("dnevni-probaj").Encode(), admin))
+	select {
+	case sto := <-u.pripremljeni:
+		if sto != "dnevna proba donji-miholjac" || w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Proba dnevnog modela: Donji Brod") {
+			t.Errorf("proba dnevnog modela: %q, status %d", sto, w.Code)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("posao probe dnevnog modela nije pokrenut")
+	}
+	if len(u.blokovi) != 1 || !reflect.DeepEqual(u.blokovi[0].Ulazi, []string{"terezino-polje", "botovo", "barcs"}) ||
+		!reflect.DeepEqual(u.blokovi[0].Slivovi, []string{"A", "D"}) || *u.blokovi[0].OdDana != 4 || u.blokovi[0].OdDanaNiska != nil || *u.blokovi[0].VisokaVoda != 312.5 {
+		t.Fatalf("blok iz obrasca: %+v", u.blokovi)
+	}
+	for radnja, zeljeno := range map[string][2]string{
+		"dnevni-primijeni": {"primijeni donji-miholjac pritoka", "Dnevni model letve Donji Brod je primijenjen"},
+		"dnevni-ukloni":    {"ukloni donji-miholjac pritoka", "opet se uči iz programa"},
+		"dnevni-odbaci":    {"odbaci donji-miholjac", "Nacrt dnevnog modela letve Donji Brod je odbačen"},
+		"dnevni-spremi":    {"spremi donji-miholjac Ana Anić", "Nacrt dnevnog modela letve Donji Brod je spremljen"},
+	} {
+		if lok := posaljiRacun(h, polja(radnja), admin, false); !strings.Contains(lok, zeljeno[1]) || !slices.Contains(u.radnje, zeljeno[0]) {
+			t.Errorf("%s: %q, radnje %v", radnja, lok, u.radnje)
+		}
+	}
+	lose := polja("dnevni-spremi")
+	lose.Set("d_od_dana", "treći")
+	if lok := posaljiRacun(h, lose, admin, false); !strings.Contains(lok, "mora biti cijeli broj") {
+		t.Errorf("dan koji nije broj: %q", lok)
+	}
+	lose = polja("dnevni-spremi")
+	lose.Set("d_od_dana_niska", "x")
+	if lok := posaljiRacun(h, lose, admin, false); !strings.Contains(lok, "mora biti cijeli broj") {
+		t.Errorf("dan niske vode koji nije broj: %q", lok)
+	}
+	lose = polja("dnevni-spremi")
+	lose.Set("d_visoka_voda", "visoko")
+	if lok := posaljiRacun(h, lose, admin, false); !strings.Contains(lok, "Granica visoke vode mora biti broj") {
+		t.Errorf("granica koja nije broj: %q", lok)
+	}
+	// urednik koji ne zna dnevne blokove
+	h.urednik = stari
+	if lok := posaljiRacun(h, polja("dnevni-primijeni"), admin, false); !strings.Contains(lok, "Baza prognoza nije otvorena") {
+		t.Errorf("bez urednika dnevnih blokova: %q", lok)
+	}
+	if naziv, posao := h.posaoNacrta("dnevni-probaj"); naziv != "" || posao != nil {
+		t.Error("bez urednika dnevnih blokova nema ni probe")
+	}
+	h.urednik = urednikPosluzitelja{&Server{}}
+	if _, err := h.urednikDnevnog(); err == nil {
+		t.Error("poslužitelj bez urednika nema ni urednika dnevnih blokova")
+	}
+}
+
+// Nacrt dnevnog bloka i njegova proba vide se u obrascu, a letva koja u modelu
+// već ima dnevni blok nudi povratak na program.
+func TestNacrtDnevnogBlokaNaStranici(t *testing.T) {
+	h, stari := rukovateljRacuna(t)
+	h.urednik = &probniUrednikDnevnog{probniUrednik: stari}
+	put := filepath.Join(t.TempDir(), "prognoze.db")
+	pb, err := prognoza.Otvori(put)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pb.Exec(`INSERT INTO model_letve (letva, proba, sadrzaj) VALUES ('donji-miholjac', '', '{"oblik":1,"letva":"donji-miholjac",
+		"metoda":"lanac","velicina":"protok","racun":{"ulazi":["moslavina"],"doseg":96},"dnevni":{"ulazi":["botovo"],"slivovi":["A"]}}')`); err != nil {
+		t.Fatal(err)
+	}
+	nacrt := prognoza.NacrtDnevnog{Letva: "donji-miholjac", Tko: "Iva Proba", Kad: "22. 11. 2026. 18:00",
+		Blok: prognoza.DnevniLetve{Ulazi: []string{"botovo", "barcs"}, Slivovi: []string{"A"}}}
+	if err := prognoza.SpremiDnevniNacrt(pb, nacrt); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pb.Exec(`UPDATE model_nacrt SET sadrzaj = json_set(sadrzaj, '$.proba', json('{"kad":"22. 11. 2026. 18:05","razdoblje":["2024-11-01","2026-10-31"],
+		"natpisi":["Mjeren je sam dnevni model"],"dani":[{"Dan":1,"Promasaj":4.2,"BezModela":6,"Slucaja":700,"Stanje":"Pouzdanije od zadnjeg mjerenja"},
+		{"Dan":2,"Promasaj":9,"BezModela":8,"Slucaja":700,"Stanje":"Zadnje mjerenje je pouzdanije"},{"Dan":3,"Slucaja":5,"Stanje":"Nije provjereno"}],
+		"prije":[{"Dan":1,"Promasaj":4.9,"BezModela":6,"Slucaja":700,"Stanje":"Pouzdanije od zadnjeg mjerenja"},{"Dan":3,"Slucaja":5,"Stanje":"Nije provjereno"}]}'))
+		WHERE letva = 'dnevni:donji-miholjac'`); err != nil {
+		t.Fatal(err)
+	}
+	if err := pb.Close(); err != nil {
+		t.Fatal(err)
+	}
+	c, err := OtvoriPrognoze(put)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = c.Close() })
+	h.citac = func() *CitacPrognoza { return c }
+	html := stranicaRacuna(t, h, "?sektor=B&vodotok="+oznakaImena("Brodska rijeka")+"&letva=donji-miholjac", &models.UserPermissions{IsGlobalAdmin: true})
+	redom(t, html, "Dnevni model (dani do šestog)", "Sada se uči iz zapisa u modelu", "Nacrt je spremljen 22. 11. 2026. 18:00, Iva Proba",
+		`name="d_ulaz" value="botovo" checked`, `name="d_ulaz" value="barcs" checked`, "Proba dnevnog modela", "1. dan", "4,2", "4,9", "6,0",
+		"Pouzdanije od zadnjeg mjerenja", "2. dan", "9,0", `data-naslov="Sada (cm)">—</span>`, "Zadnje mjerenje je pouzdanije", "3. dan", "Nije provjereno",
+		"1.11.2024. – 31.10.2026.", "Mjeren je sam dnevni model.", `value="dnevni-probaj" class="btn btn-primary">Probaj ponovno`, `value="dnevni-odbaci"`,
+		"Na 1 danu zadnje mjerenje je pouzdanije od ovog modela", `value="dnevni-primijeni"`, `value="dnevni-ukloni"`)
+	// tablica nacrta koja se ne da pročitati ne ruši stranicu
+	kriva := filepath.Join(t.TempDir(), "kriva.db")
+	kb, err := prognoza.Otvori(kriva)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := kb.Exec(`DROP TABLE model_nacrt; CREATE TABLE model_nacrt (nesto TEXT)`); err != nil {
+		t.Fatal(err)
+	}
+	if err := kb.Close(); err != nil {
+		t.Fatal(err)
+	}
+	kc, err := OtvoriPrognoze(kriva)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = kc.Close() })
+	if kc.DnevniNacrti() != nil {
+		t.Error("nečitljiva tablica nacrta ne daje nacrte")
+	}
+	if (*CitacPrognoza)(nil).DnevniNacrti() != nil || probaBloka(nil) != nil {
+		t.Error("bez baze i bez probe nema ni nacrta ni tablice")
+	}
+	if n, ima := (&PrognozeHandler{}).dnevniNacrt("donji-miholjac"); ima || n.Letva != "" || (&PrognozeHandler{}).imaDnevniBlok("donji-miholjac") {
+		t.Error("stranica bez baze prognoza nema nacrta dnevnog bloka")
+	}
 }

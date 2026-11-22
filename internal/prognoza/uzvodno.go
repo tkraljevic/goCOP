@@ -228,7 +228,9 @@ uzvodno: [wildungsmauer achleiten], kašnjenje 3 h, skok 50 cm`
 // ImaUzvodniIspravak javlja ima li letva uzvodni ispravak dnevne prognoze.
 func ImaUzvodniIspravak(letva string) bool {
 	_, ima := uzvodniSkupovi[0].koef[letva]
-	return ima
+	// Ispravak je naučen na greškama dnevnog modela iz programa; modelu koji
+	// se uči iz drugih ulaza ili slivova ne pripada.
+	return ima && !DnevniRacunIzZapisa(letva)
 }
 
 // UzvodniIspravak je pomak dnevne prognoze cilja za 1.–6. dan (cm, plus

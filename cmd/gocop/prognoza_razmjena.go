@@ -172,6 +172,7 @@ func (p *primateljIzdanja) upisi(verzije []ledger.Version) {
 				log.Printf("prognoza: primljeni model: %v", err)
 				continue
 			}
+			prognoza.OsvjeziDnevnuPostavu(p.pb)
 			log.Printf("prognoza: primljen model s čvora %s", om.Cvor)
 		case prognoza.EntitetIzdanja:
 			if prognoza.ImaIzdanjeIzKnjige(p.pb, v.VersionID) {

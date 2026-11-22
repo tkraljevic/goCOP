@@ -29,6 +29,13 @@ const MetodaDnevni = "dnevni"
 type DnevniLetve struct {
 	Ulazi   []string `json:"ulazi"`   // uzvodne letve i letve čiji uspor diže vodu
 	Slivovi []string `json:"slivovi"` // međuslivovi čija kiša ulazi u račun
+	// OdDana i OdDanaNiska su dan od kojeg na pregledu vrijednost daje dnevni
+	// model, pri visokoj te pri niskoj i srednjoj vodi, a VisokaVoda vodostaj
+	// (cm) koji ih dijeli. Vrijede samo letvama dnevnog modela Drave i Dunava;
+	// prazno ostavlja ono iz programa.
+	OdDana      *int     `json:"od_dana,omitempty"`
+	OdDanaNiska *int     `json:"od_dana_niska,omitempty"`
+	VisokaVoda  *float64 `json:"visoka_voda,omitempty"`
 }
 
 // DnevniBlok čita blok „dnevni” zapisa.
@@ -228,7 +235,8 @@ func dnevniCiljeviZapisa(baza *sql.DB, o OkvirModela) ([]DnevniCilj, map[string]
 	}
 	var letve []string
 	for l, z := range zapisi {
-		if z.Metoda == MetodaDnevni {
+		// letvu dnevnog modela Drave i Dunava računa glavni dnevni model
+		if z.Metoda == MetodaDnevni && !GlavniDnevniCilj(l) {
 			letve = append(letve, l)
 		}
 	}

@@ -519,7 +519,7 @@ func odDanaZa(letva, nacin string, l PregledLetve) int {
 	case models.PrognozaSatni:
 		return 0
 	case models.PrognozaDnevni:
-		if _, ima := prognoza.DnevnaOdDana[letva]; ima || jeDnevniCilj(letva) {
+		if _, ima := prognoza.DnevnaOdDanaLetve(letva); ima || jeDnevniCilj(letva) {
 			return 1
 		}
 		return 0
@@ -533,7 +533,7 @@ func odDanaZa(letva, nacin string, l PregledLetve) int {
 
 // jeDnevniCilj javlja ima li letva dnevni model.
 func jeDnevniCilj(letva string) bool {
-	for _, c := range prognoza.DnevniCiljevi {
+	for _, c := range prognoza.CiljeviDnevnog() {
 		if c.Letva == letva {
 			return true
 		}
@@ -1348,7 +1348,7 @@ func (h *PrognozeHandler) usca(ctx context.Context, postaje map[string]models.St
 // nominativu, jer se ne sklanjaju sama od sebe. Prazno za letve koje nisu
 // cilj dnevnog modela.
 func opisDnevnogCilja(letva string, popis map[string]models.Station) string {
-	for _, c := range prognoza.DnevniCiljevi {
+	for _, c := range prognoza.CiljeviDnevnog() {
 		if c.Letva != letva {
 			continue
 		}
