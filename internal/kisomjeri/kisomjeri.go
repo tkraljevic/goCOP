@@ -143,6 +143,9 @@ type Uvoznik struct {
 	Spremiste *Spremiste
 	Postaje   func() ([]Postaja, error)
 	Citaci    map[string]Citac // po izvoru iz registra
+	// Registar je gocop.db: iz njega se čita i kiša upisana uz očitanja
+	// letvi (KisaSOcitanja); nil kad se ne čita
+	Registar *sql.DB
 }
 
 // Preuzmi dohvaća mjerenja po izvorima. Izvor koji ne uspije ne sprečava
@@ -179,7 +182,11 @@ func (u *Uvoznik) Preuzmi(ctx context.Context) (int, error) {
 		}
 		ukupno += n
 	}
-	return ukupno, errors.Join(greske...)
+	n, err := u.prenesiOcitanja(ctx)
+	if err != nil {
+		greske = append(greske, fmt.Errorf("kiša s očitanja letvi: %w", err))
+	}
+	return ukupno + n, errors.Join(greske...)
 }
 
 // broj čita broj s točkom ili zarezom; prazno i crtica nisu broj

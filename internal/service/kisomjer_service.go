@@ -198,13 +198,14 @@ func koordinateValjane(lat, lon float64) bool {
 
 func round6(v float64) float64 { return math.Round(v*1e6) / 1e6 }
 
-// ImeLetve je ime letve uz koju kišomjer stoji, za prikaz.
-func (s *KisomjerService) ImeLetve(ctx context.Context, letva string) string {
+// LetvaKisomjera je identifikator i ime letve uz koju kišomjer stoji, za
+// prikaz i poveznicu; prazno bez letve ili kad je nema u registru.
+func (s *KisomjerService) LetvaKisomjera(ctx context.Context, letva string) (id, ime string) {
 	if letva == "" {
-		return ""
+		return "", ""
 	}
-	ime, _ := s.repo.ImeLetve(ctx, letva) // bez imena stranica pokaže šifru letve
-	return ime
+	id, ime, _ = s.repo.Letva(ctx, letva) // bez letve stranica pokaže šifru, bez poveznice
+	return id, ime
 }
 
 // KisomjerUzLetvu je stvarni kišomjer koji stoji uz letvu; nil kad ga nema
@@ -230,7 +231,7 @@ func (s *KisomjerService) provjeriLetvu(ctx context.Context, k *models.Kisomjer)
 	if !k.JeStvarni() {
 		return fmt.Errorf("uz letvu može stajati samo stvarni kišomjer")
 	}
-	ime, err := s.repo.ImeLetve(ctx, k.Letva)
+	_, ime, err := s.repo.Letva(ctx, k.Letva)
 	if err != nil {
 		return err
 	}

@@ -245,7 +245,7 @@ func pripremiOborine(database *sql.DB, dbPath string, node *peers.Node, server *
 		if err := kisSpremiste.Pripremi(); err != nil {
 			log.Printf("Stvarni kišomjeri se neće skupljati: %v", err)
 		} else {
-			kisUvoznik = &kisomjeri.Uvoznik{Spremiste: kisSpremiste, Postaje: kisomjeri.PostajeIzRegistra(database),
+			kisUvoznik = &kisomjeri.Uvoznik{Spremiste: kisSpremiste, Postaje: kisomjeri.PostajeIzRegistra(database), Registar: database,
 				Citaci: map[string]kisomjeri.Citac{"pljusak": &kisomjeri.Pljusak{}, "dhmz": &kisomjeri.Letva{Racun: letvaRacun}}}
 			server.SetKisomjeriMjerenja(kisSpremiste)
 		}

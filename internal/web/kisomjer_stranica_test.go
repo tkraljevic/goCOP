@@ -141,7 +141,7 @@ func TestStranicaKisomjera(t *testing.T) {
 	s := kisomjerZahtjev(h.ShowOcitanja, "/slivovi/kisomjer/dhmz-orahovica", "dhmz-orahovica")
 	for _, zeli := range []string{
 		"Zadnja 24 h", ">24,0 <small>mm</small>", // 24 sata po 1 mm, bez 12-satnog termina
-		"<dt>Uz letvu</dt><dd>Orahovica letva</dd>",
+		`<dt>Uz letvu</dt><dd><a href="/readings/station/orah-id">Orahovica letva</a>.`, "Kiša se upisuje uz očitanje letve.",
 		"Prognoza 24 h", ">12,0 <small>mm</small>", // 24 sata po 0,5 mm
 		"najbližu izvedenu\n    točku <strong>Papuk pobrđe</strong>",
 		`class="graf-kise"`, "kišomjer DHMZ-a",

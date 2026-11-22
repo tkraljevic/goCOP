@@ -71,7 +71,7 @@ func TestKisomjerSLetvomIzKnjige(t *testing.T) {
 
 // Ime letve čita se iz registra; letve koje nema daju prazno, a baza bez
 // tablica grešku.
-func TestImeLetveIKisomjerUzLetvu(t *testing.T) {
+func TestLetvaIKisomjerUzLetvu(t *testing.T) {
 	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "ime.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -83,11 +83,11 @@ func TestImeLetveIKisomjerUzLetvu(t *testing.T) {
 		t.Fatal(err)
 	}
 	repo := NewKisomjerRepository(baza, nil)
-	if ime, err := repo.ImeLetve(ctx, "lipa"); err != nil || ime != "Lipovac" {
-		t.Errorf("ImeLetve(lipa) = %q, %v", ime, err)
+	if id, ime, err := repo.Letva(ctx, "lipa"); err != nil || id != "l" || ime != "Lipovac" {
+		t.Errorf("Letva(lipa) = %q, %q, %v", id, ime, err)
 	}
-	if ime, err := repo.ImeLetve(ctx, "nema"); err != nil || ime != "" {
-		t.Errorf("ImeLetve(nema) = %q, %v", ime, err)
+	if id, ime, err := repo.Letva(ctx, "nema"); err != nil || id != "" || ime != "" {
+		t.Errorf("Letva(nema) = %q, %q, %v", id, ime, err)
 	}
 	if drugi, err := repo.KisomjerUzLetvu(ctx, "lipa", ""); err != nil || drugi != "" {
 		t.Errorf("KisomjerUzLetvu bez kišomjera = %q, %v", drugi, err)
@@ -101,7 +101,7 @@ func TestImeLetveIKisomjerUzLetvu(t *testing.T) {
 	if _, err := baza.Exec(`DROP TABLE stations`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repo.ImeLetve(ctx, "lipa"); err == nil {
-		t.Error("ImeLetve bez tablice nije javio grešku")
+	if _, _, err := repo.Letva(ctx, "lipa"); err == nil {
+		t.Error("Letva bez tablice nije javila grešku")
 	}
 }
