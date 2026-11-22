@@ -134,7 +134,7 @@ func TestStranicaSlaganjaRacuna(t *testing.T) {
 	redom(t, html, "← Model prognoze · Sektor B", "Model · Potok Lug", "Letve redom",
 		"<span>Gornji Lug</span>", `<span class="rac-cip">Još nema račun</span>`,
 		"<span>Srednji Lug</span>", "vodostaj · ulaz: Gornji Lug · rezerva: Donji Brod", `<span class="rac-cip pozor">Nacrt</span>`,
-		"<span>Donji Lug</span>", "računa se u glavnom lancu", `<span class="rac-cip">Glavni lanac</span>`,
+		"<span>Donji Lug</span>", "račun stoji u programu", `<span class="rac-cip">Glavni lanac</span>`,
 		`<h2 id="rac-obrazac-naslov">Srednji Lug</h2>`, "nacrt spremljen 21. 11. 2026. 20:00, Iva Proba",
 		`name="letva" value="potok-srednji"`, `<optgroup label="Potok Lug">`,
 		`<option value="potok-gornji" selected>Gornji Lug</option>`, `<optgroup label="Brodska rijeka">`, "Drugi ulaz", "— bez drugog ulaza —",
@@ -147,7 +147,7 @@ func TestStranicaSlaganjaRacuna(t *testing.T) {
 
 	html = stranicaRacuna(t, h, vodotok+"&letva=potok-donji", admin)
 	if !strings.Contains(html, porukaULancu) || strings.Contains(html, `class="rac-obrazac"`) {
-		t.Error("letva glavnog lanca ne smije imati obrazac")
+		t.Error("letva čiji račun stoji u programu ne smije imati obrazac")
 	}
 
 	html = stranicaRacuna(t, h, vodotok, admin)
@@ -341,7 +341,7 @@ func TestSitniceSlaganjaRacuna(t *testing.T) {
 	if opis := rm.opis("a", nil); opis != "protok · ulaz: b · rezerva: c · rezerva: d · rezerva: e" {
 		t.Errorf("opis %q", opis)
 	}
-	if o := rm.obrazac("a", "A"); o.Velicina != "protok" || !slices.Equal(o.Ulazi, []string{"b", ""}) || !slices.Equal(o.Rezerve, []string{"c", "d"}) ||
+	if o := rm.obrazac("a", "A"); o.Velicina != "protok" || !slices.Equal(o.Ulazi, []string{"b", ""}) || !slices.Equal(o.Rezerve, []RezervaObrasca{{Prvi: "c"}, {Prvi: "d"}}) ||
 		o.NacinRazina != razineGranice || o.Razine != "10" || o.Kad != "" {
 		t.Errorf("obrazac %+v", o)
 	}
@@ -516,7 +516,7 @@ func TestStranicaPripremljenogRacuna(t *testing.T) {
 	data := RacunPrognozePageData{PrognozePageData: h.zaglavlje(r), Sektor: SektorPrognoze{ID: "B", Ime: "Dunav i donja Drava"},
 		Vodotok: VodotokPrognoze{Oznaka: "potok-lug", Ime: "Potok Lug"}, SmijeUrediti: true,
 		Obrazac: &ObrazacRacuna{Kod: "potok-srednji", Ime: "Srednji Lug", Stanje: oznakaNacrt, Velicina: "vodostaj",
-			Ulazi: []string{"potok-gornji", ""}, Rezerve: []string{"", ""}, NacinRazina: razineZadane, Kad: "22. 11. 2026. 08:00",
+			Ulazi: []string{"potok-gornji", ""}, Rezerve: []RezervaObrasca{{}, {}}, NacinRazina: razineZadane, Kad: "22. 11. 2026. 08:00",
 			Pripremljen: "22. 11. 2026. 08:01", Doseg: 9, Ucenje: "Račun je učio na 9.000 sati, na vodi od 10 do 300 cm.",
 			Napomene: []string{"Razina od 90 do 150 nema račun."},
 			Redci: []RazinaRacuna{{Broj: 1, Granica: "do 40 cm", Kasnjenje: "9 h", Prozor: "3 h", Slaganje: "0,88", Sati: 3100, Racuna: true},
@@ -573,10 +573,10 @@ func TestProbaNaStraniciRacuna(t *testing.T) {
 		t.Fatalf("proba %+v", p)
 	}
 	for i, zelim := range []DosegProbe{
-		{0, 6, "3,0", "3,0", 1916, StanjeModela{"Kao zadnje mjerenje", ""}},
-		{0, 24, "5,2", "6,4", 1914, StanjeModela{"Pouzdanije od zadnjeg mjerenja", "dobro"}},
-		{0, 48, "9,0", "7,0", 1910, StanjeModela{"Zadnje mjerenje je pouzdanije", "pozor"}},
-		{0, 72, "—", "—", 40, StanjeModela{"Nije provjereno", ""}},
+		{0, 6, "3,0", "3,0", 1916, StanjeModela{"Kao zadnje mjerenje", ""}, ""},
+		{0, 24, "5,2", "6,4", 1914, StanjeModela{"Pouzdanije od zadnjeg mjerenja", "dobro"}, ""},
+		{0, 48, "9,0", "7,0", 1910, StanjeModela{"Zadnje mjerenje je pouzdanije", "pozor"}, ""},
+		{0, 72, "—", "—", 40, StanjeModela{"Nije provjereno", ""}, ""},
 	} {
 		if p.Dosezi[i] != zelim {
 			t.Errorf("doseg %d: %+v, želim %+v", i, p.Dosezi[i], zelim)
@@ -590,7 +590,7 @@ func TestProbaNaStraniciRacuna(t *testing.T) {
 	r := zahtjevOsobe(http.MethodGet, "/prognoze/model/racun", "", &models.UserPermissions{IsGlobalAdmin: true})
 	data := RacunPrognozePageData{PrognozePageData: h.zaglavlje(r), Sektor: SektorPrognoze{ID: "B"}, Vodotok: VodotokPrognoze{Ime: "Potok Lug"},
 		SmijeUrediti: true, Obrazac: &ObrazacRacuna{Kod: "potok-srednji", Ime: "Srednji Lug", Velicina: "vodostaj", Ulazi: []string{"a", ""},
-			Rezerve: []string{"", ""}, NacinRazina: razineZadane, Kad: "08:00", Pripremljen: "08:01", Proba: p,
+			Rezerve: []RezervaObrasca{{}, {}}, NacinRazina: razineZadane, Kad: "08:00", Pripremljen: "08:01", Proba: p,
 			Redci: []RazinaRacuna{{Broj: 1, Granica: "sva voda", Kasnjenje: "9 h", Racuna: true}}}}
 	w := httptest.NewRecorder()
 	if err := h.racunTmpl.ExecuteTemplate(w, "prognoze_racun.html", data); err != nil {
@@ -808,7 +808,7 @@ func TestStranicaDnevnogModela(t *testing.T) {
 	data := RacunPrognozePageData{PrognozePageData: h.zaglavlje(r), Sektor: SektorPrognoze{ID: "B"}, Vodotok: VodotokPrognoze{Ime: "Potok Lug"},
 		SmijeUrediti: true, SliviIzbora: h.sliviIzbora(context.Background()), KisomjeriIzbora: kis,
 		Obrazac: &ObrazacRacuna{Kod: "potok-srednji", Ime: "Srednji Lug", Dnevni: true, Velicina: "vodostaj", Ulazi: []string{"a", ""},
-			Rezerve: []string{"", ""}, Slivovi: []string{"Z", "kisomjer:km-lug"}, NacinRazina: razineZadane, Kad: "11:00", Proba: p}}
+			Rezerve: []RezervaObrasca{{}, {}}, Slivovi: []string{"Z", "kisomjer:km-lug"}, NacinRazina: razineZadane, Kad: "11:00", Proba: p}}
 	w := httptest.NewRecorder()
 	if err := h.racunTmpl.ExecuteTemplate(w, "prognoze_racun.html", data); err != nil {
 		t.Fatal(err)

@@ -37,6 +37,9 @@ type ProbaNacrta struct {
 	Dani      []MjeraDana `json:"dani,omitempty"`
 	Natpisi   []string    `json:"natpisi"`
 	Razdoblje []string    `json:"razdoblje"`
+	// Lanac je usporedba s sadašnjim modelom i letve nizvodno; ima je samo
+	// proba letve glavnog lanca.
+	Lanac *ProbaLanca `json:"lanac,omitempty"`
 }
 
 // PripremaNacrta je ishod pripreme uz nacrt, koliko ga stranica pokazuje.
@@ -56,6 +59,13 @@ func ProvjeriNacrt(baza *sql.DB, z ZapisLetve, o OkvirModela) error {
 	}
 	if z.Metoda == MetodaDnevni {
 		return z.provjeriDnevni(o)
+	}
+	if GlavnaLetva(z.Letva) {
+		zapisi, _, err := ZapisiLetvi(baza)
+		if err != nil {
+			return err
+		}
+		return z.ProvjeriGlavni(o, zapisi)
 	}
 	if err := z.provjeriPrijePripreme(o); err != nil {
 		return err
@@ -117,7 +127,11 @@ func PripremiNacrt(arhiva, baza *sql.DB, letva, kad string, o OkvirModela) (Nacr
 	}
 	z := n.Zapis
 	z.Racun.Doseg, z.Brojevi = 0, BrojeviLetve{}
-	p, err := PripremiLetvu(arhiva, baza, z, o)
+	pripremi := PripremiLetvu
+	if GlavnaLetva(letva) {
+		pripremi = PripremiGlavnuLetvu
+	}
+	p, err := pripremi(arhiva, baza, z, o)
 	if err != nil {
 		return NacrtLetve{}, err
 	}

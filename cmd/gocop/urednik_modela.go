@@ -25,6 +25,9 @@ type urednikModela struct {
 	// krug kaže traje li satni krug prognoze; dok traje, model se ne mijenja, da
 	// izdanje ne uhvati pola promjene. nil se ne pita.
 	krug interface{ UTijeku() bool }
+	// izdaj izda prognozu upravo primijenjenim modelom i javi grešku ako letva
+	// u njoj nema prognozu. Treba ga primjena na glavni lanac; nil ne izdaje.
+	izdaj func(ctx context.Context, letva string) error
 }
 
 var errKrugTraje = errors.New("satni krug prognoze upravo traje; pokušaj za minutu")
@@ -47,7 +50,64 @@ func (u *urednikModela) PrimijeniNacrt(letva, tko, razlog string) error {
 		return err
 	}
 	promjena := prognoza.PromjenaLetve{Kad: time.Now().In(models.Zagreb).Format("2. 1. 2006. 15:04"), Tko: tko, Razlog: razlog}
+	if prognoza.GlavnaLetva(letva) {
+		return u.primijeniGlavni(letva, promjena)
+	}
 	return prognoza.PrimijeniNacrt(u.pb, letva, promjena, u.okvir())
+}
+
+// primijeniGlavniNacrt upisuje račun letve glavnog lanca u model; testovi ga
+// zamjenjuju, jer pravi traži probu na arhivi sa satnim nizovima.
+var primijeniGlavniNacrt = prognoza.PrimijeniGlavniNacrt
+
+// primijeniGlavni upiše probani račun letve glavnog lanca u model i odmah izda
+// prognozu njime. Kad izdavanje ne uspije ili letva u izdanju nema prognozu,
+// vrati model kakav je bio; nacrt tada ostaje, s probom.
+func (u *urednikModela) primijeniGlavni(letva string, promjena prognoza.PromjenaLetve) error {
+	radna, pocisti, err := privremenaBazaPrognoza()
+	if err != nil {
+		return err
+	}
+	defer pocisti()
+	prije, err := primijeniGlavniNacrt(u.pb, radna, letva, promjena, u.okvir())
+	if err != nil {
+		return err
+	}
+	if u.izdaj != nil {
+		if err := u.izdaj(context.Background(), letva); err != nil {
+			return vratiModel(u.pb, prije, err)
+		}
+	}
+	return prognoza.ObrisiNacrt(u.pb, letva)
+}
+
+// vratiModel vraća model kakav je bio prije primjene i složi poruku o tome zašto.
+func vratiModel(pb *sql.DB, prije prognoza.PaketModela, razlog error) error {
+	if err := prognoza.PrimiModel(pb, prije); err != nil {
+		return fmt.Errorf("izdavanje novim modelom nije uspjelo (%v), a prethodni model se nije dao vratiti: %w", razlog, err)
+	}
+	return fmt.Errorf("model nije primijenjen, vraćen je prethodni: izdavanje novim modelom nije uspjelo (%w)", razlog)
+}
+
+// izdajPrimijenjenim je izdavanje prognoze nakon primjene na glavni lanac: račun
+// iznova za isti sat, zapis i objava. Letva bez prognoze u tom izdanju je greška.
+func izdajPrimijenjenim(osvjezivac *prognoza.Osvjezivac, objaviIzdanje func(context.Context, *prognoza.Ishod)) func(context.Context, string) error {
+	return func(ctx context.Context, letva string) error {
+		iznova := *osvjezivac
+		iznova.Iznova = true
+		ishod, err := iznova.Osvjezi(ctx)
+		if err != nil {
+			return err
+		}
+		if err := ishod.BezPrognoze[letva]; err != nil {
+			return fmt.Errorf("letva s novim računom nema prognozu: %w", err)
+		}
+		if err := iznova.Zapisi(ishod); err != nil {
+			return err
+		}
+		objaviIzdanje(ctx, ishod)
+		return nil
+	}
 }
 
 // VratiPrethodni vraća prethodni model letve umjesto sadašnjeg, s imenom,
@@ -142,6 +202,9 @@ func (u *urednikModela) ProbajNacrt(letva string, p *poslovi.Posao) error {
 	if u.pb != nil && prognoza.MetodaNacrta(u.pb, letva) == prognoza.MetodaDnevni {
 		return u.probajDnevni(letva, p)
 	}
+	if prognoza.GlavnaLetva(letva) {
+		return u.probajGlavni(letva, p)
+	}
 	privremena, pocisti, err := privremenaBazaPrognoza()
 	if err != nil {
 		return err
@@ -154,6 +217,48 @@ func (u *urednikModela) ProbajNacrt(letva string, p *poslovi.Posao) error {
 	}
 	p.Zavrsi(opisProbeNacrta(n), nil)
 	return nil
+}
+
+// probajGlavniNacrt mjeri račun letve glavnog lanca; testovi ga zamjenjuju, jer
+// pravi traži arhivu sa satnim nizovima.
+var probajGlavniNacrt = prognoza.ProbajGlavniNacrt
+
+// probajGlavni proba račun letve glavnog lanca iz nacrta: cijeli lanac mjeri se
+// dvaput, sadašnjim modelom i modelom s izmjenom, u dvije privremene baze.
+func (u *urednikModela) probajGlavni(letva string, p *poslovi.Posao) error {
+	prije, pocistiPrije, err := privremenaBazaPrognoza()
+	if err != nil {
+		return err
+	}
+	defer pocistiPrije()
+	poslije, pocistiPoslije, err := privremenaBazaPrognoza()
+	if err != nil {
+		return err
+	}
+	defer pocistiPoslije()
+	n, err := probajGlavniNacrt(u.arhiva, u.pb, prije, poslije, letva, time.Now().In(models.Zagreb).Format("2. 1. 2006. 15:04"),
+		func(sto string) { p.Korak(sto, 0, 0) })
+	if err != nil {
+		return err
+	}
+	p.Zavrsi(opisProbeGlavnog(n), nil)
+	return nil
+}
+
+// opisProbeGlavnog je rečenica na kraju probe letve glavnog lanca.
+func opisProbeGlavnog(n prognoza.NacrtLetve) string {
+	if n.Proba == nil || n.Proba.Lanac == nil {
+		return "Proba je gotova."
+	}
+	letve := map[string]bool{}
+	for _, x := range n.Proba.Lanac.Nizvodno {
+		letve[x.Letva] = true
+	}
+	if len(letve) == 0 {
+		return "Proba je gotova: ostalim letvama se promašaj nije promijenio. Prognoza se ne mijenja dok se model ne primijeni."
+	}
+	return fmt.Sprintf("Proba je gotova: promašaj se promijenio na još %d %s. Prognoza se ne mijenja dok se model ne primijeni.",
+		len(letve), models.UzBrojHR(len(letve), "letvi", "letve", "letava"))
 }
 
 // probajDnevniNacrt proba dnevni model iz nacrta; testovi ga zamjenjuju, jer

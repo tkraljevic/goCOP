@@ -11283,6 +11283,7 @@ td .odr-sitno { margin-top: 2px; }
   .rac-tablica .rac-red > :first-child { font-weight: 500; }
 }
 .rac-tablica .rac-proba-red { grid-template-columns: 80px minmax(0, 0.8fr) minmax(0, 0.9fr) 90px minmax(250px, 1.8fr); }
+.rac-tablica .rac-proba-red.rac-proba-lanac { grid-template-columns: 80px minmax(0, 0.8fr) minmax(0, 0.7fr) minmax(0, 0.9fr) 90px minmax(230px, 1.6fr); }
 @media (max-width: 600px) {
   .rac-tablica .rac-proba-red { grid-template-columns: minmax(0, 1fr) auto; }
   .rac-tablica .rac-proba-red > :first-child { grid-column: 1 / -1; font-weight: 500; }
@@ -11293,6 +11294,7 @@ td .odr-sitno { margin-top: 2px; }
 .rac-povijest { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .rac-povijest > li { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border-radius: 8px; background: var(--md-sys-color-surface); font-size: 0.875rem; }
 .rac-povijest > li > :first-child { color: var(--md-sys-color-on-surface-variant); }
+.rac-povijest > li.rac-nizvodno-losije > :last-child { color: var(--md-sys-color-error); }
 .rac-rucni > summary { cursor: pointer; padding: 4px 0; color: var(--md-sys-color-primary); font-weight: 500; }
 .rac-rucni[open] > summary { margin-bottom: 8px; }
 .rac-rucni .form-row { max-width: 420px; }
@@ -11301,3 +11303,4 @@ td .odr-sitno { margin-top: 2px; }
 /* Način računa: satni račun ili dnevni model s kišom; polja drugoga se ne vide. */
 .rac-obrazac:has(input[name="metoda"][value="dnevni"]:checked) .rac-samo-satni { display: none; }
 .rac-obrazac:has(input[name="metoda"][value="lanac"]:checked) .rac-samo-dnevni { display: none; }
+.rac-obrazac:has(input[type="hidden"][name="metoda"]) .rac-samo-dnevni { display: none; }

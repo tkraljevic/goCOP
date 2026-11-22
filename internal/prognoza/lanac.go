@@ -598,6 +598,10 @@ func NamjestiLanac(arhiva, baza *sql.DB, o OpcijeNamjestanja) (int, error) {
 	if w == nil {
 		w = io.Discard
 	}
+	zapisi, glavne, err := zapisiZaNamjestanje(baza, w)
+	if err != nil {
+		return 0, err
+	}
 	tokovi := racuniNamjestanja()
 	ukupno := 0
 	for _, tok := range tokovi {
@@ -611,7 +615,7 @@ func NamjestiLanac(arhiva, baza *sql.DB, o OpcijeNamjestanja) (int, error) {
 			if o.Korak != nil {
 				o.Korak("namještam "+r.Letva, gotovo, ukupno)
 			}
-			pojasi, err := namjestiRacun(arhiva, r, w)
+			pojasi, err := namjestiRacunLanca(arhiva, r, zapisi, glavne, w)
 			if err != nil {
 				return 0, fmt.Errorf("namještanje prekinuto, ništa nije spremljeno: %w", err)
 			}
