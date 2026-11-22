@@ -70,6 +70,7 @@
       zadnje očitanje {{ago .Latest.MeasuredAt}}{{if zastarjelo .Latest.LocalTime}}
       <span class="badge badge-inactive" title="Nema novijeg očitanja više od dana">{{icon "triangle-alert"}} kasni</span>{{end}} · {{formatDate .Latest.LocalTime}}
       {{if .Latest.TempC}} · voda <strong>{{brojHRf (deref .Latest.TempC) 1}} °C</strong>{{end}}
+      {{if .Latest.RainMm}} · kiša <strong>{{brojHRf (deref .Latest.RainMm) 1}} mm</strong>{{end}}
       {{if not .Station}}{{if .Latest.FlowM3s}} · protok <strong>{{brojHRf (deref .Latest.FlowM3s) 1}} m³/s</strong> izmjereno{{else}}{{with protokHR .Krivulje .Latest.LocalTime .Latest.LevelCm}} · <strong>{{.}} m³/s</strong> <span title="procjena iz HQ krivulje">iz krivulje</span> {{if protokIzvan $.Krivulje $.Latest.LocalTime $.Latest.LevelCm}}<span class="badge badge-inactive" title="vodostaj je do {{prosirenjeKrivulje}} cm izvan raspona u kojem je krivulja umjerena; procjena je produljenje rubnog odsječka">izvan raspona krivulje</span>{{end}}{{end}}{{end}}{{end}}
       {{if .Latest.StructureState}} · {{.Latest.StateLabel}}{{end}}
       {{if .Latest.Gate}} · zapornica {{.Latest.GateLabel}}{{end}}
@@ -224,6 +225,7 @@
         {{if and $.Station .LevelCm}}{{range $.Station.Kote (intOf .LevelCm)}}<span class="reading-meta"> · {{brojHRf .Kota 3}} m {{.Sustav}}</span>{{end}}{{end}}
         {{if .FlowM3s}}<span class="reading-meta protok" title="protok i odakle je"> · {{brojHRf (deref .FlowM3s) 1}} m³/s {{opisProtoka .FlowMethod .FlowNote}}</span>{{else}}{{$r := .}}{{with protokHR $.Krivulje .LocalTime .LevelCm}}<span class="reading-meta" title="procjena protoka iz HQ krivulje{{if protokIzvan $.Krivulje $r.LocalTime $r.LevelCm}}, {{prosirenjeKrivulje}} cm izvan umjerenog raspona{{end}}"> · {{.}} m³/s{{if protokIzvan $.Krivulje $r.LocalTime $r.LevelCm}} <span class="izvan-krivulje">izvan raspona krivulje</span>{{end}}</span>{{end}}{{end}}
         {{if .TempC}}<span class="reading-meta" title="temperatura vode"> · {{brojHRf (deref .TempC) 1}} °C{{if .TempNote}} ({{.TempNote}}){{end}}</span>{{end}}
+        {{if .RainMm}}<span class="reading-meta" title="kiša s kišomjera uz letvu, za prethodni dan"> · kiša {{brojHRf (deref .RainMm) 1}} mm</span>{{end}}
         {{if .Phase.InForce}}<span class="badge {{.Phase.BadgeClass}}" style="margin-left:0.4rem;">{{.Phase.Label}}</span>{{end}}
       </span>
       <span>{{if index $.Ispravlja .ID}}<a href="/readings/edit/{{.ID}}" class="btn btn-sm btn-link" style="padding:0; color:var(--text-muted);">{{icon "pencil"}}</a>{{end}}</span>
