@@ -252,14 +252,14 @@ func vrstaKisomjera(v string) string {
 	return v
 }
 
-// ImeLetve je ime letve s tom šifrom; prazno kad je nema u registru.
-func (r *KisomjerRepository) ImeLetve(ctx context.Context, letva string) (string, error) {
-	var ime string
-	err := r.db.QueryRowContext(ctx, `SELECT name FROM stations WHERE code = ?`, letva).Scan(&ime)
+// Letva je identifikator i ime letve s tom šifrom; prazno kad je nema u
+// registru.
+func (r *KisomjerRepository) Letva(ctx context.Context, letva string) (id, ime string, err error) {
+	err = r.db.QueryRowContext(ctx, `SELECT id, name FROM stations WHERE code = ?`, letva).Scan(&id, &ime)
 	if err == sql.ErrNoRows {
-		return "", nil
+		return "", "", nil
 	}
-	return ime, err
+	return id, ime, err
 }
 
 // KisomjerUzLetvu je šifra drugog kišomjera koji već stoji uz letvu; prazno

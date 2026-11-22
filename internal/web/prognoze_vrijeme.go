@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"gocop/internal/dhmz"
+	"gocop/internal/kisomjeri"
 	"gocop/internal/models"
 )
 
@@ -564,7 +565,8 @@ func kisomjerDijela(p PlocaVremena, imaIzvora bool, sada time.Time) (*KisomjerVr
 }
 
 // naziviIzvora su izvori kišomjera kako ih korisnik zna
-var naziviIzvora = map[string]string{"dhmz": "DHMZ", "pljusak": "pljusak", "danubehis": "DanubeHIS"}
+var naziviIzvora = map[string]string{"dhmz": "DHMZ", "pljusak": "pljusak", "danubehis": "DanubeHIS",
+	"hv": "Hrvatske vode", kisomjeri.IzvorOcitanja: "očitanje letve"}
 
 // izvorKisomjera je izvor kakav korisnik zna; nepoznat ostaje kakav jest
 func izvorKisomjera(izvor string) string {

@@ -46,11 +46,11 @@ func TestKisomjerUzLetvu(t *testing.T) {
 	if err != nil || k == nil || k.Letva != "lipa" {
 		t.Fatalf("spremljeno = %+v, %v", k, err)
 	}
-	if ime := svc.ImeLetve(ctx, k.Letva); ime != "Lipovac" {
-		t.Errorf("ImeLetve = %q", ime)
+	if id, ime := svc.LetvaKisomjera(ctx, k.Letva); id != "lipa-id" || ime != "Lipovac" {
+		t.Errorf("LetvaKisomjera = %q, %q", id, ime)
 	}
-	if ime := svc.ImeLetve(ctx, ""); ime != "" {
-		t.Errorf("ImeLetve bez letve = %q", ime)
+	if id, ime := svc.LetvaKisomjera(ctx, ""); id != "" || ime != "" {
+		t.Errorf("LetvaKisomjera bez letve = %q, %q", id, ime)
 	}
 
 	// Izmjena istog kišomjera zadržava letvu: on sam nije „drugi” kišomjer.
@@ -89,8 +89,8 @@ func TestKisomjerUzLetvuGreskaBaze(t *testing.T) {
 	if err := svc.CreateKisomjer(ctx, kisomjerAdmin, stvarniUzLetvu("k-a", "lipa")); err == nil {
 		t.Error("upis bez tablice letvi je prošao")
 	}
-	if ime := svc.ImeLetve(ctx, "lipa"); ime != "" {
-		t.Errorf("ImeLetve bez tablice = %q", ime)
+	if _, ime := svc.LetvaKisomjera(ctx, "lipa"); ime != "" {
+		t.Errorf("LetvaKisomjera bez tablice = %q", ime)
 	}
 }
 

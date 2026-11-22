@@ -40,7 +40,8 @@
     <dt>Šifra</dt><dd class="mono">{{$t.Code}}</dd>
     <dt>Vrsta</dt><dd>{{if .Procjena}}izvedena točka (procjena modela){{else}}pravi kišomjer{{end}}</dd>
     {{if $t.Izvor}}<dt>Izvor</dt><dd>{{$t.Izvor}}{{if $t.IzvorSifra}}, šifra postaje {{$t.IzvorSifra}}{{end}}</dd>{{end}}
-    {{if $t.Letva}}<dt>Uz letvu</dt><dd>{{if .LetvaNaziv}}{{.LetvaNaziv}}{{else}}{{$t.Letva}}{{end}}</dd>{{end}}
+    {{if $t.Letva}}<dt>Uz letvu</dt><dd>{{if .LetvaID}}<a href="/readings/station/{{.LetvaID}}">{{.LetvaNaziv}}</a>{{else}}{{$t.Letva}}{{end}}.
+      Kiša se upisuje uz očitanje letve.</dd>{{end}}
     {{if $t.Korak}}<dt>Korak</dt><dd>{{$t.Korak}}</dd>{{end}}
     {{if $t.Sliv}}<dt>Međusliv</dt><dd><a href="/slivovi#sliv-{{$t.Sliv}}">{{$t.Sliv}}{{if .SlivNaziv}} · {{.SlivNaziv}}{{end}}</a></dd>{{end}}
     <dt>Položaj</dt><dd>{{brojHRf $t.Latitude 3}} · {{brojHRf $t.Longitude 3}}</dd>
