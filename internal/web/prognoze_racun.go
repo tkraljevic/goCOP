@@ -96,6 +96,9 @@ type ObrazacRacuna struct {
 	NacinRazina string
 	Razine      string // granice između razina, odvojene zarezom
 	Tko, Kad    string // tko je i kad spremio nacrt
+	// RucniNagib i RucnoKasnjenje su račun bez dosta arhive: upisani nagib i jedno
+	// kašnjenje za cijeli račun. Prazno kad se račun namješta iz arhive.
+	RucniNagib, RucnoKasnjenje string
 	// Pripremljen je kad je priprema dala brojeve; prazno dok nacrt nije pripremljen.
 	Pripremljen string
 	Doseg       int
@@ -346,7 +349,20 @@ func (rm racuniModela) obrazac(kod, ime string) ObrazacRacuna {
 		}
 	}
 	o.NacinRazina, o.Razine = razineUObrascu(z.Racun.Razine)
+	o.RucniNagib, o.RucnoKasnjenje = rucniRacunUObrascu(z.Racun.Rucno)
 	return o
+}
+
+// rucniRacunUObrascu su nagib i kašnjenje računa bez dosta arhive, kako ih obrazac
+// pokazuje; prazno kad nagib nije upisan.
+func rucniRacunUObrascu(r prognoza.RucnoLetve) (nagib, kasnjenje string) {
+	if r.Nagib == nil {
+		return "", ""
+	}
+	if len(r.Kasnjenje) > 0 {
+		kasnjenje = strconv.Itoa(r.Kasnjenje[0].Sati)
+	}
+	return strings.Replace(strconv.FormatFloat(*r.Nagib, 'f', -1, 64), ".", ",", 1), kasnjenje
 }
 
 // jedinicaRacuna je jedinica veličine u kojoj račun radi.
@@ -643,16 +659,45 @@ func zapisIzObrasca(f url.Values, letva string, stari prognoza.ZapisLetve) (prog
 		return z, err
 	}
 	z.Racun.Razine = razine
-	if !slices.Equal(razine.Postoci, stari.Racun.Razine.Postoci) || !slices.Equal(razine.Granice, stari.Racun.Razine.Granice) {
-		return z, nil
+	if rucni, ima, err := rucniRacunIzObrasca(f); err != nil || ima {
+		z.Racun.Rucno = rucni
+		return z, err
 	}
-	z.Racun.Razine.Iskljucene, z.Racun.Rucno = stari.Racun.Razine.Iskljucene, stari.Racun.Rucno
+	return z, rucnoPoRazinama(f, &z, stari)
+}
+
+// rucnoPoRazinama upisuje isključene razine i ručna kašnjenja računa koji se
+// namješta iz arhive: iz tablice razina kad je na stranici, inače ono što je
+// stari račun imao. Vrijede samo dok se razine ne promijene, a ručni račun
+// staroga nacrta ih ne ostavlja.
+func rucnoPoRazinama(f url.Values, z *prognoza.ZapisLetve, stari prognoza.ZapisLetve) error {
+	r, s := z.Racun.Razine, stari.Racun
+	if s.Rucno.Nagib != nil || !slices.Equal(r.Postoci, s.Razine.Postoci) || !slices.Equal(r.Granice, s.Razine.Granice) {
+		return nil
+	}
+	z.Racun.Razine.Iskljucene, z.Racun.Rucno = s.Razine.Iskljucene, s.Rucno
 	redaka, err := strconv.Atoi(f.Get("razina"))
 	if err != nil || redaka < 1 || redaka > 20 {
-		return z, nil // tablica razina nije bila na stranici
+		return nil // tablica razina nije bila na stranici
 	}
 	z.Racun.Razine.Iskljucene, z.Racun.Rucno.Kasnjenje, err = razineIzTablice(f, redaka)
-	return z, err
+	return err
+}
+
+// rucniRacunIzObrasca čita račun bez dosta arhive: nagib i jedno kašnjenje za
+// cijeli račun. ima je false kad su oba polja prazna, pa se račun namješta iz
+// arhive. Nagib se piše s decimalnim zarezom ili točkom.
+func rucniRacunIzObrasca(f url.Values) (rucno prognoza.RucnoLetve, ima bool, err error) {
+	nagib, kasnjenje := strings.TrimSpace(f.Get("rucni_nagib")), strings.TrimSpace(f.Get("rucno_kasnjenje"))
+	if nagib == "" && kasnjenje == "" {
+		return rucno, false, nil
+	}
+	n, errN := strconv.ParseFloat(strings.Replace(nagib, ",", ".", 1), 64)
+	sati, errS := strconv.Atoi(kasnjenje)
+	if errN != nil || errS != nil || sati < 0 {
+		return rucno, true, errors.New("za račun bez dosta arhive upiši i nagib (broj) i kašnjenje (cijeli broj sati)")
+	}
+	return prognoza.RucnoLetve{Nagib: &n, Kasnjenje: []prognoza.RucnoKasnjenje{{Razina: 0, Sati: sati}}}, true, nil
 }
 
 // odabraneLetve su neprazna polja izbora, redom kojim stoje u obrascu.

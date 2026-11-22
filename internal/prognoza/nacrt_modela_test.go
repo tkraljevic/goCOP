@@ -304,3 +304,32 @@ func TestProbajNacrt(t *testing.T) {
 		t.Error("zatvorena baza mora javiti grešku")
 	}
 }
+
+// Nacrt s upisanim nagibom je ručni račun: jedan ulaz, bez rezervi i razina, uz
+// jedno kašnjenje. Što od toga ne valja, odbija se već pri spremanju.
+func TestNacrtRucnogRacuna(t *testing.T) {
+	baza := otvoriProbnu(t, "p.db")
+	nagib := 1.5
+	rucni := func(izmjena func(*ZapisLetve)) NacrtLetve {
+		n := nacrtPotoka()
+		n.Zapis.Racun.Rucno = RucnoLetve{Nagib: &nagib, Kasnjenje: []RucnoKasnjenje{{Razina: 0, Sati: 4}}}
+		izmjena(&n.Zapis)
+		return n
+	}
+	if err := SpremiNacrt(baza, rucni(func(*ZapisLetve) {}), OkvirModela{}); err != nil {
+		t.Fatalf("valjan ručni račun: %v", err)
+	}
+	for ime, c := range map[string]struct {
+		izmjena func(*ZapisLetve)
+		razlog  string
+	}{
+		"dva ulaza":     {func(z *ZapisLetve) { z.Racun.Ulazi = []string{"potok-vrh", "potok-drugi"} }, "točno jedan ulaz"},
+		"rezerva":       {func(z *ZapisLetve) { z.Racun.Rezerve = [][]string{{"potok-drugi"}} }, "nema rezervu"},
+		"razine":        {func(z *ZapisLetve) { z.Racun.Razine.Granice = []float64{100} }, "jednu razinu"},
+		"bez kašnjenja": {func(z *ZapisLetve) { z.Racun.Rucno.Kasnjenje = nil }, "upiši i kašnjenje"},
+	} {
+		if err := SpremiNacrt(baza, rucni(c.izmjena), OkvirModela{}); !porukaIma(err, c.razlog) {
+			t.Errorf("%s: %v, želim %q", ime, err, c.razlog)
+		}
+	}
+}

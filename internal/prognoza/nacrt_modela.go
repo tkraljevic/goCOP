@@ -50,7 +50,13 @@ func ProvjeriNacrt(baza *sql.DB, z ZapisLetve, o OkvirModela) error {
 	if o.Glavne, err = SveInacice(baza); err != nil {
 		return err
 	}
-	return z.provjeriPrijePripreme(o)
+	if err := z.provjeriPrijePripreme(o); err != nil {
+		return err
+	}
+	if z.Racun.Rucno.Nagib != nil {
+		return z.provjeriRucniRacun()
+	}
+	return nil
 }
 
 // SpremiNacrt provjeri definiciju i upiše nacrt letve umjesto zatečenog. Ono što

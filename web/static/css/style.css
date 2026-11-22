@@ -11293,3 +11293,6 @@ td .odr-sitno { margin-top: 2px; }
 .rac-povijest { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .rac-povijest > li { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border-radius: 8px; background: var(--md-sys-color-surface); font-size: 0.875rem; }
 .rac-povijest > li > :first-child { color: var(--md-sys-color-on-surface-variant); }
+.rac-rucni > summary { cursor: pointer; padding: 4px 0; color: var(--md-sys-color-primary); font-weight: 500; }
+.rac-rucni[open] > summary { margin-bottom: 8px; }
+.rac-rucni .form-row { max-width: 420px; }
