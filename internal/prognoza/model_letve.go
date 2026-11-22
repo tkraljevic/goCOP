@@ -152,6 +152,8 @@ func zapisiZaRacun(db *sql.DB, promasaji map[Izvor]map[int]Promasaj) (map[string
 	if err != nil {
 		return nil, nil, err
 	}
+	// Letva s dnevnim modelom nema satni račun: računa je dnevni krug zapisa.
+	maps.DeleteFunc(zapisi, func(_ string, z ZapisLetve) bool { return z.Metoda == MetodaDnevni })
 	for _, r := range OdvojeniRacuni {
 		_, imaRedak := zapisi[r.Letva]
 		_, pokvaren := pokvareni[r.Letva]
@@ -420,6 +422,9 @@ func iskljuciNizvodne(zapisi map[string]ZapisLetve, isk map[string]error, o Okvi
 // Provjeri odbija zapis koji se ne smije računati. Krug i veličinu veze gleda
 // ProvjeriZapise, jer traže sve retke.
 func (z ZapisLetve) Provjeri(o OkvirModela) error {
+	if z.Metoda == MetodaDnevni {
+		return z.provjeriDnevni(o)
+	}
 	for _, korak := range []func() error{
 		z.provjeriOblik, z.provjeriRacun, z.Racun.provjeriPonavljanje, z.provjeriBrojeve,
 		func() error { return z.provjeriMjesto(o) },
@@ -794,6 +799,9 @@ type PrikazOdvojenih struct {
 func OdvojeniZaPrikaz(db *sql.DB) PrikazOdvojenih {
 	p := PrikazOdvojenih{Pojasi: map[string][]Pojas{}, Promasaji: map[Izvor]map[int]Promasaj{}, Vrhovi: map[string]bool{}}
 	zapisi, pokvareni, err := ZapisiLetvi(db)
+	// Letva s dnevnim modelom nema satni račun ni njegove brojeve; na stranici
+	// stoji po dnevnim vrijednostima izdanja.
+	maps.DeleteFunc(zapisi, func(_ string, z ZapisLetve) bool { return z.Metoda == MetodaDnevni })
 	if err != nil || len(zapisi) == 0 {
 		return p
 	}

@@ -380,6 +380,7 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 	// Letve iz zapisa modela računaju se tek sad, pa glavni račun ne mogu ni
 	// srušiti ni usporiti.
 	o.dodatniKrug(ctx, ishod, glavniRacun{racunalo: r, inacice: inacice, pojasi: pojasi, nizovi: nizovi, od: od, najdalje: najdalje})
+	o.dnevniKrugZapisa(ctx, ishod, inacice, od)
 	return ishod, nil
 }
 
