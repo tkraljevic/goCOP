@@ -207,6 +207,20 @@ func (s *KisomjerService) ImeLetve(ctx context.Context, letva string) string {
 	return ime
 }
 
+// KisomjerUzLetvu je stvarni kišomjer koji stoji uz letvu; nil kad ga nema
+// ili baza ne odgovara (obrazac očitanja tada ne nudi kišu).
+func (s *KisomjerService) KisomjerUzLetvu(ctx context.Context, letva string) *models.Kisomjer {
+	if s == nil || letva == "" {
+		return nil
+	}
+	code, err := s.repo.KisomjerUzLetvu(ctx, letva, "")
+	if err != nil || code == "" {
+		return nil
+	}
+	k, _ := s.repo.GetKisomjer(ctx, code) // greška = kao da kišomjera nema
+	return k
+}
+
 // provjeriLetvu odbija letvu koje nema u registru i letvu uz koju već stoji
 // drugi kišomjer: kiša s očitanja mora znati na koji kišomjer ide.
 func (s *KisomjerService) provjeriLetvu(ctx context.Context, k *models.Kisomjer) error {

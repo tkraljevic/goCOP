@@ -97,8 +97,8 @@ func redakOcitanja(g models.GaugeSummary, protok ProtokLetve, znak ZnakLetve, sa
 	return r
 }
 
-// opisOcitanja: kako je očitano i tko, uz nizvodnu stranu, protok i
-// temperaturu kad ih ima
+// opisOcitanja: kako je očitano i tko, uz nizvodnu stranu, protok,
+// temperaturu i kišu kad ih ima
 func opisOcitanja(l models.Reading, protok ProtokLetve) string {
 	dijelovi := []string{l.SourceLabel()}
 	if l.Observer != "" {
@@ -116,6 +116,9 @@ func opisOcitanja(l models.Reading, protok ProtokLetve) string {
 	}
 	if l.TempC != nil {
 		dijelovi = append(dijelovi, brojHRf(*l.TempC, 1)+" °C")
+	}
+	if l.RainMm != nil {
+		dijelovi = append(dijelovi, "kiša "+brojHRf(*l.RainMm, 1)+" mm")
 	}
 	return strings.Join(dijelovi, " · ")
 }

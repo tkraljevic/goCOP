@@ -24,7 +24,7 @@
        otvorena; temperatura i protok su rjeđi, pa stoje sa strane, ali u
        istom obrascu — sve se sprema jednim gumbom. -->
   <div class="kartice" role="tablist" aria-label="Što upisujete">
-    <button type="button" class="kartica-gumb" role="tab" aria-selected="true" aria-controls="kartica-vodostaj" data-polja="level_cm,level2_cm,note">{{icon "waves"}} Vodostaj</button>
+    <button type="button" class="kartica-gumb" role="tab" aria-selected="true" aria-controls="kartica-vodostaj" data-polja="level_cm,level2_cm,note,oborina_mm">{{icon "waves"}} Vodostaj</button>
     <button type="button" class="kartica-gumb" role="tab" aria-selected="false" aria-controls="kartica-temperatura" data-polja="temp_c,temp_note">{{icon "sun"}} Temperatura</button>
     <button type="button" class="kartica-gumb" role="tab" aria-selected="false" aria-controls="kartica-protok" data-polja="flow_m3s,flow_method,flow_note">{{icon "activity"}} Protok</button>
   </div>
@@ -48,6 +48,16 @@
       <input type="text" inputmode="numeric" pattern="-?[0-9]*" id="level2_cm" name="level2_cm" class="form-control level-input"
              value="{{if .Reading.Level2Cm}}{{intOf .Reading.Level2Cm}}{{end}}" placeholder="0">
       </div>
+    </div>
+    {{end}}
+    {{/* Kiša se nudi uz letvu s kišomjerom; očitanje koje kišu već ima
+         zadrži polje i kad kišomjera više nema, da je izmjena ne izgubi. */}}
+    {{if or .Kisomjer .Reading.RainMm}}
+    <div class="form-group">
+      <label class="form-label" for="oborina_mm">Oborina (mm)</label>
+      <input type="text" inputmode="decimal" id="oborina_mm" name="oborina_mm" class="form-control level-input"
+             value="{{if .Reading.RainMm}}{{brojHRf (deref .Reading.RainMm) 1}}{{end}}" placeholder="npr. 12,4">
+      <div class="form-help">{{with .Kisomjer}}Kišomjer {{.Naziv}}. {{end}}Kiša od jutra prethodnog dana do ovog očitanja; upisuje se pod prethodni dan.</div>
     </div>
     {{end}}
   </div>

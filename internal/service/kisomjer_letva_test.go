@@ -106,3 +106,31 @@ func TestKisomjerUzLetvuGreskaDrugeVeze(t *testing.T) {
 		t.Error("provjera bez stupca letve je prošla")
 	}
 }
+
+// Obrazac očitanja doznaje kišomjer uz letvu; bez registra, bez letve ili
+// kad baza ne odgovara kišomjera nema.
+func TestKisomjerUzLetvuZaOcitanje(t *testing.T) {
+	svc, baza := kisomjerSLetvom(t)
+	ctx := context.Background()
+	if err := svc.CreateKisomjer(ctx, kisomjerAdmin, stvarniUzLetvu("k-lipa", "lipa")); err != nil {
+		t.Fatal(err)
+	}
+	if k := svc.KisomjerUzLetvu(ctx, "lipa"); k == nil || k.Code != "k-lipa" {
+		t.Errorf("uz letvu = %+v", k)
+	}
+	if k := svc.KisomjerUzLetvu(ctx, "brod"); k != nil {
+		t.Errorf("letva bez kišomjera = %+v", k)
+	}
+	if k := svc.KisomjerUzLetvu(ctx, ""); k != nil {
+		t.Errorf("bez letve = %+v", k)
+	}
+	if k := (*KisomjerService)(nil).KisomjerUzLetvu(ctx, "lipa"); k != nil {
+		t.Errorf("bez registra = %+v", k)
+	}
+	if _, err := baza.Exec(`DROP TABLE kisomjeri`); err != nil {
+		t.Fatal(err)
+	}
+	if k := svc.KisomjerUzLetvu(ctx, "lipa"); k != nil {
+		t.Errorf("bez tablice = %+v", k)
+	}
+}
