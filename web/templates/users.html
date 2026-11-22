@@ -59,7 +59,7 @@
   <div class="dj-redak" role="row">
     <div class="dj-ime" role="cell"><a href="/users/{{.ID}}">{{.FullName}}</a>{{with .Title}}<small>{{.}}</small>{{end}}</div>
     <div class="dj-stanje" role="cell">
-      <span class="oznaka-stanja{{if eq (print $stanje) "ACTIVE"}} obrub{{else if eq (print $stanje) "DISABLED"}} dj-iskljucen{{end}}">{{$stanje.Label}}</span>
+      {{if .IzvanSluzbe}}<span class="oznaka-stanja dj-iskljucen" title="{{.OpisOdlaska}}">Izvan službe</span>{{else}}<span class="oznaka-stanja{{if eq (print $stanje) "ACTIVE"}} obrub{{else if eq (print $stanje) "DISABLED"}} dj-iskljucen{{end}}">{{$stanje.Label}}</span>{{end}}
       {{if .MustChangePassword}}<span class="oznaka-stanja obrub">čeka promjenu lozinke</span>{{end}}
     </div>
     <div class="dj-zaduzenja" role="cell">

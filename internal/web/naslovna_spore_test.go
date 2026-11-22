@@ -220,6 +220,27 @@ func TestKarticaZaRijesiti(t *testing.T) {
 		t.Errorf("novi bez uloge: %d", len(n))
 	}
 	stari := time.Date(2026, 10, 20, 9, 0, 0, 0, models.Zagreb)
+	// tko je imao zaduženje, a izgubio ga, nije nov djelatnik
+	bivsi := novi
+	bivsi.ID, bivsi.FullName = uuid.New(), "Pero Bivši"
+	nov, bez := razdvojiBezUloge([]models.User{novi, bivsi}, map[uuid.UUID]bool{bivsi.ID: true})
+	if len(nov) != 1 || nov[0].ID != novi.ID || len(bez) != 1 || bez[0].ID != bivsi.ID {
+		t.Errorf("razdvajanje: novi %v, bez zaduženja %v", nov, bez)
+	}
+	if nov, bez := razdvojiBezUloge([]models.User{novi, bivsi}, nil); len(nov) != 2 || len(bez) != 0 {
+		t.Error("bez popisa zaduženja svi su novi")
+	}
+	k = karticaZaRijesiti(stavkeZaRijesiti{BezZaduzenja: []models.User{bivsi}}, sadNaslovne)
+	if len(k.Redovi) != 1 || k.Redovi[0].Glavno != "Djelatnik bez zaduženja" || !strings.Contains(k.Redovi[0].Sporedno, "Pero Bivši") ||
+		k.Redovi[0].URL != "/users/"+bivsi.ID.String() {
+		t.Errorf("redak bez zaduženja: %+v", k.Redovi)
+	}
+	if r, _ := redakBezZaduzenja([]models.User{bivsi, bivsi, bivsi, bivsi, bivsi}); r.Glavno != "5 djelatnika bez zaduženja" || r.URL != "/users" {
+		t.Errorf("više bez zaduženja: %+v", r)
+	}
+	if _, ima := redakBezZaduzenja(nil); ima {
+		t.Error("prazan popis dao je redak")
+	}
 	if danNaslovne(sadNaslovne, sadNaslovne) != "danas" || danNaslovne(stari, sadNaslovne) != "20. 10." {
 		t.Error("dan kratko")
 	}

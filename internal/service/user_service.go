@@ -260,7 +260,7 @@ func (s *UserService) CreateUser(actor *models.UserPermissions, req CreateUserRe
 		s.istekDuznosti(initialDuty, time.Now())
 	}
 
-	if err := s.userRepo.CreateUser(user, initialDuty); err != nil {
+	if err := s.userRepo.Kao(actor.User.ID).CreateUser(user, initialDuty); err != nil {
 		return nil, err
 	}
 	if zapisPotvrde != "" {
@@ -535,6 +535,11 @@ func (s *UserService) UpdateUser(actor *models.UserPermissions, req UpdateUserRe
 	target.ShortMobile = req.ShortMobile
 	target.Email = req.Email
 	target.IsActive = req.IsActive
+	if ukljucenje {
+		// ponovno uključen račun više nije izvan službe; zaduženja mu se
+		// daju iznova
+		target.Odlazak, target.OdlazakDan = "", nil
+	}
 
 	var zapisPotvrde string
 	switch {
@@ -566,7 +571,7 @@ func (s *UserService) UpdateUser(actor *models.UserPermissions, req UpdateUserRe
 		}
 	}
 
-	if err := s.userRepo.UpdateUser(target); err != nil {
+	if err := s.userRepo.Kao(actor.User.ID).UpdateUser(target); err != nil {
 		return nil, err
 	}
 	if zapisPotvrde != "" {
@@ -782,7 +787,7 @@ func (s *UserService) AddDuty(actor *models.UserPermissions, req AddDutyRequest)
 	dopusteno.upisi(duty)
 	s.istekDuznosti(duty, time.Now())
 
-	if err := s.userRepo.AddDuty(duty); err != nil {
+	if err := s.userRepo.Kao(actor.User.ID).AddDuty(duty); err != nil {
 		return err
 	}
 
@@ -878,7 +883,7 @@ func (s *UserService) spremiIzmjenu(actor *models.UserPermissions, dosad, duty *
 	if err := izmjenaStalneRazine1(actor, *dosad, *duty); err != nil {
 		return err
 	}
-	return s.userRepo.UpdateDuty(duty)
+	return s.userRepo.Kao(actor.User.ID).UpdateDuty(duty)
 }
 
 // GetDuty čita jedno zaduženje, aktivno ili opozvano
@@ -922,7 +927,7 @@ func (s *UserService) RevokeDuty(actor *models.UserPermissions, dutyID uuid.UUID
 		return err
 	}
 
-	if err := s.userRepo.RevokeDuty(dutyID); err != nil {
+	if err := s.userRepo.Kao(actor.User.ID).RevokeDuty(dutyID); err != nil {
 		return err
 	}
 	s.uskladiPoOpozivu(dutyID)
@@ -961,7 +966,7 @@ func (s *UserService) DeleteUser(actor *models.UserPermissions, targetID uuid.UU
 		}
 	}
 
-	if err := s.userRepo.DeleteUser(targetID); err != nil {
+	if err := s.userRepo.Kao(actor.User.ID).DeleteUser(targetID); err != nil {
 		return err
 	}
 

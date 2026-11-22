@@ -95,7 +95,7 @@
   </div>
   <div class="pomoc-skupina">
     <h3>Ljudi i postavke</h3>
-    <a class="pomoc-tema" href="#users">{{icon "users"}}<span>Djelatnici i dežurstva</span><small>3 podnaslova</small>{{icon "chevron-right"}}</a>
+    <a class="pomoc-tema" href="#users">{{icon "users"}}<span>Djelatnici i dežurstva</span><small>4 podnaslova</small>{{icon "chevron-right"}}</a>
     <a class="pomoc-tema" href="#profile">{{icon "user"}}<span>Profil</span><small>1 podnaslov</small>{{icon "chevron-right"}}</a>
     <a class="pomoc-tema" href="#admin">{{icon "settings"}}<span>Administracija</span><small>4 podnaslova</small>{{icon "chevron-right"}}</a>
   </div>
@@ -1599,6 +1599,13 @@
       Filtriraju se po sektoru, području, modulu i razdoblju te izvoze u Excel. Brisanje zapisa
       sa zida postoji samo kao izričita testna opcija; ne briše živi poslovni zapis i u
       operativnom radu mora ostati isključeno.</p>
+    <p>Modul <em>Djelatnici</em> pokazuje promjene ovlasti: otvoren i obrisan račun, isključenu i
+      ponovno uključenu prijavu, odlazak iz službe, oznaku globalnog administratora te
+      dodijeljeno, izmijenjeno i opozvano zaduženje, s imenom onoga tko je promjenu napravio.
+      Vidi ga tko vidi modul Djelatnici: zaduženja svog sektora, a globalni administrator
+      sva. Promjene telefona, adrese ili lozinke ovdje se ne pokazuju. Istek roka
+      nije ničija promjena, pa se vidi samo na stranici osobe. Promjene od prije ovog izdanja
+      su tu bez imena onoga tko ih je napravio, jer ga program tada nije bilježio.</p>
 
     <h3 id="vodocuvar">Vodočuvarski dnevnik</h3>
     <p>Svaki vodočuvar ima godišnju knjigu s jednim dnevnim listom po danu. List nosi redovno
@@ -1988,8 +1995,9 @@
   <h2>{{icon "users"}} Djelatnici i dežurstva</h2>
   <div class="pomoc-poglavlje">
   <details class="pomoc-podnaslovi" data-pomoc-podnaslovi open>
-    <summary><small>U ovom poglavlju</small><span>3 podnaslova</span>{{icon "chevron-down"}}</summary>
+    <summary><small>U ovom poglavlju</small><span>4 podnaslova</span>{{icon "chevron-down"}}</summary>
     <nav aria-label="U ovom poglavlju: Djelatnici i dežurstva">
+      <a href="#users-odlazak">Odlazak iz službe</a>
       <a href="#users-privremeno-imenovanje">Privremeno imenovanje</a>
       <a href="#users-kod-prijave">Privremeni kod za prijavu</a>
       <a href="#users-potvrda-adrese">Adresa za PIN izvan domene</a>
@@ -2061,6 +2069,20 @@
       upise tuđim očima ne poništava se lozinka, ne uključuje ni ne isključuje račun, ne mijenja
       zastavica globalnog administratora i ne dodjeljuju, mijenjaju ni opozivaju dužnosti uprave:
       za to se vratite svojim očima.</p>
+
+    <h3 id="users-odlazak">Odlazak iz službe</h3>
+    <p>Kad djelatnik ode u mirovinu ili iz službe, na njegovoj stranici u kartici <em>Odlazak iz
+      službe</em> odaberite razlog (mirovina, odlazak, premještaj ili drugo) i dan odlaska, pa
+      <em>Zabilježi odlazak</em>. Prijava se isključi, a sva zaduženja koja još vrijede opozovu se
+      odjednom. Račun ostaje, s oznakom <em>Izvan službe</em>, da očitanja, listovi i upisi zadrže
+      ime. Na popisu djelatnika takve račune pokazuje filtar <em>Izvan službe</em>.</p>
+    <p>Odlazak bilježi tko smije isključiti račun i opozvati svako njegovo zaduženje. Svoj odlazak
+      ne bilježite sami. Dan odlaska ne smije biti u budućnosti: zabilježite ga na dan kad je
+      osoba otišla. Ako se osoba vrati, uključite joj prijavu u uređivanju profila; oznaka
+      <em>Izvan službe</em> tada nestaje, a zaduženja se daju iznova.</p>
+    <p>Račun koji ostane bez ijednog zaduženja, a nije izvan službe, samo čita, kao preglednik,
+      i globalnom administratoru se na početnoj javlja kao djelatnik bez zaduženja, da mu dodijeli
+      novo ili zabilježi odlazak.</p>
 
     <h3 id="users-privremeno-imenovanje">Privremeno imenovanje</h3>
     <p>Dužnosti su stalne: vrijede dok ih uprava ne izmijeni ili opozove. Iznimka je privremeno
