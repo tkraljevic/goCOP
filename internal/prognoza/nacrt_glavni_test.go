@@ -177,3 +177,15 @@ func TestProbaGlavneLetveOdbija(t *testing.T) {
 		t.Error("zatvorena baza mora javiti grešku")
 	}
 }
+
+// Promjene nizvodno poredane su po letvi pa po dosegu; letva sama i dosezi bez
+// promjene ne ulaze.
+func TestPromjeneNizvodnoRedom(t *testing.T) {
+	sama, b, a := Izvor{Letva: "cilj", Velicina: "protok"}, Izvor{Letva: "b", Velicina: "vodostaj"}, Izvor{Letva: "a", Velicina: "vodostaj"}
+	stare := MjereProvjere{sama: {24: {Promasaj: 5}}, b: {24: {Promasaj: 10}, 48: {Promasaj: 20}}, a: {24: {Promasaj: 7}, 48: {Promasaj: 9}, 72: {Promasaj: 11}}}
+	nove := MjereProvjere{sama: {24: {Promasaj: 9}}, b: {24: {Promasaj: 12}, 48: {Promasaj: 20.04}}, a: {24: {Promasaj: 7.5}, 48: {Promasaj: 9}, 72: {Promasaj: 10}}}
+	p := promjeneNizvodno(stare, nove, sama)
+	if len(p) != 3 || p[0].Letva != "a" || p[0].Doseg != 24 || p[1].Letva != "a" || p[1].Doseg != 72 || p[2].Letva != "b" || p[2].Doseg != 24 {
+		t.Errorf("promjene nizvodno: %+v", p)
+	}
+}

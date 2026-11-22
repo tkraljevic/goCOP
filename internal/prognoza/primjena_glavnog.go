@@ -32,10 +32,7 @@ func PrimijeniGlavniNacrt(baza, radna *sql.DB, letva string, promjena PromjenaLe
 	if err != nil {
 		return PaketModela{}, err
 	}
-	if err := sloziNoviModel(radna, prije, n, zapisZaGlavnu(n.Zapis, zapisi, promjena)); err != nil {
-		return PaketModela{}, err
-	}
-	novi, _, err := SastaviModel(radna)
+	novi, err := sloziNoviModel(radna, prije, n, zapisZaGlavnu(n.Zapis, zapisi, promjena))
 	if err != nil {
 		return PaketModela{}, err
 	}
@@ -84,22 +81,22 @@ func zapisZaGlavnu(z ZapisLetve, zapisi map[string]ZapisLetve, promjena Promjena
 	return zapisZaPrimjenu(z, stari, promjena)
 }
 
-// sloziNoviModel slaže u radnoj bazi model s izmjenom: model kakav je sada, pa
-// račun letve iz nacrta, promašaji koje je proba promijenila i redak letve.
-func sloziNoviModel(radna *sql.DB, prije PaketModela, n NacrtLetve, redak ZapisLetve) error {
-	if err := provjeriNovuBazu(radna); err != nil {
-		return err
+// sloziNoviModel slaže u radnoj bazi model s izmjenom i vraća ga: model kakav
+// je sada, pa račun letve iz nacrta, promašaji koje je proba promijenila i
+// redak letve.
+func sloziNoviModel(radna *sql.DB, prije PaketModela, n NacrtLetve, redak ZapisLetve) (PaketModela, error) {
+	for _, korak := range []func() error{
+		func() error { return novaSModelom(radna, prije) },
+		func() error { _, err := zamijeniRacun(radna, n.Zapis); return err },
+		func() error { return zamijeniPromasaje(radna, n.Proba.Lanac.Promasaji, n.Proba.Kad) },
+		func() error { return upisiZapisLetve(radna, redak, otisakProbe(n.Zapis)) },
+	} {
+		if err := korak(); err != nil {
+			return PaketModela{}, err
+		}
 	}
-	if err := PrimiModel(radna, prije); err != nil {
-		return err
-	}
-	if err := zamijeniRacun(radna, n.Zapis); err != nil {
-		return err
-	}
-	if err := zamijeniPromasaje(radna, n.Proba.Lanac.Promasaji, n.Proba.Kad); err != nil {
-		return err
-	}
-	return upisiZapisLetve(radna, redak, otisakProbe(n.Zapis))
+	novi, _, err := SastaviModel(radna)
+	return novi, err
 }
 
 // zamijeniPromasaje upisuje u bazu promašaje letvi iz probe umjesto zatečenih za

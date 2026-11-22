@@ -171,10 +171,56 @@ func TestPrimjenaGlavneLetveNeOstavljaPolaModela(t *testing.T) {
 	if err := zatvorena.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if err := sloziNoviModel(zatvorena, prije, n, n.Zapis); err == nil {
+	if _, err := sloziNoviModel(zatvorena, prije, n, n.Zapis); err == nil {
 		t.Error("zatvorena radna baza mora javiti grešku")
+	}
+	if _, err := zamijeniRacun(zatvorena, n.Zapis); err == nil {
+		t.Error("zatvorena baza mora javiti grešku pri zamjeni računa")
+	}
+	// redci modela koji se ne daju pročitati prekidaju primjenu, pripremu i provjeru nacrta
+	if _, err := baza.Exec(`DROP TABLE model_letve; CREATE TABLE model_letve (a TEXT, b TEXT, c TEXT)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PrimijeniGlavniNacrt(baza, otvoriProbnu(t, "r7.db"), "cilj", promjena, OkvirModela{}); err == nil {
+		t.Error("nečitljivi redci moraju prekinuti primjenu")
+	}
+	if _, err := PripremiGlavnuLetvu(arhiva, baza, n.Zapis, OkvirModela{}); err == nil {
+		t.Error("nečitljivi redci moraju prekinuti pripremu")
+	}
+	if err := ProvjeriNacrt(baza, n.Zapis, OkvirModela{}); err == nil {
+		t.Error("nečitljivi redci moraju prekinuti provjeru nacrta")
+	}
+	// model koji se ne da pročitati prekida primjenu i probu
+	if _, err := baza.Exec(`DROP TABLE operateri`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PrimijeniGlavniNacrt(baza, otvoriProbnu(t, "r8.db"), "cilj", promjena, OkvirModela{}); err == nil {
+		t.Error("model koji se ne da pročitati mora prekinuti primjenu")
+	}
+	if _, err := ProbajGlavniNacrt(arhiva, baza, otvoriProbnu(t, "r9.db"), otvoriProbnu(t, "r10.db"), "cilj", "08:05", func(string) {}); err == nil {
+		t.Error("model koji se ne da pročitati mora prekinuti probu")
 	}
 	if err := zamijeniPromasaje(zatvorena, nil, "15:00"); err == nil {
 		t.Error("zatvorena baza mora javiti grešku pri upisu promašaja")
+	}
+}
+
+// Promašaji letvi koje proba nije promijenila ostaju kakvi su; ostalima se
+// zamijene svi dosezi, i oni kojih u probi više nema.
+func TestZamjenaPromasajaSamoPromijenjenih(t *testing.T) {
+	baza := otvoriProbnu(t, "p.db")
+	if err := SpremiPromasaje(baza, []Promasaj{
+		{Letva: "cilj", Velicina: "protok", DosegH: 24, Rasap: 5, Slucaja: 200}, {Letva: "cilj", Velicina: "protok", DosegH: 48, Rasap: 8, Slucaja: 200},
+		{Letva: "druga", Velicina: "vodostaj", DosegH: 24, Rasap: 3, Slucaja: 200}}, "staro"); err != nil {
+		t.Fatal(err)
+	}
+	novi := map[string]map[int]Promasaj{"cilj|protok": {24: {Letva: "cilj", Velicina: "protok", DosegH: 24, Rasap: 4, Slucaja: 210}}}
+	if err := zamijeniPromasaje(baza, novi, "novo"); err != nil {
+		t.Fatal(err)
+	}
+	p, err := Promasaji(baza)
+	cilj, druga := p[Izvor{Letva: "cilj", Velicina: "protok"}], p[Izvor{Letva: "druga", Velicina: "vodostaj"}]
+	if err != nil || len(cilj) != 1 || cilj[24].Rasap != 4 || len(druga) != 1 || druga[24].Rasap != 3 {
+		t.Errorf("promašaji nakon zamjene: %v, %v", p, err)
 	}
 }

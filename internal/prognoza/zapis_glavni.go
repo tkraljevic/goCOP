@@ -217,12 +217,12 @@ func namjestiRacunLanca(arhiva *sql.DB, r Racun, zapisi map[string]ZapisLetve, g
 		return nil, fmt.Errorf("%s: %w", strings.TrimSpace(zaglavlje), err)
 	}
 	if err != nil {
-		fmt.Fprintf(w, "%s %v; račun ide iz programa\n", zaglavlje, err)
+		_, _ = fmt.Fprintf(w, "%s %v; račun ide iz programa\n", zaglavlje, err) // izvještaj namještanja; neuspio ispis ne mijenja model
 		return namjestiRacun(arhiva, r, w)
 	}
-	fmt.Fprintf(w, "%s %s\n", zaglavlje, z.Velicina)
+	_, _ = fmt.Fprintf(w, "%s %s\n", zaglavlje, z.Velicina) // izvještaj namještanja; neuspio ispis ne mijenja model
 	for _, n := range napomene {
-		fmt.Fprintf(w, "   %s\n", n)
+		_, _ = fmt.Fprintf(w, "   %s\n", n) // izvještaj namještanja; neuspio ispis ne mijenja model
 	}
 	ispisiPojase(w, pojasi, z.Letva)
 	return pojasi, nil
@@ -240,7 +240,7 @@ func zapisiZaNamjestanje(baza *sql.DB, w io.Writer) (map[string]ZapisLetve, map[
 		return nil, nil, err
 	}
 	for _, letva := range slices.Sorted(maps.Keys(odbijeni)) {
-		fmt.Fprintf(w, "zapis letve %s se ne koristi (%v); račun ide iz programa\n", letva, odbijeni[letva])
+		_, _ = fmt.Fprintf(w, "zapis letve %s se ne koristi (%v); račun ide iz programa\n", letva, odbijeni[letva]) // izvještaj namještanja; neuspio ispis ne mijenja model
 	}
 	return zapisi, glavne, nil
 }

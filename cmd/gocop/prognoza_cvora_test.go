@@ -181,3 +181,28 @@ func TestPripremaModelaDokKrugTraje(t *testing.T) {
 		t.Errorf("%q, %v", izdano, err)
 	}
 }
+
+// Prepisivanje modela iz baze koja se ne da pročitati je greška.
+func TestPrepisiModelIzZatvoreneBaze(t *testing.T) {
+	iz, err := prognoza.Otvori(filepath.Join(t.TempDir(), "iz.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, err := prognoza.Otvori(filepath.Join(t.TempDir(), "u.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer u.Close()
+	if err := prepisiModel(iz, u); err != nil {
+		t.Fatalf("prazan model: %v", err)
+	}
+	if err := iz.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := prepisiModel(iz, u); err == nil {
+		t.Error("zatvorena baza mora javiti grešku")
+	}
+	if _, _, err := namjestiIProvjeri(iz, iz, &poslovi.Posao{}); err == nil {
+		t.Error("priprema iz zatvorene baze mora javiti grešku")
+	}
+}

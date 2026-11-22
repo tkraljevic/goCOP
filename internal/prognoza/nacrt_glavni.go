@@ -78,25 +78,16 @@ func ProbajGlavniNacrt(arhiva, baza, prije, poslije *sql.DB, letva, kad string, 
 	if err != nil {
 		return NacrtLetve{}, err
 	}
-	otisak, err := modeliZaProbu(baza, prije, poslije, n.Zapis)
+	otisak, svi, err := modeliZaProbu(baza, prije, poslije, n.Zapis)
 	if err != nil {
 		return NacrtLetve{}, err
 	}
 	o := opcijeProbeLanca()
-	korak("mjerenje sadašnjeg modela unatrag")
-	stara, err := izmjeriModel(arhiva, prije, o)
+	mjere, err := izmjeriModele(arhiva, o, korak, prije, poslije)
 	if err != nil {
 		return NacrtLetve{}, err
 	}
-	korak("mjerenje modela s izmjenom unatrag")
-	nova, err := izmjeriModel(arhiva, poslije, o)
-	if err != nil {
-		return NacrtLetve{}, err
-	}
-	svi, err := sveNamjesteno(poslije)
-	if err != nil {
-		return NacrtLetve{}, err
-	}
+	stara, nova := mjere[0], mjere[1]
 	iz := Izvor{Letva: letva, Velicina: n.Zapis.Velicina}
 	uzvodno := uzvodneLetve(letva, svi)
 	m := slozenaMjera(n.Zapis, nova.promasaji[iz], nova.mjere[iz], uzvodno, o)
@@ -104,6 +95,23 @@ func ProbajGlavniNacrt(arhiva, baza, prije, poslije *sql.DB, letva, kad string, 
 		Lanac: &ProbaLanca{Prije: slozenaMjera(n.Zapis, stara.promasaji[iz], stara.mjere[iz], uzvodno, o).Dosezi,
 			Nizvodno: promjeneNizvodno(stara.mjere, nova.mjere, iz), Promasaji: promijenjeniPromasaji(stara, nova, iz), Model: otisak}}
 	return n, upisiNacrt(baza, n)
+}
+
+// koraciProbeLanca su natpisi dvaju mjerenja probe, redom.
+var koraciProbeLanca = []string{"mjerenje sadašnjeg modela unatrag", "mjerenje modela s izmjenom unatrag"}
+
+// izmjeriModele mjeri redom model u svakoj bazi i javlja što se upravo radi.
+func izmjeriModele(arhiva *sql.DB, o OpcijeProvjere, korak func(string), baze ...*sql.DB) ([]mjeraModela, error) {
+	var out []mjeraModela
+	for i, baza := range baze {
+		korak(koraciProbeLanca[i])
+		m, err := izmjeriModel(arhiva, baza, o)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, m)
+	}
+	return out, nil
 }
 
 // pripremljeniGlavniNacrt je pripremljen nacrt letve glavnog lanca.
@@ -123,36 +131,43 @@ func pripremljeniGlavniNacrt(baza *sql.DB, letva string) (NacrtLetve, error) {
 }
 
 // modeliZaProbu prepisuje model iz baze u obje privremene baze, a u drugoj
-// zamijeni račun letve onim iz zapisa. Vraća otisak modela iz baze.
-func modeliZaProbu(baza, prije, poslije *sql.DB, z ZapisLetve) (string, error) {
+// zamijeni račun letve onim iz zapisa. Vraća otisak modela iz baze i sve račune
+// modela s izmjenom.
+func modeliZaProbu(baza, prije, poslije *sql.DB, z ZapisLetve) (string, map[string][][]Pojas, error) {
 	paket, otisak, err := SastaviModel(baza)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	for _, db := range []*sql.DB{prije, poslije} {
-		if err := provjeriNovuBazu(db); err != nil {
-			return "", err
-		}
-		if err := PrimiModel(db, paket); err != nil {
-			return "", err
+		if err := novaSModelom(db, paket); err != nil {
+			return "", nil, err
 		}
 	}
-	return otisak, zamijeniRacun(poslije, z)
+	svi, err := zamijeniRacun(poslije, z)
+	return otisak, svi, err
+}
+
+// novaSModelom upisuje model u novu, praznu bazu prognoza.
+func novaSModelom(db *sql.DB, paket PaketModela) error {
+	if err := provjeriNovuBazu(db); err != nil {
+		return err
+	}
+	return PrimiModel(db, paket)
 }
 
 // zamijeniRacun upisuje u bazu račun letve iz zapisa umjesto zatečenog; ostali
-// računi ostaju isti.
-func zamijeniRacun(baza *sql.DB, z ZapisLetve) error {
+// računi ostaju isti. Vraća sve račune kako sada stoje u bazi.
+func zamijeniRacun(baza *sql.DB, z ZapisLetve) (map[string][][]Pojas, error) {
 	svi, err := sveNamjesteno(baza)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	svi[z.Letva] = z.Brojevi.Inacice
 	var pojasi []Pojas
 	for _, letva := range slices.Sorted(maps.Keys(svi)) {
 		pojasi = append(pojasi, slices.Concat(svi[letva]...)...)
 	}
-	return Spremi(baza, pojasi, "proba")
+	return svi, Spremi(baza, pojasi, "proba")
 }
 
 // mjeraModela je što je provjera unatrag izmjerila jednom modelu.

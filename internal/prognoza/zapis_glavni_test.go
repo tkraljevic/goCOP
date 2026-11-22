@@ -55,6 +55,12 @@ func TestPripremiModelCitaRedakGlavneLetve(t *testing.T) {
 	if len(in) != 2 || in[0][0].Ulazi[0].Letva != "drugi" || in[1][0].Ulazi[0].Letva != "ulaz" || in[1][0].Inacica != 1 {
 		t.Errorf("račun iz retka s rezervom: %+v", in)
 	}
+	// rezerva koja se ne da namjestiti samo se napiše uz račun
+	sRezervom := glavniZapis("cilj", "protok", "ulaz")
+	sRezervom.Racun.Rezerve = [][]string{{"nema-niza"}}
+	if in, ispis := namjestiProbu(t, &sRezervom); len(in) != 1 || !strings.Contains(ispis, "Rezerva nema-niza nema račun") {
+		t.Errorf("rezerva bez niza: %d inačica\n%s", len(in), ispis)
+	}
 	dvije := glavniZapis("cilj", "protok", "ulaz")
 	dvije.Racun.Razine = RazineLetve{Postoci: []float64{0, 50, 100}}
 	if in, _ := namjestiProbu(t, &dvije); len(in) != 1 || len(in[0]) != 2 {
@@ -102,6 +108,14 @@ func TestOdbijenRedakGlavneLetve(t *testing.T) {
 	}
 	if _, err := NamjestiLanac(arhivaLanca(t), baza, OpcijeNamjestanja{}); err == nil {
 		t.Error("namještanje uz zatvorenu bazu mora javiti grešku")
+	}
+	// tablica redaka koja se ne da pročitati prekida namještanje prije računa
+	bezRedaka := otvoriProbnu(t, "bez-redaka.db")
+	if _, err := bezRedaka.Exec(`DROP TABLE model_letve; CREATE TABLE model_letve (nesto TEXT)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NamjestiLanac(arhivaLanca(t), bezRedaka, OpcijeNamjestanja{}); err == nil {
+		t.Error("namještanje uz nečitljive retke mora javiti grešku")
 	}
 }
 
