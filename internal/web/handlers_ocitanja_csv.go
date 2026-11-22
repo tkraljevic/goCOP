@@ -29,6 +29,9 @@ import (
 // oni kažu koji je redak koji; ostali su ono što se ispravlja.
 var stupciOcitanja = []string{
 	"id", "vrijeme", "vodostaj_cm", "nizvodni_cm", "temperatura_c", "protok_m3s", "ocitao", "napomena", "obrisi", "izvor", "upisao",
+	// kiša s kišomjera uz letvu je dodana poslije, pa je na kraju: stupci
+	// na koje su navikli ostaju na svom mjestu
+	"oborina_mm",
 }
 
 // decimalaUDatoteku ispisuje decimalni broj za datoteku: decimalni zarez kao
@@ -128,6 +131,7 @@ func (h *ReadingsHandler) HandleOcitanjaIzvoz(w http.ResponseWriter, r *http.Req
 			"", // ovdje se upisuje "da" za brisanje
 			rd.SourceLabel(),
 			rd.UserName,
+			decimalaUDatoteku(rd.RainMm),
 		})
 	}
 }
@@ -214,8 +218,8 @@ func citajOcitanja(sadrzaj []byte, postojeca map[uuid.UUID]models.Reading) ([]Re
 	iID, iVrijeme := stupac("id"), stupac("vrijeme")
 	iVodostaj, iNizvodni := stupac("vodostaj_cm"), stupac("nizvodni_cm")
 	iOcitao, iNapomena, iObrisi := stupac("ocitao"), stupac("napomena"), stupac("obrisi")
-	// starija datoteka bez ovih stupaca ne dira temperaturu ni protok
-	iTemperatura, iProtok := stupac("temperatura_c"), stupac("protok_m3s")
+	// starija datoteka bez ovih stupaca ne dira temperaturu, protok ni kišu
+	iTemperatura, iProtok, iKisa := stupac("temperatura_c"), stupac("protok_m3s"), stupac("oborina_mm")
 	if iID < 0 || iVrijeme < 0 || iVodostaj < 0 {
 		return nil, fmt.Errorf("datoteci nedostaje stupac „id“, „vrijeme“ ili „vodostaj_cm“ — je li izvezena odavde?")
 	}
@@ -288,23 +292,10 @@ func citajOcitanja(sadrzaj []byte, postojeca map[uuid.UUID]models.Reading) ([]Re
 		} else {
 			novo.Level2Cm = v
 		}
-		if iTemperatura >= 0 {
-			if v, err := decimalaIzObrasca(polje(r, iTemperatura)); err != nil {
-				red.Greska = "temperatura: " + err.Error()
-				out = append(out, red)
-				continue
-			} else {
-				novo.TempC = v
-			}
-		}
-		if iProtok >= 0 {
-			if v, err := decimalaIzObrasca(polje(r, iProtok)); err != nil {
-				red.Greska = "protok: " + err.Error()
-				out = append(out, red)
-				continue
-			} else {
-				novo.FlowM3s = v
-			}
+		if g := decimaleIzRetka(&novo, func(i int) string { return polje(r, i) }, iTemperatura, iProtok, iKisa); g != "" {
+			red.Greska = g
+			out = append(out, red)
+			continue
 		}
 		if iOcitao >= 0 {
 			novo.Observer = polje(r, iOcitao)
@@ -322,6 +313,27 @@ func citajOcitanja(sadrzaj []byte, postojeca map[uuid.UUID]models.Reading) ([]Re
 		out = append(out, red)
 	}
 	return out, nil
+}
+
+// decimaleIzRetka čita temperaturu, protok i kišu iz retka datoteke; stupac
+// kojeg u datoteci nema (indeks < 0) vrijednost ne dira. Vraća grešku retka,
+// prazno kad je sve čitljivo.
+func decimaleIzRetka(novo *models.Reading, vrijednost func(int) string, iTemperatura, iProtok, iKisa int) string {
+	for _, s := range []struct {
+		naziv string
+		i     int
+		v     **float64
+	}{{"temperatura", iTemperatura, &novo.TempC}, {"protok", iProtok, &novo.FlowM3s}, {"oborina", iKisa, &novo.RainMm}} {
+		if s.i < 0 {
+			continue
+		}
+		v, err := decimalaIzObrasca(vrijednost(s.i))
+		if err != nil {
+			return s.naziv + ": " + err.Error()
+		}
+		*s.v = v
+	}
+	return ""
 }
 
 // razlike su polja koja se stvarno mijenjaju. Redak koji ništa ne mijenja ne
@@ -344,6 +356,9 @@ func razlike(staro, novo models.Reading) []Izmjena {
 	}
 	if !istaDecimala(staro.FlowM3s, novo.FlowM3s) {
 		out = append(out, Izmjena{"protok", decimalaIliCrta(staro.FlowM3s), decimalaIliCrta(novo.FlowM3s)})
+	}
+	if !istaDecimala(staro.RainMm, novo.RainMm) {
+		out = append(out, Izmjena{"oborina", decimalaIliCrta(staro.RainMm), decimalaIliCrta(novo.RainMm)})
 	}
 	if staro.Observer != novo.Observer {
 		out = append(out, Izmjena{"očitao", staro.Observer, novo.Observer})
@@ -421,15 +436,15 @@ func neobavezanCm(s string) (*int, error) {
 
 // PregledOcitanja je ono što se pokaže prije nego što se išta upiše.
 type PregledOcitanja struct {
-	GaugeName string
-	BackURL   string
-	PotvrdaURL    string
-	Redci         []RedakOcitanja
-	Izmjena       int
-	Brisanja      int
-	Greske        int
-	Netaknuto     int
-	Datoteka      string
+	GaugeName  string
+	BackURL    string
+	PotvrdaURL string
+	Redci      []RedakOcitanja
+	Izmjena    int
+	Brisanja   int
+	Greske     int
+	Netaknuto  int
+	Datoteka   string
 }
 
 // HandleOcitanjaUvoz prima vraćenu datoteku i pokazuje što bi se promijenilo.
@@ -569,6 +584,7 @@ func (h *ReadingsHandler) HandleOcitanjaPotvrda(w http.ResponseWriter, r *http.R
 		novo.Level2Cm = cmIzObrasca(nth(r.Form["nizvodni"], i))
 		novo.TempC, _ = decimalaIzObrasca(nth(r.Form["temperatura"], i))
 		novo.FlowM3s, _ = decimalaIzObrasca(nth(r.Form["protok"], i))
+		novo.RainMm, _ = decimalaIzObrasca(nth(r.Form["oborina"], i)) // pregled je broj već provjerio; prazno je bez kiše
 		novo.Observer = strings.TrimSpace(nth(r.Form["ocitao"], i))
 		novo.Note = strings.TrimSpace(nth(r.Form["napomena"], i))
 		if len(razlike(staro, novo)) == 0 {

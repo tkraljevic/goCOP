@@ -35,6 +35,9 @@ type Reading struct {
 	// razliku od procjene iz HQ krivulje koja se računa pri prikazu.
 	TempC   *float64 `json:"temp_c,omitempty"`   // temperatura vode, °C
 	FlowM3s *float64 `json:"flow_m3s,omitempty"` // izmjereni protok, m³/s
+	// RainMm je kiša izmjerena na kišomjeru uz letvu (Borovik), u mm. Očitava
+	// se ujutro i vrijedi za prethodni dan; prazno nije isto što i 0 mm.
+	RainMm *float64 `json:"rain_mm,omitempty"`
 	// Svaka veličina nosi svoju bilješku: ono što vrijedi uz vodostaj (očitan
 	// maksimum, voda preko letve) nema smisla uz temperaturu ili protok.
 	TempNote   string `json:"temp_note,omitempty"`   // uz temperaturu, npr. led uz obalu
@@ -240,7 +243,9 @@ func (r Reading) HasTemp() bool { return r.TempC != nil }
 func (r Reading) HasFlow() bool { return r.FlowM3s != nil }
 
 // HasAnyValue javlja nosi li očitanje bar jednu izmjerenu veličinu
-func (r Reading) HasAnyValue() bool { return r.HasLevel() || r.HasTemp() || r.HasFlow() }
+func (r Reading) HasAnyValue() bool {
+	return r.HasLevel() || r.HasTemp() || r.HasFlow() || r.RainMm != nil
+}
 
 // IzvorOdrazaObjekta je početak SourceRef odraza: očitanja letve koje je
 // program upisao iz očitanja objekta, iza njega je identifikator očitanja

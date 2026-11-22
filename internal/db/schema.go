@@ -1794,6 +1794,7 @@ func migrateSchema(database *sql.DB) error {
 		// vodostaj kako ga je poslao mjerni uređaj, kad je očitanje ispravljeno
 		// po ručnom (models.Reading.SirovoCm)
 		{"readings", "sirovo_cm", "INTEGER"},
+		{"readings", "rain_mm", "REAL"},
 		{"journals", "channel", "TEXT NOT NULL DEFAULT ''"},
 		{"journals", "dezurni_id", "TEXT NOT NULL DEFAULT ''"},
 		{"journals", "dezurni_ime", "TEXT NOT NULL DEFAULT ''"},

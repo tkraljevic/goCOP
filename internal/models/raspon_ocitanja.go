@@ -26,6 +26,9 @@ const (
 	TemperaturaNajmanjeC = -5.0
 	TemperaturaNajviseC  = 45.0
 	ProtokNajviseM3s     = 100000.0
+	// Kiša s kišomjera uz letvu za jedan dan; najviše dnevne oborine u
+	// Hrvatskoj su oko polovice toga.
+	KisaNajviseMm = 300.0
 	// Očitanje smije biti najviše sat unaprijed (razlika satova između
 	// računala i izvora) i ne prije 1900.
 	OcitanjeNajviseUnaprijed = time.Hour
@@ -48,6 +51,7 @@ const (
 	PoljeKota        = "kota"
 	PoljeTemperatura = "temperatura"
 	PoljeProtok      = "protok"
+	PoljeKisa        = "oborina"
 	PoljeVrijeme     = "vrijeme"
 )
 
@@ -100,6 +104,7 @@ func VrijednostiIzvanRaspona(rd Reading, kota bool) []IzvanRaspona {
 		razinaIzvan(PoljeNizvodni, rd.Level2Cm, kota),
 		temperaturaIzvan(rd.TempC),
 		protokIzvan(rd.FlowM3s),
+		kisaIzvan(rd.RainMm),
 	} {
 		if o != nil {
 			out = append(out, *o)
@@ -148,7 +153,7 @@ func OcistiOcitanje(rd *Reading, kota bool, sada time.Time) ([]IzvanRaspona, boo
 // odbacujeCijelo javlja odbacuje li vrijednost izvan raspona cijelo
 // očitanje: vrijeme i razina da, temperatura i protok ne
 func odbacujeCijelo(o IzvanRaspona) bool {
-	return o.Polje != PoljeTemperatura && o.Polje != PoljeProtok
+	return o.Polje != PoljeTemperatura && o.Polje != PoljeProtok && o.Polje != PoljeKisa
 }
 
 // ukloniVrijednost briše iz očitanja odbačenu temperaturu ili protok i ono
@@ -156,6 +161,10 @@ func odbacujeCijelo(o IzvanRaspona) bool {
 func ukloniVrijednost(rd *Reading, polje string) {
 	if polje == PoljeTemperatura {
 		rd.TempC, rd.TempNote = nil, ""
+		return
+	}
+	if polje == PoljeKisa {
+		rd.RainMm = nil
 		return
 	}
 	rd.FlowM3s, rd.FlowMethod, rd.FlowNote = nil, "", ""
@@ -204,6 +213,14 @@ func protokIzvan(v *float64) *IzvanRaspona {
 	}
 	return &IzvanRaspona{Polje: PoljeProtok, Opis: "protok " + decimalniHR(*v) + " m³/s",
 		poruka: fmt.Sprintf("protok %.1f m³/s je izvan razumnog raspona", *v)}
+}
+
+func kisaIzvan(v *float64) *IzvanRaspona {
+	if v == nil || (*v >= 0 && *v <= KisaNajviseMm) {
+		return nil
+	}
+	return &IzvanRaspona{Polje: PoljeKisa, Opis: "oborina " + decimalniHR(*v) + " mm",
+		poruka: "oborina mora biti između 0 i 300 mm"}
 }
 
 func opisVremena(kad time.Time) string {

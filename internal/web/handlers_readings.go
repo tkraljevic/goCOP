@@ -46,6 +46,7 @@ type ReadingsHandler struct {
 	prikazPrognoze   func(ctx context.Context, letva, velicina string) *PrognozaNiza
 	akti             func() *service.AktService
 	kvarovi          func() KvaroviMjerila
+	kisomjeri        func() *service.KisomjerService
 }
 
 // SetAkti daje rukovatelju servis akata: gumb „Proglasi / prekini” vidi samo
@@ -410,6 +411,8 @@ type ReadingFormData struct {
 	ProtokIzKrivulje string
 	ProtokIzvan      bool
 	ImaKrivulju      bool
+	// Kisomjer je stvarni kišomjer uz letvu: obrazac tada nudi i kišu
+	Kisomjer *models.Kisomjer
 	// MozeObrisati: gumb za brisanje samo onome tko za letvu odgovara
 	// (Odluke (8. 10. 2026.), pitanje 9)
 	MozeObrisati bool
@@ -1023,6 +1026,7 @@ func (h *ReadingsHandler) ShowForm(w http.ResponseWriter, r *http.Request) {
 		data.Latest = &latest[0]
 	}
 	data.IsField = u != nil && u.IsFieldUser()
+	data.Kisomjer = h.kisomjerLetve(ctx, data.Station)
 	data.LocalValue = rd.MeasuredAt.In(models.Zagreb).Format("2006-01-02T15:04")
 	data.IzvornoUTC = rd.MeasuredAt.UTC().Format(time.RFC3339Nano)
 	if a := h.arh(); a != nil && data.Station != nil && data.Station.Code != "" {
@@ -1142,11 +1146,8 @@ func readingFromForm(r *http.Request) (*models.Reading, error) {
 	if rd.AgHours3, err = parseOptionalInt(r.FormValue("ag_hours_3")); err != nil {
 		return nil, fmt.Errorf("agregat 3: %w", err)
 	}
-	if rd.TempC, err = decimalaIzObrasca(r.FormValue("temp_c")); err != nil {
-		return nil, fmt.Errorf("temperatura: %w", err)
-	}
-	if rd.FlowM3s, err = decimalaIzObrasca(r.FormValue("flow_m3s")); err != nil {
-		return nil, fmt.Errorf("protok: %w", err)
+	if err := decimaleIzObrasca(r, rd); err != nil {
+		return nil, err
 	}
 	rd.TempNote = strings.TrimSpace(r.FormValue("temp_note"))
 	rd.FlowNote = strings.TrimSpace(r.FormValue("flow_note"))
@@ -1154,6 +1155,21 @@ func readingFromForm(r *http.Request) (*models.Reading, error) {
 		rd.FlowMethod = m
 	}
 	return rd, nil
+}
+
+// decimaleIzObrasca čita temperaturu, protok i kišu s kišomjera uz letvu
+func decimaleIzObrasca(r *http.Request, rd *models.Reading) error {
+	var err error
+	if rd.TempC, err = decimalaIzObrasca(r.FormValue("temp_c")); err != nil {
+		return fmt.Errorf("temperatura: %w", err)
+	}
+	if rd.FlowM3s, err = decimalaIzObrasca(r.FormValue("flow_m3s")); err != nil {
+		return fmt.Errorf("protok: %w", err)
+	}
+	if rd.RainMm, err = decimalaIzObrasca(r.FormValue("oborina_mm")); err != nil {
+		return fmt.Errorf("oborina: %w", err)
+	}
+	return nil
 }
 
 // decimalaIzObrasca čita decimalni broj iz obrasca; prazno je nema, a

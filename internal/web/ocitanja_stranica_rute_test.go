@@ -442,6 +442,7 @@ func TestOcitanjeIzObrascaKrivaPolja(t *testing.T) {
 		"ag_hours_3":  "agregat 3: „x“ nije broj",
 		"temp_c":      "temperatura: „x“ nije broj",
 		"flow_m3s":    "protok: „x“ nije broj",
+		"oborina_mm":  "oborina: „x“ nije broj",
 	} {
 		r := obicniObrazac("/readings/create", polje+"=x")
 		if rd, err := readingFromForm(r); err == nil || err.Error() != poruka || rd != nil {

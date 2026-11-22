@@ -865,6 +865,7 @@ func (s *Server) setupRoutes() {
 	readingsH.SetArhiva(s.Arhiva)
 	readingsH.SetPrognoze(s.Prognoze)
 	readingsH.SetAkti(func() *service.AktService { return s.akti })
+	readingsH.SetKisomjeri(func() *service.KisomjerService { return s.kisomjeri })
 	readingsH.SetSektorZaLetvu(func(ctx context.Context, st *models.Station) *models.Sector {
 		if st == nil || s.sectionService == nil || s.orgService == nil {
 			return nil
