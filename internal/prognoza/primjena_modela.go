@@ -46,7 +46,9 @@ func probaniNacrtLetve(baza *sql.DB, letva string) (NacrtLetve, error) {
 		return NacrtLetve{}, err
 	}
 	n, ima := nacrti[letva]
-	if !ima || n.Priprema == nil || n.Proba == nil {
+	// satni račun mora biti i pripremljen; dnevni model se uči u samoj probi
+	pripremljen := n.Priprema != nil || n.Zapis.Metoda == MetodaDnevni
+	if !ima || !pripremljen || n.Proba == nil {
 		return NacrtLetve{}, errors.New("račun nije proban; pripremi ga i probaj, pa primijeni")
 	}
 	return n, nil
@@ -74,7 +76,8 @@ func otisakProbe(z ZapisLetve) string {
 		Velicina string
 		Racun    RacunLetve
 		Brojevi  BrojeviLetve
-	}{z.Velicina, z.Racun, z.Brojevi}
+		Dnevni   json.RawMessage
+	}{z.Velicina, z.Racun, z.Brojevi, z.Dnevni}
 	_ = json.NewEncoder(h).Encode(mjereno) // sažetak ne vraća grešku pisanja, a zapis se da zapisati
 	return hex.EncodeToString(h.Sum(nil))
 }
