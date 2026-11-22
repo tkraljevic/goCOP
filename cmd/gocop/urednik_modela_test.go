@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -184,5 +185,66 @@ func TestUrednikProbaNacrta(t *testing.T) {
 	}
 	if s := opisProbeNacrta(prognoza.NacrtLetve{}); s != "Proba je gotova." {
 		t.Errorf("opis bez probe: %q", s)
+	}
+}
+
+// probniKrug je satni krug koji test pali i gasi.
+type probniKrug struct{ traje bool }
+
+func (k *probniKrug) UTijeku() bool { return k.traje }
+
+// Model se primjenjuje i uklanja samo na računalu koje izdaje i dok satni krug ne
+// traje. Primijenjeni model nosi ime, vrijeme i razlog.
+func TestUrednikPrimjenaIUklanjanje(t *testing.T) {
+	pb, err := prognoza.Otvori(filepath.Join(t.TempDir(), "prognoze.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pb.Close()
+	uloge, krug := &probneUloge{}, &probniKrug{traje: true}
+	u := &urednikModela{pb: pb, mreza: uloge, krug: krug}
+	if u.PrimijeniNacrt("potok-dole", "Iva Proba", "proba") != errNeIzdaje || u.UkloniModel("potok-dole") != errNeIzdaje {
+		t.Error("računalo koje ne izdaje ne smije mijenjati model")
+	}
+	uloge.izdaje = true
+	if u.PrimijeniNacrt("potok-dole", "Iva Proba", "proba") != errKrugTraje || u.UkloniModel("potok-dole") != errKrugTraje {
+		t.Error("dok satni krug traje, model se ne mijenja")
+	}
+	krug.traje = false
+	if err := u.PrimijeniNacrt("potok-dole", "Iva Proba", "proba"); err == nil || !strings.Contains(err.Error(), "nije proban") {
+		t.Errorf("primjena bez probanog nacrta: %v", err)
+	}
+	if err := u.UkloniModel("potok-dole"); err == nil || !strings.Contains(err.Error(), "nema primijenjen model") {
+		t.Errorf("uklanjanje bez modela: %v", err)
+	}
+	// probani nacrt upisan izravno: račun iz jednog ulaza, s brojevima i probom
+	n := prognoza.NacrtLetve{Zapis: prognoza.ZapisLetve{Oblik: prognoza.OblikModelaLetve, Letva: "potok-dole", Metoda: prognoza.MetodaLanac,
+		Velicina: "vodostaj", Racun: prognoza.RacunLetve{Ulazi: []string{"potok-vrh"}, Doseg: 5},
+		Brojevi: prognoza.BrojeviLetve{Inacice: [][]prognoza.Pojas{{{Letva: "potok-dole", Velicina: "vodostaj", Od: -1000, Do: 1000, Sati: 5000,
+			Ulazi: []prognoza.Ulaz{{Letva: "potok-vrh", Velicina: "vodostaj", PomakH: 5, Sirina: 1, Nagib: 2}}}}}}},
+		Priprema: &prognoza.PripremaNacrta{Kad: "08:01"}, Proba: &prognoza.ProbaNacrta{Kad: "08:02"}}
+	sadrzaj, err := json.Marshal(n)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pb.Exec(`INSERT INTO model_nacrt (letva, sadrzaj) VALUES ('potok-dole', ?)`, string(sadrzaj)); err != nil {
+		t.Fatal(err)
+	}
+	u.krug = nil // bez kruga se ne pita
+	if err := u.PrimijeniNacrt("potok-dole", "Iva Proba", "prvi model potoka"); err != nil {
+		t.Fatal(err)
+	}
+	zapisi, _, err := prognoza.ZapisiLetvi(pb)
+	if err != nil || len(zapisi["potok-dole"].Promjene) != 1 {
+		t.Fatalf("primijenjen model: %v, %v", zapisi, err)
+	}
+	if p := zapisi["potok-dole"].Promjene[0]; p.Tko != "Iva Proba" || p.Razlog != "prvi model potoka" || len(p.Kad) < len("1. 1. 2026. 00:00") {
+		t.Errorf("promjena %+v", p)
+	}
+	if err := u.UkloniModel("potok-dole"); err != nil {
+		t.Fatal(err)
+	}
+	if zapisi, _, err := prognoza.ZapisiLetvi(pb); err != nil || len(zapisi) != 0 {
+		t.Errorf("model nije uklonjen: %v, %v", zapisi, err)
 	}
 }

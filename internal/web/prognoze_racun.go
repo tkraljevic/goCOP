@@ -8,7 +8,9 @@ package web
 // Nacrt ostaje na tom računalu i prognozu ne mijenja. Pripremi namjesti račun
 // iz arhive kao posao i u nacrt upiše brojeve po razini; uz razinu se zatim
 // upisuje ručno kašnjenje ili se razina isključi. Probaj mjeri pripremljeni račun
-// unatrag i po dosegu kaže je li bolji nego bez modela. Primijeni dolazi poslije.
+// unatrag i po dosegu kaže je li bolji nego bez modela. Primijeni upiše probani
+// račun kao model letve, uz obavezan razlog; od tada ga izdanje računa i model
+// putuje razmjenom. Ukloni briše model.
 
 import (
 	"errors"
@@ -37,6 +39,10 @@ type UrednikModela interface {
 	PripremiNacrt(letva string, p *poslovi.Posao) error
 	// ProbajNacrt mjeri pripremljeni račun unatrag; traje, pa ide kao posao.
 	ProbajNacrt(letva string, p *poslovi.Posao) error
+	// PrimijeniNacrt upiše probani račun iz nacrta kao model letve; razlog je obavezan.
+	PrimijeniNacrt(letva, tko, razlog string) error
+	// UkloniModel briše primijenjeni model letve.
+	UkloniModel(letva string) error
 }
 
 // Načini zadavanja razina u obrascu.
@@ -97,6 +103,10 @@ type ObrazacRacuna struct {
 	Napomene    []string
 	Redci       []RazinaRacuna
 	Proba       *ProbaRacuna // što je proba izmjerila; nil dok račun nije proban
+	// ImaModel kaže da letva ima primijenjen model; Promjene su tko ga je, kad i
+	// zašto mijenjao, od najnovije.
+	ImaModel bool
+	Promjene []prognoza.PromjenaLetve
 	// Zakljucano kaže zašto se račun ove letve ovdje ne slaže; prazno kad se slaže.
 	Zakljucano string
 }
@@ -121,6 +131,8 @@ type ProbaRacuna struct {
 	Jedinica       string
 	Dosezi         []DosegProbe
 	Natpisi        []string
+	// Losijih je na koliko je dosega račun lošiji nego bez modela.
+	Losijih int
 }
 
 // DosegProbe je redak tablice probe: promašaj računa i promašaj bez modela.
@@ -309,6 +321,10 @@ func (rm racuniModela) obrazac(kod, ime string) ObrazacRacuna {
 		o.Zakljucano = porukaULancu
 		return o
 	}
+	if model, ima := rm.zapisi[kod]; ima {
+		o.ImaModel, o.Promjene = true, slices.Clone(model.Promjene)
+		slices.Reverse(o.Promjene)
+	}
 	var cvorovi []float64
 	if n, ima := rm.nacrti[kod]; ima {
 		o.Tko, o.Kad = n.Tko, n.Kad
@@ -362,6 +378,9 @@ func probaRacuna(p *prognoza.ProbaNacrta, velicina string) *ProbaRacuna {
 		r := DosegProbe{Doseg: d.Doseg, Slucaja: d.Slucaja, Ocjena: oznakaOcjene(d.Stanje), Racun: "—", BezModela: "—"}
 		if d.Stanje != prognoza.MjeraNijeProvjereno {
 			r.Racun, r.BezModela = decimalaHR(d.Promasaj), decimalaHR(d.BezModela)
+		}
+		if d.Stanje == prognoza.MjeraLosije {
+			out.Losijih++
 		}
 		out.Dosezi = append(out.Dosezi, r)
 	}
@@ -572,18 +591,29 @@ func (h *PrognozeHandler) pokreniPosaoNacrta(w http.ResponseWriter, r *http.Requ
 // o uspjehu.
 func (h *PrognozeHandler) izvrsiRadnjuRacuna(r *http.Request, letva string) (string, error) {
 	ime := imeLetve(h.postaje(r.Context()), letva)
-	if r.PostForm.Get("radnja") == "odbaci" {
-		return "Nacrt za letvu " + ime + " je odbačen.", h.urednik.ObrisiNacrt(letva)
-	}
-	stari, _ := h.racuniModela().definicija(letva)
-	z, err := zapisIzObrasca(r.PostForm, letva, stari)
-	if err != nil {
-		return "", err
-	}
 	u, _ := r.Context().Value(contextKeyUser).(*models.User)
 	tko := ""
 	if u != nil {
 		tko = u.FullName
+	}
+	switch r.PostForm.Get("radnja") {
+	case "odbaci":
+		return "Nacrt za letvu " + ime + " je odbačen.", h.urednik.ObrisiNacrt(letva)
+	case "primijeni":
+		return "Model letve " + ime + " je primijenjen. Prva prognoza stiže pri sljedećem računu prognoze.",
+			h.urednik.PrimijeniNacrt(letva, tko, strings.TrimSpace(r.PostForm.Get("razlog")))
+	case "ukloni":
+		return "Model letve " + ime + " je uklonjen. Od sljedećeg računa prognoze letva radi kao prije njega.", h.urednik.UkloniModel(letva)
+	}
+	return h.spremiNacrtIzObrasca(r, letva, ime, tko)
+}
+
+// spremiNacrtIzObrasca složi nacrt iz polja obrasca i spremi ga.
+func (h *PrognozeHandler) spremiNacrtIzObrasca(r *http.Request, letva, ime, tko string) (string, error) {
+	stari, _ := h.racuniModela().definicija(letva)
+	z, err := zapisIzObrasca(r.PostForm, letva, stari)
+	if err != nil {
+		return "", err
 	}
 	n := prognoza.NacrtLetve{Zapis: z, Tko: tko, Kad: time.Now().In(models.Zagreb).Format("2. 1. 2006. 15:04")}
 	return "Nacrt za letvu " + ime + " je spremljen. Prognoza se ne mijenja dok se model ne primijeni.", h.urednik.SpremiNacrt(n)
@@ -728,6 +758,20 @@ func (u urednikPosluzitelja) ProbajNacrt(letva string, p *poslovi.Posao) error {
 		return errBezUrednika
 	}
 	return u.s.urednikModela.ProbajNacrt(letva, p)
+}
+
+func (u urednikPosluzitelja) PrimijeniNacrt(letva, tko, razlog string) error {
+	if u.s.urednikModela == nil {
+		return errBezUrednika
+	}
+	return u.s.urednikModela.PrimijeniNacrt(letva, tko, razlog)
+}
+
+func (u urednikPosluzitelja) UkloniModel(letva string) error {
+	if u.s.urednikModela == nil {
+		return errBezUrednika
+	}
+	return u.s.urednikModela.UkloniModel(letva)
 }
 
 var errBezUrednika = errors.New("baza prognoza nije otvorena na ovom računalu")

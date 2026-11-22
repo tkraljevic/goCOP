@@ -11287,3 +11287,9 @@ td .odr-sitno { margin-top: 2px; }
   .rac-tablica .rac-proba-red { grid-template-columns: minmax(0, 1fr) auto; }
   .rac-tablica .rac-proba-red > :first-child { grid-column: 1 / -1; font-weight: 500; }
 }
+.rac-primjena { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--md-sys-color-outline-variant); }
+.rac-primjena .form-group { margin: 0; max-width: 640px; }
+.rac-lose { padding: 10px 12px; border-radius: 8px; background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); }
+.rac-povijest { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.rac-povijest > li { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border-radius: 8px; background: var(--md-sys-color-surface); font-size: 0.875rem; }
+.rac-povijest > li > :first-child { color: var(--md-sys-color-on-surface-variant); }

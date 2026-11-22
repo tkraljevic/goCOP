@@ -29,6 +29,8 @@ type probniUrednik struct {
 	greska     error
 	// pripremljeni prima letvu čiju je pripremu posao pokrenuo
 	pripremljeni chan string
+	primijenjeni []string
+	uklonjeni    []string
 }
 
 func (u *probniUrednik) Izdaje() bool { return u.izdaje }
@@ -44,6 +46,14 @@ func (u *probniUrednik) PripremiNacrt(letva string, p *poslovi.Posao) error {
 	u.pripremljeni <- letva
 	p.Zavrsi("Račun je pripremljen.", nil)
 	return nil
+}
+func (u *probniUrednik) PrimijeniNacrt(letva, tko, razlog string) error {
+	u.primijenjeni = append(u.primijenjeni, letva+"|"+tko+"|"+razlog)
+	return u.greska
+}
+func (u *probniUrednik) UkloniModel(letva string) error {
+	u.uklonjeni = append(u.uklonjeni, letva)
+	return u.greska
 }
 func (u *probniUrednik) ProbajNacrt(letva string, p *poslovi.Posao) error {
 	u.pripremljeni <- "proba " + letva
@@ -341,7 +351,8 @@ func TestSitniceSlaganjaRacuna(t *testing.T) {
 	}
 	u := urednikIliNista(&Server{})
 	if u.Izdaje() || u.SpremiNacrt(prognoza.NacrtLetve{}) != errBezUrednika || u.ObrisiNacrt("a") != errBezUrednika ||
-		u.PripremiNacrt("a", nil) != errBezUrednika || u.ProbajNacrt("a", nil) != errBezUrednika {
+		u.PripremiNacrt("a", nil) != errBezUrednika || u.ProbajNacrt("a", nil) != errBezUrednika ||
+		u.PrimijeniNacrt("a", "", "") != errBezUrednika || u.UkloniModel("a") != errBezUrednika {
 		t.Error("poslužitelj bez urednika ne izdaje i ne sprema")
 	}
 	p := &probniUrednik{izdaje: true, pripremljeni: make(chan string, 1)}
@@ -350,7 +361,8 @@ func TestSitniceSlaganjaRacuna(t *testing.T) {
 	u = urednikIliNista(s)
 	posao := poslovi.NoviRegistar().Pokreni("proba", "", "/", func(*poslovi.Posao) error { return nil })
 	if !u.Izdaje() || u.SpremiNacrt(prognoza.NacrtLetve{}) != nil || u.ObrisiNacrt("a") != nil || len(p.spremljeni) != 1 || len(p.obrisani) != 1 ||
-		u.PripremiNacrt("a", posao) != nil || <-p.pripremljeni != "a" || u.ProbajNacrt("a", posao) != nil || <-p.pripremljeni != "proba a" {
+		u.PripremiNacrt("a", posao) != nil || <-p.pripremljeni != "a" || u.ProbajNacrt("a", posao) != nil || <-p.pripremljeni != "proba a" ||
+		u.PrimijeniNacrt("a", "Iva", "razlog") != nil || u.UkloniModel("a") != nil || len(p.primijenjeni) != 1 || len(p.uklonjeni) != 1 {
 		t.Error("poslužitelj s urednikom predaje dalje")
 	}
 }
@@ -579,4 +591,73 @@ func TestProbaNaStraniciRacuna(t *testing.T) {
 		`<span class="rac-cip">Kao bez modela</span>`, "+24 h", `<span class="rac-cip dobro">Bolje nego bez modela</span>`,
 		`<span class="rac-cip pozor">Lošije nego bez modela</span>`, "Nije provjereno", "31.5.2023. – 31.5.2026.",
 		"Probano 22. 11. 2026. 09:00.", "Premalo slučajeva za najvišu vodu.", `value="probaj" class="btn prog-obrub">Probaj ponovno`)
+}
+
+// Primijeni predaje uredniku letvu, ime osobe i razlog, a Ukloni letvu. Greška
+// urednika vraća se kao poruka.
+func TestPrimijeniIUkloniModel(t *testing.T) {
+	h, u := rukovateljRacuna(t)
+	admin := &models.UserPermissions{IsGlobalAdmin: true}
+	f := url.Values{"sektor": {"B"}, "vodotok": {oznakaImena("Potok Lug")}, "letva": {"potok-srednji"}, "radnja": {"primijeni"},
+		"razlog": {"  prvi model potoka  "}}
+	if lok := posaljiRacun(h, f, admin, false); !strings.Contains(lok, "Model letve Srednji Lug je primijenjen. Prva prognoza stiže pri sljedećem računu prognoze.") ||
+		!slices.Equal(u.primijenjeni, []string{"potok-srednji|Ana Anić|prvi model potoka"}) {
+		t.Errorf("primijeni: %q, %v", lok, u.primijenjeni)
+	}
+	if len(u.spremljeni) != 0 {
+		t.Error("Primijeni ne smije spremati nacrt iz obrasca")
+	}
+	u.greska = errors.New("upiši razlog; ostaje uz model")
+	if lok := posaljiRacun(h, f, admin, false); !strings.Contains(lok, "error=Upiši razlog; ostaje uz model.") {
+		t.Errorf("primijeni bez razloga: %q", lok)
+	}
+	u.greska = nil
+	f.Set("radnja", "ukloni")
+	if lok := posaljiRacun(h, f, admin, false); !strings.Contains(lok, "Model letve Srednji Lug je uklonjen.") || !slices.Equal(u.uklonjeni, []string{"potok-srednji"}) {
+		t.Errorf("ukloni: %q, %v", lok, u.uklonjeni)
+	}
+	if lok := posaljiRacun(h, f, &models.UserPermissions{}, false); !strings.Contains(lok, porukaNijeAdmin) || len(u.uklonjeni) != 1 {
+		t.Errorf("korisnik ne smije ukloniti model: %q", lok)
+	}
+}
+
+// Probani nacrt ima obrazac Primijeni s razlogom i, kad je račun negdje lošiji,
+// crveno upozorenje. Primijenjeni model pokazuje tko ga je, kad i zašto mijenjao,
+// od najnovije promjene, i gumb Ukloni. Tko ne smije uređivati, ne vidi gumbe.
+func TestStranicaPrimjeneModela(t *testing.T) {
+	h, _ := rukovateljRacuna(t)
+	r := zahtjevOsobe(http.MethodGet, "/prognoze/model/racun", "", &models.UserPermissions{IsGlobalAdmin: true})
+	proba := probaRacuna(&prognoza.ProbaNacrta{Dosezi: []prognoza.MjeraDosega{
+		{Doseg: 6, Promasaj: 9, BezModela: 7, Slucaja: 500, Stanje: prognoza.MjeraLosije},
+		{Doseg: 12, Promasaj: 5, BezModela: 7, Slucaja: 500, Stanje: prognoza.MjeraBolje}}}, "vodostaj")
+	if proba.Losijih != 1 {
+		t.Fatalf("lošijih dosega %d", proba.Losijih)
+	}
+	rm := racuniModela{zapisi: map[string]prognoza.ZapisLetve{"a": {Velicina: "vodostaj", Racun: prognoza.RacunLetve{Ulazi: []string{"b"}},
+		Promjene: []prognoza.PromjenaLetve{{Kad: "21. 11. 2026. 09:00", Tko: "Iva Proba", Razlog: "početni račun"},
+			{Kad: "22. 11. 2026. 10:00", Tko: "Marko Primjer", Razlog: "ručno kašnjenje"}}}}, glavni: map[string]bool{}}
+	o := rm.obrazac("a", "Srednji Lug")
+	if !o.ImaModel || len(o.Promjene) != 2 || o.Promjene[0].Tko != "Marko Primjer" || rm.zapisi["a"].Promjene[0].Tko != "Iva Proba" {
+		t.Fatalf("povijest modela %+v", o.Promjene)
+	}
+	o.Kad, o.Pripremljen, o.Proba = "08:00", "08:01", proba
+	o.Redci = []RazinaRacuna{{Broj: 1, Granica: "sva voda", Kasnjenje: "9 h", Racuna: true}}
+	data := RacunPrognozePageData{PrognozePageData: h.zaglavlje(r), Sektor: SektorPrognoze{ID: "B"}, Vodotok: VodotokPrognoze{Ime: "Potok Lug"},
+		SmijeUrediti: true, Obrazac: &o}
+	w := httptest.NewRecorder()
+	if err := h.racunTmpl.ExecuteTemplate(w, "prognoze_racun.html", data); err != nil {
+		t.Fatal(err)
+	}
+	redom(t, w.Body.String(), "Na 1 dosegu račun je lošiji nego bez modela.", `name="razlog" class="form-control" required`,
+		`value="primijeni" class="btn btn-primary">Primijeni model`, "Primijenjeni model", "22. 11. 2026. 10:00 · Marko Primjer", "ručno kašnjenje",
+		"21. 11. 2026. 09:00 · Iva Proba", "početni račun", `value="ukloni"`)
+	data.SmijeUrediti = false
+	w = httptest.NewRecorder()
+	if err := h.racunTmpl.ExecuteTemplate(w, "prognoze_racun.html", data); err != nil {
+		t.Fatal(err)
+	}
+	if html := w.Body.String(); strings.Contains(html, `value="primijeni"`) || strings.Contains(html, `value="ukloni"`) ||
+		!strings.Contains(html, "22. 11. 2026. 10:00 · Marko Primjer") {
+		t.Error("tko ne smije uređivati vidi povijest, ali ne i gumbe")
+	}
 }

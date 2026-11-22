@@ -4,7 +4,7 @@
 
 {{define "content"}}
 {{/* Raspored po crtežu goCOP-m3, 13b · Prognoze · uređivanje modela,
-     „2 · Slaganje računa” i tablica probe iz „3 · Rezultat probe”. Primijeni dolazi poslije. */}}
+     „2 · Slaganje računa”, „3 · Rezultat probe i Primijeni” i „Poslije primjene”. */}}
 <a href="{{.Natrag}}" class="povratna-poveznica">← Model prognoze · {{if .Sektor.Ostale}}{{.Sektor.Ime}}{{else}}Sektor {{.Sektor.ID}}{{end}}</a>
 <div class="prog-str-glava">
   <div>
@@ -146,8 +146,44 @@
     </div>
     <p>Pripremi sprema nacrt i iz arhive namjesti kašnjenje po razinama; traje do nekoliko sekundi po letvi. Kad promijeniš račun, pripremi ga ponovno. Probaj mjeri pripremljeni račun unatrag i kaže je li bolji nego bez modela.</p>
     {{end}}
-    <p class="mod-podnozje">Nacrt ostaje na ovom računalu i prognozu ne mijenja. Primijeni na ovoj stranici je u izradi.</p>
+    <p class="mod-podnozje">Nacrt ostaje na ovom računalu i prognozu ne mijenja dok ga ne primijeniš.</p>
   </form>
+  {{if and $.SmijeUrediti .Proba}}
+  <form method="POST" action="/prognoze/model/racun" class="rac-obrazac rac-primjena">
+    <input type="hidden" name="sektor" value="{{$.Sektor.ID}}">
+    <input type="hidden" name="vodotok" value="{{$.Vodotok.Oznaka}}">
+    <input type="hidden" name="letva" value="{{.Kod}}">
+    <h3 class="mod-podnaslov">Primijeni</h3>
+    {{if .Proba.Losijih}}<p class="rac-lose" role="alert">Na {{.Proba.Losijih}} {{uzBroj .Proba.Losijih "dosegu" "dosega" "dosega"}} račun je lošiji nego bez modela. Primijeni ga samo ako znaš zašto, i to napiši u razlog.</p>{{end}}
+    <div class="form-group">
+      <label class="form-label" for="rac-razlog">Razlog *</label>
+      <input type="text" id="rac-razlog" name="razlog" class="form-control" required maxlength="300" autocomplete="off" placeholder="npr. prvi model Vuke, kašnjenja po mjerenju vala iz 2023.">
+      <div class="form-help">Ostaje uz model, s tvojim imenom i vremenom. Primjenjuje se račun kakav je proban; izmjene u poljima iznad koje nisu spremljene i probane ne ulaze.</div>
+    </div>
+    <div class="rac-gumbi">
+      <button type="submit" name="radnja" value="primijeni" class="btn btn-primary">Primijeni model</button>
+    </div>
+    <p>Od sljedećeg računa prognoze letva dobiva prognozu po ovom modelu, a model putuje i na ostala računala.</p>
+  </form>
+  {{end}}
+  {{if .ImaModel}}
+  <section class="rac-obrazac rac-primjena" aria-labelledby="rac-povijest-naslov">
+    <h3 class="mod-podnaslov" id="rac-povijest-naslov">Primijenjeni model</h3>
+    {{if .Promjene}}<ul class="rac-povijest">
+      {{range .Promjene}}<li><span>{{.Kad}}{{if .Tko}} · {{.Tko}}{{end}}</span><span>{{.Razlog}}</span></li>
+      {{end}}
+    </ul>{{else}}<p>Model nema zapisanih promjena.</p>{{end}}
+    {{if $.SmijeUrediti}}
+    <form method="POST" action="/prognoze/model/racun" onsubmit="return confirm('Ukloniti model letve {{.Ime}}? Letva tada radi kao prije njega.');">
+      <input type="hidden" name="sektor" value="{{$.Sektor.ID}}">
+      <input type="hidden" name="vodotok" value="{{$.Vodotok.Oznaka}}">
+      <input type="hidden" name="letva" value="{{.Kod}}">
+      <button type="submit" name="radnja" value="ukloni" class="btn prog-obrub prog-obrub-opasno">Ukloni model</button>
+    </form>
+    <p>Model se mijenja istim putem: promijeni polja, spremi nacrt, pripremi, probaj i primijeni.</p>
+    {{end}}
+  </section>
+  {{end}}
   {{end}}
   {{else}}
   <h2 id="rac-obrazac-naslov">Vodotok nema letvi</h2>

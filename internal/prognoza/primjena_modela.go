@@ -1,0 +1,95 @@
+package prognoza
+
+// Primjena i uklanjanje modela letve sa stranice „Računi letvi”. Primijeni upiše
+// pripremljeni i probani račun iz nacrta u model_letve; od tada ga izdanje računa
+// i putuje s modelom. Ukloni briše redak, pa letva radi kao prije njega.
+
+import (
+	"crypto/sha256"
+	"database/sql"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"strings"
+)
+
+// PrimijeniNacrt upiše račun iz nacrta kao model letve i odbaci nacrt. Račun
+// mora biti pripremljen i proban, a razlog je obavezan i ostaje uz model.
+// Zatečeni model postaje prethodni, a njegove promjene se nastavljaju.
+func PrimijeniNacrt(baza *sql.DB, letva string, promjena PromjenaLetve, o OkvirModela) error {
+	if strings.TrimSpace(promjena.Razlog) == "" {
+		return errors.New("upiši razlog; ostaje uz model")
+	}
+	var err error
+	if o.Glavne, err = SveInacice(baza); err != nil {
+		return err
+	}
+	n, err := probaniNacrtLetve(baza, letva)
+	if err != nil {
+		return err
+	}
+	zapisi, _, err := ZapisiLetvi(baza)
+	if err != nil {
+		return err
+	}
+	z := zapisZaPrimjenu(n.Zapis, zapisi, promjena)
+	if err := SpremiZapisLetve(baza, z, otisakProbe(z), o); err != nil {
+		return err
+	}
+	return ObrisiNacrt(baza, letva)
+}
+
+// probaniNacrtLetve je nacrt letve koji je pripremljen i proban.
+func probaniNacrtLetve(baza *sql.DB, letva string) (NacrtLetve, error) {
+	nacrti, err := Nacrti(baza)
+	if err != nil {
+		return NacrtLetve{}, err
+	}
+	n, ima := nacrti[letva]
+	if !ima || n.Priprema == nil || n.Proba == nil {
+		return NacrtLetve{}, errors.New("račun nije proban; pripremi ga i probaj, pa primijeni")
+	}
+	return n, nil
+}
+
+// zapisZaPrimjenu je zapis iz nacrta s poviješću zatečenog modela: stari zapis kao
+// prethodni (bez svojeg prethodnog, jer se čuva jedan) i sve promjene redom.
+func zapisZaPrimjenu(z ZapisLetve, zapisi map[string]ZapisLetve, promjena PromjenaLetve) ZapisLetve {
+	z.Prethodni, z.Promjene = nil, nil
+	if stari, ima := zapisi[z.Letva]; ima {
+		z.Promjene = append(z.Promjene, stari.Promjene...)
+		stari.Prethodni = nil
+		if prethodni, err := json.Marshal(stari); err == nil {
+			z.Prethodni = prethodni
+		}
+	}
+	z.Promjene = append(z.Promjene, promjena)
+	return z
+}
+
+// otisakProbe je otisak definicije i brojeva koje je proba mjerila.
+func otisakProbe(z ZapisLetve) string {
+	h := sha256.New()
+	mjereno := struct {
+		Velicina string
+		Racun    RacunLetve
+		Brojevi  BrojeviLetve
+	}{z.Velicina, z.Racun, z.Brojevi}
+	_ = json.NewEncoder(h).Encode(mjereno) // sažetak ne vraća grešku pisanja, a zapis se da zapisati
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+// UkloniZapisLetve briše model letve, pa letva radi kao prije njega: iz računa u
+// programu, ako ga ima, inače se samo mjeri. Letva koja iz nje računa ostaje:
+// ulaz bez računa je vrh lanca, pa ona računa iz izmjerenog, s kraćim dosegom.
+func UkloniZapisLetve(baza *sql.DB, letva string) error {
+	redci, _, err := ZapisiLetvi(baza)
+	if err != nil {
+		return err
+	}
+	if _, ima := redci[letva]; !ima {
+		return errors.New("letva nema primijenjen model")
+	}
+	_, err = baza.Exec(`DELETE FROM model_letve WHERE letva = ?`, letva)
+	return err
+}

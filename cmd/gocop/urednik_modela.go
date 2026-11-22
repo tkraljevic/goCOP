@@ -22,6 +22,40 @@ import (
 type urednikModela struct {
 	pb, arhiva, ocitanja *sql.DB
 	mreza                ulogeCvora
+	// krug kaže traje li satni krug prognoze; dok traje, model se ne mijenja, da
+	// izdanje ne uhvati pola promjene. nil se ne pita.
+	krug interface{ UTijeku() bool }
+}
+
+var errKrugTraje = errors.New("satni krug prognoze upravo traje; pokušaj za minutu")
+
+// smijeMijenjatiModel kaže smije li se model sada mijenjati na ovom računalu.
+func (u *urednikModela) smijeMijenjatiModel() error {
+	if !u.Izdaje() {
+		return errNeIzdaje
+	}
+	if u.krug != nil && u.krug.UTijeku() {
+		return errKrugTraje
+	}
+	return nil
+}
+
+// PrimijeniNacrt upiše probani račun iz nacrta kao model letve, s imenom,
+// vremenom i razlogom.
+func (u *urednikModela) PrimijeniNacrt(letva, tko, razlog string) error {
+	if err := u.smijeMijenjatiModel(); err != nil {
+		return err
+	}
+	promjena := prognoza.PromjenaLetve{Kad: time.Now().In(models.Zagreb).Format("2. 1. 2006. 15:04"), Tko: tko, Razlog: razlog}
+	return prognoza.PrimijeniNacrt(u.pb, letva, promjena, u.okvir())
+}
+
+// UkloniModel briše primijenjeni model letve.
+func (u *urednikModela) UkloniModel(letva string) error {
+	if err := u.smijeMijenjatiModel(); err != nil {
+		return err
+	}
+	return prognoza.UkloniZapisLetve(u.pb, letva)
 }
 
 // ulogeCvora je dio mreže koji kaže što ovo računalo trenutno radi; pita se pri
