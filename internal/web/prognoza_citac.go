@@ -274,6 +274,15 @@ func (c *CitacPrognoza) ZapisiModela() map[string]prognoza.ZapisLetve {
 	return z
 }
 
+// PrethodniGlavni je račun koji je letva glavnog lanca imala prije sadašnjeg
+// retka u modelu.
+func (c *CitacPrognoza) PrethodniGlavni(letva string) (prognoza.ZapisLetve, error) {
+	if c == nil || c.db == nil {
+		return prognoza.ZapisLetve{}, errBezUrednika
+	}
+	return prognoza.PrethodniGlavni(c.db, letva)
+}
+
 // NacrtiModela su nacrti računa po letvi (model_nacrt); nil kad baze nema ili
 // se ne čita.
 func (c *CitacPrognoza) NacrtiModela() map[string]prognoza.NacrtLetve {

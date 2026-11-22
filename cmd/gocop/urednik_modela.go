@@ -25,6 +25,9 @@ type urednikModela struct {
 	// krug kaže traje li satni krug prognoze; dok traje, model se ne mijenja, da
 	// izdanje ne uhvati pola promjene. nil se ne pita.
 	krug interface{ UTijeku() bool }
+	// izdaj izda prognozu upravo primijenjenim modelom i javi grešku ako letva
+	// u njoj nema prognozu. Treba ga primjena na glavni lanac; nil ne izdaje.
+	izdaj func(ctx context.Context, letva string) error
 }
 
 var errKrugTraje = errors.New("satni krug prognoze upravo traje; pokušaj za minutu")
@@ -47,7 +50,64 @@ func (u *urednikModela) PrimijeniNacrt(letva, tko, razlog string) error {
 		return err
 	}
 	promjena := prognoza.PromjenaLetve{Kad: time.Now().In(models.Zagreb).Format("2. 1. 2006. 15:04"), Tko: tko, Razlog: razlog}
+	if prognoza.GlavnaLetva(letva) {
+		return u.primijeniGlavni(letva, promjena)
+	}
 	return prognoza.PrimijeniNacrt(u.pb, letva, promjena, u.okvir())
+}
+
+// primijeniGlavniNacrt upisuje račun letve glavnog lanca u model; testovi ga
+// zamjenjuju, jer pravi traži probu na arhivi sa satnim nizovima.
+var primijeniGlavniNacrt = prognoza.PrimijeniGlavniNacrt
+
+// primijeniGlavni upiše probani račun letve glavnog lanca u model i odmah izda
+// prognozu njime. Kad izdavanje ne uspije ili letva u izdanju nema prognozu,
+// vrati model kakav je bio; nacrt tada ostaje, s probom.
+func (u *urednikModela) primijeniGlavni(letva string, promjena prognoza.PromjenaLetve) error {
+	radna, pocisti, err := privremenaBazaPrognoza()
+	if err != nil {
+		return err
+	}
+	defer pocisti()
+	prije, err := primijeniGlavniNacrt(u.pb, radna, letva, promjena, u.okvir())
+	if err != nil {
+		return err
+	}
+	if u.izdaj != nil {
+		if err := u.izdaj(context.Background(), letva); err != nil {
+			return vratiModel(u.pb, prije, err)
+		}
+	}
+	return prognoza.ObrisiNacrt(u.pb, letva)
+}
+
+// vratiModel vraća model kakav je bio prije primjene i složi poruku o tome zašto.
+func vratiModel(pb *sql.DB, prije prognoza.PaketModela, razlog error) error {
+	if err := prognoza.PrimiModel(pb, prije); err != nil {
+		return fmt.Errorf("izdavanje novim modelom nije uspjelo (%v), a prethodni model se nije dao vratiti: %w", razlog, err)
+	}
+	return fmt.Errorf("model nije primijenjen, vraćen je prethodni: izdavanje novim modelom nije uspjelo (%w)", razlog)
+}
+
+// izdajPrimijenjenim je izdavanje prognoze nakon primjene na glavni lanac: račun
+// iznova za isti sat, zapis i objava. Letva bez prognoze u tom izdanju je greška.
+func izdajPrimijenjenim(osvjezivac *prognoza.Osvjezivac, objaviIzdanje func(context.Context, *prognoza.Ishod)) func(context.Context, string) error {
+	return func(ctx context.Context, letva string) error {
+		iznova := *osvjezivac
+		iznova.Iznova = true
+		ishod, err := iznova.Osvjezi(ctx)
+		if err != nil {
+			return err
+		}
+		if err := ishod.BezPrognoze[letva]; err != nil {
+			return fmt.Errorf("letva s novim računom nema prognozu: %w", err)
+		}
+		if err := iznova.Zapisi(ishod); err != nil {
+			return err
+		}
+		objaviIzdanje(ctx, ishod)
+		return nil
+	}
 }
 
 // VratiPrethodni vraća prethodni model letve umjesto sadašnjeg, s imenom,

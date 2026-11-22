@@ -159,7 +159,8 @@ func pokreniPrognozu(o ovisnostiPrognoze) *sql.DB {
 	javniUvoznik.NakonPreuzimanja = krug.vrti
 	javniUvoznik.Nedovrseno = krug.bezIzdanja
 	ukljuciModel(server, pripremaModela(peersService, arhivaRO, pb, javniUvoznik, osvjezivac, objaviIzdanje),
-		&urednikModela{pb: pb, arhiva: arhivaRO, ocitanja: ocitanjaRO, mreza: peersService, krug: javniUvoznik})
+		&urednikModela{pb: pb, arhiva: arhivaRO, ocitanja: ocitanjaRO, mreza: peersService, krug: javniUvoznik,
+			izdaj: izdajPrimijenjenim(osvjezivac, objaviIzdanje)})
 	return pb
 }
 
@@ -306,18 +307,41 @@ func pripremaModela(peersService *peers.Service, arhivaRO, pb *sql.DB, javniUvoz
 	}
 }
 
-// namjestiIProvjeri namjesti lanac iz arhive i provjerom unatrag zapiše
-// promašaje; vraća koliko je pojasa spremljeno i koliko promašaja zapisano
+// namjestiIProvjeri namjesti lanac iz arhive i provjerom unatrag izmjeri
+// promašaje; vraća koliko je pojasa spremljeno i koliko promašaja zapisano.
+// Novi model slaže se u privremenoj bazi, s retcima letvi iz sadašnjeg modela,
+// i tek gotov zamijeni stari, odjednom. Kad ijedan korak ne uspije, model
+// ostaje kakav je bio.
 func namjestiIProvjeri(arhivaRO, pb *sql.DB, p *poslovi.Posao) (pojasa, promasaja int, err error) {
-	pojasa, err = namjestiLanac(arhivaRO, pb, prognoza.OpcijeNamjestanja{Dnevnik: p, Korak: p.Korak})
+	radna, pocisti, err := privremenaBazaPrognoza()
+	if err != nil {
+		return 0, 0, err
+	}
+	defer pocisti()
+	if err := prepisiModel(pb, radna); err != nil {
+		return 0, 0, err
+	}
+	pojasa, err = namjestiLanac(arhivaRO, radna, prognoza.OpcijeNamjestanja{Dnevnik: p, Korak: p.Korak})
 	if err != nil {
 		return 0, 0, err
 	}
 	p.Korak("provjera unatrag i zapis promašaja", 0, 0)
 	o := prognoza.ZadaneOpcijeProvjere()
 	o.Zapisi, o.Dnevnik = true, p
-	promasaja, err = provjeriUnatrag(arhivaRO, pb, o)
-	return pojasa, promasaja, err
+	promasaja, err = provjeriUnatrag(arhivaRO, radna, o)
+	if err != nil {
+		return 0, 0, err
+	}
+	return pojasa, promasaja, prepisiModel(radna, pb)
+}
+
+// prepisiModel zamjenjuje model u jednoj bazi prognoza modelom iz druge.
+func prepisiModel(iz, u *sql.DB) error {
+	paket, _, err := prognoza.SastaviModel(iz)
+	if err != nil {
+		return err
+	}
+	return prognoza.PrimiModel(u, paket)
 }
 
 // izdajNovimModelom izda prognozu novim modelom i vrati rečenicu o tome za

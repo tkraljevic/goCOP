@@ -218,6 +218,11 @@ func SpremiZapisLetve(db *sql.DB, z ZapisLetve, proba string, o OkvirModela) err
 	if err := provjeriUpis(zapisi, pokvareni, z, o); err != nil {
 		return err
 	}
+	return upisiZapisLetve(db, z, proba)
+}
+
+// upisiZapisLetve upisuje redak letve umjesto zatečenog, bez provjere.
+func upisiZapisLetve(db *sql.DB, z ZapisLetve, proba string) error {
 	sadrzaj, err := json.Marshal(z)
 	if err != nil {
 		return fmt.Errorf("%s: zapis modela: %w", z.Letva, err)

@@ -164,6 +164,8 @@ type ProbaRacuna struct {
 	// račun sadašnjim modelom, a Nizvodno su letve kojima se promašaj promijenio.
 	Lanac    bool
 	Nizvodno []RedNizvodno
+	// LosijihNizvodno je na koliko je letvi nizvodno promašaj s izmjenom veći.
+	LosijihNizvodno int
 }
 
 // RedNizvodno je promašaj jedne letve nizvodno na jednom dosegu, sada i s izmjenom.
@@ -572,10 +574,15 @@ func (p *ProbaRacuna) dodajLanac(l *prognoza.ProbaLanca) {
 			p.Dosezi[i].Sada = decimalaHR(s.Promasaj)
 		}
 	}
+	losije := map[string]bool{}
 	for _, n := range l.Nizvodno {
 		p.Nizvodno = append(p.Nizvodno, RedNizvodno{Kod: n.Letva, Ime: n.Letva, Doseg: n.Doseg, Sada: decimalaHR(n.Prije),
 			SIzmjenom: decimalaHR(n.Poslije), Jedinica: jedinicaRacuna(n.Velicina), Losije: n.Poslije > n.Prije})
+		if n.Poslije > n.Prije {
+			losije[n.Letva] = true
+		}
 	}
+	p.LosijihNizvodno = len(losije)
 }
 
 // imenuj upisuje imena letvi nizvodno iz registra.
@@ -801,8 +808,13 @@ func (h *PrognozeHandler) izvrsiRadnjuRacuna(r *http.Request, letva string) (str
 	case "odbaci":
 		return "Nacrt za letvu " + ime + " je odbačen.", h.urednik.ObrisiNacrt(letva)
 	case "primijeni":
-		return "Model letve " + ime + " je primijenjen. Prva prognoza stiže pri sljedećem računu prognoze.",
-			h.urednik.PrimijeniNacrt(letva, tko, strings.TrimSpace(r.PostForm.Get("razlog")))
+		poruka := "Model letve " + ime + " je primijenjen. Prva prognoza stiže pri sljedećem računu prognoze."
+		if prognoza.GlavnaLetva(letva) {
+			poruka = "Model letve " + ime + " je primijenjen i prognoza je izdana novim modelom."
+		}
+		return poruka, h.urednik.PrimijeniNacrt(letva, tko, strings.TrimSpace(r.PostForm.Get("razlog")))
+	case "vrati-nacrt":
+		return "Prethodni račun letve " + ime + " učitan je u nacrt. Pripremi ga, probaj i primijeni.", h.prethodniUNacrt(letva, tko)
 	case "vrati":
 		return "Prethodni model letve " + ime + " je vraćen. Vrijedi od sljedećeg računa prognoze.",
 			h.urednik.VratiPrethodni(letva, tko, strings.TrimSpace(r.PostForm.Get("razlog")))
@@ -810,6 +822,19 @@ func (h *PrognozeHandler) izvrsiRadnjuRacuna(r *http.Request, letva string) (str
 		return "Model letve " + ime + " je uklonjen. Od sljedećeg računa prognoze letva radi kao prije njega.", h.urednik.UkloniModel(letva)
 	}
 	return h.spremiNacrtIzObrasca(r, letva, ime, tko)
+}
+
+// prethodniUNacrt učita prethodni račun letve glavnog lanca u nacrt. Model se ne
+// mijenja: račun ide kroz pripremu, probu i primjenu kao svaka izmjena.
+func (h *PrognozeHandler) prethodniUNacrt(letva, tko string) error {
+	if h.citac == nil {
+		return errBezUrednika
+	}
+	z, err := h.citac().PrethodniGlavni(letva)
+	if err != nil {
+		return err
+	}
+	return h.urednik.SpremiNacrt(prognoza.NacrtLetve{Zapis: z, Tko: tko, Kad: time.Now().In(models.Zagreb).Format("2. 1. 2006. 15:04")})
 }
 
 // spremiNacrtIzObrasca složi nacrt iz polja obrasca i spremi ga.

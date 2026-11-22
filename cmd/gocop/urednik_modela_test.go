@@ -388,3 +388,130 @@ func TestUrednikProbaGlavneLetve(t *testing.T) {
 		t.Errorf("opis bez probe: %q", s)
 	}
 }
+
+// modelSKasnjenjem je model od jednog računa donja ← gornja s zadanim kašnjenjem.
+func modelSKasnjenjem(t *testing.T, pb *sql.DB, sati int) {
+	t.Helper()
+	if err := prognoza.Spremi(pb, []prognoza.Pojas{{Letva: "donja", Velicina: "vodostaj", Od: -1000, Do: 1000, Rasap: 3,
+		Ulazi: []prognoza.Ulaz{{Letva: "gornja", Velicina: "vodostaj", PomakH: sati, Sirina: 1, Nagib: 1}}}}, "proba"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func kasnjenjeUModelu(t *testing.T, pb *sql.DB) int {
+	t.Helper()
+	in, err := prognoza.InaciceLetve(pb, "donja")
+	if err != nil || len(in) != 1 {
+		t.Fatalf("model: %+v, %v", in, err)
+	}
+	return in[0][0].Ulazi[0].PomakH
+}
+
+// Primjena na glavni lanac upiše model i odmah izda prognozu. Kad izdavanje ne
+// uspije, vraća se model kakav je bio i nacrt ostaje; kad uspije, nacrt se briše.
+func TestUrednikPrimjenaNaGlavniLanac(t *testing.T) {
+	pb, err := prognoza.Otvori(filepath.Join(t.TempDir(), "prognoze.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	modelSKasnjenjem(t, pb, 3)
+	nacrt := func() {
+		t.Helper()
+		if _, err := pb.Exec(`INSERT OR REPLACE INTO model_nacrt (letva, sadrzaj) VALUES ('donji-miholjac', '{"zapis":{"letva":"donji-miholjac"}}')`); err != nil {
+			t.Fatal(err)
+		}
+	}
+	imaNacrt := func() bool {
+		t.Helper()
+		n, err := prognoza.Nacrti(pb)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, ima := n["donji-miholjac"]
+		return ima
+	}
+	stara := primijeniGlavniNacrt
+	t.Cleanup(func() { primijeniGlavniNacrt = stara })
+	var greska error
+	primijeniGlavniNacrt = func(baza, radna *sql.DB, letva string, promjena prognoza.PromjenaLetve, _ prognoza.OkvirModela) (prognoza.PaketModela, error) {
+		if radna == nil || radna == baza || promjena.Tko != "Iva Proba" || promjena.Razlog != "bliže izmjerenom" || promjena.Kad == "" {
+			t.Errorf("primjena: %+v", promjena)
+		}
+		prije, _, err := prognoza.SastaviModel(baza)
+		if err != nil {
+			t.Fatal(err)
+		}
+		modelSKasnjenjem(t, baza, 5)
+		return prije, greska
+	}
+	u := &urednikModela{pb: pb, mreza: &probneUloge{izdaje: true}}
+	primijeni := func() error { return u.PrimijeniNacrt("donji-miholjac", "Iva Proba", "bliže izmjerenom") }
+
+	nacrt()
+	var izdano []string
+	u.izdaj = func(_ context.Context, letva string) error {
+		izdano = append(izdano, letva)
+		return nil
+	}
+	if err := primijeni(); err != nil || kasnjenjeUModelu(t, pb) != 5 || imaNacrt() || len(izdano) != 1 || izdano[0] != "donji-miholjac" {
+		t.Errorf("uspjela primjena: %v, kašnjenje %d, izdano %v", err, kasnjenjeUModelu(t, pb), izdano)
+	}
+	modelSKasnjenjem(t, pb, 3)
+	nacrt()
+	u.izdaj = func(context.Context, string) error { return errors.New("gornja nema svježe očitanje") }
+	if err := primijeni(); err == nil || !strings.Contains(err.Error(), "vraćen je prethodni") || !strings.Contains(err.Error(), "gornja nema svježe očitanje") ||
+		kasnjenjeUModelu(t, pb) != 3 || !imaNacrt() {
+		t.Errorf("primjena kad izdavanje ne uspije: %v, kašnjenje %d", err, kasnjenjeUModelu(t, pb))
+	}
+	u.izdaj = nil // bez izdavanja model ostaje primijenjen
+	if err := primijeni(); err != nil || kasnjenjeUModelu(t, pb) != 5 {
+		t.Errorf("primjena bez izdavanja: %v", err)
+	}
+	greska = errors.New("model se promijenio nakon probe")
+	if err := primijeni(); err == nil || err.Error() != "model se promijenio nakon probe" {
+		t.Errorf("greška primjene: %v", err)
+	}
+	u.mreza = &probneUloge{}
+	if err := primijeni(); !errors.Is(err, errNeIzdaje) {
+		t.Errorf("računalo koje ne izdaje: %v", err)
+	}
+	prije, _, err := prognoza.SastaviModel(pb)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := pb.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := vratiModel(pb, prije, errors.New("izdavanje palo")); err == nil || !strings.Contains(err.Error(), "prethodni model se nije dao vratiti") {
+		t.Errorf("povratak modela u zatvorenu bazu: %v", err)
+	}
+}
+
+// Izdavanje nakon primjene računa prognozu iznova, zapiše je i objavi. Letva
+// kojoj novi račun ne da prognozu je greška, kao i račun ili zapis koji ne uspije.
+func TestIzdavanjePrimijenjenimModelom(t *testing.T) {
+	k, objavljeno := izdavackiKrug(t)
+	izdaj := izdajPrimijenjenim(k.osvjezivac, k.objavi)
+	if err := izdaj(context.Background(), "donja"); err != nil || len(*objavljeno) != 1 {
+		t.Fatalf("izdavanje: %v, objavljeno %d", err, len(*objavljeno))
+	}
+	if err := prognoza.Spremi(k.prognoze, []prognoza.Pojas{
+		{Letva: "donja", Velicina: "vodostaj", Od: -1000, Do: 1000, Rasap: 3,
+			Ulazi: []prognoza.Ulaz{{Letva: "gornja", Velicina: "vodostaj", PomakH: 3, Sirina: 1, Nagib: 1}}},
+		{Letva: "treca", Velicina: "vodostaj", Od: -1000, Do: 1000, Rasap: 3,
+			Ulazi: []prognoza.Ulaz{{Letva: "bez-ocitanja", Velicina: "vodostaj", PomakH: 3, Sirina: 1, Nagib: 1}}}}, "proba"); err != nil {
+		t.Fatal(err)
+	}
+	if err := izdaj(context.Background(), "treca"); err == nil || len(*objavljeno) != 1 {
+		t.Errorf("letva bez prognoze: %v, objavljeno %d", err, len(*objavljeno))
+	}
+	modelSKasnjenjem(t, k.prognoze, 3)
+	zabraniZapisIzdanja(t, k.prognoze)
+	if err := izdaj(context.Background(), "donja"); err == nil || len(*objavljeno) != 1 {
+		t.Errorf("zapis koji ne uspije: %v, objavljeno %d", err, len(*objavljeno))
+	}
+	bezModela, _ := okolinaKruga(t, true)
+	if err := izdajPrimijenjenim(bezModela.osvjezivac, bezModela.objavi)(context.Background(), "donja"); err == nil {
+		t.Error("račun bez modela mora javiti grešku")
+	}
+}
