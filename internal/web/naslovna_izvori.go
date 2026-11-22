@@ -22,10 +22,11 @@ func (s *Server) izvoriNaslovne() IzvoriNaslovne {
 		Letve: func(ctx context.Context) ([]models.GaugeSummary, error) {
 			return s.readingService.Overview(ctx)
 		},
-		Prije:      s.vodostajPrijeDan,
-		Prava:      s.pravaNaslovne,
-		Djelatnici: func() ([]models.User, error) { return s.userService.ListUsers("", 0, "", "", "") },
-		Nepredani:  s.nepredaniUSektoru,
+		Prije:        s.vodostajPrijeDan,
+		Prava:        s.pravaNaslovne,
+		Djelatnici:   func() ([]models.User, error) { return s.userService.ListUsers("", 0, "", "", "") },
+		SaZaduzenjem: s.userService.RacuniSaZaduzenjem,
+		Nepredani:    s.nepredaniUSektoru,
 		Teren: func(ctx context.Context, perms *models.UserPermissions, u *models.User) (*service.FieldOverview, error) {
 			return s.readingService.FieldOverview(ctx, perms, u, 0)
 		},

@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+
 	"gocop/internal/dhmz"
 	"gocop/internal/models"
 	"gocop/internal/repository"
@@ -29,7 +31,10 @@ type IzvoriNaslovne struct {
 	Prije      func(context.Context, models.GaugeSummary) *int // vodostaj 24 h prije zadnjeg očitanja
 	Prava      func(context.Context) (ceka int, nacin string, err error)
 	Djelatnici func() ([]models.User, error)
-	Nepredani  func(context.Context, *models.UserPermissions, string) ([]models.VodocuvarskiList, error)
+	// SaZaduzenjem su računi koji imaju ili su imali zaduženje: račun bez
+	// uloge koji je među njima nije nov, nego je ostao bez zaduženja
+	SaZaduzenjem func() (map[uuid.UUID]bool, error)
+	Nepredani    func(context.Context, *models.UserPermissions, string) ([]models.VodocuvarskiList, error)
 	// Teren je terenski pogled osobe: letve koje redovito očitava
 	Teren func(context.Context, *models.UserPermissions, *models.User) (*service.FieldOverview, error)
 	// StanjaSektora su stanja obrane dionica sektora iz akata i dionice
@@ -347,7 +352,7 @@ func redakOstalihUpozorenja(ostala []dhmz.Upozorenje, sada time.Time) (RedakKart
 		return RedakKartice{}, false
 	}
 	return RedakKartice{Ikona: "triangle-alert", Glavno: "DHMZ · " + brojUpozorenjaRijecima(d.Ukupno) + " drugdje",
-		Sporedno: "u " + uPodrucja(len(d.Podrucja)) + " · najviše " + razineUpozorenja[d.Razina],
+		Sporedno:  "u " + uPodrucja(len(d.Podrucja)) + " · najviše " + razineUpozorenja[d.Razina],
 		Istaknuto: fmt.Sprintf("dhmz-%d", d.Razina), URL: "/prognoze/vrijeme?drugdje=1"}, true
 }
 
@@ -471,6 +476,8 @@ type stavkeZaRijesiti struct {
 	PravaCeka  int
 	PravaNacin string
 	BezUloge   []models.User
+	// BezZaduzenja su računi koji su imali zaduženje, a više nemaju nijedno
+	BezZaduzenja []models.User
 	// uprava sektora: akti na potpis i prijave s terena sektora
 	Akti    []models.Akt
 	Prijave []models.PrijavaSTerena
@@ -563,11 +570,22 @@ func (h *DashboardHandler) zaRijesitiUprave(r *http.Request, perms *models.UserP
 	if h.izvori.Prava != nil {
 		s.PravaCeka, s.PravaNacin, _ = h.izvori.Prava(ctx) // bez knjige prava redak izostaje
 	}
-	if h.izvori.Djelatnici != nil {
-		svi, _ := h.izvori.Djelatnici() // bez imenika redak izostaje
-		s.BezUloge = noviBezUloge(svi)
-	}
+	s.BezUloge, s.BezZaduzenja = h.racuniBezUloge()
 	return karticaZaRijesiti(s, sad)
+}
+
+// racuniBezUloge su računi koji su se prijavili, a nemaju zaduženje: novi i
+// oni koji su ga imali; bez imenika nema ni jednih
+func (h *DashboardHandler) racuniBezUloge() (novi, bivsi []models.User) {
+	if h.izvori.Djelatnici == nil {
+		return nil, nil
+	}
+	svi, _ := h.izvori.Djelatnici() // bez imenika redak izostaje
+	var imali map[uuid.UUID]bool
+	if h.izvori.SaZaduzenjem != nil {
+		imali, _ = h.izvori.SaZaduzenjem() // bez popisa svi bez uloge su novi, kao prije
+	}
+	return razdvojiBezUloge(noviBezUloge(svi), imali)
 }
 
 // noviBezUloge su računi koji su se prijavili, a još nemaju ulogu. Djelatnik
@@ -581,6 +599,19 @@ func noviBezUloge(svi []models.User) []models.User {
 		}
 	}
 	return out
+}
+
+// razdvojiBezUloge dijeli račune bez uloge na nove i one koji su imali
+// zaduženje (imali), pa su ga izgubili opozivom ili istekom
+func razdvojiBezUloge(bez []models.User, imali map[uuid.UUID]bool) (novi, bivsi []models.User) {
+	for _, u := range bez {
+		if imali[u.ID] {
+			bivsi = append(bivsi, u)
+		} else {
+			novi = append(novi, u)
+		}
+	}
+	return novi, bivsi
 }
 
 // karticaZaRijesiti: najprije ono što obrana traži danas, pa listovi, pa
@@ -603,6 +634,9 @@ func karticaZaRijesiti(s stavkeZaRijesiti, sad time.Time) KarticaNaslovne {
 		k.Redovi = append(k.Redovi, redakPrava(s.PravaCeka, s.PravaNacin))
 	}
 	if r, ima := redakBezUloge(s.BezUloge, sad); ima {
+		k.Redovi = append(k.Redovi, r)
+	}
+	if r, ima := redakBezZaduzenja(s.BezZaduzenja); ima {
 		k.Redovi = append(k.Redovi, r)
 	}
 	k.Broj = len(k.Redovi)
@@ -645,6 +679,25 @@ func redakPrava(n int, nacin string) RedakKartice {
 	}
 	return RedakKartice{Ikona: "key-round", Glavno: fmt.Sprintf("%d %s potvrdu", n, models.UzBrojHR(n, "promjena prava čeka", "promjene prava čekaju", "promjena prava čeka")),
 		Sporedno: sporedno, URL: "/sinkronizacija"}
+}
+
+// redakBezZaduzenja: djelatnik koji je imao zaduženje, a sad nema nijedno
+// (opozvano ili isteklo); uprava mu daje novo ili bilježi odlazak
+func redakBezZaduzenja(bez []models.User) (RedakKartice, bool) {
+	switch len(bez) {
+	case 0:
+		return RedakKartice{}, false
+	case 1:
+		return RedakKartice{Ikona: "user", Glavno: "Djelatnik bez zaduženja", Sporedno: bez[0].FullName + " · dodijelite zaduženje ili zabilježite odlazak",
+			URL: "/users/" + bez[0].ID.String()}, true
+	}
+	var imena []string
+	for _, u := range bez[:min(3, len(bez))] {
+		imena = append(imena, u.FullName)
+	}
+	n := len(bez)
+	return RedakKartice{Ikona: "users", Glavno: fmt.Sprintf("%d %s bez zaduženja", n, models.UzBrojHR(n, "djelatnik", "djelatnika", "djelatnika")),
+		Sporedno: strings.Join(imena, ", "), URL: "/users"}, true
 }
 
 // redakBezUloge: novi djelatnik koji čeka ulogu, ili koliko ih čeka

@@ -22,6 +22,12 @@ type OdlazakRequest struct {
 	TudjimOcima bool
 }
 
+// RacuniSaZaduzenjem su računi koji imaju ili su ikad imali zaduženje
+// (repository.UserRepository.RacuniSaZaduzenjem)
+func (s *UserService) RacuniSaZaduzenjem() (map[uuid.UUID]bool, error) {
+	return s.userRepo.RacuniSaZaduzenjem()
+}
+
 // OdlazakIzSluzbe bilježi da je osoba otišla iz službe (mirovina, odlazak,
 // premještaj): isključi joj prijavu i opozove sva zaduženja, u jednom
 // upisu. Smije tko smije isključiti račun i opozvati svako njegovo

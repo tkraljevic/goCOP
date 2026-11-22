@@ -60,6 +60,11 @@ func TestOdlazakIzSluzbe(t *testing.T) {
 		t.Errorf("izvan službe: %v", popis)
 	}
 
+	imali, err := repo.RacuniSaZaduzenjem()
+	nuzno(t, err)
+	if !imali[pero.ID] || imali[uprava.ID] {
+		t.Errorf("računi sa zaduženjem: %v", imali)
+	}
 	if _, err := repo.OdlazakIzSluzbe(uuid.New(), models.OdlazakOdlazak, dan); err == nil {
 		t.Error("odlazak nepostojećeg računa je prošao")
 	}

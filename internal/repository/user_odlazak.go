@@ -15,6 +15,20 @@ import (
 // iz službe (models.User.IzvanSluzbe)
 const StanjeIzvanSluzbe models.AccountState = "IZVAN_SLUZBE"
 
+// RacuniSaZaduzenjem su oznake računa koji imaju ili su ikad imali
+// zaduženje, i opozvano i isteklo; račun bez zaduženja koji nije među njima
+// je nov
+func (r *UserRepository) RacuniSaZaduzenjem() (map[uuid.UUID]bool, error) {
+	ids, err := idsOf(context.Background(), r.db, `SELECT DISTINCT user_id FROM duties`)
+	out := map[uuid.UUID]bool{}
+	for _, id := range ids {
+		if u, e := uuid.Parse(id); e == nil {
+			out[u] = true
+		}
+	}
+	return out, err
+}
+
 // OdlazakIzSluzbe bilježi da je osoba otišla iz službe: u jednoj
 // transakciji isključi prijavu, upiše razlog i dan odlaska i opozove sva
 // zaduženja koja još vrijede. Račun ostaje, da upisi i očitanja zadrže ime.

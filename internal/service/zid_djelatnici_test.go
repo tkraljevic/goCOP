@@ -155,6 +155,10 @@ func TestZidDjelatniciOvlastiIOdlazak(t *testing.T) {
 		t.Errorf("redak povratka: %s", got)
 	}
 
+	if imali, err := d.usluga.RacuniSaZaduzenjem(); err != nil || !imali[u.ID] {
+		t.Errorf("vodočuvar nije među računima sa zaduženjem: %v %v", imali, err)
+	}
+
 	// uprava sektora C ne vidi zaduženja sektora B, a račune vidi
 	upravaC := &models.UserPermissions{AdminSectors: map[string]bool{"C": true}, AllowedSectors: map[string]bool{"C": true}}
 	for _, r := range d.redci(t, upravaC) {
