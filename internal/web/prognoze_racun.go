@@ -7,7 +7,8 @@ package web
 // globalni administrator, svojim očima, na računalu koje izdaje prognozu.
 // Nacrt ostaje na tom računalu i prognozu ne mijenja. Pripremi namjesti račun
 // iz arhive kao posao i u nacrt upiše brojeve po razini; uz razinu se zatim
-// upisuje ručno kašnjenje ili se razina isključi. Proba i Primijeni dolaze poslije.
+// upisuje ručno kašnjenje ili se razina isključi. Probaj mjeri pripremljeni račun
+// unatrag i po dosegu kaže je li bolji nego bez modela. Primijeni dolazi poslije.
 
 import (
 	"errors"
@@ -34,6 +35,8 @@ type UrednikModela interface {
 	ObrisiNacrt(letva string) error
 	// PripremiNacrt namjesti račun iz spremljenog nacrta; traje, pa ide kao posao.
 	PripremiNacrt(letva string, p *poslovi.Posao) error
+	// ProbajNacrt mjeri pripremljeni račun unatrag; traje, pa ide kao posao.
+	ProbajNacrt(letva string, p *poslovi.Posao) error
 }
 
 // Načini zadavanja razina u obrascu.
@@ -93,6 +96,7 @@ type ObrazacRacuna struct {
 	Ucenje      string
 	Napomene    []string
 	Redci       []RazinaRacuna
+	Proba       *ProbaRacuna // što je proba izmjerila; nil dok račun nije proban
 	// Zakljucano kaže zašto se račun ove letve ovdje ne slaže; prazno kad se slaže.
 	Zakljucano string
 }
@@ -109,6 +113,22 @@ type RazinaRacuna struct {
 	Sati      int
 	Racuna    bool // razina izdaje prognozu
 	BezRacuna bool // priprema joj nije dala račun: premalo sati
+}
+
+// ProbaRacuna je ishod probe na stranici.
+type ProbaRacuna struct {
+	Kad, Razdoblje string
+	Jedinica       string
+	Dosezi         []DosegProbe
+	Natpisi        []string
+}
+
+// DosegProbe je redak tablice probe: promašaj računa i promašaj bez modela.
+type DosegProbe struct {
+	Doseg            int
+	Racun, BezModela string
+	Slucaja          int
+	Ocjena           StanjeModela
 }
 
 // RacunPrognozePageData je stranica „Slaganje računa”.
@@ -296,6 +316,7 @@ func (rm racuniModela) obrazac(kod, ime string) ObrazacRacuna {
 			o.Pripremljen, o.Napomene, cvorovi = p.Kad, p.Napomene, p.Cvorovi
 			o.Ucenje = opisUcenja(p.Ucenje, z.Velicina)
 		}
+		o.Proba = probaRacuna(n.Proba, z.Velicina)
 	}
 	if len(z.Racun.Ulazi) == 0 {
 		return o
@@ -326,6 +347,41 @@ func opisUcenja(u prognoza.UcenjeRacuna, velicina string) string {
 		return ""
 	}
 	return fmt.Sprintf("Račun je učio na %s sati, na vodi od %.0f do %.0f %s.", brojHR(u.Sati), u.Od, u.Do, jedinicaRacuna(velicina))
+}
+
+// probaRacuna slaže ishod probe za stranicu; nil kad račun nije proban.
+func probaRacuna(p *prognoza.ProbaNacrta, velicina string) *ProbaRacuna {
+	if p == nil {
+		return nil
+	}
+	out := &ProbaRacuna{Kad: p.Kad, Jedinica: jedinicaRacuna(velicina), Natpisi: p.Natpisi}
+	if len(p.Razdoblje) == 2 {
+		out.Razdoblje = datumHR(p.Razdoblje[0]) + " – " + datumHR(p.Razdoblje[1])
+	}
+	for _, d := range p.Dosezi {
+		r := DosegProbe{Doseg: d.Doseg, Slucaja: d.Slucaja, Ocjena: oznakaOcjene(d.Stanje), Racun: "—", BezModela: "—"}
+		if d.Stanje != prognoza.MjeraNijeProvjereno {
+			r.Racun, r.BezModela = decimalaHR(d.Promasaj), decimalaHR(d.BezModela)
+		}
+		out.Dosezi = append(out.Dosezi, r)
+	}
+	return out
+}
+
+// oznakaOcjene je čip ocjene: bolje je dobro, lošije traži pozor.
+func oznakaOcjene(s prognoza.StanjeMjere) StanjeModela {
+	switch s {
+	case prognoza.MjeraBolje:
+		return StanjeModela{string(s), "dobro"}
+	case prognoza.MjeraLosije:
+		return StanjeModela{string(s), "pozor"}
+	}
+	return StanjeModela{string(s), ""}
+}
+
+// decimalaHR piše broj s jednom decimalom i decimalnim zarezom.
+func decimalaHR(v float64) string {
+	return strings.Replace(strconv.FormatFloat(v, 'f', 1, 64), ".", ",", 1)
 }
 
 // razineRacuna slaže tablicu razina iz glavne inačice računa. Razine se mjere
@@ -474,24 +530,37 @@ func (h *PrognozeHandler) SpremiRacun(w http.ResponseWriter, r *http.Request) {
 		redirectWith(w, r, natrag, "error", velikoPrvo(err.Error())+".")
 		return
 	}
-	if r.PostForm.Get("radnja") == "pripremi" && h.poslovi != nil && h.tmplPosao != nil {
-		h.pokreniPripremuNacrta(w, r, letva, natrag)
+	if naziv, posao := h.posaoNacrta(r.PostForm.Get("radnja")); posao != nil && h.poslovi != nil && h.tmplPosao != nil {
+		h.pokreniPosaoNacrta(w, r, naziv, letva, natrag, posao)
 		return
 	}
 	redirectWith(w, r, natrag, "success", poruka)
 }
 
-// pokreniPripremuNacrta pokreće pripremu upravo spremljenog nacrta kao posao i
-// pokazuje stranicu koja ga prati; kad završi, vraća na račun letve.
-func (h *PrognozeHandler) pokreniPripremuNacrta(w http.ResponseWriter, r *http.Request, letva, natrag string) {
+// posaoNacrta je posao koji radnja pokreće nakon spremanja nacrta: priprema ili
+// proba. Ostale radnje nemaju posao.
+func (h *PrognozeHandler) posaoNacrta(radnja string) (string, func(string, *poslovi.Posao) error) {
+	switch radnja {
+	case "pripremi":
+		return "Priprema računa", h.urednik.PripremiNacrt
+	case "probaj":
+		return "Proba računa", h.urednik.ProbajNacrt
+	}
+	return "", nil
+}
+
+// pokreniPosaoNacrta pokreće pripremu ili probu upravo spremljenog nacrta kao
+// posao i pokazuje stranicu koja ga prati; kad završi, vraća na račun letve.
+func (h *PrognozeHandler) pokreniPosaoNacrta(w http.ResponseWriter, r *http.Request, naziv, letva, natrag string,
+	posao func(string, *poslovi.Posao) error) {
 	u, _ := r.Context().Value(contextKeyUser).(*models.User)
 	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
 	korisnik := ""
 	if u != nil {
 		korisnik = u.ID.String()
 	}
-	p := h.poslovi.Pokreni("Priprema računa: "+imeLetve(h.postaje(r.Context()), letva), korisnik, natrag,
-		func(p *poslovi.Posao) error { return h.urednik.PripremiNacrt(letva, p) })
+	p := h.poslovi.Pokreni(naziv+": "+imeLetve(h.postaje(r.Context()), letva), korisnik, natrag,
+		func(p *poslovi.Posao) error { return posao(letva, p) })
 	d := PosaoData{CurrentUser: u, Permissions: perms, ActiveNav: "prognoze", ViewAsBanner: viewBanner(r),
 		PosaoID: p.ID, PosaoNaziv: p.Naziv, Natrag: natrag}
 	if err := h.tmplPosao.ExecuteTemplate(w, "posao.html", d); err != nil {
@@ -652,6 +721,13 @@ func (u urednikPosluzitelja) PripremiNacrt(letva string, p *poslovi.Posao) error
 		return errBezUrednika
 	}
 	return u.s.urednikModela.PripremiNacrt(letva, p)
+}
+
+func (u urednikPosluzitelja) ProbajNacrt(letva string, p *poslovi.Posao) error {
+	if u.s.urednikModela == nil {
+		return errBezUrednika
+	}
+	return u.s.urednikModela.ProbajNacrt(letva, p)
 }
 
 var errBezUrednika = errors.New("baza prognoza nije otvorena na ovom računalu")

@@ -235,3 +235,72 @@ func TestIstaDefinicija(t *testing.T) {
 		}
 	}
 }
+
+// Proba mjeri pripremljeni račun i upiše dosege s ocjenom u nacrt. Račun koji
+// nije pripremljen ne proba se, nova priprema briše probu, a ista definicija je
+// čuva.
+func TestProbajNacrt(t *testing.T) {
+	postavi(t, &NajveciPomak, 8)
+	arhiva, baza := arhivaPotoka(t, nil), otvoriProbnu(t, "p.db")
+	if _, err := ProbajNacrt(arhiva, baza, otvoriProbnu(t, "t0.db"), "potok-dole", "sada"); !porukaIma(err, "nije pripremljen") {
+		t.Errorf("proba bez nacrta: %v", err)
+	}
+	if err := SpremiNacrt(baza, nacrtPotoka(), OkvirModela{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ProbajNacrt(arhiva, baza, otvoriProbnu(t, "t1.db"), "potok-dole", "sada"); !porukaIma(err, "nije pripremljen") {
+		t.Errorf("proba nepripremljenog nacrta: %v", err)
+	}
+	if _, err := PripremiNacrt(arhiva, baza, "potok-dole", "08:00", OkvirModela{}); err != nil {
+		t.Fatal(err)
+	}
+	n, err := ProbajNacrt(arhiva, baza, otvoriProbnu(t, "t2.db"), "potok-dole", "22. 11. 2026. 08:05")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n.Proba == nil || n.Proba.Kad != "22. 11. 2026. 08:05" || len(n.Proba.Dosezi) != 1 || n.Proba.Dosezi[0].Doseg != 5 ||
+		n.Proba.Dosezi[0].Stanje != MjeraBolje || len(n.Proba.Razdoblje) != 2 || len(n.Zapis.Brojevi.Promasaji) == 0 {
+		t.Fatalf("proba %+v, promašaji %v", n.Proba, n.Zapis.Brojevi.Promasaji)
+	}
+	procitaj := func() NacrtLetve {
+		t.Helper()
+		svi, err := Nacrti(baza)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return svi["potok-dole"]
+	}
+	if u := procitaj(); u.Proba == nil || u.Proba.Dosezi[0].Stanje != MjeraBolje || len(u.Zapis.Brojevi.Promasaji) == 0 {
+		t.Errorf("proba nije upisana u nacrt: %+v", u)
+	}
+	if zapisi, _, err := ZapisiLetvi(baza); err != nil || len(zapisi) != 0 {
+		t.Errorf("proba je dirala model: %v, %v", zapisi, err)
+	}
+	if err := SpremiNacrt(baza, nacrtPotoka(), OkvirModela{}); err != nil {
+		t.Fatal(err)
+	}
+	if u := procitaj(); u.Proba == nil || len(u.Zapis.Brojevi.Promasaji) == 0 {
+		t.Errorf("ista definicija mora zadržati probu: %+v", u)
+	}
+	// baza koja već ima model nije privremena: proba se odbija
+	puna := otvoriProbnu(t, "puna.db")
+	if err := Spremi(puna, []Pojas{{Letva: "potok-drugi", Velicina: "vodostaj", Od: -1000, Do: 1000, Sati: 5000,
+		Ulazi: []Ulaz{{Letva: "potok-vrh", Velicina: "vodostaj", PomakH: 1, Sirina: 1, Nagib: 1}}}}, "proba"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ProbajNacrt(arhiva, baza, puna, "potok-dole", "sada"); !porukaIma(err, "nije nova") {
+		t.Errorf("proba u bazu koja nije privremena: %v", err)
+	}
+	if _, err := PripremiNacrt(arhiva, baza, "potok-dole", "08:10", OkvirModela{}); err != nil {
+		t.Fatal(err)
+	}
+	if u := procitaj(); u.Proba != nil || len(u.Zapis.Brojevi.Promasaji) != 0 {
+		t.Errorf("nova priprema mora obrisati probu: %+v", u)
+	}
+	if err := baza.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ProbajNacrt(arhiva, baza, otvoriProbnu(t, "t3.db"), "potok-dole", "sada"); err == nil {
+		t.Error("zatvorena baza mora javiti grešku")
+	}
+}

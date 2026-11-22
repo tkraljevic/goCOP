@@ -11282,3 +11282,8 @@ td .odr-sitno { margin-top: 2px; }
   .rac-tablica .rac-red > :first-child, .rac-tablica .rac-bez { grid-column: 1 / -1; }
   .rac-tablica .rac-red > :first-child { font-weight: 500; }
 }
+.rac-tablica .rac-proba-red { grid-template-columns: 90px minmax(0, 1fr) minmax(0, 1fr) 100px minmax(0, 1.6fr); }
+@media (max-width: 600px) {
+  .rac-tablica .rac-proba-red { grid-template-columns: minmax(0, 1fr) auto; }
+  .rac-tablica .rac-proba-red > :first-child { grid-column: 1 / -1; font-weight: 500; }
+}
