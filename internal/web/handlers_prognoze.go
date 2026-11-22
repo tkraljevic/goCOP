@@ -61,6 +61,8 @@ type PrognozeHandler struct {
 	urednik      UrednikModela      // sprema nacrte računa; nil kad baze prognoza nema
 	// slivoviRegistra daje međuslivove registra za izbor kiše u dnevnom modelu
 	slivoviRegistra func(context.Context) []models.Sliv
+	// kisomjeriRegistra daje kišomjere registra za izbor kiše jednog kišomjera
+	kisomjeriRegistra func(context.Context) []models.Kisomjer
 
 	pricuvno func(ctx context.Context) (prognoza.PricuvniPodaci, bool) // pričuvni Excel
 

@@ -1027,6 +1027,7 @@ func (s *Server) setupRoutes() {
 	prognozeH.SetModel(s.templates["prognoze_model.html"])
 	prognozeH.SetUrednikModela(urednikIliNista(s), s.templates["prognoze_racun.html"])
 	prognozeH.SetSlivovi(s.slivoviZaModel)
+	prognozeH.SetKisomjeriModela(s.kisomjeriZaModel)
 	prognozeH.SetOpcije(s.opcije, func(ctx context.Context, p *models.UserPermissions, izmjena func(*models.Opcije)) error {
 		if s.akti == nil {
 			return fmt.Errorf("opcije se ne mogu spremiti na ovom čvoru")
@@ -2220,6 +2221,19 @@ func (s *Server) slivoviZaModel(ctx context.Context) []models.Sliv {
 		return nil
 	}
 	return slivovi
+}
+
+// kisomjeriZaModel su kišomjeri registra; prazno dok registar kišomjera nije
+// postavljen ili se ne da pročitati.
+func (s *Server) kisomjeriZaModel(ctx context.Context) []models.Kisomjer {
+	if s.kisomjeri == nil {
+		return nil
+	}
+	kisomjeri, err := s.kisomjeri.ListKisomjeri(ctx)
+	if err != nil {
+		return nil
+	}
+	return kisomjeri
 }
 
 // SetUrednikModela uključuje slaganje modela prognoze na ovom čvoru.

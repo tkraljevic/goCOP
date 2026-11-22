@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"gocop/internal/kisomjeri"
 	"gocop/internal/oborine"
 	"gocop/internal/prognoza"
 )
@@ -178,6 +179,51 @@ func TestOborinskaTockaIzRegistraUlaziUIzracun(t *testing.T) {
 	}
 	if r := redciS(uvoznik.Napredak().Redci, "oborine:"); len(r) != 1 || r[0] != "oborine: 0 sati za kišomjere" {
 		t.Errorf("redci: %q", r)
+	}
+}
+
+// Stvarni kišomjer iz registra ulazi u izvor oborina kao kiša kišomjera, s
+// međuslivom u kojem stoji i s mjerenjima iz baze oborina. Registar koji se ne
+// da pročitati je greška, a registar bez izvedenih točaka ne daje izvor.
+func TestIzvorOborinaSKisomjerima(t *testing.T) {
+	k, _ := okolinaKruga(t, true)
+	ob, err := oborine.Otvori(filepath.Join(t.TempDir(), "oborine.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { ob.Close() })
+	u := &oborine.Uvoznik{DB: ob}
+	if iz, err := izvorOborina(k.baza, u); iz != nil || err != nil {
+		t.Fatalf("registar bez točaka: %+v, %v", iz, err)
+	}
+	if _, err := k.baza.Exec(`INSERT INTO kisomjeri (code, naziv, sliv, latitude, longitude, tezina, vrsta, created_at, updated_at) VALUES
+		('ob-probna', 'Probna točka', 'sliv-proba', 45.5, 18.7, 1, 'izvedeni', datetime('now'), datetime('now')),
+		('km-probni', 'Probni kišomjer', 'sliv-proba', 45.5, 18.7, NULL, 'stvarni', datetime('now'), datetime('now'))`); err != nil {
+		t.Fatal(err)
+	}
+	sp := &kisomjeri.Spremiste{DB: ob}
+	if err := sp.Pripremi(); err != nil {
+		t.Fatal(err)
+	}
+	const sat = int64(490000)
+	if _, err := sp.Upisi(context.Background(), []kisomjeri.Mjerenje{{Kisomjer: "km-probni", Kraj: time.Unix(sat*3600, 0), Sati: 1, Oborina: 4, Izvor: "kisomjer-hv"}}); err != nil {
+		t.Fatal(err)
+	}
+	iz, err := izvorOborina(k.baza, u)
+	if err != nil || iz == nil || len(iz.Tocke) != 1 || len(iz.Kisomjeri) != 1 {
+		t.Fatalf("izvor oborina: %+v, %v", iz, err)
+	}
+	if km := iz.Kisomjeri[0]; km.Code != "km-probni" || km.Sliv != prognoza.KisaKisomjera("km-probni") || km.SlivMjesta != "sliv-proba" {
+		t.Errorf("kišomjer u izvoru: %+v", km)
+	}
+	if m, err := iz.Izmjerene(sat-2, sat); err != nil || m["km-probni"][sat] != 4 {
+		t.Errorf("mjerenja kišomjera: %v, %v", m, err)
+	}
+	if err := k.baza.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := izvorOborina(k.baza, u); err == nil {
+		t.Error("registar koji se ne da pročitati mora javiti grešku")
 	}
 }
 

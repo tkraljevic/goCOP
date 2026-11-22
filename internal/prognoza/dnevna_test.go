@@ -419,7 +419,7 @@ func TestUlaziUPrognozu(t *testing.T) {
 		razlog  string
 	}{
 		{"izvedena u A", false, true, "A", 0.3, true, ""},
-		{"pravi kišomjer", true, true, "A", 0.3, false, "pravi kišomjer služi za usporedbu; model čita izvedene točke"},
+		{"pravi kišomjer", true, true, "A", 0.3, false, "pravi kišomjer ne ulazi u kišu međusliva; model letve ga može uzeti zasebno (Prognoze, Model, Računi letvi)"},
 		{"neaktivna", false, false, "A", 0.3, false, "točka nije aktivna"},
 		{"bez međusliva", false, true, "", 0.3, false, "točka nije u međuslivu"},
 		{"bez težine", false, true, "A", 0, false, "točka nema težinu u međuslivu"},
@@ -464,7 +464,7 @@ func TestOborinskeTocke(t *testing.T) {
 		t.Fatal(err)
 	}
 	sort.Slice(tocke, func(i, j int) bool { return tocke[i].Code < tocke[j].Code })
-	want := []OborinskaTocka{{"a-1", "A", 0.6}, {"a-2", "A", 0}, {"b-1", "B", 1}}
+	want := []OborinskaTocka{{Code: "a-1", Sliv: "A", Tezina: 0.6}, {Code: "a-2", Sliv: "A"}, {Code: "b-1", Sliv: "B", Tezina: 1}}
 	if !reflect.DeepEqual(tocke, want) {
 		t.Errorf("točke %+v, želim %+v", tocke, want)
 	}

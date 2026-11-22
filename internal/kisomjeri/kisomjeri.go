@@ -194,3 +194,44 @@ func broj(s string) (float64, bool) {
 	}
 	return v, true
 }
+
+// PoSatima vraća izmjerenu kišu po kišomjeru i satu (mm) za sate od–do,
+// uključivo; sat je broj sati od 1970. u kojem razdoblje završava. Mjerenje
+// dulje od sata (12 sati, dan) dijeli se jednako na svoje sate. Kišomjer koji
+// isto razdoblje javlja u više koraka ulazi samo najkraćim.
+func (s *Spremiste) PoSatima(od, do int64) (map[string]map[int64]float64, error) {
+	r, err := s.DB.Query(`SELECT kisomjer, kraj, sati, oborina FROM izmjerene
+		WHERE kraj > ? AND kraj <= ? AND sati > 0 ORDER BY kisomjer, sati`, (od-1)*3600, (do+24)*3600)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	out := map[string]map[int64]float64{}
+	korak := map[string]int{}
+	for r.Next() {
+		var k string
+		var kraj int64
+		var sati int
+		var mm float64
+		if err := r.Scan(&k, &kraj, &sati, &mm); err != nil {
+			return nil, err
+		}
+		if korak[k] == 0 {
+			korak[k], out[k] = sati, map[int64]float64{}
+		}
+		if sati == korak[k] {
+			razdijeli(out[k], kraj/3600, sati, mm, od, do)
+		}
+	}
+	return out, r.Err()
+}
+
+// razdijeli upisuje mjerenje koje završava u satu kraj jednako na njegove sate,
+// one koji padaju u od–do.
+func razdijeli(n map[int64]float64, kraj int64, sati int, mm float64, od, do int64) {
+	for h := kraj - int64(sati) + 1; h <= kraj; h++ {
+		if h >= od && h <= do {
+			n[h] = mm / float64(sati)
+		}
+	}
+}

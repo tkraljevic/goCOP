@@ -111,7 +111,8 @@ func izmjeriDnevni(m *DnevniModel, nizovi map[string]DnevniNiz, c DnevniCilj, gr
 }
 
 // DnevniNizoviCilja čita iz arhive dnevne nizove cilja i njegovih ulaza te
-// oborinu njegovih međuslivova, iz kišomjera registra (OborinskeTocke).
+// oborinu njegovih međuslivova, iz kišomjera registra (OborinskeTocke). Kiša
+// stvarnog kišomjera traži da je među točkama i on (KisomjeriKise).
 func DnevniNizoviCilja(arhiva *sql.DB, tocke []OborinskaTocka, c DnevniCilj) (map[string]DnevniNiz, error) {
 	nizovi := map[string]DnevniNiz{}
 	for _, l := range c.letve() {
@@ -124,6 +125,7 @@ func DnevniNizoviCilja(arhiva *sql.DB, tocke []OborinskaTocka, c DnevniCilj) (ma
 	if len(c.Slivovi) == 0 {
 		return nizovi, nil
 	}
+	tocke = tockeCilja(tocke, c)
 	oborine, err := DnevneOborine(arhiva, tocke)
 	if err != nil {
 		return nil, err
@@ -133,5 +135,5 @@ func DnevniNizoviCilja(arhiva *sql.DB, tocke []OborinskaTocka, c DnevniCilj) (ma
 			nizovi[OborinaKljuc(s)] = n
 		}
 	}
-	return nizovi, nil
+	return nizovi, dodajKisuKisomjera(arhiva, nizovi, oborine, tocke, c)
 }

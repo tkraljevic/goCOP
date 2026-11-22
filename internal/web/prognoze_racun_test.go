@@ -786,17 +786,36 @@ func TestStranicaDnevnogModela(t *testing.T) {
 	if (&PrognozeHandler{}).sliviIzbora(context.Background()) != nil {
 		t.Error("bez registra slivova nema izbora")
 	}
+	h.SetKisomjeriModela(func(context.Context) []models.Kisomjer {
+		return []models.Kisomjer{{Code: "km-lug", Naziv: "Lug", Sliv: "Z", Vrsta: models.KisomjerStvarni, Aktivan: true},
+			{Code: "km-brana", Naziv: "Brana", Sliv: "Z", Vrsta: models.KisomjerStvarni, Aktivan: true},
+			{Code: "km-ugasen", Naziv: "Ugašen", Sliv: "Z", Vrsta: models.KisomjerStvarni},
+			{Code: "km-bez-sliva", Naziv: "Bez sliva", Vrsta: models.KisomjerStvarni, Aktivan: true},
+			{Code: "z-1", Naziv: "Z ravnica 1", Sliv: "Z", Vrsta: models.KisomjerIzvedeni, Aktivan: true}}
+	})
+	kis := h.kisomjeriIzbora(context.Background())
+	if len(kis) != 2 || kis[0] != (IzborLetve{Kod: "kisomjer:km-brana", Ime: "Brana · sliv Z"}) || kis[1].Kod != "kisomjer:km-lug" {
+		t.Errorf("kišomjeri u izboru: %+v", kis)
+	}
+	if (&PrognozeHandler{}).kisomjeriIzbora(context.Background()) != nil {
+		t.Error("bez registra kišomjera nema izbora")
+	}
+	if opis := opisDnevnogRacuna(prognoza.DnevniLetve{Ulazi: []string{"a"}, Slivovi: []string{"Z", "kisomjer:km-lug"}},
+		func(l []string) string { return strings.Join(l, ", ") }); opis != "dnevni model · ulaz: a · kiša sliva Z · kišomjer km-lug" {
+		t.Errorf("opis dnevnog računa: %q", opis)
+	}
 	r := zahtjevOsobe(http.MethodGet, "/prognoze/model/racun", "", &models.UserPermissions{IsGlobalAdmin: true})
 	data := RacunPrognozePageData{PrognozePageData: h.zaglavlje(r), Sektor: SektorPrognoze{ID: "B"}, Vodotok: VodotokPrognoze{Ime: "Potok Lug"},
-		SmijeUrediti: true, SliviIzbora: h.sliviIzbora(context.Background()),
+		SmijeUrediti: true, SliviIzbora: h.sliviIzbora(context.Background()), KisomjeriIzbora: kis,
 		Obrazac: &ObrazacRacuna{Kod: "potok-srednji", Ime: "Srednji Lug", Dnevni: true, Velicina: "vodostaj", Ulazi: []string{"a", ""},
-			Rezerve: []string{"", ""}, Slivovi: []string{"Z", ""}, NacinRazina: razineZadane, Kad: "11:00", Proba: p}}
+			Rezerve: []string{"", ""}, Slivovi: []string{"Z", "kisomjer:km-lug"}, NacinRazina: razineZadane, Kad: "11:00", Proba: p}}
 	w := httptest.NewRecorder()
 	if err := h.racunTmpl.ExecuteTemplate(w, "prognoze_racun.html", data); err != nil {
 		t.Fatal(err)
 	}
 	redom(t, w.Body.String(), `name="metoda" value="lanac"> satni račun`, `name="metoda" value="dnevni" checked> dnevni model s kišom`,
-		`<option value="Z" selected>Z · Potok Lug do ušća</option>`, `role="columnheader">Dan</span>`, "1. dan", "2,9", "4,7",
+		`<option value="Z" selected>Z · Potok Lug do ušća</option>`, `<optgroup label="Kiša jednog kišomjera">`,
+		`<option value="kisomjer:km-lug" selected>Lug · sliv Z</option>`, `role="columnheader">Dan</span>`, "1. dan", "2,9", "4,7",
 		"Pouzdanije od zadnjeg mjerenja", "3. dan", "Zadnje mjerenje je pouzdanije", "4. dan", "Nije provjereno",
 		"Model je naučen na arhivi prije razdoblja probe", "1.6.2024. – 31.5.2026.", "Mjereno uz kišu koja je stvarno pala",
 		`value="probaj" class="btn prog-obrub rac-samo-dnevni">Probaj ponovno`, "Na 1 dosegu zadnje mjerenje je pouzdanije od računa.")
@@ -817,6 +836,16 @@ func TestSlivoviZaModel(t *testing.T) {
 	}
 	s := &Server{}
 	s.SetKisomjeri(service.NewKisomjerService(repository.NewKisomjerRepository(baza, ledger.New(baza, "test"))))
+	if _, err := baza.Exec(`INSERT INTO kisomjeri (code, naziv, sliv, latitude, longitude, vrsta, created_at, updated_at)
+		VALUES ('km-lug', 'Lug', 'Z', 45.5, 18.7, 'stvarni', datetime('now'), datetime('now'))`); err != nil {
+		t.Fatal(err)
+	}
+	if (&Server{}).kisomjeriZaModel(context.Background()) != nil {
+		t.Error("bez registra kišomjera nema kišomjera")
+	}
+	if k := s.kisomjeriZaModel(context.Background()); !slices.ContainsFunc(k, func(x models.Kisomjer) bool { return x.Code == "km-lug" && x.JeStvarni() }) {
+		t.Errorf("kišomjeri iz registra: %+v", k)
+	}
 	slivovi := s.slivoviZaModel(context.Background())
 	if !slices.ContainsFunc(slivovi, func(x models.Sliv) bool { return x.Oznaka == "Z" && x.Naziv == "Potok Lug do ušća" }) {
 		t.Errorf("slivovi iz registra: %+v", slivovi)
@@ -826,6 +855,9 @@ func TestSlivoviZaModel(t *testing.T) {
 	}
 	if s.slivoviZaModel(context.Background()) != nil {
 		t.Error("registar koji se ne da pročitati ne daje slivove")
+	}
+	if s.kisomjeriZaModel(context.Background()) != nil {
+		t.Error("registar koji se ne da pročitati ne daje kišomjere")
 	}
 }
 

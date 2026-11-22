@@ -16,7 +16,8 @@ import (
 //
 // Stvarni kišomjer je postaja koja mjeri (DHMZ, Hrvatske vode…). Ne
 // predstavlja dio sliva nego samo svoje mjesto, pa nema težinu i model je
-// ne zbraja u oborinu sliva; služi za usporedbu i ispravak izvedenih točaka.
+// ne zbraja u oborinu sliva; služi za usporedbu i ispravak izvedenih točaka,
+// a dnevni model jedne letve može ga uzeti kao zaseban ulaz.
 type Kisomjer struct {
 	Code  string `json:"code"`
 	Naziv string `json:"naziv"`

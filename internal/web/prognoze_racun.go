@@ -171,9 +171,12 @@ type RacunPrognozePageData struct {
 	Obrazac *ObrazacRacuna
 	Ulazi   []SkupinaIzbora
 	// SliviIzbora su međuslivovi registra koji se mogu izabrati za kišu.
-	SliviIzbora  []IzborLetve
-	SmijeUrediti bool
-	ZastoNe      string
+	SliviIzbora []IzborLetve
+	// KisomjeriIzbora su stvarni kišomjeri čija se kiša može izabrati umjesto
+	// kiše međusliva ili uz nju.
+	KisomjeriIzbora []IzborLetve
+	SmijeUrediti    bool
+	ZastoNe         string
 }
 
 // IzborSOdabranim je izbor letvi s onom koja je u polju već odabrana.
@@ -234,6 +237,7 @@ func (h *PrognozeHandler) ShowRacun(w http.ResponseWriter, r *http.Request) {
 		data.Obrazac = &o
 		data.Ulazi = izborUlaza(postaje, odabrana, vodotok.Ime)
 		data.SliviIzbora = h.sliviIzbora(r.Context())
+		data.KisomjeriIzbora = h.kisomjeriIzbora(r.Context())
 	}
 	data.SmijeUrediti, data.ZastoNe = h.smijeUreditiModel(r)
 	if err := h.racunTmpl.ExecuteTemplate(w, "prognoze_racun.html", data); err != nil {
@@ -243,6 +247,28 @@ func (h *PrognozeHandler) ShowRacun(w http.ResponseWriter, r *http.Request) {
 
 // SetSlivovi daje stranici popis međuslivova registra, za izbor kiše.
 func (h *PrognozeHandler) SetSlivovi(f func(context.Context) []models.Sliv) { h.slivoviRegistra = f }
+
+// SetKisomjeriModela daje stranici stvarne kišomjere registra, za izbor kiše
+// jednog kišomjera.
+func (h *PrognozeHandler) SetKisomjeriModela(f func(context.Context) []models.Kisomjer) {
+	h.kisomjeriRegistra = f
+}
+
+// kisomjeriIzbora su stvarni kišomjeri koje dnevni model smije uzeti: aktivni
+// i upisani u međusliv, jer iz njega dolazi kiša idućih dana.
+func (h *PrognozeHandler) kisomjeriIzbora(ctx context.Context) []IzborLetve {
+	if h.kisomjeriRegistra == nil {
+		return nil
+	}
+	var out []IzborLetve
+	for _, k := range h.kisomjeriRegistra(ctx) {
+		if k.JeStvarni() && k.Aktivan && k.Sliv != "" {
+			out = append(out, IzborLetve{Kod: prognoza.KisaKisomjera(k.Code), Ime: k.Naziv + " · sliv " + k.Sliv})
+		}
+	}
+	slices.SortFunc(out, func(a, b IzborLetve) int { return strings.Compare(a.Ime, b.Ime) })
+	return out
+}
 
 // sliviIzbora su međuslivovi registra po oznaci, s nazivom.
 func (h *PrognozeHandler) sliviIzbora(ctx context.Context) []IzborLetve {
@@ -369,8 +395,19 @@ func opisDnevnogRacuna(d prognoza.DnevniLetve, imena func([]string) string) stri
 	if len(d.Ulazi) > 0 {
 		dijelovi = append(dijelovi, "ulaz: "+imena(d.Ulazi))
 	}
-	if len(d.Slivovi) > 0 {
-		dijelovi = append(dijelovi, "kiša sliva "+strings.Join(d.Slivovi, ", "))
+	var slivovi, kisomjeri []string
+	for _, sl := range d.Slivovi {
+		if sifra, je := prognoza.KisomjerIzSliva(sl); je {
+			kisomjeri = append(kisomjeri, sifra)
+		} else {
+			slivovi = append(slivovi, sl)
+		}
+	}
+	if len(slivovi) > 0 {
+		dijelovi = append(dijelovi, "kiša sliva "+strings.Join(slivovi, ", "))
+	}
+	if len(kisomjeri) > 0 {
+		dijelovi = append(dijelovi, "kišomjer "+strings.Join(kisomjeri, ", "))
 	}
 	return strings.Join(dijelovi, " · ")
 }
