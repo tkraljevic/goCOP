@@ -1,6 +1,7 @@
 package web
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -805,6 +806,7 @@ func (h *PrognozeHandler) opisiLetve(popis map[string]models.Station, letve []Pr
 	krajnosti, cekaju := h.krajnosti(append(kodovi, izvoriKrajnosti(kodovi)...))
 	// Prenosi se samo letvi za koju je arhiva pročitana i nema vlastiti niz.
 	dopuniPrenesenim(krajnosti, slices.DeleteFunc(slices.Clone(kodovi), func(kod string) bool { return cekaju[kod] }), popis)
+	zapisi := h.zapisiModela()
 	for _, l := range letve {
 		ulaz := l.Racuna == "" && !l.UlazLanca && jeDnevniUlaz(l.Letva)
 		pregledna := l.Racuna == "" && !l.UlazLanca && !ulaz && jePregledna(l.Letva)
@@ -813,7 +815,7 @@ func (h *PrognozeHandler) opisiLetve(popis map[string]models.Station, letve []Pr
 		red := LetvaPrognoze{
 			Kod: l.Letva, Naziv: l.Letva, Racuna: l.Racuna, Doseg: l.Doseg,
 			Vrh: l.Racuna == "" && !ulaz && !pregledna, Ulaz: ulaz, Pregledna: pregledna,
-			DnevniOpis: opisDnevnogCilja(l.Letva, popis),
+			DnevniOpis: cmp.Or(opisDnevnogCilja(l.Letva, popis), opisDnevnogZapisa(zapisi[l.Letva], popis)),
 			SadaCm:     uVelicini(l.Sada, "vodostaj"), SadaQ: uVelicini(l.Sada, "protok"),
 			SadaJed: jedinicaSada(l.Letva),
 			Ulazi:   l.Ulazi, Odvojena: l.Odvojena,
@@ -1784,7 +1786,13 @@ func poVodama(letve []LetvaPrognoze, postaje map[string]models.Station) []Tablic
 		redovi := lanac[g]
 		sort.SliceStable(vrhovi[g], func(i, j int) bool { return redUlaza(vrhovi[g][i].Kod) < redUlaza(vrhovi[g][j].Kod) })
 		for _, v := range vrhovi[g] {
-			redovi = umetni(redovi, mjestoVrha(redovi, v), v)
+			// Vrh koji nije ulaz nijednoj prikazanoj letvi (letva s dnevnim
+			// modelom iz zapisa) slaže se po kilometru, kao letve za pregled.
+			if i := mjestoVrha(redovi, v); i < len(redovi) {
+				redovi = umetni(redovi, i, v)
+			} else {
+				izvan[g] = append(izvan[g], v)
+			}
 		}
 		for _, x := range izvan[g] {
 			km, imaKm := rkm(x)
