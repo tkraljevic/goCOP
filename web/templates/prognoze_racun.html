@@ -89,6 +89,23 @@
       </div>
     </fieldset>
 
+    <details class="rac-rucni"{{if .RucniNagib}} open{{end}}>
+      <summary>Letva s malo arhive</summary>
+      <fieldset class="rac-skupina"{{if not $.SmijeUrediti}} disabled{{end}}>
+        <div class="form-help">Kad letva nema 1.000 sati u arhivi, račun se može složiti i ručno: upiši za koliko sati voda stigne od ulaza i koliko centimetara letva naraste kad ulaz naraste za jedan. Takav račun ima jedan ulaz, bez rezervi i razina, i nosi natpis „Račun nije provjeren”. Prazna polja znače da se račun namješta iz arhive.</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="rac-rucno-kasnjenje">Kašnjenje (h)</label>
+            <input type="number" id="rac-rucno-kasnjenje" name="rucno_kasnjenje" class="form-control" value="{{.RucnoKasnjenje}}" min="0" max="240" step="1">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="rac-rucni-nagib">Nagib</label>
+            <input type="text" id="rac-rucni-nagib" name="rucni_nagib" class="form-control" value="{{.RucniNagib}}" inputmode="decimal" autocomplete="off" placeholder="npr. 0,8">
+          </div>
+        </div>
+      </fieldset>
+    </details>
+
     {{if .Redci}}
     <fieldset class="rac-skupina"{{if not $.SmijeUrediti}} disabled{{end}}>
       <legend class="mod-podnaslov">Razine i vrijeme propagacije</legend>

@@ -224,15 +224,14 @@ func TestSpremiNacrtRacuna(t *testing.T) {
 		t.Errorf("zapis iz obrasca %+v", n)
 	}
 
-	nagib := 1.5
 	stari := prognoza.ZapisLetve{Racun: prognoza.RacunLetve{Razine: prognoza.RazineLetve{Postoci: []float64{0, 40, 80, 100}, Iskljucene: []int{2}},
-		Rucno: prognoza.RucnoLetve{Nagib: &nagib}}}
+		Rucno: prognoza.RucnoLetve{Kasnjenje: []prognoza.RucnoKasnjenje{{Razina: 1, Sati: 6}}}}}
 	isti, err := zapisIzObrasca(url.Values{"razine_nacin": {"postoci"}, "razine": {"40, 80"}}, "potok-srednji", stari)
-	if err != nil || !slices.Equal(isti.Racun.Razine.Iskljucene, []int{2}) || isti.Racun.Rucno.Nagib == nil {
+	if err != nil || !slices.Equal(isti.Racun.Razine.Iskljucene, []int{2}) || len(isti.Racun.Rucno.Kasnjenje) != 1 {
 		t.Errorf("iste razine moraju zadržati ručno i isključeno: %+v, %v", isti.Racun, err)
 	}
 	drugi, err := zapisIzObrasca(url.Values{"razine_nacin": {"postoci"}, "razine": {"50"}}, "potok-srednji", stari)
-	if err != nil || drugi.Racun.Razine.Iskljucene != nil || drugi.Racun.Rucno.Nagib != nil ||
+	if err != nil || drugi.Racun.Razine.Iskljucene != nil || len(drugi.Racun.Rucno.Kasnjenje) != 0 ||
 		!slices.Equal(drugi.Racun.Razine.Postoci, []float64{0, 50, 100}) {
 		t.Errorf("nove razine brišu ručno i isključeno: %+v, %v", drugi.Racun, err)
 	}
@@ -659,5 +658,39 @@ func TestStranicaPrimjeneModela(t *testing.T) {
 	if html := w.Body.String(); strings.Contains(html, `value="primijeni"`) || strings.Contains(html, `value="ukloni"`) ||
 		!strings.Contains(html, "22. 11. 2026. 10:00 · Marko Primjer") {
 		t.Error("tko ne smije uređivati vidi povijest, ali ne i gumbe")
+	}
+}
+
+// Račun bez dosta arhive: nagib i kašnjenje idu zajedno, nagib prima decimalni
+// zarez, a prazna polja miču ručni račun i njegovo kašnjenje.
+func TestRucniRacunUObrascu(t *testing.T) {
+	z, err := zapisIzObrasca(url.Values{"ulaz": {"a"}, "rucni_nagib": {" 0,8 "}, "rucno_kasnjenje": {"6"}}, "b", prognoza.ZapisLetve{})
+	if err != nil || z.Racun.Rucno.Nagib == nil || *z.Racun.Rucno.Nagib != 0.8 ||
+		!slices.Equal(z.Racun.Rucno.Kasnjenje, []prognoza.RucnoKasnjenje{{Razina: 0, Sati: 6}}) {
+		t.Fatalf("ručni račun iz obrasca: %+v, %v", z.Racun.Rucno, err)
+	}
+	for ime, f := range map[string]url.Values{
+		"samo nagib":          {"rucni_nagib": {"0.8"}},
+		"samo kašnjenje":      {"rucno_kasnjenje": {"6"}},
+		"nagib nije broj":     {"rucni_nagib": {"strmo"}, "rucno_kasnjenje": {"6"}},
+		"negativno kašnjenje": {"rucni_nagib": {"0,8"}, "rucno_kasnjenje": {"-1"}},
+	} {
+		if _, err := zapisIzObrasca(f, "b", prognoza.ZapisLetve{}); err == nil || !strings.Contains(err.Error(), "i nagib (broj) i kašnjenje") {
+			t.Errorf("%s: %v", ime, err)
+		}
+	}
+	// stari je bio ručni; prazna polja ga miču zajedno s kašnjenjem
+	bez, err := zapisIzObrasca(url.Values{"ulaz": {"a"}}, "b", z)
+	if err != nil || bez.Racun.Rucno.Nagib != nil || len(bez.Racun.Rucno.Kasnjenje) != 0 {
+		t.Errorf("maknut ručni račun: %+v, %v", bez.Racun.Rucno, err)
+	}
+	rm := racuniModela{zapisi: map[string]prognoza.ZapisLetve{"b": z}, glavni: map[string]bool{}}
+	if o := rm.obrazac("b", "B"); o.RucniNagib != "0,8" || o.RucnoKasnjenje != "6" {
+		t.Errorf("ručni račun u obrascu: %q, %q", o.RucniNagib, o.RucnoKasnjenje)
+	}
+	nagib := 2.0
+	rm.zapisi["b"] = prognoza.ZapisLetve{Racun: prognoza.RacunLetve{Ulazi: []string{"a"}, Rucno: prognoza.RucnoLetve{Nagib: &nagib}}}
+	if o := rm.obrazac("b", "B"); o.RucniNagib != "2" || o.RucnoKasnjenje != "" {
+		t.Errorf("nagib bez kašnjenja: %q, %q", o.RucniNagib, o.RucnoKasnjenje)
 	}
 }
