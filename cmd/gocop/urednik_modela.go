@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"gocop/internal/models"
@@ -80,6 +82,66 @@ func opisPripremeNacrta(n prognoza.NacrtLetve) string {
 	}
 	return fmt.Sprintf("Račun je pripremljen: razina s računom %d, računa do %d h unaprijed. Prognoza se ne mijenja dok se model ne primijeni.",
 		razina, n.Zapis.Racun.Doseg)
+}
+
+// probajNacrt mjeri račun iz nacrta unatrag; testovi ga zamjenjuju, jer pravi
+// traži arhivu sa satnim nizovima.
+var probajNacrt = prognoza.ProbajNacrt
+
+// ProbajNacrt mjeri pripremljeni račun iz nacrta unatrag i upiše ishod u nacrt.
+// Proba piše u privremenu bazu koja se poslije briše; model i prognoza se ne
+// mijenjaju.
+func (u *urednikModela) ProbajNacrt(letva string, p *poslovi.Posao) error {
+	if !u.Izdaje() {
+		return errNeIzdaje
+	}
+	privremena, pocisti, err := privremenaBazaPrognoza()
+	if err != nil {
+		return err
+	}
+	defer pocisti()
+	p.Korak("mjerenje računa unatrag", 0, 0)
+	n, err := probajNacrt(u.arhiva, u.pb, privremena, letva, time.Now().In(models.Zagreb).Format("2. 1. 2006. 15:04"))
+	if err != nil {
+		return err
+	}
+	p.Zavrsi(opisProbeNacrta(n), nil)
+	return nil
+}
+
+// privremenaBazaPrognoza otvara novu, praznu bazu prognoza u privremenoj mapi i
+// vraća funkciju koja je zatvori i obriše.
+func privremenaBazaPrognoza() (*sql.DB, func(), error) {
+	mapa, err := os.MkdirTemp("", "gocop-proba-")
+	if err != nil {
+		return nil, nil, fmt.Errorf("privremena baza za probu: %w", err)
+	}
+	b, err := otvoriPrognoze(filepath.Join(mapa, "proba.db"))
+	if err != nil {
+		_ = os.RemoveAll(mapa) // mapa je privremena; ostatak počisti sustav
+		return nil, nil, fmt.Errorf("privremena baza za probu: %w", err)
+	}
+	return b, func() {
+		_ = b.Close()          // baza se odmah briše
+		_ = os.RemoveAll(mapa) // mapa je privremena; ostatak počisti sustav
+	}, nil
+}
+
+// otvoriPrognoze otvara bazu prognoza; testovi ga zamjenjuju da izazovu grešku.
+var otvoriPrognoze = prognoza.Otvori
+
+// opisProbeNacrta je rečenica na kraju probe: na koliko je dosega račun bolji.
+func opisProbeNacrta(n prognoza.NacrtLetve) string {
+	if n.Proba == nil {
+		return "Proba je gotova."
+	}
+	bolje := 0
+	for _, d := range n.Proba.Dosezi {
+		if d.Stanje == prognoza.MjeraBolje {
+			bolje++
+		}
+	}
+	return fmt.Sprintf("Proba je gotova: račun je bolji nego bez modela na %d od %d dosega.", bolje, len(n.Proba.Dosezi))
 }
 
 // posluziteljModela je dio poslužitelja kojem se uključuje rad s modelom.

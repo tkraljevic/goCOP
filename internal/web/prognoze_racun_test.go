@@ -45,6 +45,11 @@ func (u *probniUrednik) PripremiNacrt(letva string, p *poslovi.Posao) error {
 	p.Zavrsi("Račun je pripremljen.", nil)
 	return nil
 }
+func (u *probniUrednik) ProbajNacrt(letva string, p *poslovi.Posao) error {
+	u.pripremljeni <- "proba " + letva
+	p.Zavrsi("Proba je gotova.", nil)
+	return nil
+}
 
 // rukovateljRacuna ima potok s tri letve u sektoru B i bazu prognoza u kojoj je
 // donja letva u glavnom lancu, a srednja ima nacrt.
@@ -336,7 +341,7 @@ func TestSitniceSlaganjaRacuna(t *testing.T) {
 	}
 	u := urednikIliNista(&Server{})
 	if u.Izdaje() || u.SpremiNacrt(prognoza.NacrtLetve{}) != errBezUrednika || u.ObrisiNacrt("a") != errBezUrednika ||
-		u.PripremiNacrt("a", nil) != errBezUrednika {
+		u.PripremiNacrt("a", nil) != errBezUrednika || u.ProbajNacrt("a", nil) != errBezUrednika {
 		t.Error("poslužitelj bez urednika ne izdaje i ne sprema")
 	}
 	p := &probniUrednik{izdaje: true, pripremljeni: make(chan string, 1)}
@@ -345,7 +350,7 @@ func TestSitniceSlaganjaRacuna(t *testing.T) {
 	u = urednikIliNista(s)
 	posao := poslovi.NoviRegistar().Pokreni("proba", "", "/", func(*poslovi.Posao) error { return nil })
 	if !u.Izdaje() || u.SpremiNacrt(prognoza.NacrtLetve{}) != nil || u.ObrisiNacrt("a") != nil || len(p.spremljeni) != 1 || len(p.obrisani) != 1 ||
-		u.PripremiNacrt("a", posao) != nil || <-p.pripremljeni != "a" {
+		u.PripremiNacrt("a", posao) != nil || <-p.pripremljeni != "a" || u.ProbajNacrt("a", posao) != nil || <-p.pripremljeni != "proba a" {
 		t.Error("poslužitelj s urednikom predaje dalje")
 	}
 }
@@ -508,4 +513,70 @@ func TestStranicaPripremljenogRacuna(t *testing.T) {
 	if strings.Contains(html, `name="rucno_2"`) || strings.Contains(html, `name="ima_racun_2"`) {
 		t.Error("razina bez računa nema polja")
 	}
+}
+
+// Probaj sprema nacrt i pokreće probu kao posao.
+func TestProbajNacrtRacuna(t *testing.T) {
+	h, u := rukovateljRacuna(t)
+	h.SetPripremaModela(nil, nil, poslovi.NoviRegistar(), predlozakStranice(t, "posao.html"))
+	f := url.Values{"sektor": {"B"}, "vodotok": {oznakaImena("Potok Lug")}, "letva": {"potok-gornji"}, "radnja": {"probaj"},
+		"velicina": {"vodostaj"}, "ulaz": {"donji-miholjac"}}
+	w := httptest.NewRecorder()
+	h.SpremiRacun(w, zahtjevOsobe(http.MethodPost, "/prognoze/model/racun", f.Encode(), &models.UserPermissions{IsGlobalAdmin: true}))
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Proba računa: Gornji Lug") {
+		t.Fatalf("stranica posla: %d", w.Code)
+	}
+	select {
+	case sto := <-u.pripremljeni:
+		if sto != "proba potok-gornji" || len(u.spremljeni) != 1 {
+			t.Errorf("pokrenuto %q, spremljeno %d nacrta", sto, len(u.spremljeni))
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("posao probe nije pokrenut")
+	}
+}
+
+// Ishod probe na stranici: po dosegu promašaj računa i bez modela, broj slučajeva
+// i ocjena. Doseg koji nije provjeren nema brojeve.
+func TestProbaNaStraniciRacuna(t *testing.T) {
+	if probaRacuna(nil, "vodostaj") != nil {
+		t.Error("račun koji nije proban nema probu")
+	}
+	p := probaRacuna(&prognoza.ProbaNacrta{Kad: "22. 11. 2026. 09:00", Razdoblje: []string{"2023-05-31", "2026-05-31"},
+		Natpisi: []string{prognoza.NatpisPremaloNajvisa}, Dosezi: []prognoza.MjeraDosega{
+			{Doseg: 6, Promasaj: 3.04, BezModela: 2.96, Slucaja: 1916, Stanje: prognoza.MjeraIsto},
+			{Doseg: 24, Promasaj: 5.2, BezModela: 6.44, Slucaja: 1914, Stanje: prognoza.MjeraBolje},
+			{Doseg: 48, Promasaj: 9, BezModela: 7, Slucaja: 1910, Stanje: prognoza.MjeraLosije},
+			{Doseg: 72, Slucaja: 40, Stanje: prognoza.MjeraNijeProvjereno}}}, "protok")
+	if p.Razdoblje != "31.5.2023. – 31.5.2026." || p.Jedinica != "m³/s" || len(p.Dosezi) != 4 {
+		t.Fatalf("proba %+v", p)
+	}
+	for i, zelim := range []DosegProbe{
+		{6, "3,0", "3,0", 1916, StanjeModela{"Kao bez modela", ""}},
+		{24, "5,2", "6,4", 1914, StanjeModela{"Bolje nego bez modela", "dobro"}},
+		{48, "9,0", "7,0", 1910, StanjeModela{"Lošije nego bez modela", "pozor"}},
+		{72, "—", "—", 40, StanjeModela{"Nije provjereno", ""}},
+	} {
+		if p.Dosezi[i] != zelim {
+			t.Errorf("doseg %d: %+v, želim %+v", i, p.Dosezi[i], zelim)
+		}
+	}
+	if bez := probaRacuna(&prognoza.ProbaNacrta{}, "vodostaj"); bez.Razdoblje != "" || bez.Jedinica != "cm" {
+		t.Errorf("proba bez razdoblja: %+v", bez)
+	}
+
+	h, _ := rukovateljRacuna(t)
+	r := zahtjevOsobe(http.MethodGet, "/prognoze/model/racun", "", &models.UserPermissions{IsGlobalAdmin: true})
+	data := RacunPrognozePageData{PrognozePageData: h.zaglavlje(r), Sektor: SektorPrognoze{ID: "B"}, Vodotok: VodotokPrognoze{Ime: "Potok Lug"},
+		SmijeUrediti: true, Obrazac: &ObrazacRacuna{Kod: "potok-srednji", Ime: "Srednji Lug", Velicina: "vodostaj", Ulazi: []string{"a", ""},
+			Rezerve: []string{"", ""}, NacinRazina: razineZadane, Kad: "08:00", Pripremljen: "08:01", Proba: p,
+			Redci: []RazinaRacuna{{Broj: 1, Granica: "sva voda", Kasnjenje: "9 h", Racuna: true}}}}
+	w := httptest.NewRecorder()
+	if err := h.racunTmpl.ExecuteTemplate(w, "prognoze_racun.html", data); err != nil {
+		t.Fatal(err)
+	}
+	redom(t, w.Body.String(), `id="rac-proba-naslov">Proba</h3>`, "Račun (m³/s)", "Bez modela (m³/s)", "+6 h", "3,0", "1.916",
+		`<span class="rac-cip">Kao bez modela</span>`, "+24 h", `<span class="rac-cip dobro">Bolje nego bez modela</span>`,
+		`<span class="rac-cip pozor">Lošije nego bez modela</span>`, "Nije provjereno", "31.5.2023. – 31.5.2026.",
+		"Probano 22. 11. 2026. 09:00.", "Premalo slučajeva za najvišu vodu.", `value="probaj" class="btn prog-obrub">Probaj ponovno`)
 }

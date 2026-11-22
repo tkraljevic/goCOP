@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -121,5 +122,67 @@ func TestUrednikPripremaNacrt(t *testing.T) {
 	}
 	if s := opisPripremeNacrta(prognoza.NacrtLetve{}); !strings.Contains(s, "razina s računom 0") {
 		t.Errorf("opis praznog nacrta: %q", s)
+	}
+}
+
+// Proba nacrta ide samo na računalu koje izdaje, u privremenu bazu koja se
+// poslije briše. Posao na kraju kaže na koliko je dosega račun bolji.
+func TestUrednikProbaNacrta(t *testing.T) {
+	uloge := &probneUloge{}
+	u := &urednikModela{mreza: uloge}
+	stara, staroOtvaranje := probajNacrt, otvoriPrognoze
+	t.Cleanup(func() { probajNacrt, otvoriPrognoze = stara, staroOtvaranje })
+	var putPrivremene string
+	var greska error
+	ishod := prognoza.NacrtLetve{Proba: &prognoza.ProbaNacrta{Dosezi: []prognoza.MjeraDosega{
+		{Doseg: 6, Stanje: prognoza.MjeraIsto}, {Doseg: 24, Stanje: prognoza.MjeraBolje}, {Doseg: 48, Stanje: prognoza.MjeraBolje}}}}
+	probajNacrt = func(_, _, privremena *sql.DB, letva, kad string) (prognoza.NacrtLetve, error) {
+		// privremena baza je prava, prazna baza prognoza
+		if _, _, err := prognoza.SastaviModel(privremena); err != nil {
+			t.Errorf("privremena baza: %v", err)
+		}
+		if err := privremena.QueryRow(`SELECT file FROM pragma_database_list WHERE name = 'main'`).Scan(&putPrivremene); err != nil {
+			t.Errorf("put privremene baze: %v", err)
+		}
+		return ishod, greska
+	}
+	posao := func() poslovi.Pogled {
+		t.Helper()
+		p := poslovi.NoviRegistar().Pokreni("proba", "", "/", func(p *poslovi.Posao) error { return u.ProbajNacrt("potok-dole", p) })
+		for range 400 {
+			if !p.Traje() {
+				break
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+		return p.Stanje()
+	}
+	if st := posao(); !strings.Contains(st.Greska, "računalu koje izdaje") || putPrivremene != "" {
+		t.Errorf("računalo koje ne izdaje: %+v", st)
+	}
+	uloge.izdaje = true
+	if st := posao(); st.Greska != "" || !strings.Contains(st.Sazetak, "bolji nego bez modela na 2 od 3 dosega") {
+		t.Errorf("proba: %+v", st)
+	}
+	if putPrivremene == "" {
+		t.Fatal("proba nije dobila privremenu bazu")
+	}
+	if _, err := os.Stat(filepath.Dir(putPrivremene)); !os.IsNotExist(err) {
+		t.Errorf("privremena baza nije obrisana: %v", err)
+	}
+	greska = errors.New("račun nije pripremljen; pripremi ga pa probaj")
+	if st := posao(); !strings.Contains(st.Greska, "nije pripremljen") {
+		t.Errorf("greška probe: %+v", st)
+	}
+	otvoriPrognoze = func(string) (*sql.DB, error) { return nil, errors.New("disk je pun") }
+	if st := posao(); !strings.Contains(st.Greska, "privremena baza za probu: disk je pun") {
+		t.Errorf("privremena baza koja se ne da otvoriti: %+v", st)
+	}
+	t.Setenv("TMPDIR", filepath.Join(t.TempDir(), "nema-je"))
+	if st := posao(); !strings.Contains(st.Greska, "privremena baza za probu") {
+		t.Errorf("privremena mapa koja se ne da napraviti: %+v", st)
+	}
+	if s := opisProbeNacrta(prognoza.NacrtLetve{}); s != "Proba je gotova." {
+		t.Errorf("opis bez probe: %q", s)
 	}
 }

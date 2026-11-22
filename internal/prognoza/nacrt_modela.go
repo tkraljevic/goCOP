@@ -21,6 +21,18 @@ type NacrtLetve struct {
 	// Priprema je ono što je priprema dala za ovu definiciju; brojevi i doseg su
 	// tada u zapisu. Nema je dok se nacrt ne pripremi i čim se definicija promijeni.
 	Priprema *PripremaNacrta `json:"priprema,omitempty"`
+	// Proba je ono što je proba izmjerila za pripremljeni račun; promašaji su tada
+	// u zapisu. Nema je dok se račun ne proba i čim se pripremi iznova.
+	Proba *ProbaNacrta `json:"proba,omitempty"`
+}
+
+// ProbaNacrta je ishod probe uz nacrt: po dosegu promašaj računa i promašaj bez
+// modela, s ocjenom.
+type ProbaNacrta struct {
+	Kad       string        `json:"kad"`
+	Dosezi    []MjeraDosega `json:"dosezi"`
+	Natpisi   []string      `json:"natpisi"`
+	Razdoblje []string      `json:"razdoblje"`
 }
 
 // PripremaNacrta je ishod pripreme uz nacrt, koliko ga stranica pokazuje.
@@ -52,9 +64,9 @@ func SpremiNacrt(baza *sql.DB, n NacrtLetve, o OkvirModela) error {
 	if err != nil {
 		return err
 	}
-	n.Zapis.Racun.Doseg, n.Zapis.Brojevi, n.Priprema = 0, BrojeviLetve{}, nil
+	n.Zapis.Racun.Doseg, n.Zapis.Brojevi, n.Priprema, n.Proba = 0, BrojeviLetve{}, nil, nil
 	if s, ima := stari[n.Zapis.Letva]; ima && s.Priprema != nil && istaDefinicija(s.Zapis, n.Zapis) {
-		n.Zapis.Racun.Doseg, n.Zapis.Brojevi, n.Priprema = s.Zapis.Racun.Doseg, s.Zapis.Brojevi, s.Priprema
+		n.Zapis.Racun.Doseg, n.Zapis.Brojevi, n.Priprema, n.Proba = s.Zapis.Racun.Doseg, s.Zapis.Brojevi, s.Priprema, s.Proba
 	}
 	return upisiNacrt(baza, n)
 }
@@ -86,8 +98,30 @@ func PripremiNacrt(arhiva, baza *sql.DB, letva, kad string, o OkvirModela) (Nacr
 	if err != nil {
 		return NacrtLetve{}, err
 	}
-	n.Zapis = p.Zapis
+	n.Zapis, n.Proba = p.Zapis, nil
 	n.Priprema = &PripremaNacrta{Kad: kad, Cvorovi: p.Cvorovi, Ucenje: p.Ucenje, Napomene: p.Napomene}
+	return n, upisiNacrt(baza, n)
+}
+
+// ProbajNacrt mjeri pripremljeni račun iz nacrta unatrag, na vremenu na kojem je
+// učio, i upiše u nacrt što je izmjerio. privremena je nova, prazna baza prognoza
+// u koju proba piše; baza se samo čita, osim nacrta. Model i prognoza se ne
+// mijenjaju.
+func ProbajNacrt(arhiva, baza, privremena *sql.DB, letva, kad string) (NacrtLetve, error) {
+	nacrti, err := Nacrti(baza)
+	if err != nil {
+		return NacrtLetve{}, err
+	}
+	n, ima := nacrti[letva]
+	if !ima || n.Priprema == nil {
+		return NacrtLetve{}, errors.New("račun nije pripremljen; pripremi ga pa probaj")
+	}
+	m, err := MjeriLetvu(arhiva, baza, privremena, n.Zapis, OpcijeMjere(n.Priprema.Ucenje))
+	if err != nil {
+		return NacrtLetve{}, err
+	}
+	n.Zapis.Brojevi.Promasaji, n.Zapis.Brojevi.Razdoblje = m.Promasaji, m.Razdoblje
+	n.Proba = &ProbaNacrta{Kad: kad, Dosezi: m.Dosezi, Natpisi: m.Natpisi, Razdoblje: m.Razdoblje}
 	return n, upisiNacrt(baza, n)
 }
 
