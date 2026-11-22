@@ -569,9 +569,9 @@ func TestProbaNaStraniciRacuna(t *testing.T) {
 		t.Fatalf("proba %+v", p)
 	}
 	for i, zelim := range []DosegProbe{
-		{6, "3,0", "3,0", 1916, StanjeModela{"Kao bez modela", ""}},
-		{24, "5,2", "6,4", 1914, StanjeModela{"Bolje nego bez modela", "dobro"}},
-		{48, "9,0", "7,0", 1910, StanjeModela{"Lošije nego bez modela", "pozor"}},
+		{6, "3,0", "3,0", 1916, StanjeModela{"Kao zadnje mjerenje", ""}},
+		{24, "5,2", "6,4", 1914, StanjeModela{"Pouzdanije od zadnjeg mjerenja", "dobro"}},
+		{48, "9,0", "7,0", 1910, StanjeModela{"Zadnje mjerenje je pouzdanije", "pozor"}},
 		{72, "—", "—", 40, StanjeModela{"Nije provjereno", ""}},
 	} {
 		if p.Dosezi[i] != zelim {
@@ -592,9 +592,9 @@ func TestProbaNaStraniciRacuna(t *testing.T) {
 	if err := h.racunTmpl.ExecuteTemplate(w, "prognoze_racun.html", data); err != nil {
 		t.Fatal(err)
 	}
-	redom(t, w.Body.String(), `id="rac-proba-naslov">Proba</h3>`, "Račun (m³/s)", "Bez modela (m³/s)", "+6 h", "3,0", "1.916",
-		`<span class="rac-cip">Kao bez modela</span>`, "+24 h", `<span class="rac-cip dobro">Bolje nego bez modela</span>`,
-		`<span class="rac-cip pozor">Lošije nego bez modela</span>`, "Nije provjereno", "31.5.2023. – 31.5.2026.",
+	redom(t, w.Body.String(), `id="rac-proba-naslov">Proba</h3>`, "Račun (m³/s)", "Zadnje mjerenje (m³/s)", "+6 h", "3,0", "1.916",
+		`<span class="rac-cip">Kao zadnje mjerenje</span>`, "+24 h", `<span class="rac-cip dobro">Pouzdanije od zadnjeg mjerenja</span>`,
+		`<span class="rac-cip pozor">Zadnje mjerenje je pouzdanije</span>`, "Nije provjereno", "31.5.2023. – 31.5.2026.",
 		"Probano 22. 11. 2026. 09:00.", "Premalo slučajeva za najvišu vodu.", `value="probaj" class="btn prog-obrub">Probaj ponovno`)
 }
 
@@ -676,7 +676,7 @@ func TestStranicaPrimjeneModela(t *testing.T) {
 	if err := h.racunTmpl.ExecuteTemplate(w, "prognoze_racun.html", data); err != nil {
 		t.Fatal(err)
 	}
-	redom(t, w.Body.String(), "Na 1 dosegu račun je lošiji nego bez modela.", `name="razlog" class="form-control" required`,
+	redom(t, w.Body.String(), "Na 1 dosegu zadnje mjerenje je pouzdanije od računa.", `name="razlog" class="form-control" required`,
 		`value="primijeni" class="btn btn-primary">Primijeni model`, "Primijenjeni model", "22. 11. 2026. 10:00 · Marko Primjer", "ručno kašnjenje",
 		"21. 11. 2026. 09:00 · Iva Proba", "početni račun", "Razlog povratka", `value="vrati" class="btn prog-obrub">Vrati prethodni model`, `value="ukloni"`)
 	data.SmijeUrediti = false

@@ -13,13 +13,16 @@ import (
 	"time"
 )
 
-// StanjeMjere je ocjena računa na jednom dosegu, kako je čita stručnjak.
+// StanjeMjere je ocjena računa na jednom dosegu, kako je čita stručnjak. Račun se
+// uspoređuje s najjednostavnijom prognozom: da će voda ostati na zadnjem izmjerenom
+// vodostaju. Odluke (22. 11. 2026.): natpisi govore o zadnjem mjerenju, a ne „bez
+// modela”, kao i oznaka na stranici Prognoze.
 type StanjeMjere string
 
 const (
-	MjeraBolje          StanjeMjere = "Bolje nego bez modela"
-	MjeraIsto           StanjeMjere = "Kao bez modela"
-	MjeraLosije         StanjeMjere = "Lošije nego bez modela"
+	MjeraBolje          StanjeMjere = "Pouzdanije od zadnjeg mjerenja"
+	MjeraIsto           StanjeMjere = "Kao zadnje mjerenje"
+	MjeraLosije         StanjeMjere = "Zadnje mjerenje je pouzdanije"
 	MjeraNijeProvjereno StanjeMjere = "Nije provjereno"
 )
 

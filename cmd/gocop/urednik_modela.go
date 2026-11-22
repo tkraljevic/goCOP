@@ -174,7 +174,8 @@ func privremenaBazaPrognoza() (*sql.DB, func(), error) {
 // otvoriPrognoze otvara bazu prognoza; testovi ga zamjenjuju da izazovu grešku.
 var otvoriPrognoze = prognoza.Otvori
 
-// opisProbeNacrta je rečenica na kraju probe: na koliko je dosega račun bolji.
+// opisProbeNacrta je rečenica na kraju probe: na koliko je dosega račun pouzdaniji
+// od zadnjeg mjerenja.
 func opisProbeNacrta(n prognoza.NacrtLetve) string {
 	if n.Proba == nil {
 		return "Proba je gotova."
@@ -185,7 +186,7 @@ func opisProbeNacrta(n prognoza.NacrtLetve) string {
 			bolje++
 		}
 	}
-	return fmt.Sprintf("Proba je gotova: račun je bolji nego bez modela na %d od %d dosega.", bolje, len(n.Proba.Dosezi))
+	return fmt.Sprintf("Proba je gotova: račun je pouzdaniji od zadnjeg mjerenja na %d od %d dosega.", bolje, len(n.Proba.Dosezi))
 }
 
 // posluziteljModela je dio poslužitelja kojem se uključuje rad s modelom.
