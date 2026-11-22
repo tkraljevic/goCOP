@@ -154,6 +154,10 @@ func zapisiZaRacun(db *sql.DB, promasaji map[Izvor]map[int]Promasaj) (map[string
 	}
 	// Letva s dnevnim modelom nema satni račun: računa je dnevni krug zapisa.
 	maps.DeleteFunc(zapisi, func(_ string, z ZapisLetve) bool { return z.Metoda == MetodaDnevni })
+	// Redak letve glavnog lanca kaže kako se njezin račun namješta; računa je
+	// glavni lanac, iz svojih tablica.
+	bezGlavnih(zapisi)
+	bezGlavnih(pokvareni)
 	for _, r := range OdvojeniRacuni {
 		_, imaRedak := zapisi[r.Letva]
 		_, pokvaren := pokvareni[r.Letva]
@@ -802,6 +806,8 @@ func OdvojeniZaPrikaz(db *sql.DB) PrikazOdvojenih {
 	// Letva s dnevnim modelom nema satni račun ni njegove brojeve; na stranici
 	// stoji po dnevnim vrijednostima izdanja.
 	maps.DeleteFunc(zapisi, func(_ string, z ZapisLetve) bool { return z.Metoda == MetodaDnevni })
+	bezGlavnih(zapisi)
+	bezGlavnih(pokvareni)
 	if err != nil || len(zapisi) == 0 {
 		return p
 	}

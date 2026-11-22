@@ -262,6 +262,11 @@ func TestDnevniZapisNijeNeprovjeren(t *testing.T) {
 	if err := prognoza.SpremiZapisLetve(pb, z, "", prognoza.OkvirModela{}); err != nil {
 		t.Fatal(err)
 	}
+	// redak letve glavnog lanca kaže samo kako se račun namješta
+	if _, err := pb.Exec(`INSERT INTO model_letve (letva, proba, sadrzaj) VALUES ('osijek', '',
+		'{"oblik":1,"letva":"osijek","metoda":"lanac","velicina":"vodostaj","racun":{"ulazi":["belisce"],"doseg":96}}')`); err != nil {
+		t.Fatal(err)
+	}
 	if err := pb.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -273,5 +278,8 @@ func TestDnevniZapisNijeNeprovjeren(t *testing.T) {
 	h := &PrognozeHandler{citac: func() *CitacPrognoza { return c }}
 	if s := h.stanjaModela(); !s.racun["potok-dole"] || s.neprovjerene["potok-dole"] {
 		t.Errorf("zapis s dnevnim modelom: %+v", s)
+	}
+	if s := h.stanjaModela(); !s.racun["osijek"] || s.neprovjerene["osijek"] {
+		t.Errorf("zapis letve glavnog lanca: %+v", s)
 	}
 }

@@ -45,6 +45,9 @@ type pripremaRacuna struct {
 	zapisi    map[string]ZapisLetve
 	pokvareni map[string]error
 	okvir     OkvirModela
+	// glavni kaže da je letva u glavnom lancu: zadane razine su tada razine
+	// lanca (Cvorovi), a ne razine spojene za kratku arhivu.
+	glavni bool
 }
 
 // PripremiLetvu namjesti račun iz zapisa i vrati ga, bez spremanja. Baza prognoza
@@ -110,30 +113,44 @@ func (z ZapisLetve) provjeriIskljuceneIRezerve() error {
 }
 
 func (s *pripremaRacuna) pripremi() (PripremaLetve, error) {
-	izvori := s.izvori(s.z.Racun.Ulazi)
-	if err := s.provjeriProtokUlaza(izvori); err != nil {
-		return PripremaLetve{}, err
-	}
-	razine := &razdiobaRazina{razine: s.z.Racun.Razine}
-	glavna, ucenje, napomenaRucnog, err := s.glavnaInacica(izvori, razine)
-	if err != nil {
-		return PripremaLetve{}, err
-	}
-	if err := razine.oznaciIskljucene(glavna); err != nil {
-		return PripremaLetve{}, err
-	}
-	inacice, napomene, err := s.dodajRezerve(glavna)
+	inacice, ucenje, cvorovi, napomene, err := s.namjestiInacice()
 	if err != nil {
 		return PripremaLetve{}, err
 	}
 	z := s.z
 	z.Brojevi = BrojeviLetve{Inacice: inacice}
-	z.Racun.Doseg = s.doseg(glavna)
+	z.Racun.Doseg = s.doseg(inacice[0])
 	if err := provjeriUpis(s.zapisi, s.pokvareni, z, s.okvir); err != nil {
 		return PripremaLetve{}, err
 	}
-	return PripremaLetve{Zapis: z, Ucenje: ucenje, Cvorovi: razine.cvorovi,
-		Napomene: append(append(napomenaRucnog, razine.napomene(glavna)...), napomene...)}, nil
+	return PripremaLetve{Zapis: z, Ucenje: ucenje, Cvorovi: cvorovi, Napomene: napomene}, nil
+}
+
+// namjestiInacice namješta glavnu inačicu i rezerve računa iz zapisa. Vraća i na
+// čemu je glavna učila, granice razina i napomene.
+func (s *pripremaRacuna) namjestiInacice() ([][]Pojas, UcenjeRacuna, []float64, []string, error) {
+	izvori := s.izvori(s.z.Racun.Ulazi)
+	if err := s.provjeriProtokUlaza(izvori); err != nil {
+		return nil, UcenjeRacuna{}, nil, nil, err
+	}
+	razine := s.razdioba(s.z.Racun.Razine)
+	glavna, ucenje, napomenaRucnog, err := s.glavnaInacica(izvori, razine)
+	if err != nil {
+		return nil, ucenje, nil, nil, err
+	}
+	if err := razine.oznaciIskljucene(glavna); err != nil {
+		return nil, ucenje, nil, nil, err
+	}
+	inacice, napomene, err := s.dodajRezerve(glavna)
+	if err != nil {
+		return nil, ucenje, nil, nil, err
+	}
+	return inacice, ucenje, razine.cvorovi, append(append(napomenaRucnog, razine.napomene(glavna)...), napomene...), nil
+}
+
+// razdioba je razdioba razina za ovaj račun.
+func (s *pripremaRacuna) razdioba(r RazineLetve) *razdiobaRazina {
+	return &razdiobaRazina{razine: r, lanac: s.glavni}
 }
 
 // izvori su ulazi s veličinom. Ulaz koji ima račun uzima se u veličini tog računa,
@@ -172,7 +189,7 @@ func (s *pripremaRacuna) dodajRezerve(glavna []Pojas) ([][]Pojas, []string, erro
 	inacice := [][]Pojas{glavna}
 	var napomene []string
 	for _, ulazi := range s.z.Racun.Rezerve {
-		razine := &razdiobaRazina{razine: RazineLetve{Postoci: s.z.Racun.Razine.Postoci}}
+		razine := s.razdioba(RazineLetve{Postoci: s.z.Racun.Razine.Postoci})
 		p, err := namjestiPoRazinama(s.arhiva, s.z.Letva, s.z.Velicina, s.izvori(ulazi), &UcenjeRacuna{}, razine.razdijeli, nil)
 		if errors.Is(err, ErrArhiva) {
 			return nil, nil, err
@@ -233,9 +250,14 @@ func (s *pripremaRacuna) dosegUlaza(letva string, dubina int) int {
 type razdiobaRazina struct {
 	razine  RazineLetve
 	cvorovi []float64
+	lanac   bool // zadane razine su razine glavnog lanca
 }
 
 func (d *razdiobaRazina) razdijeli(poredani []float64) ([]float64, error) {
+	if d.lanac && len(d.razine.Granice) == 0 && len(d.razine.Postoci) == 0 {
+		d.cvorovi = Cvorovi(poredani)
+		return d.cvorovi, nil
+	}
 	var err error
 	d.cvorovi, err = cvoroviRazina(poredani, d.razine)
 	return d.cvorovi, err
