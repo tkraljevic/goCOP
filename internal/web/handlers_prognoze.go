@@ -57,6 +57,8 @@ type PrognozeHandler struct {
 	metodaTmpl   *template.Template // stranica „O prognozi”
 	postavkeTmpl *template.Template // stranica „Postavke prognoze”
 	modelTmpl    *template.Template // stranica „Model prognoze”
+	racunTmpl    *template.Template // stranica „Slaganje računa”
+	urednik      UrednikModela      // sprema nacrte računa; nil kad baze prognoza nema
 
 	pricuvno func(ctx context.Context) (prognoza.PricuvniPodaci, bool) // pričuvni Excel
 

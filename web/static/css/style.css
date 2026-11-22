@@ -11261,3 +11261,16 @@ td .odr-sitno { margin-top: 2px; }
 .izv-filtar { margin-bottom: 12px; }
 .izv-filtar b { font-weight: 600; font-variant-numeric: tabular-nums; }
 .izvori-mreza > .izvor-kartica[hidden] { display: none; }
+
+/* Model prognoze · slaganje računa (goCOP-m3, 13b, „2 · Slaganje računa”) */
+.rac-letva { align-items: flex-start; }
+.rac-letva-tekst { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rac-letva-tekst .reg-card-sub { margin: 0; overflow-wrap: anywhere; }
+.rac-obrazac { display: flex; flex-direction: column; gap: 16px; }
+.rac-skupina { display: flex; flex-direction: column; gap: 10px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.rac-skupina > legend { padding: 0; margin-bottom: 4px; }
+.rac-skupina .form-group { margin: 0; max-width: 420px; }
+.rac-izbor { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.rac-izbor label { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; }
+.rac-gumbi { display: flex; flex-wrap: wrap; gap: 8px; }
+.rac-obrazac > p { margin: 0; font-size: 0.875rem; line-height: 1.5; color: var(--md-sys-color-on-surface-variant, var(--text-secondary)); }

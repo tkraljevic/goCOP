@@ -4,7 +4,7 @@
 
 {{define "content"}}
 {{/* Raspored po crtežu goCOP-m3, 13b · Prognoze · uređivanje modela,
-     „1 · Izbor vodotoka i što fali”. Slaganje računa dolazi poslije. */}}
+     „1 · Izbor vodotoka i što fali”. Račun se slaže na stranici prognoze_racun.html. */}}
 <a href="/prognoze/postavke" class="povratna-poveznica">← Postavke prognoze</a>
 <div class="prog-str-glava">
   <div>
@@ -70,7 +70,8 @@
     {{end}}
   </div>
   <p class="mod-podnozje">Letva s malo sati može računati i s ručno upisanim vremenom, ali tada nosi natpis
-    „Račun nije provjeren”. Slaganje modela na ovoj stranici je u izradi.</p>
+    „Račun nije provjeren”.</p>
+  <p><a href="{{$.Racuni}}" class="btn btn-primary">Računi letvi</a></p>
   {{else}}
   <h2 id="mod-odabran-naslov">Odaberi vodotok</h2>
   <p>{{if .Vodotoci}}Odaberi vodotok s popisa, pa se ovdje vidi što njegovim letvama fali za model.{{else}}Kad sektor dobije letve, ovdje se vidi što im fali za model.{{end}}</p>

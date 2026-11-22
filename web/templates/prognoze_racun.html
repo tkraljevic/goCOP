@@ -1,0 +1,112 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Slaganje računa{{end}}
+
+{{define "content"}}
+{{/* Raspored po crtežu goCOP-m3, 13b · Prognoze · uređivanje modela,
+     „2 · Slaganje računa”. Priprema, proba i Primijeni dolaze poslije. */}}
+<a href="{{.Natrag}}" class="povratna-poveznica">← Model prognoze · {{if .Sektor.Ostale}}{{.Sektor.Ime}}{{else}}Sektor {{.Sektor.ID}}{{end}}</a>
+<div class="prog-str-glava">
+  <div>
+    <h1>Model · {{.Vodotok.Ime}}</h1>
+    <p class="prog-str-podnaslov">Dok se model ne primijeni, prognoza se ne mijenja.{{if not .SmijeUrediti}} {{.ZastoNe}}{{end}}</p>
+  </div>
+</div>
+
+<div class="mod-mreza ima-odabran">
+<section class="letva-ploca prog-ploca" aria-labelledby="rac-letve-naslov">
+  <h2 id="rac-letve-naslov">Letve redom</h2>
+  <p>Odozgo prema dolje, kako voda teče. Odaberi letvu kojoj slažeš račun.</p>
+  <ul class="mod-popis">
+    {{range .Letve}}<li><a href="{{.URL}}" class="mod-vodotok rac-letva"{{if .Odabrana}} aria-current="true"{{end}}>
+      <span class="rac-letva-tekst"><span>{{.Ime}}</span>{{if .Opis}}<span class="reg-card-sub">{{.Opis}}</span>{{end}}</span>
+      <span class="rac-cip{{with .Stanje.Klasa}} {{.}}{{end}}">{{.Stanje.Natpis}}</span></a></li>
+    {{end}}
+  </ul>
+  <p class="mod-podnozje">Letva glavnog lanca smije biti ulaz, ali se ne računa ovdje.</p>
+</section>
+
+<section class="letva-ploca prog-ploca mod-vodotok-ploca" aria-labelledby="rac-obrazac-naslov">
+  {{with .Obrazac}}
+  <div class="mod-glava">
+    <div>
+      <h2 id="rac-obrazac-naslov">{{.Ime}}</h2>
+      <p class="reg-card-sub">{{$.Vodotok.Ime}}{{if .Kad}} · nacrt spremljen {{.Kad}}{{if .Tko}}, {{.Tko}}{{end}}{{end}}</p>
+    </div>
+    <span class="rac-cip{{with .Stanje.Klasa}} {{.}}{{end}}">{{.Stanje.Natpis}}</span>
+  </div>
+  {{if .Zakljucano}}
+  <p>{{.Zakljucano}}</p>
+  {{else}}
+  <form method="POST" action="/prognoze/model/racun" class="rac-obrazac">
+    <input type="hidden" name="sektor" value="{{$.Sektor.ID}}">
+    <input type="hidden" name="vodotok" value="{{$.Vodotok.Oznaka}}">
+    <input type="hidden" name="letva" value="{{.Kod}}">
+    <fieldset class="rac-skupina"{{if not $.SmijeUrediti}} disabled{{end}}>
+      <legend class="mod-podnaslov">Što se računa</legend>
+      <div class="rac-izbor" role="radiogroup" aria-label="Veličina">
+        <label><input type="radio" name="velicina" value="vodostaj"{{if ne .Velicina "protok"}} checked{{end}}> vodostaj</label>
+        <label><input type="radio" name="velicina" value="protok"{{if eq .Velicina "protok"}} checked{{end}}> protok</label>
+      </div>
+      <div class="form-help">Protok se može izabrati samo kad letva i ulaz imaju satni protok u arhivi.</div>
+    </fieldset>
+
+    <fieldset class="rac-skupina"{{if not $.SmijeUrediti}} disabled{{end}}>
+      <legend class="mod-podnaslov">Ulaz i rezerve</legend>
+      {{range $i, $u := .Ulazi}}
+      <div class="form-group">
+        <label class="form-label" for="rac-ulaz-{{$i}}">{{if $i}}Drugi ulaz{{else}}Ulaz{{end}}</label>
+        <select id="rac-ulaz-{{$i}}" name="ulaz" class="form-control"{{if not $i}} required{{end}}>
+          <option value="">{{if $i}}— bez drugog ulaza —{{else}}— odaberi letvu —{{end}}</option>
+          {{template "rac-izbor-letve" ($.IzborZa $u)}}
+        </select>
+        <div class="form-help">{{if $i}}Kad vodu diže i uspor rijeke u koju se vodotok ulijeva, ovdje ide letva na toj rijeci.{{else}}Uzvodna letva iz koje se ova računa.{{end}}</div>
+      </div>
+      {{end}}
+      {{range $i, $r := .Rezerve}}
+      <div class="form-group">
+        <label class="form-label" for="rac-rezerva-{{$i}}">Rezerva {{add $i 1}}</label>
+        <select id="rac-rezerva-{{$i}}" name="rezerva" class="form-control">
+          <option value="">— bez rezerve —</option>
+          {{template "rac-izbor-letve" ($.IzborZa $r)}}
+        </select>
+      </div>
+      {{end}}
+      <div class="form-help">Ako ulaz ne javlja, račun uzima prvu rezervu koja javlja. Rezerva zamjenjuje sve ulaze.</div>
+    </fieldset>
+
+    <fieldset class="rac-skupina"{{if not $.SmijeUrediti}} disabled{{end}}>
+      <legend class="mod-podnaslov">Razine vode</legend>
+      <div class="rac-izbor" role="radiogroup" aria-label="Kako se zadaju razine">
+        <label><input type="radio" name="razine_nacin" value="zadano"{{if eq .NacinRazina "zadano"}} checked{{end}}> zadane</label>
+        <label><input type="radio" name="razine_nacin" value="granice"{{if eq .NacinRazina "granice"}} checked{{end}}> granice u cm ili m³/s</label>
+        <label><input type="radio" name="razine_nacin" value="postoci"{{if eq .NacinRazina "postoci"}} checked{{end}}> granice u postocima</label>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="rac-razine">Granice između razina</label>
+        <input type="text" id="rac-razine" name="razine" class="form-control" value="{{.Razine}}" placeholder="npr. 40, 90, 150" autocomplete="off" inputmode="decimal">
+        <div class="form-help">Brojevi odvojeni zarezom, od najniže prema najvišoj. Tri granice daju četiri razine. Uz zadane razine polje ostaje prazno, a program ih sam složi po broju sati u arhivi.</div>
+      </div>
+    </fieldset>
+
+    {{if $.SmijeUrediti}}
+    <div class="rac-gumbi">
+      <button type="submit" name="radnja" value="spremi" class="btn btn-primary">Spremi nacrt</button>
+      {{if .Kad}}<button type="submit" name="radnja" value="odbaci" class="btn btn-link" formnovalidate>Odbaci nacrt</button>{{end}}
+    </div>
+    {{end}}
+    <p class="mod-podnozje">Nacrt ostaje na ovom računalu. Priprema modela, proba i Primijeni na ovoj stranici su u izradi.</p>
+  </form>
+  {{end}}
+  {{else}}
+  <h2 id="rac-obrazac-naslov">Vodotok nema letvi</h2>
+  <p>Letva se dodaje u registru, a vodotok joj se upisuje u obrascu letve.</p>
+  {{end}}
+</section>
+</div>
+{{end}}
+
+{{define "rac-izbor-letve"}}{{$odabran := .Odabran}}{{range .Skupine}}<optgroup label="{{if .Voda}}{{.Voda}}{{else}}Bez vode{{end}}">
+  {{range .Letve}}<option value="{{.Kod}}"{{if eq .Kod $odabran}} selected{{end}}>{{.Ime}}</option>
+  {{end}}</optgroup>
+{{end}}{{end}}
