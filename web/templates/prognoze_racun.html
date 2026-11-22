@@ -42,6 +42,10 @@
     <input type="hidden" name="sektor" value="{{$.Sektor.ID}}">
     <input type="hidden" name="vodotok" value="{{$.Vodotok.Oznaka}}">
     <input type="hidden" name="letva" value="{{.Kod}}">
+    {{if .Glavna}}
+    <input type="hidden" name="metoda" value="lanac">
+    <p class="form-help">Letva je u glavnom lancu Drave i Dunava i vodi se u {{if eq .Velicina "protok"}}protoku{{else}}vodostaju{{end}}. Ovdje joj se mijenjaju ulazi, rezerve i razine. Izmjena mijenja prognozu i letvama nizvodno, pa proba mjeri cijeli lanac.</p>
+    {{else}}
     <fieldset class="rac-skupina"{{if not $.SmijeUrediti}} disabled{{end}}>
       <legend class="mod-podnaslov">Kako se računa</legend>
       <div class="rac-izbor" role="radiogroup" aria-label="Način računa">
@@ -60,6 +64,8 @@
       <div class="form-help">Protok se može izabrati samo kad letva i ulaz imaju satni protok u arhivi.</div>
     </fieldset>
 
+    {{end}}
+
     <fieldset class="rac-skupina"{{if not $.SmijeUrediti}} disabled{{end}}>
       <legend class="mod-podnaslov">Ulazi</legend>
       {{range $i, $u := .Ulazi}}
@@ -77,8 +83,12 @@
         <label class="form-label" for="rac-rezerva-{{$i}}">Rezerva {{add $i 1}}</label>
         <select id="rac-rezerva-{{$i}}" name="rezerva" class="form-control">
           <option value="">— bez rezerve —</option>
-          {{template "rac-izbor-letve" ($.IzborZa $r)}}
+          {{template "rac-izbor-letve" ($.IzborZa $r.Prvi)}}
         </select>
+        {{if $.Obrazac.Glavna}}<select name="rezerva_b" class="form-control" aria-label="Drugi ulaz rezerve {{add $i 1}}">
+          <option value="">— bez drugog ulaza —</option>
+          {{template "rac-izbor-letve" ($.IzborZa $r.Drugi)}}
+        </select>{{end}}
       </div>
       {{end}}
       <div class="form-help rac-samo-satni">Ako ulaz ne javlja, račun uzima prvu rezervu koja javlja. Rezerva zamjenjuje sve ulaze.</div>
@@ -117,7 +127,7 @@
       </div>
     </fieldset>
 
-    <details class="rac-rucni rac-samo-satni"{{if .RucniNagib}} open{{end}}>
+    {{if not .Glavna}}<details class="rac-rucni rac-samo-satni"{{if .RucniNagib}} open{{end}}>
       <summary>Letva s malo arhive</summary>
       <fieldset class="rac-skupina"{{if not $.SmijeUrediti}} disabled{{end}}>
         <div class="form-help">Kad letva nema 1.000 sati u arhivi, račun se može složiti i ručno: upiši za koliko sati voda stigne od ulaza i koliko centimetara letva naraste kad ulaz naraste za jedan. Takav račun ima jedan ulaz, bez rezervi i razina, i nosi natpis „Račun nije provjeren”. Prazna polja znače da se račun namješta iz arhive.</div>
@@ -132,7 +142,7 @@
           </div>
         </div>
       </fieldset>
-    </details>
+    </details>{{end}}
 
     {{if .Redci}}
     <fieldset class="rac-skupina rac-samo-satni"{{if not $.SmijeUrediti}} disabled{{end}}>
@@ -166,11 +176,13 @@
     <section class="rac-skupina" aria-labelledby="rac-proba-naslov">
       <h3 class="mod-podnaslov" id="rac-proba-naslov">Proba</h3>
       <div class="uv-tablica mod-tablica rac-tablica" role="table" aria-label="Proba računa po dosegu">
-        <div class="uv-glava mod-red rac-proba-red" role="row"><span role="columnheader">{{if .Dnevna}}Dan{{else}}Doseg{{end}}</span><span role="columnheader">Račun ({{.Jedinica}})</span>
+        {{$lanac := .Lanac}}<div class="uv-glava mod-red rac-proba-red{{if $lanac}} rac-proba-lanac{{end}}" role="row"><span role="columnheader">{{if .Dnevna}}Dan{{else}}Doseg{{end}}</span><span role="columnheader">{{if $lanac}}S izmjenom{{else}}Račun{{end}} ({{.Jedinica}})</span>
+          {{if $lanac}}<span role="columnheader">Sada ({{.Jedinica}})</span>{{end}}
           <span role="columnheader">Zadnje mjerenje ({{.Jedinica}})</span><span role="columnheader">Slučajeva</span><span role="columnheader">Ocjena</span></div>
-        {{$j := .Jedinica}}{{range .Dosezi}}<div class="uv-redak mod-red rac-proba-red" role="row">
+        {{$j := .Jedinica}}{{range .Dosezi}}<div class="uv-redak mod-red rac-proba-red{{if $lanac}} rac-proba-lanac{{end}}" role="row">
           <span role="cell">{{if .Dan}}{{.Dan}}. dan{{else}}+{{.Doseg}} h{{end}}</span>
-          <span role="cell" class="mod-broj" data-naslov="Račun ({{$j}})">{{.Racun}}</span>
+          <span role="cell" class="mod-broj" data-naslov="{{if $lanac}}S izmjenom{{else}}Račun{{end}} ({{$j}})">{{.Racun}}</span>
+          {{if $lanac}}<span role="cell" class="mod-broj" data-naslov="Sada ({{$j}})">{{.Sada}}</span>{{end}}
           <span role="cell" class="mod-broj" data-naslov="Zadnje mjerenje ({{$j}})">{{.BezModela}}</span>
           <span role="cell" class="mod-broj" data-naslov="Slučajeva">{{brojHR .Slucaja}}</span>
           <span role="cell"><span class="rac-cip{{with .Ocjena.Klasa}} {{.}}{{end}}">{{.Ocjena.Natpis}}</span></span>
@@ -179,6 +191,16 @@
       </div>
       <div class="form-help">{{if .Dnevna}}Model je naučen na arhivi prije razdoblja probe, a promašaj je izmjeren na svakom danu toga razdoblja{{if .Razdoblje}} ({{.Razdoblje}}){{end}}, koje nije vidio.{{else}}Promašaj je izmjeren unatrag, na izdanjima svakih 12 sati{{if .Razdoblje}} ({{.Razdoblje}}){{end}}.{{end}} „Račun” je koliko promaši prognoza iz računa, a „Zadnje mjerenje” koliko bi se promašilo da se kao prognoza uzme zadnji izmjereni vodostaj, tj. da voda stoji. Oba su promašaja ista mjera: što je broj manji, to bolje. Razlika manja od 10 % ne znači ništa, pa piše „Kao zadnje mjerenje”. Ispod 100 slučajeva račun nije provjeren.{{if .Kad}} Probano {{.Kad}}.{{end}}</div>
       {{range .Natpisi}}<div class="form-help rac-napomena">{{.}}.</div>{{end}}
+      {{if .Lanac}}
+      <h4 class="mod-podnaslov">Letve nizvodno</h4>
+      {{if .Nizvodno}}
+      <div class="form-help">„Sada” je promašaj računa kakav je danas u modelu, a „S izmjenom” isti promašaj kad se ova izmjena primijeni, oboje na istoj arhivi i istom razdoblju. Navedene su samo letve i dosezi na kojima se promašaj promijenio.</div>
+      <ul class="rac-povijest">
+        {{range .Nizvodno}}<li{{if .Losije}} class="rac-nizvodno-losije"{{end}}><span>{{.Ime}} · +{{.Doseg}} h</span><span>{{.Sada}} → {{.SIzmjenom}} {{.Jedinica}}{{if .Losije}} (lošije){{end}}</span></li>
+        {{end}}
+      </ul>
+      {{else}}<p>Nijednoj drugoj letvi promašaj se nije promijenio.</p>{{end}}
+      {{end}}
     </section>
     {{end}}
 
@@ -190,12 +212,12 @@
       <button type="submit" name="radnja" value="probaj" class="btn prog-obrub rac-samo-dnevni">{{if and .Dnevni .Proba}}Probaj ponovno{{else}}Probaj{{end}}</button>
       {{if .Kad}}<button type="submit" name="radnja" value="odbaci" class="btn btn-link" formnovalidate>Odbaci nacrt</button>{{end}}
     </div>
-    <p class="rac-samo-satni">Pripremi sprema nacrt i iz arhive namjesti kašnjenje po razinama; traje do nekoliko sekundi po letvi. Kad promijeniš račun, pripremi ga ponovno. Probaj mjeri pripremljeni račun unatrag i kaže je li pouzdaniji od zadnjeg mjerenja.</p>
+    <p class="rac-samo-satni">Pripremi sprema nacrt i iz arhive namjesti kašnjenje po razinama; traje do nekoliko sekundi po letvi. Kad promijeniš račun, pripremi ga ponovno. Probaj mjeri pripremljeni račun unatrag i kaže je li pouzdaniji od zadnjeg mjerenja.{{if .Glavna}} Za letvu glavnog lanca proba mjeri cijeli lanac dvaput, sadašnjim modelom i modelom s izmjenom, pa traje desetak minuta.{{end}}</p>
     <p class="rac-samo-dnevni">Probaj sprema nacrt, nauči dnevni model na arhivi bez zadnje dvije godine i izmjeri ga na te dvije godine (na jednoj, kad dana za učenje nema dosta). Dnevni model se ne priprema: računalo koje izdaje prognozu uči ga iz arhive jednom dnevno.</p>
     {{end}}
     <p class="mod-podnozje">Nacrt ostaje na ovom računalu i prognozu ne mijenja dok ga ne primijeniš.</p>
   </form>
-  {{if and $.SmijeUrediti .Proba}}
+  {{if and $.SmijeUrediti .Proba (not .Glavna)}}
   <form method="POST" action="/prognoze/model/racun" class="rac-obrazac rac-primjena">
     <input type="hidden" name="sektor" value="{{$.Sektor.ID}}">
     <input type="hidden" name="vodotok" value="{{$.Vodotok.Oznaka}}">

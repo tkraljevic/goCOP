@@ -339,3 +339,52 @@ func TestUrednikProbaDnevnogModela(t *testing.T) {
 		t.Errorf("opis bez probe: %q", s)
 	}
 }
+
+// Nacrt letve glavnog lanca proba se probom cijelog lanca, u dvije privremene
+// baze; sažetak kaže na koliko se još letvi promašaj promijenio.
+func TestUrednikProbaGlavneLetve(t *testing.T) {
+	pb, err := prognoza.Otvori(filepath.Join(t.TempDir(), "prognoze.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pb.Close()
+	stara := probajGlavniNacrt
+	t.Cleanup(func() { probajGlavniNacrt = stara })
+	var baze int
+	var greska error
+	ishod := prognoza.NacrtLetve{Proba: &prognoza.ProbaNacrta{Lanac: &prognoza.ProbaLanca{Nizvodno: []prognoza.PromjenaNizvodno{
+		{Letva: "belisce", Doseg: 24}, {Letva: "belisce", Doseg: 48}, {Letva: "osijek", Doseg: 24}}}}}
+	probajGlavniNacrt = func(_, _, prije, poslije *sql.DB, letva, kad string, korak func(string)) (prognoza.NacrtLetve, error) {
+		korak("mjerenje")
+		if prije != nil && poslije != nil && prije != poslije {
+			baze = 2
+		}
+		return ishod, greska
+	}
+	u := &urednikModela{pb: pb, mreza: &probneUloge{izdaje: true}}
+	posao := func() poslovi.Pogled {
+		t.Helper()
+		p := poslovi.NoviRegistar().Pokreni("proba", "", "/", func(p *poslovi.Posao) error { return u.ProbajNacrt("donji-miholjac", p) })
+		for range 400 {
+			if !p.Traje() {
+				break
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+		return p.Stanje()
+	}
+	if st := posao(); st.Greska != "" || baze != 2 || !strings.Contains(st.Sazetak, "promašaj se promijenio na još 2 letve") {
+		t.Errorf("proba letve glavnog lanca: %+v, baza %d", st, baze)
+	}
+	ishod.Proba.Lanac.Nizvodno = nil
+	if st := posao(); !strings.Contains(st.Sazetak, "ostalim letvama se promašaj nije promijenio") {
+		t.Errorf("proba bez promjena: %+v", st)
+	}
+	greska = errors.New("račun nije pripremljen; pripremi ga pa probaj")
+	if st := posao(); !strings.Contains(st.Greska, "nije pripremljen") {
+		t.Errorf("greška probe: %+v", st)
+	}
+	if s := opisProbeGlavnog(prognoza.NacrtLetve{}); s != "Proba je gotova." {
+		t.Errorf("opis bez probe: %q", s)
+	}
+}

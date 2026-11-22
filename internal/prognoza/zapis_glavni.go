@@ -178,18 +178,28 @@ func lanacSaZapisom(zapisi map[string]ZapisLetve, z ZapisLetve) map[string]Zapis
 	return lanac
 }
 
-// namjestiIzZapisa namješta račun letve glavnog lanca iz njezina retka: ulazi,
-// rezerve, razine i upisana kašnjenja su iz retka, a granice sati kao i ostatku
-// lanca. Vraća pojase svih inačica. Poziva se dok traje namještanje lanca.
-func namjestiIzZapisa(arhiva *sql.DB, z ZapisLetve, glavne map[string][][]Pojas) ([]Pojas, []string, error) {
+// namjestiGlavnu namješta račun letve glavnog lanca iz zapisa: ulazi, rezerve,
+// razine i upisana kašnjenja su iz zapisa, a granice sati kao i ostatku lanca.
+// Poziva se dok se drži namjestanjeTraje.
+func namjestiGlavnu(arhiva *sql.DB, z ZapisLetve, glavne map[string][][]Pojas) (PripremaLetve, error) {
 	if RijetkeLetve[z.Letva] {
 		defer postaviGraniceSati(100, 20)()
 	}
 	okvir := OkvirModela{Glavne: glavne,
 		ImaSatniProtok: func(letva string) bool { return ImaSatniProtok(context.Background(), arhiva, letva) }}
 	s := &pripremaRacuna{arhiva: arhiva, z: z, glavni: true, okvir: okvir}
-	inacice, _, _, napomene, err := s.namjestiInacice()
-	return slices.Concat(inacice...), napomene, err
+	inacice, ucenje, cvorovi, napomene, err := s.namjestiInacice()
+	if err != nil {
+		return PripremaLetve{}, err
+	}
+	z.Brojevi, z.Racun.Doseg = BrojeviLetve{Inacice: inacice}, najveciDosegZapisa
+	return PripremaLetve{Zapis: z, Ucenje: ucenje, Cvorovi: cvorovi, Napomene: napomene}, nil
+}
+
+// namjestiIzZapisa vraća pojase svih inačica računa iz zapisa i napomene.
+func namjestiIzZapisa(arhiva *sql.DB, z ZapisLetve, glavne map[string][][]Pojas) ([]Pojas, []string, error) {
+	p, err := namjestiGlavnu(arhiva, z, glavne)
+	return slices.Concat(p.Zapis.Brojevi.Inacice...), p.Napomene, err
 }
 
 // namjestiRacunLanca namješta jedan račun lanca: iz retka letve kad ga ima,
