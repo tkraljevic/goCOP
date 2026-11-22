@@ -188,6 +188,8 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"lanac uzimaju dnevni dio susjeda, istom "+
 				"težinom kao susjedi, a dalje samo njega. Srpske letve s našom prognozom (Bezdan, Apatin, Bačka "+
 				"Palanka) pokazuju isto što i letve s kojih je prenesena."),
+			tekstM("Letve izvan glavnog lanca, na primjer na Vuki, dobivaju račun složen na stranici Model "+
+				"prognoze: satni iz uzvodne letve ili dnevni model s kišom sliva."),
 			tekstM("Dnevna prognoza Batine, Aljmaša, Vukovara i Iloka ispravlja se i prema satnim mjerenjima "+
 				"Wildungsmauera i Achleitena u Austriji. Val koji su oni izmjerili stiže do Batine za oko pet dana, a "+
 				"dnevni model ga ne vidi, pa ispravak najviše mijenja 4.–6. dan. Ne spušta prognozu dok voda na "+
@@ -217,6 +219,8 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"U najvećim valovima ispravak prema Wildungsmaueru i Achleitenu ne pomaže: blizu vrha dnevna prognoza Batine 4.–6. dan ostaje preniska kao i bez njega, 50–55 cm u lipnju 2013. i rujnu 2024. Ranije u valu zna dići previsoko; kad digne više od "+uzvNapomena+" cm, to piše u napomeni uz izdanje.",
 				"U maloj vodi ispravak dnevnu prognozu Dunava 4.–6. dan u prosjeku malo podigne, a ondje je ona i bez njega malo previsoka: srednja pogreška raste s oko +2 na +4 cm, 2022. sa +7 na +9 cm. U provjeri po godinama ukupna pogreška bila je i tada manja nego bez ispravka, ali prvi tjedni u maloj vodi mogu izgledati lošije.",
 				"Vrijednost izvan svega viđenoga u arhivi model procjenjuje produženjem zadnjeg pravca; pri rekordnoj vodi budite oprezni.",
+				"Na donjoj Vuki uspor Dunava model vidi samo kroz promjene vodostaja Vukovara, ne kroz samu razinu Dunava.",
+				"Letve kojima je mjerni uređaj u kvaru (sada Beketinci i Tordinci) nisu u modelu do popravka.",
 				"Prognoza kiše iz Open-Meteo je jedina. Kad izostane, dnevni model radi bez kiše i to piše uz izdanje.",
 				"Kad gore u lancu nešto ne radi, upozorenje kaže za koliko sati satna prognoza može postati manje točna. To je najranije što se može dogoditi, a stvarno bude i kasnije."),
 		),
@@ -270,8 +274,10 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 			tekstM("Oborina: kvazi-kišomjeri registra slivova po međuslivovima između letvi (Drava A–G, Dunav H–J "+
 				"od Komároma do Aljmaša, gornji Dunav K–O od Bavarske do Komároma, Mura B), po visinskim pojasima. "+
 				"Povijest je reanaliza ERA5 (Open-Meteo) od 1990.; uživo zadnjih sedam dana daje analiza, a "+
-				"sljedećih sedam prognoza Open-Meteo, preuzeta svaki sat. Pravi kišomjeri služe za usporedbu i u "+
-				"prognozu ne ulaze."),
+				"sljedećih sedam prognoza Open-Meteo, preuzeta svaki sat. Glavni lanac Drave i Dunava kišu "+
+				"pravih kišomjera ne uzima. Dnevni model letve izvan glavnog lanca može uz kišu međusliva uzeti i "+
+				"kišu jednog stvarnog kišomjera. Kišomjer uz letvu, poput Borovika, očitava se ujutro uz letvu, a "+
+				"kiša vrijedi za prethodni dan."),
 		),
 		detaljiM("Satni lanac — građa i procjena",
 			tekstM("Postaje su složene u lanac niz tok. Svaka postaja y ima glavni ulaz x₁, uzvodnu postaju na istoj "+
@@ -514,6 +520,9 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 		),
 		detaljiM("Što je novo",
 			popisM(
+				"22. 11. 2026. — kiša ručnog kišomjera uz letvu (Borovik) upisuje se uz jutarnje očitanje letve i vrijedi za prethodni dan.",
+				"22. 11. 2026. — Vuka ima prognozu: Borovik, Bračevci, Vuka i Hrastin računaju se dnevnim modelom s kišom sliva P, a Bračevci, Vuka i Hrastin i iz uzvodnih letvi.",
+				"22. 11. 2026. — model prognoze mijenja se sa stranice Model prognoze, bez novog izdanja programa: za novu letvu, za letve Drave i Dunava i za njihov dnevni model.",
 				"25. 10. 2026. — u detaljima je novo poglavlje Znanstveni radovi i literatura: što radovi potvrđuju u našim brojkama, što iz njih možemo primijeniti, a što ne.",
 				"24. 10. 2026. — dnevna prognoza Batine, Aljmaša, Vukovara i Iloka ispravlja se prema satnim mjerenjima Wildungsmauera i Achleitena; 4.–6. dan griješi oko 2,5 cm manje; uz izdanje piše kad ispravak radi samo prema Wildungsmaueru ili ga nema, i kad digne prognozu za više od "+uzvNapomena+" cm.",
 				"22. 10. 2026. — kiša ulazi u satni lanac Dunava: Komárom i Budimpešta imaju dnevni model s kišom i ugađanje u samom lancu (oznaka ds), pa kišu nose i letve nizvodno; Batina za 96 sati griješi 2,7 cm manje, a kad voda raste 5 cm manje; mađarske letve od Esztergoma do Mohácsa dnevni dio posuđuju od susjeda (oznaka p); profil Dunava kreće od Komároma.",
