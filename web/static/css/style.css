@@ -11274,3 +11274,12 @@ td .odr-sitno { margin-top: 2px; }
 .rac-izbor label { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; }
 .rac-gumbi { display: flex; flex-wrap: wrap; gap: 8px; }
 .rac-obrazac > p { margin: 0; font-size: 0.875rem; line-height: 1.5; color: var(--md-sys-color-on-surface-variant, var(--text-secondary)); }
+.rac-tablica .rac-red { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 96px minmax(0, 0.8fr) 90px 80px 70px; }
+.rac-tablica .rac-bez { grid-column: 2 / -1; color: var(--md-sys-color-on-surface-variant); }
+.rac-rucno { width: 84px; min-height: 36px; padding: 4px 8px; }
+.rac-napomena { color: var(--md-sys-color-on-surface); }
+@media (max-width: 600px) {
+  .rac-tablica .rac-red { grid-template-columns: minmax(0, 1fr) auto; }
+  .rac-tablica .rac-red > :first-child, .rac-tablica .rac-bez { grid-column: 1 / -1; }
+  .rac-tablica .rac-red > :first-child { font-weight: 500; }
+}

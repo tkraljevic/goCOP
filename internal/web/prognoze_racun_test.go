@@ -10,10 +10,12 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
 	"gocop/internal/models"
+	"gocop/internal/poslovi"
 	"gocop/internal/prognoza"
 )
 
@@ -25,6 +27,8 @@ type probniUrednik struct {
 	spremljeni []prognoza.NacrtLetve
 	obrisani   []string
 	greska     error
+	// pripremljeni prima letvu čiju je pripremu posao pokrenuo
+	pripremljeni chan string
 }
 
 func (u *probniUrednik) Izdaje() bool { return u.izdaje }
@@ -35,6 +39,11 @@ func (u *probniUrednik) SpremiNacrt(n prognoza.NacrtLetve) error {
 func (u *probniUrednik) ObrisiNacrt(letva string) error {
 	u.obrisani = append(u.obrisani, letva)
 	return u.greska
+}
+func (u *probniUrednik) PripremiNacrt(letva string, p *poslovi.Posao) error {
+	u.pripremljeni <- letva
+	p.Zavrsi("Račun je pripremljen.", nil)
+	return nil
 }
 
 // rukovateljRacuna ima potok s tri letve u sektoru B i bazu prognoza u kojoj je
@@ -74,7 +83,7 @@ func rukovateljRacuna(t *testing.T) (*PrognozeHandler, *probniUrednik) {
 	}
 	t.Cleanup(func() { _ = c.Close() })
 	h.citac = func() *CitacPrognoza { return c }
-	u := &probniUrednik{izdaje: true}
+	u := &probniUrednik{izdaje: true, pripremljeni: make(chan string, 4)}
 	h.SetUrednikModela(u, predlozakStranice(t, "prognoze_racun.html"))
 	return h, u
 }
@@ -326,14 +335,17 @@ func TestSitniceSlaganjaRacuna(t *testing.T) {
 		t.Error("izbor bez registra")
 	}
 	u := urednikIliNista(&Server{})
-	if u.Izdaje() || u.SpremiNacrt(prognoza.NacrtLetve{}) != errBezUrednika || u.ObrisiNacrt("a") != errBezUrednika {
+	if u.Izdaje() || u.SpremiNacrt(prognoza.NacrtLetve{}) != errBezUrednika || u.ObrisiNacrt("a") != errBezUrednika ||
+		u.PripremiNacrt("a", nil) != errBezUrednika {
 		t.Error("poslužitelj bez urednika ne izdaje i ne sprema")
 	}
-	p := &probniUrednik{izdaje: true}
+	p := &probniUrednik{izdaje: true, pripremljeni: make(chan string, 1)}
 	s := &Server{}
 	s.SetUrednikModela(p)
 	u = urednikIliNista(s)
-	if !u.Izdaje() || u.SpremiNacrt(prognoza.NacrtLetve{}) != nil || u.ObrisiNacrt("a") != nil || len(p.spremljeni) != 1 || len(p.obrisani) != 1 {
+	posao := poslovi.NoviRegistar().Pokreni("proba", "", "/", func(*poslovi.Posao) error { return nil })
+	if !u.Izdaje() || u.SpremiNacrt(prognoza.NacrtLetve{}) != nil || u.ObrisiNacrt("a") != nil || len(p.spremljeni) != 1 || len(p.obrisani) != 1 ||
+		u.PripremiNacrt("a", posao) != nil || <-p.pripremljeni != "a" {
 		t.Error("poslužitelj s urednikom predaje dalje")
 	}
 }
@@ -353,5 +365,147 @@ func TestNacrtiIzZatvoreneBaze(t *testing.T) {
 	}
 	if c.NacrtiModela() != nil {
 		t.Error("zatvorena baza prognoza")
+	}
+}
+
+// Pripremi sprema nacrt iz obrasca i pokreće pripremu kao posao, uz stranicu koja
+// ga prati i vraća na račun letve. Nacrt koji ne prođe provjeru ne pokreće posao.
+func TestPripremiNacrtRacuna(t *testing.T) {
+	h, u := rukovateljRacuna(t)
+	h.SetPripremaModela(nil, nil, poslovi.NoviRegistar(), predlozakStranice(t, "posao.html"))
+	admin := &models.UserPermissions{IsGlobalAdmin: true}
+	f := url.Values{"sektor": {"B"}, "vodotok": {oznakaImena("Potok Lug")}, "letva": {"potok-gornji"}, "radnja": {"pripremi"},
+		"velicina": {"vodostaj"}, "ulaz": {"donji-miholjac"}}
+	w := httptest.NewRecorder()
+	h.SpremiRacun(w, zahtjevOsobe(http.MethodPost, "/prognoze/model/racun", f.Encode(), admin))
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Priprema računa: Gornji Lug") ||
+		!strings.Contains(w.Body.String(), "letva=potok-gornji") {
+		t.Fatalf("stranica posla: %d", w.Code)
+	}
+	select {
+	case letva := <-u.pripremljeni:
+		if letva != "potok-gornji" || len(u.spremljeni) != 1 {
+			t.Errorf("priprema letve %q, spremljeno %d nacrta", letva, len(u.spremljeni))
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("posao pripreme nije pokrenut")
+	}
+	u.greska = errors.New("letva nema sektor; upiši ga u obrascu letve")
+	if lok := posaljiRacun(h, f, admin, false); !strings.Contains(lok, "Letva nema sektor") {
+		t.Errorf("nacrt koji ne prolazi provjeru: %q", lok)
+	}
+	select {
+	case letva := <-u.pripremljeni:
+		t.Errorf("odbijen nacrt je pokrenuo pripremu letve %q", letva)
+	default:
+	}
+}
+
+// Tablica razina iz pripremljenog nacrta: granice, kašnjenje po ulazu, ručno,
+// prozor, slaganje i sati. Razina bez pojasa nije dobila račun, a model bez
+// granica pokazuje same pojase.
+func TestTablicaRazinaRacuna(t *testing.T) {
+	pojas := func(od, do float64, sati int, nepovezan bool) prognoza.Pojas {
+		return prognoza.Pojas{Od: od, Do: do, Sati: sati, R: 0.876, Nepovezan: nepovezan, Ulazi: []prognoza.Ulaz{
+			{Letva: "a", PomakH: 9, Sirina: 3}, {Letva: "b", PomakH: 30, Sirina: 1}}}
+	}
+	z := prognoza.ZapisLetve{Velicina: "vodostaj", Racun: prognoza.RacunLetve{Ulazi: []string{"a", "b"}, Doseg: 9,
+		Rucno: prognoza.RucnoLetve{Kasnjenje: []prognoza.RucnoKasnjenje{{Razina: 1, Sati: 6}}}},
+		Brojevi: prognoza.BrojeviLetve{Inacice: [][]prognoza.Pojas{{pojas(10, 40, 3100, false), pojas(40, 90, 2700, true), pojas(150, 300, 900, false)}}}}
+	redci := razineRacuna(z, []float64{10, 40, 90, 150, 300})
+	if len(redci) != 4 {
+		t.Fatalf("redaka %d", len(redci))
+	}
+	if r := redci[0]; r.Broj != 1 || r.Granica != "do 40 cm" || r.Kasnjenje != "9 h + 30 h" || r.Prozor != "3 h + 1 h" || r.Slaganje != "0,88" ||
+		r.Sati != 3100 || !r.Racuna || r.BezRacuna || r.Rucno != "" {
+		t.Errorf("prva razina %+v", r)
+	}
+	if r := redci[1]; r.Granica != "40–90 cm" || r.Racuna || r.Rucno != "6" {
+		t.Errorf("isključena razina s ručnim kašnjenjem %+v", r)
+	}
+	if r := redci[2]; !r.BezRacuna || r.Granica != "90–150 cm" || r.Kasnjenje != "" {
+		t.Errorf("razina bez računa %+v", r)
+	}
+	if r := redci[3]; r.Granica != "iznad 150 cm" || r.Sati != 900 {
+		t.Errorf("najviša razina %+v", r)
+	}
+	// razine se mjere na ulazu: ulaz u protoku daje granice u m³/s i kad letva računa u vodostaju
+	for i := range z.Brojevi.Inacice[0] {
+		z.Brojevi.Inacice[0][i].Ulazi[0].Velicina = "protok"
+	}
+	if redci := razineRacuna(z, nil); len(redci) != 3 || redci[0].Granica != "do 40 m³/s" || redci[2].Granica != "iznad 150 m³/s" {
+		t.Errorf("model bez granica pripreme: %+v", redci)
+	}
+	z.Brojevi.Inacice = [][]prognoza.Pojas{{pojas(-1000, 1000, 400, false)}}
+	if redci := razineRacuna(z, nil); len(redci) != 1 || redci[0].Granica != "sva voda" {
+		t.Errorf("jedna razina: %+v", redci)
+	}
+	if velicinaUlaza(nil, "protok") != "protok" || velicinaUlaza([]prognoza.Pojas{{}}, "vodostaj") != "vodostaj" {
+		t.Error("bez pojasa ili ulaza vrijedi veličina računa")
+	}
+	z.Brojevi.Inacice = [][]prognoza.Pojas{{}}
+	if razineRacuna(z, nil) != nil || razineRacuna(prognoza.ZapisLetve{}, nil) != nil {
+		t.Error("račun bez razina nema tablicu")
+	}
+	if opisUcenja(prognoza.UcenjeRacuna{}, "vodostaj") != "" ||
+		opisUcenja(prognoza.UcenjeRacuna{Sati: 26100, Od: 35, Do: 337}, "vodostaj") != "Račun je učio na 26.100 sati, na vodi od 35 do 337 cm." {
+		t.Error("opis učenja")
+	}
+}
+
+// Tablica u obrascu: razina bez kvačice je isključena, upisani sati su ručno
+// kašnjenje, a razina koja nema račun ne može se isključiti. Bez tablice na
+// stranici ostaje što je bilo.
+func TestRazineIzTabliceObrasca(t *testing.T) {
+	stari := prognoza.ZapisLetve{Racun: prognoza.RacunLetve{Razine: prognoza.RazineLetve{Iskljucene: []int{0}},
+		Rucno: prognoza.RucnoLetve{Kasnjenje: []prognoza.RucnoKasnjenje{{Razina: 0, Sati: 2}}}}}
+	bez, err := zapisIzObrasca(url.Values{"razine_nacin": {"zadano"}}, "potok-srednji", stari)
+	if err != nil || !slices.Equal(bez.Racun.Razine.Iskljucene, []int{0}) || len(bez.Racun.Rucno.Kasnjenje) != 1 {
+		t.Errorf("bez tablice ostaje staro: %+v, %v", bez.Racun, err)
+	}
+	f := url.Values{"razine_nacin": {"zadano"}, "razina": {"4"}, "racuna": {"0", "3"},
+		"ima_racun_0": {"1"}, "ima_racun_1": {"1"}, "ima_racun_3": {"1"}, "rucno_1": {" 6 "}, "rucno_3": {"0"}}
+	z, err := zapisIzObrasca(f, "potok-srednji", stari)
+	if err != nil || !slices.Equal(z.Racun.Razine.Iskljucene, []int{1}) ||
+		!slices.Equal(z.Racun.Rucno.Kasnjenje, []prognoza.RucnoKasnjenje{{Razina: 1, Sati: 6}, {Razina: 3, Sati: 0}}) {
+		t.Errorf("iz tablice: %+v, %v", z.Racun, err)
+	}
+	for _, los := range []string{"šest", "-2", "1.5"} {
+		f.Set("rucno_1", los)
+		if _, err := zapisIzObrasca(f, "potok-srednji", stari); err == nil || !strings.Contains(err.Error(), "razine 2") {
+			t.Errorf("%q: %v", los, err)
+		}
+	}
+	f.Set("razina", "mnogo")
+	if z, err := zapisIzObrasca(f, "potok-srednji", stari); err != nil || !slices.Equal(z.Racun.Razine.Iskljucene, []int{0}) {
+		t.Errorf("neispravan broj redaka: %+v, %v", z.Racun, err)
+	}
+}
+
+// Pripremljen nacrt na stranici: tablica razina s poljem za ručno kašnjenje i
+// kvačicom, napomene pripreme i gumb „Pripremi ponovno”.
+func TestStranicaPripremljenogRacuna(t *testing.T) {
+	h, _ := rukovateljRacuna(t)
+	r := zahtjevOsobe(http.MethodGet, "/prognoze/model/racun", "", &models.UserPermissions{IsGlobalAdmin: true})
+	data := RacunPrognozePageData{PrognozePageData: h.zaglavlje(r), Sektor: SektorPrognoze{ID: "B", Ime: "Dunav i donja Drava"},
+		Vodotok: VodotokPrognoze{Oznaka: "potok-lug", Ime: "Potok Lug"}, SmijeUrediti: true,
+		Obrazac: &ObrazacRacuna{Kod: "potok-srednji", Ime: "Srednji Lug", Stanje: oznakaNacrt, Velicina: "vodostaj",
+			Ulazi: []string{"potok-gornji", ""}, Rezerve: []string{"", ""}, NacinRazina: razineZadane, Kad: "22. 11. 2026. 08:00",
+			Pripremljen: "22. 11. 2026. 08:01", Doseg: 9, Ucenje: "Račun je učio na 9.000 sati, na vodi od 10 do 300 cm.",
+			Napomene: []string{"Razina od 90 do 150 nema račun."},
+			Redci: []RazinaRacuna{{Broj: 1, Granica: "do 40 cm", Kasnjenje: "9 h", Prozor: "3 h", Slaganje: "0,88", Sati: 3100, Racuna: true},
+				{Broj: 2, Granica: "40–90 cm", Kasnjenje: "7 h", Rucno: "6", Prozor: "3 h", Slaganje: "0,91", Sati: 2700},
+				{Broj: 3, Granica: "iznad 90 cm", BezRacuna: true}}}}
+	w := httptest.NewRecorder()
+	if err := h.racunTmpl.ExecuteTemplate(w, "prognoze_racun.html", data); err != nil {
+		t.Fatal(err)
+	}
+	html := w.Body.String()
+	redom(t, html, "Razine i vrijeme propagacije", `name="razina" value="3"`, "Razina (voda na ulazu)", "1. do 40 cm", `name="rucno_0" value=""`,
+		"3.100", `name="racuna" value="0" checked`, "2. 40–90 cm", `name="rucno_1" value="6"`, `name="racuna" value="1" aria-label`,
+		"3. iznad 90 cm", "Nema račun: premalo sati", "Račun računa do 9 h unaprijed.", "Pripremljeno 22. 11. 2026. 08:01.",
+		"Razina od 90 do 150 nema račun.", "Pripremi ponovno")
+	if strings.Contains(html, `name="rucno_2"`) || strings.Contains(html, `name="ima_racun_2"`) {
+		t.Error("razina bez računa nema polja")
 	}
 }

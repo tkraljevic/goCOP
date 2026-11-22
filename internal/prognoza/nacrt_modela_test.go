@@ -111,6 +111,9 @@ func TestNacrtGreske(t *testing.T) {
 		if _, err := Nacrti(baza); err == nil {
 			t.Errorf("%s: čitanje mora javiti grešku", opis)
 		}
+		if err := SpremiNacrt(baza, nacrtPotoka(), OkvirModela{}); err == nil {
+			t.Errorf("%s: spremanje mora javiti grešku, jer se zatečeni nacrt ne da pročitati", opis)
+		}
 	}
 	if _, err := baza.Exec(`DROP TABLE model_nacrt`); err != nil {
 		t.Fatal(err)
@@ -136,5 +139,99 @@ func TestNacrtGreske(t *testing.T) {
 	}
 	if err := SpremiNacrt(zatvorena, nacrtPotoka(), OkvirModela{}); err == nil {
 		t.Error("spremanje u zatvorenu bazu mora javiti grešku")
+	}
+}
+
+// Priprema nacrta upiše brojeve, doseg i granice razina u isti nacrt, a model ne
+// dira. Spremanje iste definicije ih čuva, a promijenjene briše.
+func TestPripremiNacrt(t *testing.T) {
+	postavi(t, &NajveciPomak, 8)
+	arhiva, baza := arhivaPotoka(t, nil), otvoriProbnu(t, "p.db")
+	if _, err := PripremiNacrt(arhiva, baza, "potok-dole", "sada", OkvirModela{}); !porukaIma(err, "nema nacrt") {
+		t.Errorf("priprema bez nacrta: %v", err)
+	}
+	if err := SpremiNacrt(baza, nacrtPotoka(), OkvirModela{}); err != nil {
+		t.Fatal(err)
+	}
+	n, err := PripremiNacrt(arhiva, baza, "potok-dole", "22. 11. 2026. 08:00", OkvirModela{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n.Priprema == nil || n.Priprema.Kad != "22. 11. 2026. 08:00" || len(n.Priprema.Cvorovi) != 5 || n.Priprema.Ucenje.Sati == 0 ||
+		len(n.Zapis.Brojevi.Inacice) != 1 || len(n.Zapis.Brojevi.Inacice[0]) != 4 || n.Zapis.Racun.Doseg != 5 || n.Tko != "Iva Proba" {
+		t.Fatalf("pripremljen nacrt %+v", n)
+	}
+	procitaj := func() NacrtLetve {
+		t.Helper()
+		svi, err := Nacrti(baza)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return svi["potok-dole"]
+	}
+	if u := procitaj(); u.Priprema == nil || len(u.Zapis.Brojevi.Inacice) != 1 || u.Zapis.Racun.Doseg != 5 {
+		t.Errorf("priprema nije upisana u nacrt: %+v", u)
+	}
+	if zapisi, _, err := ZapisiLetvi(baza); err != nil || len(zapisi) != 0 {
+		t.Errorf("priprema nacrta je dirala model: %v, %v", zapisi, err)
+	}
+	// ista definicija, drugi čovjek: priprema ostaje
+	isti := nacrtPotoka()
+	isti.Tko = "Marko Primjer"
+	if err := SpremiNacrt(baza, isti, OkvirModela{}); err != nil {
+		t.Fatal(err)
+	}
+	if u := procitaj(); u.Priprema == nil || u.Zapis.Racun.Doseg != 5 || u.Tko != "Marko Primjer" {
+		t.Errorf("ista definicija mora zadržati pripremu: %+v", u)
+	}
+	// druga definicija: priprema više ne vrijedi
+	drugi := nacrtPotoka()
+	drugi.Zapis.Racun.Rucno.Kasnjenje = []RucnoKasnjenje{{Razina: 0, Sati: 3}}
+	if err := SpremiNacrt(baza, drugi, OkvirModela{}); err != nil {
+		t.Fatal(err)
+	}
+	if u := procitaj(); u.Priprema != nil || len(u.Zapis.Brojevi.Inacice) != 0 || u.Zapis.Racun.Doseg != 0 {
+		t.Errorf("promijenjena definicija mora izgubiti pripremu: %+v", u)
+	}
+	// priprema koja ne uspije ne mijenja nacrt
+	los := nacrtPotoka()
+	los.Zapis.Racun.Ulazi = []string{"nema-je-u-arhivi"}
+	if err := SpremiNacrt(baza, los, OkvirModela{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PripremiNacrt(arhiva, baza, "potok-dole", "sada", OkvirModela{}); err == nil {
+		t.Error("priprema iz ulaza kojeg nema u arhivi mora javiti grešku")
+	}
+	if u := procitaj(); u.Priprema != nil {
+		t.Errorf("neuspjela priprema je upisana: %+v", u)
+	}
+	if err := baza.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PripremiNacrt(arhiva, baza, "potok-dole", "sada", OkvirModela{}); err == nil {
+		t.Error("zatvorena baza mora javiti grešku")
+	}
+}
+
+// Dva zapisa su ista definicija kad se slažu u veličini i računu; doseg i brojevi
+// se ne gledaju.
+func TestIstaDefinicija(t *testing.T) {
+	a, b := zapisZaPripremu("potok-vrh"), zapisZaPripremu("potok-vrh")
+	b.Racun.Doseg, b.Brojevi = 12, BrojeviLetve{Razdoblje: []string{"x"}}
+	if !istaDefinicija(a, b) {
+		t.Error("doseg i brojevi ne mijenjaju definiciju")
+	}
+	for ime, izmjena := range map[string]func(*ZapisLetve){
+		"veličina":   func(z *ZapisLetve) { z.Velicina = "protok" },
+		"ulaz":       func(z *ZapisLetve) { z.Racun.Ulazi = []string{"potok-drugi"} },
+		"rezerva":    func(z *ZapisLetve) { z.Racun.Rezerve = [][]string{{"potok-drugi"}} },
+		"razine":     func(z *ZapisLetve) { z.Racun.Razine.Granice = []float64{100} },
+		"isključena": func(z *ZapisLetve) { z.Racun.Razine.Iskljucene = []int{1} },
+	} {
+		c := zapisZaPripremu("potok-vrh")
+		izmjena(&c)
+		if istaDefinicija(a, c) {
+			t.Errorf("%s: definicija se promijenila", ime)
+		}
 	}
 }

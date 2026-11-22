@@ -33,6 +33,9 @@ type PripremaLetve struct {
 	Zapis    ZapisLetve   // zadani zapis s brojevima i dosegom
 	Ucenje   UcenjeRacuna // voda i vrijeme na kojima je učila glavna inačica
 	Napomene []string     // što nije dobilo račun, a ne ruši pripremu
+	// Cvorovi su granice razina, od najniže vode do najviše; prazno uz ručni
+	// račun, koji ima jednu razinu. Po njima se zna koja je razina koji pojas.
+	Cvorovi []float64
 }
 
 // pripremaRacuna drži ono što priprema jedne letve čita više puta.
@@ -129,7 +132,7 @@ func (s *pripremaRacuna) pripremi() (PripremaLetve, error) {
 	if err := provjeriUpis(s.zapisi, s.pokvareni, z, s.okvir); err != nil {
 		return PripremaLetve{}, err
 	}
-	return PripremaLetve{Zapis: z, Ucenje: ucenje,
+	return PripremaLetve{Zapis: z, Ucenje: ucenje, Cvorovi: razine.cvorovi,
 		Napomene: append(append(napomenaRucnog, razine.napomene(glavna)...), napomene...)}, nil
 }
 

@@ -2,8 +2,12 @@ package main
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"gocop/internal/peers"
 	"gocop/internal/poslovi"
@@ -73,5 +77,49 @@ func TestUkljuciModel(t *testing.T) {
 	uloge.izdaje = true
 	if !p.urednik.Izdaje() {
 		t.Error("urednik mora vidjeti promjenu uloge")
+	}
+}
+
+// Priprema nacrta ide samo na računalu koje izdaje, a posao na kraju kaže koliko
+// razina računa i dokle. Greška pripreme je greška posla.
+func TestUrednikPripremaNacrt(t *testing.T) {
+	uloge := &probneUloge{}
+	u := &urednikModela{mreza: uloge}
+	stara := pripremiNacrt
+	t.Cleanup(func() { pripremiNacrt = stara })
+	var trazena string
+	ishod := prognoza.NacrtLetve{Zapis: prognoza.ZapisLetve{Racun: prognoza.RacunLetve{Doseg: 9},
+		Brojevi: prognoza.BrojeviLetve{Inacice: [][]prognoza.Pojas{{{}, {}, {}}}}}}
+	var greska error
+	pripremiNacrt = func(_, _ *sql.DB, letva, kad string, _ prognoza.OkvirModela) (prognoza.NacrtLetve, error) {
+		trazena = letva + " " + kad
+		return ishod, greska
+	}
+	posao := func(f func(*poslovi.Posao) error) poslovi.Pogled {
+		t.Helper()
+		p := poslovi.NoviRegistar().Pokreni("proba", "", "/", f)
+		for range 200 {
+			if !p.Traje() {
+				break
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+		return p.Stanje()
+	}
+	pripremi := func(p *poslovi.Posao) error { return u.PripremiNacrt("potok-dole", p) }
+	if st := posao(pripremi); !strings.Contains(st.Greska, "računalu koje izdaje") || trazena != "" {
+		t.Errorf("računalo koje ne izdaje: %+v", st)
+	}
+	uloge.izdaje = true
+	if st := posao(pripremi); st.Greska != "" || !strings.Contains(st.Sazetak, "razina s računom 3, računa do 9 h unaprijed") ||
+		!strings.HasPrefix(trazena, "potok-dole ") || len(trazena) < len("potok-dole 1. 1. 2026. 00:00") {
+		t.Errorf("priprema: %+v, tražena %q", st, trazena)
+	}
+	greska = errors.New("namještanje modela već traje; pokušaj kad završi")
+	if st := posao(pripremi); !strings.Contains(st.Greska, "već traje") {
+		t.Errorf("greška pripreme: %+v", st)
+	}
+	if s := opisPripremeNacrta(prognoza.NacrtLetve{}); !strings.Contains(s, "razina s računom 0") {
+		t.Errorf("opis praznog nacrta: %q", s)
 	}
 }
