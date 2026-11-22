@@ -4,6 +4,50 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.62-alfa — 22. 11. 2026.
+
+Model prognoze sad se slaže i mijenja sa stranice, bez novog izdanja: za
+novu letvu, za letve Drave i Dunava i za njihov dnevni model. Baza dobiva
+četiri stupca, koje program doda sam pri pokretanju. Zapisi modela putuju
+razmjenom. Zato se prvo nadograđuje računalo koje izdaje prognozu, a model
+se mijenja tek kad su sva računala na ovom izdanju: starije izdanje zapis
+letve preskače.
+
+- **Model prognoze.** Stranica Model prognoze pokazuje vodotoke po
+  sektorima i što kojoj letvi fali za račun. Na stranici Računi letvi račun
+  se slaže u obrascu: ulazi, rezerve, razine vode i kašnjenje. Sprema se
+  kao nacrt, priprema iz arhive i proba unatrag. Tek proban račun se
+  primjenjuje, uz obavezan razlog, a prethodni se vraća jednim gumbom.
+- **Ocjena probe.** Proba uspoređuje račun s onim što bi se dobilo da se
+  kao prognoza uzme zadnje mjerenje, istom mjerom. Uz svaki doseg piše
+  „Pouzdanije od zadnjeg mjerenja”, „Kao zadnje mjerenje”, „Zadnje mjerenje
+  je pouzdanije” ili „Nije provjereno”.
+- **Letva s malo arhive** dobiva ručni račun: upisano kašnjenje i nagib.
+- **Dnevni model s kišom za rječice.** Letva izvan glavnog lanca može
+  umjesto satnog računa dobiti dnevni model: iz uzvodnih letvi i kiše sliva
+  daje vodostaj za šest dana. Treba 900 dana arhive. Uz kišu međusliva može
+  se izabrati i kiša jednog stvarnog kišomjera.
+- **Letve Drave i Dunava.** I njima se sa stranice mijenjaju ulazi, rezerve
+  i razine. Proba mjeri cijeli lanac sadašnjim modelom i modelom s izmjenom
+  i pokazuje letve nizvodno kojima se promašaj promijenio. Primjena odmah
+  izdaje prognozu, a ako izdavanje ne uspije, vraća model kakav je bio.
+  Gumb Pripremi model slaže model u privremenoj bazi, pa prekinuta priprema
+  ne ostavlja pola modela.
+- **Dnevni model Drave i Dunava.** Ulazi, međuslivovi i dan od kojeg
+  dnevni model vrijedi mijenjaju se u zasebnom obrascu, uz probu na zadnje
+  dvije godine arhive.
+- **Očitanja.** Vodostaj preuzet s mjernog uređaja ispravlja se po ručnom
+  očitanju kad dva ručna očitanja zaredom pokažu odstupanje. Izvorni
+  vodostaj se čuva, a kod odstupanja od 10 cm i više piše da mjerni uređaj
+  treba ispraviti na terenu.
+- **Djelatnici.** Promjene ovlasti vide se u Događanjima, s imenom onoga
+  tko ih je mijenjao. Na djelatniku se upisuje odlazak iz službe.
+- **Vodotoci.** U obrazac se upisuje red vode i skupina.
+- **Arhiva.** Od svake letve ostaju zadnja dva izdanja paketa; stariji se
+  brišu pri pokretanju i svakih šest sati. Nizovi i snimke primljeni
+  paketom nisu više „bez datoteke”, a preračun se u Izvorima arhive ne
+  prikazuje kao isključen.
+
 ## 0.0.61-alfa — 20. 11. 2026.
 
 Administracija je dobila novo ponašanje iz crteža: odbijenicu, stranicu
