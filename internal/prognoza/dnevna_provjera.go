@@ -19,6 +19,10 @@ import (
 // NatpisTocnaKisa stoji uz mjeru dnevnog modela s kišom.
 const NatpisTocnaKisa = "Mjereno uz kišu koja je stvarno pala, a ne uz prognozu kiše"
 
+// NatpisKratkoUcenje stoji uz mjeru modela koji je učio na manje dana nego što
+// traži dnevni model letve iz programa.
+const NatpisKratkoUcenje = "Model je učio na kratkoj arhivi, pa veliku vodu možda nije vidio"
+
 // MjeraDana je promašaj dnevnog modela za jedan dan unaprijed.
 type MjeraDana struct {
 	Dan       int
@@ -79,6 +83,9 @@ func ProvjeriDnevni(nizovi map[string]DnevniNiz, c DnevniCilj, granica, kraj int
 	}
 	if len(c.Slivovi) > 0 {
 		out.Natpisi = append(out.Natpisi, NatpisTocnaKisa)
+	}
+	if out.DanaUcenja < NajmanjeDanaDnevnog {
+		out.Natpisi = append(out.Natpisi, NatpisKratkoUcenje)
 	}
 	return out, nil
 }

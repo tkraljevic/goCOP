@@ -324,7 +324,7 @@ func TestNacrtDnevnogModela(t *testing.T) {
 		t.Errorf("promijenjena definicija mora izgubiti probu: %v", err)
 	}
 	// uz dvije godine odvojene za mjerenje srednja nema dosta dana, pa se mjeri na jednoj
-	upisiDnevne(t, arhiva, "srednja", "vodostaj", 3400, func(d int64) float64 { return valIzmisljeni(d-1) + 7 })
+	upisiDnevne(t, arhiva, "srednja", "vodostaj", 1500, func(d int64) float64 { return valIzmisljeni(d-1) + 7 })
 	if err := SpremiNacrt(baza, NacrtLetve{Zapis: dnevniZapis(t, "srednja", []string{"gornja"}, nil)}, OkvirModela{}); err != nil {
 		t.Fatal(err)
 	}
@@ -386,5 +386,34 @@ func TestNacrtDnevnogModela(t *testing.T) {
 	}
 	if zadnjiDan(nil) != 0 {
 		t.Error("prazan niz nema zadnjeg dana")
+	}
+}
+
+// Letva iz zapisa smije učiti na kraćoj arhivi od letve upisane u programu: s
+// tisuću dana dnevni model iz zapisa se nauči, a isti cilj bez te oznake ne. Uz
+// probu modela koji je učio na kratkoj arhivi stoji natpis.
+func TestKracaArhivaZaLetvuIzZapisa(t *testing.T) {
+	ulaz, cilj := DnevniNiz{}, DnevniNiz{}
+	for d := int64(0); d < 1500; d++ {
+		ulaz[d], cilj[d] = valIzmisljeni(d), valIzmisljeni(d-2)+20
+	}
+	nizovi := map[string]DnevniNiz{"donja": cilj, "gornja": ulaz}
+	izZapisa, err := dnevniZapis(t, "donja", []string{"gornja"}, nil).DnevniCiljZapisa()
+	if err != nil || izZapisa.NajmanjeDana != NajmanjeDanaZapisa {
+		t.Fatalf("cilj iz zapisa: %+v, %v", izZapisa, err)
+	}
+	if _, err := NamjestiDnevni(nizovi, izZapisa, 0); err != nil {
+		t.Errorf("letva iz zapisa s 1.500 dana mora se naučiti: %v", err)
+	}
+	izPrograma := DnevniCilj{Letva: "donja", Ulazi: []string{"gornja"}}
+	if _, err := NamjestiDnevni(nizovi, izPrograma, 0); !porukaIma(err, "dana sa svim ulazima") {
+		t.Errorf("letva iz programa i dalje traži %d dana: %v", NajmanjeDanaDnevnog, err)
+	}
+	if _, err := NamjestiDnevni(nizovi, izZapisa, NajmanjeDanaZapisa-100); !porukaIma(err, "dana sa svim ulazima") {
+		t.Errorf("ispod %d dana ni letva iz zapisa ne uči: %v", NajmanjeDanaZapisa, err)
+	}
+	m, err := ProvjeriDnevni(nizovi, izZapisa, 1100, 1490)
+	if err != nil || !slices.Contains(m.Natpisi, NatpisKratkoUcenje) || m.Dani[0].Stanje != MjeraBolje {
+		t.Errorf("proba uz kratko učenje: %+v, %v", m.Natpisi, err)
 	}
 }

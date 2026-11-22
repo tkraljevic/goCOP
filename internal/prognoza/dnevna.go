@@ -104,6 +104,30 @@ type DnevniCilj struct {
 	// u značajke: kiša koja je pala, a nijedna letva je još ne vidi. Prazno
 	// znači bez oborine.
 	Slivovi []string
+	// NajmanjeDana je koliko dana sa svim ulazima model treba da bi se učio;
+	// nula znači NajmanjeDanaDnevnog. Letva iz zapisa smije manje
+	// (NajmanjeDanaZapisa).
+	NajmanjeDana int `json:",omitempty"`
+}
+
+// NajmanjeDanaDnevnog je koliko dana sa svim ulazima traži dnevni model letve
+// upisane u programu.
+const NajmanjeDanaDnevnog = 3000
+
+// NajmanjeDanaZapisa je isto za letvu iz zapisa, kojoj je arhiva često kraća.
+// Izmjereno 22. 11. 2026. na četiri letve s dugom arhivom: učenje na zadnjih
+// 900 do 950 dana daje na godini koju model nije vidio isti promašaj kao učenje
+// na cijeloj arhivi. Ispod toga visoka voda nema 200 dana za svoj pravac, pa
+// model ionako odustaje. Kraće učenje možda nije vidjelo veliki val; to piše
+// uz probu (NatpisKratkoUcenje).
+const NajmanjeDanaZapisa = 900
+
+// najmanjeDana je granica dana učenja ovog cilja.
+func (c DnevniCilj) najmanjeDana() int {
+	if c.NajmanjeDana > 0 {
+		return c.NajmanjeDana
+	}
+	return NajmanjeDanaDnevnog
 }
 
 // DnevniCiljevi su letve s dnevnom prognozom, redom kako voda teče. Nizvodno
@@ -170,21 +194,21 @@ type DnevniCilj struct {
 // Morave (N, M, L, K, O; austrijske letve dnevno imamo tek od 2012.),
 // Budimpešta iz Komároma i kiše H i N.
 var DnevniCiljevi = []DnevniCilj{
-	{"mursko-sredisce", nil, []string{"B"}},
-	{"gorican", []string{"mursko-sredisce"}, []string{"B"}},
-	{"letenye", []string{"mursko-sredisce"}, []string{"B"}},
-	{"kotoriba", []string{"gorican", "mursko-sredisce"}, []string{"B"}},
-	{"botovo", []string{"mursko-sredisce", "borl-i"}, []string{"A", "B", "C"}},
-	{"terezino-polje", []string{"botovo", "mursko-sredisce", "borl-i"}, []string{"A", "B", "C", "D"}},
-	{"donji-miholjac", []string{"terezino-polje", "botovo", "mursko-sredisce", "borl-i"}, []string{"A", "B", "C", "D", "E"}},
-	{"belisce", []string{"donji-miholjac", "terezino-polje", "botovo", "borl-i"}, []string{"A", "B", "C", "D", "E", "F"}},
-	{"osijek", []string{"belisce", "donji-miholjac", "botovo", "aljmas", "mohacs", "budapest", "komarom"}, []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J"}},
-	{"komarom", nil, []string{"N", "M", "L", "K", "O"}},
-	{"budapest", []string{"komarom"}, []string{"H", "N"}},
-	{"batina", []string{"komarom", "budapest", "mohacs"}, []string{"H", "I", "J"}},
-	{"aljmas", []string{"komarom", "budapest", "mohacs", "batina", "osijek", "donji-miholjac"}, []string{"H", "I", "J"}},
-	{"vukovar", []string{"komarom", "budapest", "mohacs", "batina", "osijek", "donji-miholjac"}, []string{"H", "I", "J"}},
-	{"ilok", []string{"komarom", "budapest", "mohacs", "batina", "osijek", "donji-miholjac"}, []string{"H", "I", "J"}},
+	{Letva: "mursko-sredisce", Ulazi: nil, Slivovi: []string{"B"}},
+	{Letva: "gorican", Ulazi: []string{"mursko-sredisce"}, Slivovi: []string{"B"}},
+	{Letva: "letenye", Ulazi: []string{"mursko-sredisce"}, Slivovi: []string{"B"}},
+	{Letva: "kotoriba", Ulazi: []string{"gorican", "mursko-sredisce"}, Slivovi: []string{"B"}},
+	{Letva: "botovo", Ulazi: []string{"mursko-sredisce", "borl-i"}, Slivovi: []string{"A", "B", "C"}},
+	{Letva: "terezino-polje", Ulazi: []string{"botovo", "mursko-sredisce", "borl-i"}, Slivovi: []string{"A", "B", "C", "D"}},
+	{Letva: "donji-miholjac", Ulazi: []string{"terezino-polje", "botovo", "mursko-sredisce", "borl-i"}, Slivovi: []string{"A", "B", "C", "D", "E"}},
+	{Letva: "belisce", Ulazi: []string{"donji-miholjac", "terezino-polje", "botovo", "borl-i"}, Slivovi: []string{"A", "B", "C", "D", "E", "F"}},
+	{Letva: "osijek", Ulazi: []string{"belisce", "donji-miholjac", "botovo", "aljmas", "mohacs", "budapest", "komarom"}, Slivovi: []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J"}},
+	{Letva: "komarom", Ulazi: nil, Slivovi: []string{"N", "M", "L", "K", "O"}},
+	{Letva: "budapest", Ulazi: []string{"komarom"}, Slivovi: []string{"H", "N"}},
+	{Letva: "batina", Ulazi: []string{"komarom", "budapest", "mohacs"}, Slivovi: []string{"H", "I", "J"}},
+	{Letva: "aljmas", Ulazi: []string{"komarom", "budapest", "mohacs", "batina", "osijek", "donji-miholjac"}, Slivovi: []string{"H", "I", "J"}},
+	{Letva: "vukovar", Ulazi: []string{"komarom", "budapest", "mohacs", "batina", "osijek", "donji-miholjac"}, Slivovi: []string{"H", "I", "J"}},
+	{Letva: "ilok", Ulazi: []string{"komarom", "budapest", "mohacs", "batina", "osijek", "donji-miholjac"}, Slivovi: []string{"H", "I", "J"}},
 }
 
 // VrhoviIzDnevnog su vrhovi satnog lanca kojima budućnost daje naš dnevni
@@ -928,7 +952,7 @@ func NamjestiDnevniOd(nizovi map[string]DnevniNiz, c DnevniCilj, odDana, doDana 
 		}
 		m.uzorci = append(m.uzorci, u)
 	}
-	if len(m.uzorci) < 3000 {
+	if len(m.uzorci) < c.najmanjeDana() {
 		return nil, fmt.Errorf("%s: samo %d dana sa svim ulazima", c.Letva, len(m.uzorci))
 	}
 
