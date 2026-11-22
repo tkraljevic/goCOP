@@ -75,7 +75,7 @@
           <option value="">{{if $i}}— bez drugog ulaza —{{else}}— odaberi letvu —{{end}}</option>
           {{template "rac-izbor-letve" ($.IzborZa $u)}}
         </select>
-        <div class="form-help">{{if $i}}Kad vodu diže i uspor rijeke u koju se vodotok ulijeva, ovdje ide letva na toj rijeci.{{else}}Uzvodna letva iz koje se ova računa. Dnevni model smije biti i bez ulaza, samo s kišom, kao jezero koje puni kiša.{{end}}</div>
+        <div class="form-help">{{if $i}}Kad vodu diže i uspor rijeke u koju se vodotok ulijeva, ovdje ide letva na toj rijeci.{{else}}Uzvodna letva iz koje se ova računa.{{if not $.Obrazac.Glavna}} Dnevni model smije biti i bez ulaza, samo s kišom, kao jezero koje puni kiša.{{end}}{{end}}</div>
       </div>
       {{end}}
       {{range $i, $r := .Rezerve}}
@@ -189,7 +189,7 @@
         </div>
         {{end}}
       </div>
-      <div class="form-help">{{if .Dnevna}}Model je naučen na arhivi prije razdoblja probe, a promašaj je izmjeren na svakom danu toga razdoblja{{if .Razdoblje}} ({{.Razdoblje}}){{end}}, koje nije vidio.{{else}}Promašaj je izmjeren unatrag, na izdanjima svakih 12 sati{{if .Razdoblje}} ({{.Razdoblje}}){{end}}.{{end}} „Račun” je koliko promaši prognoza iz računa, a „Zadnje mjerenje” koliko bi se promašilo da se kao prognoza uzme zadnji izmjereni vodostaj, tj. da voda stoji. Oba su promašaja ista mjera: što je broj manji, to bolje. Razlika manja od 10 % ne znači ništa, pa piše „Kao zadnje mjerenje”. Ispod 100 slučajeva račun nije provjeren.{{if .Kad}} Probano {{.Kad}}.{{end}}</div>
+      <div class="form-help">{{if .Dnevna}}Model je naučen na arhivi prije razdoblja probe, a promašaj je izmjeren na svakom danu toga razdoblja{{if .Razdoblje}} ({{.Razdoblje}}){{end}}, koje nije vidio.{{else}}Promašaj je izmjeren unatrag, na izdanjima svakih 12 sati{{if .Razdoblje}} ({{.Razdoblje}}){{end}}.{{end}} {{if .Lanac}}„S izmjenom” je koliko promaši prognoza kad se ova izmjena primijeni, „Sada” koliko promašuje danas{{else}}„Račun” je koliko promaši prognoza iz računa{{end}}, a „Zadnje mjerenje” koliko bi se promašilo da se kao prognoza uzme zadnji izmjereni vodostaj, tj. da voda stoji. Oba su promašaja ista mjera: što je broj manji, to bolje. Razlika manja od 10 % ne znači ništa, pa piše „Kao zadnje mjerenje”. Ispod 100 slučajeva račun nije provjeren.{{if .Kad}} Probano {{.Kad}}.{{end}}</div>
       {{range .Natpisi}}<div class="form-help rac-napomena">{{.}}.</div>{{end}}
       {{if .Lanac}}
       <h4 class="mod-podnaslov">Letve nizvodno</h4>
@@ -212,7 +212,7 @@
       <button type="submit" name="radnja" value="probaj" class="btn prog-obrub rac-samo-dnevni">{{if and .Dnevni .Proba}}Probaj ponovno{{else}}Probaj{{end}}</button>
       {{if .Kad}}<button type="submit" name="radnja" value="odbaci" class="btn btn-link" formnovalidate>Odbaci nacrt</button>{{end}}
     </div>
-    <p class="rac-samo-satni">Pripremi sprema nacrt i iz arhive namjesti kašnjenje po razinama; traje do nekoliko sekundi po letvi. Kad promijeniš račun, pripremi ga ponovno. Probaj mjeri pripremljeni račun unatrag i kaže je li pouzdaniji od zadnjeg mjerenja.{{if .Glavna}} Za letvu glavnog lanca proba mjeri cijeli lanac dvaput, sadašnjim modelom i modelom s izmjenom, pa traje desetak minuta.{{end}}</p>
+    <p class="rac-samo-satni">Pripremi sprema nacrt i iz arhive namjesti kašnjenje po razinama; traje do nekoliko sekundi po letvi. Kad promijeniš račun, pripremi ga ponovno. Probaj mjeri pripremljeni račun unatrag i kaže je li pouzdaniji od zadnjeg mjerenja.{{if .Glavna}} Za letvu glavnog lanca proba mjeri cijeli lanac dvaput, sadašnjim modelom i modelom s izmjenom, pa traje dulje, do nekoliko minuta.{{end}}</p>
     <p class="rac-samo-dnevni">Probaj sprema nacrt, nauči dnevni model na arhivi bez zadnje dvije godine i izmjeri ga na te dvije godine (na jednoj, kad dana za učenje nema dosta). Dnevni model se ne priprema: računalo koje izdaje prognozu uči ga iz arhive jednom dnevno.</p>
     {{end}}
     <p class="mod-podnozje">Nacrt ostaje na ovom računalu i prognozu ne mijenja dok ga ne primijeniš.</p>

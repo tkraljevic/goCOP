@@ -22,7 +22,7 @@ func TestStranicaLetveGlavnogLanca(t *testing.T) {
 	redom(t, html, "<span>Donji Brod</span>", "protok · ulaz: ", `<span class="rac-cip">Glavni lanac</span>`,
 		`<h2 id="rac-obrazac-naslov">Donji Brod</h2>`, `name="metoda" value="lanac"`,
 		"Letva je u glavnom lancu Drave i Dunava i vodi se u protoku", `name="rezerva"`, `name="rezerva_b"`,
-		"Rezerva 4", `value="spremi" class="btn btn-primary">Spremi nacrt`, "proba mjeri cijeli lanac dvaput")
+		"Rezerva 4", `value="spremi" class="btn btn-primary">Spremi nacrt`, "proba mjeri cijeli lanac dvaput", "do nekoliko minuta")
 	for _, nema := range []string{`name="velicina"`, "Letva s malo arhive", `value="primijeni"`, `value="dnevni"`, porukaULancu} {
 		if strings.Contains(html, nema) {
 			t.Errorf("letva glavnog lanca ne smije imati %q", nema)

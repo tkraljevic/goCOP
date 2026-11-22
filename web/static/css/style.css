@@ -11303,3 +11303,4 @@ td .odr-sitno { margin-top: 2px; }
 /* Način računa: satni račun ili dnevni model s kišom; polja drugoga se ne vide. */
 .rac-obrazac:has(input[name="metoda"][value="dnevni"]:checked) .rac-samo-satni { display: none; }
 .rac-obrazac:has(input[name="metoda"][value="lanac"]:checked) .rac-samo-dnevni { display: none; }
+.rac-obrazac:has(input[type="hidden"][name="metoda"]) .rac-samo-dnevni { display: none; }

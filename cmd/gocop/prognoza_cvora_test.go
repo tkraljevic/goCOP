@@ -205,4 +205,16 @@ func TestPrepisiModelIzZatvoreneBaze(t *testing.T) {
 	if _, _, err := namjestiIProvjeri(iz, iz, &poslovi.Posao{}); err == nil {
 		t.Error("priprema iz zatvorene baze mora javiti grešku")
 	}
+	// bez mape za privremenu bazu priprema, proba i primjena ne počinju
+	t.Setenv("TMPDIR", filepath.Join(t.TempDir(), "nema-takve-mape"))
+	if _, _, err := namjestiIProvjeri(u, u, &poslovi.Posao{}); err == nil {
+		t.Error("priprema bez privremene baze mora javiti grešku")
+	}
+	urednik := &urednikModela{pb: u, mreza: &probneUloge{izdaje: true}}
+	if err := urednik.probajGlavni("donji-miholjac", &poslovi.Posao{}); err == nil {
+		t.Error("proba bez privremene baze mora javiti grešku")
+	}
+	if err := urednik.primijeniGlavni("donji-miholjac", prognoza.PromjenaLetve{Razlog: "proba"}); err == nil {
+		t.Error("primjena bez privremene baze mora javiti grešku")
+	}
 }
