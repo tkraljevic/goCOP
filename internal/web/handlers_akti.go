@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"errors"
+	"fmt"
 	"html/template"
 	"net/http"
 	"net/url"
@@ -44,7 +45,13 @@ type AktiHandler struct {
 	// drugiKorak daje drugi korak prijave izvana (račun koji šalje PIN,
 	// sklopka); nil dok se ne spoji
 	drugiKorak func() *service.DrugiKorak
+	// ocitanja upisuju rukom upisan vodostaj akta i u Očitanja letve
+	ocitanja *service.ReadingService
 }
+
+// SetOcitanja daje rukovatelju servis očitanja, da rukom upisan vodostaj
+// akta postane i očitanje letve
+func (h *AktiHandler) SetOcitanja(o *service.ReadingService) { h.ocitanja = o }
 
 // SetSpranca daje rukovatelju predložak stranice špranče
 func (h *AktiHandler) SetSpranca(t *template.Template) { h.tmplSpranca = t }
@@ -478,6 +485,8 @@ type UnosObrasca struct {
 	Podrucje     int
 	Dionice      []string
 	OcitanjeID   string
+	RucniCm      string // rukom upisan vodostaj i vrijeme (datetime-local)
+	RucnoKad     string
 	Tendencija   string
 	PrekidaAktID string
 	Prognoza     string
@@ -494,7 +503,7 @@ func unosObrasca(q url.Values) UnosObrasca {
 		return u
 	}
 	u.Zadrzan, u.Dionice, u.OcitanjeID = true, q["dionica"], q.Get("ocitanje_id")
-	u.Tendencija = q.Get("tendencija")
+	u.Tendencija, u.RucniCm, u.RucnoKad = q.Get("tendencija"), q.Get("vodostaj_rucno"), q.Get("vodostaj_kad")
 	return u
 }
 
@@ -512,6 +521,24 @@ func (u UnosObrasca) Ocitanje(id string, zadnje bool) bool {
 	return u.OcitanjeID == id
 }
 
+// rucnoOcitanje čita rukom upisan vodostaj i vrijeme iz obrasca; prazan
+// vodostaj znači da se akt poziva na očitanje s automatike
+func rucnoOcitanje(z *service.ZahtjevAkta, cm, kad string) error {
+	cm = strings.TrimSpace(cm)
+	if cm == "" {
+		return nil
+	}
+	v, err := strconv.Atoi(strings.TrimSpace(strings.TrimSuffix(cm, "cm")))
+	if err != nil {
+		return fmt.Errorf("vodostaj „%s” nije cijeli broj centimetara", cm)
+	}
+	z.RucniCm = &v
+	if t, err := time.ParseInLocation("2006-01-02T15:04", strings.TrimSpace(kad), models.Zagreb); err == nil {
+		z.RucnoKad = t
+	}
+	return nil
+}
+
 // natragNaObrazac je povratak na obrazac nakon odbijenog nacrta: kad nacrt
 // traži potvrdu „Vrijedi od”, obrazac zadrži upisano vrijeme i sav ostali
 // unos (unosObrasca) i ponudi potvrdu
@@ -521,7 +548,7 @@ func natragNaObrazac(natrag string, r *http.Request, err error) string {
 		return natrag
 	}
 	q := url.Values{"vrijedi": {r.FormValue("vrijedi")}, "potvrdi": {"vrijedi"}, "dionica": r.Form["dionica"]}
-	for _, k := range []string{"podrucje", "ocitanje_id", "tendencija", "prekida_akt_id", "prognoza", "napomena"} {
+	for _, k := range []string{"podrucje", "ocitanje_id", "vodostaj_rucno", "vodostaj_kad", "tendencija", "prekida_akt_id", "prognoza", "napomena"} {
 		q.Set(k, r.FormValue(k))
 	}
 	return natrag + "&" + q.Encode()
@@ -594,6 +621,10 @@ func (h *AktiHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		z.Vrijedi = t
 	}
 	natrag := "/akti/novi?station=" + z.StationID + "&radnja=" + z.Radnja + "&stupanj=" + string(z.Stupanj)
+	if err := rucnoOcitanje(&z, r.FormValue("vodostaj_rucno"), r.FormValue("vodostaj_kad")); err != nil {
+		redirectWith(w, r, natrag, "error", err.Error())
+		return
+	}
 	a, err := s.Pripremi(r.Context(), perms, u, z)
 	if err != nil {
 		redirectWith(w, r, natrag, "error", err.Error())
@@ -603,7 +634,23 @@ func (h *AktiHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		redirectWith(w, r, natragNaObrazac(natrag, r, err), "error", err.Error())
 		return
 	}
-	redirectWith(w, r, "/akti/"+a.ID, "success", "Nacrt je sastavljen. Pregledaj ga i ovjeri.")
+	redirectWith(w, r, "/akti/"+a.ID, "success", "Nacrt je sastavljen. "+h.upisiRucnoOcitanje(r.Context(), perms, u, z)+"Pregledaj ga i ovjeri.")
+}
+
+// upisiRucnoOcitanje upisuje rukom upisan vodostaj akta i kao očitanje
+// letve, istim putem i pravima kao ručni upis u Očitanjima; vraća rečenicu
+// za poruku nakon nacrta (prazno kad vodostaj nije upisan rukom)
+func (h *AktiHandler) upisiRucnoOcitanje(ctx context.Context, perms *models.UserPermissions, u *models.User, z service.ZahtjevAkta) string {
+	if z.RucniCm == nil || h.ocitanja == nil {
+		return ""
+	}
+	cm := *z.RucniCm
+	rd := &models.Reading{StationID: z.StationID, MeasuredAt: z.RucnoKad.UTC(), LevelCm: &cm, Source: models.ReadingSourceManual,
+		Observer: u.FullName, Note: "upisano uz nacrt akta"}
+	if err := h.ocitanja.Create(ctx, perms, rd); err != nil {
+		return "Vodostaj nije upisan u Očitanja: " + err.Error() + ". "
+	}
+	return fmt.Sprintf("Vodostaj %d cm upisan je i u Očitanja letve. ", cm)
 }
 
 func (h *AktiHandler) ucitaj(w http.ResponseWriter, r *http.Request) (*service.AktService, *models.Akt) {

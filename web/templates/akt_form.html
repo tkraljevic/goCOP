@@ -126,6 +126,15 @@
       </div>
       <div class="form-help">{{if .Ocitanja}}Zadano je zadnje; odaberite ono u kojem je vodostaj dosegao razinu. Tendencija se računa prema očitanju prije njega.{{else}}Letva nema očitanja s vodostajem; akt se donosi po prognozi.{{end}}</div>
     </div>
+    <div class="list-blok akt-rucni-vodostaj">
+      <div class="form-group list-polje">{{icon "pencil"}}<label class="form-label" for="vodostaj_rucno">Ili upišite vodostaj (cm)</label>
+        <input type="number" step="1" inputmode="numeric" id="vodostaj_rucno" name="vodostaj_rucno" class="form-control" value="{{.Unos.RucniCm}}" placeholder="npr. 412">
+      </div>
+      <div class="form-group list-polje">{{icon "clock"}}<label class="form-label" for="vodostaj_kad">u vrijeme</label>
+        <input type="datetime-local" id="vodostaj_kad" name="vodostaj_kad" class="form-control" value="{{.Unos.RucnoKad}}">
+      </div>
+      <div class="form-help">Kad automatika u to vrijeme ne pokazuje dobro. Upisan vodostaj ima prednost pred odabranim očitanjem i upisuje se i u Očitanja letve; tekst nacrta možete kasnije ispraviti.</div>
+    </div>
     <div class="form-group list-polje">{{icon "trending-up"}}<label class="form-label" for="tendencija">Tendencija</label>
       <select id="tendencija" name="tendencija" class="form-control">
         <option value="">prema očitanjima</option>
