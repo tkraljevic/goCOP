@@ -132,8 +132,8 @@ func glavaKartice(id string) KarticaNaslovne {
 }
 
 // vodostaji: letve iznad praga u cijeloj državi, od najvišeg stupnja; za
-// dežurnog samo letve njegova sektora, za rukovoditelja područja sve letve
-// područja
+// dežurnog i rukovoditelja obrane izvođača samo letve njegova sektora, za
+// rukovoditelja područja sve letve područja
 func (h *DashboardHandler) vodostaji(ctx context.Context, perms *models.UserPermissions, sad time.Time) KarticaNaslovne {
 	letve, err := h.letve(ctx)
 	if err != nil {
@@ -148,6 +148,8 @@ func (h *DashboardHandler) vodostaji(ctx context.Context, perms *models.UserPerm
 		return vodostajiSektora(letve, prije, sektorOsobe(perms, sad), sad)
 	case uDezurni:
 		letve = letveSektora(letve, *dezurnaDuznost(&perms.User, sad).SectorID)
+	case uIzvObrana:
+		letve = letveSektora(letve, *duznostObraneIzvodjaca(&perms.User, sad).SectorID)
 	case uPodrucje:
 		area := *duznostPodrucja(&perms.User, sad).AreaID
 		return karticaVodostajaPodrucja(letvePodrucja(letve, area), prije, area, sad)

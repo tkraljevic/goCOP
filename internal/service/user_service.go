@@ -34,6 +34,9 @@ type UserService struct {
 	// privremenog imenovanja, s aktom koji ju je ukinuo, iz ovjerenih akata
 	// (SetPrestanakObrane); nil dok traje ili je nema
 	prestanakObrane func(d models.Duty) *models.PrestanakObrane
+	// firme je registar licenciranih firmi s vezama, za dužnost
+	// rukovoditelja obrane izvođača (SetFirme); nil dok se ne postavi
+	firme func(ctx context.Context) ([]models.Contractor, error)
 	// pozadina broji poslove koji ne smiju zadržati odgovor, npr. obavijest
 	// e-poštom, da ih PricekajPozadinu može pričekati
 	pozadina sync.WaitGroup
@@ -180,7 +183,8 @@ func (s *UserService) CreateUser(actor *models.UserPermissions, req CreateUserRe
 			return nil, err
 		}
 		req.ScopeType, req.SectorID, req.AreaID = scope, sectorID, areaID
-		if err := mayGrant(actor, req.Role, req.SectorID, req.AreaID, sectors); err != nil {
+		noviRacun := func() (*models.User, error) { return &models.User{OrgType: req.OrgType, OrgName: req.OrgName}, nil }
+		if err := s.dajeUloguRacunu(actor, noviRacun, req.Role, req.SectorID, req.AreaID, sectors); err != nil {
 			return nil, err
 		}
 	} else if !actor.IsGlobalAdmin {
@@ -741,7 +745,7 @@ func (s *UserService) AddDuty(actor *models.UserPermissions, req AddDutyRequest)
 		return err
 	}
 	req.ScopeType, req.SectorID, req.AreaID = scope, sectorID, areaID
-	if err := mayGrant(actor, req.Role, req.SectorID, req.AreaID, sectors); err != nil {
+	if err := s.dajeUloguRacunu(actor, s.racunPoOznaci(req.UserID), req.Role, req.SectorID, req.AreaID, sectors); err != nil {
 		return err
 	}
 	if !actor.IsGlobalAdmin {
@@ -826,7 +830,7 @@ func (s *UserService) UpdateDuty(actor *models.UserPermissions, dutyID uuid.UUID
 	if err != nil {
 		return err
 	}
-	if err := mayChange(actor, duty, req.Role, sectorID, areaID, req.SectionCodes, sectors); err != nil {
+	if err := s.mijenjaDuznost(actor, duty, req.Role, sectorID, areaID, req.SectionCodes, sectors); err != nil {
 		return err
 	}
 	if !actor.IsGlobalAdmin {

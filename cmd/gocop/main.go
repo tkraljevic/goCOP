@@ -661,6 +661,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	territoryRepo := repository.NewTerritoryRepository(database, recorder)
 	territoryService := service.NewTerritoryService(territoryRepo, sectionService)
 	orgRepo := repository.NewOrgRepository(database, recorder)
+	userService.SetFirme(orgRepo.ListContractors)
 	orgService := service.NewOrgService(orgRepo, sseBroker)
 	if terms, err := orgRepo.GetTerms(context.Background()); err == nil {
 		models.SetTerms(terms)

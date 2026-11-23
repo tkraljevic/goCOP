@@ -58,3 +58,34 @@ func (a ContractorAssignment) Where() string {
 	}
 	return Terms().Sector + " " + a.SectorID
 }
+
+// Navodi javlja navodi li slobodan upis firme (npr. firma s računa osobe)
+// ovu firmu, punim ili kratkim nazivom. Uspoređuje se kao u dnevnicima
+// usluga (istiNaziv): naziv do pravnog oblika i prvog zareza.
+func (c Contractor) Navodi(naziv string) bool {
+	return istiNaziv(c.Name, naziv) || istiNaziv(c.ShortName, naziv)
+}
+
+// VezanaNa javlja je li firma vezana na branjeno područje (veza s tim
+// područjem, ne cijeli sektor), kao kad joj se šalju rješenja i obavijesti
+// područja
+func (c Contractor) VezanaNa(areaID int) bool {
+	for _, a := range c.Assignments {
+		if a.AreaID == areaID {
+			return true
+		}
+	}
+	return false
+}
+
+// FirmeRacuna su firme iz registra koje navodi firma upisana na računu
+// osobe (User.OrgName); prazan upis ne navodi nijednu
+func FirmeRacuna(u *User, firme []Contractor) []Contractor {
+	var out []Contractor
+	for _, c := range firme {
+		if u != nil && c.Navodi(u.OrgName) {
+			out = append(out, c)
+		}
+	}
+	return out
+}

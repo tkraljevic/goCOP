@@ -65,13 +65,15 @@ func NewJournalService(repo *repository.JournalRepository, stations *repository.
 	return &JournalService{repo: repo, stations: stations, readings: readings, weather: &weather.Client{}}
 }
 
-// IsContractor govori je li osoba na strani izvođača
+// IsContractor govori je li osoba na strani izvođača: aktivna dužnost
+// voditelja usluga / poslovođe ili rukovoditelja obrane izvođača i
+// zamjenika (models.Role.Izvodjac)
 func IsContractor(u *models.User) bool {
 	if u == nil {
 		return false
 	}
 	for _, d := range u.Duties {
-		if d.IsActive && d.Role == models.RoleServiceLeaderForeman {
+		if d.IsActive && d.Role.Izvodjac() {
 			return true
 		}
 	}
@@ -103,7 +105,8 @@ func (s *JournalService) CanWrite(perms *models.UserPermissions, o models.Opseg)
 }
 
 // IzvodjacZaDnevnike javlja gleda li se osoba u dnevnicima usluga (A.02 i
-// A.03) kao izvođač: ima aktivnu dužnost voditelja usluga / poslovođe, ili
+// A.03) kao izvođač: ima aktivnu dužnost na strani izvođača (voditelj
+// usluga / poslovođa, rukovoditelj obrane izvođača i zamjenik), ili
 // ju je imala (opozvanu, isteklu, izmijenjenu u drugu ulogu), a sada nema
 // valjanu dužnost u ustroju obrane (razine 1 do 4). Opoziv dužnosti tako
 // poslovođi ne otvara dnevnike drugih firmi (Odluke (8. 10. 2026.), pitanje
@@ -125,8 +128,12 @@ func izvodjacZaDnevnike(u *models.User, imaoUlogu func(uuid.UUID, models.Role) (
 	if imaoUlogu == nil || imaDuznostUUstroju(u) {
 		return false
 	}
-	imao, err := imaoUlogu(u.ID, models.RoleServiceLeaderForeman)
-	return imao || err != nil
+	for _, uloga := range models.UlogeIzvodjaca() {
+		if imao, err := imaoUlogu(u.ID, uloga); imao || err != nil {
+			return true
+		}
+	}
+	return false
 }
 
 // imaDuznostUUstroju javlja ima li osoba sada valjanu dužnost u ustroju
@@ -346,7 +353,8 @@ func (s *JournalService) izvodjacZaCOP(perms *models.UserPermissions) bool {
 
 // IzvodjacZaCOP javlja gleda li se osoba u dnevniku COP-a i planu
 // dežurstava kao izvođač: samo kad danas ima važeću dužnost voditelja
-// usluga / poslovođe. Prijašnja dužnost poslovođe se ne računa, za razliku
+// usluga / poslovođe ili rukovoditelja obrane izvođača i zamjenika.
+// Prijašnja dužnost izvođača se ne računa, za razliku
 // od dnevnika usluga (IzvodjacZaDnevnike) (Odluke (30. 10. 2026.), dopuna 6).
 func (s *JournalService) IzvodjacZaCOP(u *models.User) bool { return JeIzvodjacZaCOP(u) }
 
@@ -357,7 +365,7 @@ func JeIzvodjacZaCOP(u *models.User) bool {
 		return false
 	}
 	for _, d := range models.VazecaZaduzenja(u.Duties, time.Now()) {
-		if d.Role == models.RoleServiceLeaderForeman {
+		if d.Role.Izvodjac() {
 			return true
 		}
 	}

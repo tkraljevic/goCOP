@@ -247,7 +247,7 @@ func (h *DashboardHandler) glavaNaslovne(r *http.Request, perms *models.UserPerm
 		if d := duznostSkladista(&perms.User, sad); podrucjeSkladista(*d) > 0 {
 			data.Traka = h.trakaZaPodrucje(r.Context(), podrucjeSkladista(*d), *d.SectorID)
 		}
-	case uUsluga:
+	case uUsluga, uIzvObrana:
 		d := duznostUsluga(&perms.User, sad)
 		data.Teren, data.Traka = true, h.trakaZaPodrucje(r.Context(), *d.AreaID, *d.SectorID)
 	case uObjekt:

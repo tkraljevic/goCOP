@@ -1,5 +1,7 @@
 package models
 
+import "slices"
+
 // Sudionici obrane: tko sve u obrani od poplava ima ulogu i što mu ona daje.
 // Šifre uloga nose ovlasti i ne mijenjaju se; nazive organizacija smije
 // zvati po svome (OrgTerms.RoleLabels), jer druga vodna organizacija
@@ -48,12 +50,14 @@ var RoleCatalog = []RoleDef{
 	{RoleContractDeputyA3, RoleGroupLevel3, "Zamjenik ovlaštenika za praćenje ugovora programa usluga A3", "zamjenjuje ovlaštenika A3; ista prava", ScopeArea},
 	{RoleSectionLeader, RoleGroupLevel4, "Rukovoditelj dionice", "vodi obranu na svojim dionicama (razina 4: dionica); upisuje očitanja i dnevnike za njih", ScopeSection},
 	{RoleSectionDeputy, RoleGroupLevel4, "Zamjenik rukovoditelja dionice", "zamjenjuje rukovoditelja dionice; ista prava na njegovim dionicama", ScopeSection},
-	{RoleWaterGuard, RoleGroupField, "Vodočuvar", "obilazi dionice i očitava letve; terenski pogled", ScopeSection},
-	{RoleMachinist, RoleGroupField, "Strojar", "rukuje crpnim stanicama i ustavama; terenski pogled", ScopeSection},
+	{RoleWaterGuard, RoleGroupField, "Vodočuvar", "obilazi svoje dionice i objekte, očitava letve i rukuje ustavama po nalogu; dužnosti po Pravilniku o uvjetima za obavljanje vodočuvarske službe; terenski pogled", ScopeSection},
+	{RoleMachinist, RoleGroupField, "Strojar", "rukuje crpnom stanicom i njezinim zapornicama po nalogu rukovoditelja; terenski pogled", ScopeSection},
 	{RoleFacilityOperator, RoleGroupField, "Rukovatelj", "rukuje objektom obrane; terenski pogled", ScopeSection},
 	{RoleCrewLeader, RoleGroupField, "Voditelj posade objekta", "vodi posadu na objektu; terenski pogled", ScopeSection},
 	{RoleWarehouseKeeper, RoleGroupField, "Skladištar", "vodi skladište sredstava za obranu svog područja: primke, izdavanje na teren, punjenje vreća, godišnji popis", ScopeArea},
 	{RoleServiceLeaderForeman, RoleGroupExternal, "Voditelj usluga / Poslovođa", "vodi radove ugovornog izvođača; vidi teren i vodi vlastite dnevnike", ScopeArea},
+	{RoleContractorAreaLeader, RoleGroupExternal, "Rukovoditelj obrane izvođača za branjeno područje", "vodi obranu na strani firme izvođača na svom području: kao voditelj usluga vodi dnevnike usluga svoje firme, vidi stanje obrane i prognozu sektora, čita rješenja i obavijesti područja i upisuje vodostaj na letvama područja", ScopeArea},
+	{RoleContractorAreaDeputy, RoleGroupExternal, "Zamjenik rukovoditelja obrane izvođača", "zamjenjuje rukovoditelja obrane izvođača; ista prava", ScopeArea},
 	{RoleGuest, RoleGroupGuest, "Gost", "račun za posjetitelja obrane (civilna zaštita, uprava, mediji): gleda teren i vodostaje, ne upisuje", ScopeAll},
 	{RoleViewer, RoleGroupProgram, "Preglednik (samo čitanje)", "gleda, ne upisuje", ScopeAll},
 }
@@ -183,6 +187,28 @@ func UlogeUgovora(program string) []Role {
 		}
 	}
 	return out
+}
+
+// ulogeIzvodjaca su uloge na strani firme izvođača: voditelj usluga /
+// poslovođa te rukovoditelj obrane izvođača i zamjenik. Firma ih plaća, a
+// ne Hrvatske vode, pa ne vide dnevnik COP-a ni dežurstva, ne ulaze u plan
+// dežurstava ni u obračun sati, a u dnevnicima usluga vide samo svoju firmu.
+var ulogeIzvodjaca = []Role{RoleServiceLeaderForeman, RoleContractorAreaLeader, RoleContractorAreaDeputy}
+
+// UlogeIzvodjaca su uloge na strani firme izvođača (Izvodjac)
+func UlogeIzvodjaca() []Role { return slices.Clone(ulogeIzvodjaca) }
+
+// Izvodjac javlja je li uloga na strani firme izvođača (ulogeIzvodjaca)
+func (r Role) Izvodjac() bool { return slices.Contains(ulogeIzvodjaca, r) }
+
+// ObranaIzvodjaca javlja je li uloga rukovoditelj obrane izvođača za
+// branjeno područje ili njegov zamjenik (Odluke (22. 11. 2026.)). Uz prava
+// voditelja usluga vide stanje obrane i prognozu sektora, a pišu samo na
+// svom području: dužnost im ne daje rad u cijelom sektoru
+// (NewUserPermissions). Dužnost dobiva samo račun pravne osobe čija je
+// firma aktivna i vezana na to područje.
+func (r Role) ObranaIzvodjaca() bool {
+	return r == RoleContractorAreaLeader || r == RoleContractorAreaDeputy
 }
 
 // Writes javlja daje li uloga pravo upisa; gost i preglednik samo gledaju, a

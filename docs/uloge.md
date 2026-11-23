@@ -90,8 +90,8 @@ vlasništvo Republike Hrvatske, a kanali III. i IV. reda županije.
 
 | Uloga | Doseg | Što radi u programu |
 |---|---|---|
-| Vodočuvar | dionice | Obilazi dionice i očitava letve. Vodi svoju knjigu s dnevnim listom za svaki dan i šalje prijave s terena s fotografijama. |
-| Strojar | dionice | Rukuje crpnim stanicama i ustavama. Vidi teren i očitanja. |
+| Vodočuvar | dionice | Obilazi svoje dionice i objekte, očitava letve i rukuje ustavama po nalogu. Dužnosti ima po Pravilniku o uvjetima za obavljanje vodočuvarske službe. Vodi svoju knjigu s dnevnim listom za svaki dan i šalje prijave s terena s fotografijama. |
+| Strojar | dionice | Rukuje crpnom stanicom i njezinim zapornicama po nalogu rukovoditelja. Vidi teren i očitanja. |
 | Rukovatelj | dionice | Rukuje objektom obrane. Vidi teren i očitanja. |
 | Voditelj posade objekta | dionice | Vodi posadu na objektu. Vidi teren i očitanja. |
 | Skladištar | branjeno područje | Vodi skladište sredstava za obranu svog područja: primke, izdavanje na teren, punjenje vreća i godišnji popis. |
@@ -101,6 +101,8 @@ vlasništvo Republike Hrvatske, a kanali III. i IV. reda županije.
 | Uloga | Doseg | Što radi u programu |
 |---|---|---|
 | Voditelj usluga / Poslovođa | branjeno područje | Vodi radove ugovornog izvođača. Vidi letve i vodostaje u Očitanjima i vodi dnevnike usluga svoje firme na području na kojem ima dužnost. Dnevnike drugih firmi, listove vodočuvara i prijave s terena ne vidi. Ne vidi dnevnik COP-a ni plan dežurstava, ni na zidu događanja. Izvođača plaća njegova firma, pa ne ulazi u plan dežurstava ni u obračun sati i nema izvješće o satima (IORS). Ne upravlja računima. |
+| Rukovoditelj obrane izvođača za branjeno područje | branjeno područje | Vodi obranu na strani firme izvođača na svom području, kako ga navodi Prilog 2 Plana obrane. Ima sve što i voditelj usluga: vodi dnevnike usluga svoje firme, a dnevnik COP-a, plan dežurstava, listove vodočuvara i prijave s terena ne vidi. Uz to vidi stanje obrane i prognozu cijelog sektora, jer na poziv radi bilo gdje u sektoru, i čita rješenja i obavijesti svog područja u Dokumentima. Upisuje vodostaj na letvama svog područja i svoje očitanje ispravlja kao i ostali. Ništa ne proglašava, nikome ne daje dužnosti i ne upravlja računima. Dužnost dobiva samo račun s vrstom organizacije „pravna osoba” i upisanom firmom, kad je ta firma u registru firmi aktivna i vezana na to područje. Daju je uprava sektora i globalni administrator. |
+| Zamjenik rukovoditelja obrane izvođača | branjeno područje | Zamjenjuje rukovoditelja obrane izvođača. Ima ista prava i dužnost dobiva pod istim uvjetima. |
 
 ### Gost
 
@@ -128,7 +130,8 @@ praćenje ugovora daju uprava sektora i globalni administrator, a u svom
 području i zamjenik rukovoditelja sektora za branjeno područje. Takvu
 dužnost uprava područja smije izmijeniti, ali je ne smije produljiti ni
 učiniti stalnom. Nitko ne dodjeljuje dužnost sam sebi: vlastitu dužnost
-daje, mijenja i opoziva viša razina.
+daje, mijenja i opoziva viša razina. Rukovoditelja obrane izvođača i
+zamjenika daju samo uprava sektora i globalni administrator.
 
 Dužnosti su stalne dok ih uprava ne izmijeni ili opozove. Iznimke su
 dužnost s upisanim rokom, kao kod dežurnog operatera, i privremeno
