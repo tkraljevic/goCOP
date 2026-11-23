@@ -806,6 +806,8 @@ func InitSchema(database *sql.DB) error {
 			kota_nm INTEGER NOT NULL DEFAULT 0,
 			prate_sektori TEXT NOT NULL DEFAULT '',
 			prate_podrucja TEXT NOT NULL DEFAULT '',
+			umjerenje_odsjecak REAL,
+			umjerenje_nagib REAL,
 			povijest TEXT NOT NULL DEFAULT '',
 			opis_vodokaza TEXT NOT NULL DEFAULT '',
 			datum_osnivanja TEXT NOT NULL DEFAULT '',
@@ -1754,6 +1756,10 @@ func migrateSchema(database *sql.DB) error {
 		// zarezom (Odluke (8. 10. 2026.), pitanja 8 i 9).
 		{"stations", "prate_sektori", "TEXT NOT NULL DEFAULT ''"},
 		{"stations", "prate_podrucja", "TEXT NOT NULL DEFAULT ''"},
+		// Umjerenje mjernog uređaja: uređaj = odsječak + nagib · letva
+		// (Odluke (23. 11. 2026.)), kad uređaj krivo mjeri promjenu.
+		{"stations", "umjerenje_odsjecak", "REAL"},
+		{"stations", "umjerenje_nagib", "REAL"},
 		// Povijest postaje, opis same letve i dan kad je počela raditi. To
 		// stoji u dokumentaciji službe, a iz niza se ne vidi: zamjena
 		// limnigrafa ili premještanje letve ostave trag u podacima, a razlog

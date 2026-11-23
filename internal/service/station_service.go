@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -429,5 +430,22 @@ func (s *StationService) validate(station *models.Station) error {
 		prevLabel, prevValue = t.label, t.value
 	}
 
+	return provjeriUmjerenje(station)
+}
+
+// provjeriUmjerenje traži oba broja umjerenja ili nijedan, i nagib u kojem je
+// uređaj krivo umjeren, a ne pokvaren.
+func provjeriUmjerenje(st *models.Station) error {
+	ods, nag := st.UmjerenjeOdsjecak, st.UmjerenjeNagib
+	switch {
+	case ods == nil && nag == nil:
+		return nil
+	case ods == nil || nag == nil:
+		return fmt.Errorf("umjerenje mjernog uređaja traži i odsječak i nagib, ili nijedno")
+	case *nag < models.NajmanjiNagibUmjerenja || *nag > models.NajveciNagibUmjerenja:
+		return fmt.Errorf("nagib umjerenja mora biti između %s i %s; uređaj koji toliko griješi treba popraviti na terenu",
+			strings.ReplaceAll(strconv.FormatFloat(models.NajmanjiNagibUmjerenja, 'f', -1, 64), ".", ","),
+			strconv.FormatFloat(models.NajveciNagibUmjerenja, 'f', -1, 64))
+	}
 	return nil
 }

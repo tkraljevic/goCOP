@@ -59,7 +59,7 @@ const stationColumns = `
 	s.latitude, s.longitude, s.created_at, s.updated_at, s.javni_url, s.javni_uvoz,
 	s.telemetrija_site, s.telemetrija_uvoz,
 	s.povijest, s.opis_vodokaza, s.datum_osnivanja, s.kota_nm,
-	s.prate_sektori, s.prate_podrucja
+	s.prate_sektori, s.prate_podrucja, s.umjerenje_odsjecak, s.umjerenje_nagib
 `
 
 // scanStation čita jedan redak registra postaja
@@ -87,6 +87,8 @@ func scanStation(scanner interface{ Scan(...any) error }) (models.Station, error
 		kotaNM     int
 		prateSek   string
 		pratePod   string
+		umjOds     sql.NullFloat64
+		umjNag     sql.NullFloat64
 	)
 
 	err := scanner.Scan(
@@ -102,7 +104,7 @@ func scanStation(scanner interface{ Scan(...any) error }) (models.Station, error
 		&lat, &lon, &st.CreatedAt, &st.UpdatedAt, &st.JavniURL, &javniUvoz,
 		&st.TelemetrijaSite, &telUvoz,
 		&st.Povijest, &st.OpisVodokaza, &st.DatumOsnivanja, &kotaNM,
-		&prateSek, &pratePod,
+		&prateSek, &pratePod, &umjOds, &umjNag,
 	)
 	if err != nil {
 		return st, err
@@ -111,6 +113,7 @@ func scanStation(scanner interface{ Scan(...any) error }) (models.Station, error
 	st.TelemetrijaUvoz = telUvoz != 0
 	st.KotaNM = vodiKotu(kotaNM, st.Code)
 	st.PrateSektori, st.PratePodrucja = sektoriIzTeksta(prateSek), podrucjaIzTeksta(pratePod)
+	st.UmjerenjeOdsjecak, st.UmjerenjeNagib = nullFloatPtr(umjOds), nullFloatPtr(umjNag)
 
 	parsedID, err := uuid.Parse(idStr)
 	if err != nil {
@@ -394,8 +397,9 @@ func (r *StationRepository) CreateStation(ctx context.Context, st *models.Statio
 			notes, source_name, needs_review, review_note,
 			latitude, longitude, created_at, updated_at, javni_url, javni_uvoz,
 			telemetrija_site, telemetrija_uvoz,
-			povijest, opis_vodokaza, datum_osnivanja, kota_nm, prate_sektori, prate_podrucja
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			povijest, opis_vodokaza, datum_osnivanja, kota_nm, prate_sektori, prate_podrucja,
+			umjerenje_odsjecak, umjerenje_nagib
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		st.ID.String(), st.Code, st.Name, st.Watercourse, st.WatercourseCode, st.WatercourseSource, st.WaterArea, st.Stationing,
 		st.ZeroDatum, defaultSystem(st.ZeroDatumSystem, models.ZeroDatumSystemOld),
@@ -411,6 +415,7 @@ func (r *StationRepository) CreateStation(ctx context.Context, st *models.Statio
 		st.TelemetrijaSite, boolToInt(st.TelemetrijaUvoz),
 		st.Povijest, st.OpisVodokaza, st.DatumOsnivanja, boolToInt(st.KotaNM),
 		sektoriUTekst(st.PrateSektori), podrucjaUTekst(st.PratePodrucja),
+		st.UmjerenjeOdsjecak, st.UmjerenjeNagib,
 	)
 	if err != nil {
 		return fmt.Errorf("greška pri unosu vodomjerne postaje %q: %w", st.Name, err)
@@ -451,7 +456,8 @@ func (r *StationRepository) UpdateStation(ctx context.Context, st *models.Statio
 			latitude = ?, longitude = ?, updated_at = ?, javni_url = ?, javni_uvoz = ?,
 			telemetrija_site = ?, telemetrija_uvoz = ?,
 			povijest = ?, opis_vodokaza = ?, datum_osnivanja = ?, kota_nm = ?,
-			prate_sektori = ?, prate_podrucja = ?
+			prate_sektori = ?, prate_podrucja = ?,
+			umjerenje_odsjecak = ?, umjerenje_nagib = ?
 		WHERE id = ?
 	`,
 		st.Code, st.Name, st.Watercourse, st.WatercourseSource,
@@ -468,7 +474,8 @@ func (r *StationRepository) UpdateStation(ctx context.Context, st *models.Statio
 		st.Latitude, st.Longitude, st.UpdatedAt, st.JavniURL, boolToInt(st.JavniUvoz),
 		st.TelemetrijaSite, boolToInt(st.TelemetrijaUvoz),
 		st.Povijest, st.OpisVodokaza, st.DatumOsnivanja, boolToInt(st.KotaNM),
-		sektoriUTekst(st.PrateSektori), podrucjaUTekst(st.PratePodrucja), st.ID.String(),
+		sektoriUTekst(st.PrateSektori), podrucjaUTekst(st.PratePodrucja),
+		st.UmjerenjeOdsjecak, st.UmjerenjeNagib, st.ID.String(),
 	)
 	if err != nil {
 		return fmt.Errorf("greška pri izmjeni vodomjerne postaje %q: %w", st.Name, err)

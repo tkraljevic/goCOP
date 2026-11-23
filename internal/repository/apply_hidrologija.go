@@ -43,8 +43,8 @@ func upsertStation(ctx context.Context, tx *sql.Tx, st models.Station) error {
 			record_cm, record_raw, notes, source_name, needs_review, review_note,
 			latitude, longitude, created_at, updated_at, javni_url, javni_uvoz,
 			ograde_niza, telemetrija_site, telemetrija_uvoz, povijest, opis_vodokaza, datum_osnivanja, kota_nm,
-			prate_sektori, prate_podrucja
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			prate_sektori, prate_podrucja, umjerenje_odsjecak, umjerenje_nagib
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			code = excluded.code, name = excluded.name, watercourse = excluded.watercourse,
 			watercourse_code = excluded.watercourse_code, watercourse_source = excluded.watercourse_source,
@@ -70,7 +70,8 @@ func upsertStation(ctx context.Context, tx *sql.Tx, st models.Station) error {
 			telemetrija_uvoz = excluded.telemetrija_uvoz, povijest = excluded.povijest,
 			opis_vodokaza = excluded.opis_vodokaza, datum_osnivanja = excluded.datum_osnivanja,
 			kota_nm = excluded.kota_nm, prate_sektori = excluded.prate_sektori,
-			prate_podrucja = excluded.prate_podrucja
+			prate_podrucja = excluded.prate_podrucja,
+			umjerenje_odsjecak = excluded.umjerenje_odsjecak, umjerenje_nagib = excluded.umjerenje_nagib
 	`,
 		st.ID.String(), st.Code, st.Name, st.Watercourse, st.WatercourseCode, st.WatercourseSource, st.WaterArea, st.Stationing,
 		st.ZeroDatum, defaultSystem(st.ZeroDatumSystem, models.ZeroDatumSystemOld),
@@ -83,6 +84,7 @@ func upsertStation(ctx context.Context, tx *sql.Tx, st models.Station) error {
 		st.Latitude, st.Longitude, st.CreatedAt.UTC(), st.UpdatedAt.UTC(), st.JavniURL, boolToInt(st.JavniUvoz),
 		ogradeNizaJSON(&st), st.TelemetrijaSite, boolToInt(st.TelemetrijaUvoz), st.Povijest, st.OpisVodokaza, st.DatumOsnivanja,
 		boolToInt(st.KotaNM), sektoriUTekst(st.PrateSektori), podrucjaUTekst(st.PratePodrucja),
+		st.UmjerenjeOdsjecak, st.UmjerenjeNagib,
 	)
 	return err
 }

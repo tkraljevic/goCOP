@@ -657,6 +657,11 @@ type stationForm struct {
 	// ne pošalje, obrazac historijata — pa ostaju kakvi jesu.
 	PrateSektori  *[]string `json:"prate_sektori"`
 	PratePodrucja *[]int    `json:"prate_podrucja"`
+
+	// Umjerenje mjernog uređaja: uređaj = odsječak + nagib · letva (Odluke
+	// (23. 11. 2026.)). Nil znači da ga zahtjev ne nosi, pa ostaje kakvo je.
+	UmjerenjeOdsjecak *string `json:"umjerenje_odsjecak"`
+	UmjerenjeNagib    *string `json:"umjerenje_nagib"`
 }
 
 func decodeStationForm(r *http.Request) (stationForm, error) {
@@ -718,8 +723,18 @@ func decodeStationForm(r *http.Request) (stationForm, error) {
 		form.TelemetrijaSite = &v
 	}
 	form.PrateSektori, form.PratePodrucja = pracenjeIzObrasca(r.Form)
+	form.UmjerenjeOdsjecak, form.UmjerenjeNagib = poljeObrasca(r.Form, "umjerenje_odsjecak"), poljeObrasca(r.Form, "umjerenje_nagib")
 
 	return form, nil
+}
+
+// poljeObrasca je vrijednost polja koje obrazac nosi; nil kad ga ne nosi.
+func poljeObrasca(forma url.Values, ime string) *string {
+	if !forma.Has(ime) {
+		return nil
+	}
+	v := forma.Get(ime)
+	return &v
 }
 
 // pracenjeIzObrasca čita sektore i područja koji letvu prate iz obrasca
@@ -803,6 +818,19 @@ func (f stationForm) primijeni(st *models.Station) {
 	st.ReviewNote = strings.TrimSpace(f.ReviewNote)
 	st.JavniURL, st.JavniUvoz = f.javnaVeza()
 	f.primijeniPracenje(st)
+	f.primijeniUmjerenje(st)
+}
+
+// primijeniUmjerenje prenosi umjerenje mjernog uređaja, kad ga zahtjev nosi.
+// Nagib se drži na četiri decimale: razlika u trećoj decimali na nekoliko
+// metara vodostaja je skoro centimetar.
+func (f stationForm) primijeniUmjerenje(st *models.Station) {
+	if f.UmjerenjeOdsjecak != nil {
+		st.UmjerenjeOdsjecak = zadrziBroj(st.UmjerenjeOdsjecak, *f.UmjerenjeOdsjecak, 1)
+	}
+	if f.UmjerenjeNagib != nil {
+		st.UmjerenjeNagib = zadrziBroj(st.UmjerenjeNagib, *f.UmjerenjeNagib, 4)
+	}
 }
 
 // namjestiTelemetriju uključuje ili gasi čitanje s telemetrije. Račun stoji
@@ -994,6 +1022,7 @@ func (f stationForm) toStation() models.Station {
 	}
 	st.JavniURL, st.JavniUvoz = f.javnaVeza()
 	f.primijeniPracenje(&st)
+	f.primijeniUmjerenje(&st)
 	return st
 }
 

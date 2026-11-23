@@ -185,6 +185,16 @@ type Station struct {
 	PrateSektori  []string `json:"prate_sektori,omitempty"`
 	PratePodrucja []int    `json:"prate_podrucja,omitempty"`
 
+	// UmjerenjeOdsjecak i UmjerenjeNagib opisuju mjerni uređaj koji krivo
+	// mjeri promjenu: uređaj = odsječak + nagib · letva, u cm. Kad su oba
+	// upisana, preuzeta očitanja preračunavaju se na letvu prije ispravka po
+	// ručnom očitanju, a vrijednost uređaja ostaje uz očitanje (Odluke
+	// (23. 11. 2026.)). Stalni ispravak po ručnom ne pomaže kad uređaj za
+	// svaki centimetar pokaže manje od centimetra: razlika tada ovisi o
+	// razini i mijenja se s njom.
+	UmjerenjeOdsjecak *float64 `json:"umjerenje_odsjecak,omitempty"`
+	UmjerenjeNagib    *float64 `json:"umjerenje_nagib,omitempty"`
+
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 

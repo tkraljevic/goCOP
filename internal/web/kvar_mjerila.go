@@ -114,6 +114,20 @@ func ispravakLetve(s models.StanjeIspravka) *IspravakLetve {
 	return nil
 }
 
+// umjerenjeLetve je okvir za letvu čiji se mjerni uređaj preračunava po
+// umjerenju (Odluke (23. 11. 2026.)); nil kad umjerenja nema. Ima prednost
+// pred okvirom o ispravku po ručnom, jer se ispravak tada računa od već
+// preračunate vrijednosti, a uređaj ionako treba umjeriti na terenu.
+func umjerenjeLetve(st *models.Station) *IspravakLetve {
+	if !st.ImaUmjerenje() {
+		return nil
+	}
+	return &IspravakLetve{Teren: true, Naslov: "Mjerni uređaj treba umjeriti na terenu.",
+		Tekst: "Uređaj krivo mjeri promjenu razine, pa program njegova očitanja preračunava po umjerenju upisanom na letvi: uređaj = " +
+			brojHRf(*st.UmjerenjeOdsjecak, 1) + " + " + brojHRf(*st.UmjerenjeNagib, 4) + " · letva. " +
+			"Uz svako očitanje čuva i vrijednost uređaja. Kad uređaj umjere, umjerenje na letvi treba obrisati."}
+}
+
 // upozorenjaMjerila priprema okvire o kvaru mjerila i čestim skokovima za
 // stranicu letve.
 func (h *ReadingsHandler) upozorenjaMjerila(ctx context.Context, data *ReadingHistoryData, st *models.Station) {
@@ -124,6 +138,9 @@ func (h *ReadingsHandler) upozorenjaMjerila(ctx context.Context, data *ReadingHi
 	// kvara: razinu akumulacije vodi čovjek, ali je mjeri uređaj koji zna
 	// odlutati.
 	data.Ispravak = ispravakLetve(h.readingService.StanjeIspravka(ctx, st.ID.String(), time.Now()))
+	if u := umjerenjeLetve(st); u != nil {
+		data.Ispravak = u
+	}
 	m := h.mjerila()
 	if m != nil && m.Izuzeta(ctx, st.Code) {
 		return
