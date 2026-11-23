@@ -10487,6 +10487,11 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
 .org-csv-ploca form { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 0; }
 .org-csv-ploca .form-control { flex: 1 1 160px; min-width: 0; }
 .org-csv-naslov { margin: 8px 0 2px; color: var(--md-sys-color-on-surface-variant); font-size: 0.75rem; font-weight: 500; }
+/* Redak Priloga 2: firma izvođača i rukovoditelji obrane po području, u obliku podataka Razine 1 */
+.org-izvodjac + .org-izvodjac { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--md-sys-color-outline-variant); }
+.org-izvodjac-bp { margin: 0 0 8px; color: var(--md-sys-color-on-surface); font-size: 0.9375rem; font-weight: 500; line-height: 24px; }
+.org-izvodjac .org-podaci > div { grid-template-columns: 270px minmax(0, 1fr); }
+.org-izvodjac p { margin: 12px 0 0; }
 @media (max-width: 599px) {
   .org-podaci { grid-template-columns: minmax(0, 1fr); }
   .org-podaci > div { grid-template-columns: 120px minmax(0, 1fr); }
@@ -10503,6 +10508,8 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
   table.org-tablica .dl-poveznica::after { content: none; }
   table.org-tablica td[data-stupac] .dl-sitno { display: block; }
   .org-razina-popis { padding: 0; border: 0; background: none; }
+  .org-izvodjac .org-podaci > div { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .org-izvodjac .org-podaci > div + div { margin-top: 6px; }
 }
 
 /* Teritorij: popis županija (17f, 7a). Četiri brojke, čipovi s pretragom i tablica

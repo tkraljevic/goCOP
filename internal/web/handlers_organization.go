@@ -28,6 +28,9 @@ type OrgHandler struct {
 	tmplContrList *template.Template
 	tmplTerms     *template.Template
 	tmplRoles     *template.Template
+	// osobeUloge su računi s aktivnom dužnošću u ulozi, za redak Priloga 2
+	// (rukovoditelji obrane izvođača); bez njega se vide samo firme
+	osobeUloge func(models.Role) ([]models.User, error)
 }
 
 func NewOrgHandler(org *service.OrgService, list, sector, area, contractor, contractors, terms, roles *template.Template) *OrgHandler {
@@ -58,6 +61,7 @@ func (v SectorView) KratkiNaziv() string {
 type AreaView struct {
 	models.Area
 	Contractors []models.Contractor
+	Izvodjac    IzvodjacPodrucja // redak Priloga 2: firma izvođača i njezini rukovoditelji obrane
 }
 
 type OrgPageData struct {
@@ -83,6 +87,10 @@ type OrgPageData struct {
 	ErrorMessage   string
 	ActiveNav      string
 	ViewAsBanner
+
+	// IzvodjaciNepoznati: djelatnici se nisu mogli pročitati, pa se ne zna
+	// tko su rukovoditelji obrane izvođača
+	IzvodjaciNepoznati bool
 }
 
 func (h *OrgHandler) pageData(r *http.Request) OrgPageData {
@@ -128,6 +136,7 @@ func (h *OrgHandler) ShowOrganization(w http.ResponseWriter, r *http.Request) {
 			data.Sectors = append(data.Sectors, v)
 		}
 	}
+	h.dodajIzvodjace(&data, idx)
 	if err := h.tmplList.ExecuteTemplate(w, "organizacija.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
