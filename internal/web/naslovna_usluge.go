@@ -39,11 +39,23 @@ func duznostUgovora(u *models.User, sad time.Time) *models.Duty {
 	return nil
 }
 
-// duznostUsluga je valjana dužnost voditelja usluga izvođača na
-// području; nil kad je nema
+// duznostUsluga je valjana dužnost izvođača na području (voditelj usluga,
+// rukovoditelj obrane izvođača ili zamjenik); nil kad je nema
 func duznostUsluga(u *models.User, sad time.Time) *models.Duty {
+	return duznostIzvodjaca(u, sad, models.Role.Izvodjac)
+}
+
+// duznostObraneIzvodjaca je valjana dužnost rukovoditelja obrane izvođača
+// ili zamjenika na području; nil kad je nema
+func duznostObraneIzvodjaca(u *models.User, sad time.Time) *models.Duty {
+	return duznostIzvodjaca(u, sad, models.Role.ObranaIzvodjaca)
+}
+
+// duznostIzvodjaca je prva valjana dužnost s ulogom koju uvjet prihvaća, s
+// upisanim područjem i sektorom; nil kad je nema
+func duznostIzvodjaca(u *models.User, sad time.Time, uvjet func(models.Role) bool) *models.Duty {
 	for _, d := range models.VazecaZaduzenja(u.Duties, sad) {
-		if d.Role == models.RoleServiceLeaderForeman && d.AreaID != nil && d.SectorID != nil {
+		if uvjet(d.Role) && d.AreaID != nil && d.SectorID != nil {
 			return &d
 		}
 	}
@@ -51,9 +63,10 @@ func duznostUsluga(u *models.User, sad time.Time) *models.Duty {
 }
 
 // duznostUsluge je dužnost po kojoj se slaže kartica dnevnika radova:
-// voditelja usluga za njegove kartice, inače ovlaštenika
+// izvođača (voditelj usluga, rukovoditelj obrane izvođača) za njegove
+// kartice, inače ovlaštenika
 func duznostUsluge(perms *models.UserPermissions, id string, sad time.Time) *models.Duty {
-	if ulogaKartice(perms, id, sad) == uUsluga {
+	if u := ulogaKartice(perms, id, sad); u == uUsluga || u == uIzvObrana {
 		return duznostUsluga(&perms.User, sad)
 	}
 	return duznostUgovora(&perms.User, sad)
@@ -106,7 +119,7 @@ func (h *DashboardHandler) dnevnikUsluge(ctx context.Context, perms *models.User
 	}
 	for i := range dnevnici {
 		j := &dnevnici[i]
-		if (d.Role == models.RoleServiceLeaderForeman && j.VodiFirma(&perms.User)) || (d.Role.ProgramUgovora() != "" && j.Program() == d.Role.ProgramUgovora()) {
+		if (d.Role.Izvodjac() && j.VodiFirma(&perms.User)) || (d.Role.ProgramUgovora() != "" && j.Program() == d.Role.ProgramUgovora()) {
 			return j, nil
 		}
 	}

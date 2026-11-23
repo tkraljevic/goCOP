@@ -222,7 +222,7 @@ func TestPlanBezIzvodjacaIDuznostPodrucja(t *testing.T) {
 		return o.svc.SpremiDezurstvo(ctx, o.uprava, o.ovlUprav, o.opseg, o.dnevnik, d)
 	}
 	for tko, id := range map[string]string{"poslovođa": poslovodja, "poslovođa i dežurni": poslovodjaIDezurni} {
-		if err := upisi(id, 7); err == nil || !strings.Contains(err.Error(), "poslovođa izvođača ne ulazi u plan") {
+		if err := upisi(id, 7); err == nil || !strings.Contains(err.Error(), "izvođač ne ulazi u plan") {
 			t.Errorf("%s: %v", tko, err)
 		}
 	}

@@ -68,6 +68,8 @@ func TestRazineUloga(t *testing.T) {
 		{RoleFieldWorker, 0, 5, ScopeSection, true, true},
 		{RoleWarehouseKeeper, 0, 5, ScopeArea, true, false},
 		{RoleServiceLeaderForeman, 0, 5, ScopeArea, true, false},
+		{RoleContractorAreaLeader, 0, 5, ScopeArea, true, false},
+		{RoleContractorAreaDeputy, 0, 5, ScopeArea, true, false},
 		{RoleGuest, 0, 5, ScopeAll, false, false},
 		{RoleViewer, 0, 5, ScopeAll, false, false},
 		// nepoznata uloga: razina 5 i doseg dionica ostaju za prikaz, ali ne piše
@@ -118,6 +120,8 @@ func TestUpravaPoRaziniUloge(t *testing.T) {
 		{RoleContractDeputyA3, false, false, true},
 		{RoleOperator, false, false, false},
 		{RoleServiceLeaderForeman, false, false, false},
+		{RoleContractorAreaLeader, false, false, false},
+		{RoleContractorAreaDeputy, false, false, false},
 		{RoleWarehouseKeeper, false, false, false},
 	} {
 		t.Run(string(s.uloga), func(t *testing.T) {

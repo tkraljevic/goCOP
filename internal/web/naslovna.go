@@ -40,6 +40,7 @@ const (
 	uSkladiste = "skladiste"
 	uUgovor    = "ugovor"  // ovlaštenik za praćenje ugovora A.02 ili A.03
 	uUsluga    = "usluga"  // voditelj usluga izvođača
+	uIzvObrana = "obrana"  // rukovoditelj obrane izvođača i zamjenik: kao usluga, uz stanje obrane i prognozu sektora
 	uObjekt    = "objekt"  // strojar, rukovatelj, voditelj posade
 	uPregled   = "pregled" // preglednik: samo čita, uz imena dežurnih i događanja
 	uGost      = "gost"    // gost obrane: samo gleda, bez imena
@@ -92,6 +93,9 @@ var pravilaUloga = []struct {
 	{uUgovor, func(p *models.UserPermissions, sad time.Time) bool { return duznostUgovora(&p.User, sad) != nil }},
 	{uDionica, func(p *models.UserPermissions, sad time.Time) bool { return len(duznostiDionica(&p.User, sad)) > 0 }},
 	{uVodocuvar, func(p *models.UserPermissions, sad time.Time) bool { return terenskaDuznost(&p.User, sad) != nil }},
+	{uIzvObrana, func(p *models.UserPermissions, sad time.Time) bool {
+		return duznostObraneIzvodjaca(&p.User, sad) != nil
+	}},
 	{uUsluga, func(p *models.UserPermissions, sad time.Time) bool { return duznostUsluga(&p.User, sad) != nil }},
 	{uObjekt, func(p *models.UserPermissions, sad time.Time) bool { return duznostNaObjektu(&p.User, sad) != nil }},
 	{uSkladiste, func(p *models.UserPermissions, sad time.Time) bool { return duznostSkladista(&p.User, sad) != nil }},
@@ -110,6 +114,7 @@ var karticeZaUlogu = map[string][]string{
 	uVodocuvar: {kDnevniList, kZadaci, kMojeLetve, kVrijeme},
 	uUgovor:    {kUgovor, kZaRijesiti, kNalozi, kVodostaji, kVrijeme, kJaceOborine},
 	uUsluga:    {kDnevnikRadova, kNaloziOvl, kLjudiNaTerenu, kVrijeme},
+	uIzvObrana: {kStanjeObrane, kDnevnikRadova, kNaloziOvl, kLjudiNaTerenu, kVodostaji, kVrijeme, kJaceOborine},
 	uObjekt:    {kMojiObjekti, kNaloziObjektu, kVrijeme},
 	uSkladiste: {kZaRijesiti, kSkladiste, kSredstvaTeren, kPrometSredstva},
 	uPregled:   {kStanjeObrane, kDogadjanja, kVodostaji, kVrijeme, kJaceOborine},
@@ -168,7 +173,7 @@ func poveznicaKojuVidi(k KarticaNaslovne, vis models.Visibility) KarticaNaslovne
 func (h *DashboardHandler) kartica(r *http.Request, perms *models.UserPermissions, data *DashboardViewData, id string) KarticaNaslovne {
 	switch id {
 	case kStanjeObrane:
-		return karticaStanjaObrane(data.Stanja, h.imenaSektora(), data.Modules.Sees(models.ModuleJournals), ulogaNaslovne(perms, time.Now()) != uGost)
+		return h.karticaStanja(perms, data)
 	case kDogadjanja:
 		return karticaDogadjanja(data.Zid, time.Now())
 	case kDnevniList, kZadaci:
@@ -179,6 +184,15 @@ func (h *DashboardHandler) kartica(r *http.Request, perms *models.UserPermission
 		return lijenaKarticaPodrucja(perms)
 	}
 	return lijenaKartica(id)
+}
+
+// karticaStanja je Stanje obrane. Izvođač ne vidi dnevnik COP-a ni
+// dežurstva (Odluke (30. 10. 2026.), 2), pa mu redak ne vodi u dnevnik i
+// ne kaže tko dežura; gost ne vidi imena.
+func (h *DashboardHandler) karticaStanja(perms *models.UserPermissions, data *DashboardViewData) KarticaNaslovne {
+	vidiCOP := !service.JeIzvodjacZaCOP(&perms.User)
+	return karticaStanjaObrane(data.Stanja, h.imenaSektora(), vidiCOP && data.Modules.Sees(models.ModuleJournals),
+		vidiCOP && ulogaNaslovne(perms, time.Now()) != uGost)
 }
 
 // karticaKnjige su kartice iz vodočuvarskog dnevnika: današnji list i

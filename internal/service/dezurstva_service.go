@@ -66,7 +66,7 @@ func (s *JournalService) izvodjacUDezurstvu(d models.Dezurstvo, povijesti map[st
 		povijesti[d.UserID] = p
 	}
 	for _, z := range models.ZaduzenjaZaZapis(p, d.Od) {
-		if z.Role == models.RoleServiceLeaderForeman {
+		if z.Role.Izvodjac() {
 			return true
 		}
 	}
@@ -238,7 +238,7 @@ func podrucjeDezurstva(o models.Opseg, d *models.Dezurstvo) error {
 const porukaOsobaIzvanSektora = "osoba na dan dežurstva nema dužnost u sektoru ovog centra: djelatnik iz drugog sektora ulazi u plan samo uz privremenu dužnost u ovom sektoru"
 
 // porukaIzvodjacUPlanu kaže zašto poslovođa izvođača ne ulazi u plan
-const porukaIzvodjacUPlanu = "poslovođa izvođača ne ulazi u plan dežurstava: plan i dnevnik COP-a vode Hrvatske vode"
+const porukaIzvodjacUPlanu = "izvođač ne ulazi u plan dežurstava: plan i dnevnik COP-a vode Hrvatske vode"
 
 // osobaUSektoru provjerava da osoba kojoj se upisuje tuđe dežurstvo na dan
 // dežurstva ima dužnost u sektoru centra: svoju, ili privremenu kad je iz
@@ -289,7 +289,7 @@ func (s *JournalService) izvodjacPoPovijesti(povijest []models.VerzijaZaduzenja)
 // ili dužnost uprave organizacije bez sektora, koja vrijedi svuda. Gost,
 // preglednik i izvođač ne dežuraju u centru.
 func duznostUSektoru(z models.Duty, sektor string, podrucja []int) bool {
-	if !z.Role.Writes() || z.Role == models.RoleServiceLeaderForeman {
+	if !z.Role.Writes() || z.Role.Izvodjac() {
 		return false
 	}
 	switch {
@@ -480,7 +480,7 @@ func (s *JournalService) PotvrdiDezurstvo(ctx context.Context, u *models.User, p
 
 // porukaIzvodjacovRazmak: upis poslovođe izvođača ostao je u planu iz
 // ranijeg izdanja programa; ne potvrđuje se i ne ispravlja, nego se miče
-const porukaIzvodjacovRazmak = "poslovođa izvođača ne ulazi u plan dežurstava: ovaj upis se ne potvrđuje ni ne ispravlja, maknite ga iz plana"
+const porukaIzvodjacovRazmak = "izvođač ne ulazi u plan dežurstava: ovaj upis se ne potvrđuje ni ne ispravlja, maknite ga iz plana"
 
 // dezurstvoBezIzvodjaca čita dežurstvo id iz plana dnevnika j za potvrdu ili
 // ispravak opisa. Dežurstvo osobe koja je danas izvođač se ne potvrđuje ni
@@ -969,7 +969,7 @@ func (s *JournalService) PreuzmiDezurstvo(ctx context.Context, u *models.User, p
 }
 
 // porukaPreuzimanjeOdIzvodjaca kaže tko zaključuje smjenu izvođača
-const porukaPreuzimanjeOdIzvodjaca = "sada dežura poslovođa izvođača: njegovu smjenu predaje voditelj ili zamjenik centra, pa tek onda preuzmite dežurstvo"
+const porukaPreuzimanjeOdIzvodjaca = "sada dežura izvođač: njegovu smjenu predaje voditelj ili zamjenik centra, pa tek onda preuzmite dežurstvo"
 
 // zakljuciPrethodnika: tko preuzme dok prethodnik nije predao, zaključi mu
 // dežurstvo tim trenutkom. Smjenu izvođača tako zaključuje samo uprava

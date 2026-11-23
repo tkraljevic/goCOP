@@ -11,7 +11,8 @@ import (
 // Ovlast uloge u tuđoj knjizi vodočuvara po Odlukama (8. 10. 2026.),
 // pitanje 1: dežurni operater čita i upisuje bilješku; rukovoditelj dionice
 // i zamjenik rade po vezi s dionicom; uprava razina 1 do 3, ovlaštenici za
-// praćenje ugovora i njihovi zamjenici smiju sve; poslovođa izvođača, gost,
+// praćenje ugovora i njihovi zamjenici smiju sve; poslovođa izvođača,
+// rukovoditelj obrane izvođača i zamjenik (Odluke (22. 11. 2026.)), gost,
 // preglednik, terenske uloge, skladištar i nepoznata uloga ništa. Zamjenik
 // ima ovlast uloge koju zamjenjuje.
 func TestOvlastKnjigePoUlozi(t *testing.T) {
@@ -38,6 +39,8 @@ func TestOvlastKnjigePoUlozi(t *testing.T) {
 		RoleSectionLeader:        KnjigaDionica,
 		RoleSectionDeputy:        KnjigaDionica,
 		RoleServiceLeaderForeman: KnjigaNe,
+		RoleContractorAreaLeader: KnjigaNe,
+		RoleContractorAreaDeputy: KnjigaNe,
 		RoleWaterGuard:           KnjigaNe,
 		RoleMachinist:            KnjigaNe,
 		RoleFacilityOperator:     KnjigaNe,

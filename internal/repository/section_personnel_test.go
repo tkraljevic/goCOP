@@ -41,6 +41,8 @@ func TestOsobljeDioniceIdeOdozgoIBezSusjednihDionica(t *testing.T) {
 		user("u11", "rukovatelj", "Rukovatelj Objekta"),
 		user("u12", "posada", "Voditelj Posade"),
 		user("u13", "posadadrugo", "Voditelj Posade Drugdje"),
+		user("u14", "izvodjac", "Rukovoditelj Obrane Izvodjaca"),
+		user("u15", "izvodjacdrugo", "Zamjenik Izvodjaca Drugdje"),
 
 		duty("d1", "u1", "WATER_GUARD", "AREA", "B", "34", "''"),
 		duty("d2", "u2", "SECTION_LEADER", "SECTION", "B", "34", `'B.34.1, B.34.7'`),
@@ -55,6 +57,8 @@ func TestOsobljeDioniceIdeOdozgoIBezSusjednihDionica(t *testing.T) {
 		duty("d11", "u11", "FACILITY_OPERATOR", "AREA", "B", "34", "''"),
 		duty("d12", "u12", "CREW_LEADER", "AREA", "B", "34", "''"),
 		duty("d13", "u13", "CREW_LEADER", "AREA", "B", "15", "''"),
+		duty("d14", "u14", "CONTRACTOR_AREA_LEADER", "AREA", "B", "34", "''"),
+		duty("d15", "u15", "CONTRACTOR_AREA_DEPUTY", "AREA", "B", "15", "''"),
 	} {
 		if _, err := database.Exec(stmt); err != nil {
 			t.Fatalf("priprema (%s): %v", stmt, err)
@@ -72,12 +76,12 @@ func TestOsobljeDioniceIdeOdozgoIBezSusjednihDionica(t *testing.T) {
 		if o.FullName == "Rukovoditelj Susjedne" {
 			t.Error("kartica pokazuje rukovoditelja susjedne dionice (B.34.10)")
 		}
-		if o.FullName == "Zamjenik Sektora Za Drugo" || o.FullName == "Zamjenik Glavnog Za Tudji" || o.FullName == "Voditelj Posade Drugdje" {
+		if o.FullName == "Zamjenik Sektora Za Drugo" || o.FullName == "Zamjenik Glavnog Za Tudji" || o.FullName == "Voditelj Posade Drugdje" || o.FullName == "Zamjenik Izvodjaca Drugdje" {
 			t.Errorf("kartica pokazuje %s, koji nije za ovo područje ni sektor", o.FullName)
 		}
 		imena = append(imena, o.FullName)
 	}
-	ocekivano := []string{"Glavni Rukovoditelj", "Zamjenik Glavnog Za Sektor", "Rukovoditelj Sektora", "Zamjenik Sektora Za Podrucje", "Rukovoditelj Dionice", "Vodočuvar Terenski", "Strojar Objekta", "Rukovatelj Objekta", "Voditelj Posade"}
+	ocekivano := []string{"Glavni Rukovoditelj", "Zamjenik Glavnog Za Sektor", "Rukovoditelj Sektora", "Zamjenik Sektora Za Podrucje", "Rukovoditelj Dionice", "Vodočuvar Terenski", "Strojar Objekta", "Rukovatelj Objekta", "Voditelj Posade", "Rukovoditelj Obrane Izvodjaca"}
 	if len(imena) != len(ocekivano) {
 		t.Fatalf("na kartici je %v, očekivano %v", imena, ocekivano)
 	}

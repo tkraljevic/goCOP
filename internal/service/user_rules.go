@@ -352,8 +352,11 @@ func mayGrant(p *models.UserPermissions, role models.Role, sectorID *string, are
 // području areaID (nil: u bilo kojem svom). Više razine daju sve od svoje
 // razine naniže, kao i dosad; uprava područja upravnu ulogu svoje razine
 // daje samo kad je imenovana s razine 2 (upravaPodrucjaOdozgo).
+// Rukovoditelja obrane izvođača i zamjenika daju samo uprava sektora i
+// globalni administrator, prema usvojenom Prilogu 2 Plana obrane (Odluke
+// (22. 11. 2026.), pitanje 5).
 func dajeSRazine(p *models.UserPermissions, rank int, role models.Role, areaID *int) bool {
-	if role.Rank() < rank {
+	if role.Rank() < rank || (rank > 2 && role.ObranaIzvodjaca()) {
 		return false
 	}
 	if rank < 3 || role.RazinaZaUpravu() > rank {

@@ -33,6 +33,8 @@ const (
 	RoleContractDeputyA2     Role = "CONTRACT_DEPUTY_A2"     // Zamjenik ovlaštenika za praćenje ugovora A2
 	RoleContractDeputyA3     Role = "CONTRACT_DEPUTY_A3"     // Zamjenik ovlaštenika za praćenje ugovora A3
 	RoleServiceLeaderForeman Role = "SERVICE_LEADER_FOREMAN" // Voditelj usluga / Poslovođa (licencirane firme)
+	RoleContractorAreaLeader Role = "CONTRACTOR_AREA_LEADER" // Rukovoditelj obrane izvođača za branjeno područje
+	RoleContractorAreaDeputy Role = "CONTRACTOR_AREA_DEPUTY" // Zamjenik rukovoditelja obrane izvođača
 	RoleOperator             Role = "OPERATOR"               // Dežurni operater u COP-u
 	RoleWaterGuard           Role = "WATER_GUARD"            // Vodočuvar
 	RoleMachinist            Role = "MACHINIST"              // Strojar
@@ -777,7 +779,7 @@ func NewUserPermissions(u User) *UserPermissions {
 		}
 		sektor := d.SectorID != nil && *d.SectorID != ""
 		podrucje := d.AreaID != nil && *d.AreaID > 0
-		if sektor {
+		if radiUSektoruDuznosti(d) {
 			p.SektoriDuznosti[*d.SectorID] = true
 		}
 		if podrucje {
@@ -817,6 +819,15 @@ func NewUserPermissions(u User) *UserPermissions {
 	}
 
 	return p
+}
+
+// radiUSektoruDuznosti javlja daje li dužnost rad u sektoru koji nosi
+// (SektoriDuznosti): svaka dužnost s upisanim sektorom, osim rukovoditelja
+// obrane izvođača i zamjenika. Oni rade na svom branjenom području:
+// očitanja upisuju na njegovim letvama, a rješenja i obavijesti vide za
+// njega (Odluke (22. 11. 2026.), pitanja 3 i 6).
+func radiUSektoruDuznosti(d Duty) bool {
+	return d.SectorID != nil && *d.SectorID != "" && !d.Role.ObranaIzvodjaca()
 }
 
 // upisiUpravu upisuje upravu koju dužnost daje: organizacije, sektora
