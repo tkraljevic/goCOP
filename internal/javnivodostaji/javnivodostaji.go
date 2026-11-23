@@ -516,6 +516,10 @@ type Uvoznik struct {
 	// ponovnog pokretanja izvor ih obično opet vrati, pa se odluči iznova.
 	cekaju map[string]cekanjeLetve
 
+	// spori broji, po izvoru, koliko je letvi zaredom u ovom krugu isteklo
+	// čekanje (sporIzvor); briše se na početku kruga
+	spori map[string]int
+
 	krug       sync.Mutex // drži se dok traje jedan krug preuzimanja; drugi krug u to vrijeme ne počinje
 	zadnjiKrug Krug
 	napredak   Napredak
@@ -597,7 +601,7 @@ func (u *Uvoznik) rezervaDanubeHIS(ctx context.Context, st *models.Station, zadn
 	if !ima || (!zadnje.IsZero() && time.Since(zadnje) <= RezervaNakon) {
 		return nil
 	}
-	redci, err := DanubeHIS{Client: u.Client}.Ocitanja(ctx, AdresaDanubeHIS(oznaka))
+	redci, err := u.ocitanjaIzvora(ctx, DanubeHIS{Client: u.Client}, AdresaDanubeHIS(oznaka))
 	if err != nil {
 		u.Zapisnik("javni vodostaji: %s: rezerva DanubeHIS: %v", st.Name, err)
 		return nil
@@ -751,6 +755,7 @@ func (u *Uvoznik) preuzmiSve(ctx context.Context) int {
 	pocetak := time.Now()
 	u.mu.Lock()
 	u.napredak = Napredak{UTijeku: true, Faza: "popis letvi", pocetak: pocetak}
+	u.spori = map[string]int{}
 	u.mu.Unlock()
 	letve, err := u.Spremiste.LetveZaPreuzimanje(ctx)
 	if err != nil {
@@ -871,14 +876,7 @@ func (u *Uvoznik) Preuzmi(ctx context.Context, st *models.Station) StanjeLetve {
 	}
 	cctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
-	redci, err := izvor.Ocitanja(cctx, adresa)
-	if err != nil && isteklo(err) && cctx.Err() == nil {
-		// Spora veza (mobilni internet, prvi krug nakon pokretanja): isti
-		// upit još jednom odmah, prije rezervi. 1. 10. 2026. u 00:03 istekli
-		// su u istom krugu Bruck, Budimpešta, Dalj i crpne stanice — tri
-		// izvora odjednom, dakle naša veza, ne izvor.
-		redci, err = izvor.Ocitanja(cctx, adresa)
-	}
+	redci, err := u.ocitanjaIzvora(cctx, izvor, adresa)
 	if err != nil || len(redci) == 0 {
 		// Kad stranica postaje pukne, vrijednost se uzme s popisa. Ondje je
 		// samo zadnje očitanje, ali bolje jedno na sat nego nijedno — i ne
