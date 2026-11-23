@@ -123,6 +123,13 @@ func primijeniAkt(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	if err := json.Unmarshal(v.Payload, &a); err != nil {
 		return err
 	}
+	// zamijenjeni skenovi ostaju uz akt i na ovom čvoru
+	for _, z := range a.ZamjeneSkena {
+		if err := primiSadrzajZapisa(ctx, z.StariSazetak, "application/pdf", z.StariBajtova, nil,
+			sadrzaj.Veza{Entitet: EntityAkti, EntitetID: a.ID, Uloga: UlogaZamijenjenogSkena, Kanal: v.Channel}); err != nil {
+			return err
+		}
+	}
 	_, err := tx.ExecContext(ctx, aktUpsert, aktArgs(&a)...)
 	return err
 }

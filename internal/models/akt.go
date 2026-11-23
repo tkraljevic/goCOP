@@ -81,6 +81,11 @@ type Akt struct {
 	// Rucno je akt potpisan vlastoručno i ovjeren žigom, pa skeniran i
 	// učitan; tada je sken izvornik
 	Rucno *RucniPotpis `json:"rucno,omitempty"`
+	// ZamjeneSkena su zamjene skena ovjerenog akta, najstarija prva: sken
+	// je bio nečitak, falila je stranica ili je snimljen krivi papir. Prvi
+	// sken ostaje u Rucno i u potpisu akta; zamjena se potpisuje zasebno, a
+	// stari sken ostaje u povijesti akta.
+	ZamjeneSkena []ZamjenaSkena `json:"zamjene_skena,omitempty"`
 	// Storno: ovjeren akt je poništen, kad je pogreška to što je akt uopće
 	// izdan (ispravak ide novim aktom). Poništen akt ostaje u popisu i ispisu,
 	// označen, ali ne ulazi u stanje obrane.
@@ -125,6 +130,41 @@ type RucniPotpis struct {
 	Sazetak     string    `json:"sazetak"` // sha256 skena
 	Ucitao      string    `json:"ucitao"`
 	UcitanoAt   time.Time `json:"ucitano_at"`
+}
+
+// ZamjenaSkena je jedna zamjena skena ovjerenog akta: koji je sken
+// zamijenjen kojim, tko, kada i zašto, potpisano ključem čvora na kojem je
+// zamijenjen. Sažetak skena je i njegov otisak u spremištu sadržaja.
+type ZamjenaSkena struct {
+	StariSazetak  string    `json:"stari_sazetak"`
+	StariBajtova  int       `json:"stari_bajtova,omitempty"`
+	NoviSazetak   string    `json:"novi_sazetak"`
+	ZamijenioID   string    `json:"zamijenio_id"`
+	Zamijenio     string    `json:"zamijenio"`
+	ZamijenjenoAt time.Time `json:"zamijenjeno_at"`
+	Razlog        string    `json:"razlog"`
+	Cvor          string    `json:"cvor,omitempty"`
+	KljucCvora    string    `json:"kljuc_cvora,omitempty"`
+	Potpis        string    `json:"potpis,omitempty"`
+}
+
+// SazetakSkena je sažetak skena koji je sada izvornik: zadnje zamjene, a
+// bez zamjene prvog skena; prazno kad akt nema sken
+func (a Akt) SazetakSkena() string {
+	if n := len(a.ZamjeneSkena); n > 0 {
+		return a.ZamjeneSkena[n-1].NoviSazetak
+	}
+	if a.Rucno == nil {
+		return ""
+	}
+	return a.Rucno.Sazetak
+}
+
+// PorukaZamjene je ono što potpis zamjene skena pokriva: akt (s kodom
+// ovjere), stari i novi sken, tko, kada i zašto
+func (a Akt) PorukaZamjene(z ZamjenaSkena) []byte {
+	return []byte("goCOP-zamjena-skena-v1|" + a.ID + "|" + a.OvjeraKod + "|" + z.StariSazetak + "|" + z.NoviSazetak + "|" +
+		z.ZamijenioID + "|" + z.Zamijenio + "|" + z.ZamijenjenoAt.UTC().Format(time.RFC3339) + "|" + z.Razlog)
 }
 
 // ImaIzvornik javlja postoji li uz akt izvornik izvan programa: PDF iz

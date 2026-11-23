@@ -1454,6 +1454,8 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /akti/{id}/slozi-primatelje", s.authMiddleware(http.HandlerFunc(aktiH.HandleSloziPrimatelje)))
 	s.mux.Handle("GET /akti/{id}/za-ispis.pdf", s.authMiddleware(http.HandlerFunc(aktiH.IzvoziZaIspis)))
 	s.mux.Handle("POST /akti/{id}/sken", s.authMiddleware(http.HandlerFunc(aktiH.HandleUcitajSken)))
+	s.mux.Handle("POST /akti/{id}/zamjena-skena", s.authMiddleware(http.HandlerFunc(aktiH.HandleZamijeniSken)))
+	s.mux.Handle("GET /akti/{id}/sken/{sazetak}", s.authMiddleware(http.HandlerFunc(aktiH.IzvoziZamijenjeniSken)))
 	s.mux.Handle("POST /akti/{id}/posalji", s.authMiddleware(http.HandlerFunc(aktiH.HandlePosalji)))
 	s.mux.Handle("POST /akti/{id}/obrisi", s.authMiddleware(http.HandlerFunc(aktiH.HandleObrisi)))
 

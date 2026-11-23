@@ -118,6 +118,7 @@ type AktiPageData struct {
 	SmijeObrisati       bool
 	SmijeObrisatiTrajno bool   // ovjeren akt, uz uključenu opciju
 	SmijePonistiti      bool   // ovjeren akt: autor ili tko ga smije ovjeriti
+	SmijeZamijenitiSken bool   // ovjeren akt sa skenom: tko ga smije ovjeriti
 	Potpis              string // stanje elektroničkog potpisa: VRIJEDI, NE_VRIJEDI, NEMA
 	SmijePripremiti     bool
 	// SmijeUreditiNacrt: ispraviti tekst i ponovno složiti primatelje smije
@@ -642,6 +643,7 @@ func (h *AktiHandler) ShowAkt(w http.ResponseWriter, r *http.Request) {
 	data.SmijePripremiti = !a.Ovjeren() && s.SmijePripremiti(perms, u, a)
 	data.Slanje = h.slanjeZaStranicu(r, s, perms, u, a)
 	data.SmijeOvjeriti, data.SmijePonistiti = ovjeraIPonistenje(r, s, perms, u, a)
+	data.SmijeZamijenitiSken = data.SmijePonistiti && s.SmijeZamijenitiSken(r.Context(), perms, u, a)
 	if data.SmijeOvjeriti {
 		// sken ovjere učitava samo onaj tko akt smije ovjeriti
 		data.MoguPotpisati = s.MoguPotpisati(a)
@@ -958,6 +960,54 @@ func (h *AktiHandler) IzvoziZaIspis(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Disposition", `inline; filename="`+ime+`-za-ispis.pdf"`)
 	_, _ = w.Write(PDFAktaZaIspis(a, models.Terms(), sek, area))
+}
+
+// HandleZamijeniSken stavlja novi sken ovjerenog akta umjesto dosadašnjeg,
+// uz razlog; stari ostaje u povijesti akta
+func (h *AktiHandler) HandleZamijeniSken(w http.ResponseWriter, r *http.Request) {
+	u, perms, _ := h.base(r)
+	s, a := h.ucitaj(w, r)
+	if a == nil {
+		return
+	}
+	natrag := "/akti/" + a.ID + "#zamjena-skena"
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		redirectWith(w, r, natrag, "error", "Odaberite novi sken akta")
+		return
+	}
+	f, _, err := r.FormFile("sken")
+	if err != nil {
+		redirectWith(w, r, natrag, "error", "Odaberite novi sken akta")
+		return
+	}
+	defer f.Close()
+	podaci, err := procitajDatoteku(f, 32<<20)
+	if err != nil {
+		redirectWith(w, r, natrag, "error", "Sken nije čitljiv: "+err.Error())
+		return
+	}
+	a, err = s.ZamijeniSken(r.Context(), perms, u, a.ID, podaci, r.FormValue("razlog"))
+	if err != nil {
+		redirectWith(w, r, natrag, "error", "Sken nije zamijenjen: "+err.Error())
+		return
+	}
+	redirectWith(w, r, "/akti/"+a.ID, "success", "Sken akta "+a.Oznaka()+" je zamijenjen. Stari sken ostaje u povijesti akta.")
+}
+
+// IzvoziZamijenjeniSken daje sken koji je na aktu zamijenjen novim
+func (h *AktiHandler) IzvoziZamijenjeniSken(w http.ResponseWriter, r *http.Request) {
+	s, a := h.ucitaj(w, r)
+	if a == nil {
+		return
+	}
+	pdf := s.ZamijenjeniSken(r.Context(), a, r.PathValue("sazetak"))
+	if pdf == nil {
+		http.Error(w, "Ovog skena na ovom računalu nema. Ako je zamijenjen na drugom čvoru, stići će razmjenom.", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", `inline; filename="`+strings.TrimSuffix(imeDatotekeAkta(a), ".pdf")+`-zamijenjeni-sken.pdf"`)
+	_, _ = w.Write(pdf) // klijent je mogao otići; nema kome javiti
 }
 
 // HandleUcitajSken prima sken ispisa potpisanog vlastoručno i ovjerenog žigom
