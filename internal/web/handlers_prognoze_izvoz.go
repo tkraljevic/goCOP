@@ -5,6 +5,7 @@ import (
 	"gocop/internal/hydro"
 	"math"
 	"net/http"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -78,10 +79,11 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 	// mjerenjem, našom prenesenom prognozom i prognozom srpske službe, jer
 	// su na istom Dunavu nasuprot našima. Ostale letve samo s mjerenjem
 	// (Bratislava, Komárno) i vrhovi lanca (Wildungsmauer, Letenye) ostaju
-	// na stranici.
+	// na stranici. Letve koje računa samo dnevni model (Vuka) ulaze kad
+	// imaju ijedan dan.
 	var letve []LetvaPrognoze
 	for _, x := range t.Letve {
-		if _, drzava := imeIDrzava(x.Naziv); x.Racuna != "" || drzava == "RS" {
+		if _, drzava := imeIDrzava(x.Naziv); nasaPrognoza(x) || drzava == "RS" {
 			letve = append(letve, x)
 		}
 	}
@@ -248,7 +250,7 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 			"±%s standardna odstupanja sličnih situacija. Kad ga krivulja protoka učini nesimetričnim, zapisan je "+
 			"granicama.\n", data.Udio, 100-data.Udio, brojHRf(prognoza.DnevniRasponMnozitelj, 2)) +
 		"HU je prognoza mađarske službe (hydroinfo.hu), radi usporedbe; njihov raspon obuhvaća isti udio (70 %). " +
-		"Cijeli opis je na listu „O prognozi”." + napomenaSusjeda(letve)
+		"Cijeli opis je na listu „O prognozi”." + napomenaSusjeda(letve) + napomenaDnevnih(letve)
 	var sirina float64
 	for _, w := range l.Sirine {
 		sirina += w
@@ -257,6 +259,43 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 	// kaže širina stupaca.
 	napomenaLista(l, napomena, stupaca, visinaTeksta(napomena, int(sirina*1.3), 30, 0))
 	potpisiLista(l, z, max(stupaca, 8), z.Potpisnici) // dva potpisa trebaju mjesta i kad je letvi malo
+}
+
+// nasaPrognoza: letva ima našu prognozu, iz satnog lanca ili samo iz
+// dnevnog modela (letve Vuke iz zapisa modela).
+func nasaPrognoza(x LetvaPrognoze) bool {
+	return x.Racuna != "" || samoDnevna(x)
+}
+
+// samoDnevna: letvu računa samo dnevni model, a izdao je bar jedan dan.
+func samoDnevna(x LetvaPrognoze) bool {
+	return x.Racuna == "" && x.DnevniOpis != "" &&
+		slices.ContainsFunc(x.Dani, func(d CelijaDana) bool { return d.CmV != nil })
+}
+
+// napomenaDnevnih objašnjava prazna polja letvi koje računa samo dnevni
+// model: sati +6 i +12 nemaju, a „sada” je prazno kad letva u satu izdanja
+// nije izmjerena (Borovik se očitava ujutro), pa piše zadnje mjerenje.
+func napomenaDnevnih(letve []LetvaPrognoze) string {
+	var imena, zadnja []string
+	for _, x := range letve {
+		if !samoDnevna(x) {
+			continue
+		}
+		ime, _ := imeIDrzava(x.Naziv)
+		imena = append(imena, ime)
+		if x.SadaCmV == nil && x.ZadnjeMjerenje != "" {
+			zadnja = append(zadnja, ime+": "+strings.Replace(x.ZadnjeMjerenje, "Zadnje mjerenje:", "zadnje mjerenje", 1))
+		}
+	}
+	if len(imena) == 0 {
+		return ""
+	}
+	s := "\n" + nabroji(imena) + " računa samo dnevni model, pa za +6 h i +12 h nema vrijednosti."
+	if len(zadnja) > 0 {
+		s += " U satu izdanja nisu izmjereni, pa je redak „Sada” prazan. " + strings.Join(zadnja, "; ") + "."
+	}
+	return s
 }
 
 // zaglavljeIzvoza skuplja vrh i dno dokumenta: logotip i naziv organizacije,
