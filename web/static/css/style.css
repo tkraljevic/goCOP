@@ -7339,7 +7339,8 @@ html.izbornik-uski .nav-dno { border-top: 0; padding-top: 0; }
 .kartica-redovi li.faza-emerg { background: var(--faza-i-bg); border-left-color: var(--faza-i-crta); }
 .kartica-redovi li.faza-crit { background: var(--faza-s-bg); border-left-color: var(--faza-s-crta); }
 .kartica-redovi li.faza-crit .redak, .kartica-redovi li.faza-crit .redak-sporedno { color: var(--faza-s-fg); }
-.oznaka-retka { display: inline-flex; align-items: center; margin-top: 4px; height: 24px; padding: 0 10px; border-radius: 8px; font-size: 13px; font-weight: 500; line-height: 24px; border: 1px solid var(--border); color: var(--text-secondary); background: transparent; }
+/* u uskom retku oznaka se lomi u dva retka i raste u visinu, tekst ne izlazi iz nje */
+.oznaka-retka { display: inline-flex; align-items: center; margin-top: 4px; min-height: 24px; max-width: 100%; padding: 3px 10px; border-radius: 8px; font-size: 13px; font-weight: 500; line-height: 16px; border: 1px solid var(--border); color: var(--text-secondary); background: transparent; }
 .oznaka-retka.faza-prep { background: var(--faza-p-bg); color: var(--faza-p-fg); border-color: var(--faza-p-crta); }
 .oznaka-retka.faza-regular { background: var(--faza-r-bg); color: var(--faza-r-fg); border-color: var(--faza-r-crta); }
 .oznaka-retka.faza-emerg { background: var(--faza-i-bg); color: var(--faza-i-fg); border-color: var(--faza-i-crta); }
