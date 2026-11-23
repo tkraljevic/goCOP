@@ -711,6 +711,7 @@ func (s *Server) setupRoutes() {
 	sectionsH.SetPageTemplates(s.templates["section_detail.html"], s.templates["section_form.html"], s.stationService, s.territoryService)
 	sectionsH.episodeService = s.episodeService
 	sectionsH.stanjeObrane = s.stanjeObraneDionice
+	sectionsH.naloziNaDionici = s.journalService.NaloziNaDionici
 	territoriesH := NewTerritoriesHandler(s.territoryService, s.templates["territories.html"])
 	territoriesH.SetPageTemplates(s.templates["county_form.html"], s.templates["municipality_form.html"], s.templates["municipality_detail.html"])
 	territoriesH.SetCountyTemplate(s.templates["county_detail.html"])
@@ -951,6 +952,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /dnevnici/{id}/obracun/{user}", s.authMiddleware(http.HandlerFunc(journalsH.ShowIORS)))
 	s.mux.Handle("GET /dnevnici/{id}/obracun", s.authMiddleware(http.HandlerFunc(journalsH.ShowObracun)))
 	s.mux.Handle("POST /dnevnici/{id}/upisi/{entry}/stanje", s.authMiddleware(http.HandlerFunc(journalsH.HandleTaskStatus)))
+	s.mux.Handle("POST /dnevnici/{id}/upisi/{entry}/odgovor", s.authMiddleware(http.HandlerFunc(journalsH.HandleOdgovorNaNalog)))
 	settingsH := NewSettingsHandler(s.peersService, s.recorder, s.templates["settings.html"])
 	settingsH.SetZastitaKljuca(s.authService.ProvjeriLozinku)
 	sseH := NewSSEHandler(s.sseBroker)

@@ -107,10 +107,10 @@ var pravilaUloga = []struct {
 var karticeZaUlogu = map[string][]string{
 	uAdmin:     {kStanjeObrane, kZaRijesiti, kVodostaji, kVrijeme, kJaceOborine, kDogadjanja, kSustav},
 	uUprava:    {kStanjeObrane, kZaRijesiti, kVodostaji, kVrijeme, kJaceOborine, kDogadjanja},
-	uSektor:    {kStanjeSektora, kZaRijesiti, kDnevnikCOP, kVodostaji, kVrijeme, kJaceOborine},
+	uSektor:    {kStanjeSektora, kZaRijesiti, kDnevnikCOP, kNaloziDao, kVodostaji, kVrijeme, kJaceOborine},
 	uDezurni:   {kMojeDezurstvo, kZaRijesiti, kStanjeSektora, kDnevnikCOP, kVodostaji, kVrijeme, kJaceOborine},
-	uPodrucje:  {kPodrucje, kZaRijesiti, kZadaciPodrucja, kCrpneStanice, kUstave, kVodostaji, kVrijeme, kJaceOborine},
-	uDionica:   {kMojeDionice, kZaRijesiti, kObjektiDionica, kVodostaji, kVrijeme, kJaceOborine},
+	uPodrucje:  {kPodrucje, kZaRijesiti, kZadaciPodrucja, kCrpneStanice, kUstave, kNaloziDao, kVodostaji, kVrijeme, kJaceOborine},
+	uDionica:   {kMojeDionice, kZaRijesiti, kObjektiDionica, kNaloziDao, kVodostaji, kVrijeme, kJaceOborine},
 	uVodocuvar: {kDnevniList, kZadaci, kMojeLetve, kVrijeme},
 	uUgovor:    {kUgovor, kZaRijesiti, kNalozi, kVodostaji, kVrijeme, kJaceOborine},
 	uUsluga:    {kDnevnikRadova, kNaloziOvl, kLjudiNaTerenu, kVrijeme},
@@ -255,6 +255,8 @@ var glaveKartica = map[string]KarticaNaslovne{
 	kDnevnikRadova: {Naslov: "Dnevnik radova"},
 	kNaloziOvl:     {Naslov: "Nalozi ovlaštenika"},
 	kLjudiNaTerenu: {Naslov: "Na terenu danas"},
+	// rukovoditelj dionice, uprava područja i sektora
+	kNaloziDao: {Naslov: "Nalozi koje sam dao"},
 	// strojar, rukovatelj, voditelj posade
 	kMojiObjekti:   {Naslov: "Moji objekti", Poveznica: "Očitanja", URL: "/readings"},
 	kNaloziObjektu: {Naslov: "Nalozi"},
@@ -292,7 +294,7 @@ func (h *DashboardHandler) ShowKartica(w http.ResponseWriter, r *http.Request) {
 // sporaKartica računa tijelo spore kartice
 func (h *DashboardHandler) sporaKartica(r *http.Request, perms *models.UserPermissions, id string) KarticaNaslovne {
 	sad := time.Now()
-	if ulogaKartice(perms, id, sad) == uDionica && id != kVrijeme && id != kJaceOborine && id != kZaRijesiti {
+	if ulogaKartice(perms, id, sad) == uDionica && !slices.Contains(zajednickeKartice, id) {
 		return h.karticaRukovoditeljaDionice(r, perms, id, sad)
 	}
 	if f, ima := sporeKartice[id]; ima {
@@ -300,6 +302,10 @@ func (h *DashboardHandler) sporaKartica(r *http.Request, perms *models.UserPermi
 	}
 	return h.sustav(r.Context(), sad)
 }
+
+// zajednickeKartice rukovoditelj dionice ima kao i ostale uloge; ostale
+// njegove kartice slaže karticaRukovoditeljaDionice
+var zajednickeKartice = []string{kVrijeme, kJaceOborine, kZaRijesiti, kNaloziDao}
 
 // sporeKartice: kako se računa tijelo koje spore kartice; ostalo je Sustav
 var sporeKartice = map[string]func(h *DashboardHandler, r *http.Request, perms *models.UserPermissions, id string, sad time.Time) KarticaNaslovne{
@@ -330,6 +336,7 @@ var sporeKartice = map[string]func(h *DashboardHandler, r *http.Request, perms *
 	kDnevnikRadova:  (*DashboardHandler).karticaUsluga,
 	kNaloziOvl:      (*DashboardHandler).karticaUsluga,
 	kLjudiNaTerenu:  (*DashboardHandler).karticaUsluga,
+	kNaloziDao:      (*DashboardHandler).karticaNalogaDavatelja,
 	kMojiObjekti:    (*DashboardHandler).karticaNaObjektu,
 	kNaloziObjektu:  (*DashboardHandler).karticaNaObjektu,
 }

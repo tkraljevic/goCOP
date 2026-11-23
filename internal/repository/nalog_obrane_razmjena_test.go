@@ -43,7 +43,8 @@ func TestUlogaDavateljaPutujeRazmjenom(t *testing.T) {
 }
 
 // upis0064 je upis dnevnika kako ga zapisuje čvor s programom 0.0.64:
-// ulogu davatelja ne poznaje (ovdje skraćeno na ono što test mijenja)
+// ulogu davatelja ni polja primljenog naloga ne poznaje (ovdje skraćeno na
+// ono što test mijenja)
 type upis0064 struct {
 	ID        string    `json:"id"`
 	JournalID string    `json:"journal_id"`
@@ -86,5 +87,85 @@ func TestUlogaDavateljaPrezivljavaIzmjenuStarijegCvora(t *testing.T) {
 	got, err := r.GetEntry(ctx, e.ID)
 	if err != nil || got == nil || got.Status != models.TaskDone || got.UlogaDavatelja != "Rukovoditelj dionice" || got.SectionCode != "B.16.1" {
 		t.Fatalf("nalog nakon izmjene starijeg čvora: %+v, %v", got, err)
+	}
+}
+
+// primljeniNalog sprema primljeni nalog izvođača s davateljem s popisa i
+// odgovorom davatelja
+func primljeniNalog(t *testing.T, c *cvorZaRazmjenu) (*JournalRepository, *models.JournalEntry) {
+	t.Helper()
+	r, e := nalogUObrani(t, c)
+	kad := time.Date(2026, 11, 22, 14, 30, 0, 0, models.Zagreb)
+	odgovor := kad.Add(time.Hour)
+	p := &models.JournalEntry{JournalID: e.JournalID, SheetID: e.SheetID, Date: e.Date, Kind: models.EntryKindTask, Side: models.EntrySideContractor,
+		SectionCode: "B.16.3", Text: "postaviti vreće", Status: models.TaskOpen, UserID: "u2", UserName: "Marko Markić", HappenedAt: &kad,
+		DavateljID: "u1", Davatelj: "Ivo Ivić", UlogaDavatelja: "Rukovoditelj dionice",
+		Odgovor: models.OdgovorNijeTako, OdgovorNapomena: "rekao sam B.16.4", OdgovorAt: &odgovor}
+	nuzno(t, r.SaveEntry(context.Background(), p))
+	return r, p
+}
+
+// Davatelj i odgovor primljenog naloga putuju na drugi čvor, a čvor s
+// 0.0.64 ih ne briše kad nalog označi izvedenim
+func TestPrimljeniNalogRazmjenomIStarijiCvor(t *testing.T) {
+	ctx := context.Background()
+	a, b := noviCvorZaRazmjenu(t, "a"), noviCvorZaRazmjenu(t, "b")
+	r, p := primljeniNalog(t, a)
+	a.posalji(t, b, "")
+	isti := func(got *models.JournalEntry) bool {
+		return got != nil && got.Primljen() && got.DavateljID == "u1" && got.Davatelj == "Ivo Ivić" && got.UlogaDavatelja == "Rukovoditelj dionice" &&
+			got.Odgovor == models.OdgovorNijeTako && got.OdgovorNapomena == "rekao sam B.16.4" && got.OdgovorAt != nil && got.OdgovorAt.Equal(*p.OdgovorAt)
+	}
+	naB, err := NewJournalRepository(b.db, b.rec).GetEntry(ctx, p.ID)
+	if err != nil || !isti(naB) {
+		t.Fatalf("primljeni nalog na drugom čvoru: %+v, %v", naB, err)
+	}
+
+	var kanal string
+	nuzno(t, b.db.QueryRow(`SELECT channel FROM record_versions WHERE entity = ? AND entity_id = ?`, EntityJournalEntries, p.ID).Scan(&kanal))
+	stari := upis0064{ID: p.ID, JournalID: p.JournalID, SheetID: p.SheetID, Number: p.Number, Date: p.Date, Kind: p.Kind, Side: p.Side,
+		Text: p.Text, Status: models.TaskDone, UserID: p.UserID, UserName: p.UserName, CreatedAt: p.CreatedAt, UpdatedAt: time.Now().UTC()}
+	if _, err := b.rec.RecordIn(ctx, b.db, kanal, EntityJournalEntries, p.ID, stari); err != nil {
+		t.Fatal(err)
+	}
+	b.posalji(t, a, "")
+	got, err := r.GetEntry(ctx, p.ID)
+	if err != nil || !isti(got) || got.Status != models.TaskDone {
+		t.Fatalf("primljeni nalog nakon izmjene starijeg čvora: %+v, %v", got, err)
+	}
+}
+
+// Nalozi davatelja i nalozi na dionici čitaju se iz dnevnika A.02:
+// primljeni nalog davatelja dok čeka odgovor ili je otvoren, svoj nalog dok
+// je otvoren, a na dionici otvoreni i oni od zadanog dana
+func TestNaloziDavateljaINaDioniciIzBaze(t *testing.T) {
+	ctx := context.Background()
+	c := noviCvorZaRazmjenu(t, "a")
+	r, primljeni := primljeniNalog(t, c)
+	upisi, err := r.EntriesForSheet(ctx, primljeni.SheetID)
+	if err != nil || len(upisi) != 2 {
+		t.Fatalf("upisi lista: %+v, %v", upisi, err)
+	}
+	svoj := &upisi[0]
+	nalozi, err := r.NaloziDavatelja(ctx, "u1")
+	if err != nil || len(nalozi) != 2 || nalozi[0].ID != svoj.ID || nalozi[1].ID != primljeni.ID {
+		t.Fatalf("nalozi davatelja: %+v, %v", nalozi, err)
+	}
+	if n, err := r.NaloziDavatelja(ctx, "u2"); err != nil || len(n) != 0 {
+		t.Errorf("izvođač nije davatelj: %+v, %v", n, err)
+	}
+	svoj.Status = models.TaskDone
+	nuzno(t, r.SaveEntry(ctx, svoj))
+	if n, err := r.NaloziDavatelja(ctx, "u1"); err != nil || len(n) != 1 {
+		t.Errorf("izveden svoj nalog ostao: %+v, %v", n, err)
+	}
+	if n, err := r.NaloziNaDionici(ctx, "B.16.1", svoj.Date); err != nil || len(n) != 1 || n[0].ID != svoj.ID {
+		t.Errorf("izveden nalog od dana: %+v, %v", n, err)
+	}
+	if n, err := r.NaloziNaDionici(ctx, "B.16.1", svoj.Date.AddDate(0, 0, 1)); err != nil || len(n) != 0 {
+		t.Errorf("izveden nalog prije dana: %+v, %v", n, err)
+	}
+	if n, err := r.NaloziNaDionici(ctx, "B.16.3", svoj.Date.AddDate(0, 0, 1)); err != nil || len(n) != 1 {
+		t.Errorf("otvoren nalog bez obzira na dan: %+v, %v", n, err)
 	}
 }

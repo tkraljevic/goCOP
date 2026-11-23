@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"time"
 
 	"gocop/internal/models"
@@ -125,23 +126,30 @@ func (s *JournalService) NalogUObrani(ctx context.Context, u *models.User, perms
 
 // VrsteUpisa su vrste upisa koje osoba smije pisati u dnevnik j sada:
 // AllowedKinds, a u obrani i nalog za onoga tko ga smije dati
-// (NalogUObrani)
+// (NalogUObrani) i primljeni nalog za izvođača (PrimaNalogUObrani)
 func (s *JournalService) VrsteUpisa(ctx context.Context, u *models.User, perms *models.UserPermissions, o models.Opseg, j *models.Journal) []string {
 	vrste := s.AllowedKinds(u, perms, o, j)
-	if len(vrste) == 0 || slices.Contains(vrste, models.EntryKindTask) || !s.NalogUObrani(ctx, u, perms, o, j) {
+	if len(vrste) == 0 || slices.Contains(vrste, models.EntryKindTask) {
+		return vrste
+	}
+	if !s.NalogUObrani(ctx, u, perms, o, j) && !s.PrimaNalogUObrani(ctx, u, o, j) {
 		return vrste
 	}
 	return append(slices.Clone(vrste), models.EntryKindTask)
 }
 
-// DioniceZaNalog su dionice koje se nude uz nalog u dnevniku usluge A.02
-// dok na području traje obrana: dionice tog područja. Izvan obrane i u
-// drugim dnevnicima nijedna.
+// DioniceZaNalog su dionice koje se nude uz upis u dnevniku usluge A.02
+// dok traje obrana: izvođaču dionice svih područja sektora na kojima traje
+// obrana (pomoć drugom području), ostalima dionice područja dnevnika dok na
+// njemu traje obrana. Izvan obrane i u drugim dnevnicima nijedna.
 func (s *JournalService) DioniceZaNalog(ctx context.Context, u *models.User, o models.Opseg, j *models.Journal) []models.Section {
-	if j == nil || j.Kind != models.JournalKindMaintenanceA02 || !dnevnikUsluge(j) || IsContractor(u) {
+	if j == nil || j.Kind != models.JournalKindMaintenanceA02 || !dnevnikUsluge(j) || j.AreaID != o.Podrucje {
 		return nil
 	}
 	podrucja, dionice := s.obranaSektora(ctx, o.Sektor)
+	if IsContractor(u) {
+		return dionice
+	}
 	if !podrucja[o.Podrucje] {
 		return nil
 	}
@@ -155,43 +163,62 @@ func (s *JournalService) DioniceZaNalog(ctx context.Context, u *models.User, o m
 }
 
 // pripremiNalog dopunjuje upis prije spremanja: stanje naloga, stranu
-// (izvođač ili Hrvatske vode) i ulogu davatelja uz nalog Hrvatskih voda,
-// a dionica mora biti s popisa (provjeriDionicuNaloga)
-func (s *JournalService) pripremiNalog(u *models.User, perms *models.UserPermissions, o models.Opseg, j *models.Journal, e *models.JournalEntry) error {
-	if err := s.provjeriDionicuNaloga(o, j, e); err != nil {
+// (izvođač ili Hrvatske vode), ulogu davatelja uz nalog Hrvatskih voda i
+// davatelja uz primljeni nalog (pripremiPrimljeni), a dionica mora biti s
+// popisa (provjeriDionicuNaloga). Polja primljenog naloga i odgovora
+// davatelja drugi upisi ne nose.
+func (s *JournalService) pripremiNalog(ctx context.Context, u *models.User, perms *models.UserPermissions, o models.Opseg, j *models.Journal, e *models.JournalEntry) error {
+	davateljID, davatelj := e.DavateljID, strings.TrimSpace(e.Davatelj)
+	e.UlogaDavatelja, e.Status, e.DavateljID, e.Davatelj = "", "", "", ""
+	e.Odgovor, e.OdgovorNapomena, e.OdgovorAt = "", "", nil
+	if err := s.provjeriDionicuNaloga(ctx, u, o, j, e); err != nil {
 		return err
-	}
-	e.UlogaDavatelja, e.Status = "", ""
-	if e.Kind == models.EntryKindTask {
-		e.Status = models.TaskOpen
-	} else {
-		e.DueDate = nil
 	}
 	e.Side = models.EntrySideContractor
 	if !IsContractor(u) {
 		e.Side = models.EntrySideSupervisor
 	}
-	if e.Kind == models.EntryKindTask && e.IsSupervisor() {
-		e.UlogaDavatelja = ulogaDavatelja(perms, o, j)
+	if e.Kind != models.EntryKindTask {
+		e.DueDate = nil
+		return nil
 	}
+	e.Status = models.TaskOpen
+	if !e.IsSupervisor() {
+		return s.pripremiPrimljeni(o, e, davateljID, davatelj)
+	}
+	e.UlogaDavatelja = ulogaDavatelja(perms, o, j)
 	return nil
 }
 
 // porukaDionicaNaloga kaže da dionica uz nalog nije s popisa
 const porukaDionicaNaloga = "dionica uz nalog mora biti dionica ovog branjenog područja: izaberite je s popisa ili ostavite prazno"
 
+// porukaDionicaPomoci kaže izvođaču da dionica nije s popisa
+const porukaDionicaPomoci = "dionica mora biti dionica sektora na kojoj traje obrana: izaberite je s popisa"
+
 // provjeriDionicuNaloga odbija dionicu uz upis u dnevniku usluge koja nije
-// dionica njegova područja. Prazna dionica prolazi, a bez registra dionica
-// dionica se ne provjerava.
-func (s *JournalService) provjeriDionicuNaloga(o models.Opseg, j *models.Journal, e *models.JournalEntry) error {
-	if e.SectionCode == "" || !dnevnikUsluge(j) || s.dionice == nil {
+// s popisa: izvođaču dionica sektora na kojoj traje obrana
+// (DioniceZaNalog), ostalima dionica područja dnevnika. Prazna dionica
+// prolazi, a bez registra dionica dionica Hrvatskih voda se ne provjerava.
+func (s *JournalService) provjeriDionicuNaloga(ctx context.Context, u *models.User, o models.Opseg, j *models.Journal, e *models.JournalEntry) error {
+	if e.SectionCode == "" || !dnevnikUsluge(j) {
+		return nil
+	}
+	ista := func(d models.Section) bool { return d.Code == e.SectionCode }
+	if IsContractor(u) {
+		if !slices.ContainsFunc(s.DioniceZaNalog(ctx, u, o, j), ista) {
+			return errors.New(porukaDionicaPomoci)
+		}
+		return nil
+	}
+	if s.dionice == nil {
 		return nil
 	}
 	dionice, err := s.dionice(o.Sektor, o.Podrucje, "")
 	if err != nil {
 		return err
 	}
-	if !slices.ContainsFunc(dionice, func(d models.Section) bool { return d.Code == e.SectionCode && d.AreaID == o.Podrucje }) {
+	if !slices.ContainsFunc(dionice, func(d models.Section) bool { return ista(d) && d.AreaID == o.Podrucje }) {
 		return errors.New(porukaDionicaNaloga)
 	}
 	return nil

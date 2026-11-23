@@ -198,6 +198,17 @@ prestane, nalozi dani u obrani ostaju otvoreni dok se ne izvedu ili
 otkažu, a novi nalog opet piše samo nadzor. Rukovoditelj obrane izvođača
 i zamjenik u dnevniku pišu na strani izvođača, kao voditelj usluga.
 
+Kad izvođač područja ne može sam, na poziv dolaze firme cijelog sektora.
+Dok je u sektoru proglašena obrana, izvođač u svoj dnevnik A.02 upisuje
+primljeni nalog: što, na kojoj dionici sektora na kojoj traje obrana, kada
+i tko ga je dao. Davatelja bira s popisa osoba s dužnošću u obrani
+sektora (rukovoditelji dionica sa zamjenicima, uprava područja i sektora),
+a kad ga na popisu nema, upisuje ime. Izabrani davatelj vidi nalog na
+Naslovnoj („Nalozi koje sam dao”) i na stranici dionice („Radovi izvođača
+na dionici”), i jednom ga potvrđuje ili javlja da nije tako rečeno, uz
+napomenu što je rekao. Ništa drugo u tuđem dnevniku ne mijenja. Nadzor
+dnevnika ostaje ovlaštenik za ugovor te firme.
+
 Naslovnicu mijenjaju ovlaštenik i uprava područja ili sektora, a dnevnik
 briše uprava sektora ili globalni administrator. Svaka strana list
 potvrđuje jednom, a upis na listu koji su potvrdile obje strane više se ne

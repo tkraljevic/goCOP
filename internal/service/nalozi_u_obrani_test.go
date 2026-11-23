@@ -129,9 +129,15 @@ func TestNalogUObraniPisuRukovoditelji(t *testing.T) {
 	}
 
 	nisu := map[string]func() (*models.User, *models.UserPermissions){
-		"dežurni operater":            func() (*models.User, *models.UserPermissions) { return osoba(models.RoleOperator, models.ScopeSector, "B", 0) },
-		"rukovoditelj dionice drugdje": func() (*models.User, *models.UserPermissions) { return osoba(models.RoleSectionLeader, models.ScopeSection, "D", 30) },
-		"vodočuvar":                   func() (*models.User, *models.UserPermissions) { return osoba(models.RoleWaterGuard, models.ScopeSection, "B", 15) },
+		"dežurni operater": func() (*models.User, *models.UserPermissions) {
+			return osoba(models.RoleOperator, models.ScopeSector, "B", 0)
+		},
+		"rukovoditelj dionice drugdje": func() (*models.User, *models.UserPermissions) {
+			return osoba(models.RoleSectionLeader, models.ScopeSection, "D", 30)
+		},
+		"vodočuvar": func() (*models.User, *models.UserPermissions) {
+			return osoba(models.RoleWaterGuard, models.ScopeSection, "B", 15)
+		},
 		"rukovoditelj obrane izvođača": func() (*models.User, *models.UserPermissions) {
 			return osoba(models.RoleContractorAreaLeader, models.ScopeArea, "B", 15)
 		},
@@ -223,8 +229,8 @@ func TestNalogUObraniSamoURedovnojIIzvanrednoj(t *testing.T) {
 		t.Error("nalog u obrani u dnevniku COP-a")
 	}
 	izvodjac, _ := osoba(models.RoleServiceLeaderForeman, models.ScopeArea, "B", 15)
-	if p.s.DioniceZaNalog(ctx, izvodjac, p.oUB, p.uslugaB) != nil {
-		t.Error("izvođaču se nude dionice uz nalog")
+	if len(p.s.DioniceZaNalog(ctx, izvodjac, p.oUB, p.uslugaB)) != 2 {
+		t.Error("izvođaču se u obrani ne nude dionice za primljeni nalog")
 	}
 	o.greska = errors.New("akti nisu dostupni")
 	if p.s.NalogUObrani(ctx, u, perms, p.oUB, p.uslugaB) {

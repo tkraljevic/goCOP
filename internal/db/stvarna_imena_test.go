@@ -25,12 +25,13 @@ import (
 const porukaStvarneBaze = "pregled testova prema stvarnim imenima treba bazu čvora: GOCOP_STVARNA_BAZA=<apsolutna putanja do gocop.db>; " +
 	"make provjera-registara ga postavlja kad je baza čvora u data/"
 
-// upitiOsoba čitaju imena osoba iz baze čvora; tablicu koje u starijoj bazi
-// nema pregled preskače
+// upitiOsoba čitaju imena osoba iz baze čvora; tablicu ili stupac kojih u
+// starijoj bazi nema pregled preskače
 var upitiOsoba = []string{
 	"SELECT full_name FROM users",
 	"SELECT reported_by FROM journal_entries",
 	"SELECT user_name FROM journal_entries",
+	"SELECT davatelj FROM journal_entries",
 	"SELECT user_name FROM dezurstva",
 	"SELECT ime FROM vodocuvarski_listovi",
 	"SELECT ime FROM prijave",
@@ -120,12 +121,18 @@ func otvoriSamoZaCitanje(put string) (*sql.DB, error) {
 	return baza, nil
 }
 
+// nemaUStarijojBazi javlja da tablice ili stupca upita u bazi starijeg
+// izdanja nema, pa ga pregled preskače
+func nemaUStarijojBazi(err error) bool {
+	return strings.Contains(err.Error(), "no such table") || strings.Contains(err.Error(), "no such column")
+}
+
 // stvarneOsobe čita iz baze čvora imena osoba i korisnička imena, bez onih
 // koje izuzeti dopušta
 func stvarneOsobe(baza *sql.DB, izuzeti map[string]bool) (imena, racuni map[string]bool, err error) {
 	imena, racuni = map[string]bool{}, map[string]bool{}
 	for _, upit := range upitiOsoba {
-		if err := skupi(baza, upit, imena); err != nil && !strings.Contains(err.Error(), "no such table") {
+		if err := skupi(baza, upit, imena); err != nil && !nemaUStarijojBazi(err) {
 			return nil, nil, err
 		}
 	}

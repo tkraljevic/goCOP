@@ -1395,6 +1395,11 @@ func InitSchema(database *sql.DB) error {
 			reported_by TEXT NOT NULL DEFAULT '',
 			podrucje INTEGER,
 			uloga_davatelja TEXT NOT NULL DEFAULT '',
+			davatelj_id TEXT NOT NULL DEFAULT '',
+			davatelj TEXT NOT NULL DEFAULT '',
+			odgovor TEXT NOT NULL DEFAULT '',
+			odgovor_napomena TEXT NOT NULL DEFAULT '',
+			odgovor_at DATETIME,
 			journal_id TEXT NOT NULL REFERENCES journals(id) ON DELETE CASCADE,
 			sheet_id TEXT NOT NULL DEFAULT '',
 			number INTEGER NOT NULL DEFAULT 0,
@@ -1659,6 +1664,13 @@ func migrateSchema(database *sql.DB) error {
 		// (22. 11. 2026.)): u dnevnik A.02 tada pišu i rukovoditelji dionica
 		// i uprava, ne samo ovlaštenik za praćenje ugovora.
 		{"journal_entries", "uloga_davatelja", "TEXT NOT NULL DEFAULT ''"},
+		// Primljeni nalog: izvođač upisuje tko mu je dao nalog, a davatelj ga
+		// potvrđuje ili javlja da nije tako rečeno (Odluke (22. 11. 2026.)).
+		{"journal_entries", "davatelj_id", "TEXT NOT NULL DEFAULT ''"},
+		{"journal_entries", "davatelj", "TEXT NOT NULL DEFAULT ''"},
+		{"journal_entries", "odgovor", "TEXT NOT NULL DEFAULT ''"},
+		{"journal_entries", "odgovor_napomena", "TEXT NOT NULL DEFAULT ''"},
+		{"journal_entries", "odgovor_at", "DATETIME"},
 		{"maintained_waters", "program", "TEXT NOT NULL DEFAULT 'A.02'"},
 		{"sections", "description_custom", "INTEGER NOT NULL DEFAULT 0"},
 		{"sections", "length_km", "REAL"},

@@ -140,6 +140,8 @@ type JournalPageData struct {
 	CanWrite       bool
 	CanSupervise   bool
 	NalogUObrani   bool // piše nalog u dnevnik A.02 jer na području traje obrana, a nije nadzor
+	PrimaNalog     bool // izvođač u obrani upisuje primljeni nalog
+	Davatelji      []service.DavateljNaloga
 	CanManage      bool
 	BriseDnevnik   bool // smije obrisati dnevnik usluge: uprava sektora ili globalni administrator
 	IsContractor   bool
@@ -760,12 +762,29 @@ func (h *JournalsHandler) izboriLista(ctx context.Context, data *JournalPageData
 			}
 		}
 		if data.CanWrite {
-			data.AllowedKinds = h.journals.VrsteUpisa(ctx, data.CurrentUser, data.Permissions, data.Opseg, j)
-			data.Sections = h.journals.DioniceZaNalog(ctx, data.CurrentUser, data.Opseg, j)
-			data.NalogUObrani = !data.CanSupervise && slices.Contains(data.AllowedKinds, models.EntryKindTask)
+			h.izboriObrane(ctx, data, j)
 		}
 	}
 	data.WorkItems, _ = h.maintenance.ListItems(ctx, area.ID, false)
+}
+
+// izboriObrane puni izbore lista dnevnika A.02 u obrani: vrste upisa s
+// nalogom, dionice i, za izvođača, davatelje primljenog naloga
+func (h *JournalsHandler) izboriObrane(ctx context.Context, data *JournalPageData, j *models.Journal) {
+	data.AllowedKinds = h.journals.VrsteUpisa(ctx, data.CurrentUser, data.Permissions, data.Opseg, j)
+	data.Sections = h.journals.DioniceZaNalog(ctx, data.CurrentUser, data.Opseg, j)
+	saNalogom := slices.Contains(data.AllowedKinds, models.EntryKindTask)
+	data.NalogUObrani = saNalogom && !data.CanSupervise && !data.IsContractor
+	data.PrimaNalog = saNalogom && data.IsContractor
+	if data.PrimaNalog {
+		data.Davatelji = h.journals.DavateljiUObrani(data.Opseg.Sektor)
+	}
+}
+
+// OdgovaraNa javlja je li osoba izabrani davatelj primljenog naloga koji
+// čeka njezin odgovor
+func (d JournalPageData) OdgovaraNa(e models.JournalEntry) bool {
+	return d.CurrentUser != nil && e.CekaOdgovor() && e.DavateljID == d.CurrentUser.ID.String()
 }
 
 func sheetPath(j *models.Journal, sh *models.JournalSheet) string {
@@ -900,6 +919,11 @@ func (h *JournalsHandler) HandleAddEntry(w http.ResponseWriter, r *http.Request)
 	if t, err := time.ParseInLocation("2006-01-02", r.FormValue("due_date"), models.Zagreb); err == nil {
 		e.DueDate = &t
 	}
+	// primljeni nalog: tko ga je dao i kada
+	e.DavateljID, e.Davatelj = r.FormValue("davatelj_id"), r.FormValue("davatelj")
+	if t, err := time.ParseInLocation("2006-01-02T15:04", r.FormValue("kada"), models.Zagreb); err == nil {
+		e.HappenedAt = &t
+	}
 	target, err := h.journals.AddEntry(r.Context(), u, perms, h.opseg(j, area), j, sh, &e)
 	if err != nil {
 		redirectWith(w, r, sheetPath(j, sh), "error", err.Error())
@@ -954,6 +978,28 @@ func (h *JournalsHandler) HandleTaskStatus(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	redirectWith(w, r, back+"#upisi", "success", "Stanje naloga je promijenjeno.")
+}
+
+// HandleOdgovorNaNalog upisuje odgovor davatelja na primljeni nalog
+func (h *JournalsHandler) HandleOdgovorNaNalog(w http.ResponseWriter, r *http.Request) {
+	j, _, ok := h.loadJournal(w, r)
+	if !ok {
+		return
+	}
+	u, _ := h.base(r)
+	if err := r.ParseForm(); err != nil {
+		redirectWith(w, r, "/dnevnici/"+j.ID, "error", "Neispravan zahtjev")
+		return
+	}
+	back := "/dnevnici/" + j.ID
+	if r.FormValue("sheet") != "" {
+		back += "/listovi/" + r.FormValue("sheet")
+	}
+	if err := h.journals.OdgovoriNaNalog(r.Context(), u, j, r.PathValue("entry"), r.FormValue("odgovor"), r.FormValue("napomena")); err != nil {
+		redirectWith(w, r, back, "error", err.Error())
+		return
+	}
+	redirectWith(w, r, back+"#upisi", "success", "Odgovor na nalog je upisan.")
 }
 
 // ShowPrint prikazuje listove za ispis u obliku obrasca, u zadanom razdoblju

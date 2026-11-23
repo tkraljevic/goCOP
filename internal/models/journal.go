@@ -559,6 +559,19 @@ type JournalEntry struct {
 	// uprava, pa se uz ime vidi i po kojoj dužnosti (Odluke (22. 11. 2026.)).
 	UlogaDavatelja string `json:"uloga_davatelja,omitempty"`
 
+	// Primljeni nalog (Odluke (22. 11. 2026.)): u obrani izvođač u svoj
+	// dnevnik A.02 upisuje nalog koji mu je rečen, s dionicom (SectionCode),
+	// vremenom (HappenedAt) i onim tko ga je dao. Davatelj izabran s popisa
+	// osoba s dužnošću u obrani sektora ima račun (DavateljID), ime
+	// (Davatelj) i ulogu (UlogaDavatelja); kad ga na popisu nema, upisuje se
+	// samo ime. Izabrani davatelj nalog potvrđuje ili javlja da nije tako
+	// rečeno (Odgovor), uz napomenu što je rečeno.
+	DavateljID      string     `json:"davatelj_id,omitempty"`
+	Davatelj        string     `json:"davatelj,omitempty"`
+	Odgovor         string     `json:"odgovor,omitempty"`
+	OdgovorNapomena string     `json:"odgovor_napomena,omitempty"`
+	OdgovorAt       *time.Time `json:"odgovor_at,omitempty"`
+
 	Voided     bool   `json:"voided"`
 	VoidReason string `json:"void_reason,omitempty"`
 	VoidedBy   string `json:"voided_by,omitempty"`
@@ -640,8 +653,14 @@ func EntryKindLabel(kind string) string {
 	return kind
 }
 
-// KindLabel vraća vrstu upisa za prikaz
-func (e JournalEntry) KindLabel() string { return EntryKindLabel(e.Kind) }
+// KindLabel vraća vrstu upisa za prikaz; nalog koji je upisao izvođač je
+// primljeni nalog
+func (e JournalEntry) KindLabel() string {
+	if e.Primljen() {
+		return "Primljeni nalog"
+	}
+	return EntryKindLabel(e.Kind)
+}
 
 // Stanja naloga
 const (
@@ -670,13 +689,52 @@ func (e JournalEntry) StatusLabel() string { return TaskStatusLabel(e.Status) }
 func (e JournalEntry) IsTask() bool { return e.Kind == EntryKindTask }
 
 // DaoNalog je tko je dao nalog, s ulogom kad je zapisana: „Pero Perić,
-// rukovoditelj dionice”
+// rukovoditelj dionice”. Primljeni nalog dao je davatelj, a ne izvođač koji
+// ga je upisao.
 func (e JournalEntry) DaoNalog() string {
+	ime := e.UserName
+	if e.Primljen() {
+		ime = e.Davatelj
+	}
 	if e.UlogaDavatelja == "" {
-		return e.UserName
+		return ime
 	}
 	r := []rune(e.UlogaDavatelja)
-	return e.UserName + ", " + strings.ToLower(string(r[:1])) + string(r[1:])
+	return ime + ", " + strings.ToLower(string(r[:1])) + string(r[1:])
+}
+
+// Odgovori davatelja na primljeni nalog
+const (
+	OdgovorPotvrden = "POTVRDIO"
+	OdgovorNijeTako = "NIJE_TAKO"
+)
+
+// Primljen govori je li upis primljeni nalog: nalog koji je upisao izvođač
+func (e JournalEntry) Primljen() bool { return e.IsTask() && e.Side == EntrySideContractor }
+
+// CekaOdgovor govori čeka li primljeni nalog odgovor davatelja izabranog s
+// popisa
+func (e JournalEntry) CekaOdgovor() bool {
+	return e.Primljen() && !e.Voided && e.DavateljID != "" && e.Odgovor == ""
+}
+
+// OdgovorLabel vraća odgovor davatelja za prikaz; prazno dok ga nema
+func (e JournalEntry) OdgovorLabel() string {
+	switch e.Odgovor {
+	case OdgovorPotvrden:
+		return "davatelj je potvrdio nalog"
+	case OdgovorNijeTako:
+		return "davatelj javlja da nije tako rečeno"
+	}
+	return ""
+}
+
+// NalogIzvodjacu je nalog iz dnevnika usluge s firmom i područjem
+// dnevnika, za popise izvan dnevnika (Naslovna, stranica dionice)
+type NalogIzvodjacu struct {
+	JournalEntry
+	Firma    string // izvođač s naslovnice dnevnika
+	Podrucje int
 }
 
 // IsOverdue govori je li rok naloga prošao, a nalog je još otvoren

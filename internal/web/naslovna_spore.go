@@ -70,7 +70,10 @@ type IzvoriNaslovne struct {
 	Posiljke         func(ctx context.Context, f repository.FiltarPosiljki) ([]models.Posiljka, error)
 	// DnevniciUsluga su otvoreni dnevnici radova A.02 i A.03 područja, a
 	// ListoviDnevnika dnevni listovi dnevnika
-	DnevniciUsluga  func(ctx context.Context, area int) ([]models.Journal, error)
+	DnevniciUsluga func(ctx context.Context, area int) ([]models.Journal, error)
+	// NaloziDavatelja su nalozi koje je osoba dala izvođačima, za karticu
+	// „Nalozi koje sam dao”
+	NaloziDavatelja func(ctx context.Context, u *models.User) ([]models.NalogIzvodjacu, error)
 	ListoviDnevnika func(ctx context.Context, dnevnik string) ([]models.JournalSheet, error)
 }
 

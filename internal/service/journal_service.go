@@ -18,8 +18,9 @@ import (
 
 // JournalService vodi građevinske dnevnike. Tko smije što u dnevniku usluge
 // (Odluke (30. 10. 2026.), 4):
-//   - izvođač (voditelj usluga / poslovođa) piše rad i napomene i potvrđuje
-//     list za izvođača;
+//   - izvođač (voditelj usluga / poslovođa, rukovoditelj obrane izvođača)
+//     piše rad i napomene i potvrđuje list za izvođača, a u obrani i
+//     primljeni nalog (primljeni_nalozi.go);
 //   - nadzor je ovlaštenik za praćenje ugovora programa dnevnika (i njegov
 //     zamjenik): piše naloge i ocjene, otkazuje naloge i potvrđuje list za
 //     nadzor; dok za program na području nema važećeg ovlaštenika, nadzor
@@ -48,6 +49,9 @@ type JournalService struct {
 	// pretpostavlja
 	stanjaObrane func(ctx context.Context, sektor string, t time.Time) (map[string]models.StanjeObrane, error)
 	dionice      func(sektor string, podrucje int, trazi string) ([]models.Section, error)
+	// osobeSektora su djelatnici s dužnošću u sektoru (SetOsobeSektora),
+	// za popis davatelja primljenog naloga (primljeni_nalozi.go)
+	osobeSektora func(sektor string) ([]models.User, error)
 	// imaOvlastenika javlja ima li na branjenom području važećeg
 	// ovlaštenika za praćenje ugovora programa (UserService.ImaOvlastenikaUgovora),
 	// za nadzor u dnevniku usluge (nadzorUsluge); bez njega (nil) gleda se
@@ -722,7 +726,7 @@ func (s *JournalService) AddEntry(ctx context.Context, u *models.User, perms *mo
 	if e.Text == "" && e.WorkItemID == "" {
 		return nil, errors.New("upis mora imati opis rada ili stavku")
 	}
-	if err := s.pripremiNalog(u, perms, o, j, e); err != nil {
+	if err := s.pripremiNalog(ctx, u, perms, o, j, e); err != nil {
 		return nil, err
 	}
 	// Pun list se ne nastavlja sam: izvođač otvara novi list, istog dana,

@@ -47,8 +47,11 @@ type SectionPageData struct {
 	// pozadini; najavljeni akti još nisu stupili na snagu
 	StanjeObrane   models.StanjeObrane
 	NajavljeniAkti []models.Akt
-	Gauge          *models.Station // letva po kojoj se dionica vodi
-	CanEdit        bool
+	// NaloziIzvodjaca su nalozi svih firmi na dionici iz dnevnika A.02, za
+	// odjeljak „Radovi izvođača na dionici” (Odluke (22. 11. 2026.))
+	NaloziIzvodjaca []models.NalogIzvodjacu
+	Gauge           *models.Station // letva po kojoj se dionica vodi
+	CanEdit         bool
 	// Sazetak kaže koji dijelovi trake na vrhu nose nešto što se ne vidi niže.
 	Sazetak SazetakDionice
 	// Kartica su glava i desni stupac kartice dionice, složeni riječima
@@ -183,6 +186,7 @@ func (h *SectionsHandler) napuniDionicu(r *http.Request, data *SectionPageData) 
 		}
 	}
 	data.StanjeObrane, data.NajavljeniAkti = h.obranaIzAkata(ctx, sec)
+	data.NaloziIzvodjaca = h.naloziIzvodjaca(ctx, data.Permissions, sec.Code)
 	// Obrana se proglašava uz letvu, ondje gdje se vodostaj i čita. Stranica
 	// dionice pokazuje obranu koja traje i upućuje na letvu, ali je ne
 	// proglašava — jedan te isti stupanj vrijedi za sve dionice koje se po toj
@@ -429,6 +433,20 @@ func (h *SectionsHandler) ShowSectionForm(w http.ResponseWriter, r *http.Request
 	if err := h.tmplForm.ExecuteTemplate(w, "section_form.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// naloziIzvodjaca su nalozi izvođačima na dionici; bez izvora ili uz
+// grešku čitanja nijedan (odjeljka tada nema)
+func (h *SectionsHandler) naloziIzvodjaca(ctx context.Context, perms *models.UserPermissions, dionica string) []models.NalogIzvodjacu {
+	if h.naloziNaDionici == nil {
+		return nil
+	}
+	nalozi, err := h.naloziNaDionici(ctx, perms, dionica)
+	if err != nil {
+		log.Printf("nalozi izvođačima na dionici %s: %v", dionica, err)
+		return nil
+	}
+	return nalozi
 }
 
 // obranaIzAkata je stanje obrane dionice iz ovjerenih akata; bez servisa
