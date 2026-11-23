@@ -182,10 +182,13 @@ func sidraDana(ciljevi []int64, izdanoH int64) []int {
 	return sidra
 }
 
-// izvoriLetve su modeli stupaca dana letve po pravilu tablice, s modelom od
+// izvoriSDnevnim su modeli stupaca dana letve po pravilu tablice, s modelom od
 // kojeg niz kreće na početku: satni lanac gdje ga ima, inače dnevni model.
-func izvoriLetve(odDana int, l PregledLetve, dnevne []prognoza.DnevnaIzdana, ciljevi []int64) []izvorDana {
-	return izvoriPo(odDana, l.Satno, func(t int64) bool { _, ok := dnevniU(dnevne, t); return ok }, ciljevi)
+// Dnevni je model onaj koji ide u niz: na letvi bez satnog lanca ima
+// vrijednost već od sata izdanja (dnevniOdSada), pa i stupac prvog jutra
+// dobiva broj.
+func izvoriSDnevnim(odDana int, l PregledLetve, dnevni izvorSata, ciljevi []int64, izdanoH int64) []izvorDana {
+	return izvoriPo(odDana, l.Satno, func(t int64) bool { _, ok, _ := dnevni(int(t - izdanoH)); return ok }, ciljevi)
 }
 
 // izvoriPo je isto pravilo za bilo koji dnevni izvor: imaDnevni javlja ima
@@ -203,11 +206,68 @@ func izvoriPo(odDana int, satno map[int64]PregledVrijednost, imaDnevni func(int6
 	return izvori
 }
 
+// SatiPolazista je koliko sati razlika između izmjerenog u satu izdanja i
+// dnevnog modela postupno nestaje, na letvi koja nema satnog lanca.
+const SatiPolazista = 24
+
+// dnevniOdSada je dnevni model letve bez satnog lanca, pomaknut tako da kreće
+// od izmjerenog u satu izdanja. Dnevni model radi s dnevnim srednjacima i ne
+// vidi ono što se dogodilo u noći prije izdanja, pa je crta iz izmjerenog
+// skakala na njegov dan (Bračevci 23. 11. 2026.: izmjereno 54 cm, dnevni model
+// 12 cm). Razlika se smanjuje pravocrtno i nakon SatiPolazista sati niza je
+// opet čisti dnevni model. Prije prvog sata u kojem dnevni model ima
+// vrijednost (podne prvog dana) uzima se ta prva vrijednost.
+func dnevniOdSada(d izvorSata, sada float64, imaSada bool) izvorSata {
+	if !imaSada {
+		return d
+	}
+	prvi := -1
+	for h := 0; h <= SatiPolazista; h++ {
+		if _, ok, _ := d(h); ok {
+			prvi = h
+			break
+		}
+	}
+	if prvi < 0 {
+		return d
+	}
+	v0, _, _ := d(prvi)
+	razlika := sada - v0.Vrijednost
+	return func(h int) (tockaPrikaza, bool, bool) {
+		if h >= SatiPolazista {
+			return d(h)
+		}
+		v, ok, drzi := d(max(h, prvi))
+		if !ok {
+			return v, ok, drzi
+		}
+		u := razlika * (1 - float64(h)/SatiPolazista)
+		v.Vrijednost, v.Dolje, v.Gore = v.Vrijednost+u, v.Dolje+u, v.Gore+u
+		return v, true, drzi
+	}
+}
+
+// dnevniLetve su dnevni model letve u vodostaju i protoku; gdje letva nema
+// satnog lanca, kreću od izmjerenog u satu izdanja (dnevniOdSada).
+func dnevniLetve(l PregledLetve, dnevne []prognoza.DnevnaIzdana, izdanoH int64) (cm, q izvorSata) {
+	cm, q = dnevniIzvor(dnevniU, dnevne, izdanoH), dnevniIzvor(dnevniQU, dnevne, izdanoH)
+	if len(l.Satno) == 0 {
+		sada, ima := l.Sada["vodostaj"]
+		cm = dnevniOdSada(cm, sada, ima)
+	}
+	if len(l.SatnoQ) == 0 {
+		sada, ima := l.Sada["protok"]
+		q = dnevniOdSada(q, sada, ima)
+	}
+	return cm, q
+}
+
 // prikazLetve je niz letve iz njezinih modela, bez susjeda.
 func prikazLetve(odDana int, l PregledLetve, dnevne []prognoza.DnevnaIzdana, ciljevi []int64, izdanoH int64) nizPrikaza {
-	sidra, izvori := sidraDana(ciljevi, izdanoH), izvoriLetve(odDana, l, dnevne, ciljevi)
-	cm := map[izvorDana]izvorSata{izSatnog: satniIzvor(l.Satno, izdanoH), izDnevnog: dnevniIzvor(dnevniU, dnevne, izdanoH)}
-	q := map[izvorDana]izvorSata{izSatnog: satniIzvor(l.SatnoQ, izdanoH), izDnevnog: dnevniIzvor(dnevniQU, dnevne, izdanoH)}
+	dCm, dQ := dnevniLetve(l, dnevne, izdanoH)
+	sidra, izvori := sidraDana(ciljevi, izdanoH), izvoriSDnevnim(odDana, l, dCm, ciljevi, izdanoH)
+	cm := map[izvorDana]izvorSata{izSatnog: satniIzvor(l.Satno, izdanoH), izDnevnog: dCm}
+	q := map[izvorDana]izvorSata{izSatnog: satniIzvor(l.SatnoQ, izdanoH), izDnevnog: dQ}
 	return nizPrikaza{Cm: spojiStupce(sidra, izvori, cm, SatiPrikaza), Q: spojiStupce(sidra, izvori, q, SatiPrikaza)}
 }
 
@@ -454,7 +514,8 @@ func (u ulazPrikaza) prikazIzSusjeda(l PregledLetve, vlastiti nizPrikaza, w floa
 		return tockaPrikaza{PregledVrijednost: PregledVrijednost{Vrijednost: v, Dolje: v + dl, Gore: v + gr}, Ima: true, Susjedi: 1}, true, false
 	}
 	sidra := sidraDana(u.ciljevi, u.izdanoH)
-	izvori := izvoriLetve(odDanaZa(l.Letva, u.nacin, l), l, u.dnevne[l.Letva], u.ciljevi)
+	dCm, dQ := dnevniLetve(l, u.dnevne[l.Letva], u.izdanoH)
+	izvori := izvoriSDnevnim(odDanaZa(l.Letva, u.nacin, l), l, dCm, u.ciljevi, u.izdanoH)
 	for k := DanIzSusjeda; k < len(sidra); k++ {
 		if u.nacin == models.PrognozaSatni && vlastiti.Cm[min(sidra[k], SatiPrikaza)].Ima {
 			continue // u satnom načinu susjedi daju samo dane do kojih satni lanac ne seže
@@ -463,10 +524,8 @@ func (u ulazPrikaza) prikazIzSusjeda(l PregledLetve, vlastiti nizPrikaza, w floa
 			izvori[k] = izSusjeda
 		}
 	}
-	dnevne := u.dnevne[l.Letva]
-	cm := map[izvorDana]izvorSata{izSatnog: satniIzvor(l.Satno, u.izdanoH),
-		izDnevnog: dnevniIzvor(dnevniU, dnevne, u.izdanoH), izSusjeda: susjedi}
-	q := map[izvorDana]izvorSata{izSatnog: satniIzvor(l.SatnoQ, u.izdanoH), izDnevnog: dnevniIzvor(dnevniQU, dnevne, u.izdanoH)}
+	cm := map[izvorDana]izvorSata{izSatnog: satniIzvor(l.Satno, u.izdanoH), izDnevnog: dCm, izSusjeda: susjedi}
+	q := map[izvorDana]izvorSata{izSatnog: satniIzvor(l.SatnoQ, u.izdanoH), izDnevnog: dQ}
 	return nizPrikaza{Cm: spojiStupce(sidra, izvori, cm, SatiPrikaza), Q: spojiStupce(sidra, izvori, q, SatiPrikaza)}
 }
 
