@@ -4,6 +4,27 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.64-alfa — 23. 11. 2026.
+
+Mjerni uređaj na letvi koji krivo mjeri promjenu vodostaja sad se može
+umjeriti u registru letve. Baza dobiva dva stupca, koje program doda sam
+pri pokretanju. Umjerenje putuje razmjenom s letvom. Starije izdanje ga
+ne poznaje i preuzeta očitanja ne preračunava, pa se umjerenje upisuje
+tek kad su sva računala na ovom izdanju.
+
+- **Umjerenje mjernog uređaja.** U obrascu letve, u odjeljku „Umjerenje
+  mjernog uređaja”, upisuju se odsječak i nagib pravca između uređaja i
+  letve. Program svako preuzeto očitanje uređaja preračuna na letvu, a
+  vrijednost uređaja ostaje spremljena uz očitanje. Ispravak po ručnom
+  očitanju računa se od preračunate vrijednosti. Stranica očitanja letve
+  javlja „Mjerni uređaj treba umjeriti na terenu.” i pokazuje pravac.
+- **Graf prognoze.** Na letvi bez satne prognoze dnevni model kreće od
+  izmjerenog vodostaja, a razlika nestaje kroz 24 sata. Graf više nema
+  šiljak na početku.
+- **Javni vodostaji.** Kad izvor u krugu preuzimanja dvaput zaredom ne
+  odgovori, ostale letve tog izvora u tom krugu idu ravno na rezervu.
+  Prognoza zato ne kasni pola sata kad mađarska stranica ne radi.
+
 ## 0.0.63-alfa — 22. 11. 2026.
 
 Uz jutarnje očitanje letve sad se upisuje i kiša s kišomjera koji uz nju
