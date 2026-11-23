@@ -65,11 +65,11 @@ func TestStanjeSlivaPoRazinama(t *testing.T) {
 		ucestalost string
 	}{
 		{"žuto od jučer", DnevniNiz{0: 25, -1: 0, -2: 0}, 1, "palo u zadnja 24 sata",
-			"toliko padne u prosjeku tri puta godišnje"},
+			"ovoliko kiše padne prosječno tri puta godišnje"},
 		{"narančasto kroz tri dana", DnevniNiz{0: 10, -1: 30, -2: 30}, 2, "palo u zadnja 72 sata",
-			"toliko padne u prosjeku jednom godišnje"},
+			"ovoliko kiše padne prosječno jednom godišnje"},
 		{"crveno s onim što dolazi", DnevniNiz{0: 10, -1: 0, -2: 0, 1: 60, 2: 55}, 3, "palo i očekuje se u 72 sata",
-			"toliko padne u prosjeku jednom u pet godina"},
+			"ovoliko kiše padne prosječno jednom u pet godina"},
 	} {
 		st := stanje(s.n)
 		if st.Razina != s.razina || st.Zasto != s.zasto || st.Ucestalost != s.ucestalost {
@@ -85,11 +85,11 @@ func TestUcestalostKise(t *testing.T) {
 		puta float64
 		want string
 	}{
-		{3, "toliko padne u prosjeku tri puta godišnje"},
-		{2, "toliko padne u prosjeku dva puta godišnje"},
-		{1, "toliko padne u prosjeku jednom godišnje"},
-		{0.2, "toliko padne u prosjeku jednom u pet godina"},
-		{0.1, "toliko padne u prosjeku jednom u nekoliko godina"},
+		{3, "ovoliko kiše padne prosječno tri puta godišnje"},
+		{2, "ovoliko kiše padne prosječno dva puta godišnje"},
+		{1, "ovoliko kiše padne prosječno jednom godišnje"},
+		{0.2, "ovoliko kiše padne prosječno jednom u pet godina"},
+		{0.1, "ovoliko kiše padne prosječno jednom u nekoliko godina"},
 	} {
 		if got := ucestalostKise(s.puta); got != s.want {
 			t.Errorf("%g puta: %q, želim %q", s.puta, got, s.want)

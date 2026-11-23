@@ -247,7 +247,7 @@ func TestTekstSvihVrsta(t *testing.T) {
 		{prognoza.Upozorenje{Vrsta: prognoza.VrstaVrh, Letva: "gornja", Opis: "nema budućnosti vrha (dnevni model); drži se zadnje mjerenje", Upitno: jedan},
 			"Gornji Brod: prva je letva u lancu, a dnevni model za nju nije dao prognozu. Ova letva zato nema satnu prognozu, a letve nizvodno računaju se iz njezina zadnjeg mjerenja.", "Prognoza može biti manje točna najranije za 3 h, jer se računa iz zadnjeg mjerenja letve Gornji Brod."},
 		{prognoza.Upozorenje{Vrsta: prognoza.VrstaKisa, Opis: "dnevni model računa bez kiše: oborine nisu uključene", Upitno: []prognoza.Upitno{{Letva: "donja", OdSata: -1, Dnevno: true}}},
-			"Dnevni model računa bez kiše: oborine nisu uključene.", "Dnevna prognoza može biti manje točna, jer dnevni model računa bez kiše."},
+			"Dnevni model računa bez kiše: oborine nisu uključene.", "Dnevna prognoza može biti manje točna, jer prognoza računa bez kiše."},
 		{prognoza.Upozorenje{Vrsta: prognoza.VrstaDnevnaRezerva, Tezina: prognoza.TezinaNapomena, Letva: "donja", Opis: "dnevni model: treca umjesto srednja"},
 			"Donji Grad: dnevna prognoza iz rezerve: Treće Selo umjesto Srednji Brod.", ""},
 		{prognoza.Upozorenje{Vrsta: prognoza.VrstaZamjena, Tezina: prognoza.TezinaNapomena, Letva: "gornja", Opis: "zamjena: mjerenje kasni 2 h"},

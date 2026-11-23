@@ -75,7 +75,7 @@ func grafoviKise(k *kisaSlivovaPodaci, sad time.Time) []GrafKise {
 // nema dodaje 0 mm (crta ostaje vodoravna)
 func grafKise(s SlivUKisi, izdano time.Time) GrafKise {
 	g := GrafKise{Naziv: imeSliva(s), URL: "#sliv-" + s.Sliv, Klasa: s.Klasa,
-		Rijetko: strings.TrimPrefix(s.Ucestalost, "toliko padne u prosjeku "),
+		Rijetko: strings.TrimPrefix(s.Ucestalost, pocetakUcestalosti),
 		OsY:     grafVisina - grafDolje, PragX: grafSirina - grafDesno}
 	palo, zbroj := zbrojeviDana(s)
 	mjerilo := max(najveciPrag(s.Pragovi.Dan3)*1.15, zbroj*1.05, 1)

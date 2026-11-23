@@ -462,7 +462,7 @@ func (p pisacUpozorenja) uzrok(u prognoza.Upozorenje) string {
 	case prognoza.VrstaDrzi, prognoza.VrstaVrh:
 		return ", jer se računa iz zadnjeg mjerenja letve " + p.ime(u.Letva)
 	case prognoza.VrstaKisa:
-		return ", jer dnevni model računa bez kiše"
+		return ", jer prognoza računa bez kiše"
 	case prognoza.VrstaRekonstrukcija:
 		return ", jer su mjerenja letve " + p.ime(u.Letva) + " procijenjena iz susjeda, izvan provjerenog raspona"
 	case prognoza.VrstaDnevni:

@@ -114,7 +114,7 @@ func TestSporeKarticeNaslovne(t *testing.T) {
 		"za-rijesiti":  "Nema ništa za riješiti.",
 		"vodostaji":    "Vodostaji trenutačno nisu dostupni.",
 		"vrijeme":      "Podaci DHMZ-a trenutačno nisu dostupni.",
-		"jace-oborine": "Podaci o kiši trenutačno nisu dostupni.",
+		"jace-oborine": nedostupnaKisa,
 		"sustav":       "Stanje sustava trenutačno nije dostupno.",
 	} {
 		if w := o.zovi("/naslovna/kartica/"+id, admin); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), zeli) {

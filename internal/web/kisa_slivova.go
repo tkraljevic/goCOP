@@ -122,7 +122,7 @@ func (s *Server) podaciKiseSlivova(ctx context.Context) kisaSlivovaPodaci {
 	if err != nil {
 		// korisnik ne čita poruku baze; uzrok ide u dnevnik programa
 		log.Printf("kiša po slivovima: %v", err)
-		p.Greska = "Podaci o kiši po slivovima trenutačno nisu dostupni."
+		p.Greska = nedostupnaKisa
 	}
 	nazivSliva, nazivLetve := s.naziviSlivova(ctx), s.naziviLetava(ctx)
 	polazista := s.prognoze.PolazistaZa(izdanjeDnevne(dnevne))
@@ -161,6 +161,14 @@ func (s *Server) naziviLetava(ctx context.Context) map[string]string {
 	}
 	return out
 }
+
+// pocetakUcestalosti se odreže s rečenice o učestalosti kiše u kratkim
+// natpisima, da ostane „jednom godišnje”.
+const pocetakUcestalosti = prognoza.PocetakUcestalosti
+
+// nedostupnaKisa piše se kad podataka o kiši nema: prognoza vodostaja i dalje
+// radi, samo možda bez kiše.
+const nedostupnaKisa = "Podaci o kiši trenutačno nisu dostupni. Prognoza vodostaja i dalje radi, ali možda bez kiše."
 
 // razineKise su razred i riječi za razinu kiše međusliva
 var razineKise = map[int][2]string{
@@ -287,7 +295,7 @@ var kisaSlivovaTmpl = template.Must(template.New("kisa").Funcs(template.FuncMap{
   <div class="vrijeme-stanje-mirno">
     <span class="vrijeme-zelena-kvacica">{{icon "check"}}</span>
     <div class="vrijeme-mirno-tekst">
-      <div class="vrijeme-mirno-naslov">Na međuslivovima nema neuobičajene kiše.</div>
+      <div class="vrijeme-mirno-naslov">Na međuslivovima nema jače kiše.</div>
       <div class="reg-card-sub">Ni pala ni prognozirana kiša ne prelazi ono što padne tri puta godišnje.</div>
     </div>
   </div>
