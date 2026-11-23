@@ -201,7 +201,7 @@ func imeSliva(s SlivUKisi) string {
 // redakKise slaže redak međusliva iznad praga
 func redakKise(s SlivUKisi, izdano time.Time) RedakJaceKise {
 	r := RedakJaceKise{Naziv: imeSliva(s), URL: "/slivovi#sliv-" + s.Sliv, Klasa: s.Klasa,
-		Rijetko: spoji(" ", strings.TrimPrefix(s.Ucestalost, "toliko padne u prosjeku "), prozoriOznake[s.Zasto])}
+		Rijetko: spoji(" ", strings.TrimPrefix(s.Ucestalost, pocetakUcestalosti), prozoriOznake[s.Zasto])}
 	r.Dijelovi, r.Crtice = trakaKise(s, izdano)
 	r.Palo, r.Ocekivano = kisaRetka(s, izdano)
 	r.Porast = porastRetka(s)

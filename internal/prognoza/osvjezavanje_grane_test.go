@@ -174,7 +174,7 @@ func TestOsvjeziVrhIzDnevnogModela(t *testing.T) {
 	if iz := ishod.Izbor["vrh:gornja"]; iz.Inacica != 1 || !strings.Contains(iz.Opis, "iz našeg dnevnog modela") {
 		t.Errorf("izbor vrha: %+v", iz)
 	}
-	if iz := ishod.Izbor["oborina"]; iz.Inacica != 2 || iz.Opis != "dnevni model računa bez kiše: oborine nisu uključene (registar slivova bez kišomjera)" {
+	if iz := ishod.Izbor["oborina"]; iz.Inacica != 2 || iz.Opis != "prognoza računa bez kiše, jer kišomjeri slivova nisu upisani" {
 		t.Errorf("izbor oborine: %+v", iz)
 	}
 	// Gornja ide od 100 cm prema srednjaku zadnjeg dana (111,5) u sredini

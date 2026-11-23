@@ -215,14 +215,18 @@ func prijeden(kisa, prag float64) bool {
 	return prag > 0 && kisa >= prag
 }
 
+// PocetakUcestalosti je početak rečenice o učestalosti kiše; kratki natpisi
+// ga odrežu i ostave samo „jednom godišnje”.
+const PocetakUcestalosti = "ovoliko kiše padne prosječno "
+
 // ucestalostKise kaže riječima koliko je kiša rijetka
 func ucestalostKise(puta float64) string {
 	switch {
 	case puta >= 2:
-		return "toliko padne u prosjeku " + map[bool]string{true: "tri", false: "dva"}[puta >= 3] + " puta godišnje"
+		return PocetakUcestalosti + map[bool]string{true: "tri", false: "dva"}[puta >= 3] + " puta godišnje"
 	case puta >= 1:
-		return "toliko padne u prosjeku jednom godišnje"
+		return PocetakUcestalosti + "jednom godišnje"
 	default:
-		return "toliko padne u prosjeku jednom u " + map[bool]string{true: "pet", false: "nekoliko"}[math.Abs(1/puta-5) < 0.5] + " godina"
+		return PocetakUcestalosti + "jednom u " + map[bool]string{true: "pet", false: "nekoliko"}[math.Abs(1/puta-5) < 0.5] + " godina"
 	}
 }

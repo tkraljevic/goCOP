@@ -598,7 +598,7 @@ func slivoviDijela(rg RegijaVremena, kisa *kisaSlivovaPodaci) ([]RedakSliva, *Pr
 	if len(rg.Slivovi) == 0 {
 		return nil, &PraznaKartica{Vrsta: PraznoUIzradi, Tekst: "U izradi: kiša po slivovima zasad se računa samo za slivove Drave, Mure i Dunava."}
 	}
-	nedostupno := &PraznaKartica{Vrsta: PraznoNedostupno, Tekst: "Podaci o kiši po slivovima trenutačno nisu dostupni."}
+	nedostupno := &PraznaKartica{Vrsta: PraznoNedostupno, Tekst: nedostupnaKisa}
 	if kisa == nil {
 		return nil, nedostupno
 	}
@@ -656,7 +656,7 @@ func rijetkostKise(razina int, ucestalost, zasto string) string {
 	if razina == 0 || ucestalost == "" {
 		return "uobičajeno"
 	}
-	return spoji(" · ", strings.TrimPrefix(ucestalost, "toliko padne u prosjeku "), prozoriKise[zasto])
+	return spoji(" · ", strings.TrimPrefix(ucestalost, pocetakUcestalosti), prozoriKise[zasto])
 }
 
 // porastiSliva: „Osijek +45 cm u pon.” za letve s porastom od 5 cm i više

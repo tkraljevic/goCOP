@@ -141,7 +141,7 @@ func TestIzvozRanijegIzdanja(t *testing.T) {
 	}
 	staro := tekstZipa(t, w.Body.Bytes())
 	for _, want := range []string{"izdano 5.10.2026. u 10:00 (ranije izdanje)", "Ranije izdanje, izvezeno",
-		"Prognoza izdana 5.10.2026. u 10:00, izračunata u 10:20.", ">36<", ">42<", ">77<", ">222<", "nema mjerenja", "palo 72 h 11 mm"} {
+		"Prognoza izdana 5.10.2026. u 10:00, izračunata u 10:20.", ">36<", ">42<", ">77<", ">222<", "nema mjerenja", "u zadnja tri dana palo je 11 mm"} {
 		if !strings.Contains(staro, want) {
 			t.Errorf("u izvozu ranijeg izdanja nema %q", want)
 		}
@@ -160,7 +160,7 @@ func TestIzvozRanijegIzdanja(t *testing.T) {
 		t.Errorf("ime datoteke zadnjeg izdanja: %s", d)
 	}
 	zadnje := tekstZipa(t, w.Body.Bytes())
-	for _, want := range []string{">506<", ">777<", ">333<", "palo 72 h 99 mm"} {
+	for _, want := range []string{">506<", ">777<", ">333<", "u zadnja tri dana palo je 99 mm"} {
 		if !strings.Contains(zadnje, want) {
 			t.Errorf("u izvozu zadnjeg izdanja nema %q", want)
 		}
@@ -457,7 +457,7 @@ func TestIzvozRanijegBezZapisa(t *testing.T) {
 			t.Errorf("u izvozu nema %q", want)
 		}
 	}
-	for _, nema := range []string{"upozorenja, dnevna prognoza", "su brojke, dnevna prognoza", "palo 72 h"} {
+	for _, nema := range []string{"upozorenja, dnevna prognoza", "su brojke, dnevna prognoza", "u zadnja tri dana palo je"} {
 		if strings.Contains(txt, nema) {
 			t.Errorf("u izvozu je %q", nema)
 		}
