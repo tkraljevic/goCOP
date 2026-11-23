@@ -45,7 +45,7 @@
     <div class="zapisi">
       {{range .Zapisi}}
       <article id="zapis-{{.Number}}" class="zapis{{if .Voided}} zapis-storniran{{end}}{{if eq .Kind "DEZURSTVO"}} zapis-smjena{{end}}">
-        <div class="zapis-kad mono">{{if .HappenedAt}}{{.HappenedAt.Format "15:04"}}{{else}}—{{end}}</div>
+        <div class="zapis-kad mono">{{if .HappenedAt}}{{satHR .HappenedAt}}{{else}}—{{end}}</div>
         <div class="zapis-tko">
           {{if .ReportedBy}}<span class="zapis-javio"><span class="zapis-javio-rijec">javio </span>{{.ReportedBy}}</span>{{else}}<span class="reading-meta zapis-nitko">—</span>{{end}}
           {{if .UserName}}<div class="zapis-upisao">upis: {{.UserName}}</div>{{else if .UpisaoPoDezurstvu}}<div class="zapis-upisao" title="Zaključak iz zapisa o dežurstvu, ne podatak iz uveza">dežurstvo: {{.UpisaoPoDezurstvu}}</div>{{end}}
@@ -80,7 +80,7 @@
             <div class="form-row novi-zapis-red">
               <div class="form-group">
                 <label class="form-label" for="i-time-{{.Number}}">Vrijeme</label>
-                <input type="time" id="i-time-{{.Number}}" name="time" class="form-control" value="{{if .HappenedAt}}{{.HappenedAt.Format "15:04"}}{{end}}">
+                <input type="time" id="i-time-{{.Number}}" name="time" class="form-control" value="{{if .HappenedAt}}{{satHR .HappenedAt}}{{end}}">
               </div>
               <div class="form-group">
                 <label class="form-label" for="i-kind-{{.Number}}">Vrsta</label>

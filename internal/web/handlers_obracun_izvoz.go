@@ -923,7 +923,7 @@ func KnjigaDnevnika(j *models.Journal, zapisi []models.JournalEntry, dezurstva [
 		}
 		vrijeme := ""
 		if e.HappenedAt != nil {
-			vrijeme = e.HappenedAt.Format("15:04")
+			vrijeme = e.HappenedAt.In(models.Zagreb).Format("15:04")
 		}
 		za := "cijeli " + models.Terms().Lower("sektor")
 		if e.ZaPodrucje() {
