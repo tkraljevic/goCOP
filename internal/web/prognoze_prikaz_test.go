@@ -504,3 +504,44 @@ func TestDnevniOd(t *testing.T) {
 		t.Errorf("letva bez dnevnog modela: %q", got)
 	}
 }
+
+// Letva bez satnog lanca (Bračevci 23. 11. 2026.): izdanje u 6 h, izmjereno
+// 54 cm, a dnevni model za dan daje 10 cm. Niz kreće od izmjerenog, razlika
+// nestaje kroz SatiPolazista sati, pa crta ne skače; dalje je čisti dnevni
+// model, i oznaka ostaje dnevni model.
+func TestDnevniKreceOdIzmjerenog(t *testing.T) {
+	const izdanoH = int64(1000)
+	dnevne := []prognoza.DnevnaIzdana{}
+	for d, v := range []float64{10, 15, 8, 7, 9, 11, 11} {
+		dnevne = append(dnevne, prognoza.DnevnaIzdana{Letva: "bracevci", Dan: d,
+			Ciljni: izdanoH + 18 + int64(24*d), Vrijednost: v, Dolje: v - 5, Gore: v + 5})
+	}
+	var ciljevi []int64
+	for k := 0; k < prognoza.DnevniDosezi; k++ {
+		ciljevi = append(ciljevi, izdanoH+1+int64(24*k))
+	}
+	l := PregledLetve{Letva: "bracevci", Sada: map[string]float64{"vodostaj": 54}}
+	n := prikazLetve(0, l, dnevne, ciljevi, izdanoH).Cm
+
+	prvi, _ := dnevniU(dnevne, izdanoH+6) // podne prvog dana
+	if want := prvi.Vrijednost + 44*(1-1.0/SatiPolazista); !n[1].Ima || math.Abs(n[1].Vrijednost-want) > 1e-9 {
+		t.Fatalf("1. sat: %+v, želim %g", n[1], want)
+	}
+	for h := 2; h <= SatiPrikaza; h++ {
+		if n[h].Ima && n[h-1].Ima && math.Abs(n[h].Vrijednost-n[h-1].Vrijednost) > 3 {
+			t.Errorf("sat %d: skok %g → %g", h, n[h-1].Vrijednost, n[h].Vrijednost)
+		}
+	}
+	for _, h := range []int{SatiPolazista, 40, 100} {
+		d, _ := dnevniU(dnevne, izdanoH+int64(h))
+		if math.Abs(n[h].Vrijednost-d.Vrijednost) > 1e-9 || n[h].Dnevni != 1 {
+			t.Errorf("sat %d: %g (udio dnevnog %g), želim čisti dnevni model %g", h, n[h].Vrijednost, n[h].Dnevni, d.Vrijednost)
+		}
+	}
+
+	// Letva sa satnim lancem ostaje kakva je bila.
+	l.Satno = map[int64]PregledVrijednost{izdanoH + 1: {Vrijednost: 53, Dolje: 50, Gore: 56}}
+	if s := prikazLetve(0, l, dnevne, ciljevi, izdanoH).Cm; s[1].Vrijednost != 53 {
+		t.Errorf("letva sa satnim lancem: 1. sat %g, želim 53", s[1].Vrijednost)
+	}
+}
