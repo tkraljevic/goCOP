@@ -18,6 +18,10 @@ package javnivodostaji
 //
 // Ispravljaju se samo retci izvora s kojeg se letva preuzima; ono što je čovjek
 // upisao ili zalijepio ostaje kakvo jest.
+//
+// Letva s umjerenjem mjernog uređaja (Station.Umjeri, Odluke (23. 11. 2026.))
+// najprije se preračuna s uređaja na letvu, pa se ispravak po ručnom računa od
+// preračunate vrijednosti; SirovoCm i tada nosi vrijednost uređaja.
 
 import (
 	"context"
@@ -71,11 +75,12 @@ func (u *Uvoznik) ispraviPoRucnom(ctx context.Context, st *models.Station, podri
 	if err != nil {
 		return err
 	}
-	plan := sloziPlanIspravka(upisana, redci, podrijetlo)
+	umjeriRetke(st, redci)
+	plan := sloziPlanIspravka(upisana, redci, podrijetlo, st.Umjeri)
 	for i := range redci {
 		ispraviRedak(&redci[i], plan.pomakU(redci[i].Kad))
 	}
-	promjene := plan.zaUpisana(upisana, podrijetlo)
+	promjene := plan.zaUpisana(upisana, podrijetlo, st.Umjeri)
 	if len(promjene) == 0 {
 		return nil
 	}
@@ -101,24 +106,44 @@ func rasponRedaka(redci []Redak) (od, do time.Time, ima bool) {
 	return od, do, ima
 }
 
+// umjeriRetke preračunava retke izvora s mjernog uređaja na letvu, kad letva
+// ima umjerenje; vrijednost uređaja ostaje u SirovoCm.
+func umjeriRetke(st *models.Station, redci []Redak) {
+	if !st.ImaUmjerenje() {
+		return
+	}
+	for i := range redci {
+		r := &redci[i]
+		if r.LevelCm == nil {
+			continue
+		}
+		uredjaj := *r.LevelCm
+		r.SirovoCm, r.LevelCm = &uredjaj, intPtr(st.Umjeri(uredjaj))
+	}
+}
+
 // ispraviRedak upisuje ispravljeni vodostaj i čuva vrijednost mjernog uređaja.
+// Redak koji je već umjeren zadržava vrijednost uređaja koju ima.
 func ispraviRedak(r *Redak, pomak int) {
 	if r.LevelCm == nil || pomak == 0 {
 		return
 	}
-	sirovo := *r.LevelCm
-	r.SirovoCm, r.LevelCm = &sirovo, intPtr(sirovo+pomak)
+	if r.SirovoCm == nil {
+		sirovo := *r.LevelCm
+		r.SirovoCm = &sirovo
+	}
+	r.LevelCm = intPtr(*r.LevelCm + pomak)
 }
 
 // sloziPlanIspravka prolazi ručna očitanja redom i odlučuje koji ispravak
-// vrijedi iza svakoga.
-func sloziPlanIspravka(upisana []models.UpisanoOcitanje, redci []Redak, podrijetlo string) planIspravka {
+// vrijedi iza svakoga. umjeri preračunava vrijednost uređaja na letvu.
+func sloziPlanIspravka(upisana []models.UpisanoOcitanje, redci []Redak, podrijetlo string, umjeri func(int) int) planIspravka {
 	rucna, preuzeta := razvrstajUpisana(upisana, podrijetlo)
-	vrijedi := pocetniIspravak(rucna, preuzeta)
+	vrijedi := pocetniIspravak(rucna, preuzeta, umjeri)
 	plan := planIspravka{{pomak: vrijedi}}
 	var prethodna *int
 	for _, r := range rucna {
-		sirovo, ima := sirovoU(r.Kad, redci, preuzeta)
+		sirovo, ima := sirovoU(r.Kad, redci, preuzeta, umjeri)
 		if !ima {
 			continue
 		}
@@ -173,20 +198,26 @@ func razvrstajUpisana(upisana []models.UpisanoOcitanje, podrijetlo string) (rucn
 
 // pocetniIspravak je ispravak zadnjeg preuzetog očitanja prije prvog ručnog u
 // rasponu; bez ručnih, zadnjeg preuzetog uopće. Tako ispravak nadživi raspon.
-func pocetniIspravak(rucna, preuzeta []models.UpisanoOcitanje) int {
+// Očitanje bez vrijednosti uređaja upisano je kakvo ga je izvor dao, prije
+// umjerenja, pa ne nosi nikakav ispravak.
+func pocetniIspravak(rucna, preuzeta []models.UpisanoOcitanje, umjeri func(int) int) int {
 	pomak := 0
 	for _, o := range preuzeta {
 		if len(rucna) > 0 && !o.Kad.Before(rucna[0].Kad) {
 			break
 		}
-		pomak = o.Cm - o.Sirovo()
+		pomak = 0
+		if o.SirovoCm != nil {
+			pomak = o.Cm - umjeri(*o.SirovoCm)
+		}
 	}
 	return pomak
 }
 
-// sirovoU je vrijednost mjernog uređaja u trenutku ručnog očitanja: najbliži
-// redak izvora, a kad ga nema, najbliže već upisano preuzeto očitanje.
-func sirovoU(t time.Time, redci []Redak, preuzeta []models.UpisanoOcitanje) (int, bool) {
+// sirovoU je vrijednost mjernog uređaja u trenutku ručnog očitanja,
+// preračunata na letvu: najbliži redak izvora (već umjeren), a kad ga nema,
+// najbliže već upisano preuzeto očitanje.
+func sirovoU(t time.Time, redci []Redak, preuzeta []models.UpisanoOcitanje, umjeri func(int) int) (int, bool) {
 	najblize, vrijednost, ima := uzRedak+1, 0, false
 	for _, r := range redci {
 		if d := r.Kad.Sub(t).Abs(); r.LevelCm != nil && d < najblize {
@@ -199,7 +230,7 @@ func sirovoU(t time.Time, redci []Redak, preuzeta []models.UpisanoOcitanje) (int
 	najblize = uzUpisano + 1
 	for _, o := range preuzeta {
 		if d := o.Kad.Sub(t).Abs(); d < najblize {
-			najblize, vrijednost, ima = d, o.Sirovo(), true
+			najblize, vrijednost, ima = d, umjeri(o.Sirovo()), true
 		}
 	}
 	return vrijednost, ima
@@ -208,7 +239,7 @@ func sirovoU(t time.Time, redci []Redak, preuzeta []models.UpisanoOcitanje) (int
 // zaUpisana su već upisana preuzeta očitanja kojima se vrijednost mijenja:
 // ona poslije prvog ručnog očitanja koje je promijenilo ispravak. Starija
 // ostaju kakva jesu, jer se po njima zna koji je ispravak vrijedio.
-func (p planIspravka) zaUpisana(upisana []models.UpisanoOcitanje, podrijetlo string) []models.IspravljenoOcitanje {
+func (p planIspravka) zaUpisana(upisana []models.UpisanoOcitanje, podrijetlo string, umjeri func(int) int) []models.IspravljenoOcitanje {
 	if len(p) < 2 {
 		return nil
 	}
@@ -219,11 +250,12 @@ func (p planIspravka) zaUpisana(upisana []models.UpisanoOcitanje, podrijetlo str
 			continue
 		}
 		sirovo, pomak := o.Sirovo(), p.pomakU(o.Kad)
-		if sirovo+pomak == o.Cm {
+		novo := umjeri(sirovo) + pomak
+		if novo == o.Cm {
 			continue
 		}
-		i := models.IspravljenoOcitanje{ID: o.ID, LevelCm: sirovo + pomak}
-		if pomak != 0 {
+		i := models.IspravljenoOcitanje{ID: o.ID, LevelCm: novo}
+		if novo != sirovo {
 			i.SirovoCm = &sirovo
 		}
 		out = append(out, i)

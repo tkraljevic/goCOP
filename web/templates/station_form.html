@@ -367,6 +367,27 @@
     Isto što se danas zalijepi rukom: zadnja dva-tri dana satnih vodostaja, s podrijetlom te stranice.
     Sat na koji letva već ima očitanje, iz bilo kojeg izvora, ne dira se.
   </p>
+
+  <h4 class="lob-podnaslov">Umjerenje mjernog uređaja</h4>
+  <p class="form-help">
+    Samo kad mjerni uređaj krivo mjeri promjenu: za centimetar na letvi pokaže manje ili više od
+    centimetra, pa se razlika prema ručnom očitanju mijenja s razinom. Upisuje se pravac
+    <em>uređaj = odsječak + nagib · letva</em>, dobiven usporedbom s ručnim očitanjima. Preuzeta očitanja
+    tada se preračunavaju na letvu, a vrijednost uređaja ostaje uz očitanje. Prazno: preuzima se kako
+    uređaj pokazuje.
+  </p>
+  <div class="form-row">
+    <div class="form-group">
+      <label for="umjerenje_odsjecak">Odsječak (cm)</label>
+      <input type="text" inputmode="decimal" id="umjerenje_odsjecak" name="umjerenje_odsjecak" class="form-control"
+             value="{{if .Station.UmjerenjeOdsjecak}}{{unosD .Station.UmjerenjeOdsjecak 1}}{{end}}" placeholder="npr. 120,0">
+    </div>
+    <div class="form-group">
+      <label for="umjerenje_nagib">Nagib</label>
+      <input type="text" inputmode="decimal" id="umjerenje_nagib" name="umjerenje_nagib" class="form-control"
+             value="{{if .Station.UmjerenjeNagib}}{{unosD .Station.UmjerenjeNagib 4}}{{end}}" placeholder="npr. 0,85">
+    </div>
+  </div>
   </section>
 
   {{if .IzborPracenja}}
