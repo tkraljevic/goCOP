@@ -4,6 +4,32 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.63-alfa — 22. 11. 2026.
+
+Uz jutarnje očitanje letve sad se upisuje i kiša s kišomjera koji uz nju
+stoji. Baza dobiva dva stupca, koje program doda sam pri pokretanju. Kiša
+putuje razmjenom s očitanjem. Starije izdanje kišu ne poznaje i pri
+ispravku očitanja bi je izbrisalo. Zato se kišomjer veže na letvu tek kad
+su sva računala na ovom izdanju.
+
+- **Kišomjer uz letvu.** U obrascu stvarnog kišomjera bira se letva uz
+  koju stoji. Jedna letva ima najviše jedan kišomjer. Stranica kišomjera
+  pokazuje letvu s poveznicom na njezina očitanja.
+- **Kiša uz očitanje.** Na letvi s kišomjerom obrazac očitanja ima polje
+  „Oborina (mm)”, od 0 do 300 mm. Kiša očitana ujutro vrijedi za
+  prethodni dan. Prazno polje znači da kiša nije očitana, a 0 da nije
+  padala. Kiša se vidi u popisu Očitanja i na stranici očitanja letve, a
+  u izvozu tablice je zadnji stupac oborina_mm, koji se vraća s
+  ispravcima.
+- **Kiša na kišomjeru.** Svaki sat kiša s očitanja prelazi na kišomjer uz
+  letvu. Ispravak očitanja ispravi i kišu, a brisanje je odnese.
+- **Prognoze.** Na Vuki je Borovik na vrhu popisa, a letve s dnevnim
+  modelom iz zapisa idu redom toka i pišu iz čega se računaju.
+- **O prognozi i Pomoć.** Opisani su kiša kišomjera u dnevnom modelu
+  rječice, prognoza Vuke, kiša uz očitanje letve i ručni kišomjer uz
+  letvu. Ograničenja spominju uspor Dunava na donjoj Vuki i letve s
+  mjernim uređajem u kvaru.
+
 ## 0.0.62-alfa — 22. 11. 2026.
 
 Model prognoze sad se slaže i mijenja sa stranice, bez novog izdanja: za
