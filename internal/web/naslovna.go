@@ -253,7 +253,7 @@ var glaveKartica = map[string]KarticaNaslovne{
 	kUgovor:        {Naslov: "Ugovor"},
 	kNalozi:        {Naslov: "Nalozi"},
 	kDnevnikRadova: {Naslov: "Dnevnik radova"},
-	kNaloziOvl:     {Naslov: "Nalozi ovlaštenika"},
+	kNaloziOvl:     {Naslov: "Nalozi"},
 	kLjudiNaTerenu: {Naslov: "Na terenu danas"},
 	// rukovoditelj dionice, uprava područja i sektora
 	kNaloziDao: {Naslov: "Nalozi koje sam dao"},
