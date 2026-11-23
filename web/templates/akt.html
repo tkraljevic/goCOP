@@ -93,6 +93,19 @@
   </section>
   {{end}}
 
+  {{if .SmijeZamijenitiSken}}
+  {{/* Zamjena skena: panel iz „Još”, otvara se sidrom, kao poništavanje. */}}
+  <section class="list-kartica akt-panel akt-storno" id="zamjena-skena">
+    <h2>Zamijeni sken</h2>
+    <p class="form-help mt-0">Za sken koji je nečitak, kojem fali stranica ili na kojem je krivi papir. Akt, ovjera i potpisnik ostaju isti. Stari sken ostaje u povijesti akta, a zamjena se bilježi s vašim imenom i razlogom. Ako je pogrešan sam akt, poništite ga i izdajte novi.</p>
+    <form method="POST" action="/akti/{{$a.ID}}/zamjena-skena" enctype="multipart/form-data">
+      <div class="form-group list-polje">{{icon "upload"}}<label class="form-label" for="zamjena-sken">Novi sken u PDF-u</label><input type="file" id="zamjena-sken" name="sken" accept="application/pdf,.pdf" required class="form-control"></div>
+      <div class="form-group list-polje">{{icon "pencil"}}<label class="form-label" for="zamjena-razlog">Zašto se sken zamjenjuje</label><textarea id="zamjena-razlog" name="razlog" class="form-control" rows="2" placeholder="npr. nečitka druga stranica" required></textarea></div>
+      <div class="akt-storno-gumbi"><button type="submit" class="btn btn-primary">{{icon "upload"}} Zamijeni sken</button><a href="/akti/{{$a.ID}}" class="btn btn-link">Odustani</a></div>
+    </form>
+  </section>
+  {{end}}
+
   {{if .SmijePonistiti}}
   {{/* Poništavanje (crteži 4g i 4h): panel iz „Još”, otvara se sidrom. Dok je otvoren, slanje, poruka i „Još” se skrivaju.
        Odbijeno poništenje vraća se ovamo s upisanim razlogom, a traka na vrhu kaže zašto. */}}
@@ -371,8 +384,11 @@
 
   {{with $a.Rucno}}
   <section class="list-kartica akt-stanje-potpisa">
-    {{icon "check"}}<p><strong>Potpisan vlastoručno i ovjeren žigom:</strong> {{.Potpisnik}}. Izvornik je sken ispisa; učitao ga je {{.Ucitao}}, {{formatDate (localTime .UcitanoAt)}}.
+    {{icon "check"}}<div><p class="mb-0"><strong>Potpisan vlastoručno i ovjeren žigom:</strong> {{.Potpisnik}}. Izvornik je sken ispisa; učitao ga je {{.Ucitao}}, {{formatDate (localTime .UcitanoAt)}}.
     <a href="/akti/{{$a.ID}}/akt.pdf" target="_blank">Otvori izvornik</a></p>
+    {{with $a.ZamjeneSkena}}<ul class="akt-zamjene-skena mb-0">{{range .}}
+      <li><s>Prethodni sken</s> zamijenio je {{.Zamijenio}}, {{formatDate (localTime .ZamijenjenoAt)}}. Razlog: {{.Razlog}}. <a href="/akti/{{$a.ID}}/sken/{{.StariSazetak}}" target="_blank">Otvori prethodni sken</a></li>{{end}}
+    </ul>{{end}}</div>
   </section>
   {{end}}
 
@@ -393,6 +409,7 @@
   {{if and $a.Ovjeren .SmijePonistiti}}
   <nav class="list-kartica akt-jos" aria-label="Još">
     <h2>Još</h2>
+    {{if .SmijeZamijenitiSken}}<a href="#zamjena-skena">Zamijeni sken (nečitak, fali stranica, krivi papir) {{icon "chevron-right"}}</a>{{end}}
     <a href="#ponisti" class="opasno">Poništi akt (storno) {{icon "chevron-right"}}</a>
   </nav>
   {{end}}

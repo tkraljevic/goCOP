@@ -111,6 +111,8 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 	mux.HandleFunc("POST /profile/potpis-slika", h.HandlePotpisSlika)
 	mux.HandleFunc("GET /profile/potpis-slika", h.PotpisSlika)
 	mux.HandleFunc("POST /akti/{id}/sken", h.HandleUcitajSken)
+	mux.HandleFunc("POST /akti/{id}/zamjena-skena", h.HandleZamijeniSken)
+	mux.HandleFunc("GET /akti/{id}/sken/{sazetak}", h.IzvoziZamijenjeniSken)
 	zovi := func(r *http.Request) *httptest.ResponseRecorder {
 		c := context.WithValue(r.Context(), contextKeyUser, voditelj)
 		c = context.WithValue(c, contextKeyPerms, perms)
@@ -216,6 +218,7 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 	if loc := posalji(id, anic.ID.String(), "sken.png", sken.Bytes()); !strings.Contains(loc, "već ovjeren") {
 		t.Errorf("ponovni sken: %s", loc)
 	}
+	zamjenaSkenaKrozRute(t, zovi, id, skenPDF)
 
 	// žig centra: uprava sektora učita sken, pa PDF akta ovjerenog u goCOP-u nosi otisak
 	perms.IsGlobalAdmin = true

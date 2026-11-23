@@ -1790,6 +1790,9 @@ func migrateSchema(database *sql.DB) error {
 		// izvori popisa primatelja koji se nisu dali pročitati i dionice bez
 		// teritorija (JSON) (Odluke (8. 10. 2026.), pitanje 19)
 		{"akti", "upozorenja_primatelja", "TEXT NOT NULL DEFAULT ''"},
+		// zamjene skena ovjerenog akta (JSON): stari i novi sken, tko, kada
+		// i zašto
+		{"akti", "zamjene_skena", "TEXT NOT NULL DEFAULT ''"},
 		// kodovi ovjera koje rješenje sukoba oznake obuhvaća (JSON): isti
 		// nacrt ovjeren na dva čvora jedan je akt s dvije ovjere (Odluke
 		// (8. 10. 2026.), pitanje 4)

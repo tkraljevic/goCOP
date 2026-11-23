@@ -13,6 +13,7 @@ import (
 
 	"gocop/internal/ledger"
 	"gocop/internal/models"
+	"gocop/internal/sadrzaj"
 )
 
 // Entiteti akata u knjizi verzija
@@ -41,8 +42,8 @@ func NewAktiRepository(db *sql.DB, rec *ledger.Recorder) *AktiRepository {
 const aktUpsert = `INSERT INTO akti (id, sektor, area_id, broj, godina, radnja, stupanj, station_id, station_name, watercourse,
 	vodostaj_cm, vodostaj_kad, tendencija, prognoza, uvod, zavrsno, poveznice, prekida_akt_id, izvan_snage, rucno, storno, dionice, vrijedi, napomena, potpisnik, primatelji,
 	status, izradio_id, izradio, izradeno_at, ovjerio_id, ovjerio, ovjereno_at, ovjera_kod, u_zamjeni, potpis, kljuc_cvora, cvor, created_at, updated_at,
-	potvrde, upozorenja_primatelja)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	potvrde, upozorenja_primatelja, zamjene_skena)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(id) DO UPDATE SET sektor = excluded.sektor, area_id = excluded.area_id, broj = excluded.broj, godina = excluded.godina,
 		radnja = excluded.radnja, stupanj = excluded.stupanj, station_id = excluded.station_id, station_name = excluded.station_name,
 		watercourse = excluded.watercourse, vodostaj_cm = excluded.vodostaj_cm, vodostaj_kad = excluded.vodostaj_kad,
@@ -51,12 +52,12 @@ const aktUpsert = `INSERT INTO akti (id, sektor, area_id, broj, godina, radnja, 
 		izradio_id = excluded.izradio_id, izradio = excluded.izradio, izradeno_at = excluded.izradeno_at,
 		ovjerio_id = excluded.ovjerio_id, ovjerio = excluded.ovjerio, ovjereno_at = excluded.ovjereno_at,
 		ovjera_kod = excluded.ovjera_kod, u_zamjeni = excluded.u_zamjeni, potpis = excluded.potpis, kljuc_cvora = excluded.kljuc_cvora, cvor = excluded.cvor, created_at = excluded.created_at, updated_at = excluded.updated_at,
-		potvrde = excluded.potvrde, upozorenja_primatelja = excluded.upozorenja_primatelja`
+		potvrde = excluded.potvrde, upozorenja_primatelja = excluded.upozorenja_primatelja, zamjene_skena = excluded.zamjene_skena`
 
 const aktColumns = `id, sektor, area_id, broj, godina, radnja, stupanj, station_id, station_name, watercourse,
 	vodostaj_cm, vodostaj_kad, tendencija, prognoza, uvod, zavrsno, poveznice, prekida_akt_id, izvan_snage, rucno, storno, dionice, vrijedi, napomena, potpisnik, primatelji,
 	status, izradio_id, izradio, izradeno_at, ovjerio_id, ovjerio, ovjereno_at, ovjera_kod, u_zamjeni, potpis, kljuc_cvora, cvor, created_at, updated_at,
-	potvrde, upozorenja_primatelja`
+	potvrde, upozorenja_primatelja, zamjene_skena`
 
 func aktArgs(a *models.Akt) []any {
 	dionice, _ := json.Marshal(a.Dionice)
@@ -80,7 +81,7 @@ func aktArgs(a *models.Akt) []any {
 	return []any{a.ID, a.Sektor, a.AreaID, a.Broj, a.Godina, a.Radnja, string(a.Stupanj), a.StationID, a.StationName, a.Watercourse,
 		a.VodostajCm, vodostajKad, a.Tendencija, a.Prognoza, a.Uvod, a.Zavrsno, a.Poveznice, a.PrekidaAktID, a.IzvanSnage, rucno, storno, string(dionice), a.Vrijedi.UTC(), a.Napomena, a.Potpisnik, string(primatelji),
 		a.Status, a.IzradioID, a.Izradio, a.IzradenoAt.UTC(), a.OvjerioID, a.Ovjerio, ovjerenoAt, a.OvjeraKod, boolInt(a.UZamjeni), a.Potpis, a.KljucCvora, a.Cvor, a.CreatedAt.UTC(), a.UpdatedAt.UTC(),
-		jsonIliPrazno(a.Potvrde), jsonIliPrazno(a.UpozorenjaPrimatelja)}
+		jsonIliPrazno(a.Potvrde), jsonIliPrazno(a.UpozorenjaPrimatelja), jsonIliPrazno(a.ZamjeneSkena)}
 }
 
 // jsonIliPrazno je vrijednost kao JSON za stupac teksta; prazno kad je nema
@@ -102,14 +103,14 @@ func citajJSON(s string, v any) {
 
 func scanAkt(sc interface{ Scan(...any) error }) (models.Akt, error) {
 	var a models.Akt
-	var stupanj, dionice, primatelji, rucno, storno, potvrde, upozorenja string
+	var stupanj, dionice, primatelji, rucno, storno, potvrde, upozorenja, zamjene string
 	var vodostaj sql.NullInt64
 	var vodostajKad, ovjerenoAt sql.NullTime
 	var uZamjeni int
 	err := sc.Scan(&a.ID, &a.Sektor, &a.AreaID, &a.Broj, &a.Godina, &a.Radnja, &stupanj, &a.StationID, &a.StationName, &a.Watercourse,
 		&vodostaj, &vodostajKad, &a.Tendencija, &a.Prognoza, &a.Uvod, &a.Zavrsno, &a.Poveznice, &a.PrekidaAktID, &a.IzvanSnage, &rucno, &storno, &dionice, &a.Vrijedi, &a.Napomena, &a.Potpisnik, &primatelji,
 		&a.Status, &a.IzradioID, &a.Izradio, &a.IzradenoAt, &a.OvjerioID, &a.Ovjerio, &ovjerenoAt, &a.OvjeraKod, &uZamjeni, &a.Potpis, &a.KljucCvora, &a.Cvor, &a.CreatedAt, &a.UpdatedAt,
-		&potvrde, &upozorenja)
+		&potvrde, &upozorenja, &zamjene)
 	if err != nil {
 		return a, err
 	}
@@ -138,6 +139,7 @@ func scanAkt(sc interface{ Scan(...any) error }) (models.Akt, error) {
 	_ = json.Unmarshal([]byte(primatelji), &a.Primatelji)
 	citajJSON(potvrde, &a.Potvrde)
 	citajJSON(upozorenja, &a.UpozorenjaPrimatelja)
+	citajJSON(zamjene, &a.ZamjeneSkena)
 	return a, nil
 }
 
@@ -681,14 +683,23 @@ const izvornikUpsert = `INSERT INTO akti_izvornici (akt_id, otisak, bajtova, vrs
 
 // SaveIzvornik sprema potpisani PDF uz akt, s verzijom u knjizi
 func (r *AktiRepository) SaveIzvornik(ctx context.Context, iz *Izvornik) error {
-	if iz.CreatedAt.IsZero() {
-		iz.CreatedAt = time.Now().UTC()
-	}
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
+	if err := r.upisiIzvornik(ctx, tx, iz); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// upisiIzvornik sprema PDF u spremište, a opis izvornika na površinu i u
+// knjigu, unutar zadane transakcije
+func (r *AktiRepository) upisiIzvornik(ctx context.Context, tx *sql.Tx, iz *Izvornik) error {
+	if iz.CreatedAt.IsZero() {
+		iz.CreatedAt = time.Now().UTC()
+	}
 	pdf := iz.PDF
 	opis, err := spremiPDF(ctx, EntityAkti, iz.AktID, "", pdf, iz.Sazetak, iz.CreatedAt.UTC())
 	if err != nil {
@@ -701,11 +712,45 @@ func (r *AktiRepository) SaveIzvornik(ctx context.Context, iz *Izvornik) error {
 	if _, err := r.rec.Record(ctx, tx, EntityIzvornici, iz.AktID, iz); err != nil {
 		return err
 	}
-	if err := tx.Commit(); err != nil {
-		return err
-	}
 	iz.PDF = pdf // pozivatelj je dao bajtove, neka ih i dalje ima
 	return nil
+}
+
+// UlogaZamijenjenogSkena je uloga u kojoj akt drži sken koji je zamijenjen:
+// tako stari sken ostaje na čvoru i putuje drugim čvorovima
+const UlogaZamijenjenogSkena = "zamijenjeni sken"
+
+// ZamijeniSken upisuje novi sken kao izvornik i akt sa zapisom zamjene u
+// istoj transakciji. Stari sken ostaje u spremištu, vezan uz akt.
+func (r *AktiRepository) ZamijeniSken(ctx context.Context, a *models.Akt, iz *Izvornik) error {
+	n := len(a.ZamjeneSkena)
+	if n == 0 {
+		return fmt.Errorf("zamjena skena: akt %s nema zapis zamjene", a.Oznaka())
+	}
+	if spremiste == nil {
+		return errBezSpremista
+	}
+	if err := spremiste.Vezi(ctx, a.ZamjeneSkena[n-1].StariSazetak, sadrzaj.Veza{Entitet: EntityAkti, EntitetID: a.ID, Uloga: UlogaZamijenjenogSkena}); err != nil {
+		return err
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err := r.upisiIzvornik(ctx, tx, iz); err != nil {
+		return err
+	}
+	if err := r.upisiAkt(ctx, tx, a); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// ZamijenjeniSken vraća bajtove skena po sažetku; nil kad ga ovaj čvor
+// (još) nema
+func (r *AktiRepository) ZamijenjeniSken(ctx context.Context, sazetak string) []byte {
+	return ucitajSadrzaj(ctx, sazetak)
 }
 
 // GetIzvornik čita potpisani PDF akta; nil kad ga nema

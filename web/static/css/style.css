@@ -9060,7 +9060,8 @@ summary.ocitanja-cip { padding-right: 8px; }
 .akt-ploca:has(#uredi:target) .akt-jos a[href="#uredi"], .akt-ploca:has(#ispis:target) .akt-jos a[href="#ispis"],
 .akt-ploca:has(#brisanje:target) .akt-jos a[href="#brisanje"] { display: none; }
 /* Poništavanje (4g, 4h): otvoren panel stoji na mjestu slanja i poruke, a „Još” se skriva. */
-.akt-ploca:has(#ponisti:target) :is(.akt-slanje, .akt-slanje-poruka, .akt-jos) { display: none; }
+.akt-ploca:has(:is(#ponisti, #zamjena-skena):target) :is(.akt-slanje, .akt-slanje-poruka, .akt-jos) { display: none; }
+.akt-zamjene-skena { margin-top: 8px; padding-left: 20px; color: var(--md-sys-color-on-surface-variant); }
 .akt-storno > .form-help { margin-bottom: 20px; }
 .akt-storno form { display: flex; flex-direction: column; gap: 12px; }
 .akt-storno .list-polje { margin: 0; }

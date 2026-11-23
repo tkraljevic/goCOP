@@ -70,6 +70,7 @@ var pravilaRuta = map[string]pravilo{
 	"POST /administracija/uvoz-krivulja/pregled":  {dugo: true, tijelo: 8<<20 + 1<<20},
 	"POST /administracija/uvoz-profila/pregled":   {dugo: true, tijelo: 32 << 20},
 	"POST /akti/{id}/sken":                        {dugo: true, tijelo: 32<<20 + 1<<20},
+	"POST /akti/{id}/zamjena-skena":               {dugo: true, tijelo: 32<<20 + 1<<20},
 	"POST /posta/novo":                            {dugo: true, tijelo: 40 << 20},
 	"POST /prijave":                               {dugo: true, tijelo: models.NajviseSlika*(20<<20) + 1<<20}, // šest fotografija do 20 MB i polja obrasca
 	"POST /readings/station/{id}/uvoz":            {dugo: true, tijelo: 32<<20 + 1<<20},
