@@ -273,9 +273,10 @@ func naloziDnevnika(upisi []models.JournalEntry, sIzvedenima bool, sad time.Time
 	return izvedeni, otvoreni
 }
 
-// redakOtvorenogNaloga: nalog, tko ga je dao i rok; preko roka je hitan
+// redakOtvorenogNaloga: nalog, tko ga je dao (s ulogom, jer u obrani nalog
+// daju i rukovoditelji dionica i uprava) i rok; preko roka je hitan
 func redakOtvorenogNaloga(e models.JournalEntry, d dnevnikRadova, sad time.Time) RedakKartice {
-	dio := []string{e.UserName, "zadan " + danNaslovne(e.Date, sad)}
+	dio := []string{e.DaoNalog(), "zadan " + danNaslovne(e.Date, sad)}
 	if e.DueDate != nil {
 		dio = append(dio, "rok "+danNaslovne(*e.DueDate, sad))
 	}

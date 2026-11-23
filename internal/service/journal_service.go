@@ -24,7 +24,9 @@ import (
 //     zamjenik): piše naloge i ocjene, otkazuje naloge i potvrđuje list za
 //     nadzor; dok za program na području nema važećeg ovlaštenika, nadzor
 //     su uprava područja i uprava sektora sa zamjenicima (nadzorUsluge);
-//   - ostali s pravom pisanja (rukovoditelji, dežurni) pišu rad i napomene;
+//   - ostali s pravom pisanja (rukovoditelji, dežurni) pišu rad i napomene,
+//     a u dnevnik A.02 dok na području traje obrana i nalog
+//     (nalozi_u_obrani.go);
 //   - naslovnicu mijenjaju ovlaštenik i uprava područja ili sektora, a
 //     dnevnik briše uprava sektora ili globalni administrator.
 type JournalService struct {
@@ -40,6 +42,12 @@ type JournalService struct {
 	// (UserService.PovijestZaduzenja), za provjeru da osoba u planu
 	// dežurstava ima dužnost u sektoru centra (osobaUSektoru)
 	povijestZaduzenja func(uuid.UUID) ([]models.VerzijaZaduzenja, error)
+	// stanjaObrane su stanja obrane dionica sektora iz ovjerenih akata, a
+	// dionice dionice iz registra (SetObrana), za naloge u obrani u
+	// dnevniku usluge A.02 (nalozi_u_obrani.go); bez njih obrana se ne
+	// pretpostavlja
+	stanjaObrane func(ctx context.Context, sektor string, t time.Time) (map[string]models.StanjeObrane, error)
+	dionice      func(sektor string, podrucje int, trazi string) ([]models.Section, error)
 	// imaOvlastenika javlja ima li na branjenom području važećeg
 	// ovlaštenika za praćenje ugovora programa (UserService.ImaOvlastenikaUgovora),
 	// za nadzor u dnevniku usluge (nadzorUsluge); bez njega (nil) gleda se
@@ -293,16 +301,20 @@ func ovlastenikUsluge(perms *models.UserPermissions, o models.Opseg, j *models.J
 	if perms.IsGlobalAdmin {
 		return true
 	}
-	for _, d := range models.VazecaZaduzenja(perms.User.Duties, time.Now()) {
-		program := d.Role.ProgramUgovora()
-		if program == "" || d.AreaID == nil || *d.AreaID != o.Podrucje {
-			continue
-		}
-		if j == nil || program == j.Program() {
-			return true
-		}
+	return slices.ContainsFunc(models.VazecaZaduzenja(perms.User.Duties, time.Now()), func(d models.Duty) bool {
+		return ovlastenikDuznost(d, o, j)
+	})
+}
+
+// ovlastenikDuznost javlja je li dužnost ovlaštenika za praćenje ugovora
+// (ili zamjenika) programa dnevnika j na području o; bez dnevnika bilo kojeg
+// programa
+func ovlastenikDuznost(d models.Duty, o models.Opseg, j *models.Journal) bool {
+	program := d.Role.ProgramUgovora()
+	if program == "" || d.AreaID == nil || *d.AreaID != o.Podrucje {
+		return false
 	}
-	return false
+	return j == nil || program == j.Program()
 }
 
 // CanManage: naslovnicu dnevnika usluge mijenjaju ovlaštenik za praćenje
@@ -700,7 +712,7 @@ func (s *JournalService) AddEntry(ctx context.Context, u *models.User, perms *mo
 	if err := bezListova(j); err != nil {
 		return nil, err
 	}
-	if !slices.Contains(s.AllowedKinds(u, perms, o, j), e.Kind) {
+	if !slices.Contains(s.VrsteUpisa(ctx, u, perms, o, j), e.Kind) {
 		return nil, errors.New("nemate pravo na tu vrstu upisa u ovaj dnevnik")
 	}
 	if sh.IsConfirmed() {
@@ -710,15 +722,8 @@ func (s *JournalService) AddEntry(ctx context.Context, u *models.User, perms *mo
 	if e.Text == "" && e.WorkItemID == "" {
 		return nil, errors.New("upis mora imati opis rada ili stavku")
 	}
-	if e.Kind == models.EntryKindTask {
-		e.Status = models.TaskOpen
-	} else {
-		e.DueDate, e.Status = nil, ""
-	}
-
-	e.Side = models.EntrySideContractor
-	if !IsContractor(u) {
-		e.Side = models.EntrySideSupervisor
+	if err := s.pripremiNalog(u, perms, o, j, e); err != nil {
+		return nil, err
 	}
 	// Pun list se ne nastavlja sam: izvođač otvara novi list, istog dana,
 	// s istom ili drugom ekipom. Nadzor uvijek ima mjesta.
@@ -827,28 +832,34 @@ func (s *JournalService) SetTaskStatus(ctx context.Context, u *models.User, perm
 	if e.Voided {
 		return errors.New("storniran nalog ne mijenja stanje")
 	}
-	if err := s.smijeStanjeNaloga(u, perms, o, j, status); err != nil {
+	if err := s.smijeStanjeNaloga(u, perms, o, j, e, status); err != nil {
 		return err
 	}
 	e.Status = status
 	return s.repo.SaveEntry(ctx, e)
 }
 
-// smijeStanjeNaloga provjerava smije li osoba nalogu u dnevniku j dati
-// stanje status: izvedenim ga označava izvođač ili nadzor, a otkazuje i
-// ponovno otvara samo nadzor
-func (s *JournalService) smijeStanjeNaloga(u *models.User, perms *models.UserPermissions, o models.Opseg, j *models.Journal, status string) error {
+// smijeStanjeNaloga provjerava smije li osoba nalogu e u dnevniku j dati
+// stanje status: izvedenim ga označava izvođač, nadzor ili tko ga je dao,
+// otkazuje ga nadzor ili tko ga je dao (i nakon obrane u kojoj ga je dao),
+// a ponovno ga otvara samo nadzor
+func (s *JournalService) smijeStanjeNaloga(u *models.User, perms *models.UserPermissions, o models.Opseg, j *models.Journal, e *models.JournalEntry, status string) error {
+	nadzor := s.CanSupervise(u, perms, o, j)
+	svoj := e.IsSupervisor() && e.UserID == u.ID.String()
+	var smije bool
+	var poruka string
 	switch status {
 	case models.TaskDone:
-		if !IsContractor(u) && !s.CanSupervise(u, perms, o, j) {
-			return errors.New("nalog izvedenim označava izvođač ili nadzor")
-		}
-	case models.TaskOpen, models.TaskCancelled:
-		if !s.CanSupervise(u, perms, o, j) {
-			return errors.New("nalog otkazuje ili ponovno otvara samo nadzor")
-		}
+		smije, poruka = nadzor || svoj || IsContractor(u), "nalog izvedenim označava izvođač ili nadzor, a svoj nalog i tko ga je dao"
+	case models.TaskCancelled:
+		smije, poruka = nadzor || svoj, "tuđi nalog otkazuje samo nadzor; svoj nalog otkazuje i tko ga je dao"
+	case models.TaskOpen:
+		smije, poruka = nadzor, "nalog ponovno otvara samo nadzor"
 	default:
 		return errors.New("nepoznato stanje naloga")
+	}
+	if !smije {
+		return errors.New(poruka)
 	}
 	return nil
 }

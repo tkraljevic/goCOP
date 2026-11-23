@@ -160,7 +160,7 @@
         {{if .Hours}}<span class="uu-sitno">trajanje {{brojHRd .Hours 1}} h</span>{{end}}
         {{if .Voided}}<span class="uu-sitno uu-storno-razlog">STORNO ({{.VoidedBy}}): {{.VoidReason}}</span>{{end}}
       </td>
-      <td class="uu-upisao">{{.UserName}}<span class="uu-kad"><span class="usluga-samo-usko"> · </span>{{(localTime .CreatedAt).Format "2. 1. 06. 15:04"}}</span></td>
+      <td class="uu-upisao">{{.UserName}}{{if .UlogaDavatelja}}<span class="uu-sitno">{{.UlogaDavatelja}}</span>{{end}}<span class="uu-kad"><span class="usluga-samo-usko"> · </span>{{(localTime .CreatedAt).Format "2. 1. 06. 15:04"}}</span></td>
       {{if $.CanWrite}}
       <td class="uu-radnje">
         {{if and .IsTask (not .Voided)}}
@@ -203,6 +203,15 @@
         <datalist id="dionice">{{range .Sections}}<option value="{{.Code}}">{{.Description}}</option>{{end}}</datalist>
       </div>
       {{else}}
+      {{if .Sections}}
+      <div class="form-group">
+        <label class="form-label" for="section_code">Dionica</label>
+        <select id="section_code" name="section_code" class="form-control">
+          <option value="">— bez dionice —</option>
+          {{range .Sections}}<option value="{{.Code}}">{{.Code}}{{if .Description}} · {{.Description}}{{end}}</option>{{end}}
+        </select>
+      </div>
+      {{end}}
       <div class="form-group">
         <label class="form-label" for="location">Lokacija iz popisa</label>
         <select id="location" name="location" class="form-control">
@@ -234,7 +243,8 @@
       <input type="date" id="due_date" name="due_date" class="form-control">
     </div>
     <div class="lista-gumbi"><button type="submit" class="btn btn-primary">Upiši</button></div>
-    {{if .CanSupervise}}<p class="form-help">Nadzor na listu uvijek ima mjesta. Ocjenu i nalog upisuje nadzor.</p>{{end}}
+    {{if .CanSupervise}}<p class="form-help">Nadzor na listu uvijek ima mjesta. Ocjenu i nalog upisuje nadzor.</p>
+    {{else if .NalogUObrani}}<p class="form-help">Na području traje obrana, pa nalog izvođaču možete upisati i vi. Ocjenu i potvrdu lista za nadzor i dalje daje ovlaštenik za praćenje ugovora.</p>{{end}}
   </form>
   {{end}}
 </section>

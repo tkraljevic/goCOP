@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -138,6 +139,7 @@ type JournalPageData struct {
 	RadnoVrijeme   obracun.RadnoVrijeme
 	CanWrite       bool
 	CanSupervise   bool
+	NalogUObrani   bool // piše nalog u dnevnik A.02 jer na području traje obrana, a nije nadzor
 	CanManage      bool
 	BriseDnevnik   bool // smije obrisati dnevnik usluge: uprava sektora ili globalni administrator
 	IsContractor   bool
@@ -617,7 +619,7 @@ func (h *JournalsHandler) ShowJournal(w http.ResponseWriter, r *http.Request) {
 		h.showDnevnikCOP(w, r, data, j, area)
 		return
 	}
-	data.Sheets, _ = h.journals.ListSheets(ctx, j.ID)   // bez listova naslovnica ostaje, s praznim popisom
+	data.Sheets, _ = h.journals.ListSheets(ctx, j.ID) // bez listova naslovnica ostaje, s praznim popisom
 	data.SviListovi = r.URL.Query().Get("listovi") == "svi"
 	data.OpenTasks, _ = h.journals.OpenTasks(ctx, j.ID) // bez naloga stranica samo nema popisa otvorenih
 	data.Gaps, _ = h.journals.NumberGaps(ctx, j.ID)     // rupe u brojevima su upozorenje, ne uvjet
@@ -745,7 +747,8 @@ func listCOPaSamoZaCitanje(d *JournalPageData) bool {
 }
 
 // izboriLista puni izbore obrasca za upis na list: dionice ili lokacije
-// održavanja područja i stavke rada
+// održavanja područja i stavke rada. U dnevniku A.02 dok na području traje
+// obrana nalog pišu i rukovoditelji dionica i uprava, uz dionicu područja.
 func (h *JournalsHandler) izboriLista(ctx context.Context, data *JournalPageData, j *models.Journal, area *models.Area) {
 	if j.IsDefense() {
 		data.Sections, _ = h.sections.ListSections("", area.ID, "")
@@ -755,6 +758,11 @@ func (h *JournalsHandler) izboriLista(ctx context.Context, data *JournalPageData
 			if mw.ProgramOf() == j.Program() {
 				data.Locations = append(data.Locations, mw)
 			}
+		}
+		if data.CanWrite {
+			data.AllowedKinds = h.journals.VrsteUpisa(ctx, data.CurrentUser, data.Permissions, data.Opseg, j)
+			data.Sections = h.journals.DioniceZaNalog(ctx, data.CurrentUser, data.Opseg, j)
+			data.NalogUObrani = !data.CanSupervise && slices.Contains(data.AllowedKinds, models.EntryKindTask)
 		}
 	}
 	data.WorkItems, _ = h.maintenance.ListItems(ctx, area.ID, false)

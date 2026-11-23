@@ -1394,6 +1394,7 @@ func InitSchema(database *sql.DB) error {
 			happened_at DATETIME,
 			reported_by TEXT NOT NULL DEFAULT '',
 			podrucje INTEGER,
+			uloga_davatelja TEXT NOT NULL DEFAULT '',
 			journal_id TEXT NOT NULL REFERENCES journals(id) ON DELETE CASCADE,
 			sheet_id TEXT NOT NULL DEFAULT '',
 			number INTEGER NOT NULL DEFAULT 0,
@@ -1654,6 +1655,10 @@ func migrateSchema(database *sql.DB) error {
 		{"journal_entries", "happened_at", "DATETIME"},
 		{"journal_entries", "reported_by", "TEXT NOT NULL DEFAULT ''"},
 		{"journal_entries", "podrucje", "INTEGER"},
+		// Nalog u obrani nosi i ulogu onoga tko ga je dao (Odluke
+		// (22. 11. 2026.)): u dnevnik A.02 tada pišu i rukovoditelji dionica
+		// i uprava, ne samo ovlaštenik za praćenje ugovora.
+		{"journal_entries", "uloga_davatelja", "TEXT NOT NULL DEFAULT ''"},
 		{"maintained_waters", "program", "TEXT NOT NULL DEFAULT 'A.02'"},
 		{"sections", "description_custom", "INTEGER NOT NULL DEFAULT 0"},
 		{"sections", "length_km", "REAL"},

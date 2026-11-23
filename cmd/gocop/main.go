@@ -798,6 +798,8 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 		return rv.OdTekst(), rv.DoTekst()
 	})
 	server.SetVodocuvar(vodocuvarService, orgRepo)
+	// dok na području traje obrana, nalog u dnevnik A.02 pišu i rukovoditelji dionica i uprava
+	journalService.SetObrana(aktService.StanjaSektora, sectionService.ListSections)
 	// akti samo u aktivnoj obrani (otvoren dnevnik COP-a), a ovjereni idu u dnevnike
 	aktService.SetObrana(journalService.AktivnaObrana, service.NewObjavaAkta(journalService, vodocuvarService).Objavi)
 	aktService.SetPocetakObrane(journalService.PocetakAktivneObrane)

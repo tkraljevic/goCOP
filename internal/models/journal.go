@@ -554,6 +554,11 @@ type JournalEntry struct {
 
 	ParentID string `json:"parent_id,omitempty"` // odgovor na drugi upis
 
+	// UlogaDavatelja je naziv uloge onoga tko je dao nalog, u trenutku
+	// upisa: u obrani nalog u dnevnik A.02 pišu i rukovoditelji dionica i
+	// uprava, pa se uz ime vidi i po kojoj dužnosti (Odluke (22. 11. 2026.)).
+	UlogaDavatelja string `json:"uloga_davatelja,omitempty"`
+
 	Voided     bool   `json:"voided"`
 	VoidReason string `json:"void_reason,omitempty"`
 	VoidedBy   string `json:"voided_by,omitempty"`
@@ -663,6 +668,16 @@ func (e JournalEntry) StatusLabel() string { return TaskStatusLabel(e.Status) }
 
 // IsTask govori je li upis nalog
 func (e JournalEntry) IsTask() bool { return e.Kind == EntryKindTask }
+
+// DaoNalog je tko je dao nalog, s ulogom kad je zapisana: „Pero Perić,
+// rukovoditelj dionice”
+func (e JournalEntry) DaoNalog() string {
+	if e.UlogaDavatelja == "" {
+		return e.UserName
+	}
+	r := []rune(e.UlogaDavatelja)
+	return e.UserName + ", " + strings.ToLower(string(r[:1])) + string(r[1:])
+}
 
 // IsOverdue govori je li rok naloga prošao, a nalog je još otvoren
 func (e JournalEntry) IsOverdue(now time.Time) bool {
