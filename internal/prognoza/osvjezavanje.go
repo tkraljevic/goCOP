@@ -611,11 +611,11 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 	razlogBezKise := ""
 	switch {
 	case o.Oborine == nil || len(o.Oborine.Tocke) == 0:
-		razlogBezKise = "oborine nisu uključene (registar slivova bez kišomjera)"
+		razlogBezKise = "kišomjeri slivova nisu upisani"
 	case err != nil:
-		razlogBezKise = "oborine se nisu dale pročitati: " + err.Error()
+		razlogBezKise = "kiša nije pročitana (" + err.Error() + ")"
 	default:
-		razlogBezKise = fmt.Sprintf("oborine nisu preuzete za svih %d dana unatrag i %d unaprijed", unatrag, unaprijed)
+		razlogBezKise = fmt.Sprintf("kiša nije preuzeta za svih %d dana unatrag i %d unaprijed", unatrag, unaprijed)
 	}
 	sKisom, bezKise := 0, 0
 	var out []DnevnaIzdana
@@ -677,39 +677,20 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 			bez[c.Letva] = err
 			continue
 		}
-		if d == nil {
-			continue
-		}
-		// Protok kroz krivulju letve, kao i satna prognoza u drugoj veličini:
-		// granice idu kroz krivulju, jer je ona rastuća. Granica koja iz
-		// krivulje ispadne ne briše protok (rasponKrozKrivulju).
-		if krivulje, err := o.ucitajKrivulje(ctx, c.Letva); err == nil && len(krivulje) > 0 {
-			for i := range d {
-				k := KrivuljaZa(krivulje, time.Unix(d[i].Ciljni*3600, 0).UTC())
-				if k == nil {
-					continue
-				}
-				q, _, ok := pretvori(k, "protok", d[i].Vrijednost)
-				if !ok {
-					continue
-				}
-				qd, qg, _ := rasponKrozKrivulju(k, "protok", q, d[i].Dolje, d[i].Gore)
-				d[i].Q, d[i].QDolje, d[i].QGore, d[i].ImaQ = q, qd, qg, true
-			}
-		}
+		o.protokKrozKrivulju(ctx, c.Letva, d) // bez dnevnih vrijednosti ne radi ništa
 		out = append(out, d...)
 	}
 	// Je li dnevni model računao s kišom, mora pisati uz svako izdanje — i
 	// kad je sve u redu, ne samo kad je pao na inačicu bez nje.
 	switch {
 	case sKisom > 0 && bezKise == 0:
-		izbor["oborina"] = Izbor{Inacica: 1, Opis: fmt.Sprintf("dnevni model računa s kišom: pala kiša %d dana unatrag i prognoza %d dana unaprijed (Open-Meteo, %d %s)",
-			unatrag, unaprijed, len(o.Oborine.Tocke), models.UzBrojHR(len(o.Oborine.Tocke), "kišomjer", "kišomjera", "kišomjera"))}
+		izbor["oborina"] = Izbor{Inacica: 1, Opis: fmt.Sprintf("prognoza računa s kišom: palom u zadnjih %d dana i prognoziranom za sljedećih %d (Open-Meteo, %d %s na slivovima)",
+			unatrag, unaprijed, len(o.Oborine.Tocke), models.UzBrojHR(len(o.Oborine.Tocke), "točka", "točke", "točaka"))}
 	case sKisom > 0:
-		izbor["oborina"] = Izbor{Inacica: 1, Opis: fmt.Sprintf("dnevni model računa s kišom na %d %s, bez kiše na %d — %s",
+		izbor["oborina"] = Izbor{Inacica: 1, Opis: fmt.Sprintf("prognoza računa s kišom na %d %s, a bez kiše na %d, jer %s",
 			sKisom, models.UzBrojHR(sKisom, "letvi", "letve", "letvi"), bezKise, razlogBezKise)}
 	case bezKise > 0:
-		izbor["oborina"] = Izbor{Inacica: 2, Opis: "dnevni model računa bez kiše: " + razlogBezKise}
+		izbor["oborina"] = Izbor{Inacica: 2, Opis: "prognoza računa bez kiše, jer " + razlogBezKise}
 	}
 	// Sidra: ulazi dnevnog modela i njegovi ciljevi koji nisu u lancu
 	// (Kotoriba) dobivaju mjerenje u satu izdavanja, da na pregledu stoje.
@@ -1023,6 +1004,29 @@ func nulaIspodKrivulje(cm sql.NullInt64, q sql.NullFloat64, k *models.HQKrivulja
 // 2017. to su bile tri satne vrijednosti (mjereno 13. 10. 2026.).
 func KrivuljaZa(krivulje []models.HQKrivulja, kad time.Time) *models.HQKrivulja {
 	return models.KrivuljaUTrenutku(krivulje, kad)
+}
+
+// protokKrozKrivulju dodaje dnevnim vrijednostima letve protok kroz njezinu
+// krivulju, kao i satna prognoza u drugoj veličini: granice idu kroz
+// krivulju, jer je ona rastuća. Granica koja iz krivulje ispadne ne briše
+// protok (rasponKrozKrivulju). Bez krivulje za taj dan protoka nema.
+func (o *Osvjezivac) protokKrozKrivulju(ctx context.Context, letva string, d []DnevnaIzdana) {
+	krivulje, err := o.ucitajKrivulje(ctx, letva)
+	if err != nil || len(krivulje) == 0 {
+		return
+	}
+	for i := range d {
+		k := KrivuljaZa(krivulje, time.Unix(d[i].Ciljni*3600, 0).UTC())
+		if k == nil {
+			continue
+		}
+		q, _, ok := pretvori(k, "protok", d[i].Vrijednost)
+		if !ok {
+			continue
+		}
+		qd, qg, _ := rasponKrozKrivulju(k, "protok", q, d[i].Dolje, d[i].Gore)
+		d[i].Q, d[i].QDolje, d[i].QGore, d[i].ImaQ = q, qd, qg, true
+	}
 }
 
 func (o *Osvjezivac) ucitajKrivulje(ctx context.Context, letva string) ([]models.HQKrivulja, error) {

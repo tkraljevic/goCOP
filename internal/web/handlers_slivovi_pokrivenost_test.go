@@ -73,7 +73,7 @@ func TestStranicaSlivovaKrozPosluzitelj(t *testing.T) {
 	// kiša po međuslivovima: jača kiša prva, i redak u svakom međuslivu
 	p.s.SetKisaSlivova(func(context.Context) ([]prognoza.StanjeSliva, map[string][]prognoza.DnevnaIzdana, error) {
 		return []prognoza.StanjeSliva{{Sliv: "Z", Palo24: 3, Ima: true},
-			{Sliv: "B", Palo24: 23, Dolazi48: 32, Ima: true, Razina: 2, Ucestalost: "toliko padne u prosjeku jednom godišnje"}}, nil, nil
+			{Sliv: "B", Palo24: 23, Dolazi48: 32, Ima: true, Razina: 2, Ucestalost: "ovoliko kiše padne prosječno jednom godišnje"}}, nil, nil
 	})
 	w := p.posalji("dežurni", http.MethodGet, "/slivovi?success=Spremljeno", nil, "")
 	if w.Code != http.StatusOK {

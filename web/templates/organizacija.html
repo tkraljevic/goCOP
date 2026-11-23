@@ -135,6 +135,43 @@
   </table>
 </section>
 
+{{/* Redak Priloga 2 Plana obrane za svako područje, istim redom kao tablica iznad. Crteža za
+     njega nema, pa je u obliku podataka Razine 1. Firma je aktivna firma vezana na područje u
+     registru Licencirane firme, a ljudi su iz aktivnih dužnosti rukovoditelja obrane izvođača i
+     zamjenika, uz firmu s računa osobe. */}}
+{{if .TotalAreas}}
+<section class="list-kartica org-razina" id="izvodjaci">
+  <div class="org-razina-glava">
+    <h2>Pravna osoba za provedbu mjera obrane od poplava i rukovoditelji na branjenom području</h2>
+  </div>
+  {{if .IzvodjaciNepoznati}}<p class="form-help">Popis djelatnika se trenutačno ne može pročitati, pa rukovoditelji obrane izvođača nisu prikazani. Pokušajte ponovno za nekoliko minuta.</p>{{end}}
+  {{range .Sectors}}{{range .Areas}}
+  <div class="org-izvodjac">
+    <h3 class="org-izvodjac-bp">{{term "bp"}} {{.ID}} · {{.Name}}</h3>
+    {{range .Izvodjac.Firme}}
+    <dl class="org-podaci">
+      <div class="org-podaci-cijelo"><dt>Pravna osoba</dt><dd>{{.Name}}</dd></div>
+      <div class="org-podaci-cijelo"><dt>Adresa</dt><dd>{{if .Address}}{{.Address}}{{else}}<span class="org-prazno">nije upisana</span>{{end}}</dd></div>
+      <div class="org-podaci-cijelo"><dt>Telefon</dt><dd>{{if .Phone}}<a href="tel:{{.Phone}}">{{.Phone}}</a>{{else}}<span class="org-prazno">nije upisan</span>{{end}}</dd></div>
+      {{if .Email}}<div class="org-podaci-cijelo"><dt>E-pošta</dt><dd><a href="mailto:{{.Email}}">{{.Email}}</a></dd></div>{{end}}
+      <div class="org-podaci-cijelo"><dt>Rukovoditelj obrane od poplava</dt><dd>
+        {{range $i, $o := .Rukovoditelji}}{{if $i}}; {{end}}{{if $.Sees "djelatnici"}}<a href="/users/{{$o.ID}}">{{$o.Ime}}</a>{{else}}{{$o.Ime}}{{end}}{{if $o.Zvanje}}, {{$o.Zvanje}}{{end}}{{else}}<span class="org-prazno">Rukovoditelj obrane izvođača nije upisan.</span>{{end}}
+      </dd></div>
+      <div class="org-podaci-cijelo"><dt>{{if gt (len .Zamjenici) 1}}Zamjenici{{else}}Zamjenik{{end}} rukovoditelja obrane od poplava</dt><dd>
+        {{range $i, $o := .Zamjenici}}{{if $i}}; {{end}}{{if $.Sees "djelatnici"}}<a href="/users/{{$o.ID}}">{{$o.Ime}}</a>{{else}}{{$o.Ime}}{{end}}{{if $o.Zvanje}}, {{$o.Zvanje}}{{end}}{{else}}<span class="org-prazno">Zamjenik nije upisan.</span>{{end}}
+      </dd></div>
+    </dl>
+    {{else}}
+    <p class="org-prazno">Nijedna aktivna firma nije vezana na ovo područje u registru <a href="/firme">Licencirane firme</a>.</p>
+    {{end}}
+    {{range .Izvodjac.BezFirme}}
+    <p class="form-help">{{if $.Sees "djelatnici"}}<a href="/users/{{.ID}}">{{.Ime}}</a>{{else}}{{.Ime}}{{end}} ima dužnost {{if .Zamjenik}}zamjenika rukovoditelja{{else}}rukovoditelja{{end}} obrane izvođača na ovom području, ali {{if .Firma}}firma s računa ({{.Firma}}) nije među aktivnim firmama područja.{{else}}na računu nije upisana firma.{{end}}</p>
+    {{end}}
+  </div>
+  {{end}}{{end}}
+</section>
+{{end}}
+
 {{if .Orphans}}
 <section class="list-kartica org-razina">
   <h2>{{term "podrucja"}} bez nadređenog: {{terml "sektor"}}</h2>

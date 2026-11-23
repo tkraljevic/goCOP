@@ -278,6 +278,12 @@ func (o *Osvjezivac) racunDnevnihZapisa(ctx context.Context, ciljevi []DnevniCil
 		if v, ima := satni[c.Letva].ZadnjiDo(sada); ima {
 			izvod.sidra = append(izvod.sidra, Izdana{Letva: c.Letva, Velicina: "vodostaj", Izdano: sada, Ciljni: sada,
 				Vrijednost: v, Dolje: v, Gore: v, Model: ModelDnevni})
+			// i protok sada, kroz krivulju, da uz vodostaj stoji i m³/s
+			sad := []DnevnaIzdana{{Letva: c.Letva, Ciljni: sada, Vrijednost: v, Dolje: v, Gore: v}}
+			if o.protokKrozKrivulju(ctx, c.Letva, sad); sad[0].ImaQ {
+				izvod.sidra = append(izvod.sidra, Izdana{Letva: c.Letva, Velicina: "protok", Izdano: sada, Ciljni: sada,
+					Vrijednost: sad[0].Q, Dolje: sad[0].Q, Gore: sad[0].Q, Model: ModelDnevni})
+			}
 		}
 	}
 	return izvod
@@ -297,7 +303,11 @@ func (o *Osvjezivac) izdajDnevniZapisa(ctx context.Context, c DnevniCilj, satni 
 			satni[l] = n
 		}
 	}
-	return PrognozirajDnevno(m, satni, oborine, sada)
+	d, err := PrognozirajDnevno(m, satni, oborine, sada)
+	if err == nil {
+		o.protokKrozKrivulju(ctx, c.Letva, d) // Bračevci imaju krivulju, pa i protok
+	}
+	return d, err
 }
 
 // primiDnevneZapisa dodaje izdanju dnevne vrijednosti letvi iz zapisa, njihovo

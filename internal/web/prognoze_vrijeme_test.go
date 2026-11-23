@@ -218,7 +218,7 @@ func kisaRegije() kisaSlivovaPodaci {
 	return kisaSlivovaPodaci{Slivovi: []SlivUKisi{
 		{StanjeSliva: kisaStanje("A", 40, 10, 0, ""), Naziv: "Drava iznad Borla"},
 		{StanjeSliva: kisaStanje("E", 3.2, 21, 0, ""), Naziv: "Terezino Polje → Donji Miholjac"},
-		{StanjeSliva: kisaStanje("G", 18, 32, 2, "toliko padne u prosjeku jednom godišnje"), Naziv: "Belišće → Osijek", Klasa: "kisa-narancasto",
+		{StanjeSliva: kisaStanje("G", 18, 32, 2, "ovoliko kiše padne prosječno jednom godišnje"), Naziv: "Belišće → Osijek", Klasa: "kisa-narancasto",
 			Letve: []PorastLetve{{Naziv: "Osijek", Cm: 45, Dan: 3, Ima: true, Kad: kad}, {Naziv: "Belišće", Cm: 2, Dan: 1, Ima: true}}},
 	}}
 }
@@ -302,14 +302,14 @@ func TestDioVremenaPrazno(t *testing.T) {
 		`class="kartica-prazna nedostupno"`, `class="kartica-prazna izrada"`)
 	// Osijek je u slivu Drave: bez izvora kiše dani nisu „samo za slivove”,
 	// nego trenutačno nedostupni
-	provjeri("", "Podaci o kiši po slivovima trenutačno nisu dostupni.", "Prognoza po danima trenutačno nije dostupna.")
+	provjeri("", nedostupnaKisa, "Prognoza po danima trenutačno nije dostupna.")
 
 	// izvor kiše po slivovima javi grešku; rukovatelja vremena nema
 	h.vrijeme = nil
 	h.kisa = func(context.Context) kisaSlivovaPodaci {
-		return kisaSlivovaPodaci{Greska: "Podaci o kiši po slivovima trenutačno nisu dostupni."}
+		return kisaSlivovaPodaci{Greska: nedostupnaKisa}
 	}
-	provjeri("", "Podaci o kiši po slivovima trenutačno nisu dostupni.", "Upozorenja DHMZ-a trenutačno nisu dostupna.")
+	provjeri("", nedostupnaKisa, "Upozorenja DHMZ-a trenutačno nisu dostupna.")
 }
 
 // Bez upozorenja za županiju: potvrda s razdobljem bez upozorenja.
@@ -477,17 +477,17 @@ func TestRedakSliva(t *testing.T) {
 	if mmSliva(0.4) != "0,4 mm" || mmSliva(0) != "0 mm" || mmSliva(17.6) != "18 mm" {
 		t.Error("milimetri sliva")
 	}
-	if rijetkostKise(1, "", "") != "uobičajeno" || rijetkostKise(3, "toliko padne u prosjeku jednom u pet godina", "palo u zadnja 24 sata") != "jednom u pet godina" {
+	if rijetkostKise(1, "", "") != "uobičajeno" || rijetkostKise(3, "ovoliko kiše padne prosječno jednom u pet godina", "palo u zadnja 24 sata") != "jednom u pet godina" {
 		t.Error("rijetkost")
 	}
 	// razinu daje kiša palih 72 sata: uz rijetkost piše razdoblje, jer ga
 	// stupci (palo 24 h, očekivano 48 h) ne pokazuju
 	r = redakSliva(SlivUKisi{StanjeSliva: prognoza.StanjeSliva{Sliv: "G", Ima: true, Palo24: 10, Dolazi48: 0, Palo72: 70, Razina: 2,
-		Zasto: "palo u zadnja 72 sata", Ucestalost: "toliko padne u prosjeku jednom godišnje"}})
+		Zasto: "palo u zadnja 72 sata", Ucestalost: "ovoliko kiše padne prosječno jednom godišnje"}})
 	if r.Rijetko != "jednom godišnje · palo u 72 h" || r.Ukratko != "10 · 0 mm" {
 		t.Errorf("tri dana: %+v", r)
 	}
-	if g := rijetkostKise(1, "toliko padne u prosjeku tri puta godišnje", "palo i očekuje se u 72 sata"); g != "tri puta godišnje · palo i očekivano u 72 h" {
+	if g := rijetkostKise(1, "ovoliko kiše padne prosječno tri puta godišnje", "palo i očekuje se u 72 sata"); g != "tri puta godišnje · palo i očekivano u 72 h" {
 		t.Errorf("palo i očekivano: %q", g)
 	}
 	if s, pr := slivoviDijela(regijeVremena[0], &kisaSlivovaPodaci{}); s != nil || pr.Vrsta != PraznoNedostupno {

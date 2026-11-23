@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 	"time"
 
@@ -26,7 +27,16 @@ var sazetakSkupine = []struct {
 	{"Dunav", []string{"batina", "aljmas", "vukovar", "ilok"}},
 	{"Drava", []string{"botovo", "terezino-polje", "donji-miholjac", "belisce", "osijek"}},
 	{"Mura", []string{"mursko-sredisce", "gorican"}},
+	// Na pritokama se letve bez naše prognoze (vrh lanca, mjerni uređaj u
+	// kvaru) preskaču, vidi pritoka.
+	{"Vuka", []string{"borovik", "bracevci", "beketinci", "vuka", "hrastin", "tordinci"}},
+	{"Karašica", []string{"kapelna", "miholjacki-porec", "belisce-karasica"}},
+	{"Vučica", []string{"benicanci-prkos", "marjancaci", "jelengrad"}},
 }
+
+// pritoka: u sažetku stoje samo letve s našom prognozom; na Dunavu, Dravi
+// i Muri stalne postaje stoje uvijek.
+func pritoka(voda string) bool { return voda != "Dunav" && voda != "Drava" && voda != "Mura" }
 
 // protokPrema su postaje kojima se u sažetku protok uzima sa susjedne, kad
 // svoje krivulje ili niza nemaju (zapis „vukovar": „ilok" — između njih nema
@@ -110,37 +120,24 @@ func postajeSazetka(data PrognozePageData) map[string][]postajaSazetka {
 	for _, g := range sazetakSkupine {
 		for _, kod := range g.Letve {
 			x, ima := po[kod]
-			if !ima {
+			if !ima || pritoka(g.Voda) && !nasaPrognoza(x) {
 				continue
 			}
-			ime, _ := imeIDrzava(x.Naziv)
-			p := postajaSazetka{Kod: kod, Ime: ime, Sada: x.SadaCmV, SadaQ: x.SadaQV, Min: x.KrajMin, Max: x.KrajMax,
-				Upozorenje: x.Upozorenje}
+			p := postajaIzLetve(x)
 			p.Postaja, p.ImaPostaju = data.postajeM[kod]
-			for _, d := range x.Dani {
-				p.Dani = append(p.Dani, d.CmV)
-				p.DaniQ = append(p.DaniQ, d.QV)
-				p.Naslovi = append(p.Naslovi, d.Naslov)
-				var hu *float64
-				for _, t := range d.Tude {
-					if t.Oznaka == "HU" {
-						v := t.CmV
-						hu = &v
-					}
-				}
-				p.HU = append(p.HU, hu)
-			}
 			out[g.Voda] = append(out[g.Voda], p)
 		}
 	}
-	// protok sa susjedne postaje
+	protokSaSusjednih(out, po, protokPrema)
+	return out
+}
+
+// protokSaSusjednih postajama bez svoje krivulje stavlja protok susjedne
+// postaje (prema: kod postaje → kod susjeda), s njezinim imenom.
+func protokSaSusjednih(out map[string][]postajaSazetka, po map[string]LetvaPrognoze, prema map[string]string) {
 	for v, postaje := range out {
 		for i := range postaje {
-			susjed, ima := protokPrema[postaje[i].Kod]
-			if !ima {
-				continue
-			}
-			x, ima := po[susjed]
+			x, ima := po[prema[postaje[i].Kod]]
 			if !ima {
 				continue
 			}
@@ -150,6 +147,32 @@ func postajeSazetka(data PrognozePageData) map[string][]postajaSazetka {
 			for _, d := range x.Dani {
 				p.DaniQ = append(p.DaniQ, d.QV)
 			}
+		}
+	}
+}
+
+// postajaIzLetve prepisuje letvu izdanja u postaju sažetka: sada, dani s
+// protokom i mađarska prognoza za iste termine.
+func postajaIzLetve(x LetvaPrognoze) postajaSazetka {
+	ime, _ := imeIDrzava(x.Naziv)
+	p := postajaSazetka{Kod: x.Kod, Ime: ime, Sada: x.SadaCmV, SadaQ: x.SadaQV, Min: x.KrajMin, Max: x.KrajMax,
+		Upozorenje: x.Upozorenje}
+	for _, d := range x.Dani {
+		p.Dani = append(p.Dani, d.CmV)
+		p.DaniQ = append(p.DaniQ, d.QV)
+		p.Naslovi = append(p.Naslovi, d.Naslov)
+		p.HU = append(p.HU, tudaVrijednost(d, "HU"))
+	}
+	return p
+}
+
+// tudaVrijednost je tuđa prognoza dana s tom oznakom (HU, RS), ili nil.
+func tudaVrijednost(d CelijaDana, oznaka string) *float64 {
+	var out *float64
+	for _, t := range d.Tude {
+		if t.Oznaka == oznaka {
+			v := t.CmV
+			out = &v
 		}
 	}
 	return out
@@ -317,14 +340,14 @@ func recenicaKise(stanja []prognoza.StanjeSliva, err error) string {
 		if st.Razina == 0 {
 			continue
 		}
-		u = append(u, fmt.Sprintf("međusliv %s — %s (palo 72 h %s mm, očekuje se 48 h %s mm)",
+		u = append(u, fmt.Sprintf("međusliv %s, %s: u zadnja tri dana palo je %s mm, a u sljedeća dva očekuje se još %s mm",
 			st.Sliv, map[int]string{1: "pojačana kiša", 2: "jaka kiša", 3: "izvanredna kiša"}[st.Razina],
 			brojHRf(st.Palo72, 0), brojHRf(st.Dolazi48, 0)))
 	}
 	if len(u) == 0 {
-		return "Na slivovima nema neuobičajene kiše, ni pale ni prognozirane za sljedećih 48 sati."
+		return "Na slivovima nema jače kiše, ni u zadnja tri dana ni u prognozi za sljedeća dva."
 	}
-	return "Neuobičajena kiša na slivovima: " + strings.Join(u, "; ") + ". Porast je uključen u prognozu."
+	return "Jača kiša na slivovima: " + strings.Join(u, "; ") + ". Prognoza vodostaja to već uzima u obzir."
 }
 
 // redakaTeksta procjenjuje u koliko se redaka tekst prelomi u širini od
@@ -486,7 +509,7 @@ func (h *PrognozeHandler) listSazetka(ctx context.Context, k *xlsxw.Knjiga, z Za
 				case d <= -3:
 					kretanje = "↓ pada " + cmS(-d) + " cm"
 				default:
-					kretanje = "→ stalno"
+					kretanje = "→ stagnacija"
 				}
 			}
 			stanje, stilStanja := "—", xlsxw.TablicaTekst
@@ -540,56 +563,219 @@ func (h *PrognozeHandler) listSazetka(ctx context.Context, k *xlsxw.Knjiga, z Za
 		odlomak(t+".", xlsxw.Napomena)
 	}
 
-	// Usporedba s mađarskom prognozom
-	var usporedba [][]xlsxw.Celija
+	// Usporedba s mađarskom prognozom na našim postajama, pa sa srpskom na
+	// srpskim letvama (naša je ondje prenesena s naših letvi).
+	var hu []usporedbaPostaje
 	for _, g := range sazetakSkupine {
 		for _, p := range sve[g.Voda] {
-			if len(p.HU) <= zadnji || (p.HU[2] == nil && p.HU[zadnji] == nil) {
-				continue
-			}
-			red := []xlsxw.Celija{T(p.Ime, xlsxw.TablicaPod)}
-			for _, i := range []int{2, zadnji} {
-				nasa, hu := p.dan(i), p.HU[i]
-				red = append(red, vrijednost(nasa, xlsxw.TablicaSredina), vrijednost(hu, xlsxw.TablicaSredina))
-				if nasa != nil && hu != nil {
-					// pravi broj s predznakom iz formata ćelije, ne tekst:
-					// Excel tekst koji izgleda kao broj označi upozorenjem
-					d := math.Round(*nasa) - math.Round(*hu)
-					stil := xlsxw.Razlika
-					if math.Abs(d) >= 10 {
-						stil = xlsxw.RazlikaIstakni
-					}
-					red = append(red, N(d, stil))
-				} else {
-					red = append(red, T("—", xlsxw.TablicaSredina))
-				}
-			}
-			usporedba = append(usporedba, red)
+			hu = append(hu, usporedbaPostaje{Ime: p.Ime, Nasa: p.Dani, Tuda: p.HU, Naslovi: p.Naslovi})
 		}
 	}
-	if len(usporedba) > 0 {
-		naslov("Usporedba s mađarskom prognozom (hydroinfo.hu)")
-		// zaglavlje u dva retka: termin preko triju stupaca, ispod naša · HU · razlika
-		r0 := l.Redak()
-		l.Dodaj(T("Postaja", xlsxw.Zaglavlje), T("Za 3 dana ("+tri+")", xlsxw.Zaglavlje), T("", xlsxw.Zaglavlje), T("", xlsxw.Zaglavlje),
-			T(fmt.Sprintf("Za %d %s (%s)", zadnji+1, models.UzBrojHR(zadnji+1, "dan", "dana", "dana"), zadnjiDan), xlsxw.Zaglavlje), T("", xlsxw.Zaglavlje), T("", xlsxw.Zaglavlje))
-		l.Dodaj(T("", xlsxw.Zaglavlje), T("naša", xlsxw.Zaglavlje), T("HU", xlsxw.Zaglavlje), T("razlika", xlsxw.Zaglavlje),
-			T("naša", xlsxw.Zaglavlje), T("HU", xlsxw.Zaglavlje), T("razlika", xlsxw.Zaglavlje))
-		l.Spoji(0, r0, 0, r0+1)
-		l.Spoji(1, r0, 3, r0)
-		l.Spoji(4, r0, 6, r0)
-		l.Visina(r0, 18)
-		l.Visina(r0+1, 18)
-		for _, red := range usporedba {
-			l.Dodaj(red...)
-		}
-		odlomak("HU je mađarska prognoza (hydroinfo.hu) za isti termin. Razlika je naša minus mađarska, u cm; od 10 cm naviše istaknuta je bojom. Mađarska izlazi jednom dnevno, pa zna biti starija od naše.", xlsxw.Napomena)
-	}
+	dodajUsporedbu(l, naslov, odlomak, "HU", "Usporedba s mađarskom prognozom (hydroinfo.hu)",
+		"HU je mađarska prognoza (hydroinfo.hu) za isti termin. Razlika je naša minus mađarska, u cm; od 10 cm naviše istaknuta je bojom. Mađarska izlazi jednom dnevno, pa zna biti starija od naše.",
+		hu, zadnji)
+	rs := append(h.srpskaNaNase(ctx, data, sve["Dunav"]), srpskeZaUsporedbu(data)...)
+	dodajUsporedbu(l, naslov, odlomak, "RS", "Usporedba sa srpskom prognozom (hidmet.gov.rs)",
+		"RS je srpska prognoza (hidmet.gov.rs) za isti termin. Srpska služba naše letve ne prognozira, pa je za njih "+
+			"preračunata sa susjednih srpskih letvi, pravcem iz dnevnih vodostaja zadnjih deset godina i današnjim odstupanjem "+
+			"(kao u pričuvnom Excelu). Ispod su srpske letve s našom prognozom prenesenom s naših letvi. "+
+			"Razlika je naša minus srpska, u cm; od 10 cm naviše istaknuta je bojom. Srpska izlazi jednom dnevno i seže kraće od naše.",
+		rs, zadnjiTude(rs, zadnji))
 
 	l.Dodaj()
 	odlomak("Raspon, satne vrijednosti, grafovi, godišnji vodostaji i opis metode su na sljedećim listovima. "+
 		"Najniži i najviši zabilježeni vodostaj su dnevni srednjaci iz arhive i evidencije očitanja. "+
 		"Protok (sivo) je procjena iz krivulje protoka; gdje krivulje nema, stupac je prazan.", xlsxw.Napomena)
+}
+
+// usporedbaPostaje je jedna postaja u tablici usporedbe s tuđom prognozom:
+// naša i tuđa vrijednost po danu, s naslovom dana.
+type usporedbaPostaje struct {
+	Ime        string
+	Nasa, Tuda []*float64
+	Naslovi    []string
+}
+
+func (p usporedbaPostaje) u(v []*float64, i int) *float64 {
+	if i < len(v) {
+		return v[i]
+	}
+	return nil
+}
+
+// srpskeZaUsporedbu su srpske letve izdanja s našom prenesenom i srpskom
+// prognozom, redom kao u tablicama.
+func srpskeZaUsporedbu(data PrognozePageData) []usporedbaPostaje {
+	var out []usporedbaPostaje
+	for _, t := range data.Tablice {
+		for _, x := range t.Letve {
+			ime, drzava := imeIDrzava(x.Naziv)
+			if drzava != "RS" {
+				continue
+			}
+			p := usporedbaPostaje{Ime: ime}
+			for _, d := range x.Dani {
+				p.Nasa, p.Tuda, p.Naslovi = append(p.Nasa, d.CmV), append(p.Tuda, tudaVrijednost(d, "RS")), append(p.Naslovi, d.Naslov)
+			}
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// srpskaNaNase je srpska prognoza preračunata na naše postaje Dunava, iz
+// pričuvnog izračuna (veze i srpske prognoze po danu).
+func (h *PrognozeHandler) srpskaNaNase(ctx context.Context, data PrognozePageData, nase []postajaSazetka) []usporedbaPostaje {
+	if h.pricuvno == nil {
+		return nil
+	}
+	p, ok := h.pricuvno(ctx)
+	if !ok {
+		return nil
+	}
+	_, ciljevi := daniPregleda(time.Unix(data.IzdanoSat*3600, 0))
+	return preracunSrpske(p, ciljevi, nase)
+}
+
+// preracunSrpske računa srpsku prognozu za naše postaje prvim putom
+// pričuvnog izračuna kojemu su svi ulazi srpske letve (Batina iz Bezdana,
+// Ilok iz Bačke Palanke...). Put preko mađarske prognoze se ne uzima, jer bi
+// to bila mađarska, a ne srpska prognoza.
+func preracunSrpske(p prognoza.PricuvniPodaci, ciljevi []int64, nase []postajaSazetka) []usporedbaPostaje {
+	srpska := map[string]bool{}
+	for _, u := range prognoza.PricuvniUlazi {
+		if u.Izvor == prognoza.PodrijetloHidmet {
+			srpska[u.Letva] = true
+		}
+	}
+	danPricuvnog := map[int64]int{}
+	for d, t := range p.Dani {
+		danPricuvnog[t.Unix()/3600] = d
+	}
+	var out []usporedbaPostaje
+	for _, ps := range nase {
+		i := slices.IndexFunc(p.Veze[ps.Kod], func(v prognoza.PricuvnaVeza) bool {
+			return v.Koef != nil && len(v.Izvori) > 0 && !slices.ContainsFunc(v.Izvori, func(l string) bool { return !srpska[l] })
+		})
+		if i < 0 {
+			continue
+		}
+		v := p.Veze[ps.Kod][i]
+		u := usporedbaPostaje{Ime: ps.Ime, Nasa: ps.Dani, Naslovi: ps.Naslovi}
+		for _, c := range ciljevi {
+			var rs *float64
+			if d, ima := danPricuvnog[c]; ima {
+				rs = vrijednostVeze(v, p.Ulazi, d)
+			}
+			u.Tuda = append(u.Tuda, rs)
+		}
+		out = append(out, u)
+	}
+	return out
+}
+
+// vrijednostVeze je vrijednost puta na dan d, s današnjim pomakom; nil kad
+// neki ulaz tog dana nema vrijednost.
+func vrijednostVeze(v prognoza.PricuvnaVeza, ulazi map[string][prognoza.PricuvniDana + 1]*float64, d int) *float64 {
+	y := v.Koef[0] + v.Pomak
+	for j, l := range v.Izvori {
+		x := ulazi[l][d]
+		if x == nil {
+			return nil
+		}
+		y += v.Koef[j+1] * *x
+	}
+	y = math.Round(y) + 0 // + 0 pretvara −0 u 0, da Excel ne piše „-0”
+	return &y
+}
+
+// zadnjiTude je zadnji dan (najviše zadnji) za koji ijedna postaja ima i
+// našu i tuđu prognozu: srpska seže četiri dana, naša šest.
+func zadnjiTude(postaje []usporedbaPostaje, zadnji int) int {
+	z := -1
+	for _, p := range postaje {
+		for i := 0; i <= zadnji; i++ {
+			if p.u(p.Nasa, i) != nil && p.u(p.Tuda, i) != nil && i > z {
+				z = i
+			}
+		}
+	}
+	return z
+}
+
+// dodajUsporedbu piše tablicu naše i tuđe prognoze za 3. dan i dan zadnji,
+// s razlikom; postaja bez ijedne tuđe vrijednosti u tim danima se preskače,
+// a bez ijedne postaje tablice nema.
+func dodajUsporedbu(l *xlsxw.List, naslov func(string), odlomak func(string, int), oznaka, natpis, napomena string,
+	postaje []usporedbaPostaje, zadnji int) {
+	if zadnji < 2 {
+		return
+	}
+	var redovi [][]xlsxw.Celija
+	naslovDana := map[int]string{}
+	for _, p := range postaje {
+		if p.u(p.Tuda, 2) == nil && p.u(p.Tuda, zadnji) == nil {
+			continue
+		}
+		redovi = append(redovi, redakUsporedbe(p, zadnji, naslovDana))
+	}
+	if len(redovi) == 0 {
+		return
+	}
+	naslov(natpis)
+	zaglavljeUsporedbe(l, oznaka, naslovDana[2], naslovDana[zadnji], zadnji)
+	for _, red := range redovi {
+		l.Dodaj(red...)
+	}
+	odlomak(napomena, xlsxw.Napomena)
+}
+
+// redakUsporedbe je redak postaje: naša, tuđa i razlika za 3. i zadnji dan;
+// usput pamti naslove tih dana za zaglavlje.
+func redakUsporedbe(p usporedbaPostaje, zadnji int, naslovDana map[int]string) []xlsxw.Celija {
+	T, N := xlsxw.T, xlsxw.N
+	vrijednost := func(v *float64) xlsxw.Celija {
+		if v == nil {
+			return T("—", xlsxw.TablicaSredina)
+		}
+		return N(math.Round(*v), xlsxw.TablicaSredina)
+	}
+	red := []xlsxw.Celija{T(p.Ime, xlsxw.TablicaPod)}
+	for _, i := range []int{2, zadnji} {
+		if naslovDana[i] == "" && i < len(p.Naslovi) {
+			naslovDana[i] = danS(p.Naslovi[i])
+		}
+		nasa, tuda := p.u(p.Nasa, i), p.u(p.Tuda, i)
+		red = append(red, vrijednost(nasa), vrijednost(tuda))
+		if nasa == nil || tuda == nil {
+			red = append(red, T("—", xlsxw.TablicaSredina))
+			continue
+		}
+		// pravi broj s predznakom iz formata ćelije, ne tekst:
+		// Excel tekst koji izgleda kao broj označi upozorenjem
+		d := math.Round(*nasa) - math.Round(*tuda)
+		stil := xlsxw.Razlika
+		if math.Abs(d) >= 10 {
+			stil = xlsxw.RazlikaIstakni
+		}
+		red = append(red, N(d, stil))
+	}
+	return red
+}
+
+// zaglavljeUsporedbe: termin preko triju stupaca, ispod naša · tuđa · razlika
+func zaglavljeUsporedbe(l *xlsxw.List, oznaka, treci, zadnjiNaslov string, zadnji int) {
+	T := xlsxw.T
+	r0 := l.Redak()
+	l.Dodaj(T("Postaja", xlsxw.Zaglavlje), T("Za 3 dana ("+treci+")", xlsxw.Zaglavlje), T("", xlsxw.Zaglavlje), T("", xlsxw.Zaglavlje),
+		T(fmt.Sprintf("Za %d %s (%s)", zadnji+1, models.UzBrojHR(zadnji+1, "dan", "dana", "dana"), zadnjiNaslov), xlsxw.Zaglavlje), T("", xlsxw.Zaglavlje), T("", xlsxw.Zaglavlje))
+	l.Dodaj(T("", xlsxw.Zaglavlje), T("naša", xlsxw.Zaglavlje), T(oznaka, xlsxw.Zaglavlje), T("razlika", xlsxw.Zaglavlje),
+		T("naša", xlsxw.Zaglavlje), T(oznaka, xlsxw.Zaglavlje), T("razlika", xlsxw.Zaglavlje))
+	l.Spoji(0, r0, 0, r0+1)
+	l.Spoji(1, r0, 3, r0)
+	l.Spoji(4, r0, 6, r0)
+	l.Visina(r0, 18)
+	l.Visina(r0+1, 18)
 }
 
 // genitivPostaje daje genitiv imena postaje za rečenice sažetka

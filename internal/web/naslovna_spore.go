@@ -229,7 +229,7 @@ func satOcitanja(t, sad time.Time) string {
 // jaceOborine: međuslivovi u kojima pada neuobičajeno jaka kiša
 func (h *DashboardHandler) jaceOborine(ctx context.Context) KarticaNaslovne {
 	if h.izvori.Kisa == nil {
-		return nedostupna(kJaceOborine, "Podaci o kiši trenutačno nisu dostupni.")
+		return nedostupna(kJaceOborine, nedostupnaKisa)
 	}
 	return karticaJacihOborina(h.izvori.Kisa(ctx), time.Now())
 }
@@ -259,27 +259,27 @@ func karticaJacihOborina(p kisaSlivovaPodaci, sad time.Time) KarticaNaslovne {
 	case p.Greska != "":
 		k.Prazno = &PraznaKartica{Vrsta: PraznoNedostupno, Tekst: p.Greska}
 	default:
-		k.Prazno = &PraznaKartica{Vrsta: PraznoGotovo, Tekst: "Nema jačih oborina."}
+		k.Prazno = &PraznaKartica{Vrsta: PraznoGotovo, Tekst: "Nema jače kiše."}
 	}
 	return k
 }
 
-// opisKise: „palo 52 mm u 72 h, 0 mm u 24 h · očekivano 15 mm u 48 h ·
-// toliko padne u prosjeku jednom godišnje (palo u 72 h) · porast u prognozi:
-// Osijek +45 cm”. Pokazuje sva tri razdoblja, jer prag može prijeći kiša
-// bilo kojeg od njih, a uz učestalost kaže kojeg.
+// opisKise: „52 mm u 3 dana (0 mm u zadnja 24 h) · još 15 mm u 2 dana ·
+// ovoliko kiše padne prosječno jednom godišnje (u 3 dana) · porast u
+// prognozi: …”. Pokazuje sva tri razdoblja, jer prag može prijeći kiša bilo
+// kojeg od njih, a uz učestalost kaže kojeg.
 func opisKise(s SlivUKisi) string {
-	palo := "palo " + brojHRf(s.Palo24, 0) + " mm u 24 h"
+	palo := brojHRf(s.Palo24, 0) + " mm u zadnja 24 h"
 	if s.Palo72 > 0 {
-		palo = "palo " + brojHRf(s.Palo72, 0) + " mm u 72 h, " + brojHRf(s.Palo24, 0) + " mm u 24 h"
+		palo = brojHRf(s.Palo72, 0) + " mm u 3 dana (" + brojHRf(s.Palo24, 0) + " mm u zadnja 24 h)"
 	}
 	dijelovi := []string{palo}
 	if s.Dolazi48 > 0 {
-		dijelovi = append(dijelovi, "očekivano "+brojHRf(s.Dolazi48, 0)+" mm u 48 h")
+		dijelovi = append(dijelovi, "još "+brojHRf(s.Dolazi48, 0)+" mm u 2 dana")
 	}
 	if s.Ucestalost != "" {
 		u := s.Ucestalost
-		if prozor := prozoriKise[s.Zasto]; prozor != "" {
+		if prozor := prozoriOpisa[s.Zasto]; prozor != "" {
 			u += " (" + prozor + ")"
 		}
 		dijelovi = append(dijelovi, u)
@@ -289,6 +289,9 @@ func opisKise(s SlivUKisi) string {
 	}
 	return strings.Join(dijelovi, " · ")
 }
+
+// prozoriOpisa kažu u retku kartice iz kojeg je razdoblja učestalost
+var prozoriOpisa = map[string]string{"palo u zadnja 72 sata": "u 3 dana", "palo i očekuje se u 72 sata": "u 3 dana s prognozom"}
 
 // vrijeme: upozorenja DHMZ-a, trenutno vrijeme i prognoza regije za mjesto
 // osobe

@@ -109,7 +109,7 @@ func TestDnevnoSKisomBezNjeIProtokom(t *testing.T) {
 	if iz := izbor["dnevni:cilj-b"]; iz.Inacica != 1 || iz.Opis != "dnevni model: ulaz bez oborine umjesto ulaz s oborinom" {
 		t.Errorf("izbor cilja B: %+v", iz)
 	}
-	if iz := izbor["oborina"]; iz.Inacica != 1 || iz.Opis != "dnevni model računa s kišom na 1 letvi, bez kiše na 1 — oborine nisu preuzete za svih 7 dana unatrag i 6 unaprijed" {
+	if iz := izbor["oborina"]; iz.Inacica != 1 || iz.Opis != "prognoza računa s kišom na 1 letvi, a bez kiše na 1, jer kiša nije preuzeta za svih 7 dana unatrag i 6 unaprijed" {
 		t.Errorf("izbor oborine: %+v", iz)
 	}
 	var nd *NepotpuniDani
@@ -142,7 +142,7 @@ func TestDnevnoIzborOborine(t *testing.T) {
 	}, map[string]int{"cilj-a": 150, "ulaz": 100})
 	o.Oborine = kisomjerSvakiSat()
 	_, _, _, izbor, _, _ := o.dnevno(context.Background(), sada, zadnji.Add(-Unatrag))
-	want := "dnevni model računa s kišom: pala kiša 7 dana unatrag i prognoza 6 dana unaprijed (Open-Meteo, 1 kišomjer)"
+	want := "prognoza računa s kišom: palom u zadnjih 7 dana i prognoziranom za sljedećih 6 (Open-Meteo, 1 točka na slivovima)"
 	if iz := izbor["oborina"]; iz.Inacica != 1 || iz.Opis != want || len(izbor) != 1 {
 		t.Errorf("izbor %+v, želim %q", izbor, want)
 	}
@@ -158,7 +158,7 @@ func TestDnevnoIzborOborine(t *testing.T) {
 	if !strings.Contains(dnevnik.String(), "dnevni model: oborina uživo: baza oborina zaključana") {
 		t.Errorf("dnevnik: %q", dnevnik.String())
 	}
-	want = "dnevni model računa bez kiše: oborine se nisu dale pročitati: baza oborina zaključana"
+	want = "prognoza računa bez kiše, jer kiša nije pročitana (baza oborina zaključana)"
 	if iz := izbor["oborina"]; iz.Inacica != 2 || iz.Opis != want {
 		t.Errorf("izbor %+v, želim %q", izbor, want)
 	}

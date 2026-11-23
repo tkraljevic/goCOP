@@ -55,7 +55,7 @@ func hrvatskeLetve(data PrognozePageData) []LetvaPrognoze {
 	var out []LetvaPrognoze
 	for _, t := range data.Tablice {
 		for _, x := range t.Letve {
-			if _, drzava := imeIDrzava(x.Naziv); drzava == "" && x.Racuna != "" {
+			if _, drzava := imeIDrzava(x.Naziv); drzava == "" && nasaPrognoza(x) {
 				out = append(out, x)
 			}
 		}
