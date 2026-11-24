@@ -28,9 +28,12 @@ type SectionsHandler struct {
 	// stanjeObrane je stanje obrane dionice iz ovjerenih akata (i akti
 	// koji još nisu stupili na snagu)
 	stanjeObrane func(ctx context.Context, sektor, dionica string) (models.StanjeObrane, []models.Akt, error)
-	tmpl         *template.Template // popis
-	tmplDetail   *template.Template // jedna dionica
-	tmplForm     *template.Template // obrazac
+	// naloziNaDionici su nalozi izvođačima na dionici iz dnevnika A.02
+	// (JournalService.NaloziNaDionici)
+	naloziNaDionici func(ctx context.Context, perms *models.UserPermissions, dionica string) ([]models.NalogIzvodjacu, error)
+	tmpl            *template.Template // popis
+	tmplDetail      *template.Template // jedna dionica
+	tmplForm        *template.Template // obrazac
 }
 
 func NewSectionsHandler(

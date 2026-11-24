@@ -229,12 +229,10 @@ func karticaZaRijesitiUgovora(d dnevnikRadova, sad time.Time) KarticaNaslovne {
 }
 
 // karticaNaloga: ovlašteniku nalozi izvedeni u zadnja 24 sata pa otvoreni,
-// uz gumb „Novi nalog”; voditelju usluga samo otvoreni nalozi ovlaštenika
+// uz gumb „Novi nalog”; izvođaču samo otvoreni nalozi (ovlaštenika, u obrani
+// i rukovoditelja, te primljeni). Obje kartice se zovu „Nalozi”.
 func karticaNaloga(d dnevnikRadova, id string, sad time.Time) KarticaNaslovne {
 	k := KarticaNaslovne{ID: id, Naslov: "Nalozi", HitnoNaziv: "preko roka"}
-	if id == kNaloziOvl {
-		k.Naslov = "Nalozi ovlaštenika"
-	}
 	if d.Dnevnik == nil {
 		return d.nijeOtvoren(k)
 	}
@@ -273,9 +271,10 @@ func naloziDnevnika(upisi []models.JournalEntry, sIzvedenima bool, sad time.Time
 	return izvedeni, otvoreni
 }
 
-// redakOtvorenogNaloga: nalog, tko ga je dao i rok; preko roka je hitan
+// redakOtvorenogNaloga: nalog, tko ga je dao (s ulogom, jer u obrani nalog
+// daju i rukovoditelji dionica i uprava) i rok; preko roka je hitan
 func redakOtvorenogNaloga(e models.JournalEntry, d dnevnikRadova, sad time.Time) RedakKartice {
-	dio := []string{e.UserName, "zadan " + danNaslovne(e.Date, sad)}
+	dio := []string{e.DaoNalog(), "zadan " + danNaslovne(e.Date, sad)}
 	if e.DueDate != nil {
 		dio = append(dio, "rok "+danNaslovne(*e.DueDate, sad))
 	}

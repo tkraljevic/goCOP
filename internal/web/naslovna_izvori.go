@@ -55,6 +55,7 @@ func (s *Server) izvoriNaslovne() IzvoriNaslovne {
 		Posiljke:         s.posiljkeNaslovne,
 		DnevniciUsluga:   s.dnevniciUslugaNaslovne,
 		ListoviDnevnika:  s.listoviDnevnikaNaslovne,
+		NaloziDavatelja:  s.naloziDavateljaNaslovne,
 	}
 }
 

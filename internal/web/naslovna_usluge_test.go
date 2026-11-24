@@ -118,7 +118,7 @@ func TestKarticaNaloga(t *testing.T) {
 		t.Errorf("nalog preko roka: %+v", r)
 	}
 	ovl := karticaNaloga(d, kNaloziOvl, sadNaslovne)
-	if ovl.Naslov != "Nalozi ovlaštenika" || len(ovl.Redovi) != 2 || len(ovl.Gumbi) != 0 || ovl.Redovi[1].Sporedno != "zadan danas" {
+	if ovl.Naslov != "Nalozi" || len(ovl.Redovi) != 2 || len(ovl.Gumbi) != 0 || ovl.Redovi[1].Sporedno != "zadan danas" {
 		t.Errorf("nalozi voditelju usluga: %+v", ovl)
 	}
 	d.Listovi, d.Upisi = nil, nil

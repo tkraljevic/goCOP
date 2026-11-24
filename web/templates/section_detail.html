@@ -234,6 +234,18 @@
   {{end}}
 </section>
 
+{{if and .NaloziIzvodjaca (.Sees "dnevnici")}}
+<section class="list-kartica dio-veze" id="radovi-izvodjaca">
+  <h2>Radovi izvođača na dionici <span class="dio-broj">{{len .NaloziIzvodjaca}}</span></h2>
+  <p class="form-help">Nalozi svih firmi na ovoj dionici iz dnevnika usluga A.02: otvoreni i oni iz zadnjih 30 dana.</p>
+  {{range .NaloziIzvodjaca}}
+  <a class="redak" href="/dnevnici/{{.JournalID}}/listovi/{{.SheetID}}">{{icon "clipboard-list"}}
+    <span class="redak-tekst"><span class="redak-glavno">{{.What}}</span>
+    <span class="redak-sporedno">{{if .Firma}}{{.Firma}} · {{end}}{{.KindLabel}}: {{.DaoNalog}} · {{formatDate .Date}} · {{.StatusLabel}}{{with .OdgovorLabel}} · {{.}}{{end}}</span></span>{{icon "chevron-right"}}</a>
+  {{end}}
+</section>
+{{end}}
+
 {{if .Section.Notes}}
 <section class="list-kartica">
   <h2>Operativne napomene</h2>

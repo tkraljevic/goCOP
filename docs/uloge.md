@@ -186,6 +186,29 @@ području dnevnika, ili njegov zamjenik: piše naloge i ocjene, otkazuje
 naloge i potvrđuje list za nadzor. Dok za program na području nema
 ovlaštenika, nadzor rade uprava područja i uprava sektora; čim ovlaštenik
 postoji, samo on. Ostali s pravom pisanja upisuju rad i napomene.
+
+Dok je na branjenom području proglašena redovna ili izvanredna obrana na
+bar jednoj dionici (pripremno stanje nije dovoljno), nalog u dnevnik A.02
+firme tog područja pišu i rukovoditelji dionica tog područja sa
+zamjenicima, uprava područja i uprava sektora. Nalog nosi ime i ulogu
+onoga tko ga je dao i po želji dionicu područja. Ocjenu, otkazivanje
+tuđeg naloga i potvrdu lista za nadzor i dalje daje samo nadzor. Tko je
+nalog dao, može ga i sam otkazati ili označiti izvedenim. Kad obrana
+prestane, nalozi dani u obrani ostaju otvoreni dok se ne izvedu ili
+otkažu, a novi nalog opet piše samo nadzor. Rukovoditelj obrane izvođača
+i zamjenik u dnevniku pišu na strani izvođača, kao voditelj usluga.
+
+Kad izvođač područja ne može sam, na poziv dolaze firme cijelog sektora.
+Dok je u sektoru proglašena obrana, izvođač u svoj dnevnik A.02 upisuje
+primljeni nalog: što, na kojoj dionici sektora na kojoj traje obrana, kada
+i tko ga je dao. Davatelja bira s popisa osoba s dužnošću u obrani
+sektora (rukovoditelji dionica sa zamjenicima, uprava područja i sektora),
+a kad ga na popisu nema, upisuje ime. Izabrani davatelj vidi nalog na
+Naslovnoj („Nalozi koje sam dao”) i na stranici dionice („Radovi izvođača
+na dionici”), i jednom ga potvrđuje ili javlja da nije tako rečeno, uz
+napomenu što je rekao. Ništa drugo u tuđem dnevniku ne mijenja. Nadzor
+dnevnika ostaje ovlaštenik za ugovor te firme.
+
 Naslovnicu mijenjaju ovlaštenik i uprava područja ili sektora, a dnevnik
 briše uprava sektora ili globalni administrator. Svaka strana list
 potvrđuje jednom, a upis na listu koji su potvrdile obje strane više se ne

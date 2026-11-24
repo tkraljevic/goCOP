@@ -159,8 +159,19 @@
         {{if .Text}}<span class="uu-tekst uu-opis">{{.Text}}</span>{{end}}
         {{if .Hours}}<span class="uu-sitno">trajanje {{brojHRd .Hours 1}} h</span>{{end}}
         {{if .Voided}}<span class="uu-sitno uu-storno-razlog">STORNO ({{.VoidedBy}}): {{.VoidReason}}</span>{{end}}
+        {{if .Primljen}}
+        <span class="uu-sitno">dao: {{.DaoNalog}}{{if .HappenedAt}}, {{(localTime .HappenedAt).Format "2. 1. 2006. 15:04"}}{{end}}</span>
+        {{if .OdgovorLabel}}<span class="uu-sitno"><strong>{{.OdgovorLabel}}</strong>{{if .OdgovorNapomena}}: {{.OdgovorNapomena}}{{end}}</span>{{end}}
+        {{if .CekaOdgovor}}<span class="uu-sitno">čeka potvrdu davatelja</span>{{end}}
+        {{if $.OdgovaraNa .}}
+        <span class="uu-odgovor">
+          <form method="POST" action="/dnevnici/{{$.Journal.ID}}/upisi/{{.ID}}/odgovor"><input type="hidden" name="sheet" value="{{$.Sheet.ID}}"><input type="hidden" name="odgovor" value="POTVRDIO"><button type="submit" class="btn btn-link">potvrdi nalog</button></form>
+          <form method="POST" action="/dnevnici/{{$.Journal.ID}}/upisi/{{.ID}}/odgovor" onsubmit="var r=prompt('Što ste rekli izvođaču?'); if(!r) return false; this.napomena.value=r; return true;"><input type="hidden" name="sheet" value="{{$.Sheet.ID}}"><input type="hidden" name="odgovor" value="NIJE_TAKO"><input type="hidden" name="napomena" value=""><button type="submit" class="btn btn-link">nije tako rečeno</button></form>
+        </span>
+        {{end}}
+        {{end}}
       </td>
-      <td class="uu-upisao">{{.UserName}}<span class="uu-kad"><span class="usluga-samo-usko"> · </span>{{(localTime .CreatedAt).Format "2. 1. 06. 15:04"}}</span></td>
+      <td class="uu-upisao">{{.UserName}}{{if .UlogaDavatelja}}<span class="uu-sitno">{{.UlogaDavatelja}}</span>{{end}}<span class="uu-kad"><span class="usluga-samo-usko"> · </span>{{(localTime .CreatedAt).Format "2. 1. 06. 15:04"}}</span></td>
       {{if $.CanWrite}}
       <td class="uu-radnje">
         {{if and .IsTask (not .Voided)}}
@@ -192,8 +203,8 @@
     <div class="lista-upis-polja">
       <div class="form-group">
         <label class="form-label" for="kind">Vrsta upisa</label>
-        <select id="kind" name="kind" class="form-control" onchange="document.getElementById('nalog-rok').hidden = this.value !== 'NALOG'">
-          {{range .AllowedKinds}}<option value="{{.}}">{{entryKind .}}</option>{{end}}
+        <select id="kind" name="kind" class="form-control" onchange="document.getElementById('nalog-rok').hidden = this.value !== 'NALOG'; var p = document.getElementById('primljeni-nalog'); if (p) p.hidden = this.value !== 'NALOG'">
+          {{range .AllowedKinds}}<option value="{{.}}">{{if and $.PrimaNalog (eq . "NALOG")}}Primljeni nalog{{else}}{{entryKind .}}{{end}}</option>{{end}}
         </select>
       </div>
       {{if .Journal.IsDefense}}
@@ -203,6 +214,15 @@
         <datalist id="dionice">{{range .Sections}}<option value="{{.Code}}">{{.Description}}</option>{{end}}</datalist>
       </div>
       {{else}}
+      {{if .Sections}}
+      <div class="form-group">
+        <label class="form-label" for="section_code">Dionica</label>
+        <select id="section_code" name="section_code" class="form-control">
+          <option value="">{{if .PrimaNalog}}— izaberite dionicu uz primljeni nalog —{{else}}— bez dionice —{{end}}</option>
+          {{range .Sections}}<option value="{{.Code}}">{{.Code}}{{if .Description}} · {{.Description}}{{end}}</option>{{end}}
+        </select>
+      </div>
+      {{end}}
       <div class="form-group">
         <label class="form-label" for="location">Lokacija iz popisa</label>
         <select id="location" name="location" class="form-control">
@@ -229,12 +249,33 @@
       <label class="form-label" for="text">Opis / tekst upisa</label>
       <textarea id="text" name="text" class="form-control" rows="6" placeholder="Strojna košnja trave na ravnim i kosim površinama."></textarea>
     </div>
+    {{if .PrimaNalog}}
+    <div id="primljeni-nalog" hidden class="lista-upis-polja">
+      <div class="form-group">
+        <label class="form-label" for="davatelj_id">Tko je dao nalog</label>
+        <select id="davatelj_id" name="davatelj_id" class="form-control">
+          <option value="">— nije na popisu, upisat ću ime —</option>
+          {{range .Davatelji}}<option value="{{.ID}}">{{.Ime}} · {{.Uloga}}</option>{{end}}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="davatelj">Ime, kad nije na popisu</label>
+        <input type="text" id="davatelj" name="davatelj" class="form-control" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="kada">Kada je nalog dan</label>
+        <input type="datetime-local" id="kada" name="kada" class="form-control" value="{{.Today}}T{{.Sada}}">
+      </div>
+      <p class="form-help">Nalog koji vam je dao rukovoditelj u obrani upišite u svoj dnevnik, i kad radite na drugom području. Ispod upišite rad, ljude i strojeve kao i inače. Tko je izabran s popisa, vidi nalog i potvrđuje ga.</p>
+    </div>
+    {{end}}
     <div id="nalog-rok" hidden class="form-group">
       <label class="form-label" for="due_date">Rok naloga</label>
       <input type="date" id="due_date" name="due_date" class="form-control">
     </div>
     <div class="lista-gumbi"><button type="submit" class="btn btn-primary">Upiši</button></div>
-    {{if .CanSupervise}}<p class="form-help">Nadzor na listu uvijek ima mjesta. Ocjenu i nalog upisuje nadzor.</p>{{end}}
+    {{if .CanSupervise}}<p class="form-help">Nadzor na listu uvijek ima mjesta. Ocjenu i nalog upisuje nadzor.</p>
+    {{else if .NalogUObrani}}<p class="form-help">Na području traje obrana, pa nalog izvođaču možete upisati i vi. Ocjenu i potvrdu lista za nadzor i dalje daje ovlaštenik za praćenje ugovora.</p>{{end}}
   </form>
   {{end}}
 </section>
