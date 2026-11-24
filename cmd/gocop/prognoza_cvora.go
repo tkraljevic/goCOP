@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"gocop/internal/db"
@@ -189,8 +190,9 @@ func kisaSlivova(osvjezivac *prognoza.Osvjezivac, arhivaRO, pb *sql.DB, peersSer
 		if err != nil {
 			return nil, nil, err
 		}
+		// kartica gleda što je palo, pa ide oborina bez modela snijega
 		ziva := func() (map[string]prognoza.DnevniNiz, error) {
-			return prognoza.OborineOkoSada(ob, time.Now().Unix()/3600, 3, 3)
+			return prognoza.OborineOkoSada(ob.BezSnijega(), time.Now().Unix()/3600, 3, 3)
 		}
 		oborine, izdano, err := kisaZaStanje(ctx, pb, ziva, peersService.TrenutneUloge().Izdaje)
 		if err != nil {
@@ -249,7 +251,7 @@ func pripremiOborine(database *sql.DB, dbPath string, node *peers.Node, server *
 				Citaci: map[string]kisomjeri.Citac{"pljusak": &kisomjeri.Pljusak{}, "dhmz": &kisomjeri.Letva{Racun: letvaRacun}}}
 			server.SetKisomjeriMjerenja(kisSpremiste)
 		}
-		if iz, err := izvorOborina(database, oborineUvoznik); err != nil {
+		if iz, err := izvorOborina(database, osvjezivac.Arhiva, oborineUvoznik); err != nil {
 			log.Printf("Oborine: registar: %v", err)
 		} else if iz != nil {
 			osvjezivac.Oborine = iz
@@ -259,9 +261,10 @@ func pripremiOborine(database *sql.DB, dbPath string, node *peers.Node, server *
 }
 
 // izvorOborina slaže odakle prognoza uzima kišu: izvedene točke i stvarne
-// kišomjere iz registra, satnu kišu točaka i mjerenja kišomjera iz baze
+// kišomjere iz registra, satnu kišu, snijeg i temperaturu točaka i mjerenja
+// kišomjera iz baze oborina, a zalihu snijega na tlu iz arhive i baze
 // oborina. nil kad registar nema nijedne izvedene točke.
-func izvorOborina(registar *sql.DB, u *oborine.Uvoznik) (*prognoza.OborinskiIzvor, error) {
+func izvorOborina(registar, arhiva *sql.DB, u *oborine.Uvoznik) (*prognoza.OborinskiIzvor, error) {
 	tocke, err := prognoza.OborinskeTocke(registar)
 	if err != nil || len(tocke) == 0 {
 		return nil, err
@@ -271,7 +274,28 @@ func izvorOborina(registar *sql.DB, u *oborine.Uvoznik) (*prognoza.OborinskiIzvo
 		return nil, err
 	}
 	return &prognoza.OborinskiIzvor{Tocke: tocke, Satne: u.Satne, Kisomjeri: stvarni,
-		Izmjerene: (&kisomjeri.Spremiste{DB: u.DB}).PoSatima}, nil
+		Izmjerene: (&kisomjeri.Spremiste{DB: u.DB}).PoSatima,
+		Snijeg:    u.SnijegITemperatura, ZalihaSnijega: zalihaSnijegaZa(arhiva, u).NaPocetku}, nil
+}
+
+// zalihaSnijega pamti zalihu snijega na tlu kroz satne krugove, jer se izvor
+// oborina slaže iznova svaki krug, a zaliha se računa jednom na dan.
+var zalihaSnijega struct {
+	sync.Mutex
+	arhiva, oborine *sql.DB
+	z               *prognoza.ZalihaSnijega
+}
+
+// zalihaSnijegaZa vraća zalihu snijega za arhivu i bazu oborina, istu dok se
+// one ne promijene.
+func zalihaSnijegaZa(arhiva *sql.DB, u *oborine.Uvoznik) *prognoza.ZalihaSnijega {
+	zalihaSnijega.Lock()
+	defer zalihaSnijega.Unlock()
+	if zalihaSnijega.z == nil || zalihaSnijega.arhiva != arhiva || zalihaSnijega.oborine != u.DB {
+		zalihaSnijega.arhiva, zalihaSnijega.oborine = arhiva, u.DB
+		zalihaSnijega.z = &prognoza.ZalihaSnijega{Arhiva: arhiva, Satne: u.Satne, Snijeg: u.SnijegITemperatura}
+	}
+	return zalihaSnijega.z
 }
 
 // zaboraviDnevneModele baca naučene dnevne modele, pa ih idući krug uči

@@ -737,6 +737,12 @@ type OborinskiIzvor struct {
 	// satu (mm) za sate od–do. Bez njih kiše kišomjera nema.
 	Kisomjeri []OborinskaTocka
 	Izmjerene func(od, do int64) (map[string]map[int64]float64, error)
+	// Snijeg je satni snijeg i temperatura zraka točaka, a ZalihaSnijega
+	// zaliha snijega točke na početku dana UTC (ZalihaSnijega.NaPocetku).
+	// S njima model dobiva kišu i otopljeni snijeg, kao u učenju
+	// (DnevneOborine); bez njih oborinu kakva je pala.
+	Snijeg        SatniSnijeg
+	ZalihaSnijega func(tocka string, dan int64) (float64, error)
 }
 
 // OborineOkoSada slaže dnevnu oborinu međuslivova za živu prognozu, kao
@@ -744,13 +750,14 @@ type OborinskiIzvor struct {
 // dan -1 prethodna 24 sata i tako unatrag dana, a dan +1 sljedeća 24 sata iz
 // prognoze i tako unaprijed dana. Dan kojem na točki fali ijedan sat izostaje
 // s te točke; međusliv dobiva dan kad ima barem polovicu težine. Ključevi su
-// OborinaKljuc(sliv).
+// OborinaKljuc(sliv). S izvorom snijega oborina je kiša i otopljeni snijeg
+// (satneOkoSada), a bez njega (BezSnijega) kakva je pala.
 func OborineOkoSada(iz *OborinskiIzvor, sada int64, unatrag, unaprijed int) (map[string]DnevniNiz, error) {
 	out := map[string]DnevniNiz{}
 	if iz == nil || len(iz.Tocke) == 0 || iz.Satne == nil {
 		return out, nil
 	}
-	satne, err := iz.Satne(sada-int64(24*unatrag)+1, sada+int64(24*unaprijed))
+	satne, err := iz.satneOkoSada(sada-int64(24*unatrag)+1, sada+int64(24*unaprijed))
 	if err != nil {
 		return nil, err
 	}
@@ -803,52 +810,70 @@ func OborineOkoSada(iz *OborinskiIzvor, sada int64, unatrag, unaprijed int) (map
 	return out, nil
 }
 
-// DnevneOborine slaže dnevnu oborinu po međuslivu iz arhive: težinski
-// srednjak dnevnih zbrojeva kišomjera međusliva, u mm. Dan ulazi kad ga
-// ima barem polovica težine međusliva; težine se svedu na one prisutne.
-// Ključevi su OborinaKljuc(sliv), da nizovi stanu uz letve u istu mapu.
+// DnevneOborine slaže dnevni ulaz oborine po međuslivu iz arhive: težinski
+// srednjak dnevnih zbrojeva kišomjera međusliva, u mm, s modelom snijega
+// (kiša i otopljeni snijeg, vidi KorakSnijega). Dan ulazi kad ga ima barem
+// polovica težine međusliva; težine se svedu na one prisutne. Ključevi su
+// OborinaKljuc(sliv), da nizovi stanu uz letve u istu mapu.
 func DnevneOborine(arhiva *sql.DB, tocke []OborinskaTocka) (map[string]DnevniNiz, error) {
-	type dio struct{ zbroj, tezina float64 }
-	poSlivu := map[string]map[int64]*dio{}
+	return dnevneOborine(arhiva, tocke, true)
+}
+
+// UkupneDnevneOborine je DnevneOborine bez modela snijega: oborina kakva je
+// pala, za pragove kartice „Jače oborine”.
+func UkupneDnevneOborine(arhiva *sql.DB, tocke []OborinskaTocka) (map[string]DnevniNiz, error) {
+	return dnevneOborine(arhiva, tocke, false)
+}
+
+func dnevneOborine(arhiva *sql.DB, tocke []OborinskaTocka, sSnijegom bool) (map[string]DnevniNiz, error) {
+	poTocki := make([]map[int64]float64, len(tocke))
+	for i, t := range tocke {
+		if t.Tezina <= 0 {
+			continue
+		}
+		var err error
+		if poTocki[i], err = dnevnaOborinaTocke(arhiva, t.Code, sSnijegom); err != nil {
+			return nil, err
+		}
+	}
+	return srednjakSlivova(tocke, poTocki), nil
+}
+
+// dioSliva je zbroj oborine točaka međusliva jednog dana, s težinom točaka
+// koje ga imaju.
+type dioSliva struct{ zbroj, tezina float64 }
+
+// srednjakSlivova je težinski srednjak dnevnih nizova točaka (poTocki, istim
+// redom kao tocke) po međuslivu; točka bez težine ne ulazi.
+func srednjakSlivova(tocke []OborinskaTocka, poTocki []map[int64]float64) map[string]DnevniNiz {
+	poSlivu := map[string]map[int64]*dioSliva{}
 	ukupno := map[string]float64{}
-	for _, t := range tocke {
+	for i, t := range tocke {
 		if t.Tezina <= 0 {
 			continue
 		}
 		ukupno[t.Sliv] += t.Tezina
-		r, err := arhiva.Query(`SELECT vrijeme, vrijednost FROM spoj
-			WHERE letva = ? AND velicina = 'oborina' AND korak = 'dnevni'`, t.Code)
-		if err != nil {
-			return nil, err
-		}
 		m := poSlivu[t.Sliv]
 		if m == nil {
-			m = map[int64]*dio{}
+			m = map[int64]*dioSliva{}
 			poSlivu[t.Sliv] = m
 		}
-		for r.Next() {
-			var kad int64
-			var v float64
-			if err := r.Scan(&kad, &v); err != nil {
-				r.Close()
-				return nil, err
-			}
-			// dnevni zbroj oborine stoji na ponoći UTC svog dana
-			d := kad / 86400
+		for d, v := range poTocki[i] {
 			z := m[d]
 			if z == nil {
-				z = &dio{}
+				z = &dioSliva{}
 				m[d] = z
 			}
 			z.zbroj += t.Tezina * v
 			z.tezina += t.Tezina
 		}
-		if err := r.Err(); err != nil {
-			r.Close()
-			return nil, err
-		}
-		r.Close()
 	}
+	return nizoviSlivova(poSlivu, ukupno)
+}
+
+// nizoviSlivova slaže dnevne nizove međuslivova: dan ulazi kad ga ima barem
+// polovica težine međusliva.
+func nizoviSlivova(poSlivu map[string]map[int64]*dioSliva, ukupno map[string]float64) map[string]DnevniNiz {
 	out := map[string]DnevniNiz{}
 	for sliv, m := range poSlivu {
 		n := DnevniNiz{}
@@ -859,7 +884,7 @@ func DnevneOborine(arhiva *sql.DB, tocke []OborinskaTocka) (map[string]DnevniNiz
 		}
 		out[OborinaKljuc(sliv)] = n
 	}
-	return out, nil
+	return out
 }
 
 // DnevniIzArhive čita dnevne srednjake vodostaja iz arhive.
