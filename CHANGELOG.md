@@ -4,6 +4,33 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.66-alfa — 24. 11. 2026.
+
+Popravci nakon prvog dana rada s 0.0.65: obrana se prekida i sa stranice
+akta, Safari prima vrijeme u obrascima, a dnevni list, Događanja i
+Naslovna više ne griješe. Baza i razmjena se ne mijenjaju, pa računala ne
+treba nadograditi isti dan.
+
+- **Prekid obrane s akta.** Uz ovjereno rješenje ili obavijest o
+  uspostavi koji još vrijede stoji gumb „Prekini”, na stranici akta i na
+  popisu akata. Otvara obrazac prekida s istom letvom, stupnjem i
+  područjem. Vidi ga onaj tko smije sastaviti akt (Centar obrane od
+  poplava sektora).
+- **Vrijeme u obrascima na iPhoneu i Macu.** Safari je polje „u vrijeme”
+  znao odbiti kao nevažeće, pa se obrana nije dala prekinuti. Isto je
+  vrijedilo za vrijeme u dnevnicima i očitanjima.
+- **Ispis dnevnog lista.** Kad je naredbi rukovoditelja više (npr. šest
+  akata u jednom danu), okvir raste s tekstom, a rubrika koja ne stane ide
+  na sljedeću stranicu. Prije je tekst izlazio preko rubrike ispod.
+- **Događanja.** Zaključenje i ovjera dnevnika COP-a više se ne javljaju
+  kao dva zaključenja: drugi redak sad je „Ovjeren dnevnik COP-a” s
+  imenom onoga tko je ovjerio.
+- **Dnevni list koji je otvorio samo akt.** Kad ovjereni akt obrane
+  otvori list vodočuvaru, list više ne stoji kao nepredan: vremenske
+  prilike koje program sam upiše ne broje se kao vodočuvarev upis.
+- **Naslovna.** Oznaka faze obrane u kartici Vodostaji u uskom prozoru
+  više ne izlazi iz pilule.
+
 ## 0.0.65-alfa — 24. 11. 2026.
 
 Izvođači dobivaju svoje mjesto u obrani: rukovoditelj obrane izvođača i
