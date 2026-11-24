@@ -97,9 +97,12 @@ func TestNepredaniListovi(t *testing.T) {
 	o.upisiListZaUpozorenje(t, ivo, listopad(8), ujutro(listopad(8)))
 
 	// list koji je otvorio samo program (akt, „Upiši” rukovoditelja), s
-	// radnim vremenom koje program sam upiše, ne upozorava: vodočuvar taj
-	// dan nije radio. Njegov tekst ili objavljena prijava upozoravaju.
-	samoProgram := func(l *models.VodocuvarskiList) { l.Opis, l.NapisanoAt = "", nil }
+	// radnim vremenom i vremenskim prilikama koje program sam upiše, ne
+	// upozorava: vodočuvar taj dan nije radio. Njegov tekst ili objavljena
+	// prijava upozoravaju.
+	samoProgram := func(l *models.VodocuvarskiList) {
+		l.Opis, l.NapisanoAt, l.Prilike = "", nil, "pretežno oblačno, 6 °C"
+	}
 	o.upisiListZaUpozorenje(t, pero, listopad(2), ujutro(listopad(2)), samoProgram)
 	sPrijavom := o.upisiListZaUpozorenje(t, pero, listopad(3), ujutro(listopad(3)), samoProgram,
 		func(l *models.VodocuvarskiList) { l.Prijave = []models.PrijavaNaListu{{ID: "prijava-1"}} })
