@@ -39,6 +39,8 @@ var (
 type probaOpisa struct {
 	rec                *ledger.Recorder
 	zakljucena, nacrta string
+	// verzije dnevnika COP-a j-cop: otvoren, zaključen i ovjeren
+	copOtvoren, copZakljucen, copOvjeren string
 }
 
 func novaProbaOpisa(t *testing.T) probaOpisa {
@@ -59,7 +61,28 @@ func novaProbaOpisa(t *testing.T) probaOpisa {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return probaOpisa{rec: rec, zakljucena: zak, nacrta: nac}
+	p := probaOpisa{rec: rec, zakljucena: zak, nacrta: nac}
+	otvoren, zakljucen, ovjeren := dnevniciCOPa()
+	for _, z := range []struct {
+		id *string
+		j  models.Journal
+	}{{&p.copOtvoren, otvoren}, {&p.copZakljucen, zakljucen}, {&p.copOvjeren, ovjeren}} {
+		if *z.id, err = rec.Record(ctx, baza, repository.EntityJournals, "j-cop", z.j); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return p
+}
+
+// dnevniciCOPa su tri stanja izmišljenog dnevnika COP-a j-cop
+func dnevniciCOPa() (otvoren, zakljucen, ovjeren models.Journal) {
+	kraj := kadVerzijeZida
+	otvoren = models.Journal{ID: "j-cop", Kind: models.JournalKindDefense, CentarSektor: "B", Title: "Dnevnik COP-a Osijek 2026."}
+	zakljucen = otvoren
+	zakljucen.EndedAt = &kraj
+	ovjeren = zakljucen
+	ovjeren.ZakljucenoAt, ovjeren.Zakljucio, ovjeren.ZakljucioID = &kraj, "Ana Anić", idAne.String()
+	return otvoren, zakljucen, ovjeren
 }
 
 // opisivac bez repozitorija: sve što zid traži stoji u predmemoriji, a što
@@ -265,24 +288,30 @@ func TestZidOpisiPrijavu(t *testing.T) {
 
 func TestZidOpisiDnevnikCOPa(t *testing.T) {
 	p := novaProbaOpisa(t)
-	kraj := kadVerzijeZida
-	otvoren := models.Journal{ID: "j-cop", Kind: models.JournalKindDefense, CentarSektor: "B", Title: "Dnevnik COP-a Osijek 2026."}
-	zakljucen := otvoren
-	zakljucen.EndedAt = &kraj
+	otvoren, zakljucen, ovjeren := dnevniciCOPa()
 	gradnja := otvoren
 	gradnja.Kind = models.JournalKindMaintenanceA02
 	cop := func(d *Dogadjaj) { d.Sektor, d.Link = "B", "/dnevnici/j-cop" }
+	zakljucenRedak := func(d *Dogadjaj) {
+		cop(d)
+		d.Naslov, d.Tekst = "Zaključen dnevnik COP-a", "Dnevnik COP-a Osijek 2026."
+	}
+	ovjerenRedak := func(d *Dogadjaj) {
+		cop(d)
+		d.Naslov, d.Tekst, d.Tko = "Ovjeren dnevnik COP-a", "Dnevnik COP-a Osijek 2026.", "Ana Anić"
+	}
 	e := repository.EntityJournals
 	provjeriOpise(t, p, []slucajOpisa{
 		{"otvoren", verzijaZida(t, e, otvoren), true, ModulDnevnik, func(d *Dogadjaj) {
 			cop(d)
 			d.Naslov, d.Tekst, d.Vazno = "Otvoren dnevnik COP-a", "Dnevnik COP-a Osijek 2026.", true
 		}},
-		{"zaključen", verzijaZida(t, e, zakljucen, izmjenaVerzije), true, ModulDnevnik, func(d *Dogadjaj) {
-			cop(d)
-			d.Naslov, d.Tekst = "Zaključen dnevnik COP-a", "Dnevnik COP-a Osijek 2026."
-		}},
-		{"izmijenjen", verzijaZida(t, e, otvoren, izmjenaVerzije), false, ModulDnevnik, cop},
+		{"zaključen", verzijaZida(t, e, zakljucen, zamjenjuje(p.copOtvoren)), true, ModulDnevnik, zakljucenRedak},
+		{"zaključen, prethodna se ne zna", verzijaZida(t, e, zakljucen, izmjenaVerzije), true, ModulDnevnik, zakljucenRedak},
+		{"ovjeren nakon zaključenja", verzijaZida(t, e, ovjeren, zamjenjuje(p.copZakljucen)), true, ModulDnevnik, ovjerenRedak},
+		{"zaključen pa ponovno spremljen", verzijaZida(t, e, zakljucen, zamjenjuje(p.copZakljucen)), false, ModulDnevnik, cop},
+		{"ovjeren pa ponovno spremljen", verzijaZida(t, e, ovjeren, zamjenjuje(p.copOvjeren)), false, ModulDnevnik, cop},
+		{"izmijenjen", verzijaZida(t, e, otvoren, zamjenjuje(p.copOtvoren)), false, ModulDnevnik, cop},
 		{"nije COP-a", verzijaZida(t, e, gradnja), false, ModulDnevnik, nil},
 		{"obrisan", verzijaZida(t, e, otvoren, arhiviranaVerzija), false, ModulDnevnik, nil},
 		{"nečitljiv", verzijaZida(t, e, otvoren, necitljivaVerzija), false, ModulDnevnik, nil},
