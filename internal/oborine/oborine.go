@@ -80,7 +80,7 @@ func Otvori(put string) (*sql.DB, error) {
 		return nil, err
 	}
 	if err := pripremiSnijegNaTlu(d); err != nil {
-		d.Close()
+		_ = d.Close() // baza se ionako ne koristi; javlja se greška stvaranja tablice
 		return nil, err
 	}
 	return d, nil

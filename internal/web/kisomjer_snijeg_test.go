@@ -251,4 +251,35 @@ func TestSlivoviSnijeg(t *testing.T) {
 	if snijegOd(snijeg.StanjeSliva{Dan: 7}) != 7 {
 		t.Error("os bez sezone")
 	}
+
+	// poslužitelj daje isti izvor Naslovnoj
+	srv := &Server{}
+	srv.SetSnijegNaTlu(izvorSnijegaZaTest(sad))
+	if sl, err := srv.snijegSlivova(); err != nil || len(sl) != 4 {
+		t.Errorf("poslužitelj: %d slivova, %v", len(sl), err)
+	}
+}
+
+// Snijeg iz baze oborina: bez baze i uz zatvorenu bazu prazan.
+func TestSnijegIzBazeBezBaze(t *testing.T) {
+	h := &KisomjerStranicaHandler{mjerenja: func() *kisomjeri.Spremiste { return nil }}
+	sat, dan := h.snijegIzBaze(context.Background(), "k-a", time.Now().Add(-time.Hour), time.Now())
+	if len(sat)+len(dan) != 0 {
+		t.Error("bez baze ima snijega")
+	}
+	ob, err := oborine.Otvori(filepath.Join(t.TempDir(), "oborine.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ob.Exec(`INSERT INTO satne (kisomjer, sat, oborina, snijeg, prognoza, preuzeto) VALUES ('k-a', ?, 1, 'x', 0, 0)`, time.Now().Unix()/3600); err != nil {
+		t.Fatal(err)
+	}
+	h.mjerenja = func() *kisomjeri.Spremiste { return &kisomjeri.Spremiste{DB: ob} }
+	if sat, _ := h.snijegIzBaze(context.Background(), "k-a", time.Now().Add(-2*time.Hour), time.Now()); len(sat) != 0 {
+		t.Errorf("pokvaren redak: %v", sat)
+	}
+	ob.Close()
+	if sat, _ := h.snijegIzBaze(context.Background(), "k-a", time.Now().Add(-2*time.Hour), time.Now()); len(sat) != 0 {
+		t.Error("zatvorena baza ima snijega")
+	}
 }

@@ -374,6 +374,9 @@ func TestCekajSnijeg(t *testing.T) {
 		t.Error("otkazano bez greške")
 	}
 	s.javi("bez dnevnika se ništa ne događa")
+	if s.adresa() != AdresaSnowgrida {
+		t.Errorf("zadana adresa %q", s.adresa())
+	}
 }
 
 // Točke alpskih slivova: samo aktivne izvedene točke zadanih međuslivova.

@@ -288,16 +288,23 @@ func izvorOborina(registar, arhiva *sql.DB, u *oborine.Uvoznik) (*prognoza.Obori
 // ulozi: izvor je javan, pa ga svaki čvor čita sam i ništa ne ide razmjenom.
 func pokreniSnijegNaTlu(ctx context.Context, registar, arhiva *sql.DB, u *oborine.Uvoznik, server *web.Server) {
 	naTlu := &oborine.SnijegNaTlu{DB: u.DB, Tocke: oborine.TockeAlpskihSlivova(registar, snijeg.Oznake()), Javi: log.Printf}
-	izvor := &snijeg.Izvor{
+	izvor := izvorSnijega(registar, arhiva, u, naTlu)
+	naTlu.NakonUpisa = izvor.Zaboravi
+	server.SetSnijegNaTlu(izvor)
+	vrtiSnijegNaTlu(ctx, naTlu)
+}
+
+// izvorSnijega slaže snijeg na tlu za prikaz: točke iz registra, SNOWGRID
+// i satni nizovi iz baze oborina, a za točku bez SNOWGRID-a model snijega
+// prognoze.
+func izvorSnijega(registar, arhiva *sql.DB, u *oborine.Uvoznik, naTlu *oborine.SnijegNaTlu) *snijeg.Izvor {
+	return &snijeg.Izvor{
 		Tocke:  func() ([]prognoza.OborinskaTocka, error) { return prognoza.OborinskeTocke(registar) },
 		NaTlu:  naTlu.Nizovi,
 		Satne:  u.Satne,
 		Snijeg: u.SnijegITemperatura,
 		Model:  zalihaSnijegaZa(arhiva, u).Sezona,
 	}
-	naTlu.NakonUpisa = izvor.Zaboravi
-	server.SetSnijegNaTlu(izvor)
-	vrtiSnijegNaTlu(ctx, naTlu)
 }
 
 // vrtiSnijegNaTlu pokrene preuzimanje snijega na tlu u pozadini; testovi ga

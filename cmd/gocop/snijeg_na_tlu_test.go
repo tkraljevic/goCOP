@@ -29,6 +29,9 @@ func TestPokreniSnijegNaTlu(t *testing.T) {
 	if _, err := pokrenut.Tocke(); err == nil {
 		t.Error("registar bez tablice kišomjera bez greške")
 	}
+	if _, err := izvorSnijega(ob, nil, &oborine.Uvoznik{DB: ob}, pokrenut).Tocke(); err == nil {
+		t.Error("izvor: registar bez tablice kišomjera bez greške")
+	}
 
 	// pravo preuzimanje uz otkazan rad odmah stane, bez interneta
 	ctx, otkazi := context.WithCancel(context.Background())
