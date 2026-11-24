@@ -731,22 +731,42 @@ func skratiZaZid(tekst string) string {
 	return tekst
 }
 
-// dnevnikCOPa: dnevnik COP-a na zidu je kad je otvoren i kad je zaključen
+// dnevnikCOPa: dnevnik COP-a na zidu je kad je otvoren, zaključen i
+// ovjeren. Zaključenje (upis kraja) i ovjera su dva upisa, a zaključen
+// dnevnik se zna i ponovno spremiti, pa se gleda što je verzija promijenila
+// prema onoj koju je zamijenila.
 func (c *opisivac) dnevnikCOPa(d *Dogadjaj, v ledger.Version, nova bool) bool {
 	var j models.Journal
 	if json.Unmarshal(v.Payload, &j) != nil || j.Kind != models.JournalKindDefense || v.Archived {
 		return false
 	}
 	d.Sektor, d.Link = j.CentarSektor, "/dnevnici/"+j.ID
-	switch {
-	case nova:
+	if nova {
 		d.Naslov, d.Tekst, d.Vazno = "Otvoren dnevnik COP-a", j.DisplayTitle(), true
-	case j.EndedAt != nil:
+		return true
+	}
+	prije := c.prethodniDnevnik(v.Supersedes)
+	switch {
+	case j.Ovjeren() && !prije.Ovjeren():
+		d.Naslov, d.Tekst, d.Tko = "Ovjeren dnevnik COP-a", j.DisplayTitle(), j.Zakljucio
+	case j.EndedAt != nil && prije.EndedAt == nil:
 		d.Naslov, d.Tekst = "Zaključen dnevnik COP-a", j.DisplayTitle()
 	default:
 		return false
 	}
 	return true
+}
+
+// prethodniDnevnik je dnevnik iz verzije koju je ova zamijenila. Verzija
+// koje u knjizi nema (sažimanje) ili se ne da pročitati ne zna se, pa je
+// prazan dnevnik: tada se zaključenje i ovjera javljaju kao prije.
+func (c *opisivac) prethodniDnevnik(versionID string) models.Journal {
+	var j models.Journal
+	prethodne, err := c.s.rec.Verzije(c.ctx, []string{versionID})
+	if err != nil || len(prethodne) == 0 || json.Unmarshal(prethodne[0].Payload, &j) != nil {
+		return models.Journal{}
+	}
+	return j
 }
 
 // dezurstvo: dežurstvo na zidu je kad je upisano, maknuto i potvrđeno. Plan
