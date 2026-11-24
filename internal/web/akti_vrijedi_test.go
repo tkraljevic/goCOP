@@ -86,6 +86,7 @@ func TestPotvrdaVrijediOdKrozObrazac(t *testing.T) {
 	h.SetOcitanja(service.NewReadingService(readingRepo, stationRepo, repository.NewStructureRepository(baza, rec),
 		service.NewSectionService(sectionRepo, service.NewSSEBroker()), users))
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /akti", h.ShowPopis)
 	mux.HandleFunc("GET /akti/novi", h.ShowForm)
 	mux.HandleFunc("POST /akti/novi", h.HandleCreate)
 	mux.HandleFunc("GET /akti/{id}", h.ShowAkt)
@@ -168,6 +169,7 @@ func TestPotvrdaVrijediOdKrozObrazac(t *testing.T) {
 	if s := zovi(http.MethodGet, "/akti/"+id, nil).Body.String(); strings.Contains(s, `name="potvrda_vrijedi"`) || !strings.Contains(s, "Potvrđeno pri ovjeri.") {
 		t.Error("ovjeren akt pokazuje potvrdu, a ne pita ponovno")
 	}
+	prekiniAkt(t, zovi, id)
 
 	// obrazac vraćen s pitanjem zadrži sve upisano (dionice, osnovu,
 	// napomenu), pa nacrt uz potvrdu nastaje iz istog unosa
@@ -274,4 +276,22 @@ func adresa(t *testing.T, s string) *url.URL {
 		t.Fatal(err)
 	}
 	return u
+}
+
+// prekiniAkt: ovjerena, neprekinuta uspostava nudi „Prekini” na svojoj
+// stranici i na popisu, a poveznica otvara obrazac prekida s tim aktom
+func prekiniAkt(t *testing.T, zovi func(metoda, putanja string, forma url.Values) *httptest.ResponseRecorder, id string) {
+	t.Helper()
+	poveznica := regexp.MustCompile(`href="(/akti/novi\?[^"]*prekida_akt_id=` + regexp.QuoteMeta(id) + `)"`)
+	m := poveznica.FindStringSubmatch(zovi(http.MethodGet, "/akti/"+id, nil).Body.String())
+	if m == nil {
+		t.Fatal("stranica ovjerene uspostave nema „Prekini”")
+	}
+	if !poveznica.MatchString(zovi(http.MethodGet, "/akti", nil).Body.String()) {
+		t.Error("popis akata nema „Prekini” uz ovjerenu uspostavu")
+	}
+	obrazac := zovi(http.MethodGet, strings.ReplaceAll(m[1], "&amp;", "&"), nil).Body.String()
+	if !strings.Contains(obrazac, `name="radnja" value="PREKID" checked`) || !strings.Contains(obrazac, `<option value="`+id+`" data-podrucje="34" selected>`) {
+		t.Error("obrazac otvoren s „Prekini” nema prekid ni odabran akt")
+	}
 }
