@@ -157,6 +157,10 @@ type ZahtjevAkta struct {
 	// Tendencija prazno = izračunata prema očitanju prije odabranoga.
 	OcitanjeID string
 	Tendencija string
+	// RucniCm i RucnoKad su vodostaj i vrijeme upisani rukom, kad automatika
+	// u to vrijeme ne pokazuje dobro; imaju prednost pred OcitanjeID
+	RucniCm  *int
+	RucnoKad time.Time
 	// PrekidaAktID je akt o uspostavi koji prekid stavlja izvan snage;
 	// prazno = zadnji ovjereni akt o uspostavi istog stupnja po vodomjeru
 	PrekidaAktID string
@@ -206,35 +210,10 @@ func (s *AktService) Pripremi(ctx context.Context, perms *models.UserPermissions
 		return nil, fmt.Errorf("%w: %s", ErrUnauthorized, tkoSastavlja(a.Sektor))
 	}
 
-	// odabrano očitanje (ili zadnje) i tendencija prema očitanju prije njega
+	// odabrano ili rukom upisano očitanje i tendencija prema očitanju prije njega
 	if a.Prognoza == "" {
-		izbor, err := s.OcitanjaZaAkt(ctx, st.ID.String(), 0)
-		if err != nil {
+		if err := s.vodostajAkta(ctx, a, st, z); err != nil {
 			return nil, err
-		}
-		i := -1
-		for k, o := range izbor {
-			if z.OcitanjeID == "" || o.ID.String() == z.OcitanjeID {
-				i = k
-				break
-			}
-		}
-		if z.OcitanjeID != "" && i < 0 {
-			return nil, fmt.Errorf("odabrano očitanje nije među očitanjima vodomjera %s", st.Name)
-		}
-		if i >= 0 {
-			o := izbor[i]
-			v := *o.LevelCm
-			a.VodostajCm, a.VodostajKad = &v, o.MeasuredAt
-			a.Tendencija = models.TendencijaStagnacija
-			if i+1 < len(izbor) {
-				switch d := v - *izbor[i+1].LevelCm; {
-				case d > 0:
-					a.Tendencija = models.TendencijaPorast
-				case d < 0:
-					a.Tendencija = models.TendencijaOpadanje
-				}
-			}
 		}
 	}
 	if z.Tendencija != "" && models.TendencijaNaziv(z.Tendencija) != "" {
@@ -253,6 +232,63 @@ func (s *AktService) Pripremi(ctx context.Context, perms *models.UserPermissions
 	sp, _ := s.repo.GetSpranca(ctx, a.Sektor)
 	a.Uvod, a.Zavrsno, a.Poveznice = sp.Uvod(*a), sp.Zavrsno, strings.TrimSpace(sp.Poveznice)
 	return a, nil
+}
+
+// vodostajAkta upisuje u akt vodostaj na koji se poziva: rukom upisan
+// (rucniVodostaj) ili odabrano očitanje, bez izbora zadnje. Tendencija je
+// prema očitanju letve prije njega.
+func (s *AktService) vodostajAkta(ctx context.Context, a *models.Akt, st *models.Station, z ZahtjevAkta) error {
+	izbor, err := s.OcitanjaZaAkt(ctx, st.ID.String(), 0)
+	if err != nil {
+		return err
+	}
+	if z.RucniCm != nil {
+		return rucniVodostaj(a, *z.RucniCm, z.RucnoKad, izbor, time.Now())
+	}
+	i := slices.IndexFunc(izbor, func(o models.Reading) bool { return z.OcitanjeID == "" || o.ID.String() == z.OcitanjeID })
+	switch {
+	case i >= 0:
+		v := *izbor[i].LevelCm
+		a.VodostajCm, a.VodostajKad = &v, izbor[i].MeasuredAt
+		a.Tendencija = tendencijaPrema(v, izbor[i+1:])
+	case z.OcitanjeID != "":
+		return fmt.Errorf("odabrano očitanje nije među očitanjima vodomjera %s", st.Name)
+	}
+	return nil
+}
+
+// rucniVodostaj upisuje u akt vodostaj i vrijeme upisane rukom (Odluke
+// (24. 11. 2026.)): kad automatika u to vrijeme ne pokazuje dobro. Vrijeme
+// je obavezno i ne smije biti u budućnosti; tendencija je prema zadnjem
+// očitanju letve prije tog vremena.
+func rucniVodostaj(a *models.Akt, cm int, kad time.Time, izbor []models.Reading, sad time.Time) error {
+	switch {
+	case kad.IsZero():
+		return fmt.Errorf("uz rukom upisan vodostaj upišite i vrijeme očitanja")
+	case kad.After(sad.Add(5 * time.Minute)):
+		return fmt.Errorf("vrijeme rukom upisanog očitanja je u budućnosti; upišite kad je vodostaj izmjeren")
+	case cm < -1000 || cm > 3000:
+		return fmt.Errorf("vodostaj %d cm nije moguć; upišite ga u centimetrima", cm)
+	}
+	a.VodostajCm, a.VodostajKad = &cm, kad
+	prije := slices.DeleteFunc(slices.Clone(izbor), func(o models.Reading) bool { return !o.MeasuredAt.Before(kad) })
+	a.Tendencija = tendencijaPrema(cm, prije)
+	return nil
+}
+
+// tendencijaPrema je porast, opadanje ili stagnacija prema prvom (najnovijem)
+// očitanju iz prije; bez njega stagnacija
+func tendencijaPrema(cm int, prije []models.Reading) string {
+	if len(prije) == 0 {
+		return models.TendencijaStagnacija
+	}
+	switch d := cm - *prije[0].LevelCm; {
+	case d > 0:
+		return models.TendencijaPorast
+	case d < 0:
+		return models.TendencijaOpadanje
+	}
+	return models.TendencijaStagnacija
 }
 
 // dosegAkta upisuje u akt njegove dionice (dioniceAkta), sektor i područje.

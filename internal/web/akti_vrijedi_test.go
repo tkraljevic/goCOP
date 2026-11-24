@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -82,6 +83,8 @@ func TestPotvrdaVrijediOdKrozObrazac(t *testing.T) {
 		return tp
 	}
 	h := NewAktiHandler(func() *service.AktService { return akti }, users, stations, tmpl("akti.html"), tmpl("akt_form.html"), tmpl("akt.html"), tmpl("primatelji.html"))
+	h.SetOcitanja(service.NewReadingService(readingRepo, stationRepo, repository.NewStructureRepository(baza, rec),
+		service.NewSectionService(sectionRepo, service.NewSSEBroker()), users))
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /akti/novi", h.ShowForm)
 	mux.HandleFunc("POST /akti/novi", h.HandleCreate)
@@ -200,6 +203,55 @@ func TestPotvrdaVrijediOdKrozObrazac(t *testing.T) {
 		t.Error("nov obrazac mora imati sve dionice označene i tendenciju prema očitanjima")
 	}
 
+	// vodostaj i vrijeme upisani rukom (Odluke (24. 11. 2026.)): obrazac ih
+	// nudi, vraćeni obrazac ih zadrži, a nacrt se poziva na njih
+	if !strings.Contains(obrazac, `name="vodostaj_rucno"`) || !strings.Contains(obrazac, `name="vodostaj_kad"`) {
+		t.Error("obrazac ne nudi ručni upis vodostaja")
+	}
+	kad := time.Now().Add(-3 * time.Hour).In(models.Zagreb).Format("2006-01-02T15:04")
+	rucni := forma(dvaDana, "")
+	rucni.Set("vodostaj_rucno", "412 cm")
+	rucni.Set("vodostaj_kad", kad)
+	natrag = adresa(t, zovi(http.MethodPost, "/akti/novi", rucni).Header().Get("Location"))
+	obrazac = zovi(http.MethodGet, natrag.String(), nil).Body.String()
+	if !strings.Contains(obrazac, `value="412 cm"`) || !strings.Contains(obrazac, `value="`+kad+`"`) {
+		t.Errorf("vraćeni obrazac ne zadrži rukom upisan vodostaj")
+	}
+	rucni.Set("potvrda_vrijedi", "1")
+	l = zovi(http.MethodPost, "/akti/novi", rucni).Header().Get("Location")
+	b, err := akti.Get(ctx, strings.TrimPrefix(strings.SplitN(l, "?", 2)[0], "/akti/"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b == nil || b.VodostajCm == nil || *b.VodostajCm != 412 ||
+		b.VodostajKad.In(models.Zagreb).Format("2006-01-02T15:04") != kad {
+		t.Errorf("nacrt s rukom upisanim vodostajem: %s %+v", l, b)
+	}
+	if lok := adresa(t, l); !strings.Contains(lok.Query().Get("success"), "Vodostaj 412 cm upisan je i u Očitanja letve.") {
+		t.Errorf("poruka nakon nacrta: %s", l)
+	}
+	upisana, err := readingRepo.List(ctx, repository.ReadingFilter{StationID: st.ID.String()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := slices.IndexFunc(upisana, func(o models.Reading) bool {
+		return o.LevelCm != nil && *o.LevelCm == 412 && o.Observer == "Ana Anić" && o.Note == "upisano uz nacrt akta"
+	}); n < 0 {
+		t.Errorf("rukom upisan vodostaj nije u Očitanjima: %+v", upisana)
+	}
+	// bez servisa očitanja nacrt nastaje, a poruka ništa ne obećaje
+	if s := (&AktiHandler{}).upisiRucnoOcitanje(ctx, perms, ana, service.ZahtjevAkta{}); s != "" {
+		t.Errorf("bez ručnog vodostaja nema rečenice: %q", s)
+	}
+	v := 99999
+	if s := h.upisiRucnoOcitanje(ctx, perms, ana, service.ZahtjevAkta{StationID: st.ID.String(), RucniCm: &v, RucnoKad: time.Now().Add(-time.Hour)}); !strings.HasPrefix(s, "Vodostaj nije upisan u Očitanja:") {
+		t.Errorf("odbijeno očitanje: %q", s)
+	}
+	rucni.Set("vodostaj_rucno", "četiristo")
+	if natrag = adresa(t, zovi(http.MethodPost, "/akti/novi", rucni).Header().Get("Location")); !strings.Contains(natrag.Query().Get("error"), "nije cijeli broj") {
+		t.Errorf("vodostaj koji nije broj: %s", natrag)
+	}
+
 	// zadano očitanje je zadnje, a zadržano ono koje je osoba odabrala
 	if !(UnosObrasca{}).Ocitanje("o-1", true) || (UnosObrasca{}).Ocitanje("o-2", false) ||
 		!(UnosObrasca{OcitanjeID: "o-2"}).Ocitanje("o-2", false) || (UnosObrasca{OcitanjeID: "o-2"}).Ocitanje("o-1", true) {
@@ -212,4 +264,14 @@ func TestPotvrdaVrijediOdKrozObrazac(t *testing.T) {
 	if data.LocalValue == "sutra" || data.LocalValue == "" || data.TraziPotvrduVrijedi {
 		t.Errorf("obrazac s neispravnim vremenom: %+v", data.LocalValue)
 	}
+}
+
+// adresa čita adresu preusmjeravanja u testu
+func adresa(t *testing.T, s string) *url.URL {
+	t.Helper()
+	u, err := url.Parse(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return u
 }

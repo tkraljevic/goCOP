@@ -1380,6 +1380,7 @@ func (s *Server) setupRoutes() {
 	aktiH := NewAktiHandler(func() *service.AktService { return s.akti }, s.userService, s.stationService,
 		s.templates["akti.html"], s.templates["akt_form.html"], s.templates["akt.html"], s.templates["primatelji.html"])
 	aktiH.SetSpranca(s.templates["spranca.html"])
+	aktiH.SetOcitanja(s.readingService)
 	// akti su ovdje dnevnik-svjesni: aktivna obrana je otvoren dnevnik COP-a
 	aktiH.SetPosta(s.templates["posta_racun.html"], s.templates["administracija_posta.html"])
 	aktiH.SetSanducic(s.templates["posta_sanducic.html"], s.templates["posta_pismo.html"], s.templates["posta_novo.html"])
