@@ -18,6 +18,7 @@ package prognoza
 
 import (
 	"database/sql"
+	"log"
 	"math"
 	"sort"
 	"sync"
@@ -327,7 +328,14 @@ func (iz *OborinskiIzvor) satneOkoSada(od, do int64) (map[string]map[int64]float
 	if err != nil {
 		return nil, err
 	}
-	return iz.satneSaSnijegom(satne, od, do)
+	// bez snijega ili zalihe prognoza ipak dobiva oborinu kakva je pala,
+	// a ne ostaje bez kiše
+	sa, err := iz.satneSaSnijegom(satne, od, do)
+	if err != nil {
+		log.Printf("prognoza: snijeg se ne da pročitati, oborina ide bez modela snijega: %v", err)
+		return satne, nil
+	}
+	return sa, nil
 }
 
 // BezSnijega je isti izvor bez modela snijega: oborina kakva je pala, za

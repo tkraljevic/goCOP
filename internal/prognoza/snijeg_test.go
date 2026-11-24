@@ -200,12 +200,14 @@ func TestOborineOkoSadaSaSnijegom(t *testing.T) {
 		}
 	})
 	ne := errors.New("ne radi")
+	// bez snijega ili zalihe model dobiva oborinu kakva je pala, a ne ostaje bez kiše
+	kakvaJePala := map[string]DnevniNiz{OborinaKljuc("S"): {-1: 24, 0: 0, 1: 12}}
 	t.Run("snijeg se ne da pročitati", func(t *testing.T) {
 		pokvaren := *iz
 		pokvaren.Snijeg = func(int64, int64) (map[string]map[int64]float64, map[string]map[int64]float64, error) {
 			return nil, nil, ne
 		}
-		if got, err := OborineOkoSada(&pokvaren, sada, 2, 1); !errors.Is(err, ne) || got != nil {
+		if got, err := OborineOkoSada(&pokvaren, sada, 2, 1); err != nil || !reflect.DeepEqual(got, kakvaJePala) {
 			t.Errorf("%v, %v", got, err)
 		}
 	})
@@ -219,7 +221,7 @@ func TestOborineOkoSadaSaSnijegom(t *testing.T) {
 	t.Run("zaliha se ne da izračunati", func(t *testing.T) {
 		pokvaren := *iz
 		pokvaren.ZalihaSnijega = func(string, int64) (float64, error) { return 0, ne }
-		if got, err := OborineOkoSada(&pokvaren, sada, 2, 1); !errors.Is(err, ne) || got != nil {
+		if got, err := OborineOkoSada(&pokvaren, sada, 2, 1); err != nil || !reflect.DeepEqual(got, kakvaJePala) {
 			t.Errorf("%v, %v", got, err)
 		}
 	})
@@ -401,8 +403,8 @@ func TestOborineIzdanja(t *testing.T) {
 		return nil, nil, ne
 	}
 	o.Oborine = &pokvaren
-	if model, kisa, err := o.oborineIzdanja(dan*24+23, 1, 0); !errors.Is(err, ne) || model != nil || kisa != nil {
-		t.Errorf("greška: model %v, kiša %v, %v", model, kisa, err)
+	if model, kisa, err := o.oborineIzdanja(dan*24+23, 1, 0); err != nil || !reflect.DeepEqual(model, kisa) || model[OborinaKljuc("S")][0] != 24 {
+		t.Errorf("snijeg se ne da pročitati: model %v, kiša %v, %v", model, kisa, err)
 	}
 	// ukupna kiša se ne da pročitati iako je model prošao: Satne pukne drugi put
 	poziva := 0
