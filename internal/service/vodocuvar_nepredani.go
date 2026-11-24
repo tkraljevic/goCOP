@@ -62,14 +62,14 @@ func nepredaniListovi(knjiga []models.VodocuvarskiList, sad time.Time) []models.
 }
 
 // vodocuvarPisao javlja je li vodočuvar na listu nešto upisao sam: spremio
-// svoj obrazac (NapisanoAt), upisao prilike, naredbe, opis ili zapažanja
-// (listovi spremljeni prije 0.0.35 nemaju NapisanoAt) ili na njemu ima
-// svoju objavljenu prijavu. List koji je otvorio samo program — upis
-// ovjerenog akta ili „Upiši” rukovoditelja — ne upozorava: vodočuvar koji
-// taj dan nije radio list nije ni otvorio (Odluke (11. 10. 2026.)). Radno
-// vrijeme ne govori ništa, jer ga program upiše u svaki novi list.
+// svoj obrazac (NapisanoAt), upisao naredbe, opis ili zapažanja (listovi
+// spremljeni prije 0.0.35 nemaju NapisanoAt) ili na njemu ima svoju
+// objavljenu prijavu. List koji je otvorio samo program — upis ovjerenog
+// akta ili „Upiši” rukovoditelja — ne upozorava: vodočuvar koji taj dan
+// nije radio list nije ni otvorio (Odluke (11. 10. 2026.)). Radno vrijeme i
+// vremenske prilike ne govore ništa, jer ih program upiše u svaki novi list.
 func vodocuvarPisao(l models.VodocuvarskiList) bool {
-	return l.NapisanoAt != nil || l.Prilike != "" || l.Naredbe != "" || l.Opis != "" ||
+	return l.NapisanoAt != nil || l.Naredbe != "" || l.Opis != "" ||
 		l.Zapazanja != "" || len(l.Prijave) > 0
 }
 
