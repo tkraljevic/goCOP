@@ -176,8 +176,8 @@ func karticaSnijegaTocke(st snijeg.StanjeTocke, sada time.Time) *SnijegNaTluTock
 	k.Mm = mmVode(st.Mm)
 	k.Opis = spoji(" · ", gdje+", "+snijeg.Dan(st.Dan).Format("2. 1."), st.Trend)
 	danas := sada.UTC().Unix() / 86400
-	k.Graf = crtajSnijegNaTlu(grafSnijega{Sezona: st.Sezona, Procjena: st.Procjena, Od: prognoza.PocetakSezone(danas),
-		Danas: danas, Sirina: 640, Visina: 190, Opis: "Snijeg na tlu oko točke od 1. kolovoza: " + k.Mm + " " + k.Opis})
+	k.Graf = crtajSnijegNaTluZaSve(grafSnijega{Sezona: st.Sezona, Procjena: st.Procjena, Od: prognoza.PocetakSezone(danas),
+		Danas: danas, Opis: "Snijeg na tlu oko točke od 1. kolovoza: " + k.Mm + " " + k.Opis}, 640, 190)
 	return k
 }
 

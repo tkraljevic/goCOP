@@ -6519,8 +6519,8 @@ h3.kis-podnaslov { margin:1rem 0 0.4rem; display:flex; align-items:center; gap:0
 .snijeg-uvod-glavno { font-size: 14px; line-height: 20px; font-weight: 500; color: var(--text); }
 .snijeg-rijeka { margin: 8px 16px 4px; font-size: 12px; line-height: 16px; font-weight: 500; color: var(--text); }
 .snijeg-redak.snijeg-ispod > a { border-left-color: var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container-high); color: var(--text-secondary); }
-.snijeg-redak .badge::before { display: none; }
-.snijeg-redak .badge { padding-left: var(--space-8); }
+.snijeg-redak .badge::before, .sli-snijeg .badge::before { display: none; }
+.snijeg-redak .badge, .sli-snijeg .badge { padding-left: var(--space-8); }
 .snijeg-traka-dio { left: 0; border-right: 0; border-radius: 5px; }
 .snijeg-ispod .snijeg-traka-dio { background: var(--md-sys-color-outline); }
 .snijeg-redak-dno { display: flex; justify-content: space-between; gap: 8px; }
@@ -10439,7 +10439,12 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
 .graf-snijega-prag.kisa-crveno { stroke: var(--faza-s-crta); }
 .graf-snijega-natpis { fill: var(--faza-r-fg); font-size: 11px; }
 .graf-snijega-natpis.kisa-narancasto { fill: var(--faza-i-fg); }
-.graf-snijega-natpis.kisa-crveno { fill: var(--faza-s-fg); }
+.graf-snijega-natpis.kisa-crveno { fill: var(--faza-s-crta); }
+.graf-snijega-usko { display: none; }
+@media (max-width: 599px) {
+  .graf-snijega-siroko { display: none; }
+  .graf-snijega-usko { display: block; }
+}
 @media (max-width: 599px) {
   .kis-dani-sedam { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }

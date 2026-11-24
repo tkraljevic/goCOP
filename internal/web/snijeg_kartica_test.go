@@ -168,8 +168,13 @@ func TestCrtajSnijegNaTlu(t *testing.T) {
 	if !strings.Contains(g, ">1. 8.<") {
 		t.Error("nema 1. 8.")
 	}
-	if crtajSnijegNaTlu(grafSnijega{}) != "" {
+	if crtajSnijegNaTlu(grafSnijega{}) != "" || crtajSnijegNaTluZaSve(grafSnijega{}, 960, 260) != "" {
 		t.Error("prazna krivulja")
+	}
+	// za računalo i za mobitel
+	if g := string(crtajSnijegNaTluZaSve(grafSnijega{Sezona: []snijeg.TockaKrivulje{{Dan: od, Mm: 5}}, Pragovi: &p, Od: od, Danas: danas}, 960, 260)); !strings.Contains(g, `viewBox="0 0 960 260"`) ||
+		!strings.Contains(g, `<div class="graf-snijega-usko"><svg class="graf-snijega" viewBox="0 0 360 220"`) {
+		t.Errorf("dvije krivulje: %.300s", g)
 	}
 	// bez pragova os je po snijegu, a velik snijeg dobije veći korak
 	g = string(crtajSnijegNaTlu(grafSnijega{Sezona: []snijeg.TockaKrivulje{{Dan: od, Mm: 900}}, Od: od, Danas: danas, Sirina: 640, Visina: 190}))

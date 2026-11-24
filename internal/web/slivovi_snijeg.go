@@ -58,12 +58,12 @@ func snijegSliva(s snijeg.StanjeSliva, naziv string, sad time.Time) *SnijegSliva
 		k.Klasa, k.Rijetko = klaseSnijega[s.Razina], rijetkoSnijega(s.Razina-1)
 	}
 	g := grafSnijega{Sezona: s.Sezona, Procjena: s.Procjena, Od: snijegOd(s), Danas: sad.UTC().Unix() / 86400,
-		Sirina: 960, Visina: 260, Opis: "Snijeg na tlu, " + naziv + ": " + k.Mm}
+		Opis: "Snijeg na tlu, " + naziv + ": " + k.Mm}
 	if s.ImaPragove {
 		p := s.Pragovi
 		g.Pragovi = &p
 	}
-	k.Graf = crtajSnijegNaTlu(g)
+	k.Graf = crtajSnijegNaTluZaSve(g, 960, 260)
 	return k
 }
 

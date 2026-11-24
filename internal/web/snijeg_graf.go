@@ -31,6 +31,19 @@ const (
 	grafSnijegaDno    = 24.0
 )
 
+// crtajSnijegNaTluZaSve crta krivulju dvaput: široku za računalo i usku
+// za mobitel, da brojevi i natpisi na mobitelu ostanu čitljivi
+func crtajSnijegNaTluZaSve(g grafSnijega, sirina, visina float64) template.HTML {
+	usko := g
+	usko.Sirina, usko.Visina = 360, 220
+	g.Sirina, g.Visina = sirina, visina
+	siroko := crtajSnijegNaTlu(g)
+	if siroko == "" {
+		return ""
+	}
+	return `<div class="graf-snijega-siroko">` + siroko + `</div><div class="graf-snijega-usko">` + crtajSnijegNaTlu(usko) + `</div>`
+}
+
 // crtajSnijegNaTlu crta krivulju kao SVG; bez ijedne točke ništa
 func crtajSnijegNaTlu(g grafSnijega) template.HTML {
 	if len(g.Sezona) == 0 && len(g.Procjena) == 0 {
@@ -38,7 +51,7 @@ func crtajSnijegNaTlu(g grafSnijega) template.HTML {
 	}
 	desno := 12.0
 	if g.Pragovi != nil {
-		desno = 96
+		desno = math.Min(96, g.Sirina/5)
 	}
 	kraj := g.Danas + snijeg.ProcjenaDana
 	gornja, korak := osSnijega(g)
@@ -90,10 +103,11 @@ func osSnijega(g grafSnijega) (gornja, korak float64) {
 // daniOsi: prvi dan svakog mjeseca („1. 9.”) i „danas” s okomitom crtom
 func daniOsi(b *strings.Builder, g grafSnijega, x func(int64) float64) {
 	dno := g.Visina - grafSnijegaDno
+	razmak := int64(12 * 640 / max(g.Sirina, 1)) // „danas” ne smije prekriti mjesec
 	for d := g.Od; d <= g.Danas; d++ {
 		t := snijeg.Dan(d)
-		if t.Day() != 1 || g.Danas-d < 12 {
-			continue // „danas” ne smije prekriti mjesec
+		if t.Day() != 1 || g.Danas-d < razmak {
+			continue
 		}
 		fmt.Fprintf(b, `<text class="graf-snijega-os" x="%.1f" y="%.1f" text-anchor="middle">%s</text>`, x(d), g.Visina-6, t.Format("2. 1."))
 	}
