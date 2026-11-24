@@ -4,6 +4,46 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.65-alfa — 24. 11. 2026.
+
+Izvođači dobivaju svoje mjesto u obrani: rukovoditelj obrane izvođača i
+zamjenik kao nove uloge, nalozi u obrani u dnevniku A.02 i primljeni nalog.
+Baza dobiva sedam stupaca, koje program doda sam pri pokretanju. Nove uloge
+i polja naloga putuju razmjenom. Starije izdanje dužnost s novom ulogom
+prima i čuva, ali joj ne daje prava, pa se te dužnosti dodjeljuju tek kad
+su sva računala na ovom izdanju.
+
+- **Rukovoditelj obrane izvođača i zamjenik.** Nove uloge u Sudionicima
+  obrane, skupina Vanjski suradnici. Imaju sve što i voditelj usluga, a uz
+  to vide stanje obrane i vodostaje svog sektora, rješenja i obavijesti
+  svog područja i upisuju vodostaj na letvama svog područja. Dužnost daju
+  uprava sektora i globalni administrator, i to samo osobi iz firme koja je
+  aktivna i vezana na to područje. Opis vodočuvara i strojara sad kaže tko
+  rukuje ustavama i zapornicama.
+- **Prilog 2 na stranici Organizacija.** Za svako branjeno područje stoji
+  firma izvođača s adresom i telefonom, a ispod rukovoditelj obrane i
+  zamjenici.
+- **Nalozi u obrani.** Dok traje redovna ili izvanredna obrana, nalog u
+  dnevnik A.02 pišu i rukovoditelji dionica, uprava područja i uprava
+  sektora. Izvođač u svoj dnevnik upisuje primljeni nalog i tko ga je dao;
+  davatelj ga vidi na Naslovnoj („Nalozi koje sam dao”) i na stranici
+  dionice („Radovi izvođača na dionici”) te ga potvrđuje. Izvođačeva
+  kartica na Naslovnoj zove se Nalozi.
+- **Akti.** Sken ovjerenog akta može se zamijeniti (nečitak, fali stranica),
+  uz razlog; stari sken ostaje u povijesti akta. U obrascu novog akta
+  vodostaj i vrijeme mogu se upisati rukom kad automatika ne pokazuje
+  dobro, a upisani vodostaj ide i u Očitanja letve.
+- **Dnevnik COP-a.** Upis iz akta pokazuje vrijeme po našem, a ne sat
+  ranije.
+- **Prognoze u Excelu.** Letve Vuke ulaze u izvoz, a Sažetak ima i Vuku,
+  Karašicu i Vučicu. Uz mađarsku je i usporedba sa srpskom prognozom, za
+  Batinu, Aljmaš, Vukovar i Ilok preračunatom sa susjednih srpskih letvi.
+  Mirna voda piše se „stagnacija”.
+- **Protok na Vuki.** Dnevni model iz zapisa računa i protok kroz krivulju,
+  pa Bračevci imaju m³/s.
+- **Kiša.** Rečenice o kiši su ujednačene: kartica na Naslovnoj zove se
+  Jača kiša, a uz izdanje piše „prognoza računa s kišom”.
+
 ## 0.0.64-alfa — 23. 11. 2026.
 
 Mjerni uređaj na letvi koji krivo mjeri promjenu vodostaja sad se može
