@@ -299,29 +299,8 @@ func nacrtajList(d *pdfw.Doc, l *models.VodocuvarskiList, t models.OrgTerms, are
 	}
 	d.Y = okvirY + 44
 
-	// Prenesen list nema vremena rada, zapažanja ni opisa koje je vodočuvar
-	// tipkao, pa bi rubrike pune praznine potisnule potpis na sljedeću
-	// stranicu. Zato se tada visina rubrike ravna po sadržaju.
 	okvir := func(naslov, tekst string, visina float64) {
-		if l.Rekonstrukcija {
-			potrebno := 30.0
-			for _, redak := range strings.Split(tekst, "\n") {
-				potrebno += float64(len(pdfw.Prelomi(redak, sirina-20, 10, false))) * 13
-			}
-			if potrebno < visina {
-				visina = potrebno
-			}
-		}
-		y := d.Y
-		d.Okvir(d.Lijevo, y, sirina, visina, bijela, sivaTekst)
-		d.Tekst(d.Lijevo+8, y+14, 9, true, naslov)
-		d.Y = y + 22
-		if tekst != "" {
-			d.OdlomakU(d.Lijevo+10, sirina-20, tekst, 10, false, pdfw.Lijevo)
-		}
-		if d.Y < y+visina {
-			d.Y = y + visina
-		}
+		okvirLista(d, sirina, naslov, tekst, visina, l.Rekonstrukcija)
 	}
 	numerirano := func(stavke []string) string {
 		var b strings.Builder
@@ -399,6 +378,62 @@ func nacrtajList(d *pdfw.Doc, l *models.VodocuvarskiList, t models.OrgTerms, are
 		d.TekstDesno(d.W-d.Desno, d.H-d.Dolje+20, 9, true, fmt.Sprintf("%03d", l.Broj))
 	}
 	return m
+}
+
+// Redak teksta u rubrici dnevnog lista: veličina slova i razmak redaka
+const (
+	slovoRubrike = 10.0
+	redakRubrike = slovoRubrike * 1.32
+)
+
+// okvirLista crta rubriku dnevnog lista (naredbe, opis rada, zapažanja):
+// okvir s naslovom i numeriranim tekstom u njemu. Visina je najmanje
+// zadana, kao prazna rubrika na papirnatom obrascu, a okvir raste s
+// tekstom. Rubrika koja ne stane do dna stranice ide na sljedeću, a ona
+// dulja od cijele stranice nastavlja se okvirom bez naslova. Prenesen list
+// nema vremena rada, zapažanja ni opisa koje je vodočuvar tipkao, pa bi
+// rubrike pune praznine potisnule potpis na sljedeću stranicu; zato se
+// tada visina ravna samo po sadržaju.
+func okvirLista(d *pdfw.Doc, sirina float64, naslov, tekst string, visina float64, poSadrzaju bool) {
+	var redci []string
+	if tekst != "" {
+		for _, odlomak := range strings.Split(tekst, "\n") {
+			redci = append(redci, pdfw.Prelomi(odlomak, sirina-20, slovoRubrike, false)...)
+		}
+	}
+	// naslov do 22, svaki redak redakRubrike, 8 do donjeg ruba
+	potrebno := 30 + float64(len(redci))*redakRubrike
+	if poSadrzaju || potrebno > visina {
+		visina = potrebno
+	}
+	if visina <= d.H-d.Dolje-d.Gore {
+		d.Osiguraj(visina)
+	} else {
+		d.Osiguraj(30 + 3*redakRubrike)
+	}
+	vrhTeksta := 22.0
+	for {
+		y := d.Y
+		dio := min(visina, d.H-d.Dolje-y)
+		d.Okvir(d.Lijevo, y, sirina, dio, bijela, sivaTekst)
+		if vrhTeksta > 8 {
+			d.Tekst(d.Lijevo+8, y+14, 9, true, naslov)
+		}
+		stane := int((dio - vrhTeksta - 8 + 0.01) / redakRubrike)
+		stane = max(0, min(stane, len(redci)))
+		for i, r := range redci[:stane] {
+			d.Tekst(d.Lijevo+10, y+vrhTeksta+float64(i)*redakRubrike+slovoRubrike, slovoRubrike, false, r)
+		}
+		redci = redci[stane:]
+		if len(redci) == 0 {
+			d.Y = y + dio
+			return
+		}
+		// nastavak na novoj stranici: bez naslova, tekst od vrha okvira
+		d.NovaStranica()
+		vrhTeksta = 8
+		visina = 16 + float64(len(redci))*redakRubrike
+	}
 }
 
 // visinaPotpisa je visina mjesta za potpis: blok, prostor za skenirani
