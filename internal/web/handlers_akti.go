@@ -468,8 +468,8 @@ func (d AktiPageData) TkoOvjerava() []OvjeraStupnja {
 // promijenila letvu
 func obrazacVrijedi(q url.Values, data *AktiPageData) {
 	data.LocalValue = time.Now().In(models.Zagreb).Format("2006-01-02T15:04")
-	if _, err := time.ParseInLocation("2006-01-02T15:04", q.Get("vrijedi"), models.Zagreb); err == nil {
-		data.LocalValue = q.Get("vrijedi")
+	if _, err := vrijemeIzPolja(q.Get("vrijedi")); err == nil {
+		data.LocalValue = minutaPolja(q.Get("vrijedi"))
 		data.VrijediUpisan = true
 	}
 	data.TraziPotvrduVrijedi = q.Get("potvrdi") == "vrijedi"
@@ -533,7 +533,7 @@ func rucnoOcitanje(z *service.ZahtjevAkta, cm, kad string) error {
 		return fmt.Errorf("vodostaj „%s” nije cijeli broj centimetara", cm)
 	}
 	z.RucniCm = &v
-	if t, err := time.ParseInLocation("2006-01-02T15:04", strings.TrimSpace(kad), models.Zagreb); err == nil {
+	if t, err := vrijemeIzPolja(kad); err == nil {
 		z.RucnoKad = t
 	}
 	return nil
@@ -617,7 +617,7 @@ func (h *AktiHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		PotvrdaVrijedi: r.FormValue("potvrda_vrijedi") == "1",
 	}
 	z.Podrucje, _ = strconv.Atoi(r.FormValue("podrucje")) // bez broja servis traži izbor kad letva ima više područja
-	if t, err := time.ParseInLocation("2006-01-02T15:04", r.FormValue("vrijedi"), models.Zagreb); err == nil {
+	if t, err := vrijemeIzPolja(r.FormValue("vrijedi")); err == nil {
 		z.Vrijedi = t
 	}
 	natrag := "/akti/novi?station=" + z.StationID + "&radnja=" + z.Radnja + "&stupanj=" + string(z.Stupanj)
