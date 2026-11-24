@@ -83,6 +83,14 @@
     {{else}}<li class="{{if $slanjeGotovo}}gotov{{else if $a.Ovjeren}}sada{{end}}"{{if and $a.Ovjeren (not $slanjeGotovo)}} aria-current="step"{{end}}><span class="akt-korak-znak">{{if $slanjeGotovo}}{{icon "check"}}{{else}}3{{end}}</span> Slanje</li>{{end}}
   </ol>
 
+  {{if .SmijePrekinuti}}
+  <section class="list-kartica akt-prekid">
+    <h2>Akt je na snazi</h2>
+    <p class="form-help mt-0">Kad prestanu uvjeti, akt se prekida novim aktom. Obrazac se otvara s ovom letvom i stupnjem, a prekid stavlja izvan snage ovaj akt.</p>
+    <a class="btn btn-secondary" href="/akti/novi?station={{$a.StationID}}&radnja=PREKID&stupanj={{$a.Stupanj}}&podrucje={{$a.AreaID}}&prekida_akt_id={{$a.ID}}">Prekini</a>
+  </section>
+  {{end}}
+
   {{with $a.Storno}}
   {{/* Kartica Poništenje (crtež 4b): ispravak ide novim aktom, koji u napomeni kaže koji akt zamjenjuje (Odluke (9. 11. 2026.)). */}}
   <section class="list-kartica akt-ponistenje">

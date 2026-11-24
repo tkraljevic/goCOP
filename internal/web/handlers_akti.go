@@ -140,6 +140,10 @@ type AktiPageData struct {
 	StornoOdbijen string
 	RazlogStorna  string
 	KasnijiAkt    *models.Akt
+	// Prekidljivi su akti popisa uz koje se nudi „Prekini”, a SmijePrekinuti
+	// to isto za stranicu akta (AktService.Prekidljivi)
+	Prekidljivi    map[string]bool
+	SmijePrekinuti bool
 
 	// Sukobi oznaka (Odluke (8. 10. 2026.), pitanje 4): u popisu po ID-u
 	// akta, a na stranici akta njegov sukob i smije li ga osoba riješiti
@@ -222,6 +226,7 @@ func (h *AktiHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 		data.ErrorMessage = err.Error()
 	}
 	data.Akti = akti
+	data.Prekidljivi = prekidljivi(r, s, perms, akti)
 	h.sukobiOznaka(r.Context(), s, &data)
 	izborPopisa(&data, perms, q)
 	g := time.Now().In(models.Zagreb).Year()
@@ -678,6 +683,15 @@ func ovjeraIPonistenje(r *http.Request, s *service.AktService, perms *models.Use
 	return !a.Ovjeren() && s.SmijeOvjeriti(perms, a), s.SmijePonistiti(perms, u, a)
 }
 
+// prekidljivi su akti uz koje stranica nudi „Prekini” (AktService.Prekidljivi);
+// tuđim očima ne nudi ništa, jer nacrt nastaje na ime osobe
+func prekidljivi(r *http.Request, s *service.AktService, perms *models.UserPermissions, akti []models.Akt) map[string]bool {
+	if viewing, _ := r.Context().Value(contextKeyViewing).(bool); viewing {
+		return nil
+	}
+	return s.Prekidljivi(r.Context(), perms, akti)
+}
+
 // ShowAkt prikazuje akt: tekst kako će stajati na papiru, primatelje i ovjeru
 func (h *AktiHandler) ShowAkt(w http.ResponseWriter, r *http.Request) {
 	u, perms, data := h.base(r)
@@ -691,6 +705,7 @@ func (h *AktiHandler) ShowAkt(w http.ResponseWriter, r *http.Request) {
 	data.Slanje = h.slanjeZaStranicu(r, s, perms, u, a)
 	data.SmijeOvjeriti, data.SmijePonistiti = ovjeraIPonistenje(r, s, perms, u, a)
 	data.SmijeZamijenitiSken = data.SmijePonistiti && s.SmijeZamijenitiSken(r.Context(), perms, u, a)
+	data.SmijePrekinuti = prekidljivi(r, s, perms, []models.Akt{*a})[a.ID]
 	if data.SmijeOvjeriti {
 		// sken ovjere učitava samo onaj tko akt smije ovjeriti
 		data.MoguPotpisati = s.MoguPotpisati(a)

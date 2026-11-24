@@ -9475,6 +9475,7 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
 .akti-tablica .ap-oznaka { color: var(--md-sys-color-primary); white-space: nowrap; }
 .ap-poveznica { color: var(--md-sys-color-primary); text-decoration: none; }
 .ap-poveznica::after { content: ""; position: absolute; inset: 0; }
+.ap-prekini { position: relative; z-index: 1; display: inline-block; margin-top: 4px; font-size: 0.875rem; font-weight: 500; color: var(--md-sys-color-primary); }
 .ap-poveznica:hover { color: var(--md-sys-color-primary); text-decoration: underline; }
 .ap-stupanj { gap: 6px; white-space: nowrap; }
 .ap-stupanj::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
@@ -9594,6 +9595,7 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
   table.akti-tablica.kartice-na-mobitelu td.ap-vrijedi { order: 8; width: 100%; justify-content: flex-start; gap: 4px; color: var(--md-sys-color-on-surface-variant); font-size: 0.75rem; }
   table.akti-tablica.kartice-na-mobitelu td.ap-vrijedi::before { color: inherit; font-size: inherit; font-weight: 400; }
   .ap-stanje > .ap-pod { order: 9; width: 100%; }
+  .ap-stanje > .ap-prekini { order: 10; margin-top: 8px; }
 }
 
 @media print {
