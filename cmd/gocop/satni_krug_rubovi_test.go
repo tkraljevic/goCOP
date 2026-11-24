@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"net/http"
 	"os"
@@ -193,7 +194,7 @@ func TestIzvorOborinaSKisomjerima(t *testing.T) {
 	}
 	t.Cleanup(func() { ob.Close() })
 	u := &oborine.Uvoznik{DB: ob}
-	if iz, err := izvorOborina(k.baza, u); iz != nil || err != nil {
+	if iz, err := izvorOborina(k.baza, nil, u); iz != nil || err != nil {
 		t.Fatalf("registar bez točaka: %+v, %v", iz, err)
 	}
 	if _, err := k.baza.Exec(`INSERT INTO kisomjeri (code, naziv, sliv, latitude, longitude, tezina, vrsta, created_at, updated_at) VALUES
@@ -209,7 +210,7 @@ func TestIzvorOborinaSKisomjerima(t *testing.T) {
 	if _, err := sp.Upisi(context.Background(), []kisomjeri.Mjerenje{{Kisomjer: "km-probni", Kraj: time.Unix(sat*3600, 0), Sati: 1, Oborina: 4, Izvor: "kisomjer-hv"}}); err != nil {
 		t.Fatal(err)
 	}
-	iz, err := izvorOborina(k.baza, u)
+	iz, err := izvorOborina(k.baza, nil, u)
 	if err != nil || iz == nil || len(iz.Tocke) != 1 || len(iz.Kisomjeri) != 1 {
 		t.Fatalf("izvor oborina: %+v, %v", iz, err)
 	}
@@ -219,10 +220,16 @@ func TestIzvorOborinaSKisomjerima(t *testing.T) {
 	if m, err := iz.Izmjerene(sat-2, sat); err != nil || m["km-probni"][sat] != 4 {
 		t.Errorf("mjerenja kišomjera: %v, %v", m, err)
 	}
+	if iz.Snijeg == nil || iz.ZalihaSnijega == nil {
+		t.Error("izvor oborina bez snijega")
+	}
+	if z, err := iz.ZalihaSnijega("ob-probna", sat/24); err != nil || z != 0 {
+		t.Errorf("zaliha snijega bez podataka: %v, %v", z, err)
+	}
 	if err := k.baza.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := izvorOborina(k.baza, u); err == nil {
+	if _, err := izvorOborina(k.baza, nil, u); err == nil {
 		t.Error("registar koji se ne da pročitati mora javiti grešku")
 	}
 }
@@ -257,5 +264,19 @@ func TestPrognozaSeNeDaOtvoriti(t *testing.T) {
 	}
 	if !strings.Contains(dnevnik.String(), "Prognoza se neće obnavljati") {
 		t.Errorf("dnevnik: %s", dnevnik)
+	}
+}
+
+// Zaliha snijega ostaje ista kroz krugove dok su arhiva i baza oborina iste,
+// a nova kad se koja promijeni.
+func TestZalihaSnijegaKrozKrugove(t *testing.T) {
+	a, b := &sql.DB{}, &sql.DB{}
+	u, v := &oborine.Uvoznik{DB: a}, &oborine.Uvoznik{DB: b}
+	prva := zalihaSnijegaZa(a, u)
+	if prva == nil || zalihaSnijegaZa(a, u) != prva {
+		t.Error("ista arhiva i baza oborina, a zaliha nova")
+	}
+	if zalihaSnijegaZa(b, u) == prva || zalihaSnijegaZa(b, v) == zalihaSnijegaZa(b, u) {
+		t.Error("druga arhiva ili baza oborina, a zaliha ista")
 	}
 }

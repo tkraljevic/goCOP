@@ -106,7 +106,7 @@ var pragoviPredmemorija struct {
 }
 
 // PragoviSlivova vraća pragove za međuslivove iz arhive (ERA5), računate
-// jednom dnevno.
+// jednom dnevno, na ukupnoj oborini (kiša i snijeg), bez modela snijega.
 func PragoviSlivova(arhiva *sql.DB, tocke []OborinskaTocka) (map[string]PragoviKise, error) {
 	danas := time.Now().Format("2006-01-02")
 	pragoviPredmemorija.Lock()
@@ -114,7 +114,7 @@ func PragoviSlivova(arhiva *sql.DB, tocke []OborinskaTocka) (map[string]PragoviK
 	if pragoviPredmemorija.dan == danas && pragoviPredmemorija.pragovi != nil {
 		return pragoviPredmemorija.pragovi, nil
 	}
-	ob, err := DnevneOborine(arhiva, tocke)
+	ob, err := UkupneDnevneOborine(arhiva, tocke)
 	if err != nil {
 		return nil, err
 	}

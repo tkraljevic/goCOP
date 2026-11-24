@@ -189,7 +189,7 @@ func (k *satniKrug) preuzmiOborine(ctx context.Context) {
 	}
 	otkazi()
 	// registar se mogao promijeniti (nova ili premještena točka)
-	if iz, err := izvorOborina(database, oborineUvoznik); err == nil && iz != nil {
+	if iz, err := izvorOborina(database, osvjezivac.Arhiva, oborineUvoznik); err == nil && iz != nil {
 		osvjezivac.Oborine = iz
 	}
 }

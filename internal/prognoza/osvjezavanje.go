@@ -603,10 +603,9 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 	}
 	satni := map[string]Niz{}
 	unatrag, unaprijed := oborinskiDosezi()
-	oborine, err := OborineOkoSada(o.Oborine, sada, unatrag, unaprijed)
+	oborine, kisa, err := o.oborineIzdanja(sada, unatrag, unaprijed)
 	if err != nil {
 		log.Printf("dnevni model: oborina uživo: %v", err)
-		oborine = nil
 	}
 	razlogBezKise := ""
 	switch {
@@ -711,7 +710,23 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 	}
 	uzvodno := uzvodnoIzdanja(satni, sada, out)
 	uzvodno.upisi(izbor)
-	return out, sidra, bez, izbor, oborine, uzvodno
+	return out, sidra, bez, izbor, kisa, uzvodno
+}
+
+// oborineIzdanja je kiša međuslivova oko sata izdavanja: ulaz modela (s
+// modelom snijega, kad ga izvor ima) i kiša koja ide uz izdanje i prikazuje
+// se, a to je oborina kakva je pala. Kad se ne da pročitati, oboje je nil.
+func (o *Osvjezivac) oborineIzdanja(sada int64, unatrag, unaprijed int) (model, kisa map[string]DnevniNiz, err error) {
+	if model, err = OborineOkoSada(o.Oborine, sada, unatrag, unaprijed); err != nil {
+		return nil, nil, err
+	}
+	if o.Oborine == nil || o.Oborine.Snijeg == nil {
+		return model, model, nil
+	}
+	if kisa, err = OborineOkoSada(o.Oborine.BezSnijega(), sada, unatrag, unaprijed); err != nil {
+		return nil, nil, err
+	}
+	return model, kisa, nil
 }
 
 // Zapisi sprema izračunato.

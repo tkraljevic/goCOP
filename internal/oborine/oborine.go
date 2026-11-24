@@ -255,6 +255,40 @@ func (u *Uvoznik) Satne(od, do int64) (map[string]map[int64]float64, error) {
 	return out, r.Err()
 }
 
+// SnijegITemperatura vraća snijeg (mm vode) i temperaturu zraka (°C) po
+// kišomjeru i satu za sate od–do (uključivo).
+func (u *Uvoznik) SnijegITemperatura(od, do int64) (snijeg, temperatura map[string]map[int64]float64, err error) {
+	r, err := u.DB.Query(`SELECT kisomjer, sat, snijeg, temperatura FROM satne WHERE sat BETWEEN ? AND ?`, od, do)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer r.Close()
+	snijeg, temperatura = map[string]map[int64]float64{}, map[string]map[int64]float64{}
+	upisi := func(m map[string]map[int64]float64, k string, sat int64, v sql.NullFloat64) {
+		if !v.Valid {
+			return
+		}
+		if m[k] == nil {
+			m[k] = map[int64]float64{}
+		}
+		m[k][sat] = v.Float64
+	}
+	for r.Next() {
+		var k string
+		var sat int64
+		var s, t sql.NullFloat64
+		if err := r.Scan(&k, &sat, &s, &t); err != nil {
+			return nil, nil, err
+		}
+		upisi(snijeg, k, sat, s)
+		upisi(temperatura, k, sat, t)
+	}
+	if err := r.Err(); err != nil {
+		return nil, nil, err
+	}
+	return snijeg, temperatura, nil
+}
+
 // Zadnje javlja kad je zadnji put nešto preuzeto; nula kad ništa.
 func (u *Uvoznik) Zadnje() time.Time {
 	var t sql.NullInt64
