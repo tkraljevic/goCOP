@@ -305,6 +305,18 @@ func TestZalihaSnijegaNaPocetku(t *testing.T) {
 		t.Errorf("nakon istiskivanja: %v, %v, čitanja %d; želim 14 i 4 čitanja", got, err, citanja)
 	}
 
+	// sezona za prikaz: zaliha na kraju svakog dana koji ima podatke
+	sezona, err := z.Sezona("a", pocetak+7)
+	if want := map[int64]float64{pocetak: 20, pocetak + 1: 20, pocetak + 2: 14, pocetak + 3: 26, pocetak + 4: 23}; err != nil || !reflect.DeepEqual(sezona, want) {
+		t.Errorf("sezona %v, %v; želim %v", sezona, err, want)
+	}
+	if PocetakSezone(pocetak+100) != pocetak {
+		t.Error("početak sezone")
+	}
+	if d := DaniIzSatnih(ob, sn, te, pocetak+3, pocetak+3); d[pocetak+3].Snijeg != 12 || !d[pocetak+3].ImaSnijega {
+		t.Errorf("dani iz satnih %v", d)
+	}
+
 	t.Run("samo arhiva", func(t *testing.T) {
 		z := &ZalihaSnijega{Arhiva: arhiva}
 		if got, err := z.NaPocetku("a", pocetak+7); err != nil || got != 14 {
@@ -327,6 +339,9 @@ func TestZalihaSnijegaNaPocetku(t *testing.T) {
 	} {
 		if got, err := pokvaren.NaPocetku("a", pocetak+3); err == nil {
 			t.Errorf("%s se ne da pročitati, a bez greške: %v", ime, got)
+		}
+		if got, err := pokvaren.Sezona("a", pocetak+3); err == nil {
+			t.Errorf("sezona: %s se ne da pročitati, a bez greške: %v", ime, got)
 		}
 	}
 }
