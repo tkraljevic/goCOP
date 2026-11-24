@@ -4095,3 +4095,25 @@ document.addEventListener('click', function (e) {
   polje.dispatchEvent(new Event('input', { bubbles: true }));
   polje.focus();
 });
+
+// Polja datuma i vremena primaju samo cijele minute. Safari pri upisu u
+// prazno polje uzme trenutno vrijeme sa sekundama i zadrži ih skrivene kad
+// osoba promijeni sat i minute, pa obrazac odbije s „Nevažeća vrijednost”.
+// Sekunde se zato brišu pri svakoj promjeni i prije slanja obrasca (klik na
+// gumb dolazi prije provjere polja).
+(function () {
+  'use strict';
+  function bezSekundi(polje) {
+    if (polje && polje.type === 'datetime-local' && polje.value.length > 16) {
+      polje.value = polje.value.slice(0, 16);
+    }
+  }
+  ['input', 'change'].forEach(function (vrsta) {
+    document.addEventListener(vrsta, function (ev) { bezSekundi(ev.target); }, true);
+  });
+  document.addEventListener('click', function (ev) {
+    var gumb = ev.target.closest && ev.target.closest('button, input[type=submit]');
+    if (!gumb || !gumb.form) return;
+    gumb.form.querySelectorAll('input[type=datetime-local]').forEach(bezSekundi);
+  }, true);
+})();

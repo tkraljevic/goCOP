@@ -921,7 +921,7 @@ func (h *JournalsHandler) HandleAddEntry(w http.ResponseWriter, r *http.Request)
 	}
 	// primljeni nalog: tko ga je dao i kada
 	e.DavateljID, e.Davatelj = r.FormValue("davatelj_id"), r.FormValue("davatelj")
-	if t, err := time.ParseInLocation("2006-01-02T15:04", r.FormValue("kada"), models.Zagreb); err == nil {
+	if t, err := vrijemeIzPolja(r.FormValue("kada")); err == nil {
 		e.HappenedAt = &t
 	}
 	target, err := h.journals.AddEntry(r.Context(), u, perms, h.opseg(j, area), j, sh, &e)

@@ -1059,14 +1059,14 @@ func parseOptionalInt(s string) (*int, error) {
 // očitanje, a izmjena bez vremena se odbija, da ispravak ne premjesti
 // očitanje na trenutak ispravka
 func vrijemeIzObrasca(r *http.Request, izmjena bool) (time.Time, error) {
-	at := strings.TrimSpace(r.FormValue("measured_at"))
+	at := minutaPolja(r.FormValue("measured_at"))
 	switch {
 	case at == "" && izmjena:
 		return time.Time{}, fmt.Errorf("upišite datum i vrijeme očitanja")
 	case at == "":
 		return time.Now().UTC(), nil
 	}
-	t, err := time.ParseInLocation("2006-01-02T15:04", at, models.Zagreb)
+	t, err := vrijemeIzPolja(at)
 	if err != nil {
 		return time.Time{}, fmt.Errorf("vrijeme očitanja nije čitljivo")
 	}
