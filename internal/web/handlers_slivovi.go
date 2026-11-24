@@ -15,6 +15,7 @@ import (
 	"gocop/internal/models"
 	"gocop/internal/prognoza"
 	"gocop/internal/service"
+	"gocop/internal/snijeg"
 )
 
 // Registar meteoroloških postaja: izvedene točke (kvazi-kišomjeri) na kojima
@@ -30,6 +31,7 @@ type SlivoviHandler struct {
 	tmpl         func(string) *template.Template
 	karta        func() KartaPostavke
 	kisa         func(context.Context) kisaSlivovaPodaci // nil: kiša se na ovom čvoru ne računa
+	snijeg       func() *snijeg.Izvor                    // nil: snijeg na tlu se ne prikazuje
 }
 
 // SetKisa daje stranici kišu po međuslivovima, istu kao na Naslovnoj
@@ -48,7 +50,8 @@ type SkupinaKisomjera struct {
 	Tezina          float64            // zbroj težina aktivnih točaka; oko 1 kad je sliv pokriven
 	UPrognozi       []string           // letve čija dnevna prognoza čita kišu ovog međusliva
 	UPrognoziTocaka int
-	Kisa            *RedakSliva // kiša sada; nil kad se ne računa
+	Kisa            *RedakSliva  // kiša sada; nil kad se ne računa
+	Snijeg          *SnijegSliva // snijeg na tlu u alpskom međuslivu; nil drugdje
 }
 
 // KarticaKisomjera je postaja na popisu s odgovorom čita li je prognoza.
@@ -209,6 +212,7 @@ func (h *SlivoviHandler) ShowSlivovi(w http.ResponseWriter, r *http.Request) {
 	kp := <-kisa
 	data.Kisa, data.KisaGreska = kisaPoMedjuslivovima(kp, poOznaci)
 	data.KisaGrafovi = grafoviKise(kp, time.Now())
+	h.dodajSnijeg(poOznaci, time.Now())
 	for _, s := range redom {
 		data.Skupine = append(data.Skupine, *s)
 	}

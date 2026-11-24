@@ -16,6 +16,7 @@ import (
 func (s *Server) izvoriNaslovne() IzvoriNaslovne {
 	return IzvoriNaslovne{
 		Kisa:     s.podaciKiseSlivova,
+		Snijeg:   s.snijegSlivova,
 		Razmjena: s.razmjenaNaslovne,
 		Brojke:   s.brojkePodataka,
 		Vrijeme:  s.vrijemeNaslovne,

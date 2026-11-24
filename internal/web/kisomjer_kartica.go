@@ -13,16 +13,28 @@ import (
 // DanKise je dnevni zbroj jednog dana; Mm je nil kad za taj dan nema podatka,
 // da se ne pomiješa s danom bez kiše.
 type DanKise struct {
-	Dan time.Time
-	Mm  *float64
+	Dan    time.Time
+	Mm     *float64
+	Snijeg *float64 // od toga snijeg (mm vode); nil kad se ne zna
+}
+
+// SnijegTekst: „snijeg 6,8” ispod dana s malo snijega; bez snijega prazno
+func (d DanKise) SnijegTekst() string {
+	if d.Snijeg == nil || *d.Snijeg < 0.05 {
+		return ""
+	}
+	return "snijeg " + brojHRf(*d.Snijeg, 1)
 }
 
 // sedamDana slaže zadnjih sedam dana, do danas, iz dnevnih zbrojeva koje
 // stranica već računa; kod pogleda od 30 ili 90 dana uzima se samo zadnjih sedam.
 func sedamDana(dnevni []RedKise, sada time.Time) []DanKise {
-	poDanu := map[string]float64{}
+	poDanu, snijegDana := map[string]float64{}, map[string]float64{}
 	for _, d := range dnevni {
 		poDanu[d.Kad.UTC().Format("2006-01-02")] += d.Mm
+		if d.Snijeg != nil {
+			snijegDana[d.Kad.UTC().Format("2006-01-02")] += *d.Snijeg
+		}
 	}
 	danas := sada.In(models.Zagreb)
 	out := make([]DanKise, 0, 7)
@@ -31,6 +43,9 @@ func sedamDana(dnevni []RedKise, sada time.Time) []DanKise {
 		d := DanKise{Dan: dan}
 		if mm, ima := poDanu[dan.Format("2006-01-02")]; ima {
 			d.Mm = &mm
+		}
+		if sn, ima := snijegDana[dan.Format("2006-01-02")]; ima {
+			d.Snijeg = &sn
 		}
 		out = append(out, d)
 	}

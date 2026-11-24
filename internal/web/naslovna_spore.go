@@ -17,13 +17,16 @@ import (
 	"gocop/internal/models"
 	"gocop/internal/repository"
 	"gocop/internal/service"
+	"gocop/internal/snijeg"
 )
 
 // IzvoriNaslovne su izvori podataka sporih kartica. Postavlja ih poslužitelj,
 // jer su to iste funkcije koje pune Prognoze, pločicu razmjene i brojke;
 // izvor koji nije postavljen daje karticu „podaci nisu dostupni”.
 type IzvoriNaslovne struct {
-	Kisa       func(context.Context) kisaSlivovaPodaci
+	Kisa func(context.Context) kisaSlivovaPodaci
+	// Snijeg je snijeg na tlu u alpskim međuslivovima (SNOWGRID)
+	Snijeg     func() ([]snijeg.StanjeSliva, error)
 	Razmjena   func(context.Context) (RazmjenaStanje, bool)
 	Brojke     func(context.Context) *BrojkePodataka
 	Vrijeme    func(*http.Request) PlocaVremena

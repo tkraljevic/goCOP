@@ -26,7 +26,7 @@ func TestNaslovnaObraneIzvodjaca(t *testing.T) {
 			}, nil
 		},
 	})
-	zeli := []string{kStanjeObrane, kDnevnikRadova, kNaloziOvl, kLjudiNaTerenu, kVodostaji, kVrijeme, kJaceOborine}
+	zeli := []string{kStanjeObrane, kDnevnikRadova, kNaloziOvl, kLjudiNaTerenu, kVodostaji, kVrijeme, kJaceOborine, kSnijeg}
 	for _, uloga := range []models.Role{models.RoleContractorAreaLeader, models.RoleContractorAreaDeputy} {
 		t.Run(string(uloga), func(t *testing.T) {
 			p := dozvoleUsluge(uloga)

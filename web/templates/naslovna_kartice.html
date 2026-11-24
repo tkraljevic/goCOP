@@ -43,7 +43,7 @@
 {{if .Gumbi}}<div class="kartica-gumbi">{{range .Gumbi}}{{template "gumbNaslovne" .}}{{end}}</div>{{end}}
 {{end}}
 
-{{define "posebnoTijeloNaslovne"}}{{if eq .Tijelo "kisa"}}{{template "tijeloKiseNaslovne" .Podaci}}{{end}}{{end}}
+{{define "posebnoTijeloNaslovne"}}{{if eq .Tijelo "kisa"}}{{template "tijeloKiseNaslovne" .Podaci}}{{else if eq .Tijelo "snijeg"}}{{template "tijeloSnijegaNaslovne" .Podaci}}{{end}}{{end}}
 
 {{/* Jača kiša (crtež 11a, 14. 11. 2026.): lanac međuslivova niz rijeku
      s kišom u 72 h, pa svaki međusliv iznad praga s trakom prema pragu.
@@ -86,6 +86,43 @@
 </ul>
 {{with .Vise}}<a class="kartica-vise samo-siroko" href="/slivovi#kisa">{{.}} →</a>{{end}}
 {{with .ViseMobitel}}<a class="kartica-vise samo-mobitel" href="/slivovi#kisa">{{.}} →</a>{{end}}
+{{end}}
+
+{{/* Snijeg u Alpama (crtež „snijeg”, 24. 11. 2026.): četiri alpska međusliva po
+     rijekama, traka snijega na tlu prema pragovima za 3, 5 i 10 zima, razina i kako
+     se snijeg mijenjao u tri dana. Alarm na vrhu i crveni redak ispod sliva su kuka
+     za upozorenje „Kiša i topljenje na puno snijega”: pravilo se još dogovara, pa
+     se zasad ne pune (SnijegNaslovne.Alarm, RedakSnijega.Alarm). */}}
+{{define "tijeloSnijegaNaslovne"}}
+{{with .Alarm}}<div class="snijeg-alarm" role="alert">{{icon "triangle-alert"}}<div><p class="snijeg-alarm-naslov">{{.Naslov}}</p><p class="snijeg-alarm-tekst">{{.Tekst}}</p></div></div>{{end}}
+<div class="snijeg-uvod">
+  <p class="snijeg-uvod-glavno">Na tlu je puno snijega. Kad se otopi, Drava i Dunav mogu narasti.</p>
+  <p class="kisa-lanac-natpis">Snijeg na tlu u mm vode, prosjek sliva · kako se mijenjao u zadnja 3 dana</p>
+  {{with .Kasni}}<p class="kisa-lanac-natpis snijeg-kasni">{{.}}</p>{{end}}
+</div>
+{{range .Skupine}}
+<p class="snijeg-rijeka">{{.Rijeka}}</p>
+<ul class="kisa-retci snijeg-retci">
+  {{range $r := .Retci}}
+  <li class="kisa-redak snijeg-redak {{or $r.Klasa "snijeg-ispod"}}">
+    <a href="{{$r.URL}}">
+      <span class="kisa-redak-glava"><span class="kisa-redak-ime">{{$r.Naziv}}</span>{{with $r.Rijetko}}<span class="badge {{$r.Klasa}}">{{.}}</span>{{end}}</span>
+      <span class="kisa-redak-sporedno">{{$r.Podrucje}}</span>
+      <span class="kisa-traka" role="img" aria-label="{{$r.Opis}}"><span class="kisa-traka-dio snijeg-traka-dio" style="width: {{$r.Popuna}}%"></span>{{range $r.Crtice}}<span class="kisa-traka-crtica {{.Klasa}}" style="left: {{.Lijevo}}%" title="{{.Naslov}}"></span>{{end}}</span>
+      {{with $r.Alarm}}<span class="snijeg-redak-alarm">{{icon "triangle-alert"}}<span>{{.}}</span></span>{{end}}
+      <span class="snijeg-redak-dno"><span class="kisa-redak-palo">{{$r.Mm}}</span>{{with $r.Trend}}<span class="kisa-redak-palo">{{.}}</span>{{end}}</span>
+    </a>
+  </li>
+  {{end}}
+</ul>
+{{end}}
+<div class="snijeg-podnozje">
+  <p>Crtice: toliko snijega bude jednom u 3, 5 i 10 zima.</p>
+  <p>Kartica nestane kad snijeg u svim slivovima padne ispod pola praga za 3 zime.</p>
+  <p>Snijeg na tlu: SNOWGRID, GeoSphere Austria (austrijski dio sliva, kasni 1–2 dana).</p>
+  <p>Prognoza vodostaja računa s topljenjem snijega.</p>
+</div>
+{{with .Vise}}<a class="snijeg-vise" href="{{.}}"><span>Više na Prognoze › Vrijeme</span>{{icon "chevron-right"}}</a>{{end}}
 {{end}}
 
 {{define "gumbNaslovne"}}<a class="btn {{if .Glavni}}btn-primary{{else}}btn-secondary{{end}}{{if .SamoSiroko}} samo-siroko{{end}}" href="{{.URL}}">{{.Tekst}}</a>{{end}}

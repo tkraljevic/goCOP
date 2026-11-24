@@ -36,6 +36,7 @@ import (
 	"gocop/internal/razmjena"
 	"gocop/internal/repository"
 	"gocop/internal/service"
+	"gocop/internal/snijeg"
 	webassets "gocop/web"
 
 	"github.com/google/uuid"
@@ -132,6 +133,7 @@ type Server struct {
 	kisomjeri          *service.KisomjerService // registar kvazi-kišomjera; nil dok se ne postavi
 	kisMjerenja        *kisomjeri.Spremiste     // mjerenja stvarnih kišomjera i oborine s Open-Meteo; nil dok se ne postavi
 	kisaSlivova        KisaSlivovaFunc          // kiša po slivovima za naslovnu; nil dok se ne postavi
+	snijeg             *snijeg.Izvor            // snijeg na tlu u alpskim slivovima; nil dok se ne postavi
 	razmjena           RazmjenaFunc             // stanje razmjene za pločicu na naslovnoj
 	vrijemeH           *VrijemeHandler          // vrijeme za mjesto osobe, i za karticu Naslovne
 	znak               znakRazmjene             // oznaka razmjene u gornjoj traci, s predmemorijom (skoljka.go)
@@ -1310,6 +1312,7 @@ func (s *Server) setupRoutes() {
 	slivH := NewSlivoviHandler(func() *service.KisomjerService { return s.kisomjeri }, s.watercourseService, s.stationService,
 		func(ime string) *template.Template { return s.templates[ime] }, func() KartaPostavke { return s.karta })
 	slivH.SetKisa(s.podaciKiseSlivova)
+	slivH.SetSnijeg(func() *snijeg.Izvor { return s.snijeg })
 	s.mux.Handle("GET /slivovi", s.authMiddleware(http.HandlerFunc(slivH.ShowSlivovi)))
 	if s.dhmzKlijent == nil {
 		s.dhmzKlijent = &dhmz.Klijent{}
@@ -1337,7 +1340,7 @@ func (s *Server) setupRoutes() {
 	// Stranica kišomjera: očitanja (svježe i prognoza) i historijat (arhiva)
 	kisH := &KisomjerStranicaHandler{svc: func() *service.KisomjerService { return s.kisomjeri },
 		arhiva: s.Arhiva, mjerenja: func() *kisomjeri.Spremiste { return s.kisMjerenja },
-		tmpl: func(ime string) *template.Template { return s.templates[ime] }}
+		tmpl: func(ime string) *template.Template { return s.templates[ime] }, snijeg: func() *snijeg.Izvor { return s.snijeg }}
 	s.mux.Handle("GET /slivovi/kisomjer/{code}", s.authMiddleware(http.HandlerFunc(kisH.ShowOcitanja)))
 	s.mux.Handle("GET /slivovi/kisomjer/{code}/historijat", s.authMiddleware(http.HandlerFunc(kisH.ShowHistorijat)))
 	s.mux.Handle("GET /api/slivovi", s.authMiddleware(http.HandlerFunc(slivH.HandleListAPI)))
@@ -2128,6 +2131,19 @@ func (s *Server) SetMts(m *service.MtsService) { s.mtsService = m }
 // SetKisomjeriMjerenja daje poslužitelju radnu bazu mjerenja stvarnih
 // kišomjera (i oborina s Open-Meteo), za ploču na naslovnoj
 func (s *Server) SetKisomjeriMjerenja(sp *kisomjeri.Spremiste) { s.kisMjerenja = sp }
+
+// SetSnijegNaTlu daje poslužitelju snijeg na tlu u alpskim slivovima
+// (SNOWGRID): kartica na Naslovnoj, stranica kišomjera i Slivovi.
+func (s *Server) SetSnijegNaTlu(i *snijeg.Izvor) { s.snijeg = i }
+
+// snijegSlivova je snijeg na tlu po alpskim međuslivovima; bez izvora
+// prazan
+func (s *Server) snijegSlivova() ([]snijeg.StanjeSliva, error) {
+	if s.snijeg == nil {
+		return nil, nil
+	}
+	return s.snijeg.Slivovi()
+}
 
 // SetKisomjeri daje poslužitelju registar kvazi-kišomjera
 func (s *Server) SetKisomjeri(k *service.KisomjerService) { s.kisomjeri = k }
