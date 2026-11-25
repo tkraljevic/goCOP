@@ -4,8 +4,9 @@ package prognoza
 // kišu i snijeg zajedno, kao vodu. Snijeg koji padne na smrznuto tlo ne otječe
 // odmah, nego leži dok ne zatopli. Zato dnevni model ne dobiva oborinu kakva
 // je pala, nego kišu i ono što se toga dana otopilo: snijeg ide u zalihu na
-// tlu, a iz nje se topi TopljenjeSnijega mm vode po °C srednje dnevne
-// temperature iznad PragTopljenja.
+// tlu, a iz nje se topi koliko kažu postavke snijega (PostavkeSnijega): mm
+// vode po °C srednje dnevne temperature iznad praga. Postavke se mijenjaju na
+// stranici Postavke prognoze; isključen model daje oborinu kakva je pala.
 //
 // Provjereno učenjem do 2012. i provjerom 2012.–2025.: u snježnim zimama
 // pogreška 6. dana pada osjetno (Botovo 2012./13. s 48 na 36 cm, Komárom
@@ -25,14 +26,6 @@ import (
 	"time"
 )
 
-// TopljenjeSnijega je koliko se mm vode iz zalihe snijega otopi na dan po °C
-// srednje dnevne temperature zraka iznad PragTopljenja.
-var TopljenjeSnijega = 3.0
-
-// PragTopljenja je srednja dnevna temperatura zraka (°C) iznad koje se snijeg
-// topi.
-var PragTopljenja = 0.0
-
 // DanOborine je jedan dan na jednoj točki: oborina i snijeg u mm vode,
 // srednja temperatura zraka u °C. Bez snijega ili temperature (ImaSnijega
 // false) dan ostaje kakav je pao.
@@ -45,15 +38,10 @@ type DanOborine struct {
 // je palo oborine) ide u zalihu, a iz nje se otopi koliko temperatura dade,
 // najviše cijela zaliha. Vraća novu zalihu, snijeg koji je otišao u zalihu i
 // otopljeno; u model toga dana ide d.Oborina − palo + topi. Dan bez snijega
-// ili temperature zalihu ne dira.
+// ili temperature zalihu ne dira. Topi se po primijenjenim postavkama
+// (PostavkeSnijegaURadu); proba zove PostavkeSnijega.Korak sa svojima.
 func KorakSnijega(zaliha float64, d DanOborine) (nova, palo, topi float64) {
-	if !d.ImaSnijega {
-		return zaliha, 0, 0
-	}
-	palo = math.Min(math.Max(d.Snijeg, 0), math.Max(d.Oborina, 0))
-	zaliha += palo
-	topi = math.Min(zaliha, math.Max(0, TopljenjeSnijega*(d.Temperatura-PragTopljenja)))
-	return zaliha - topi, palo, topi
+	return PostavkeSnijegaURadu().Korak(zaliha, d)
 }
 
 // danUSezoni je prvi dan (od 1970.) sezone snijega u kojoj je dan: sezona
@@ -133,10 +121,11 @@ func poredaniDani[V any](m map[int64]V) []int64 {
 	return dani
 }
 
-// dnevnaOborinaTocke je dnevni ulaz točke u model iz arhive: s modelom snijega
-// kiša i otopljeno, a bez njega oborina kakva je pala.
-func dnevnaOborinaTocke(arhiva *sql.DB, code string, sSnijegom bool) (map[int64]float64, error) {
-	if !sSnijegom {
+// dnevnaOborinaTocke je dnevni ulaz točke u model iz arhive: s uključenim
+// modelom snijega kiša i otopljeno po postavkama p, a bez njega oborina
+// kakva je pala.
+func dnevnaOborinaTocke(arhiva *sql.DB, code string, p PostavkeSnijega) (map[int64]float64, error) {
+	if !p.Ukljucen {
 		return dnevniNizTocke(arhiva, code, "oborina", prviDanArhive, zadnjiDanArhive)
 	}
 	dani, err := daniTockeIzArhive(arhiva, code, prviDanArhive, zadnjiDanArhive)
@@ -148,7 +137,7 @@ func dnevnaOborinaTocke(arhiva *sql.DB, code string, sSnijegom bool) (map[int64]
 	for _, d := range poredaniDani(dani) {
 		dan := dani[d]
 		var palo, topi float64
-		zaliha, palo, topi = KorakSnijega(zaliha, dan)
+		zaliha, palo, topi = p.Korak(zaliha, dan)
 		out[d] = dan.Oborina - palo + topi
 	}
 	return out, nil
@@ -202,14 +191,16 @@ type SatniSnijeg func(od, do int64) (snijeg, temperatura map[string]map[int64]fl
 // ZalihaSnijega računa zalihu snijega na tlu po točki za živi rad: od početka
 // sezone (1. kolovoza) dan po dan, iz dnevnih nizova arhive gdje ih ima, a
 // inače iz satnih nizova baze oborina. Dan bez ijednog ostaje rupa i zalihu
-// ne mijenja. Zaliha točke za jedan dan računa se najviše jednom.
+// ne mijenja. Zaliha točke za jedan dan računa se najviše jednom, dok se
+// primijenjene postavke snijega ne promijene.
 type ZalihaSnijega struct {
 	Arhiva *sql.DB // dnevni nizovi točaka; samo se čita
 	Satne  func(od, do int64) (map[string]map[int64]float64, error)
 	Snijeg SatniSnijeg
 
-	mu   sync.Mutex
-	dani map[int64]*zalihaDana // zapamćeno po danu za koji je traženo
+	mu       sync.Mutex
+	dani     map[int64]*zalihaDana // zapamćeno po danu za koji je traženo
+	postavke PostavkeSnijega       // postavke s kojima je zapamćeno računato
 }
 
 // zalihaDana je zapamćeno za jedan dan: dani sezone iz satnih nizova (nil dok
@@ -228,11 +219,12 @@ const pamtiDana = 10
 func (z *ZalihaSnijega) NaPocetku(tocka string, dan int64) (float64, error) {
 	z.mu.Lock()
 	defer z.mu.Unlock()
-	zd := z.zapamceno(dan)
+	p := PostavkeSnijegaURadu()
+	zd := z.zapamceno(dan, p)
 	if v, ima := zd.zalihe[tocka]; ima {
 		return v, nil
 	}
-	v, err := z.izracunaj(zd, tocka, dan)
+	v, err := z.izracunaj(zd, tocka, dan, p)
 	if err != nil {
 		return 0, err
 	}
@@ -240,10 +232,11 @@ func (z *ZalihaSnijega) NaPocetku(tocka string, dan int64) (float64, error) {
 	return v, nil
 }
 
-// zapamceno je ono što se pamti za dan; dani daleko od njega se zaborave.
-func (z *ZalihaSnijega) zapamceno(dan int64) *zalihaDana {
-	if z.dani == nil {
-		z.dani = map[int64]*zalihaDana{}
+// zapamceno je ono što se pamti za dan; dani daleko od njega se zaborave, a
+// s drugim postavkama sve.
+func (z *ZalihaSnijega) zapamceno(dan int64, p PostavkeSnijega) *zalihaDana {
+	if z.dani == nil || z.postavke != p {
+		z.dani, z.postavke = map[int64]*zalihaDana{}, p
 	}
 	zd := z.dani[dan]
 	if zd == nil {
@@ -260,12 +253,12 @@ func (z *ZalihaSnijega) zapamceno(dan int64) *zalihaDana {
 
 // izracunaj računa zalihu točke na početku dana od početka sezone; dani iz
 // baze oborina čitaju se jednom za dan.
-func (z *ZalihaSnijega) izracunaj(zd *zalihaDana, tocka string, dan int64) (float64, error) {
+func (z *ZalihaSnijega) izracunaj(zd *zalihaDana, tocka string, dan int64, p PostavkeSnijega) (float64, error) {
 	arhiva, satni, err := z.daniSezone(zd, tocka, dan)
 	if err != nil {
 		return 0, err
 	}
-	return zalihaIzDana(arhiva, satni, danUSezoni(dan), dan), nil
+	return zalihaIzDana(arhiva, satni, danUSezoni(dan), dan, p), nil
 }
 
 // daniSezone su dani točke od početka sezone do dana prije dan, iz arhive i
@@ -297,11 +290,11 @@ func danZalihe(arhiva, satni map[int64]DanOborine, d int64) (DanOborine, bool) {
 
 // zalihaIzDana vodi zalihu od nule kroz dane od–do (isključivo): dan iz
 // arhive, a kad ga ondje nema iz baze oborina; dan bez ijednog je rupa.
-func zalihaIzDana(arhiva, satni map[int64]DanOborine, od, do int64) float64 {
+func zalihaIzDana(arhiva, satni map[int64]DanOborine, od, do int64, p PostavkeSnijega) float64 {
 	zaliha := 0.0
 	for d := od; d < do; d++ {
 		if x, ima := danZalihe(arhiva, satni, d); ima {
-			zaliha, _, _ = KorakSnijega(zaliha, x)
+			zaliha, _, _ = p.Korak(zaliha, x)
 		}
 	}
 	return zaliha
@@ -346,7 +339,8 @@ func DaniIzSatnih(ob, sn, te map[int64]float64, od, do int64) map[int64]DanObori
 func (z *ZalihaSnijega) Sezona(tocka string, dan int64) (map[int64]float64, error) {
 	z.mu.Lock()
 	defer z.mu.Unlock()
-	arhiva, satni, err := z.daniSezone(z.zapamceno(dan), tocka, dan)
+	p := PostavkeSnijegaURadu()
+	arhiva, satni, err := z.daniSezone(z.zapamceno(dan, p), tocka, dan)
 	if err != nil {
 		return nil, err
 	}
@@ -354,7 +348,7 @@ func (z *ZalihaSnijega) Sezona(tocka string, dan int64) (map[int64]float64, erro
 	zaliha := 0.0
 	for d := danUSezoni(dan); d < dan; d++ {
 		if x, ima := danZalihe(arhiva, satni, d); ima {
-			zaliha, _, _ = KorakSnijega(zaliha, x)
+			zaliha, _, _ = p.Korak(zaliha, x)
 			out[d] = zaliha
 		}
 	}
@@ -363,9 +357,11 @@ func (z *ZalihaSnijega) Sezona(tocka string, dan int64) (map[int64]float64, erro
 
 // satneOkoSada čita satne nizove točaka za sate od–do; s izvorom snijega za
 // cijele dane UTC, jer zaliha snijega ide po danima, i pretvorene u ulaz
-// modela (satneSaSnijegom).
+// modela (satneSaSnijegom). Kad je model snijega isključen, oborina je kakva
+// je pala, kao i u učenju.
 func (iz *OborinskiIzvor) satneOkoSada(od, do int64) (map[string]map[int64]float64, error) {
-	if iz.Snijeg == nil {
+	p := PostavkeSnijegaURadu()
+	if iz.Snijeg == nil || !p.Ukljucen {
 		return iz.Satne(od, do)
 	}
 	od, do = od-od%24, do-do%24+23
@@ -375,7 +371,7 @@ func (iz *OborinskiIzvor) satneOkoSada(od, do int64) (map[string]map[int64]float
 	}
 	// bez snijega ili zalihe prognoza ipak dobiva oborinu kakva je pala,
 	// a ne ostaje bez kiše
-	sa, err := iz.satneSaSnijegom(satne, od, do)
+	sa, err := iz.satneSaSnijegom(satne, od, do, p)
 	if err != nil {
 		log.Printf("prognoza: snijeg se ne da pročitati, oborina ide bez modela snijega: %v", err)
 		return satne, nil
@@ -398,8 +394,9 @@ func (iz *OborinskiIzvor) BezSnijega() *OborinskiIzvor {
 // dan UTC u kojem su sati od–do zaliha snijega primi snijeg tog dana i pusti
 // otopljeno, a sat dobije kišu (oborina − snijeg, ne ispod nule) i
 // dvadesetčetvrtinu otopljenog. Dan bez punih satnih nizova ostaje kakav je
-// pao i zalihu ne mijenja. Zaliha na početku prvog dana je ZalihaSnijega.
-func (iz *OborinskiIzvor) satneSaSnijegom(satne map[string]map[int64]float64, od, do int64) (map[string]map[int64]float64, error) {
+// pao i zalihu ne mijenja. Zaliha na početku prvog dana je ZalihaSnijega, a
+// topi se po postavkama p.
+func (iz *OborinskiIzvor) satneSaSnijegom(satne map[string]map[int64]float64, od, do int64, p PostavkeSnijega) (map[string]map[int64]float64, error) {
 	prvi, zadnji := od/24, do/24
 	sn, te, err := iz.Snijeg(prvi*24, zadnji*24+23)
 	if err != nil {
@@ -413,14 +410,14 @@ func (iz *OborinskiIzvor) satneSaSnijegom(satne map[string]map[int64]float64, od
 				return nil, err
 			}
 		}
-		out[code] = satiSaSnijegom(n, sn[code], te[code], prvi, zadnji, zaliha)
+		out[code] = satiSaSnijegom(n, sn[code], te[code], prvi, zadnji, zaliha, p)
 	}
 	return out, nil
 }
 
 // satiSaSnijegom provede satne nizove jedne točke kroz zalihu snijega dan po
 // dan (vidi satneSaSnijegom) i vraća satni ulaz.
-func satiSaSnijegom(ob, sn, te map[int64]float64, prvi, zadnji int64, zaliha float64) map[int64]float64 {
+func satiSaSnijegom(ob, sn, te map[int64]float64, prvi, zadnji int64, zaliha float64, p PostavkeSnijega) map[int64]float64 {
 	out := make(map[int64]float64, len(ob))
 	for h, v := range ob {
 		out[h] = v
@@ -432,7 +429,7 @@ func satiSaSnijegom(ob, sn, te map[int64]float64, prvi, zadnji int64, zaliha flo
 			continue
 		}
 		var topi float64
-		zaliha, _, topi = KorakSnijega(zaliha, dan)
+		zaliha, _, topi = p.Korak(zaliha, dan)
 		for h := d * 24; h < d*24+24; h++ {
 			out[h] = math.Max(ob[h]-sn[h], 0) + topi/24
 		}

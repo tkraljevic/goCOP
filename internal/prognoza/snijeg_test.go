@@ -36,8 +36,7 @@ func TestKorakSnijega(t *testing.T) {
 		}
 	}
 
-	postavi(t, &TopljenjeSnijega, 5)
-	postavi(t, &PragTopljenja, 1)
+	postaviSnijeg(t, PostavkeSnijega{Ukljucen: true, Topljenje: 5, Prag: 1})
 	if nova, _, topi := KorakSnijega(20, DanOborine{Temperatura: 3, ImaSnijega: true}); nova != 10 || topi != 10 {
 		t.Errorf("faktor 5 iznad 1 °C: zaliha %v, topi %v; želim 10, 10", nova, topi)
 	}

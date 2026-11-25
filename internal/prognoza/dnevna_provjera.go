@@ -69,6 +69,12 @@ func (z zbrojDana) mjera(dan int) MjeraDana {
 // na danima od granice do kraja (dani od epohe). Nizovi su dnevni nizovi letvi
 // i oborina međuslivova cilja (DnevniNizoviCilja).
 func ProvjeriDnevni(nizovi map[string]DnevniNiz, c DnevniCilj, granica, kraj int64) (MjeraDnevnog, error) {
+	return provjeriDnevniDane(nizovi, c, granica, kraj, nil)
+}
+
+// provjeriDnevniDane je ProvjeriDnevni koji mjeri samo dane izdanja za koje
+// uzmi kaže da (nil uzima sve).
+func provjeriDnevniDane(nizovi map[string]DnevniNiz, c DnevniCilj, granica, kraj int64, uzmi func(dan int64) bool) (MjeraDnevnog, error) {
 	if granica >= kraj {
 		return MjeraDnevnog{}, errors.New("granica učenja mora biti prije kraja provjere")
 	}
@@ -76,7 +82,7 @@ func ProvjeriDnevni(nizovi map[string]DnevniNiz, c DnevniCilj, granica, kraj int
 	if err != nil {
 		return MjeraDnevnog{}, err
 	}
-	zbroj := izmjeriDnevni(m, nizovi, c, granica, kraj)
+	zbroj := izmjeriDnevni(m, nizovi, c, granica, kraj, uzmi)
 	out := MjeraDnevnog{DanaUcenja: m.Uzoraka()}
 	for k := 1; k <= DnevniDosezi; k++ {
 		out.Dani = append(out.Dani, zbroj[k].mjera(k))
@@ -91,11 +97,14 @@ func ProvjeriDnevni(nizovi map[string]DnevniNiz, c DnevniCilj, granica, kraj int
 }
 
 // izmjeriDnevni pušta naučeni model po danima od granice do kraja i zbraja
-// promašaje po danu unaprijed.
-func izmjeriDnevni(m *DnevniModel, nizovi map[string]DnevniNiz, c DnevniCilj, granica, kraj int64) [DnevniDosezi + 1]zbrojDana {
+// promašaje po danu unaprijed; uzmi (nil uzima sve) bira dane izdanja.
+func izmjeriDnevni(m *DnevniModel, nizovi map[string]DnevniNiz, c DnevniCilj, granica, kraj int64, uzmi func(int64) bool) [DnevniDosezi + 1]zbrojDana {
 	var zbroj [DnevniDosezi + 1]zbrojDana
 	cilj := nizovi[c.Letva]
 	for t := granica; t < kraj; t++ {
+		if uzmi != nil && !uzmi(t) {
+			continue
+		}
 		x, ok := DnevneZnacajke(c, nizovi, t)
 		if !ok {
 			continue
@@ -114,6 +123,11 @@ func izmjeriDnevni(m *DnevniModel, nizovi map[string]DnevniNiz, c DnevniCilj, gr
 // oborinu njegovih međuslivova, iz kišomjera registra (OborinskeTocke). Kiša
 // stvarnog kišomjera traži da je među točkama i on (KisomjeriKise).
 func DnevniNizoviCilja(arhiva *sql.DB, tocke []OborinskaTocka, c DnevniCilj) (map[string]DnevniNiz, error) {
+	return dnevniNizoviCiljaUz(arhiva, tocke, c, PostavkeSnijegaURadu())
+}
+
+// dnevniNizoviCiljaUz je DnevniNizoviCilja s postavkama snijega p.
+func dnevniNizoviCiljaUz(arhiva *sql.DB, tocke []OborinskaTocka, c DnevniCilj, p PostavkeSnijega) (map[string]DnevniNiz, error) {
 	nizovi := map[string]DnevniNiz{}
 	for _, l := range c.letve() {
 		n, err := DnevniIzArhive(arhiva, l)
@@ -126,7 +140,7 @@ func DnevniNizoviCilja(arhiva *sql.DB, tocke []OborinskaTocka, c DnevniCilj) (ma
 		return nizovi, nil
 	}
 	tocke = tockeCilja(tocke, c)
-	oborine, err := DnevneOborine(arhiva, tocke)
+	oborine, err := dnevneOborine(arhiva, tocke, p)
 	if err != nil {
 		return nil, err
 	}
