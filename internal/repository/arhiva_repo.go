@@ -4,8 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	gocopdb "gocop/internal/db"
@@ -24,6 +26,68 @@ type ArhivaRepository struct {
 	// imaCrtaj javlja zna li ova arhiva da se neka snimka profila ne crta.
 	// Starija izdanja to ne znaju i ondje se crtaju sve.
 	imaCrtaj bool
+
+	// put je datoteka arhive; prazno kad je čitač nastao bez nje (testovi),
+	// pa se ništa ne pamti.
+	put string
+	// zapamceno drži izračune iz arhive (sati satnog vodostaja po letvi)
+	// dok se datoteka arhive ne promijeni (otisakDatoteke). Arhiva se mijenja
+	// samo ugradnjom paketa ili alatom arhive, a stranica „Model prognoze”
+	// traži sate za svaku letvu; s otiskom se ne mogu razići s podacima.
+	zapamcenoMu     sync.Mutex
+	zapamceno       map[string]any
+	zapamcenoOtisak otisakDatoteke
+}
+
+// satniLetve je ishod SatniVodostaj.
+type satniLetve struct {
+	sati int
+	kraj time.Time
+}
+
+// zapamti vraća izračun iz arhive pod ključem: zapamćen dok se otisak
+// datoteke arhive ne promijeni, inače izračunat iznova. Ne pamti se greška ni
+// izračun prekinutog zahtjeva (mogao je ostati nepotpun). Vraćena vrijednost
+// je zajednička svim pozivateljima i ne smije se mijenjati.
+func zapamti[T any](ctx context.Context, r *ArhivaRepository, kljuc string, izracun func() (T, error)) (T, error) {
+	if r.put == "" {
+		return izracun()
+	}
+	otisak := r.otisakArhive()
+	r.zapamcenoMu.Lock()
+	if r.zapamceno == nil || r.zapamcenoOtisak != otisak {
+		r.zapamceno, r.zapamcenoOtisak = map[string]any{}, otisak
+	}
+	v, ima := r.zapamceno[kljuc]
+	r.zapamcenoMu.Unlock()
+	if ima {
+		return v.(T), nil
+	}
+	x, err := izracun()
+	if err != nil || ctx.Err() != nil {
+		return x, err
+	}
+	r.zapamcenoMu.Lock()
+	if r.zapamcenoOtisak == otisak {
+		r.zapamceno[kljuc] = x
+	}
+	r.zapamcenoMu.Unlock()
+	return x, nil
+}
+
+// otisakDatoteke su veličina i vrijeme izmjene arhive i njezina dnevnika
+// (-wal): svaki upis u arhivu mijenja barem jedno od toga.
+type otisakDatoteke [4]int64
+
+// otisakArhive je sadašnji otisak datoteke arhive.
+func (r *ArhivaRepository) otisakArhive() otisakDatoteke {
+	var o otisakDatoteke
+	for i, dodatak := range []string{"", "-wal"} {
+		if fi, err := os.Stat(r.put + dodatak); err == nil {
+			o[2*i], o[2*i+1] = fi.Size(), fi.ModTime().UnixNano()
+		}
+	}
+	return o
 }
 
 // OpenArhiva otvara arhivu za čitanje. Vraća nil bez greške kad datoteke nema.
@@ -44,7 +108,7 @@ func OpenArhiva(path string) (*ArhivaRepository, error) {
 	// Arhiva se otvara samo za čitanje, pa se ovdje ne može dopuniti. Starije
 	// arhive nemaju napomenu uz niz; čitanje mora raditi i s njima, jer čvor
 	// koji je preuzeo staro izdanje ne smije ostati bez povijesti.
-	r := &ArhivaRepository{db: db}
+	r := &ArhivaRepository{db: db, put: path}
 	var ima int
 	if err := db.QueryRow(
 		`SELECT count(*) FROM pragma_table_info('nizovi') WHERE name = 'napomena'`).Scan(&ima); err == nil {
@@ -979,18 +1043,45 @@ func (r *ArhivaRepository) SpojOtisak(ctx context.Context, letva, velicina strin
 
 // SatniVodostaj vraća koliko sati ima spojeni satni vodostaj letve i kad je
 // zadnji. Iz njega model prognoze uči, pa stranica „Model prognoze” po tome
-// kaže što letvi fali. Sat s više očitanja broji se jednom.
+// kaže što letvi fali. Sat s više očitanja broji se jednom. Ishod se pamti
+// dok se datoteka arhive ne promijeni.
 func (r *ArhivaRepository) SatniVodostaj(ctx context.Context, letva string) (int, time.Time) {
 	if r == nil {
 		return 0, time.Time{}
 	}
-	var n int
-	var zadnje sql.NullInt64
-	if err := r.db.QueryRowContext(ctx, `SELECT COUNT(DISTINCT vrijeme / 3600), MAX(vrijeme) FROM spoj
-		WHERE letva = ? AND velicina = 'vodostaj' AND korak = 'satni'`, letva).Scan(&n, &zadnje); err != nil || !zadnje.Valid {
-		return 0, time.Time{}
+	s, err := zapamti(ctx, r, "satni|"+letva, func() (satniLetve, error) { return r.izbrojiSatni(ctx, letva) })
+	if err != nil {
+		return 0, time.Time{} // greška (prekinut zahtjev) se ne pamti
 	}
-	return n, time.Unix(zadnje.Int64, 0).UTC()
+	return s.sati, s.kraj
+}
+
+// izbrojiSatni broji sate satnog vodostaja letve. COUNT(DISTINCT vrijeme /
+// 3600) slaže privremeno stablo od svih zapisa (stotine tisuća po letvi), pa
+// se broji drukčije, istim ishodom: svaki zapis na puni sat je svoj sat (u
+// satu je jedini takav), a od ostalih se broje samo sati u kojima zapisa na
+// puni sat nema. Takvih je zapisa malo, pa ih je jeftino složiti.
+func (r *ArhivaRepository) izbrojiSatni(ctx context.Context, letva string) (satniLetve, error) {
+	var s satniLetve
+	var zadnje sql.NullInt64
+	err := r.db.QueryRowContext(ctx, `SELECT
+		(SELECT count(*) FROM spoj WHERE letva = ?1 AND velicina = 'vodostaj' AND korak = 'satni' AND vrijeme % 3600 = 0)
+		+ (SELECT count(DISTINCT vrijeme / 3600) FROM spoj s
+			WHERE s.letva = ?1 AND s.velicina = 'vodostaj' AND s.korak = 'satni' AND s.vrijeme % 3600 <> 0
+			AND NOT EXISTS (SELECT 1 FROM spoj p WHERE p.letva = ?1 AND p.velicina = 'vodostaj' AND p.korak = 'satni'
+				AND p.vrijeme = s.vrijeme / 3600 * 3600)),
+		(SELECT max(vrijeme) FROM spoj WHERE letva = ?1 AND velicina = 'vodostaj' AND korak = 'satni')`, letva).Scan(&s.sati, &zadnje)
+	if err != nil {
+		if ctx.Err() != nil {
+			return satniLetve{}, err
+		}
+		return satniLetve{}, nil // arhiva bez spoja: nema sati
+	}
+	if !zadnje.Valid {
+		return satniLetve{}, nil
+	}
+	s.kraj = time.Unix(zadnje.Int64, 0).UTC()
+	return s, nil
 }
 
 // StanjeLetve je kratak opis onoga što arhiva o letvi već drži — koliko

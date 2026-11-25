@@ -1087,9 +1087,17 @@ func ZadnjeIzdanje(db *sql.DB) (int64, bool, error) {
 
 // Izdanje čita sve prognoze jednog izdanja, složene po letvi i poredane po
 // ciljnom satu.
+//
+// Ključ tablice izdane je (letva, velicina, izdano, ciljni), pa upit samo po
+// satu izdanja prolazi cijelu tablicu (milijuni redaka, pola sekunde na
+// svakoj stranici s prognozom). Zato se letve i veličine preskaču kroz ključ
+// (letveIVelicine), a izdanje svakog para čita se izravno po ključu.
 func Izdanje(db *sql.DB, izdano int64) (map[string][]Izdana, error) {
-	r, err := db.Query(`SELECT letva, velicina, izdano, ciljni, vrijednost, dolje, gore,
-		racunata, izvan, model FROM izdane WHERE izdano = ? ORDER BY letva, velicina, ciljni`, izdano)
+	r, err := db.Query(letveIVelicine+`
+		SELECT i.letva, i.velicina, i.izdano, i.ciljni, i.vrijednost, i.dolje, i.gore, i.racunata, i.izvan, i.model
+		FROM velicine v JOIN izdane i ON i.letva = v.letva AND i.velicina = v.velicina AND i.izdano = ?
+		WHERE v.velicina IS NOT NULL
+		ORDER BY i.letva, i.velicina, i.ciljni`, izdano)
 	if err != nil {
 		return nil, err
 	}
@@ -1257,3 +1265,17 @@ func ZaVrijednost(pojasi []Pojas, vrijednost float64) (Pojas, bool) {
 	}
 	return pojasi[len(pojasi)-1], true
 }
+
+// letveIVelicine je početak upita koji preskače kroz ključ tablice izdane:
+// tablica velicine ima svaki par (letva, velicina) jednom, a nađe ga skokom
+// po ključu (rekurzivni min(x) > prethodni), bez prolaska kroz retke.
+const letveIVelicine = `WITH RECURSIVE
+	letve(letva) AS (
+		SELECT min(letva) FROM izdane
+		UNION ALL
+		SELECT (SELECT min(letva) FROM izdane WHERE letva > letve.letva) FROM letve WHERE letve.letva IS NOT NULL),
+	velicine(letva, velicina) AS (
+		SELECT letva, (SELECT min(velicina) FROM izdane WHERE letva = letve.letva) FROM letve WHERE letva IS NOT NULL
+		UNION ALL
+		SELECT letva, (SELECT min(velicina) FROM izdane WHERE letva = velicine.letva AND velicina > velicine.velicina)
+			FROM velicine WHERE velicina IS NOT NULL)`
