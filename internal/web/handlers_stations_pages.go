@@ -443,8 +443,9 @@ func (h *StationsHandler) podaciLetve(w http.ResponseWriter, r *http.Request) (S
 	}
 	data.Episodes = h.obraneLetve(ctx, *st)
 	// Hidrološka arhiva: nizovi, karakteristične vrijednosti, korito i krivulje.
-	// Sve se računa pri čitanju, ništa se ne pamti — brojevi se tako ne mogu
-	// razići s podacima iz kojih su nastali.
+	// Sve se računa iz arhive; skupi izračuni pamte se samo dok se datoteka
+	// arhive ne promijeni, pa se brojevi ne mogu razići s podacima iz kojih
+	// su nastali.
 	if a := h.arh(); a != nil && st.Code != "" {
 		data.Nizovi, _ = a.Nizovi(ctx, st.Code)
 		data.Profili, _ = a.Profili(ctx, st.Code)
@@ -457,15 +458,15 @@ func (h *StationsHandler) podaciLetve(w http.ResponseWriter, r *http.Request) (S
 			spoj := models.SpojiProfile(data.Profili)
 			data.Profil = &spoj
 		}
-		data.Sazetak, _ = a.Sazetak(ctx, st.Code)
-		data.Spojevi, _ = a.SpojDosezi(ctx, st.Code)
+		data.Sazetak, _ = a.SazetakZapamcen(ctx, st.Code) // bez arhive taj dio stranice ostaje prazan
+		data.Spojevi, _ = a.SpojDoseziZapamceni(ctx, st.Code) // bez arhive taj dio stranice ostaje prazan
 		data.Sada, _ = a.SpojZadnje(ctx, st.Code, "vodostaj", "satni")
 		if data.Sada == nil {
 			data.Sada, _ = a.SpojZadnje(ctx, st.Code, "vodostaj", "dnevni")
 		}
 		data.NizID = odabraniNiz(r, data.Nizovi)
 		if data.NizID > 0 {
-			data.Pregled, _ = a.Pregled(ctx, data.NizID)
+			data.Pregled, _ = a.PregledZapamcen(ctx, data.NizID) // bez arhive taj dio stranice ostaje prazan
 		}
 		if data.Sada != nil {
 			data.Zadnji = &models.HidroTocka{Kad: data.Sada.Kad, Vrijednost: data.Sada.Vrijednost}
@@ -588,7 +589,7 @@ func (h *StationsHandler) ShowStationForm(w http.ResponseWriter, r *http.Request
 	if data.IsEdit {
 		var sazetak []models.SazetakVelicine
 		if a := h.arh(); a != nil && data.Station.Code != "" {
-			sazetak, _ = a.Sazetak(r.Context(), data.Station.Code)
+			sazetak, _ = a.SazetakZapamcen(r.Context(), data.Station.Code) // bez arhive taj dio stranice ostaje prazan
 		}
 		data.KrajnostiIzNiza = h.krajnostiLetve(r.Context(), data.Station, sazetak)
 	}
