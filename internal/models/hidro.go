@@ -124,6 +124,15 @@ var naziviIzvora = map[string]string{
 	"hibrid-era5":        "ERA5 i prognoza (Open-Meteo), procjena",
 	"openmeteo":          "Open-Meteo, procjena modela",
 	"snowgrid":           "SNOWGRID (GeoSphere Austria), procjena",
+	"geolux-uzivo":       "hdv.voda.hr (HydroView), uživo",
+	"hv-uzivo":           "vodostaji.voda.hr, uživo",
+	"mletva-uzivo":       "mletva.voda.hr, uživo",
+	"rhmz-uzivo":         "hidmet.gov.rs, uživo",
+	"arso-uzivo":         "arso.gov.si, uživo",
+	"ehyd-uzivo":         "ehyd.gv.at, uživo",
+	"gkd-uzivo":          "gkd.bayern.de, uživo",
+	"shmu-uzivo":         "shmu.sk, uživo",
+	"noel-uzivo":         "noel.gv.at, uživo",
 }
 
 // NazivIzvora objašnjava odakle niz dolazi i koliko mu se vjeruje.

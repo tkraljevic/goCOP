@@ -11362,6 +11362,11 @@ td .odr-sitno { margin-top: 2px; }
 
 /* Izvori arhive: čipovi filtra s brojem (Odluke (18. 11. 2026.)) */
 .izv-filtar { margin-bottom: 12px; }
+/* Svježa arhiva (crtež svjeza_arhiva): dva retka podataka, oznaka lijevo */
+.izv-svjeza .izv-svjeza-redci { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 48px; margin: 8px 0 0; font-size: 0.875rem; }
+.izv-svjeza .izv-svjeza-redci dt { font-size: 0.8125rem; color: var(--md-sys-color-on-surface-variant); }
+.izv-svjeza .izv-svjeza-redci dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .izv-svjeza .izv-svjeza-redci { grid-template-columns: minmax(0, 1fr); gap: 2px; } .izv-svjeza .izv-svjeza-redci dd { margin-bottom: 6px; } }
 .izv-filtar b { font-weight: 600; font-variant-numeric: tabular-nums; }
 .izvori-mreza > .izvor-kartica[hidden] { display: none; }
 

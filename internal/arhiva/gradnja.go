@@ -1776,6 +1776,24 @@ var zadaniIzvori = []Izvor{
 	// elektrana dala: vrijednost nije očitana na letvi nego na elektrani, a
 	// to se iz same brojke više ne vidi.
 	{"hep-he-dubrava", 5, 20, true, "", "istjecanje HE Dubrave, kako ga HEP objavljuje; mjereno na elektrani, ne na letvi — preljev se vodi zasebno, točnost proglašena, ne izmjerena"},
+	// Svježa arhiva: računalo koje preuzima izvore svaki dan uloži završene
+	// dane. Živi izvor čiji niz arhiva već drži pod svojim imenom (vizugy.hu
+	// → vituki, DanubeHIS, PEGELONLINE) ide u taj niz; ostali imaju svoj
+	// izvor iza svih operativnih, pa ulaze samo ondje gdje nitko drugi nije
+	// javio. Ovjereni niz kad stigne uvijek ima prednost.
+	{"geolux-uzivo", 5, 25, true, "", "hdv.voda.hr (Geolux HydroView), srednji vodostaj preuzet uživo; iza uvezenih nizova zapisivača"},
+	{"hv-uzivo", 5, 25, true, "", "vodostaji.voda.hr, javna stranica Hrvatskih voda, preuzeto uživo i uloženo nakon ponoći; točnost proglašena, ne izmjerena"},
+	{"mletva-uzivo", 5, 25, true, "", "mletva.voda.hr, zatvorena stranica Hrvatskih voda (i istjecanje elektrana), preuzeto uživo; točnost proglašena, ne izmjerena"},
+	{"rhmz-uzivo", 5, 25, true, "", "hidmet.gov.rs, RHMZ Srbije, preuzeto uživo; točnost proglašena, ne izmjerena"},
+	{"arso-uzivo", 5, 25, true, "", "arso.gov.si, ARSO, preuzeto uživo (nije ovjereni dnevni niz); točnost proglašena, ne izmjerena"},
+	{"ehyd-uzivo", 5, 25, true, "", "ehyd.gv.at, austrijska služba, preuzeto uživo (nisu ovjereni srednjaci); točnost proglašena, ne izmjerena"},
+	{"gkd-uzivo", 5, 25, true, "", "gkd.bayern.de, bavarska služba, preuzeto uživo (nisu provjereni protoci); točnost proglašena, ne izmjerena"},
+	{"shmu-uzivo", 5, 25, true, "", "shmu.sk, slovačka služba, preuzeto uživo; točnost proglašena, ne izmjerena"},
+	{"noel-uzivo", 5, 25, true, "", "noel.gv.at, Donja Austrija, preuzeto uživo; točnost proglašena, ne izmjerena"},
+	// Open-Meteo za oborinske točke: ista analiza koju prognoza preuzima
+	// svaki sat, uložena nakon ponoći. Stoji iza ERA5 i ERA5-Landa, pa ih
+	// reanaliza zamijeni čim stigne (kasni oko pet dana).
+	{"openmeteo", 5, 25, true, "", "Open-Meteo, analiza modela za prošle sate, uložena nakon ponoći; ustupa mjesto ERA5 kad stigne"},
 }
 
 // zadanaTocnost vrijedi za izvor kojeg u tablici nema. Preračun se prepoznaje

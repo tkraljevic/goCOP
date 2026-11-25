@@ -44,6 +44,22 @@
     </p>
 </details>
 
+{{with .Svjeza}}
+{{/* Svježa arhiva po crtežu (svjeza_arhiva_racunalo, svjeza_arhiva_ne_preuzima) */}}
+<section class="adm-kartica izv-svjeza" aria-labelledby="izv-svjeza">
+  <h2 id="izv-svjeza">Svježa arhiva</h2>
+  <p class="form-help">Svaki dan nakon ponoći završeni dani ulaze u arhivu: vodostaji i protoci letvi iz živih izvora, kiša i snijeg oborinskih točaka (Open-Meteo).</p>
+  <dl class="izv-svjeza-redci">
+    {{if .Ulaze}}
+    <dt>Zadnje ulaganje</dt><dd>{{.ZadnjeUlaganje}}</dd>
+    <dt>Paketi ostalima</dt><dd>{{.PaketiOstalima}}</dd>
+    {{else}}
+    <dt>Zadnji paket</dt><dd>{{.ZadnjiPaket}}</dd>
+    {{end}}
+  </dl>
+  {{if not .Ulaze}}<p class="form-help">Ovo računalo ne preuzima izvore; svježa arhiva stiže paketima.</p>{{end}}
+</section>
+{{end}}
 
 {{if .Zanemareno}}
 <div class="dash-traka">{{icon "triangle-alert"}}<span>
