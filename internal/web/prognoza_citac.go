@@ -345,9 +345,36 @@ func (c *CitacPrognoza) Brojke() (vrijednosti int64, izdanja int) {
 			vrijednosti += n
 		}
 	}
-	_ = c.db.QueryRow(`SELECT count(DISTINCT izdano) FROM izdane`).Scan(&izdanja)
+	if c.db.QueryRow(brojIzdanjaSQL).Scan(&izdanja) != nil {
+		// baza bez ključa po letvi i veličini: izbroji izravno
+		_ = c.db.QueryRow(`SELECT count(DISTINCT izdano) FROM izdane`).Scan(&izdanja)
+	}
 	return vrijednosti, izdanja
 }
+
+// brojIzdanjaSQL broji različite sate izdanja u tablici izdane. Ključ tablice
+// je (letva, velicina, izdano, ciljni), pa count(DISTINCT izdano) prolazi sve
+// vrijednosti (milijuni redaka, sekunda i pol). Umjesto toga letve, veličine
+// i sati izdanja preskaču se kroz ključ (rekurzivni min(x) > prethodni): po
+// jedan skok za svaki sat izdanja svake letve, desetak puta brže.
+const brojIzdanjaSQL = `WITH RECURSIVE
+	letve(letva) AS (
+		SELECT min(letva) FROM izdane
+		UNION ALL
+		SELECT (SELECT min(letva) FROM izdane WHERE letva > letve.letva) FROM letve WHERE letve.letva IS NOT NULL),
+	velicine(letva, velicina) AS (
+		SELECT letva, (SELECT min(velicina) FROM izdane WHERE letva = letve.letva) FROM letve WHERE letva IS NOT NULL
+		UNION ALL
+		SELECT letva, (SELECT min(velicina) FROM izdane WHERE letva = velicine.letva AND velicina > velicine.velicina)
+			FROM velicine WHERE velicina IS NOT NULL),
+	sati(letva, velicina, izdano) AS (
+		SELECT letva, velicina, (SELECT min(izdano) FROM izdane WHERE letva = velicine.letva AND velicina = velicine.velicina)
+			FROM velicine WHERE velicina IS NOT NULL
+		UNION ALL
+		SELECT letva, velicina, (SELECT min(izdano) FROM izdane
+			WHERE letva = sati.letva AND velicina = sati.velicina AND izdano > sati.izdano)
+			FROM sati WHERE izdano IS NOT NULL)
+	SELECT count(DISTINCT izdano) FROM sati`
 
 // Izdavac vraća čvor koji je izdao zadnje (ili prikovano) izdanje, samo kad
 // je ono stiglo razmjenom; izdanje ovog čvora ne treba oznaku.
