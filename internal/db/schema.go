@@ -2064,6 +2064,10 @@ func migrateSchema(database *sql.DB) error {
 	// bazama nastalim prije njih
 	for _, stmt := range []string{
 		`CREATE INDEX IF NOT EXISTS idx_versions_channel ON record_versions(node_id, channel, version_id)`,
+		// kanal bez autora: pregled i brisanje kanala na stranici Pretplate
+		// (channel = ? AND node_id <> ?) inače prolaze cijelu knjigu, za
+		// svaki kanal koji se ne prati
+		`CREATE INDEX IF NOT EXISTS idx_versions_po_kanalu ON record_versions(channel, node_id, version_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_readings_channel ON readings(channel)`,
 		// roba na putu: slanja koja čekaju zaprimanje (Odluke 16. 11. 2026., Na putu)
 		`CREATE INDEX IF NOT EXISTS idx_mts_promet_prema ON mts_promet(prema_skladiste_id, prema_area_id) WHERE kolicina < 0`,
