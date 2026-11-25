@@ -4,6 +4,33 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.69-alfa — 26. 11. 2026.
+
+Arhiva se sama puni svježim podacima, a model prognoze sam se priprema
+jednom tjedno. Glavna baza dobiva jedan indeks i dvije male tablice, a
+baza prognoza dvije; program ih doda sam pri pokretanju. Razmjena se ne mijenja: svježa arhiva putuje postojećim
+.cop paketima.
+
+- **Svježa arhiva.** Računalo koje preuzima izvore svaki dan poslije ponoći
+  uloži završene dane u arhivu: vodostaje, protoke i temperaturu vode s
+  letava (nakon umjerenja uređaja, prije ispravka po ručnom očitanju) te
+  kišu, snijeg i temperaturu oborinskih točaka (Open-Meteo). Letve gradi
+  svaki dan, pa dnevni model uči i na zadnjim danima. Ostalima paketi idu
+  najviše jednom tjedno, a odmah kod velike promjene. Provjereni izvori i
+  ERA5 i dalje imaju prednost. Stanje je na kartici „Svježa arhiva” u
+  Izvorima arhive.
+- **Tjedna priprema modela.** Svake subote u 2:00 računalo koje izdaje
+  prognozu samo pripremi satni lanac, isproba ga na zadnjih 12 tjedana i
+  primijeni samo ako nije lošiji; dok traje obrana od poplava, preskače.
+  Kad 3 puta zaredom ne prođe ili prognoza postane primjetno lošija nego
+  kad je lanac primijenjen, upozorenje stoji na Postavkama prognoze i u Za
+  riješiti globalnog administratora. Ručni „Pripremi model” ostaje.
+- **Brže stranice.** Naslovna i Događanja oko 2 s → 0,06 s; brisanje i
+  čitanje izdanja prognoze (pri svakom primljenom izdanju) 13 s → ispod
+  0,3 s; Pretplate 1,1 → 0,7 s.
+- **Uvoz očitanja.** Skupni unos prima i CSV iz hrvatskog Excela i Excel s
+  dva stupca (vrijeme i vodostaj) ili s pravim Excelovim datumom.
+
 ## 0.0.68-alfa — 25. 11. 2026.
 
 Snijeg sad ide kao vodostaji, a najsporije stranice otvaraju se odmah.
