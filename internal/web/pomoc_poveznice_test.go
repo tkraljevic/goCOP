@@ -51,9 +51,12 @@ func TestPomocNudiPoveznicuSamoUDioKojiImate(t *testing.T) {
 	if !strings.Contains(vodocuvar, otvoriOcitanja) || !strings.Contains(vodocuvar, "Otvori Očitanja") {
 		t.Error("s Očitanjima Pomoć ne nudi gumb Otvori Očitanja")
 	}
+	if !strings.Contains(vodocuvar, `href="/readings?moje=1">`) {
+		t.Error("s Očitanjima Pomoć u Obilasku ne nudi gumb Otvori Moje letve")
+	}
 
 	admin := stranica(models.Visibility{models.ModuleAdmin: true, models.ModuleJournals: true})
-	if strings.Contains(admin, "Otvori Očitanja") {
+	if strings.Contains(admin, "Otvori Očitanja") || strings.Contains(admin, "Otvori Moje letve") {
 		t.Error("bez Očitanja Pomoć ipak nudi gumb Otvori Očitanja")
 	}
 	for _, p := range poveznice {

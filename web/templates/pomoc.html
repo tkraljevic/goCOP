@@ -457,18 +457,38 @@
   <h2>{{icon "ruler"}} Obilazak letava</h2>
   <div class="reg-card pomoc-tekst">
     <p>Na vrhu stranice Očitanja su <strong>Moje letve</strong>: letve i objekti koje ste
-      u zadnjih 90 dana sami očitali, poredani po vremenu kad ih obično obilazite. Skupni unos
-      ispisa se ne broji, jer letvu nije obišao onaj tko je ispis zalijepio. Traka pokazuje
-      koliko ih je danas očitano, a gumb <em>Nastavi obilazak</em> vodi na prvu koja još nije.
-      <em>Upiši</em> uz letvu otvara upis, a nakon spremanja program se vraća na isti popis.
-      Svako ručno očitanje vrijedi, i kad letva ima mjerni uređaj: vidi
-      <a href="#ocitanja-vaznost">Zašto je ručno očitanje važno</a>.</p>
+      u zadnjih 90 dana sami očitali, poredani po vremenu kad ih obično obilazite. Traka i broj
+      gore desno, npr. <em>1 od 2 danas</em>, pokazuju koliko ih je danas očitano.</p>
     {{template "pomocSlika" (list "ocitanja-moje-letve" "Moje letve na mobitelu: jedna od dvije letve danas je očitana, gumb Nastavi obilazak vodi na Aljmaš, a uz njega je Upiši." "359")}}
-    <p>Letva je danas očitana kad je netko na nju ručno upisao očitanje; uz vrijeme piše i tko.
-      Satno očitanje uređaja i skupni unos se ne broje. Ostale letve su ispod, po vodama; čipom
-      <em>Područje</em> popis se suzi na jedno branjeno područje.</p>
-    <p>Vodočuvar dnevni list, zadatke rukovoditelja i novu prijavu s terena ima na Naslovnoj.
-      Nekadašnja stranica Teren vodi na Očitanja.</p>
+    <p>Obilazak ide ovim redom:</p>
+    <ol>
+      <li>Otvorite Očitanja. Na mobitelu su u donjem izborniku.</li>
+      <li>Pritisnite <em>Nastavi obilazak</em>. Otvara se upis za prvu letvu koja danas još nije
+        očitana.</li>
+      <li>Upišite vodostaj i spremite. Program se vraća na Moje letve, a gumb sad vodi na
+        sljedeću letvu.</li>
+    </ol>
+    <p>Kad su sve očitane, umjesto gumba piše <em>Sve moje letve su danas očitane.</em> Letvu
+      možete upisati i izvan reda, gumbom <em>Upiši</em> uz nju.</p>
+    {{template "pomocSlika" (list "obilazak-gotovo" "Moje letve na mobitelu nakon obilaska: 2 od 2 danas, traka puna, piše Sve moje letve su danas očitane, a uz Donji Miholjac i Aljmaš su kvačica, vrijeme, tko je očitao i vodostaj." "359")}}
+    <p>Uz letvu koja danas još nije očitana piše kad je obično očitavate, npr. <em>obično oko
+      18:00</em>. Uz očitanu piše vrijeme, tko je očitao i vodostaj.</p>
+    <p><strong>Kako letva postane moja.</strong> Letve se ne biraju. Letva je u Mojim letvama kad
+      ste je u zadnjih 90 dana sami ručno očitali. Novu letvu prvi put upišite s popisa ispod ili
+      preko povećala; od tada je u obilasku. Letva koju 90 dana ne očitate ispada iz popisa.
+      Dok niste sami očitali nijednu, čip <em>Moje letve</em> to i kaže.</p>
+    {{template "pomocSlika" (list "obilazak-prazno" "Očitanja na računalu s odabranim čipom Moje letve: piše Još nemate svojih letava. Letve koje sami očitate pojavit će se ovdje, redom kojim ih obično obilazite." "736")}}
+    <p><strong>Što se broji kao danas očitano.</strong> Ručno očitanje koje je bilo tko upisao od
+      ponoći; uz vrijeme piše i tko. Satno očitanje mjernog uređaja i skupni unos ispisa se ne
+      broje, jer letvu nitko nije obišao. Svako ručno očitanje vrijedi, i kad letva ima mjerni
+      uređaj: vidi <a href="#ocitanja-vaznost">Zašto je ručno očitanje važno</a>.</p>
+    <p>Čip <em>Moje letve</em> ostavlja samo obilazak. Bez njega su ostale letve ispod, po
+      vodama. Čipovi <em>Sektor</em> i <em>Područje</em> suze i obilazak. <em>Upiši</em> i
+      <em>Nastavi obilazak</em> vode samo na letve na koje smijete upisivati.</p>
+    {{if .VidiOcitanja}}<p><a class="btn btn-secondary btn-sm" href="/readings?moje=1">{{icon "ruler"}} Otvori Moje letve</a></p>{{end}}
+    <p>Dnevni list i zadatke rukovoditelja vodočuvar ima na Naslovnoj (vidi
+      <a href="#vodocuvar">Vodočuvarski dnevnik</a>), a ondje je i nova prijava s terena (vidi
+      <a href="#prijave">Prijave i obavijesti s terena</a>). Nekadašnja stranica Teren vodi na Očitanja.</p>
   </div>
   {{template "pomocPoglavljeNav" (list "Naslovna" "#dashboard" "Karta" "#karta")}}
 </section>

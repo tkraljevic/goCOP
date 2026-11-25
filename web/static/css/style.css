@@ -2437,7 +2437,7 @@ textarea {
 .pomoc-tekst h3 {
   margin: 1.25rem 0 0.4rem; font-size: 0.95rem; color: var(--text-strong);
 }
-.pomoc-tekst ul { margin: 0 0 0.75rem; padding-left: 1.2rem; }
+.pomoc-tekst ul, .pomoc-tekst ol { margin: 0 0 0.75rem; padding-left: 1.2rem; }
 .pomoc-tekst li { margin-bottom: 0.4rem; }
 .pomoc-pojmovi dt { font-weight: 700; color: var(--text-strong); margin-top: 0.6rem; }
 .pomoc-pojmovi dd { margin: 0.1rem 0 0; color: var(--text-secondary); }
