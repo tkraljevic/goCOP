@@ -79,6 +79,8 @@ type PrognozeHandler struct {
 	pripremaRadi func() bool
 	poslovi      *poslovi.Registar
 	tmplPosao    *template.Template
+	// tjedna je stanje tjedne pripreme lanca; nil dok ga program ne postavi
+	tjedna func() *StanjeTjedne
 }
 
 // SetUsers daje izvozu sektore i osobe za zaglavlje i potpise.
@@ -412,6 +414,9 @@ type PrognozePageData struct {
 	Generira        bool   // krug upravo traje
 	ZadnjiKrug      string // kad je zadnji krug prošao i što je donio
 	Napredak        javnivodostaji.Napredak
+
+	// Tjedna je blok „Tjedna priprema” uz pripremu modela; nil bez njega
+	Tjedna *TjednaPripremaPrikaz
 }
 
 // TablicaPrognoza je jedna voda na pregledu, letve od uzvodne prema nizvodnoj.
@@ -443,6 +448,7 @@ func (h *PrognozeHandler) ShowPostavke(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data.Izdano, _ = h.zadnjeIzdanje()
+	data.Tjedna = tjedniPrikaz(data.MozePripremiti, h.tjedna)
 	data.Opcije = h.nacini(r.Context())
 	data.SmijeMijenjati = h.izmijeniOpcije != nil && data.Permissions != nil && data.Permissions.IsGlobalAdmin
 	data.Snijeg = h.karticaSnijega(r)

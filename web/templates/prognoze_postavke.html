@@ -205,6 +205,22 @@
   <p>Nakon promjene u arhivi ili lancu: iz cijele arhive iznova namjesti veze letvi i modele
     ispuštanja elektrana, provjerom unatrag zapiše promašaje iz kojih prognoza uzima ispravak i raspon, nauči
     dnevni model iznova, pa odmah izda prognozu novim modelom. Traje desetak minuta i vrti se na poslužitelju.</p>
+  {{with .Tjedna}}
+  {{/* Tjedna priprema po crtežima tjedna_* (Odluke (25. 11. 2026.)) */}}
+  <div class="prog-tjedna">
+    <h3>Tjedna priprema{{if .Oznaka}} <span class="rac-cip{{if .OznakaPozor}} pozor{{end}}">{{.Oznaka}}</span>{{end}}</h3>
+    <p class="prog-tjedna-opis">Svake subote u 2:00, na računalu koje izdaje prognozu; ne radi dok traje obrana od poplava.</p>
+    {{if .Izdaje}}
+    {{if .Upozorenje}}<div class="dash-traka">{{icon "triangle-alert"}}<span>{{.Upozorenje}}</span></div>{{end}}
+    <p class="prog-tjedna-redak">{{.Zadnja}}</p>
+    {{if .Promasaj}}<p class="prog-tjedna-sporedno">{{.Promasaj}}{{if .Bolje}} <span class="rac-cip dobro">bolje</span>{{end}}</p>{{end}}
+    {{if .Losije}}<p class="prog-tjedna-sporedno">{{.Losije}}</p>{{end}}
+    <p class="prog-tjedna-redak">{{.Sljedeca}}</p>
+    {{else}}
+    <p class="prog-tjedna-sporedno">Ovo računalo ne izdaje prognozu, pa tjednu pripremu radi računalo koje izdaje.</p>
+    {{end}}
+  </div>
+  {{end}}
   <form method="POST" action="/prognoze/pripremi-model" class="prog-postavke-gumbi"
         onsubmit="return confirm('Pripremiti model iznova? Mijenja brojke svih prognoza.');">
     <button type="submit" class="btn prog-obrub prog-obrub-opasno">Pripremi model</button>

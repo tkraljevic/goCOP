@@ -34,6 +34,8 @@ type IzvoriNaslovne struct {
 	Prije      func(context.Context, models.GaugeSummary) *int // vodostaj 24 h prije zadnjeg očitanja
 	Prava      func(context.Context) (ceka int, nacin string, err error)
 	Djelatnici func() ([]models.User, error)
+	// Tjedna je stanje tjedne pripreme lanca prognoze; nil bez nje
+	Tjedna func() *StanjeTjedne
 	// SaZaduzenjem su računi koji imaju ili su imali zaduženje: račun bez
 	// uloge koji je među njima nije nov, nego je ostao bez zaduženja
 	SaZaduzenjem func() (map[uuid.UUID]bool, error)
@@ -494,6 +496,9 @@ type stavkeZaRijesiti struct {
 	Prijave []models.PrijavaSTerena
 	Sektor  string
 	NaPutu  []RedakKartice // COP: pošiljke dugo na putu
+	// Model je upozorenje tjedne pripreme lanca prognoze (globalni
+	// administrator); prazno bez njega
+	Model string
 }
 
 // zaRijesiti spaja posao svih uloga osobe koje imaju tu karticu
@@ -582,6 +587,7 @@ func (h *DashboardHandler) zaRijesitiUprave(r *http.Request, perms *models.UserP
 		s.PravaCeka, s.PravaNacin, _ = h.izvori.Prava(ctx) // bez knjige prava redak izostaje
 	}
 	s.BezUloge, s.BezZaduzenja = h.racuniBezUloge()
+	s.Model = upozorenjeModela(h.izvori.Tjedna)
 	return karticaZaRijesiti(s, sad)
 }
 
@@ -629,6 +635,7 @@ func razdvojiBezUloge(bez []models.User, imali map[uuid.UUID]bool) (novi, bivsi 
 // prava i djelatnici; broj uz naslov je broj stavki
 func karticaZaRijesiti(s stavkeZaRijesiti, sad time.Time) KarticaNaslovne {
 	k := glavaKartice(kZaRijesiti)
+	k.Redovi = append(k.Redovi, redakModela(s.Model)...)
 	for _, a := range s.Akti {
 		k.Redovi = append(k.Redovi, redakAkta(a))
 	}

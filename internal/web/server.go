@@ -134,6 +134,7 @@ type Server struct {
 	kisMjerenja        *kisomjeri.Spremiste     // mjerenja stvarnih kišomjera i oborine s Open-Meteo; nil dok se ne postavi
 	kisaSlivova        KisaSlivovaFunc          // kiša po slivovima za naslovnu; nil dok se ne postavi
 	snijeg             *snijeg.Izvor            // snijeg na tlu u alpskim slivovima; nil dok se ne postavi
+	tjedna             func() StanjeTjedne      // tjedna priprema lanca; nil dok se ne postavi
 	razmjena           RazmjenaFunc             // stanje razmjene za pločicu na naslovnoj
 	vrijemeH           *VrijemeHandler          // vrijeme za mjesto osobe, i za karticu Naslovne
 	znak               znakRazmjene             // oznaka razmjene u gornjoj traci, s predmemorijom (skoljka.go)
@@ -1087,6 +1088,7 @@ func (s *Server) setupRoutes() {
 		}
 		return s.pripremaModela(ctx, p)
 	}, func() bool { return s.pripremaModela != nil }, s.poslovi, s.templates["posao.html"])
+	prognozeH.tjedna = s.stanjeTjedne
 	s.mux.Handle("POST /prognoze/pripremi-model", s.samoAdmin(http.HandlerFunc(prognozeH.PripremiModel)))
 	s.mux.Handle("GET /prognoze/napredak", s.authMiddleware(http.HandlerFunc(prognozeH.NapredakJSON)))
 	s.mux.Handle("GET /prognoze/izdanja.csv", s.authMiddleware(http.HandlerFunc(prognozeH.IzvoziIzdanja)))
