@@ -203,6 +203,27 @@ CREATE TABLE IF NOT EXISTS izdanja (
 	upozorenja TEXT NOT NULL DEFAULT '',  -- JSON upozorenja izdavača; '' kad ih izdavač ne bilježi
 	PRIMARY KEY (izdano, verzija)
 ) WITHOUT ROWID;
+-- Tjedna priprema lanca (tjedna.go): svaki subotnji pokušaj, ishod, srednji
+-- promašaj staroga i novog lanca, letve na kojima je novi lošiji i razlog.
+-- Lokalno: ne ide uz izdanje.
+CREATE TABLE IF NOT EXISTS tjedna_priprema (
+	kad      INTEGER PRIMARY KEY,         -- termin, unix sekunde
+	ishod    TEXT NOT NULL,
+	razlog   TEXT NOT NULL DEFAULT '',
+	prije    REAL NOT NULL DEFAULT 0,
+	poslije  REAL NOT NULL DEFAULT 0,
+	losije   TEXT NOT NULL DEFAULT '[]',  -- JSON popis letvi
+	slabi    INTEGER NOT NULL DEFAULT 0,
+	osnovica REAL NOT NULL DEFAULT 0,
+	lanac_od INTEGER NOT NULL DEFAULT 0
+);
+-- Promašaj lanca kad je primijenjen, uz otisak modela: prema njemu se mjeri
+-- slabi li lanac. Lokalno.
+CREATE TABLE IF NOT EXISTS tjedna_osnovica (
+	id       INTEGER PRIMARY KEY CHECK (id = 1),
+	otisak   TEXT NOT NULL,
+	promasaj REAL NOT NULL
+);
 -- Kiša po međuslivovima kakvu je dnevni model imao pri izdavanju: dan 0 je
 -- 24 sata do sata izdanja, negativni dani pala kiša, pozitivni prognoza.
 -- Baza oborina prognozu poslije prepiše analizom, pa bez ovoga nestaje.

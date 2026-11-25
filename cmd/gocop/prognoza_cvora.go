@@ -48,6 +48,10 @@ type ovisnostiPrognoze struct {
 
 	ulogePostavljene bool
 	ulogeErr         error
+
+	// obrana javlja traje li obrana od poplava i po kojim aktima; tjedna
+	// priprema lanca tada se preskače
+	obrana func(context.Context) (string, bool)
 }
 
 // pragoviSkoka su pragovi lažnog skoka iz arhive, kroz vlastitu vezu samo
@@ -168,6 +172,7 @@ func pokreniPrognozu(o ovisnostiPrognoze) *sql.DB {
 	server.SetSvjezaArhiva(stanjeSvjezeZa(database, o.arhivaPut, o.podaci, peersService.TrenutneUloge))
 	javniUvoznik.NakonPreuzimanja = krug.vrti
 	javniUvoznik.Nedovrseno = krug.bezIzdanja
+	tjednaCvora(syncCtx, server, peersService.TrenutneUloge, pb, arhivaRO, database, o.obrana, javniUvoznik.UTijeku, osvjezivac, objaviIzdanje)
 	ukljuciModel(server, pripremaModela(peersService, arhivaRO, pb, javniUvoznik, osvjezivac, objaviIzdanje),
 		&urednikModela{pb: pb, arhiva: arhivaRO, ocitanja: ocitanjaRO, mreza: peersService, krug: javniUvoznik,
 			izdaj: izdajPrimijenjenim(osvjezivac, objaviIzdanje)})
@@ -430,6 +435,16 @@ func namjestiIProvjeri(arhivaRO, pb *sql.DB, p *poslovi.Posao) (pojasa, promasaj
 		return 0, 0, err
 	}
 	defer pocisti()
+	if pojasa, promasaja, err = namjestiUBazu(arhivaRO, pb, radna, p); err != nil {
+		return 0, 0, err
+	}
+	return pojasa, promasaja, prepisiModel(radna, pb)
+}
+
+// namjestiUBazu slaže novi model u bazu radna: s retcima letvi iz sadašnjeg
+// modela u pb namjesti lanac iz arhive i provjerom unatrag zapiše promašaje.
+// Model u pb se ne dira.
+func namjestiUBazu(arhivaRO, pb, radna *sql.DB, p *poslovi.Posao) (pojasa, promasaja int, err error) {
 	if err := prepisiModel(pb, radna); err != nil {
 		return 0, 0, err
 	}
@@ -441,10 +456,7 @@ func namjestiIProvjeri(arhivaRO, pb *sql.DB, p *poslovi.Posao) (pojasa, promasaj
 	o := prognoza.ZadaneOpcijeProvjere()
 	o.Zapisi, o.Dnevnik = true, p
 	promasaja, err = provjeriUnatrag(arhivaRO, radna, o)
-	if err != nil {
-		return 0, 0, err
-	}
-	return pojasa, promasaja, prepisiModel(radna, pb)
+	return pojasa, promasaja, err
 }
 
 // prepisiModel zamjenjuje model u jednoj bazi prognoza modelom iz druge.

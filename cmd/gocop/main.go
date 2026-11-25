@@ -967,6 +967,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 		dbPath: *dbPath, prognozePut: prognozePut, arhivaPut: arhivaPut, pragovi: pragovi, kvarovi: kvarovi,
 		podaci: z.podaci, nazivCvora: nazivCvora,
 		ulogePostavljene: ulogePostavljene, ulogeErr: ulogeErr,
+		obrana: obranaUAktima(zid.ObranaTraje, aktService.StanjaSektora, aktService.Get),
 	})
 	// Čitač prognoza dolazi tek sad: veza samo za čitanje bazu koje nema ne
 	// otvori, a pokreniPrognozu je napravi.

@@ -1367,6 +1367,12 @@
       nauči dnevni model iznova i odmah izda prognozu novim modelom. Posao traje desetak minuta i vrti se
       na poslužitelju. Promašaji se mjere samo na izdanjima koja je računao glavni ulaz, jer se samo
       njemu i oduzimaju; postaja koja računa iz rezerve ostaje bez tog ispravka.</p>
+    <p>Isto program radi i sam, <strong>svake subote u 2:00</strong> na računalu koje izdaje prognozu,
+      osim dok traje obrana od poplava. Novi lanac prvo se izmjeri na zadnjih dvanaest tjedana arhive uz
+      lanac koji vrijedi i primijeni se samo ako nije lošiji za više od 2 %; inače ostaje stari, a u
+      <em>Postavkama prognoze</em> piše na kojim je letvama novi bio lošiji. Kad tri tjedna zaredom
+      novi lanac ne prođe, ili je prognoza za više od 20 % lošija nego kad je lanac primijenjen, to
+      se javlja i na Naslovnoj u kartici Za riješiti globalnog administratora.</p>
     <p>Dnevni model uči se iz arhive i bez toga: jednom na dan, iza ponoći po zagrebačkom vremenu, i
       iznova čim se arhiva promijeni — uvoz, paket s drugog čvora, izdvojen kvar mjerila, kišomjeri.
       Ako se neka njegova inačica ne da naučiti, program je pokušava opet idući sat. Dotle računa prva

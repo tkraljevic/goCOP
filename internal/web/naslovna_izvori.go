@@ -25,6 +25,7 @@ func (s *Server) izvoriNaslovne() IzvoriNaslovne {
 		},
 		Prije:        s.vodostajPrijeDan,
 		Prava:        s.pravaNaslovne,
+		Tjedna:       s.stanjeTjedne,
 		Djelatnici:   func() ([]models.User, error) { return s.userService.ListUsers("", 0, "", "", "") },
 		SaZaduzenjem: s.userService.RacuniSaZaduzenjem,
 		Nepredani:    s.nepredaniUSektoru,
