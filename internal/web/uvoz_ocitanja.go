@@ -29,10 +29,13 @@ import (
 
 var (
 	// „07.09.2026. 00 h  -118“ s letvina zaslona i „08.09.2026. 00:00  -123“ iz
-	// njezina Excel ispisa — isti podatak, dva zapisa istog sata
-	reSatni  = regexp.MustCompile(`^\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})\.?\s+(\d{1,2})(?::(\d{2}))?\s*h?\s+(-?[\d.,]+)\s*$`)
-	reDnevni = regexp.MustCompile(`^\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})\.?\s+(-?[\d.,]+)\s*$`)
-	reISO    = regexp.MustCompile(`^\s*(\d{4})-(\d{2})-(\d{2})[ T]?(\d{2})?(?::(\d{2}))?:?\d*\s*[;\t ]\s*(-?[\d.,]+)\s*$`)
+	// njezina Excel ispisa — isti podatak, dva zapisa istog sata. Dijelove
+	// smije dijeliti i točka-zarez, kako CSV sprema hrvatski Excel
+	// („25.11.2026. 07:00;512“ ili datum i sat u odvojenim stupcima
+	// „25.11.2026.;07:00;512“), a sat smije imati i sekunde.
+	reSatni  = regexp.MustCompile(`^\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})\.?[\s;]+(\d{1,2})(?::(\d{2}))?(?::\d{2})?\s*h?[\s;]+(-?[\d.,]+)[\s;]*$`)
+	reDnevni = regexp.MustCompile(`^\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})\.?[\s;]+(-?[\d.,]+)[\s;]*$`)
+	reISO    = regexp.MustCompile(`^\s*(\d{4})-(\d{2})-(\d{2})[ T]?(\d{2})?(?::(\d{2}))?:?\d*\s*[;\t ]\s*(-?[\d.,]+)[\s;]*$`)
 
 	// Redak koji počinje datumom, ali se nije dao pročitati do kraja. Bez ovoga
 	// bi „07.09.2026. 00 h  x118“ prošao kao zaglavlje i tiho nestao — a upravo
@@ -69,7 +72,8 @@ func citajZalijepljeno(tekst string) ([]ZalijepljenoOcitanje, bool, error) {
 		if strings.TrimSpace(r) == "" {
 			continue
 		}
-		z, poSatu, ok := citajRedak(r, i+1)
+		// CSV iz Excela zna staviti navodnike oko ćelija: „"25.11.2026. 07:00";"512"“
+		z, poSatu, ok := citajRedak(strings.ReplaceAll(r, `"`, ""), i+1)
 		if !ok {
 			continue // zaglavlje
 		}
