@@ -307,17 +307,44 @@ type korakBrisanja struct {
 // izvedi prebroji ili obriše tuđe retke kanala i prebroji vlastite. Brisanje
 // i brojanje dijele isti uvjet.
 func (k korakBrisanja) izvedi(ctx context.Context, tx *sql.Tx, args []any, obrisi bool) (obrisano, ostaje int, err error) {
-	tudji := " FROM " + k.tablica + " WHERE (" + k.uKanalu + ") AND NOT (" + k.ostaje + ")"
-	if obrisi {
-		obrisano, err = obrisiRetke(ctx, tx, "DELETE"+tudji, args)
-	} else {
-		err = tx.QueryRowContext(ctx, "SELECT count(*)"+tudji, args...).Scan(&obrisano)
+	if !obrisi {
+		return k.prebroji(ctx, tx, args)
 	}
+	obrisano, err = obrisiRetke(ctx, tx, "DELETE FROM "+k.tablica+" WHERE ("+k.uKanalu+") AND NOT ("+k.ostaje+")", args)
 	if err != nil {
 		return 0, 0, err
 	}
 	err = tx.QueryRowContext(ctx, "SELECT count(*) FROM "+k.tablica+" WHERE ("+k.uKanalu+") AND ("+k.ostaje+")", args...).Scan(&ostaje)
 	return obrisano, ostaje, err
+}
+
+// prebroji prebroji tuđe i vlastite retke kanala u jednom prolazu, za
+// pregled prije brisanja. Uvjet ostaje (kod očitanja traženje vlastite
+// verzije u knjizi za svako očitanje) tako se računa jednom po retku, a ne
+// dvaput, kao u dva zasebna upita. Brojke su iste: uvjet je logički izraz
+// (0, 1 ili NULL), a redak s uvjetom NULL ne broji se ni u jedne.
+func (k korakBrisanja) prebroji(ctx context.Context, tx *sql.Tx, args []any) (tudjih, vlastitih int, err error) {
+	rows, err := tx.QueryContext(ctx, "SELECT o, count(*) FROM (SELECT ("+k.ostaje+") AS o FROM "+k.tablica+
+		" WHERE ("+k.uKanalu+")) GROUP BY o", args...)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var o sql.NullInt64
+		var n int
+		if err := rows.Scan(&o, &n); err != nil {
+			return 0, 0, err
+		}
+		switch {
+		case !o.Valid:
+		case o.Int64 != 0:
+			vlastitih += n
+		default:
+			tudjih += n
+		}
+	}
+	return tudjih, vlastitih, rows.Err()
 }
 
 // obrisiRetke izvrši brisanje i vrati koliko je redaka obrisano
