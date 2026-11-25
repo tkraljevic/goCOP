@@ -88,7 +88,7 @@ func (h *DashboardHandler) zaRijesitiSektora(r *http.Request, perms *models.User
 	ctx := r.Context()
 	s := stavkeZaRijesiti{Nepredani: map[string][]models.VodocuvarskiList{}, Sektor: sektor}
 	data := DashboardViewData{ViewAsBanner: viewBanner(r)}
-	h.stanjeIZid(r, perms, &data)
+	h.samoStanjeObrane(r, perms, &data) // kartica treba samo stanje, zid ne
 	if st := stanjeSektora(data.Stanja, sektor); st != nil {
 		s.Stanja = []service.StanjeObrane{*st}
 	}

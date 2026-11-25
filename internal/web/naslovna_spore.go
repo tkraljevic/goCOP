@@ -562,7 +562,7 @@ func (h *DashboardHandler) zaRijesitiUprave(r *http.Request, perms *models.UserP
 	ctx := r.Context()
 	s := stavkeZaRijesiti{Nepredani: map[string][]models.VodocuvarskiList{}}
 	data := DashboardViewData{ViewAsBanner: viewBanner(r)}
-	h.stanjeIZid(r, perms, &data)
+	h.samoStanjeObrane(r, perms, &data) // kartica treba samo stanje, zid ne
 	s.Stanja = data.Stanja
 	for _, st := range s.Stanja {
 		if h.izvori.Nepredani == nil {
