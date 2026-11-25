@@ -134,6 +134,7 @@ type Server struct {
 	kisMjerenja        *kisomjeri.Spremiste     // mjerenja stvarnih kišomjera i oborine s Open-Meteo; nil dok se ne postavi
 	kisaSlivova        KisaSlivovaFunc          // kiša po slivovima za naslovnu; nil dok se ne postavi
 	snijeg             *snijeg.Izvor            // snijeg na tlu u alpskim slivovima; nil dok se ne postavi
+	svjeza             func() SvjezaArhiva      // stanje svježe arhive za Izvore arhive; nil dok se ne postavi
 	razmjena           RazmjenaFunc             // stanje razmjene za pločicu na naslovnoj
 	vrijemeH           *VrijemeHandler          // vrijeme za mjesto osobe, i za karticu Naslovne
 	znak               znakRazmjene             // oznaka razmjene u gornjoj traci, s predmemorijom (skoljka.go)
@@ -1370,6 +1371,7 @@ func (s *Server) setupRoutes() {
 
 	izvoriH := NewIzvoriHandler(func() string { return s.arhivaPut }, func() string { return s.podaciDir },
 		s.PostaviIzvor, s.templates["izvori.html"])
+	izvoriH.svjeza = s.stanjeSvjezeArhive
 	s.mux.Handle("GET /administracija/izvori", s.samoAdmin(http.HandlerFunc(izvoriH.ShowIzvori)))
 
 	obracunH := NewObracunPostavkeHandler(func() *service.ObracunService { return s.obracunService }, s.templates["obracun_postavke.html"])

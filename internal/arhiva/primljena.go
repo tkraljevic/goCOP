@@ -115,3 +115,24 @@ func zapisiPrimljeno(db Izvrsitelj, m Manifest, potpisValjan bool, napomena stri
 		time.Now().UTC().Format(time.RFC3339), napomena)
 	return err
 }
+
+// ZadnjePrimljeno je trenutak zadnjeg ugrađenog paketa i koliko je letvi
+// stiglo toga dana (po zoni z); nula kad paketa nije bilo ili evidencije
+// nema.
+func ZadnjePrimljeno(db Izvrsitelj, z *time.Location) (time.Time, int) {
+	var s sql.NullString
+	if err := db.QueryRow(`SELECT max(primljeno) FROM primljena_izdanja`).Scan(&s); err != nil || !s.Valid {
+		return time.Time{}, 0
+	}
+	zadnje, err := time.Parse(time.RFC3339, s.String)
+	if err != nil {
+		return time.Time{}, 0
+	}
+	l := zadnje.In(z)
+	od := time.Date(l.Year(), l.Month(), l.Day(), 0, 0, 0, 0, z)
+	n := 0
+	// zapisano je u UTC (zapisiPrimljeno), pa se po tekstu da usporediti
+	_ = db.QueryRow(`SELECT count(*) FROM primljena_izdanja WHERE primljeno >= ? AND primljeno < ?`, // isti upit je upravo prošao, pa greške nema; bez nje je broj 0
+		od.UTC().Format(time.RFC3339), od.AddDate(0, 0, 1).UTC().Format(time.RFC3339)).Scan(&n)
+	return zadnje, n
+}

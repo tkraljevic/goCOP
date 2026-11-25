@@ -24,6 +24,7 @@ import (
 type IzvoriHandler struct {
 	arhivaPut func() string
 	podaciDir func() string // zajedničko stablo s izvornim datotekama
+	svjeza    func() *SvjezaArhiva
 	postavi   func(arhiva.Izvor) ([]string, error)
 	tmpl      *template.Template
 }
@@ -78,8 +79,10 @@ type IzvoriPageData struct {
 	Permissions *models.UserPermissions
 
 	Izvori     []IzvorURedu
-	Zanemareno int    // zapisa koji leže u arhivi a ne ulaze u spoj
-	PodaciDir  string // zajedničko stablo, ono koje vrijedi kad izvor nema svoje
+	Zanemareno int // zapisa koji leže u arhivi a ne ulaze u spoj
+	// Svjeza je kartica Svježa arhiva; nil kad program ne daje stanje
+	Svjeza    *SvjezaArhiva
+	PodaciDir string // zajedničko stablo, ono koje vrijedi kad izvor nema svoje
 	// Zabrana kaže zašto se izvori odavde ne mijenjaju; prazno kad se
 	// mijenjaju (Odluke (30. 10. 2026.), 10)
 	Zabrana string
@@ -99,7 +102,16 @@ func (h *IzvoriHandler) pageData(r *http.Request) IzvoriPageData {
 		SuccessMessage: r.URL.Query().Get("success"), ErrorMessage: r.URL.Query().Get("error"),
 		ActiveNav: "admin", ViewAsBanner: viewBanner(r),
 		Zabrana: porukaZabrane(r, zaIzvore),
+		Svjeza:  h.stanjeSvjeze(),
 	}
+}
+
+// stanjeSvjeze je kartica Svježa arhiva; nil kad je program ne daje.
+func (h *IzvoriHandler) stanjeSvjeze() *SvjezaArhiva {
+	if h.svjeza == nil {
+		return nil
+	}
+	return h.svjeza()
 }
 
 func (h *IzvoriHandler) ShowIzvori(w http.ResponseWriter, r *http.Request) {
