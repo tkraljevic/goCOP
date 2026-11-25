@@ -305,8 +305,8 @@ func nacrtIPrimijenjene(baza *sql.DB, bezNacrta string) (NacrtSnijega, ZapisSnij
 
 // ProbajNacrtSnijega proba nacrt postavki snijega na povijesti: na svakoj
 // letvi probe (CiljeviProbeSnijega) nauči dnevni model s primijenjenim
-// postavkama i s nacrtom na arhivi bez zadnje dvije godine (ili jedne, kad
-// dana nema dosta) i izmjeri oba na danima snježne sezone u njima. tocke su
+// postavkama i s nacrtom na arhivi do 2012. i izmjeri oba na danima snježne
+// sezone od tada (kad toga u arhivi nema, na zadnje dvije godine ili zadnjoj). tocke su
 // kišomjeri registra. Primijenjene postavke i prognoza se ne mijenjaju.
 func ProbajNacrtSnijega(arhiva, baza *sql.DB, tocke []OborinskaTocka, kad string) (NacrtSnijega, error) {
 	n, z, err := nacrtIPrimijenjene(baza, "nema nacrta postavki snijega; spremi ga, pa probaj")
@@ -388,8 +388,14 @@ func ukupnoRazdoblje(letve []ProbaSnijegaLetve) []string {
 	return []string{od, do}
 }
 
+// pocetakProbeSnijega je prvi dan koji proba postavki snijega mjeri (1. 1.
+// 2012.): model se uči na danima prije, a mjeri na svim zimama poslije, jer
+// zadnje dvije zime znaju imati premalo snijega da bi se razlika vidjela.
+var pocetakProbeSnijega = time.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC).Unix() / 86400
+
 // probajSnijegNaCilju uči i mjeri dnevni model cilja s obje postavke, na
-// istoj granici: zadnje dvije godine, a kad se tako ne da izmjeriti, zadnja.
+// istoj granici: od 2012., a kad se tako ne da izmjeriti, zadnje dvije godine
+// ili zadnja.
 func probajSnijegNaCilju(arhiva *sql.DB, tocke []OborinskaTocka, c DnevniCilj, sada, nacrt PostavkeSnijega) (ProbaSnijegaLetve, error) {
 	var nizovi [2]map[string]DnevniNiz
 	for i, p := range [2]PostavkeSnijega{sada, nacrt} {
@@ -402,8 +408,11 @@ func probajSnijegNaCilju(arhiva *sql.DB, tocke []OborinskaTocka, c DnevniCilj, s
 	var m [2]MjeraDnevnog
 	var granica int64
 	var err error
+	granice := []int64{pocetakProbeSnijega}
 	for _, godina := range godineProbeDnevnog {
-		granica = kraj - godina*365
+		granice = append(granice, kraj-godina*365)
+	}
+	for _, granica = range granice {
 		if m, err = izmjeriObje(nizovi, c, granica, kraj); err == nil {
 			break
 		}
