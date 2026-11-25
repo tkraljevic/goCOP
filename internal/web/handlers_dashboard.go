@@ -143,12 +143,29 @@ func (h *DashboardHandler) ShowDashboard(w http.ResponseWriter, r *http.Request)
 // samo račun s Dokumentacijom, sredstva na terenu samo račun s Registrima, a
 // zid preskače module koje račun ne vidi.
 func (h *DashboardHandler) stanjeIZid(r *http.Request, perms *models.UserPermissions, data *DashboardViewData) {
-	if h.zid == nil {
+	zid := h.samoStanjeObrane(r, perms, data)
+	if zid == nil {
 		return
+	}
+	f := service.FiltarZida{Modul: r.URL.Query().Get("modul"), Limit: 40, Skriveni: service.SkriveniModuliZida(data.Modules.Sees)}
+	if f.Modul == "" {
+		// promjene ovlasti su u Događanjima, a zid na početnoj ostaje za obranu
+		f.Skriveni = append(f.Skriveni, service.ModulDjelatnici)
+	}
+	data.Zid, _, _ = zid.Zadnji(r.Context(), perms, f) // bez knjige zid ostane prazan, a početna se i dalje prikaže
+}
+
+// samoStanjeObrane puni samo stanje obrane po sektorima, bez zida: kartice
+// Naslovne trebaju stanje, a zid čita stotine verzija iz knjige (sekundu i
+// više), pa ga traži samo stranica koja ga prikazuje. Vraća servis zida, nil
+// kad ga nema.
+func (h *DashboardHandler) samoStanjeObrane(r *http.Request, perms *models.UserPermissions, data *DashboardViewData) *service.ZidService {
+	if h.zid == nil {
+		return nil
 	}
 	zid := h.zid()
 	if zid == nil {
-		return
+		return nil
 	}
 	vis := data.Modules
 	sektori, _ := h.userService.ListSectors() // bez popisa sektora pločica stanja ostane prazna, zid se i dalje prikaže
@@ -161,12 +178,7 @@ func (h *DashboardHandler) stanjeIZid(r *http.Request, perms *models.UserPermiss
 		mts = h.mts()
 	}
 	data.Stanja = zid.Stanje(r.Context(), perms, sektori, izv, mts)
-	f := service.FiltarZida{Modul: r.URL.Query().Get("modul"), Limit: 40, Skriveni: service.SkriveniModuliZida(vis.Sees)}
-	if f.Modul == "" {
-		// promjene ovlasti su u Događanjima, a zid na početnoj ostaje za obranu
-		f.Skriveni = append(f.Skriveni, service.ModulDjelatnici)
-	}
-	data.Zid, _, _ = zid.Zadnji(r.Context(), perms, f) // bez knjige zid ostane prazan, a početna se i dalje prikaže
+	return zid
 }
 
 // vidljiviPrecaci izbacuje prečace koji vode u modul koji račun ne vidi;
