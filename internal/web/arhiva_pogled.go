@@ -54,11 +54,11 @@ func popuniArhivu(ctx context.Context, r *http.Request, a *repository.ArhivaRepo
 	if a == nil || station == nil || station.Code == "" {
 		return
 	}
-	dosezi, err := a.SpojDosezi(ctx, station.Code)
+	dosezi, err := a.SpojDoseziZapamceni(ctx, station.Code)
 	if err != nil || len(dosezi) == 0 {
 		return
 	}
-	p.ArhSazetak, _ = a.Sazetak(ctx, station.Code)
+	p.ArhSazetak, _ = a.SazetakZapamcen(ctx, station.Code) // bez arhive taj dio stranice ostaje prazan
 	p.ArhPromjeneKote, _ = a.PromjeneKote(ctx, station.Code)
 
 	vidjeno := map[string]bool{}

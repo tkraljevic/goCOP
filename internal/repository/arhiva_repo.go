@@ -30,10 +30,11 @@ type ArhivaRepository struct {
 	// put je datoteka arhive; prazno kad je čitač nastao bez nje (testovi),
 	// pa se ništa ne pamti.
 	put string
-	// zapamceno drži izračune iz arhive (sati satnog vodostaja po letvi)
-	// dok se datoteka arhive ne promijeni (otisakDatoteke). Arhiva se mijenja
-	// samo ugradnjom paketa ili alatom arhive, a stranica „Model prognoze”
-	// traži sate za svaku letvu; s otiskom se ne mogu razići s podacima.
+	// zapamceno drži izračune iz arhive (sati satnog vodostaja, dosezi i
+	// sažetak spojenih nizova, pregled niza) dok se datoteka arhive ne
+	// promijeni (otisakDatoteke). Arhiva se mijenja samo ugradnjom paketa ili
+	// alatom arhive, a te brojke stranice traže pri svakom otvaranju; s
+	// otiskom se ne mogu razići s podacima iz kojih su nastale.
 	zapamcenoMu     sync.Mutex
 	zapamceno       map[string]any
 	zapamcenoOtisak otisakDatoteke
@@ -1342,4 +1343,34 @@ func (r *ArhivaRepository) GodisnjeVrijednosti(ctx context.Context, letva, velic
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Godina < out[j].Godina })
 	return out, nil
+}
+
+// Zapamćeni izračuni za stranice letve: pregled niza, dosezi i sažetak
+// spojenih nizova prolaze sve zapise letve (Batina: sekunde), a ne mijenjaju
+// se dok se ne promijeni arhiva. Pamte se do promjene datoteke arhive
+// (zapamti); vraćena vrijednost je zajednička i ne smije se mijenjati.
+
+// PregledZapamcen je Pregled niza, zapamćen dok se arhiva ne promijeni.
+func (r *ArhivaRepository) PregledZapamcen(ctx context.Context, nizID int64) (*models.HidroPregled, error) {
+	if r == nil {
+		return nil, nil
+	}
+	return zapamti(ctx, r, fmt.Sprintf("pregled|%d", nizID), func() (*models.HidroPregled, error) { return r.Pregled(ctx, nizID) })
+}
+
+// SpojDoseziZapamceni su SpojDosezi letve, zapamćeni dok se arhiva ne
+// promijeni.
+func (r *ArhivaRepository) SpojDoseziZapamceni(ctx context.Context, letva string) ([]models.SpojDoseg, error) {
+	if r == nil {
+		return nil, nil
+	}
+	return zapamti(ctx, r, "dosezi|"+letva, func() ([]models.SpojDoseg, error) { return r.SpojDosezi(ctx, letva) })
+}
+
+// SazetakZapamcen je Sazetak letve, zapamćen dok se arhiva ne promijeni.
+func (r *ArhivaRepository) SazetakZapamcen(ctx context.Context, letva string) ([]models.SazetakVelicine, error) {
+	if r == nil {
+		return nil, nil
+	}
+	return zapamti(ctx, r, "sazetak|"+letva, func() ([]models.SazetakVelicine, error) { return r.Sazetak(ctx, letva) })
 }
