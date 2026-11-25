@@ -911,6 +911,9 @@
       vezu. Zapišite vodostaj i vrijeme očitanja, a upišite ih kad se spojite. U obrascu tada
       <em>Vrijeme očitanja</em> promijenite na vrijeme kad ste letvu stvarno očitali. Kad je to više od
       pola sata prije upisa, program pita je li vrijeme točno; potvrdite.</p>
+    <p>U planu je lagana aplikacija za mobitel koja će očitanje spremiti i bez signala i poslati ga
+      sama kad se veza vrati, pa olovka i papir više neće trebati. Zasad je nema, pa vrijedi
+      postupak iznad.</p>
     <p>Ostala polja obrasca:</p>
     <ul>
       <li><strong>Što ovo očitanje jest</strong> — zadano je <em>obična napomena</em>. Drugo odaberite
@@ -999,13 +1002,15 @@
       <li>vodostaj od −500 do 3000 cm,</li>
       <li>temperatura vode od −5 do 45 °C,</li>
       <li>protok od 0 do 100 000 m³/s,</li>
+      <li>oborina od 0 do 300 mm,</li>
       <li>vrijeme najviše sat unaprijed.</li>
     </ul>
     <p>Kad vrijednost izvan toga <strong>upišete</strong> u obrazac, program očitanje ne sprema.
-      Obrazac se vrati prazan, s porukom na vrhu, npr. <em>vodostaj 3500 cm je izvan razumnog
-      raspona</em>. Upišite očitanje ponovno, s točnom vrijednošću. Vrijednost izvan raspona koju
+      Na vrhu obrasca piše što je krivo i koji raspon program prima, npr. <em>vodostaj 3500 cm je
+      izvan raspona: program prima od −500 do 3000 cm. Provjerite broj.</em> Sve što ste upisali
+      ostaje u obrascu: ispravite broj i spremite ponovno. Vrijednost izvan raspona koju
       <strong>zalijepite</strong> program isto ne upiše i kaže zašto.</p>
-    {{template "pomocSlika" (list "ocitanja-izvan-raspona" "Obrazac novog očitanja za Donji Miholjac na mobitelu: na vrhu crvena poruka da je vodostaj 3500 cm izvan razumnog raspona, a polje vodostaja je opet prazno." "359")}}
+    {{template "pomocSlika" (list "ocitanja-izvan-raspona" "Obrazac novog očitanja za Donji Miholjac na mobitelu: na vrhu crvena poruka da je vodostaj 3500 cm izvan raspona i da program prima od −500 do 3000 cm, a u polju vodostaja i dalje stoji 3500." "359")}}
     <p>Ono što stiže <strong>samo</strong> — satno preuzimanje s javnih stranica i telemetrije te
       uvoz iz evidencije BP16 i tablice centra — program izvan raspona ne upisuje:</p>
     <ul>
