@@ -17,7 +17,7 @@ func TestRasponKise(t *testing.T) {
 		if (len(izvan) == 0) != s.ok {
 			t.Errorf("kiša %v: izvan %v", s.v, izvan)
 		}
-		if !s.ok && (izvan[0].Polje != PoljeKisa || izvan[0].Error() != "oborina mora biti između 0 i 300 mm") {
+		if !s.ok && (izvan[0].Polje != PoljeKisa || izvan[0].Error() != "oborina "+decimalniHR(s.v)+" mm je izvan raspona: program prima od 0 do 300 mm. Provjerite broj.") {
 			t.Errorf("kiša %v: %+v, %q", s.v, izvan[0], izvan[0].Error())
 		}
 	}
