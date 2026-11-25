@@ -839,9 +839,18 @@ func DnevneIzdanja(db *sql.DB, izdano int64) (map[string][]DnevnaIzdana, error) 
 
 // PolazistaIzdanja vraća vodostaj svake letve u satu izdanja, točku iz koje
 // kreće satna prognoza. Letve kojima se vodostaj ne računa nema.
+//
+// Ključ tablice izdane počinje letvom, pa upit samo po satu izdanja prolazi
+// cijelu tablicu (milijuni redaka, sekunde na svakoj Naslovnoj). Zato se
+// letve preskaču kroz ključ jedna po jedna (rekurzivni min(letva) > x), a
+// za svaku se polazište čita izravno po ključu.
 func PolazistaIzdanja(db *sql.DB, izdano int64) (map[string]float64, error) {
-	r, err := db.Query(`SELECT letva, vrijednost FROM izdane
-		WHERE izdano = ? AND ciljni = ? AND velicina = 'vodostaj'`, izdano, izdano)
+	r, err := db.Query(`WITH RECURSIVE letve(l) AS (
+			SELECT min(letva) FROM izdane
+			UNION ALL
+			SELECT (SELECT min(letva) FROM izdane WHERE letva > l) FROM letve WHERE l IS NOT NULL)
+		SELECT i.letva, i.vrijednost FROM letve JOIN izdane i
+			ON i.letva = letve.l AND i.velicina = 'vodostaj' AND i.izdano = ? AND i.ciljni = ?`, izdano, izdano)
 	if err != nil {
 		return nil, err
 	}
