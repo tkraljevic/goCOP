@@ -851,10 +851,11 @@
       u zadnjih 90 dana sami očitali, a <strong>Sektor</strong> i <strong>Područje</strong> otvaraju
       izbor. Povećalo otvara pretragu po nazivu, a karta otvara Kartu zumiranu na letve s popisa.
       Ispod popisa je poveznica na sve letve iz registara, i one bez očitanja.</p>
-    <p>Letva ima kartice <strong>Kartica</strong> (što letva jest), <strong>Očitanja</strong> i
-      <strong>Historijat</strong>. Desno su <em>Uredi</em> i <em>Upiši očitanje</em>; na mobitelu i
+    <p>Letva ima kartice <strong>Kartica</strong> (što letva jest), <strong>Očitanja</strong>,
+      <strong>Historijat</strong> i <strong>Uvoz i izvoz</strong>. Desno su <em>Uredi</em> i <em>Upiši očitanje</em>; na mobitelu i
       tabletu Upiši očitanje je okrugli gumb dolje desno. Na širokom zaslonu popis ostaje lijevo
       od otvorene letve, s istim filtrima, pa se iz letve u letvu prelazi jednim klikom.</p>
+    {{template "pomocSlika" (list "ocitanja-upisi-gumb" "Vrh stranice letve Batina na računalu: desno su Uredi i gumb Upiši očitanje, ispod kartice Kartica, Očitanja, Historijat te Uvoz i izvoz." "728")}}
 
     <h3 id="ocitanja-zadnje">Zadnje očitanje</h3>
     <p>Gore stoji zadnje očitanje i uz njega sve što se iz njega da izračunati:</p>
@@ -891,6 +892,13 @@
       telemetrija) i tko ga je upisao. Olovka otvara izmjenu i stoji samo uz očitanja koja smijete
       ispraviti. Na telefonu se očitanje upisuje
       velikim poljem za broj — na terenu se ne pogađa sitna tipka.</p>
+    <p>Vodostaj se upisuje ovim redom: otvorite letvu, pritisnite <em>Upiši očitanje</em>,
+      upišite vodostaj u centimetrima i pritisnite <em>Spremi očitanje</em>. Vrijeme je zadano
+      sad; promijenite ga samo kad upisujete naknadno. Brojčana tipkovnica na mobitelu nema
+      minus, pa predznak mijenja gumb <strong>±</strong> uz polje. Temperatura vode i izmjereni
+      protok upisuju se na karticama <em>Temperatura</em> i <em>Protok</em> istog obrasca, a sve
+      se sprema jednim gumbom.</p>
+    {{template "pomocSlika" (list "ocitanja-upis" "Upis vodostaja na mobitelu za letvu Donji Miholjac: ispod naslova je zadnje očitanje, otvorena je kartica Vodostaj, a u veliko polje upisano je 145 cm, uz gumb ± za minus." "359")}}
     <p>Očitanje na letvu upisuje svatko s dužnošću u sektoru koji letvu prati, i Dežurni operater
       u COP-u; Gost i Preglednik ne upisuju. Sektor letve dolazi preko njezinih dionica, a stranoj
       letvi upisuje se u obrascu letve (<a href="#stations">Letve</a>). Letvu bez ijednog
@@ -900,6 +908,10 @@
       njezinoj dionici, uprava njezina branjenog područja ili sektora i razina 1; za letvu bez
       dionica uprava sektora koji je prati. Obrisano očitanje ostaje u povijesti zapisa. Računalo sa
       starijom verzijom programa (0.0.34) zadržava dosadašnje pravilo dok se ne nadogradi.</p>
+    <p>Krivo upisan vodostaj ispravite ovako: na letvi u popisu <em>Svježa očitanja</em> pritisnite
+      olovku uz očitanje, upišite točnu vrijednost i spremite. Olovka stoji samo uz očitanja koja
+      smijete ispraviti.</p>
+    {{template "pomocSlika" (list "ocitanja-ispravak" "Svježa očitanja letve Donji Miholjac na mobitelu vodočuvara: tri jutarnja očitanja, svako s vodostajem, kotom i imenom vodočuvara, a desno olovka za ispravak." "359")}}
     <p>Na letvi uz koju stoji kišomjer (Borovik) obrazac ima i polje <strong>Oborina (mm)</strong>.
       Kiša očitana ujutro upisuje se pod prethodni dan. Prazno polje znači da nije očitana, a 0 da
       nije padala. Kiša se vidi uz vodostaj, a na kišomjer prelazi pri sljedećem satnom krugu.</p>
@@ -996,6 +1008,7 @@
     <p>Umjesto upisa jednog po jednog, može se zalijepiti tablica s letva.voda.hr ili priložiti
       Excel datoteka. Program prvo pokaže <strong>što bi se upisalo</strong> i tek nakon potvrde
       upisuje. Vrijeme se čita kao lokalno, onako kako piše na zaslonu izvora.</p>
+    {{template "pomocSlika" (list "ocitanja-skupno" "Kartica Uvoz i izvoz letve Batina: u polje su zalijepljena tri satna očitanja s letva.voda.hr, ispod je izbor datoteke i gumb Pogledaj što bi se upisalo." "728")}}
 
     <h3 id="ocitanja-ispravak">Provjera i ispravak u tablici</h3>
     <p>Očitanja se izvoze u CSV — cijelo odabrano razdoblje ili sve — pa se u tablici pregledaju
