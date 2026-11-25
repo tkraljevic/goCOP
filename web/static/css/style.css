@@ -5463,6 +5463,34 @@ details.letva-ploca.prog-sklop { padding-left: 20px; }
 .prog-postavke-polje select { width: 520px; max-width: 100%; min-height: 48px; padding: 10px 12px 10px 16px; font-size: 1rem; }
 .prog-postavke-gumbi { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 0; }
 .prog-postavke-gumbi .reg-card-sub, .prog-postavke-gumbi p { margin: 0; }
+/* Postavke: Model snijega (crtež model_snijega): prekidač desno, dva polja s jedinicom, proba po danu */
+.snijeg-polja { display: flex; flex-direction: column; gap: 16px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.snijeg-polja:disabled { opacity: 0.7; }
+.snijeg-prekidac { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0; cursor: pointer; }
+.snijeg-prekidac-naslov { display: block; font-size: 0.875rem; font-weight: 500; color: var(--md-sys-color-on-surface); }
+.snijeg-prekidac small, .snijeg-polje small { display: block; font-size: 0.75rem; line-height: 1.4; color: var(--md-sys-color-on-surface-variant); }
+.snijeg-red { display: flex; flex-wrap: wrap; gap: 12px 16px; }
+.snijeg-polje { flex: 0 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.snijeg-polje > label { margin: 0; font-size: 0.8125rem; color: var(--md-sys-color-on-surface-variant); }
+.snijeg-unos { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 12px; border: 1px solid var(--md-sys-color-outline);
+  border-radius: 4px; background: var(--md-sys-color-surface); }
+.snijeg-unos:focus-within { border-color: var(--md-sys-color-primary); box-shadow: inset 0 0 0 1px var(--md-sys-color-primary); }
+.snijeg-unos input { flex: 0 1 5rem; min-width: 0; padding: 0; border: 0; background: none; font-size: 1rem; color: var(--md-sys-color-on-surface);
+  font-variant-numeric: tabular-nums; outline: none; }
+.snijeg-jedinica { flex: 1 1 auto; min-width: 0; font-size: 0.875rem; color: var(--md-sys-color-on-surface-variant); }
+.letva-ploca.prog-ploca > h2.snijeg-naslov { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.snijeg-naslov .rac-cip { font-size: 0.75rem; font-weight: 500; }
+.snijeg-tablica .snijeg-proba-red { grid-template-columns: minmax(0, 1.4fr) repeat(6, minmax(0, 1fr)) minmax(120px, 1.1fr); gap: 8px; }
+.snijeg-proba-red .snijeg-greska { grid-column: 2 / 8; color: var(--md-sys-color-on-surface-variant); }
+.snijeg-razlog { width: 520px; max-width: 100%; }
+@media (max-width: 700px) {
+  .snijeg-tablica .uv-glava { display: none; }
+  .snijeg-tablica .snijeg-proba-red { grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 8px 12px; }
+  .snijeg-proba-red > :first-child { grid-column: 1 / -1; font-weight: 500; }
+  .snijeg-proba-red > :last-child { grid-column: 1 / -1; }
+  .snijeg-proba-red > [data-naslov]::before { content: attr(data-naslov); display: block; font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); }
+  .snijeg-proba-red .snijeg-greska { grid-column: 1 / -1; }
+}
 /* Model prognoze po crtežu 13b · 1 · Izbor vodotoka i što fali */
 .mod-mreza { display: grid; grid-template-columns: minmax(0, 380px) minmax(0, 1fr); gap: 16px; align-items: start; margin-top: 16px; }
 .mod-popis { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }

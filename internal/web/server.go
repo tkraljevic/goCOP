@@ -1073,6 +1073,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /prognoze/model/racun", s.authMiddleware(http.HandlerFunc(prognozeH.ShowRacun)))
 	s.mux.Handle("POST /prognoze/model/racun", s.samoAdmin(http.HandlerFunc(prognozeH.SpremiRacun)))
 	s.mux.Handle("POST /prognoze/postavke", s.authMiddleware(http.HandlerFunc(prognozeH.SpremiPostavke)))
+	s.mux.Handle("POST /prognoze/postavke/snijeg", s.samoAdmin(http.HandlerFunc(prognozeH.SpremiSnijeg)))
 	s.mux.Handle("POST /prognoze/napomena-podataka", s.samoAdmin(http.HandlerFunc(prognozeH.SpremiNapomenu)))
 	s.mux.Handle("GET /prognoze/pricuvno.xlsx", s.authMiddleware(http.HandlerFunc(prognozeH.IzvoziPricuvno)))
 	// krug traje i po nekoliko minuta i pita sve izvore, pa ga rukom

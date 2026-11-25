@@ -400,8 +400,9 @@ type PrognozePageData struct {
 
 	NacinPrikaza   string // koji model daje dane u tablici i na grafovima, opisno
 	Opcije         models.Opcije
-	SmijeMijenjati bool // može mijenjati način prikaza (uprava)
-	SmijeNapomenu  bool // može upisati napomenu o podacima (globalni administrator)
+	SmijeMijenjati bool            // može mijenjati način prikaza (uprava)
+	SmijeNapomenu  bool            // može upisati napomenu o podacima (globalni administrator)
+	Snijeg         *KarticaSnijega // kartica „Model snijega” postavki; nil bez baze prognoza
 
 	MozeGenerirati bool // ima krug preuzimanja, pa gumb „Generiraj” ima što pokrenuti
 	// SmijeGenerirati: ima krug preuzimanja, a osoba je dežurni ili
@@ -444,6 +445,7 @@ func (h *PrognozeHandler) ShowPostavke(w http.ResponseWriter, r *http.Request) {
 	data.Izdano, _ = h.zadnjeIzdanje()
 	data.Opcije = h.nacini(r.Context())
 	data.SmijeMijenjati = h.izmijeniOpcije != nil && data.Permissions != nil && data.Permissions.IsGlobalAdmin
+	data.Snijeg = h.karticaSnijega(r)
 	if data.SmijeNapomenu {
 		data.NapomenaPodataka = h.napomena(r.Context())
 	}
