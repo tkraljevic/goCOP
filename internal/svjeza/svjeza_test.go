@@ -314,3 +314,23 @@ func TestIzvoriUzivoIzaOperativnih(t *testing.T) {
 		}
 	}
 }
+
+// Letva s umjerenjem mjernog uređaja: u arhivu ide vrijednost uređaja
+// preračunata umjerenjem, a ne ona ispravljena po ručnom očitanju.
+// Umjerenje je izmišljeno: uređaj = 10 + 0,8 · letva.
+func TestUlaganjeUmjereneLetve(t *testing.T) {
+	u, koren := cvor(t)
+	if _, err := u.Baza.Exec(`UPDATE stations SET umjerenje_odsjecak = 10, umjerenje_nagib = 0.8 WHERE code = 'proba'`); err != nil {
+		t.Fatal(err)
+	}
+	uredjaj := 170                                                                                // na letvi (170 − 10) / 0,8 = 200
+	upisi(t, u, "proba", javnivodostaji.Podrijetlo, zg(2026, 11, 24, 10), 200, &uredjaj, nil, "") // samo umjereno
+	upisi(t, u, "proba", javnivodostaji.Podrijetlo, zg(2026, 11, 24, 11), 205, &uredjaj, nil, "") // umjereno pa ispravljeno +5
+	if _, err := u.Ulozi(zg(2026, 11, 25, 1), true, false); err != nil {
+		t.Fatal(err)
+	}
+	r := redci(t, koren, "dunav", "proba", "hv-uzivo", "vodostaj")
+	if len(r) != 2 || r[0].Vrijednost != 200 || r[1].Vrijednost != 200 {
+		t.Errorf("umjerena letva: %+v", r)
+	}
+}

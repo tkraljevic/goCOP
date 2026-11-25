@@ -300,7 +300,8 @@ func stupac(db *sql.DB, upit string, args ...any) ([]string, error) {
 // uzima već uloženo (ručnim ulaganjem, pod izvorom cop), ni sumnjivo ni
 // rekonstruirano.
 func (u *Ulagac) ocitanja(letva string, od, do time.Time) ([]ocitanje, error) {
-	upit := `SELECT r.measured_at, r.origin, r.level_cm, r.sirovo_cm, r.flow_m3s, r.flow_note, r.temp_c
+	upit := `SELECT r.measured_at, r.origin, r.level_cm, r.sirovo_cm, r.flow_m3s, r.flow_note, r.temp_c,
+			s.umjerenje_odsjecak, s.umjerenje_nagib
 		FROM readings r JOIN stations s ON s.id = r.station_id
 		WHERE s.code = ? AND r.source = ? AND r.izdanje = '' AND r.quality IN ('', ?)
 			AND r.measured_at >= ? AND r.measured_at < ? AND r.origin IN (` + mjesta(len(IzvoriUzivo)) + `)
@@ -314,7 +315,8 @@ func (u *Ulagac) ocitanja(letva string, od, do time.Time) ([]ocitanje, error) {
 	var out []ocitanje
 	for r.Next() {
 		var o redakOcitanja
-		if err := r.Scan(&o.kad, &o.podrijetlo, &o.razina, &o.sirovo, &o.protok, &o.biljeska, &o.temp); err != nil {
+		if err := r.Scan(&o.kad, &o.podrijetlo, &o.razina, &o.sirovo, &o.protok, &o.biljeska, &o.temp,
+			&o.odsjecak, &o.nagib); err != nil {
 			return nil, err
 		}
 		out = append(out, o.ocitanje(letva))
@@ -328,17 +330,22 @@ type redakOcitanja struct {
 	podrijetlo, biljeska string
 	razina, sirovo       sql.NullInt64
 	protok, temp         sql.NullFloat64
+	odsjecak, nagib      sql.NullFloat64 // umjerenje mjernog uređaja letve
 }
 
-// ocitanje je redak kako se ulaže. Vodostaj je onaj koji je poslao uređaj,
-// a ne ispravljen po ručnom očitanju: arhiva drži što je koji izvor rekao, a
-// ručno očitanje ima svoj izvor ispred dojava. Protok koji je goCOP
+// ocitanje je redak kako se ulaže. Vodostaj je onaj s mjernog uređaja
+// preračunat umjerenjem letve (Station.Umjeri, isto kao pri preuzimanju), a
+// prije ispravka po ručnom očitanju: arhiva drži što je izvor rekao, a
+// ručno očitanje ima svoj izvor ispred dojava. SirovoCm je vrijednost
+// uređaja prije umjerenja i ispravka; bez njega očitanje nije ni umjereno
+// ni ispravljeno, pa vrijedi upisani vodostaj. Protok koji je goCOP
 // izračunao našom krivuljom nije podatak izvora, pa se ne ulaže.
 func (r redakOcitanja) ocitanje(letva string) ocitanje {
 	o := ocitanje{letva: letva, izvor: IzvoriUzivo[r.podrijetlo], kad: r.kad}
 	switch {
 	case r.sirovo.Valid:
-		o.vodostaj = broj(float64(r.sirovo.Int64))
+		st := models.Station{UmjerenjeOdsjecak: nullBroj(r.odsjecak), UmjerenjeNagib: nullBroj(r.nagib)}
+		o.vodostaj = broj(float64(st.Umjeri(int(r.sirovo.Int64))))
 	case r.razina.Valid:
 		o.vodostaj = broj(float64(r.razina.Int64))
 	}
@@ -349,6 +356,14 @@ func (r redakOcitanja) ocitanje(letva string) ocitanje {
 		o.temperatura = broj(r.temp.Float64)
 	}
 	return o
+}
+
+// nullBroj je broj iz baze ili nil kad ga nema.
+func nullBroj(v sql.NullFloat64) *float64 {
+	if !v.Valid {
+		return nil
+	}
+	return &v.Float64
 }
 
 func broj(v float64) *float64 { return &v }
