@@ -1012,19 +1012,16 @@ func naKotu(z []zapis, p []promjena) (int, float64) {
 // niska voda nego kvar. Odbacuje se pri gradnji, jer se poslije više ne zna
 // je li brojka mjerenje ili šum.
 func mogucaVrijednost(velicina string, v float64) bool {
+	if gornja, ima := najviseOdNule[velicina]; ima {
+		return v >= 0 && v < gornja
+	}
 	switch velicina {
 	case "vodostaj":
 		return v > -1500 && v < 2000 // cm; najdublje korito u nizu je -764
-	case "protok":
-		return v >= 0 && v < 100000 // m³/s
 	case "temperatura":
 		return v >= -2 && v <= 45 // °C
 	case "koncentracija", "pronos":
 		return v >= 0
-	case "oborina", "snijeg":
-		return v >= 0 && v < 1000 // mm u satu ili danu; najveća satna u nas je ispod 100
-	case "visina-snijega":
-		return v >= 0 && v < 2000 // cm
 	case "temperatura-zraka":
 		return v >= -50 && v <= 50 // °C
 	case "kota":
@@ -1033,6 +1030,16 @@ func mogucaVrijednost(velicina string, v float64) bool {
 		return v > 5000 && v < 40000
 	}
 	return true
+}
+
+// najviseOdNule su veličine koje ne mogu biti negativne, s granicom ispod
+// koje vrijednost još postoji.
+var najviseOdNule = map[string]float64{
+	"protok":         100000, // m³/s
+	"oborina":        1000,   // mm u satu ili danu; najveća satna u nas je ispod 100
+	"snijeg":         1000,   // mm vode u satu ili danu
+	"visina-snijega": 2000,   // cm
+	"snijeg-na-tlu":  20000,  // mm vode; na ledenjacima zna biti i nekoliko metara
 }
 
 // citaj vraća retke datoteke kakvi jesu, bez nemogućih vrijednosti; ispade
@@ -1700,6 +1707,9 @@ var zadaniIzvori = []Izvor{
 	{"openmeteo-era5", 0, 10, true, "", "ECMWF ERA5 reanaliza, 25 km, od 1940.; oborina i snijeg"},
 	{"openmeteo-era5land", 0, 10, true, "", "ECMWF ERA5-Land reanaliza, 11 km, od 1950.; temperatura zraka i visina snijega"},
 	{"openmeteo-cerra", 0, 20, true, "", "Copernicus CERRA reanaliza, 5,5 km, 1985.–6/2021.; zaseban niz, ne ulazi u spoj ispred ERA5"},
+	// snijeg na tlu u alpskim slivovima: preuzima ga samo čvor koji izdaje
+	// prognozu, a ostali ga dobiju paketom točke; jedini izvor te veličine
+	{"snowgrid", 0, 10, true, "", "SNOWGRID, GeoSphere Austria, CC BY 4.0; snijeg na tlu (mm vode) po danu od 1961., srednjak mreže od 1 km oko točke"},
 	// stvarni kišomjeri DHMZ-a, preuzeti preko letva.voda.hr; sat je lokalni,
 	// dan traje od 06 do 06, a rupe koje stranica pokaže kao nule izbačene su
 	// pri pripremi datoteka

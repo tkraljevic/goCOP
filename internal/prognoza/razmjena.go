@@ -56,8 +56,10 @@ type PaketIzdanja struct {
 	Izbor  Tablica      `json:"izbor"`
 	Tude   Tablica      `json:"tude"`
 	// Oborine su kiša koju je izdavač imao u bazi oborina: mjerenja
-	// kišomjera i satna kiša Open-Meteo po točkama slivova, s prognozom.
-	// Čvor koji ne izdaje prognozu kišu ne preuzima, pa je ima odavde.
+	// kišomjera i satna kiša Open-Meteo po točkama slivova, s prognozom,
+	// a od 0.0.68 i snijeg na tlu tekuće sezone (TablicaSnijegaNaTlu).
+	// Čvor koji ne izdaje prognozu kišu i snijeg ne preuzima, pa ih ima
+	// odavde; stariji primatelj tablicu koju ne zna preskače.
 	Oborine map[string]Tablica `json:"oborine,omitempty"`
 }
 
@@ -166,16 +168,35 @@ func SastaviIzdanje(db *sql.DB, ishod *Ishod) (PaketIzdanja, error) {
 // 48 sati dovoljno da čvor koji prima sva izdanja nema rupa.
 const OborineUnatragSati = 48
 
-// SastaviOborine čita kišu iz baze oborina za izdanje u satu sada.
+// TablicaSnijegaNaTlu je snijeg na tlu (SNOWGRID) po točki i danu u bazi
+// oborina. Preuzima ga samo čvor koji izdaje prognozu, a tekuću sezonu šalje
+// uz izdanje; povijest ide paketima arhive.
+const TablicaSnijegaNaTlu = "snijeg_na_tlu"
+
+// SnijegUnatragDana je koliko dana snijega na tlu ide uz izdanje i kad je
+// sezona tek počela (1. 8.): dovoljno za trend i dane koje izvor naknadno
+// ispravlja.
+const SnijegUnatragDana = 14
+
+// SastaviOborine čita kišu iz baze oborina za izdanje u satu sada, a uz nju
+// snijeg na tlu od početka sezone, kad ga baza ima.
 func SastaviOborine(ob *sql.DB, sada int64) (map[string]Tablica, error) {
-	out := map[string]Tablica{}
-	for ime, upit := range map[string]struct {
+	danas := sada / 24
+	upiti := map[string]struct {
 		sql string
 		od  int64
 	}{
 		"izmjerene": {`SELECT * FROM izmjerene WHERE kraj > ?`, (sada - OborineUnatragSati) * 3600},
 		"satne":     {`SELECT * FROM satne WHERE sat > ?`, sada - OborineUnatragSati},
-	} {
+	}
+	if imaTablicu(ob, TablicaSnijegaNaTlu) {
+		upiti[TablicaSnijegaNaTlu] = struct {
+			sql string
+			od  int64
+		}{`SELECT kisomjer, dan, swe FROM ` + TablicaSnijegaNaTlu + ` WHERE dan >= ?`, min(PocetakSezone(danas), danas-SnijegUnatragDana)}
+	}
+	out := map[string]Tablica{}
+	for ime, upit := range upiti {
 		t, err := citajTablicu(ob, upit.sql, upit.od)
 		if err != nil {
 			return nil, fmt.Errorf("oborine %s: %w", ime, err)
@@ -186,8 +207,17 @@ func SastaviOborine(ob *sql.DB, sada int64) (map[string]Tablica, error) {
 	return out, nil
 }
 
-// PrimiOborine upisuje kišu iz izdanja; novije prepisuje starije, kao kad je
-// izvor sam dopuni.
+// imaTablicu javlja ima li baza tablicu s tim imenom.
+func imaTablicu(db interface {
+	QueryRow(string, ...any) *sql.Row
+}, ime string) bool {
+	var n int
+	return db.QueryRow(`SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = ?`, ime).Scan(&n) == nil && n > 0
+}
+
+// PrimiOborine upisuje kišu i snijeg na tlu iz izdanja; novije prepisuje
+// starije, kao kad je izvor sam dopuni. Tablicu koje baza oborina nema
+// preskače.
 func PrimiOborine(ob *sql.DB, t map[string]Tablica) error {
 	if ob == nil || len(t) == 0 {
 		return nil
@@ -197,12 +227,27 @@ func PrimiOborine(ob *sql.DB, t map[string]Tablica) error {
 		return err
 	}
 	defer tx.Rollback()
-	for _, ime := range []string{"izmjerene", "satne"} {
+	for _, ime := range tabliceKise(tx) {
 		if err := upisiTablicu(tx, ime, t[ime], "OR REPLACE"); err != nil {
 			return fmt.Errorf("oborine %s: %w", ime, err)
 		}
 	}
 	return tx.Commit()
+}
+
+// tabliceKise su tablice baze oborina koje se primaju uz izdanje; snijeg na
+// tlu samo kad ga baza ima.
+func tabliceKise(tx *sql.Tx) []string {
+	imena := []string{"izmjerene", "satne"}
+	if imaTablicu(tx, TablicaSnijegaNaTlu) {
+		imena = append(imena, TablicaSnijegaNaTlu)
+	}
+	return imena
+}
+
+// ImaSnijegaNaTlu javlja nosi li kiša izdanja snijeg na tlu.
+func ImaSnijegaNaTlu(t map[string]Tablica) bool {
+	return len(t[TablicaSnijegaNaTlu].Redci) > 0
 }
 
 // ImaIzdanjeIzKnjige javlja je li izdanje s tom verzijom knjige već upisano.

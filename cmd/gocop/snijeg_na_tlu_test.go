@@ -11,7 +11,8 @@ import (
 	"gocop/internal/web"
 )
 
-// Snijeg na tlu kreće na svakom čvoru: preuzimanje ide u pozadinu, a
+// Snijeg na tlu kreće na svakom čvoru, ali izvor smije čitati samo čvor
+// koji izdaje prognozu: preuzimanje ide u pozadinu s tom provjerom, a
 // poslužitelj dobiva izvor; novi dani bacaju izračunato.
 func TestPokreniSnijegNaTlu(t *testing.T) {
 	ob, err := oborine.Otvori(filepath.Join(t.TempDir(), "oborine.db"))
@@ -21,11 +22,25 @@ func TestPokreniSnijegNaTlu(t *testing.T) {
 	defer ob.Close()
 	staro := vrtiSnijegNaTlu
 	defer func() { vrtiSnijegNaTlu = staro }()
+	defer primateljPrognoze.naSnijeg(nil)
 	var pokrenut *oborine.SnijegNaTlu
 	vrtiSnijegNaTlu = func(_ context.Context, s *oborine.SnijegNaTlu) { pokrenut = s }
-	pokreniSnijegNaTlu(context.Background(), ob, nil, &oborine.Uvoznik{DB: ob}, &web.Server{})
-	if pokrenut == nil || pokrenut.DB != ob || pokrenut.NakonUpisa == nil || pokrenut.Tocke == nil {
+	izdaje := false
+	ra := &razmjenaArhive{javljeno: map[string]bool{}}
+	pokreniSnijegNaTlu(context.Background(), snijegCvora{registar: ob, oborine: &oborine.Uvoznik{DB: ob},
+		posluzitelj: &web.Server{}, izdaje: func() bool { return izdaje }, razmjenaArh: ra})
+	if pokrenut == nil || pokrenut.DB != ob || pokrenut.NakonUpisa == nil || pokrenut.Tocke == nil || pokrenut.Smije == nil {
 		t.Fatalf("preuzimanje: %+v", pokrenut)
+	}
+	if pokrenut.Smije() {
+		t.Error("čvor koji ne izdaje prognozu smije čitati SNOWGRID")
+	}
+	izdaje = true
+	if !pokrenut.Smije() {
+		t.Error("čvor koji izdaje prognozu ne smije čitati SNOWGRID")
+	}
+	if primateljPrognoze.snijeg == nil || ra.nakon == nil {
+		t.Error("izdanje i paketi arhive ne bacaju izračunati snijeg")
 	}
 	pokrenut.NakonUpisa()
 	if _, err := pokrenut.Tocke(); err == nil {

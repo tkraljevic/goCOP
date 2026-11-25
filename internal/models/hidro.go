@@ -48,7 +48,7 @@ func JedinicaVelicine(v string) string {
 		return "g/m³"
 	case "pronos":
 		return "t"
-	case "oborina", "snijeg":
+	case "oborina", "snijeg", "snijeg-na-tlu":
 		return "mm"
 	case "visina-snijega":
 		return "cm"
@@ -60,27 +60,24 @@ func JedinicaVelicine(v string) string {
 
 // NazivVelicine je veličina za ispis.
 func NazivVelicine(v string) string {
-	switch v {
-	case "vodostaj":
-		return "Vodostaj"
-	case "protok":
-		return "Protok"
-	case "temperatura":
-		return "Temperatura vode"
-	case "koncentracija":
-		return "Koncentracija nanosa"
-	case "pronos":
-		return "Pronos nanosa"
-	case "oborina":
-		return "Oborina"
-	case "snijeg":
-		return "Snijeg (vodeni ekvivalent)"
-	case "visina-snijega":
-		return "Visina snijega"
-	case "temperatura-zraka":
-		return "Temperatura zraka"
+	if naziv, ima := naziviVelicina[v]; ima {
+		return naziv
 	}
 	return v
+}
+
+// naziviVelicina su veličine kako se ispisuju.
+var naziviVelicina = map[string]string{
+	"vodostaj":          "Vodostaj",
+	"protok":            "Protok",
+	"temperatura":       "Temperatura vode",
+	"koncentracija":     "Koncentracija nanosa",
+	"pronos":            "Pronos nanosa",
+	"oborina":           "Oborina",
+	"snijeg":            "Snijeg (vodeni ekvivalent)",
+	"visina-snijega":    "Visina snijega",
+	"snijeg-na-tlu":     "Snijeg na tlu (vodeni ekvivalent)",
+	"temperatura-zraka": "Temperatura zraka",
 }
 
 // Skupine izvora. Ljestvica od osam stupnjeva bila je složenost koja ne radi
@@ -126,6 +123,7 @@ var naziviIzvora = map[string]string{
 	"openmeteo-era5land": "ERA5-Land reanaliza (Open-Meteo), procjena",
 	"hibrid-era5":        "ERA5 i prognoza (Open-Meteo), procjena",
 	"openmeteo":          "Open-Meteo, procjena modela",
+	"snowgrid":           "SNOWGRID (GeoSphere Austria), procjena",
 }
 
 // NazivIzvora objašnjava odakle niz dolazi i koliko mu se vjeruje.

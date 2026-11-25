@@ -227,7 +227,7 @@ func zbrojiRed(b *BrojkePodataka, red repository.RedNizova, postaja map[string]i
 		zbrojiHidrologiju(b, red)
 	case "oborina":
 		zbrojiOborinu(b, red, postaja)
-	case "snijeg", "temperatura-zraka", "visina-snijega":
+	case "snijeg", "temperatura-zraka", "visina-snijega", "snijeg-na-tlu":
 		b.Meteo += red.Zapisa
 	}
 }

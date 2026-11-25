@@ -28,8 +28,9 @@ var (
 	// Uz veličine s letve tu su i one s kvazi-kišomjera (registar slivova):
 	// oborina i snijeg u mm vodenog ekvivalenta, visina snijega u cm i
 	// temperatura zraka — odvojena od temperature vode, jer im rasponi i
-	// smisao nisu isti.
-	Velicine = []string{"vodostaj", "protok", "temperatura", "koncentracija", "pronos", "oborina", "snijeg", "visina-snijega", "temperatura-zraka"}
+	// smisao nisu isti. Snijeg na tlu je zaliha snijega (mm vode) po danu iz
+	// SNOWGRID-a, a ne snijeg koji je pao, pa se po danu ne zbraja.
+	Velicine = []string{"vodostaj", "protok", "temperatura", "koncentracija", "pronos", "oborina", "snijeg", "visina-snijega", "temperatura-zraka", "snijeg-na-tlu"}
 	Vrste    = []string{"satni", "srednjak", "jutarnji", "dnevni", "dvokratni"}
 	Zone     = []string{"Europe/Zagreb", "UTC"}
 )
@@ -473,6 +474,7 @@ func zaglavlje(velicina string, redci []Redak) string {
 		"vodostaj": "vodostaj_cm", "protok": "protok_m3s", "temperatura": "temperatura_c",
 		"koncentracija": "koncentracija_gl", "pronos": "pronos_kgs",
 		"oborina": "oborina_mm", "snijeg": "snijeg_mm", "visina-snijega": "visina_snijega_cm", "temperatura-zraka": "temperatura_zraka_c",
+		"snijeg-na-tlu": "snijeg_na_tlu_mm",
 	}[velicina]
 	if drugi == "" {
 		drugi = velicina

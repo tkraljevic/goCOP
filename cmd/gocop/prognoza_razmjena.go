@@ -72,6 +72,9 @@ type primateljIzdanja struct {
 	ob     *sql.DB // baza oborina, za kišu iz izdanja
 	rec    *ledger.Recorder
 	izdaje func() bool
+	// snijeg se zove kad uz izdanje stigne snijeg na tlu, da se kartice
+	// računaju iznova; nil dok ga nitko ne postavi
+	snijeg func()
 }
 
 var primateljPrognoze = &primateljIzdanja{}
@@ -89,6 +92,13 @@ func (p *primateljIzdanja) postavi(pb *sql.DB, rec *ledger.Recorder, izdaje func
 func (p *primateljIzdanja) postaviOborine(ob *sql.DB) {
 	p.mu.Lock()
 	p.ob = ob
+	p.mu.Unlock()
+}
+
+// naSnijeg postavi što se zove kad uz izdanje stigne snijeg na tlu
+func (p *primateljIzdanja) naSnijeg(f func()) {
+	p.mu.Lock()
+	p.snijeg = f
 	p.mu.Unlock()
 }
 
@@ -192,15 +202,25 @@ func (p *primateljIzdanja) upisi(verzije []ledger.Version) {
 			if ok {
 				upisano++
 				zadnjeIzdano, izdavac = om.Izdano, om.Cvor
-				if err := prognoza.PrimiOborine(p.ob, paket.Oborine); err != nil {
-					log.Printf("prognoza: kiša iz izdanja %s: %v", v.EntityID, err)
-				}
+				p.primiOborine(v.EntityID, paket.Oborine)
 			}
 		}
 	}
 	if upisano > 0 {
 		log.Printf("prognoza: primljeno %d izdanja razmjenom, zadnje za %s UTC s čvora %s", upisano,
 			time.Unix(zadnjeIzdano*3600, 0).UTC().Format("2006-01-02 15:04"), izdavac)
+	}
+}
+
+// primiOborine upiše kišu i snijeg na tlu iz izdanja; kad je stigao snijeg,
+// kartice snijega računaju se iznova.
+func (p *primateljIzdanja) primiOborine(izdanje string, oborine map[string]prognoza.Tablica) {
+	if err := prognoza.PrimiOborine(p.ob, oborine); err != nil {
+		log.Printf("prognoza: kiša iz izdanja %s: %v", izdanje, err)
+		return
+	}
+	if p.snijeg != nil && prognoza.ImaSnijegaNaTlu(oborine) {
+		p.snijeg()
 	}
 }
 
