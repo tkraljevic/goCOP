@@ -81,7 +81,7 @@
   <div class="pomoc-skupina">
     <h3>Svaki dan</h3>
     <a class="pomoc-tema" href="#dashboard">{{icon "house"}}<span>Naslovna</span><small>8 podnaslova</small>{{icon "chevron-right"}}</a>
-    <a class="pomoc-tema" href="#readings">{{icon "ruler"}}<span>Očitanja</span><small>8 podnaslova</small>{{icon "chevron-right"}}</a>
+    <a class="pomoc-tema" href="#readings">{{icon "ruler"}}<span>Očitanja</span><small>9 podnaslova</small>{{icon "chevron-right"}}</a>
     <a class="pomoc-tema" href="#prognoze">{{icon "chart-column"}}<span>Prognoze</span><small>6 podnaslova</small>{{icon "chevron-right"}}</a>
     <a class="pomoc-tema" href="#karta">{{icon "map"}}<span>Karta</span>{{icon "chevron-right"}}</a>
     <a class="pomoc-tema" href="#obilazak">{{icon "ruler"}}<span>Obilazak letava</span>{{icon "chevron-right"}}</a>
@@ -460,7 +460,9 @@
       u zadnjih 90 dana sami očitali, poredani po vremenu kad ih obično obilazite. Skupni unos
       ispisa se ne broji, jer letvu nije obišao onaj tko je ispis zalijepio. Traka pokazuje
       koliko ih je danas očitano, a gumb <em>Nastavi obilazak</em> vodi na prvu koja još nije.
-      <em>Upiši</em> uz letvu otvara upis, a nakon spremanja program se vraća na isti popis.</p>
+      <em>Upiši</em> uz letvu otvara upis, a nakon spremanja program se vraća na isti popis.
+      Svako ručno očitanje vrijedi, i kad letva ima mjerni uređaj: vidi
+      <a href="#ocitanja-vaznost">Zašto je ručno očitanje važno</a>.</p>
     {{template "pomocSlika" (list "ocitanja-moje-letve" "Moje letve na mobitelu: jedna od dvije letve danas je očitana, gumb Nastavi obilazak vodi na Aljmaš, a uz njega je Upiši." "359")}}
     <p>Letva je danas očitana kad je netko na nju ručno upisao očitanje; uz vrijeme piše i tko.
       Satno očitanje uređaja i skupni unos se ne broje. Ostale letve su ispod, po vodama; čipom
@@ -831,6 +833,7 @@
       <a href="#ocitanja-zadnje">Zadnje očitanje</a>
       <a href="#ocitanja-graf">Kretanje vodostaja</a>
       <a href="#ocitanja-popis">Upis i popis očitanja</a>
+      <a href="#ocitanja-vaznost">Zašto je ručno očitanje važno</a>
       <a href="#ocitanja-raspon">Vrijednosti izvan raspona</a>
       <a href="#ocitanja-kvar">Kvar mjernog uređaja</a>
       <a href="#ocitanja-rucno">Ispravak po ručnom očitanju</a>
@@ -926,6 +929,24 @@
       ne samo zadnjih nekoliko očitanja. Odluka je lokalna — druga računala ostaju kakva jesu.
       Kao i postavke čvora, mijenja je globalni administrator s ovog računala ili iz lokalne
       mreže; izvana se gumb ne vidi.</p>
+
+    <h3 id="ocitanja-vaznost">Zašto je ručno očitanje važno</h3>
+    <p>Mjerni uređaj s vremenom zna odlutati, zastati ili odskočiti, a letva ne griješi. Zato je
+      ručno očitanje uvijek mjerodavno, i zato je dobro da ga bude što više.</p>
+    <ul>
+      <li><strong>Ispravlja uređaj.</strong> Kad se ručno očitanje razlikuje od uređaja, program po
+        njemu ispravlja preuzeta očitanja (<a href="#ocitanja-rucno">Ispravak po ručnom
+        očitanju</a>). Ispravak vrijedi tek kad ga potvrde dva uzastopna ručna očitanja, pa je svako
+        važno.</li>
+      <li><strong>Otkriva kvar.</strong> Kad uređaj stane ili odskoči, ručno očitanje je jedina prava
+        vrijednost tog dana, a vidi se i je li uređaj zaista u kvaru
+        (<a href="#ocitanja-kvar">Kvar mjernog uređaja</a>).</li>
+      <li><strong>Puni arhivu.</strong> Ručna očitanja ostaju u arhivi vodostaja uz automatska. Što
+        su nizovi duži i točniji, to su dugoročno bolje i prognoze.</li>
+    </ul>
+    <p>Zato: <strong>tko god je na terenu i prođe pored letve, neka je očita i upiše.</strong> To
+      traje minutu. Ako letva nije u vašem sektoru, program očitanje svejedno primi, samo uz podatak
+      tko je očitao i kako, npr. „na terenu, u prolazu”. Gost i preglednik ne upisuju.</p>
 
     <h3 id="ocitanja-raspon">Vrijednosti izvan raspona</h3>
     <p>Program prima samo vrijednosti koje imaju smisla:</p>
