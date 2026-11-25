@@ -19,6 +19,15 @@ func postavi[T any](t *testing.T, p *T, v T) {
 	t.Cleanup(func() { *p = staro })
 }
 
+// postaviSnijeg mijenja primijenjene postavke snijega za jedan test i vraća
+// zatečene kad test završi.
+func postaviSnijeg(t *testing.T, p PostavkeSnijega) {
+	t.Helper()
+	staro := postavkeSnijega.Load()
+	postavkeSnijega.Store(&p)
+	t.Cleanup(func() { postavkeSnijega.Store(staro) })
+}
+
 // postavke su globalne postavke koje testovi paketa mijenjaju, snimljene u
 // jednom trenutku. Karte i odsječci su preslike, da se vidi i izmjena na
 // mjestu.
@@ -27,6 +36,7 @@ type postavke struct {
 	StalniIspravakSati int
 	VrhoviIzDnevnog    map[string]bool
 	DnevniCiljevi      []DnevniCilj
+	Snijeg             PostavkeSnijega
 }
 
 func snimiPostavke() postavke {
@@ -35,6 +45,7 @@ func snimiPostavke() postavke {
 		StalniIspravakSati: StalniIspravakSati,
 		VrhoviIzDnevnog:    maps.Clone(VrhoviIzDnevnog),
 		DnevniCiljevi:      slices.Clone(DnevniCiljevi),
+		Snijeg:             PostavkeSnijegaURadu(),
 	}
 }
 

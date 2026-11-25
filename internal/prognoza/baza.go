@@ -251,6 +251,13 @@ CREATE TABLE IF NOT EXISTS model_letve (
 	proba   TEXT NOT NULL DEFAULT '',  -- otisak definicije i brojeva koje je Probaj mjerio
 	sadrzaj TEXT NOT NULL              -- JSON
 ) WITHOUT ROWID;
+-- Primijenjene postavke modela, po ključu (zasad samo „snijeg”, ZapisSnijega).
+-- Bez retka vrijede postavke iz programa. Putuje s modelom, kao model_letve.
+CREATE TABLE IF NOT EXISTS model_postavke (
+	kljuc   TEXT PRIMARY KEY,
+	kad     TEXT NOT NULL DEFAULT '',  -- kad je primijenjeno, kako stoji uz promjenu
+	sadrzaj TEXT NOT NULL              -- JSON
+) WITHOUT ROWID;
 -- Nacrt računa letve, dok ga stručnjak slaže (NacrtLetve). Ostaje na ovom
 -- računalu: nije među tablicama modela, pa ne putuje i izdanje ga ne čita.
 CREATE TABLE IF NOT EXISTS model_nacrt (

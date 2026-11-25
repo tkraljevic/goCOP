@@ -216,9 +216,11 @@ func (o *Osvjezivac) ucitajDnevneIzZapisa() {
 	OsvjeziDnevnuPostavu(o.Baza)
 }
 
-// OsvjeziDnevnuPostavu čita dnevne blokove iz baze i u dnevnik piše što nije
-// uzeto. Zove se pri pokretanju, prije svakog računa i kad model stigne razmjenom.
+// OsvjeziDnevnuPostavu čita dnevne blokove i postavke snijega iz baze i u
+// dnevnik piše što nije uzeto. Zove se pri pokretanju, prije svakog računa i
+// kad model stigne razmjenom.
 func OsvjeziDnevnuPostavu(baza *sql.DB) {
+	osvjeziPostavkeSnijega(baza)
 	odbijeni, err := UcitajDnevneIzZapisa(baza)
 	if err != nil {
 		log.Printf("prognoza: dnevni model iz zapisa: %v", err)

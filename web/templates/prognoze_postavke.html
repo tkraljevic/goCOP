@@ -4,7 +4,7 @@
 
 {{define "content"}}
 {{/* Raspored po dizajnu (goCOP-m3, 13 · Prognoze · Postavke): kartice M3 redom
-     Satni ili dnevni model, Model prognoze, Generiranje,
+     Satni ili dnevni model, Model prognoze, Model snijega (s rezultatom probe), Generiranje,
      Ranija prognoza, Napomena o podacima i Priprema modela. */}}
 <a href="/prognoze" class="povratna-poveznica">← Prognoze</a>
 <div class="prog-str-glava">
@@ -53,6 +53,80 @@
   <p>Po sektorima: koji vodotoci imaju prognozu i što letvama fali u arhivi da bi je dobile.</p>
   <div class="prog-postavke-gumbi"><a href="/prognoze/model" class="btn prog-obrub">Otvori model prognoze</a></div>
 </section>
+
+{{with .Snijeg}}
+<section class="letva-ploca prog-ploca" id="snijeg">
+  <h2>Model snijega</h2>
+  <p>{{.Stanje}}</p>
+  <form method="POST" action="/prognoze/postavke/snijeg" class="prog-prikaz-obrazac snijeg-obrazac">
+    <fieldset class="snijeg-polja"{{if not .SmijeUrediti}} disabled{{end}}>
+      <label class="snijeg-prekidac" for="snijeg_ukljucen">
+        <span><span class="snijeg-prekidac-naslov">Model snijega uključen</span>
+          <small>Snijeg na slivovima ostaje na tlu dok se ne otopi; prognoza dobiva kišu i otopljeni snijeg. Isključen daje oborinu kakva je pala.</small></span>
+        <input type="checkbox" class="prekidac" role="switch" id="snijeg_ukljucen" name="ukljucen" value="1"{{if .Ukljucen}} checked{{end}}>
+      </label>
+      <div class="snijeg-red">
+        <div class="snijeg-polje">
+          <label for="snijeg_topljenje">Brzina topljenja</label>
+          <span class="snijeg-unos"><input type="number" id="snijeg_topljenje" name="topljenje" value="{{.Topljenje}}" min="{{.NajmanjeTopljenje}}" max="{{.NajviseTopljenje}}" step="0.1" required inputmode="decimal" aria-describedby="snijeg_topljenje_pomoc">
+            <span class="snijeg-jedinica">mm vode po °C na dan</span></span>
+          <small id="snijeg_topljenje_pomoc">Koliko se snijega otopi za svaki stupanj srednje dnevne temperature iznad praga. Od 1 do 8.</small>
+        </div>
+        <div class="snijeg-polje">
+          <label for="snijeg_prag">Temperatura topljenja</label>
+          <span class="snijeg-unos"><input type="number" id="snijeg_prag" name="prag" value="{{.Prag}}" min="{{.NajnizaTemperatura}}" max="{{.NajvisaTemperatura}}" step="0.1" required inputmode="decimal" aria-describedby="snijeg_prag_pomoc">
+            <span class="snijeg-jedinica">°C</span></span>
+          <small id="snijeg_prag_pomoc">Iznad ove srednje dnevne temperature snijeg se topi. Od −2 do 3.</small>
+        </div>
+      </div>
+    </fieldset>
+    <div class="prog-postavke-gumbi">
+    {{if .SmijeUrediti}}
+      <button type="submit" name="radnja" value="spremi" class="btn prog-obrub">Spremi kao nacrt</button>
+      <button type="submit" name="radnja" value="probaj" class="btn btn-primary">Isprobaj na povijesti</button>
+      {{if and .ImaNacrt (not .Proba)}}<button type="submit" name="radnja" value="odbaci" class="btn btn-link" formnovalidate>Odbaci nacrt</button>{{end}}
+      <span class="reg-card-sub">Nacrt ne mijenja prognozu.</span>
+    {{else}}<p class="reg-card-sub">{{.ZastoNe}}</p>{{end}}
+    </div>
+    {{if .Nacrt}}<p class="reg-card-sub">{{.Nacrt}}</p>{{end}}
+  </form>
+</section>
+
+{{if .Proba}}{{$k := .}}{{with .Proba}}
+<section class="letva-ploca prog-ploca" id="snijeg-proba">
+  <h2 class="snijeg-naslov">Rezultat probe · Model snijega <span class="rac-cip pozor">Nacrt</span></h2>
+  <p>Proba na arhivi{{if .Razdoblje}} od {{.Razdoblje}}{{end}}, samo snježne zime. Broj je promašaj vodostaja u cm (korijen srednjeg kvadrata):
+    s primijenjenim postavkama → s nacrtom. Model se za oboje uči na arhivi prije razdoblja probe. Ništa još nije primijenjeno.</p>
+  <div class="uv-tablica snijeg-tablica" role="table" aria-label="Rezultat probe modela snijega po danu">
+    <div class="uv-glava snijeg-proba-red" role="row"><span role="columnheader">Letva</span>
+      <span role="columnheader">1. dan</span><span role="columnheader">2. dan</span><span role="columnheader">3. dan</span>
+      <span role="columnheader">4. dan</span><span role="columnheader">5. dan</span><span role="columnheader">6. dan</span>
+      <span role="columnheader">Ocjena</span></div>
+    {{range .Letve}}<div class="uv-redak snijeg-proba-red" role="row">
+      <span role="cell">{{.Ime}}</span>
+      {{if .Greska}}<span role="cell" class="snijeg-greska">Nije izmjereno: {{.Greska}}</span>
+      {{else}}{{range .Dani}}<span role="cell" class="mod-broj" data-naslov="{{.Dan}}. dan">{{.Tekst}}</span>{{end}}{{end}}
+      <span role="cell"><span class="rac-cip{{with .Ocjena.Klasa}} {{.}}{{end}}">{{.Ocjena.Natpis}}</span></span>
+    </div>{{end}}
+  </div>
+  {{range .Natpisi}}<p class="reg-card-sub">{{.}}.</p>{{end}}
+  {{if .Kad}}<p class="reg-card-sub">Probano {{.Kad}}.</p>{{end}}
+  {{if .Zastarjela}}<p class="rac-lose" role="alert">Primijenjene postavke promijenile su se otkad je nacrt proban. Isprobaj ga iznova, pa primijeni.</p>
+  {{else if $k.SmijeUrediti}}
+  <form method="POST" action="/prognoze/postavke/snijeg" class="prog-prikaz-obrazac">
+    {{if .Losijih}}<p class="rac-lose" role="alert">Na {{.Losijih}} {{uzBroj .Losijih "letvi" "letve" "letava"}} nacrt je lošiji nego sada. Primijeni ga samo ako znaš zašto, i to napiši u razlog.</p>{{end}}
+    <div class="prog-postavke-polje"><label for="snijeg_razlog">Razlog *</label>
+      <input type="text" id="snijeg_razlog" name="razlog" class="form-control snijeg-razlog" required maxlength="300" autocomplete="off"></div>
+    <div class="prog-postavke-gumbi">
+      <button type="submit" name="radnja" value="primijeni" class="btn btn-primary">Primijeni</button>
+      <button type="submit" name="radnja" value="odbaci" class="btn btn-link" formnovalidate>Odbaci</button>
+    </div>
+  </form>
+  {{end}}
+  <p class="reg-card-sub">Promjena vrijedi tek nakon primjene; dotad prognoza računa s primijenjenim postavkama.</p>
+</section>
+{{end}}{{end}}
+{{end}}
 
 {{if .MozeGenerirati}}
 <section class="letva-ploca prog-ploca prog-generiraj" id="generiraj" data-u-tijeku="{{if .Generira}}1{{else}}0{{end}}">

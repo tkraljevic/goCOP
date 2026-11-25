@@ -814,25 +814,28 @@ func OborineOkoSada(iz *OborinskiIzvor, sada int64, unatrag, unaprijed int) (map
 // srednjak dnevnih zbrojeva kišomjera međusliva, u mm, s modelom snijega
 // (kiša i otopljeni snijeg, vidi KorakSnijega). Dan ulazi kad ga ima barem
 // polovica težine međusliva; težine se svedu na one prisutne. Ključevi su
-// OborinaKljuc(sliv), da nizovi stanu uz letve u istu mapu.
+// OborinaKljuc(sliv), da nizovi stanu uz letve u istu mapu. Snijeg ide po
+// primijenjenim postavkama (PostavkeSnijegaURadu).
 func DnevneOborine(arhiva *sql.DB, tocke []OborinskaTocka) (map[string]DnevniNiz, error) {
-	return dnevneOborine(arhiva, tocke, true)
+	return dnevneOborine(arhiva, tocke, PostavkeSnijegaURadu())
 }
 
 // UkupneDnevneOborine je DnevneOborine bez modela snijega: oborina kakva je
 // pala, za pragove kartice „Jače oborine”.
 func UkupneDnevneOborine(arhiva *sql.DB, tocke []OborinskaTocka) (map[string]DnevniNiz, error) {
-	return dnevneOborine(arhiva, tocke, false)
+	return dnevneOborine(arhiva, tocke, PostavkeSnijega{})
 }
 
-func dnevneOborine(arhiva *sql.DB, tocke []OborinskaTocka, sSnijegom bool) (map[string]DnevniNiz, error) {
+// dnevneOborine je DnevneOborine s postavkama snijega p; isključene daju
+// oborinu kakva je pala.
+func dnevneOborine(arhiva *sql.DB, tocke []OborinskaTocka, p PostavkeSnijega) (map[string]DnevniNiz, error) {
 	poTocki := make([]map[int64]float64, len(tocke))
 	for i, t := range tocke {
 		if t.Tezina <= 0 {
 			continue
 		}
 		var err error
-		if poTocki[i], err = dnevnaOborinaTocke(arhiva, t.Code, sSnijegom); err != nil {
+		if poTocki[i], err = dnevnaOborinaTocke(arhiva, t.Code, p); err != nil {
 			return nil, err
 		}
 	}
