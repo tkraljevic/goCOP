@@ -242,7 +242,7 @@ func (k *satniKrug) ulaziKisomjere(sada time.Time) bool {
 	if err != nil {
 		log.Printf("stvarni kišomjeri, ulaganje: %v", err)
 	}
-	izdano := izgradiIIzdaj(k.posluzitelj, letve)
+	izdano := izgradiIIzdaj(k.posluzitelj, letve, "stvarni kišomjeri")
 	if izdano > 0 && k.razmjenaArh != nil {
 		k.razmjenaArh.potakniKrug() // kazalo novih paketa ide u razmjenu odmah
 	}
@@ -250,19 +250,20 @@ func (k *satniKrug) ulaziKisomjere(sada time.Time) bool {
 	return true
 }
 
-// izgradiIIzdaj izgradi svaku promijenjenu letvu kišomjera iz stabla i
-// odmah izda njen paket, pa arhiva kiše raste i na ostalim čvorovima bez
-// ručnog izdavanja; vraća koliko je paketa izdano
-func izgradiIIzdaj(arh arhivaKisomjera, letve []string) int {
+// izgradiIIzdaj izgradi svaku promijenjenu letvu kišomjera (ili točku sa
+// snijegom na tlu) iz stabla i odmah izda njen paket, pa arhiva raste i na
+// ostalim čvorovima bez ručnog izdavanja; opis ide u dnevnik uz grešku.
+// Vraća koliko je paketa izdano.
+func izgradiIIzdaj(arh arhivaKisomjera, letve []string, opis string) int {
 	izdano := 0
 	for _, l := range letve {
 		if _, err := arh.IzgradiLetvu(l, nil); err != nil {
-			log.Printf("stvarni kišomjeri, gradnja %s: %v", l, err)
+			log.Printf("%s, gradnja %s: %v", opis, l, err)
 			continue
 		}
 		iz, err := arh.IzdajArhivu(l, false, nil)
 		if err != nil {
-			log.Printf("stvarni kišomjeri, izdavanje %s: %v", l, err)
+			log.Printf("%s, izdavanje %s: %v", opis, l, err)
 			continue
 		}
 		izdano += iz.Promijenjenih

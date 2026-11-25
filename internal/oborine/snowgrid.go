@@ -8,13 +8,19 @@ package oborine
 // (±0,1° širine i ±0,14° dužine), a vrijednost točke je srednjak čvorova s
 // podatkom kad ih ima barem pet. Povijest se preuzme jednom, desetljeće po
 // desetljeće s predahom između zahtjeva, a poslije samo zadnji dani kad
-// izvor objavi novi dan. Svaki čvor to radi sam, iz javnog izvora; ništa od
-// toga ne ide razmjenom.
+// izvor objavi novi dan.
+//
+// Kao vodostaje, izvor čita samo jedan čvor: onaj koji izdaje prognozu
+// (Smije). On preuzeto ulaže u arhivsko stablo (izvor snowgrid, veličina
+// snijeg-na-tlu, po danu, letva je šifra točke) i izdaje pakete točaka, pa
+// povijest ostalima stiže paketima arhive, a tekuću sezonu šalje uz svako
+// izdanje prognoze (tablica snijeg_na_tlu). Ostali čvorovi izvor ne zovu.
 
 import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -22,9 +28,18 @@ import (
 	"net/url"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
+	"gocop/internal/arhiva"
 	"gocop/internal/models"
+)
+
+// Snijeg na tlu u arhivi: izvor, veličina i vrsta niza.
+const (
+	IzvorSnowgrida    = "snowgrid"
+	VelicinaSnijega   = "snijeg-na-tlu"
+	vrstaSnijegaNaTlu = "dnevni"
 )
 
 // AdresaSnowgrida je skup dnevnih podataka SNOWGRID-CL na GeoSphere Austria.
@@ -39,6 +54,7 @@ const (
 	ponovnoDana        = 9
 	predahSnowgrida    = 3 * time.Second
 	provjeraSnowgrida  = 3 * time.Hour
+	provjeraUloge      = 10 * time.Minute
 	ponovnoNakonGreske = 30 * time.Minute
 	pokusajaSnowgrida  = 4
 )
@@ -49,8 +65,14 @@ var obuhvatSnowgrida = struct{ sjever, jug, istok, zapad float64 }{49.1775, 46.1
 
 // SnijegNaTlu preuzima i čuva snijeg na tlu iz SNOWGRID-a.
 type SnijegNaTlu struct {
-	DB      *sql.DB
-	Tocke   func() ([]Tocka, error)
+	DB    *sql.DB
+	Tocke func() ([]Tocka, error)
+	// Arhiva je arhiva vodostaja (samo za čitanje): povijest SNOWGRID-a
+	// stoji u njoj, a baza oborina nadopunjuje novije dane; nil bez arhive
+	Arhiva *sql.DB
+	// Smije kaže smije li ovaj čvor sada čitati izvor: samo čvor koji
+	// izdaje prognozu. Prazno znači da smije (testovi i alati).
+	Smije   func() bool
 	Adresa  string       // prazno znači AdresaSnowgrida
 	Klijent *http.Client // prazno znači zadani s vremenskim ograničenjem
 	// Cekaj čeka između zahtjeva i prije ponovnog pokušaja; prazno znači
@@ -77,6 +99,10 @@ func pripremiSnijegNaTlu(d *sql.DB) error {
 		do INTEGER NOT NULL,
 		preuzeto INTEGER NOT NULL,
 		PRIMARY KEY (kisomjer, od)
+	);
+	CREATE TABLE IF NOT EXISTS snijeg_na_tlu_u_arhivi (
+		kisomjer TEXT PRIMARY KEY,
+		do INTEGER NOT NULL
 	)`)
 	return err
 }
@@ -452,8 +478,13 @@ func (s *SnijegNaTlu) Vrti(ctx context.Context) {
 	}
 }
 
-// krug je jedno preuzimanje; vraća koliko čekati do idućeg.
+// krug je jedno preuzimanje; vraća koliko čekati do idućeg. Čvor koji ne
+// izdaje prognozu izvor ne zove: snijeg mu stiže arhivom i izdanjem, a
+// uloga se ponovno gleda za deset minuta.
 func (s *SnijegNaTlu) krug(ctx context.Context) time.Duration {
+	if s.Smije != nil && !s.Smije() {
+		return provjeraUloge
+	}
 	n, err := s.Nadopuni(ctx)
 	if n > 0 && s.NakonUpisa != nil {
 		s.NakonUpisa()
@@ -475,21 +506,124 @@ func (s *SnijegNaTlu) javi(format string, args ...any) {
 }
 
 // Nizovi vraća snijeg na tlu (mm vode) po točki i danu za dane od–do,
-// uključivo.
+// uključivo: povijest iz arhive, a preko nje dani iz baze oborina (što je
+// čvor sam preuzeo ili dobio uz izdanje prognoze), jer su noviji.
 func (s *SnijegNaTlu) Nizovi(tocke []string, od, do int64) (map[string]map[int64]float64, error) {
 	out := map[string]map[int64]float64{}
 	for _, t := range tocke {
+		niz, err := s.izArhive(t, od, do)
+		if err != nil {
+			return nil, err
+		}
 		r, err := s.DB.Query(`SELECT dan, swe FROM snijeg_na_tlu WHERE kisomjer = ? AND dan BETWEEN ? AND ?`, t, od, do)
 		if err != nil {
 			return nil, err
 		}
-		niz, err := citajNiz(r)
+		novi, err := citajNiz(r)
 		if err != nil {
 			return nil, err
+		}
+		for d, v := range novi {
+			niz[d] = v
 		}
 		out[t] = niz
 	}
 	return out, nil
+}
+
+// izArhive je spojeni dnevni niz snijega na tlu točke iz arhive za dane
+// od–do; bez arhive, ili dok arhiva tog niza nema, prazan.
+func (s *SnijegNaTlu) izArhive(tocka string, od, do int64) (map[int64]float64, error) {
+	if s.Arhiva == nil {
+		return map[int64]float64{}, nil
+	}
+	r, err := s.Arhiva.Query(`SELECT vrijeme / 86400, vrijednost FROM spoj
+		WHERE letva = ? AND velicina = ? AND korak = 'dnevni' AND vrijeme BETWEEN ? AND ?`,
+		tocka, VelicinaSnijega, od*86400, do*86400)
+	if err != nil {
+		if jeBezTablice(err) {
+			return map[int64]float64{}, nil // arhiva još nije stigla
+		}
+		return nil, err
+	}
+	return citajNiz(r)
+}
+
+// jeBezTablice javlja da baza nema tražene tablice: prazna arhiva čvora
+// kojemu paketi još nisu stigli.
+func jeBezTablice(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "no such table")
+}
+
+// Ulozi stavlja preuzeti snijeg na tlu u arhivsko stablo (koren), u mapu
+// sliva sliv: za svaku točku dane od zadnjeg ulaganja, s devet dana prije
+// njega jer ih izvor zna ispraviti, a prvi put cijelu povijest. Vraća točke
+// kojima se niz promijenio, da se mogu izgraditi i izdati.
+func (s *SnijegNaTlu) Ulozi(koren, sliv string) ([]string, error) {
+	tocke, err := s.Tocke()
+	if err != nil {
+		return nil, err
+	}
+	var promijenjene []string
+	var ostaci error
+	for _, t := range tocke {
+		ulozeno, err := s.uloziTocku(koren, sliv, t.Code)
+		if err = arhiva.SkupiOstatak(err, &ostaci); err != nil {
+			return promijenjene, errors.Join(ostaci, fmt.Errorf("%s: %w", t.Code, err))
+		}
+		if ulozeno {
+			promijenjene = append(promijenjene, t.Code)
+		}
+	}
+	return promijenjene, ostaci
+}
+
+// uloziTocku uloži dane jedne točke od zadnjeg ulaganja (prvi put sve) i
+// zapamti dokle je uloženo; javlja je li išta uloženo. Stari niz koji je
+// ostao (arhiva.StariNizOstao) vraća se uz uloženo.
+func (s *SnijegNaTlu) uloziTocku(koren, sliv, tocka string) (bool, error) {
+	var bilo sql.NullInt64
+	if err := s.DB.QueryRow(`SELECT do FROM snijeg_na_tlu_u_arhivi WHERE kisomjer = ?`, tocka).Scan(&bilo); err != nil && err != sql.ErrNoRows {
+		return false, err
+	}
+	od := int64(math.MinInt64) // prvi put sve
+	if bilo.Valid {
+		od = bilo.Int64 - ponovnoDana
+	}
+	redci, zadnji, err := s.redciOd(tocka, od)
+	if err != nil || len(redci) == 0 {
+		return false, err
+	}
+	_, ostatak := arhiva.Dopuni(koren, sliv, tocka, IzvorSnowgrida, VelicinaSnijega, vrstaSnijegaNaTlu, redci)
+	if arhiva.SkupiOstatak(ostatak, new(error)) != nil {
+		return false, ostatak
+	}
+	if _, err := s.DB.Exec(`INSERT INTO snijeg_na_tlu_u_arhivi (kisomjer, do) VALUES (?, ?)
+		ON CONFLICT(kisomjer) DO UPDATE SET do = excluded.do`, tocka, zadnji); err != nil {
+		return false, err
+	}
+	return true, ostatak
+}
+
+// redciOd su dani točke od dana od kao retci arhive (po danu), i zadnji dan.
+func (s *SnijegNaTlu) redciOd(tocka string, od int64) ([]arhiva.Redak, int64, error) {
+	r, err := s.DB.Query(`SELECT dan, swe FROM snijeg_na_tlu WHERE kisomjer = ? AND dan >= ? ORDER BY dan`, tocka, od)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer r.Close()
+	var out []arhiva.Redak
+	var zadnji int64
+	for r.Next() {
+		var d int64
+		var v float64
+		if err := r.Scan(&d, &v); err != nil {
+			return nil, 0, err
+		}
+		out = append(out, arhiva.Redak{Vrijeme: time.Unix(d*86400, 0).UTC(), PoDanu: true, Vrijednost: v})
+		zadnji = d
+	}
+	return out, zadnji, r.Err()
 }
 
 func citajNiz(r *sql.Rows) (map[int64]float64, error) {

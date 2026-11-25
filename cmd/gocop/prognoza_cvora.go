@@ -155,7 +155,9 @@ func pokreniPrognozu(o ovisnostiPrognoze) *sql.DB {
 	oborineUvoznik, kisUvoznik, ob := pripremiOborine(database, dbPath, node, server, osvjezivac)
 	oborineDB = ob
 	if oborineUvoznik != nil {
-		pokreniSnijegNaTlu(syncCtx, database, arhivaRO, oborineUvoznik, server)
+		pokreniSnijegNaTlu(syncCtx, snijegCvora{registar: database, arhiva: arhivaRO, oborine: oborineUvoznik,
+			posluzitelj: server, izdaje: func() bool { return peersService.TrenutneUloge().Izdaje },
+			podaci: o.podaci, razmjenaArh: razmjenaArh})
 	}
 	krug := &satniKrug{
 		uvoznik: javniUvoznik, mreza: peersService, baza: database, prognoze: pb,
@@ -282,21 +284,44 @@ func izvorOborina(registar, arhiva *sql.DB, u *oborine.Uvoznik) (*prognoza.Obori
 		Snijeg:    u.SnijegITemperatura, ZalihaSnijega: zalihaSnijegaZa(arhiva, u).NaPocetku}, nil
 }
 
-// pokreniSnijegNaTlu preuzima snijeg na tlu (SNOWGRID) za izvedene točke
-// alpskih slivova u bazu oborina i daje ga poslužitelju za karticu Snijeg u
-// Alpama, stranicu kišomjera i Slivove. Radi na svakom čvoru, neovisno o
-// ulozi: izvor je javan, pa ga svaki čvor čita sam i ništa ne ide razmjenom.
-func pokreniSnijegNaTlu(ctx context.Context, registar, arhiva *sql.DB, u *oborine.Uvoznik, server *web.Server) {
-	naTlu := &oborine.SnijegNaTlu{DB: u.DB, Tocke: oborine.TockeAlpskihSlivova(registar, snijeg.Oznake()), Javi: log.Printf}
-	izvor := izvorSnijega(registar, arhiva, u, naTlu)
-	naTlu.NakonUpisa = izvor.Zaboravi
-	server.SetSnijegNaTlu(izvor)
+// snijegCvora je ono o čemu ovisi snijeg na tlu na čvoru.
+type snijegCvora struct {
+	registar, arhiva *sql.DB // registar slivova (gocop.db) i arhiva samo za čitanje
+	oborine          *oborine.Uvoznik
+	posluzitelj      *web.Server
+	izdaje           func() bool     // čvor izdaje prognozu, pa jedini čita SNOWGRID
+	podaci           string          // stablo izvornih datoteka arhive; prazno bez njega
+	razmjenaArh      *razmjenaArhive // nil bez arhive
+}
+
+// pokreniSnijegNaTlu daje poslužitelju snijeg na tlu (SNOWGRID) izvedenih
+// točaka alpskih slivova za karticu Snijeg u Alpama, stranicu kišomjera i
+// Slivove. Kao vodostaje, izvor čita samo čvor koji izdaje prognozu: on
+// preuzeto ulaže u arhivu i izdaje pakete točaka, a tekuću sezonu šalje uz
+// izdanje. Ostali čvorovi povijest dobiju paketima, a sezonu s izdanjem.
+func pokreniSnijegNaTlu(ctx context.Context, s snijegCvora) {
+	naTlu := &oborine.SnijegNaTlu{DB: s.oborine.DB, Arhiva: s.arhiva, Smije: s.izdaje,
+		Tocke: oborine.TockeAlpskihSlivova(s.registar, snijeg.Oznake()), Javi: log.Printf}
+	izvor := izvorSnijega(s.registar, s.arhiva, s.oborine, naTlu)
+	u := &snijegUArhivu{naTlu: naTlu, podaci: s.podaci, razmjenaArh: s.razmjenaArh}
+	if s.posluzitelj != nil {
+		u.arh = s.posluzitelj
+	}
+	naTlu.NakonUpisa = func() {
+		u.ulozi()
+		izvor.Zaboravi()
+	}
+	primateljPrognoze.naSnijeg(izvor.Zaboravi)
+	if s.razmjenaArh != nil {
+		s.razmjenaArh.naUgradnju(izvor.Zaboravi)
+	}
+	s.posluzitelj.SetSnijegNaTlu(izvor)
 	vrtiSnijegNaTlu(ctx, naTlu)
 }
 
 // izvorSnijega slaže snijeg na tlu za prikaz: točke iz registra, SNOWGRID
-// i satni nizovi iz baze oborina, a za točku bez SNOWGRID-a model snijega
-// prognoze. Upozorenje o kiši i topljenju računa svaki čvor sam: satnu
+// iz arhive i baze oborina (naTlu.Nizovi), satni nizovi iz baze oborina, a
+// za točku bez SNOWGRID-a model snijega prognoze. Upozorenje o kiši i topljenju računa svaki čvor sam: satnu
 // kišu s prognozom, snijegom i temperaturom čvor koji ne izdaje prognozu
 // dobije uz izdanje (tablica satne), a razine vode iz svoje arhive.
 func izvorSnijega(registar, arhiva *sql.DB, u *oborine.Uvoznik, naTlu *oborine.SnijegNaTlu) *snijeg.Izvor {

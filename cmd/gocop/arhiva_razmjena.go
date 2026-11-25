@@ -73,6 +73,15 @@ type razmjenaArhive struct {
 	jm       sync.Mutex      // čuva javljeno; stanje ga čita dok krug traje
 	javljeno map[string]bool // što je jednom zapisano u dnevnik, da se ne ponavlja svaki krug
 	potakni  chan struct{}
+	nakon    func() // zove se nakon ugradnje primljenih paketa (pod jm); nil bez nje
+}
+
+// naUgradnju postavi što se zove kad se ugrade paketi primljeni razmjenom:
+// snijeg na tlu tada iznova računa pragove iz arhive.
+func (r *razmjenaArhive) naUgradnju(f func()) {
+	r.jm.Lock()
+	r.nakon = f
+	r.jm.Unlock()
 }
 
 func novaRazmjenaArhive(baza *sql.DB, rec *ledger.Recorder, sp *sadrzaj.Spremiste, srv *web.Server, p *peers.Service, arhivaPut, paketiDir string) *razmjenaArhive {
@@ -275,6 +284,12 @@ func (r *razmjenaArhive) primi(ctx context.Context) {
 	}
 	if ugradjeno > 0 {
 		log.Printf("arhiva: ugrađeno %d paketa primljenih razmjenom", ugradjeno)
+		r.jm.Lock()
+		nakon := r.nakon
+		r.jm.Unlock()
+		if nakon != nil {
+			nakon()
+		}
 	}
 }
 

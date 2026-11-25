@@ -372,3 +372,76 @@ func TestOmotnicaPokvarenogZapisa(t *testing.T) {
 		t.Error("NaN se ne da zapisati kao JSON, a Zamotaj nije javio grešku")
 	}
 }
+
+// Snijeg na tlu putuje s izdanjem: od početka sezone (1. 8.), a kad je
+// sezona tek počela, zadnjih SnijegUnatragDana dana. Primatelj ga upiše u
+// svoju bazu oborina, a primatelj bez te tablice (stariji) ga preskoči, i
+// kiša mu stigne kao i prije. Brojevi su izmišljeni.
+func TestSnijegNaTluRazmjenom(t *testing.T) {
+	const sada = int64(497600) // 7. 10. 2026.
+	danas := sada / 24
+	pocetak := PocetakSezone(danas)
+	izdavac, primatelj, stari := bazaOborina(t, "a.db"), bazaOborina(t, "b.db"), bazaOborina(t, "c.db")
+	for _, b := range []*sql.DB{izdavac, primatelj} {
+		if _, err := b.Exec(`CREATE TABLE snijeg_na_tlu (kisomjer TEXT NOT NULL, dan INTEGER NOT NULL, swe REAL NOT NULL,
+			PRIMARY KEY (kisomjer, dan))`); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := izdavac.Exec(`INSERT INTO snijeg_na_tlu VALUES ('k-a-1', ?, 1), ('k-a-1', ?, 2.25), ('k-a-1', ?, 3)`,
+		pocetak+3-SnijegUnatragDana, pocetak, danas-1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := izdavac.Exec(`INSERT INTO satne VALUES ('k-a-1', ?, 0.5, 0, 1, 0, 1)`, sada-1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := primatelj.Exec(`INSERT INTO snijeg_na_tlu VALUES ('k-a-1', ?, 9)`, danas-1); err != nil {
+		t.Fatal(err)
+	}
+	tablice, err := SastaviOborine(izdavac, sada)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := len(tablice[TablicaSnijegaNaTlu].Redci); n != 2 || !ImaSnijegaNaTlu(tablice) {
+		t.Fatalf("poslano %d dana snijega, želim 2 (od početka sezone)", n)
+	}
+	om, err := Zamotaj(Omotnica{Izdano: sada}, PaketIzdanja{Oborine: tablice})
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload, err := json.Marshal(om)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stigao PaketIzdanja
+	if _, err := Odmotaj(payload, &stigao); err != nil {
+		t.Fatal(err)
+	}
+	if err := PrimiOborine(primatelj, stigao.Oborine); err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	var mm float64
+	if err := primatelj.QueryRow(`SELECT count(*) FROM snijeg_na_tlu`).Scan(&n); err != nil || n != 2 {
+		t.Errorf("primatelj ima %d dana snijega (%v), želim 2", n, err)
+	}
+	if err := primatelj.QueryRow(`SELECT swe FROM snijeg_na_tlu WHERE dan = ?`, danas-1).Scan(&mm); err != nil || mm != 3 {
+		t.Errorf("zadnji dan %v (%v), želim izdavačevih 3", mm, err)
+	}
+	if err := PrimiOborine(stari, stigao.Oborine); err != nil {
+		t.Fatalf("primatelj bez tablice snijega: %v", err)
+	}
+	if err := stari.QueryRow(`SELECT count(*) FROM satne`).Scan(&n); err != nil || n != 1 {
+		t.Errorf("primatelj bez tablice snijega: satnih %d (%v)", n, err)
+	}
+
+	// kad je sezona tek počela, ide i dva tjedna prije nje
+	rano := (pocetak + 3) * 24
+	if tablice, err = SastaviOborine(izdavac, rano); err != nil || len(tablice[TablicaSnijegaNaTlu].Redci) != 3 {
+		t.Errorf("početak sezone: %v (%v), želim 3 dana", tablice[TablicaSnijegaNaTlu].Redci, err)
+	}
+	// izdavač bez tablice snijega šalje samo kišu
+	if tablice, err = SastaviOborine(stari, sada); err != nil || ImaSnijegaNaTlu(tablice) {
+		t.Errorf("bez tablice snijega: %v (%v)", tablice, err)
+	}
+}

@@ -1085,7 +1085,7 @@ type DesetljeceZapisa struct {
 }
 
 // meteoVelicine su veličine koje nisu voda nego vrijeme nad slivom.
-var meteoVelicine = map[string]bool{"oborina": true, "snijeg": true, "temperatura-zraka": true, "visina-snijega": true}
+var meteoVelicine = map[string]bool{"oborina": true, "snijeg": true, "temperatura-zraka": true, "visina-snijega": true, "snijeg-na-tlu": true}
 
 // PoDesetljecima broji sve zapise arhive po desetljeću. Prolazi kroz svaki
 // zapis — na arhivi od deset gigabajta to traje oko minute — pa ga se zove
