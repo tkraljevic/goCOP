@@ -230,18 +230,21 @@ func (b *brojacArhive) IzdajArhivu(letva string, _ bool, _ io.Writer) (arhiva.Iz
 	return arhiva.IzvjestajIzdanja{Promijenjenih: 1}, nil
 }
 
-// Gradi se svaki dan nakon ulaganja, a paket ide prvi put pa tek za tjedan:
-// arhiva ovog čvora ima nove dane sutradan, a ostali ih dobiju tjedno.
-// Brojevi su izmišljeni.
+// Letva se gradi svaki dan nakon ulaganja, a točka (duga povijest ERA5)
+// tek kad joj je paket na redu; paket ide prvi put pa tek za tjedan, a
+// točki odmah kad padne puno kiše. Brojevi su izmišljeni.
 func TestSvjezaArhivaGradiDnevnoIzdajeTjedno(t *testing.T) {
 	baza, _, _ := cvorZaTest(t, "kucni-server")
 	upisiLetvuIOcitanja(t, baza)
+	ob := baziOborina(t)
 	podaci := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(podaci, "dunav", "proba"), 0o755); err != nil {
-		t.Fatal(err)
+	for _, m := range []string{"dunav/proba", "drava/k-a-1"} {
+		if err := os.MkdirAll(filepath.Join(podaci, m), 0o755); err != nil {
+			t.Fatal(err)
+		}
 	}
 	b := &brojacArhive{gradnje: map[string]int{}, izdavanja: map[string]int{}}
-	s := novaSvjezaArhiva(baza, nil, podaci, func() peers.Uloge { return peers.Uloge{Preuzima: true} }, b, nil)
+	s := novaSvjezaArhiva(baza, ob, podaci, func() peers.Uloge { return peers.Uloge{Preuzima: true, Izdaje: true} }, b, nil)
 	for d := 25; d <= 33; d++ {
 		dan := time.Date(2026, 11, d, 0, 45, 0, 0, models.Zagreb)
 		if _, err := baza.Exec(`INSERT INTO readings (id, station_id, measured_at, level_cm, source, origin, created_at, updated_at)
@@ -249,10 +252,22 @@ func TestSvjezaArhivaGradiDnevnoIzdajeTjedno(t *testing.T) {
 			fmt.Sprintf("r-dan-%d", d), dan.Add(-12*time.Hour).UTC(), models.ReadingSourceImport, javnivodostaji.Podrijetlo); err != nil {
 			t.Fatal(err)
 		}
+		mm := 1.0
+		if d == 29 {
+			mm = 35 // jaka kiša 28. 11.
+		}
+		if _, err := ob.Exec(`INSERT INTO satne (kisomjer, sat, oborina, snijeg, temperatura, prognoza, preuzeto)
+			VALUES ('k-a-1', ?, ?, 0, 4, 0, 0)`, dan.Add(-12*time.Hour).Unix()/3600, mm); err != nil {
+			t.Fatal(err)
+		}
 		s.jednomDnevno(dan)
 		s.jednomDnevno(dan.Add(time.Hour))
 	}
 	if b.gradnje["proba"] != 9 || b.izdavanja["proba"] != 2 {
-		t.Errorf("gradnji %d (želim 9, svaki dan), paketa %d (želim 2: prvi i tjedan poslije)", b.gradnje["proba"], b.izdavanja["proba"])
+		t.Errorf("letva: gradnji %d (želim 9, svaki dan), paketa %d (želim 2: prvi i tjedan poslije)", b.gradnje["proba"], b.izdavanja["proba"])
+	}
+	// točka: prvi put, jaka kiša 29. 11. i tjedan poslije nje (6. 12. je iza ovog razdoblja)
+	if b.gradnje["k-a-1"] != 2 || b.izdavanja["k-a-1"] != 2 {
+		t.Errorf("točka: gradnji %d, paketa %d, želim 2 i 2 (samo kad je paket na redu)", b.gradnje["k-a-1"], b.izdavanja["k-a-1"])
 	}
 }
