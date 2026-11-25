@@ -114,6 +114,7 @@ type satniKrug struct {
 	razmjenaArh *razmjenaArhive // nil bez arhive
 	podaci      string          // stablo izvornih datoteka arhive; prazno bez njega
 	objavi      func(context.Context, *prognoza.Ishod)
+	svjeza      *svjezaArhiva // dnevno ulaganje svježih podataka; nil bez njega
 
 	kisUlozeno string // dan zadnjeg ulaganja mjerenja u arhivu
 }
@@ -153,6 +154,11 @@ func (k *satniKrug) bezIzdanja(sat time.Time) bool {
 func (k *satniKrug) vrti(ctx context.Context) {
 	javniUvoznik, peersService, pb := k.uvoznik, k.mreza, k.prognoze
 	oborineUvoznik, kisUvoznik := k.oborine, k.kisomjeri
+	if k.svjeza != nil {
+		// Svježa arhiva ide u pozadini: gradnja i izdavanje letvi traju, a
+		// krug mora izdati prognozu za ovaj sat.
+		go k.svjeza.jednomDnevno(time.Now())
+	}
 	if !peersService.TrenutneUloge().Izdaje {
 		// Tuđe prognoze, kišu i izračun radi čvor koji izdaje
 		// prognozu; njegovo izdanje stiže razmjenom.

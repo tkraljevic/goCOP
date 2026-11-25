@@ -306,8 +306,8 @@
   {{if .Station}}
   <section class="letva-ploca letva-ploca-siroka">
     <h2>Unesi više očitanja odjednom</h2>
-    <p class="letva-uputa">Zalijepite ispis s letva.voda.hr ili stupce iz Excela (datum, vrijeme i vodostaj u cm), ili odaberite
-      datoteku — tekst, CSV ili Excel (.xlsx). Program prvo pokaže što bi se upisalo; već upisana očitanja se preskaču.</p>
+    <p class="letva-uputa">Zalijepite ispis s letva.voda.hr ili stupce iz Excela (vrijeme i vodostaj u cm), ili odaberite
+      datoteku — tekst, CSV (i s točkom-zarezom) ili Excel (.xlsx). Program prvo pokaže što bi se upisalo; već upisana očitanja se preskaču.</p>
     <form method="POST" action="/readings/station/{{.Station.ID}}/zalijepi" enctype="multipart/form-data" class="letva-polje">
       <label for="tekst">Zalijepite ovdje</label>
       <textarea id="tekst" name="tekst" class="form-control letva-zalijepi" rows="6" spellcheck="false"

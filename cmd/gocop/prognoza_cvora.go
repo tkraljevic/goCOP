@@ -167,7 +167,9 @@ func pokreniPrognozu(o ovisnostiPrognoze) *sql.DB {
 		uvoznik: javniUvoznik, mreza: peersService, baza: database, prognoze: pb,
 		osvjezivac: osvjezivac, oborine: oborineUvoznik, kisomjeri: kisUvoznik,
 		posluzitelj: server, razmjenaArh: razmjenaArh, podaci: o.podaci, objavi: objaviIzdanje,
+		svjeza: novaSvjezaArhiva(database, oborineDB, o.podaci, peersService.TrenutneUloge, server, razmjenaArh),
 	}
+	server.SetSvjezaArhiva(stanjeSvjezeZa(database, o.arhivaPut, o.podaci, peersService.TrenutneUloge))
 	javniUvoznik.NakonPreuzimanja = krug.vrti
 	javniUvoznik.Nedovrseno = krug.bezIzdanja
 	tjednaCvora(syncCtx, server, peersService.TrenutneUloge, pb, arhivaRO, database, o.obrana, javniUvoznik.UTijeku, osvjezivac, objaviIzdanje)

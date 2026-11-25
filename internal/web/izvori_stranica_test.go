@@ -6,8 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"gocop/internal/arhiva"
+	"gocop/internal/models"
 	_ "modernc.org/sqlite"
 )
 
@@ -212,5 +214,49 @@ func TestNedostupnaMapaSeVidiKaoNedostupna(t *testing.T) {
 		if i.GreskaPut == "" {
 			t.Errorf("izvor %s ne kaže zašto mapa nije dostupna", i.Naziv)
 		}
+	}
+}
+
+// Kartica Svježa arhiva: na računalu koje ulaže zadnje ulaganje i pravilo
+// paketa, a na ostalima zadnji primljeni paket. Brojevi su izmišljeni.
+func TestKarticaSvjezeArhive(t *testing.T) {
+	kad := time.Date(2026, 11, 25, 0, 15, 0, 0, models.Zagreb)
+	html := iscrtaj(t, "izvori.html", IzvoriPageData{Svjeza: &SvjezaArhiva{Ulaze: true, Ulozeno: kad, Letvi: 63, Tocaka: 70,
+		Izdano: kad.AddDate(0, 0, -2), Paketa: 63}})
+	for _, zeli := range []string{"Svježa arhiva", "Zadnje ulaganje", "25. 11. 2026. u 00:15 · 63 letve, 70 točaka",
+		"najviše jednom tjedno po letvi", "zadnji 23. 11. 2026. (63 paketa)"} {
+		if !strings.Contains(html, zeli) {
+			t.Errorf("nema %q", zeli)
+		}
+	}
+	if strings.Contains(html, "ne preuzima izvore") {
+		t.Error("računalo koje ulaže piše da ne preuzima")
+	}
+	html = iscrtaj(t, "izvori.html", IzvoriPageData{Svjeza: &SvjezaArhiva{Primljeno: kad.AddDate(0, 0, -2), PrimljenoLetvi: 63}})
+	for _, zeli := range []string{"Zadnji paket", "23. 11. 2026. · 63 letve", "Ovo računalo ne preuzima izvore; svježa arhiva stiže paketima."} {
+		if !strings.Contains(html, zeli) {
+			t.Errorf("nema %q", zeli)
+		}
+	}
+	if html := iscrtaj(t, "izvori.html", IzvoriPageData{}); strings.Contains(html, "Svježa arhiva") {
+		t.Error("kartica bez stanja")
+	}
+}
+
+// Stanje svježe arhive stiže od programa; bez njega kartice nema, a prazno
+// stanje kaže da još ničega nije bilo.
+func TestStanjeSvjezeArhiveSPosluzitelja(t *testing.T) {
+	s := &Server{}
+	if s.stanjeSvjezeArhive() != nil || (&IzvoriHandler{}).stanjeSvjeze() != nil {
+		t.Error("bez programa kartica postoji")
+	}
+	s.SetSvjezaArhiva(func() SvjezaArhiva { return SvjezaArhiva{Ulaze: true} })
+	h := &IzvoriHandler{svjeza: s.stanjeSvjezeArhive}
+	st := h.stanjeSvjeze()
+	if st == nil || !st.Ulaze {
+		t.Fatalf("stanje %+v", st)
+	}
+	if st.ZadnjeUlaganje() != "još nije bilo" || !strings.HasSuffix(st.PaketiOstalima(), "; još nijedan") || st.ZadnjiPaket() != "još nije stigao" {
+		t.Errorf("prazno stanje: %q, %q, %q", st.ZadnjeUlaganje(), st.PaketiOstalima(), st.ZadnjiPaket())
 	}
 }

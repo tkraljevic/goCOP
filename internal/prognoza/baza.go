@@ -659,9 +659,12 @@ func ObrisiIzdanje(db *sql.DB, izdano int64) error {
 	if err := tx.QueryRow(`SELECT coalesce(max(verzija), 0) FROM izdanja WHERE izdano = ?`, izdano).Scan(&verzija); err != nil {
 		return err
 	}
+	// izdane se traže kroz ključ (uSatuIzdanja): goli uvjet po satu izdanja
+	// prolazi cijelu tablicu, a brisanje tako traje i desetak sekundi
 	for _, q := range []string{
-		`INSERT OR REPLACE INTO izdane_ranije (letva, velicina, izdano, verzija, ciljni, vrijednost, dolje, gore, racunata, izvan, model)
-			SELECT letva, velicina, izdano, ?, ciljni, vrijednost, dolje, gore, racunata, izvan, model FROM izdane WHERE izdano = ?`,
+		LetveIVelicine + `
+		INSERT OR REPLACE INTO izdane_ranije (letva, velicina, izdano, verzija, ciljni, vrijednost, dolje, gore, racunata, izvan, model)
+			SELECT letva, velicina, izdano, ?, ciljni, vrijednost, dolje, gore, racunata, izvan, model FROM izdane WHERE ` + uSatuIzdanja,
 		`INSERT OR REPLACE INTO dnevne_ranije (letva, izdano, verzija, dan, ciljni, vrijednost, dolje, gore, protok, protok_dolje, protok_gore, model)
 			SELECT letva, izdano, ?, dan, ciljni, vrijednost, dolje, gore, protok, protok_dolje, protok_gore, model FROM dnevne WHERE izdano = ?`,
 	} {
@@ -669,7 +672,7 @@ func ObrisiIzdanje(db *sql.DB, izdano int64) error {
 			return err
 		}
 	}
-	for _, q := range []string{`DELETE FROM izdane WHERE izdano = ?`,
+	for _, q := range []string{LetveIVelicine + ` DELETE FROM izdane WHERE ` + uSatuIzdanja,
 		`DELETE FROM dnevne WHERE izdano = ?`, `DELETE FROM izbor WHERE izdano = ?`} {
 		if _, err := tx.Exec(q, izdano); err != nil {
 			return err
@@ -863,15 +866,13 @@ func DnevneIzdanja(db *sql.DB, izdano int64) (map[string][]DnevnaIzdana, error) 
 //
 // Ključ tablice izdane počinje letvom, pa upit samo po satu izdanja prolazi
 // cijelu tablicu (milijuni redaka, sekunde na svakoj Naslovnoj). Zato se
-// letve preskaču kroz ključ jedna po jedna (rekurzivni min(letva) > x), a
-// za svaku se polazište čita izravno po ključu.
+// letve preskaču kroz ključ (LetveIVelicine), a za svaku se polazište čita
+// izravno po ključu.
 func PolazistaIzdanja(db *sql.DB, izdano int64) (map[string]float64, error) {
-	r, err := db.Query(`WITH RECURSIVE letve(l) AS (
-			SELECT min(letva) FROM izdane
-			UNION ALL
-			SELECT (SELECT min(letva) FROM izdane WHERE letva > l) FROM letve WHERE l IS NOT NULL)
-		SELECT i.letva, i.vrijednost FROM letve JOIN izdane i
-			ON i.letva = letve.l AND i.velicina = 'vodostaj' AND i.izdano = ? AND i.ciljni = ?`, izdano, izdano)
+	r, err := db.Query(LetveIVelicine+`
+		SELECT i.letva, i.vrijednost FROM velicine v JOIN izdane i
+			ON i.letva = v.letva AND i.velicina = v.velicina AND i.izdano = ? AND i.ciljni = ?
+		WHERE v.velicina = 'vodostaj'`, izdano, izdano)
 	if err != nil {
 		return nil, err
 	}
@@ -1106,24 +1107,21 @@ func ZadnjeIzdanje(db *sql.DB) (int64, bool, error) {
 	return sat.Int64, sat.Valid, nil
 }
 
-// zadnjeIzdanjeSQL je najkasniji sat izdanja u tablici izdane. Ključ tablice
-// počinje letvom i veličinom, pa goli max(izdano) prolazi cijelu tablicu
-// (milijuni redaka, pola sekunde, a traži ga gotovo svaka stranica s
-// prognozom). Zato se letve i veličine preskaču kroz ključ (rekurzivni
-// min(x) > prethodni), a za svaki par najkasnije izdanje se čita izravno iz
-// ključa.
-const zadnjeIzdanjeSQL = `WITH RECURSIVE
-	letve(letva) AS (
-		SELECT min(letva) FROM izdane
-		UNION ALL
-		SELECT (SELECT min(letva) FROM izdane WHERE letva > letve.letva) FROM letve WHERE letve.letva IS NOT NULL),
-	velicine(letva, velicina) AS (
-		SELECT letva, (SELECT min(velicina) FROM izdane WHERE letva = letve.letva) FROM letve WHERE letva IS NOT NULL
-		UNION ALL
-		SELECT letva, (SELECT min(velicina) FROM izdane WHERE letva = velicine.letva AND velicina > velicine.velicina)
-			FROM velicine WHERE velicina IS NOT NULL)
-	SELECT max((SELECT max(izdano) FROM izdane WHERE letva = velicine.letva AND velicina = velicine.velicina))
+// zadnjeIzdanjeSQL je najkasniji sat izdanja u tablici izdane. Goli
+// max(izdano) prolazi cijelu tablicu (milijuni redaka, pola sekunde, a traži
+// ga gotovo svaka stranica s prognozom), pa se sat čita kroz ključ.
+var zadnjeIzdanjeSQL = satKrozKljuc("max", "")
+
+// satKrozKljuc je upit za najveći ili najmanji sat izdanja (agregat max ili
+// min) uz dodatni uvjet na izdano, npr. " AND izdano <= ?". Ključ tablice
+// izdane počinje letvom i veličinom, pa se za svaki par (LetveIVelicine)
+// sat čita izravno iz ključa, a od tih se uzme najveći ili najmanji.
+func satKrozKljuc(agregat, uvjet string) string {
+	return LetveIVelicine + `
+	SELECT ` + agregat + `((SELECT ` + agregat + `(izdano) FROM izdane
+		WHERE letva = velicine.letva AND velicina = velicine.velicina` + uvjet + `))
 	FROM velicine WHERE velicina IS NOT NULL`
+}
 
 // Izdanje čita sve prognoze jednog izdanja, složene po letvi i poredane po
 // ciljnom satu.
@@ -1131,9 +1129,9 @@ const zadnjeIzdanjeSQL = `WITH RECURSIVE
 // Ključ tablice izdane je (letva, velicina, izdano, ciljni), pa upit samo po
 // satu izdanja prolazi cijelu tablicu (milijuni redaka, pola sekunde na
 // svakoj stranici s prognozom). Zato se letve i veličine preskaču kroz ključ
-// (letveIVelicine), a izdanje svakog para čita se izravno po ključu.
+// (LetveIVelicine), a izdanje svakog para čita se izravno po ključu.
 func Izdanje(db *sql.DB, izdano int64) (map[string][]Izdana, error) {
-	r, err := db.Query(letveIVelicine+`
+	r, err := db.Query(LetveIVelicine+`
 		SELECT i.letva, i.velicina, i.izdano, i.ciljni, i.vrijednost, i.dolje, i.gore, i.racunata, i.izvan, i.model
 		FROM velicine v JOIN izdane i ON i.letva = v.letva AND i.velicina = v.velicina AND i.izdano = ?
 		WHERE v.velicina IS NOT NULL
@@ -1156,10 +1154,14 @@ func Izdanje(db *sql.DB, izdano int64) (map[string][]Izdana, error) {
 
 // IzdaneURazdoblju čita sve izdane vrijednosti čiji je sat izdanja u zadanom
 // razdoblju (sati od epohe, uključivo), redom izdanja — za izvoz podataka.
+// Razdoblje svakog para letve i veličine čita se kroz ključ, ne prolaskom
+// kroz cijelu tablicu.
 func IzdaneURazdoblju(db *sql.DB, od, do int64) ([]Izdana, error) {
-	r, err := db.Query(`SELECT letva, velicina, izdano, ciljni, vrijednost, dolje, gore,
-		racunata, izvan, model FROM izdane WHERE izdano BETWEEN ? AND ?
-		ORDER BY izdano, letva, velicina, ciljni`, od, do)
+	r, err := db.Query(LetveIVelicine+`
+		SELECT i.letva, i.velicina, i.izdano, i.ciljni, i.vrijednost, i.dolje, i.gore, i.racunata, i.izvan, i.model
+		FROM velicine v JOIN izdane i ON i.letva = v.letva AND i.velicina = v.velicina AND i.izdano BETWEEN ? AND ?
+		WHERE v.velicina IS NOT NULL
+		ORDER BY i.izdano, i.letva, i.velicina, i.ciljni`, od, do)
 	if err != nil {
 		return nil, err
 	}
@@ -1306,10 +1308,13 @@ func ZaVrijednost(pojasi []Pojas, vrijednost float64) (Pojas, bool) {
 	return pojasi[len(pojasi)-1], true
 }
 
-// letveIVelicine je početak upita koji preskače kroz ključ tablice izdane:
+// LetveIVelicine je početak upita koji preskače kroz ključ tablice izdane:
 // tablica velicine ima svaki par (letva, velicina) jednom, a nađe ga skokom
-// po ključu (rekurzivni min(x) > prethodni), bez prolaska kroz retke.
-const letveIVelicine = `WITH RECURSIVE
+// po ključu (rekurzivni min(x) > prethodni), bez prolaska kroz retke. Ključ
+// tablice je (letva, velicina, izdano, ciljni), pa svaki upit samo po satu
+// izdanja prolazi milijune redaka; s ovim početkom sat izdanja traži se
+// izravno u ključu svakog para.
+const LetveIVelicine = `WITH RECURSIVE
 	letve(letva) AS (
 		SELECT min(letva) FROM izdane
 		UNION ALL
@@ -1319,3 +1324,17 @@ const letveIVelicine = `WITH RECURSIVE
 		UNION ALL
 		SELECT letva, (SELECT min(velicina) FROM izdane WHERE letva = velicine.letva AND velicina > velicine.velicina)
 			FROM velicine WHERE velicina IS NOT NULL)`
+
+// uSatuIzdanja je uvjet nad tablicom izdane za retke jednog sata izdanja
+// (parametar ?), uz početak upita LetveIVelicine: svaki par letve i veličine
+// traži se izravno po ključu.
+const uSatuIzdanja = `(letva, velicina, izdano) IN (SELECT letva, velicina, ? FROM velicine WHERE velicina IS NOT NULL)`
+
+// izdaneIzdanjaSQL su svi stupci izdanih vrijednosti jednog sata izdanja,
+// poredani po ključu, za paket izdanja. Spoj s parovima, a ne uvjet
+// uSatuIzdanja: uz poredak SQLite bi uvjet provjeravao redom kroz cijelu
+// tablicu.
+const izdaneIzdanjaSQL = LetveIVelicine + `
+	SELECT i.* FROM velicine v JOIN izdane i ON i.letva = v.letva AND i.velicina = v.velicina AND i.izdano = ?
+	WHERE v.velicina IS NOT NULL
+	ORDER BY i.letva, i.velicina, i.ciljni`
