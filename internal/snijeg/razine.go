@@ -14,18 +14,20 @@ import (
 )
 
 // Sliv je alpski međusliv koji se prikazuje: oznaka, ime, rijeka uz koju
-// stoji na kartici i kraj koji pokriva.
+// stoji na kartici, kraj koji pokriva i površina (km²), po kojoj se voda
+// međuslivova zbraja u vodu rijeke.
 type Sliv struct {
 	Oznaka, Naziv, Rijeka, Podrucje string
+	Km2                             float64
 }
 
 // Alpski su međuslivovi sa snijegom na kartici, redom kartice. Bavarski
 // Dunav (O) se ne prikazuje: SNOWGRID pokriva samo Austriju.
 var Alpski = []Sliv{
-	{"A", "Gornja Drava", "Drava", "Južni i Istočni Tirol, Koruška, slovenska Drava do Borla"},
-	{"B", "Mura", "Drava", "Salzburg (Lungau), Štajerska, Slovenija do Letenyea"},
-	{"K", "Inn i Salzach", "Dunav", "Švicarska (Engadin), Tirol, Salzburg, Bavarska"},
-	{"L", "Traun i Enns", "Dunav", "Gornja Austrija, Salzkammergut, Štajerska"},
+	{"A", "Gornja Drava", "Drava", "Južni i Istočni Tirol, Koruška, slovenska Drava do Borla", 14649},
+	{"B", "Mura", "Drava", "Salzburg (Lungau), Štajerska, Slovenija do Letenyea", 13308},
+	{"K", "Inn i Salzach", "Dunav", "Švicarska (Engadin), Tirol, Salzburg, Bavarska", 28649},
+	{"L", "Traun i Enns", "Dunav", "Gornja Austrija, Salzkammergut, Štajerska", 19222},
 }
 
 // Oznake su oznake alpskih međuslivova.

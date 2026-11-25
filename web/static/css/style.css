@@ -6506,14 +6506,16 @@ h3.kis-podnaslov { margin:1rem 0 0.4rem; display:flex; align-items:center; gap:0
 .kisa-tablica tr.kisa-narancasto td { background:var(--faza-i-bg); }
 .kisa-tablica tr.kisa-crveno td { background:var(--tint-orange-bg); }
 
-/* Snijeg u Alpama na Naslovnoj (crtež „snijeg”, Odluke 24. 11. 2026.): retci i
-   traka kao Jača kiša; ispod praga za 3 zime redak je siv. Alarm je kuka za
-   upozorenje „Kiša i topljenje na puno snijega” i zasad se ne prikazuje. */
+/* Snijeg u Alpama na Naslovnoj (crtež „snijeg”, Odluke 24. i 25. 11. 2026.):
+   retci i traka kao Jača kiša; ispod praga za 3 zime redak je siv. Upozorenje
+   „Kiša i topljenje na puno snijega!” stoji iznad glave kartice, a crveni redak
+   ispod zadnjeg sliva rijeke. */
 .snijeg-alarm { display: flex; gap: 10px; align-items: flex-start; margin: 0 16px 12px; padding: 12px 14px; border: 1.5px solid var(--md-sys-color-error); border-radius: 8px; background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); }
 .snijeg-alarm svg { flex: none; width: 22px; height: 22px; color: var(--md-sys-color-error); }
 .snijeg-alarm p { margin: 0; }
 .snijeg-alarm-naslov { font-size: 16px; line-height: 22px; font-weight: 700; color: var(--md-sys-color-error); }
 .snijeg-alarm-tekst { font-size: 13px; line-height: 18px; }
+.snijeg-alarm .snijeg-alarm-tekst + .snijeg-alarm-tekst { margin-top: 4px; }
 .snijeg-uvod { display: grid; gap: 8px; padding: 0 16px 4px; }
 .snijeg-uvod p { margin: 0; }
 .snijeg-uvod-glavno { font-size: 14px; line-height: 20px; font-weight: 500; color: var(--text); }
@@ -6524,7 +6526,7 @@ h3.kis-podnaslov { margin:1rem 0 0.4rem; display:flex; align-items:center; gap:0
 .snijeg-traka-dio { left: 0; border-right: 0; border-radius: 5px; }
 .snijeg-ispod .snijeg-traka-dio { background: var(--md-sys-color-outline); }
 .snijeg-redak-dno { display: flex; justify-content: space-between; gap: 8px; }
-.snijeg-redak-alarm { display: flex; gap: 6px; align-items: flex-start; font-size: 13px; line-height: 18px; font-weight: 700; color: var(--md-sys-color-error); }
+.snijeg-redak-alarm { display: flex; gap: 6px; align-items: flex-start; margin: 8px 16px 0; font-size: 13px; line-height: 18px; font-weight: 700; color: var(--md-sys-color-error); }
 .snijeg-redak-alarm svg { flex: none; width: 16px; height: 16px; margin-top: 1px; }
 .snijeg-podnozje { display: grid; gap: 8px; padding: 12px 16px 0; font-size: 12px; line-height: 16px; color: var(--text-secondary); }
 .snijeg-podnozje p { margin: 0; }
