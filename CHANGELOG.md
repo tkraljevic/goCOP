@@ -4,6 +4,27 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.68-alfa — 25. 11. 2026.
+
+Snijeg sad ide kao vodostaji, a najsporije stranice otvaraju se odmah.
+Ovo izdanje zamjenjuje 0.0.67, koje nije trebalo instalirati. Baza
+oborina dobiva jednu tablicu, a glavna baza i baza dokumenata po jedan
+indeks; program ih doda sam pri pokretanju (glavna baza oko 2 s jednom).
+
+- **Snijeg preuzima samo računalo koje izdaje prognozu.** SNOWGRID
+  (GeoSphere Austria) skida samo ono; povijest snijega na tlu ide ostalima
+  .cop paketima arhive (zaseban paket po točki, najviše jednom tjedno), a
+  svježe stanje uz svako izdanje prognoze. Pragovi „jednom u 3, 5 i 10
+  zima” i „za ovo doba” zato su isti na svim računalima i rade i bez
+  interneta. Novi izdavač nastavlja skidanje od zadnjeg dana koji već ima.
+- **Brže stranice.** Na kopiji baze s laptopa:
+  - Naslovna, Jače oborine: 8–20 s → ispod 0,1 s
+  - Naslovna, Sustav i Za riješiti: oko 2 s → ispod 0,1 s
+  - Slivovi: 9–22 s → ispod 0,1 s
+  - Model prognoze: 2–4 s → oko 0,4 s
+  - Povijest letve: oko 2,5 s → ispod 0,1 s
+  - Pretplate: oko 3 s → oko 1 s
+
 ## 0.0.67-alfa — 25. 11. 2026.
 
 Prognoza vodostaja sad računa sa snijegom u Alpama, a Naslovna javlja kad
