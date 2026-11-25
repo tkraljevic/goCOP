@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -212,5 +214,45 @@ func TestJaviGresku(t *testing.T) {
 	javiGresku("svježa arhiva, ulaganje", errors.New("stablo nije dostupno"))
 	if dnevnik.String() == "" || strings.Count(dnevnik.String(), "svježa arhiva") != 1 {
 		t.Errorf("dnevnik %q", dnevnik.String())
+	}
+}
+
+// brojacArhive broji gradnje i izdavanja po letvi.
+type brojacArhive struct{ gradnje, izdavanja map[string]int }
+
+func (b *brojacArhive) IzgradiLetvu(letva string, _ io.Writer) (arhiva.Izvjestaj, error) {
+	b.gradnje[letva]++
+	return arhiva.Izvjestaj{}, nil
+}
+
+func (b *brojacArhive) IzdajArhivu(letva string, _ bool, _ io.Writer) (arhiva.IzvjestajIzdanja, error) {
+	b.izdavanja[letva]++
+	return arhiva.IzvjestajIzdanja{Promijenjenih: 1}, nil
+}
+
+// Gradi se svaki dan nakon ulaganja, a paket ide prvi put pa tek za tjedan:
+// arhiva ovog čvora ima nove dane sutradan, a ostali ih dobiju tjedno.
+// Brojevi su izmišljeni.
+func TestSvjezaArhivaGradiDnevnoIzdajeTjedno(t *testing.T) {
+	baza, _, _ := cvorZaTest(t, "kucni-server")
+	upisiLetvuIOcitanja(t, baza)
+	podaci := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(podaci, "dunav", "proba"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	b := &brojacArhive{gradnje: map[string]int{}, izdavanja: map[string]int{}}
+	s := novaSvjezaArhiva(baza, nil, podaci, func() peers.Uloge { return peers.Uloge{Preuzima: true} }, b, nil)
+	for d := 25; d <= 33; d++ {
+		dan := time.Date(2026, 11, d, 0, 45, 0, 0, models.Zagreb)
+		if _, err := baza.Exec(`INSERT INTO readings (id, station_id, measured_at, level_cm, source, origin, created_at, updated_at)
+			VALUES (?, 'st-proba', ?, 170, ?, ?, datetime('now'), datetime('now'))`,
+			fmt.Sprintf("r-dan-%d", d), dan.Add(-12*time.Hour).UTC(), models.ReadingSourceImport, javnivodostaji.Podrijetlo); err != nil {
+			t.Fatal(err)
+		}
+		s.jednomDnevno(dan)
+		s.jednomDnevno(dan.Add(time.Hour))
+	}
+	if b.gradnje["proba"] != 9 || b.izdavanja["proba"] != 2 {
+		t.Errorf("gradnji %d (želim 9, svaki dan), paketa %d (želim 2: prvi i tjedan poslije)", b.gradnje["proba"], b.izdavanja["proba"])
 	}
 }

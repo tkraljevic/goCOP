@@ -3,8 +3,10 @@ package main
 // Svježa arhiva: računalo koje preuzima izvore jednom dnevno, u prvom krugu
 // nakon ponoći, uloži završene dane u arhivsko stablo — vodostaje letvi
 // čvor koji preuzima vodostaje, a Open-Meteo oborinskih točaka čvor koji
-// izdaje prognozu — pa letve kojima je paket na redu izgradi i izda (vidi
-// svjeza.NaRedu). Ostali čvorovi svježu arhivu dobiju paketima.
+// izdaje prognozu — i odmah ih izgradi u svoju arhivu, a paket ostalima
+// izda samo letvama kojima je na redu (svjeza.NaRedu: najviše jednom tjedno,
+// odmah kad je promjena velika). Ostali čvorovi svježu arhivu dobiju
+// paketima.
 
 import (
 	"database/sql"
@@ -29,11 +31,14 @@ type svjezaArhiva struct {
 	arh         arhivaKisomjera // gradnja i izdavanje; nil bez poslužitelja
 	razmjenaArh *razmjenaArhive // nil bez arhive
 
-	radi     sync.Mutex // jedno ulaganje u isto vrijeme
-	mu       sync.Mutex
-	dan      string    // dan zadnjeg ulaganja
-	ostalo   bool      // neka letva na redu nije izgrađena ili izdana
-	javljeno sync.Once // „nema stabla” ide u dnevnik jednom
+	radi   sync.Mutex // jedno ulaganje u isto vrijeme
+	mu     sync.Mutex
+	dan    string // dan zadnjeg ulaganja
+	ostalo bool   // neka letva na redu nije izgrađena ili izdana
+	// izgradjene su letve i točke izgrađene danas nakon ulaganja; pri
+	// izdavanju paketa ne grade se opet
+	izgradjene map[string]bool
+	javljeno   sync.Once // „nema stabla” ide u dnevnik jednom
 }
 
 // novaSvjezaArhiva slaže dnevno ulaganje čvora; oborine su nil bez baze
@@ -43,9 +48,12 @@ func novaSvjezaArhiva(baza, oborineDB *sql.DB, podaci string, uloge func() peers
 		uloge: uloge, arh: arh, razmjenaArh: ra}
 }
 
-// jednomDnevno uloži svježe podatke ako danas još nisu uloženi, pa izgradi
-// i izda letve kojima je paket na redu; letve kojima gradnja ili izdavanje
-// nije uspjelo (npr. arhiva je bila zauzeta) pokušaju se idući krug. Drugo
+// jednomDnevno uloži svježe podatke ako danas još nisu uloženi i odmah
+// izgradi uložene letve i točke u arhivu ovog čvora (njegov spoj i dnevni
+// modeli tako sutra ujutro vide nove dane), a paket ostalima izda samo
+// letvama kojima je na redu (svjeza.NaRedu). Letve kojima gradnja ili
+// izdavanje paketa nije uspjelo (npr. arhiva je bila zauzeta) pokušaju se
+// idući krug. Drugo
 // ulaganje koje upravo traje se preskače. Zove se iz satnog kruga, u
 // pozadini, jer gradnja i izdavanje traju.
 func (s *svjezaArhiva) jednomDnevno(sada time.Time) {
@@ -61,7 +69,7 @@ func (s *svjezaArhiva) jednomDnevno(sada time.Time) {
 	}
 	defer s.radi.Unlock()
 	if !ulozeno {
-		ulaze, gotovo := s.ulozi(sada)
+		ulaze, gotovo, ulozene := s.ulozi(sada)
 		if !gotovo {
 			return
 		}
@@ -71,6 +79,7 @@ func (s *svjezaArhiva) jednomDnevno(sada time.Time) {
 		if !ulaze {
 			return
 		}
+		s.izgradjene = s.izgradi(ulozene)
 	}
 	sve := s.izdajNaRedu(sada)
 	s.mu.Lock()
@@ -79,19 +88,20 @@ func (s *svjezaArhiva) jednomDnevno(sada time.Time) {
 }
 
 // ulozi je ulaganje završenih dana. ulaze javlja ulaže li ovaj čvor uopće
-// (uloga, stablo i poslužitelj), a gotovo da je za danas gotovo.
-func (s *svjezaArhiva) ulozi(sada time.Time) (ulaze, gotovo bool) {
+// (uloga, stablo i poslužitelj), gotovo da je za danas gotovo, a ulozene su
+// letve i točke u koje je nešto uloženo.
+func (s *svjezaArhiva) ulozi(sada time.Time) (ulaze, gotovo bool, ulozene []string) {
 	u := s.uloge()
 	letve, tocke := u.Preuzima, u.Izdaje && s.ulagac.Oborine != nil
 	if (!letve && !tocke) || s.ulagac.Koren == "" || s.arh == nil {
-		return false, true
+		return false, true, nil
 	}
 	if !imaStablo(s.ulagac.Koren) {
 		s.javljeno.Do(func() {
 			log.Printf("svježa arhiva: na ovom čvoru nema stabla izvornih datoteka (%s), pa se ne ulaže u arhivu; svježa arhiva stiže paketima",
 				config.PunaPutanja(s.ulagac.Koren))
 		})
-		return false, true
+		return false, true, nil
 	}
 	iz, err := s.ulagac.Ulozi(sada, letve, tocke)
 	javiGresku("svježa arhiva, ulaganje", err)
@@ -99,7 +109,25 @@ func (s *svjezaArhiva) ulozi(sada time.Time) (ulaze, gotovo bool) {
 		log.Printf("svježa arhiva: %d letvi i točaka nema mapu u stablu, pa se ne ulažu (npr. %s)", len(iz.BezMape), iz.BezMape[0])
 	}
 	log.Printf("svježa arhiva: uloženo %d letvi i %d točaka, velika promjena na %d", len(iz.Letve), len(iz.Tocke), len(iz.Velike))
-	return true, true
+	return true, true, append(append([]string{}, iz.Letve...), iz.Tocke...)
+}
+
+// izgradi izgradi letve i točke u arhivu ovog čvora, bez paketa; vraća
+// izgrađene. Letva kojoj gradnja ne uspije izgradi se pri izdavanju paketa
+// ili sutra, kad se opet uloži.
+func (s *svjezaArhiva) izgradi(letve []string) map[string]bool {
+	pocetak := time.Now()
+	out := map[string]bool{}
+	for _, l := range letve {
+		if _, err := s.arh.IzgradiLetvu(l, nil); err != nil {
+			log.Printf("svježa arhiva, gradnja %s: %v", l, err)
+			continue
+		}
+		out[l] = true
+	}
+	log.Printf("svježa arhiva: u arhivu ovog računala izgrađeno %d od %d letvi i točaka (%s)",
+		len(out), len(letve), time.Since(pocetak).Round(time.Second))
+	return out
 }
 
 // izdajNaRedu izgradi i izda letve i točke kojima je paket na redu i
@@ -129,15 +157,18 @@ func javiGresku(opis string, err error) {
 	}
 }
 
-// izdaj izgradi i izda letve redom; vraća izgrađene i koliko je novih
-// paketa. Letva kojoj gradnja ili izdavanje ne uspije ostaje na redu.
+// izdaj izda pakete letava redom (letvu koja danas još nije izgrađena prvo
+// izgradi); vraća izdane i koliko je novih paketa. Letva kojoj gradnja ili
+// izdavanje ne uspije ostaje na redu.
 func (s *svjezaArhiva) izdaj(letve []string) ([]string, int) {
 	var izdane []string
 	paketa := 0
 	for _, l := range letve {
-		if _, err := s.arh.IzgradiLetvu(l, nil); err != nil {
-			log.Printf("svježa arhiva, gradnja %s: %v", l, err)
-			continue
+		if !s.izgradjene[l] {
+			if _, err := s.arh.IzgradiLetvu(l, nil); err != nil {
+				log.Printf("svježa arhiva, gradnja %s: %v", l, err)
+				continue
+			}
 		}
 		iz, err := s.arh.IzdajArhivu(l, false, nil)
 		if err != nil {
