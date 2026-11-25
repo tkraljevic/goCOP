@@ -1026,6 +1026,13 @@
       Excel datoteka. Program prvo pokaže <strong>što bi se upisalo</strong> i tek nakon potvrde
       upisuje. Vrijeme se čita kao lokalno, onako kako piše na zaslonu izvora.</p>
     {{template "pomocSlika" (list "ocitanja-skupno" "Kartica Uvoz i izvoz letve Batina: u polje su zalijepljena tri satna očitanja s letva.voda.hr, ispod je izbor datoteke i gumb Pogledaj što bi se upisalo." "728")}}
+    <p>Vlastitu tablicu složite s dva stupca: u prvom redu naslovi <strong>Vrijeme</strong> i
+      <strong>Vodostaj (cm)</strong>, a ispod svaki sat u svom retku, npr. <code>25.11.2026. 07:00</code>
+      i <code>512</code>. Vrijeme smije biti i pravi Excelov datum. Spremite je kao Excel (.xlsx) ili
+      CSV; CSV smije imati točku-zarez ili zarez. Primjer za preuzimanje:
+      <a href="{{statika "predlosci/ocitanja-primjer.xlsx"}}" download>ocitanja-primjer.xlsx</a> ili
+      <a href="{{statika "predlosci/ocitanja-primjer.csv"}}" download>ocitanja-primjer.csv</a>.</p>
+    {{template "pomocSlika" (list "ocitanja-tablica" "Primjer tablice u Excelu: u prvom redu naslovi Vrijeme i Vodostaj (cm), ispod pet satnih očitanja od 25.11.2026. 07:00 do 11:00, s vodostajima od 512 do 521 cm." "620")}}
 
     <h3 id="ocitanja-ispravak">Provjera i ispravak u tablici</h3>
     <p>Očitanja se izvoze u CSV — cijelo odabrano razdoblje ili sve — pa se u tablici pregledaju
