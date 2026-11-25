@@ -46,7 +46,16 @@ func TestPomocNudiPoveznicuSamoUDioKojiImate(t *testing.T) {
 		}
 	}
 
+	// gumb Otvori Očitanja vidi samo tko ima Očitanja
+	const otvoriOcitanja = `href="/readings">`
+	if !strings.Contains(vodocuvar, otvoriOcitanja) || !strings.Contains(vodocuvar, "Otvori Očitanja") {
+		t.Error("s Očitanjima Pomoć ne nudi gumb Otvori Očitanja")
+	}
+
 	admin := stranica(models.Visibility{models.ModuleAdmin: true, models.ModuleJournals: true})
+	if strings.Contains(admin, "Otvori Očitanja") {
+		t.Error("bez Očitanja Pomoć ipak nudi gumb Otvori Očitanja")
+	}
 	for _, p := range poveznice {
 		if !strings.Contains(admin, p) {
 			t.Errorf("s Administracijom i Dokumentima Pomoć ne nudi %s", p)
