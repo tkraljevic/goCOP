@@ -6506,6 +6506,36 @@ h3.kis-podnaslov { margin:1rem 0 0.4rem; display:flex; align-items:center; gap:0
 .kisa-tablica tr.kisa-narancasto td { background:var(--faza-i-bg); }
 .kisa-tablica tr.kisa-crveno td { background:var(--tint-orange-bg); }
 
+/* Snijeg u Alpama na Naslovnoj (crtež „snijeg”, Odluke 24. i 25. 11. 2026.):
+   retci i traka kao Jača kiša; ispod praga za 3 zime redak je siv. Upozorenje
+   „Kiša i topljenje na puno snijega!” stoji iznad glave kartice, a crveni redak
+   ispod zadnjeg sliva rijeke. */
+.snijeg-alarm { display: flex; gap: 10px; align-items: flex-start; margin: 0 16px 12px; padding: 12px 14px; border: 1.5px solid var(--md-sys-color-error); border-radius: 8px; background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); }
+.snijeg-alarm svg { flex: none; width: 22px; height: 22px; color: var(--md-sys-color-error); }
+.snijeg-alarm p { margin: 0; }
+.snijeg-alarm-naslov { font-size: 16px; line-height: 22px; font-weight: 700; color: var(--md-sys-color-error); }
+.snijeg-alarm-tekst { font-size: 13px; line-height: 18px; }
+.snijeg-alarm .snijeg-alarm-tekst + .snijeg-alarm-tekst { margin-top: 4px; }
+/* u tamnoj temi crveni naslov na tamnocrvenoj podlozi slabo se čita */
+:root[data-theme="dark"] .snijeg-alarm-naslov,
+:root[data-theme="dark"] .snijeg-alarm svg { color: var(--md-sys-color-on-error-container); }
+.snijeg-uvod { display: grid; gap: 8px; padding: 0 16px 4px; }
+.snijeg-uvod p { margin: 0; }
+.snijeg-uvod-glavno { font-size: 14px; line-height: 20px; font-weight: 500; color: var(--text); }
+.snijeg-rijeka { margin: 8px 16px 4px; font-size: 12px; line-height: 16px; font-weight: 500; color: var(--text); }
+.snijeg-redak.snijeg-ispod > a { border-left-color: var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container-high); color: var(--text-secondary); }
+.snijeg-redak .badge::before, .sli-snijeg .badge::before { display: none; }
+.snijeg-redak .badge, .sli-snijeg .badge { padding-left: var(--space-8); }
+.snijeg-traka-dio { left: 0; border-right: 0; border-radius: 5px; }
+.snijeg-ispod .snijeg-traka-dio { background: var(--md-sys-color-outline); }
+.snijeg-redak-dno { display: flex; justify-content: space-between; gap: 8px; }
+.snijeg-redak-alarm { display: flex; gap: 6px; align-items: flex-start; margin: 8px 16px 0; font-size: 13px; line-height: 18px; font-weight: 700; color: var(--md-sys-color-error); }
+.snijeg-redak-alarm svg { flex: none; width: 16px; height: 16px; margin-top: 1px; }
+.snijeg-podnozje { display: grid; gap: 8px; padding: 12px 16px 0; font-size: 12px; line-height: 16px; color: var(--text-secondary); }
+.snijeg-podnozje p { margin: 0; }
+.snijeg-vise { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 8px 16px 0; padding: 8px 0; font-size: 14px; color: var(--primary); text-decoration: none; }
+.snijeg-vise svg { width: 18px; height: 18px; color: var(--text-secondary); }
+
 /* Administracija › Tema: birači boja, pregled i provjera čitljivosti. Okvir
    pregleda nosi data-tema-pregled, pa dobiva tokene svijetle odnosno tamne
    teme bez obzira na temu u kojoj je stranica otvorena. */
@@ -10386,6 +10416,40 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
 .kis-dani-sedam { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; margin: 0 0 12px; }
 .kis-dan-sedam { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 8px; text-align: center; }
 .kis-dan-sedam strong { font-size: 1.125rem; font-variant-numeric: tabular-nums; }
+/* Snijeg na stranici kišomjera alpskog sliva (crtež „kišomjer”, 24. 11. 2026.) */
+.kis-naslov { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.kis-naslov .page-title { margin: 0; }
+.badge.kis-alpski { background: var(--graf-mjerenoploha); color: var(--graf-mjereno); }
+.kis-snijeg-vrh { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0 0 8px; }
+.kis-snijeg-vrh strong { font-size: 1.25rem; font-weight: 500; }
+.kis-snijeg-kljuc { display: flex; flex-wrap: wrap; gap: 4px 24px; margin: 6px 0 8px; padding: 0; list-style: none; font-size: 12px; line-height: 16px; color: var(--text-secondary); }
+.kis-snijeg-kljuc li { display: flex; align-items: center; gap: 8px; }
+.kis-snijeg-crta { width: 22px; border-top: 2px solid var(--graf-mjereno); }
+.kis-snijeg-crta.procjena { border-top-style: dashed; }
+.kisa-legenda.kisa-legenda-snijeg { background: var(--graf-mjerenoploha); border: 1px solid var(--primary); }
+.graf-snijega { display: block; width: 100%; height: auto; }
+.sli-snijeg { margin: 12px 0 16px; }
+.sli-snijeg-glava { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; }
+.sli-snijeg-glava h3 { margin: 0; font-size: 1rem; font-weight: 500; }
+.sli-snijeg-podrucje { margin: 4px 0 8px; }
+.sli-snijeg .kis-snijeg-vrh strong { font-size: 1.5rem; }
+.graf-snijega-mreza { stroke: var(--border, #dcdfe4); stroke-width: 1; }
+.graf-snijega-os { fill: var(--text-muted, #64748b); font-size: 11px; }
+.graf-snijega-danas { stroke: var(--md-sys-color-outline); stroke-width: 1; stroke-dasharray: 2 3; }
+.graf-snijega-snowgrid, .graf-snijega-procjena { fill: none; stroke: var(--graf-mjereno); stroke-width: 2; stroke-linejoin: round; }
+.graf-snijega-procjena { stroke-dasharray: 6 4; }
+.graf-snijega-zadnji { fill: var(--graf-mjereno); }
+.graf-snijega-prag { stroke: var(--faza-r-crta); stroke-width: 1.5; stroke-dasharray: 6 4; }
+.graf-snijega-prag.kisa-narancasto { stroke: var(--faza-i-crta); }
+.graf-snijega-prag.kisa-crveno { stroke: var(--faza-s-crta); }
+.graf-snijega-natpis { fill: var(--faza-r-fg); font-size: 11px; }
+.graf-snijega-natpis.kisa-narancasto { fill: var(--faza-i-fg); }
+.graf-snijega-natpis.kisa-crveno { fill: var(--faza-s-crta); }
+.graf-snijega-usko { display: none; }
+@media (max-width: 599px) {
+  .graf-snijega-siroko { display: none; }
+  .graf-snijega-usko { display: block; }
+}
 @media (max-width: 599px) {
   .kis-dani-sedam { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }

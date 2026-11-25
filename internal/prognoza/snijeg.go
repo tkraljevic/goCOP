@@ -261,22 +261,38 @@ func (z *ZalihaSnijega) zapamceno(dan int64) *zalihaDana {
 // izracunaj računa zalihu točke na početku dana od početka sezone; dani iz
 // baze oborina čitaju se jednom za dan.
 func (z *ZalihaSnijega) izracunaj(zd *zalihaDana, tocka string, dan int64) (float64, error) {
+	arhiva, satni, err := z.daniSezone(zd, tocka, dan)
+	if err != nil {
+		return 0, err
+	}
+	return zalihaIzDana(arhiva, satni, danUSezoni(dan), dan), nil
+}
+
+// daniSezone su dani točke od početka sezone do dana prije dan, iz arhive i
+// iz baze oborina; baza oborina čita se jednom za dan, za sve točke.
+func (z *ZalihaSnijega) daniSezone(zd *zalihaDana, tocka string, dan int64) (arhiva, satni map[int64]DanOborine, err error) {
 	pocetak := danUSezoni(dan)
 	if zd.satni == nil {
-		satni, err := z.daniIzBazeOborina(pocetak, dan-1)
-		if err != nil {
-			return 0, err
+		if zd.satni, err = z.daniIzBazeOborina(pocetak, dan-1); err != nil {
+			return nil, nil, err
 		}
-		zd.satni = satni
 	}
-	arhiva := map[int64]DanOborine{}
+	arhiva = map[int64]DanOborine{}
 	if z.Arhiva != nil {
-		var err error
 		if arhiva, err = daniTockeIzArhive(z.Arhiva, tocka, pocetak, dan); err != nil {
-			return 0, err
+			return nil, nil, err
 		}
 	}
-	return zalihaIzDana(arhiva, zd.satni[tocka], pocetak, dan), nil
+	return arhiva, zd.satni[tocka], nil
+}
+
+// danZalihe je dan d iz arhive, a kad ga ondje nema iz baze oborina.
+func danZalihe(arhiva, satni map[int64]DanOborine, d int64) (DanOborine, bool) {
+	if x, ima := arhiva[d]; ima {
+		return x, true
+	}
+	x, ima := satni[d]
+	return x, ima
 }
 
 // zalihaIzDana vodi zalihu od nule kroz dane od–do (isključivo): dan iz
@@ -284,11 +300,7 @@ func (z *ZalihaSnijega) izracunaj(zd *zalihaDana, tocka string, dan int64) (floa
 func zalihaIzDana(arhiva, satni map[int64]DanOborine, od, do int64) float64 {
 	zaliha := 0.0
 	for d := od; d < do; d++ {
-		x, ima := arhiva[d]
-		if !ima {
-			x, ima = satni[d]
-		}
-		if ima {
+		if x, ima := danZalihe(arhiva, satni, d); ima {
 			zaliha, _, _ = KorakSnijega(zaliha, x)
 		}
 	}
@@ -312,6 +324,39 @@ func (z *ZalihaSnijega) daniIzBazeOborina(od, do int64) (map[string]map[int64]Da
 	}
 	for code, n := range ob {
 		out[code] = daniIzSatnih(n, sn[code], te[code], od, do)
+	}
+	return out, nil
+}
+
+// PocetakSezone je prvi dan (od 1970.) sezone snijega u kojoj je dan: 1.
+// kolovoza UTC.
+func PocetakSezone(dan int64) int64 { return danUSezoni(dan) }
+
+// DaniIzSatnih zbraja satne nizove jedne točke (oborina, snijeg,
+// temperatura) u dane UTC od dana od do dana do, uključivo; dan bez punih
+// sati oborine izostaje, a snijeg ima kad ima i punih sati snijega i barem
+// 20 sati temperature.
+func DaniIzSatnih(ob, sn, te map[int64]float64, od, do int64) map[int64]DanOborine {
+	return daniIzSatnih(ob, sn, te, od, do)
+}
+
+// Sezona je zaliha snijega točke na kraju svakog dana tekuće sezone, od 1.
+// kolovoza do dana prije dan, kako je vodi model (arhiva, a za zadnje dane
+// baza oborina). Za prikaz uz točku gdje SNOWGRID nema podataka.
+func (z *ZalihaSnijega) Sezona(tocka string, dan int64) (map[int64]float64, error) {
+	z.mu.Lock()
+	defer z.mu.Unlock()
+	arhiva, satni, err := z.daniSezone(z.zapamceno(dan), tocka, dan)
+	if err != nil {
+		return nil, err
+	}
+	out := map[int64]float64{}
+	zaliha := 0.0
+	for d := danUSezoni(dan); d < dan; d++ {
+		if x, ima := danZalihe(arhiva, satni, d); ima {
+			zaliha, _, _ = KorakSnijega(zaliha, x)
+			out[d] = zaliha
+		}
 	}
 	return out, nil
 }

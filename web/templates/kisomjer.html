@@ -9,7 +9,7 @@
 <a href="/slivovi{{if $t.Sliv}}#sliv-{{$t.Sliv}}{{end}}" class="povratna-poveznica">← Slivovi i kišomjeri</a>
 <div class="page-header list-glava">
   <div>
-    <h1 class="page-title" data-naziv-stranice>{{$t.Naziv}}</h1>
+    <div class="kis-naslov"><h1 class="page-title" data-naziv-stranice>{{$t.Naziv}}</h1>{{if .Alpski}}<span class="badge kis-alpski" title="Međusliv u Alpama: uz kišu se prikazuje i snijeg">alpski sliv</span>{{end}}</div>
     <p class="page-desc">{{if .Procjena}}izvedena točka{{if $t.Pojas}} · {{$t.Pojas}}{{end}}{{else}}pravi kišomjer{{if $t.Izvor}} · {{$t.Izvor}}{{if $t.IzvorSifra}} {{$t.IzvorSifra}}{{end}}{{end}}{{end}}{{if $t.Sliv}} · međusliv {{$t.Sliv}}{{end}}{{if not $t.Aktivan}} · neaktivna{{end}}</p>
     <div class="kis-oznake">
       {{if .UPrognozi}}<span class="oznaka-stanja kis-u-prognozi">u prognozi{{if .PrognozaLetve}}: {{.PrognozaLetve}}{{end}}</span>{{else}}<span class="oznaka-stanja obrub">ne ulazi u prognozu — {{.RazlogVan}}</span>{{end}}
@@ -29,9 +29,9 @@
 <section class="list-kartica kis-sedam">
   <h2>Oborine zadnjih sedam dana</h2>
   <div class="kis-dani-sedam">
-    {{range .SedamDana}}<div class="kis-dan-sedam"><span class="dl-sitno">{{danKratko .Dan}} {{.Dan.Format "2. 1."}}</span><strong>{{with .Mm}}{{brojHRf . 1}}{{else}}—{{end}}</strong>{{if .Mm}}<span class="dl-sitno">mm</span>{{end}}</div>{{end}}
+    {{range .SedamDana}}<div class="kis-dan-sedam"><span class="dl-sitno">{{danKratko .Dan}} {{.Dan.Format "2. 1."}}</span><strong>{{with .Mm}}{{brojHRf . 1}}{{else}}—{{end}}</strong>{{if .Mm}}<span class="dl-sitno">mm</span>{{end}}{{if $.Alpski}}{{with .SnijegTekst}}<span class="dl-sitno">{{.}}</span>{{end}}{{end}}</div>{{end}}
   </div>
-  <p class="form-help mb-0">Ukupno {{brojHRf .ZbrojSedam 1}} mm. Dan bez podatka piše „—”, a ne nulu. Prognoza za slivove je u <a href="/prognoze/vrijeme">Prognoze › Vrijeme</a>.</p>
+  <p class="form-help mb-0">Ukupno {{brojHRf .ZbrojSedam 1}} mm{{if .Alpski}}, od toga snijeg {{brojHRf .SnijegSedam 1}} mm vode{{end}}. Dan bez podatka piše „—”, a ne nulu. Prognoza za slivove je u <a href="/prognoze/vrijeme">Prognoze › Vrijeme</a>.</p>
 </section>
 <aside class="ploca-stranice list-ploca">
 <section class="list-kartica">
@@ -52,6 +52,24 @@
   </dl>
 </section>
 </aside>
+{{with .SnijegNaTlu}}
+{{/* Snijeg na tlu (crtež „kišomjer”, 24. 11. 2026.): SNOWGRID oko točke od 1. 8. i procjena iz prognoze za pet dana;
+     gdje SNOWGRID nema podataka, zaliha iz modela snijega prognoze (ERA5). */}}
+<section class="list-kartica kis-snijeg">
+  <h2>Snijeg na tlu</h2>
+  {{if .Ima}}
+  <p class="kis-snijeg-vrh"><strong>{{.Mm}}</strong> <span class="dl-sitno">{{.Opis}}</span></p>
+  {{.Graf}}
+  <ul class="kis-snijeg-kljuc">
+    <li><span class="kis-snijeg-crta"></span>{{if .IzModela}}procjena iz ERA5{{else}}SNOWGRID (GeoSphere Austria){{end}}</li>
+    <li><span class="kis-snijeg-crta procjena"></span>procjena iz prognoze</li>
+  </ul>
+  <p class="form-help mb-0">{{if .IzModela}}SNOWGRID ovdje nema podataka: do danas procjena iz ERA5 i Open-Meteo, idućih dana iz prognoze snijega i temperature.{{else}}Do danas SNOWGRID oko točke; idućih dana procjena iz prognoze snijega i temperature.{{end}}</p>
+  {{else}}
+  <p class="form-help mb-0">Podataka o snijegu na tlu još nema. Preuzimaju se s interneta (SNOWGRID, GeoSphere Austria).</p>
+  {{end}}
+</section>
+{{end}}
 </div>
 </div>
 {{end}}
@@ -106,8 +124,13 @@
   <h2>{{icon "chart-column"}} Kiša <span class="reg-chip">{{.GrafOpis}}</span></h2>
   {{if .Graf}}
   <div class="reg-card chart mb-2">{{.Graf}}</div>
+  {{if .Alpski}}
+  <p class="form-help mt-0 mb-4"><span class="kisa-legenda"></span> kiša &nbsp; <span class="kisa-legenda kisa-legenda-snijeg"></span> snijeg (mm vode)
+    &nbsp; svjetlije: prognoza. Prijeđi mišem preko stupca za vrijednost.</p>
+  {{else}}
   <p class="form-help mt-0 mb-4"><span class="kisa-legenda"></span> {{if .Procjena}}procjena{{else}}izmjereno{{end}}
     &nbsp; <span class="kisa-legenda kisa-legenda-prognoza"></span> prognoza. Prijeđi mišem preko stupca za vrijednost.</p>
+  {{end}}
   {{else}}
   <div class="reg-empty">Za ovo razdoblje nema ni izmjerene kiše ni prognoze.</div>
   {{end}}
@@ -132,12 +155,13 @@
   {{template "pager" .Pager}}
   <div class="table-card"><div class="table-responsive">
     <table class="data-table">
-      <thead><tr><th>{{if eq .Korak "satni"}}Razdoblje{{else}}Dan{{end}}</th><th class="text-right">Oborina <span class="reg-card-sub">mm</span></th><th>Odakle</th></tr></thead>
+      <thead><tr><th>{{if eq .Korak "satni"}}Razdoblje{{else}}Dan{{end}}</th><th class="text-right">Oborina <span class="reg-card-sub">mm</span></th>{{if .Alpski}}<th class="text-right">od toga snijeg <span class="reg-card-sub">mm</span></th>{{end}}<th>Odakle</th></tr></thead>
       <tbody>
       {{range .Redovi}}
       <tr{{if gt .Mm 0.0}} class="kisa-kisni"{{end}}>
         <td class="mono naslov">{{.Oznaka}}{{if eq .Sati 12}} <span class="reg-card-sub">12 h</span>{{end}}{{if .Nepotpun}} <span class="badge badge-pending">dan traje</span>{{end}}</td>
         <td class="mono text-right" data-stupac="Oborina (mm)"><strong>{{brojHRf .Mm 1}}</strong></td>
+        {{if $.Alpski}}<td class="mono text-right" data-stupac="od toga snijeg (mm)">{{with .Snijeg}}{{brojHRf . 1}}{{else}}—{{end}}</td>{{end}}
         <td class="reg-card-sub" data-stupac="Odakle">{{izvorLabel .Izvor}}</td>
       </tr>
       {{end}}

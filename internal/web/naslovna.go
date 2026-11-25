@@ -105,20 +105,20 @@ var pravilaUloga = []struct {
 
 // karticeZaUlogu su kartice Naslovne po ulozi, redom
 var karticeZaUlogu = map[string][]string{
-	uAdmin:     {kStanjeObrane, kZaRijesiti, kVodostaji, kVrijeme, kJaceOborine, kDogadjanja, kSustav},
-	uUprava:    {kStanjeObrane, kZaRijesiti, kVodostaji, kVrijeme, kJaceOborine, kDogadjanja},
-	uSektor:    {kStanjeSektora, kZaRijesiti, kDnevnikCOP, kNaloziDao, kVodostaji, kVrijeme, kJaceOborine},
-	uDezurni:   {kMojeDezurstvo, kZaRijesiti, kStanjeSektora, kDnevnikCOP, kVodostaji, kVrijeme, kJaceOborine},
-	uPodrucje:  {kPodrucje, kZaRijesiti, kZadaciPodrucja, kCrpneStanice, kUstave, kNaloziDao, kVodostaji, kVrijeme, kJaceOborine},
-	uDionica:   {kMojeDionice, kZaRijesiti, kObjektiDionica, kNaloziDao, kVodostaji, kVrijeme, kJaceOborine},
+	uAdmin:     {kStanjeObrane, kZaRijesiti, kVodostaji, kVrijeme, kJaceOborine, kSnijeg, kDogadjanja, kSustav},
+	uUprava:    {kStanjeObrane, kZaRijesiti, kVodostaji, kVrijeme, kJaceOborine, kSnijeg, kDogadjanja},
+	uSektor:    {kStanjeSektora, kZaRijesiti, kDnevnikCOP, kNaloziDao, kVodostaji, kVrijeme, kJaceOborine, kSnijeg},
+	uDezurni:   {kMojeDezurstvo, kZaRijesiti, kStanjeSektora, kDnevnikCOP, kVodostaji, kVrijeme, kJaceOborine, kSnijeg},
+	uPodrucje:  {kPodrucje, kZaRijesiti, kZadaciPodrucja, kCrpneStanice, kUstave, kNaloziDao, kVodostaji, kVrijeme, kJaceOborine, kSnijeg},
+	uDionica:   {kMojeDionice, kZaRijesiti, kObjektiDionica, kNaloziDao, kVodostaji, kVrijeme, kJaceOborine, kSnijeg},
 	uVodocuvar: {kDnevniList, kZadaci, kMojeLetve, kVrijeme},
-	uUgovor:    {kUgovor, kZaRijesiti, kNalozi, kVodostaji, kVrijeme, kJaceOborine},
+	uUgovor:    {kUgovor, kZaRijesiti, kNalozi, kVodostaji, kVrijeme, kJaceOborine, kSnijeg},
 	uUsluga:    {kDnevnikRadova, kNaloziOvl, kLjudiNaTerenu, kVrijeme},
-	uIzvObrana: {kStanjeObrane, kDnevnikRadova, kNaloziOvl, kLjudiNaTerenu, kVodostaji, kVrijeme, kJaceOborine},
+	uIzvObrana: {kStanjeObrane, kDnevnikRadova, kNaloziOvl, kLjudiNaTerenu, kVodostaji, kVrijeme, kJaceOborine, kSnijeg},
 	uObjekt:    {kMojiObjekti, kNaloziObjektu, kVrijeme},
 	uSkladiste: {kZaRijesiti, kSkladiste, kSredstvaTeren, kPrometSredstva},
-	uPregled:   {kStanjeObrane, kDogadjanja, kVodostaji, kVrijeme, kJaceOborine},
-	uGost:      {kStanjeObrane, kVodostaji, kVrijeme, kJaceOborine},
+	uPregled:   {kStanjeObrane, kDogadjanja, kVodostaji, kVrijeme, kJaceOborine, kSnijeg},
+	uGost:      {kStanjeObrane, kVodostaji, kVrijeme, kJaceOborine, kSnijeg},
 }
 
 // imaUlogu: osoba ima valjanu dužnost s ulogom
@@ -153,9 +153,20 @@ func karticeUloge(perms *models.UserPermissions) []string {
 func (h *DashboardHandler) kartice(r *http.Request, perms *models.UserPermissions, data *DashboardViewData) []KarticaNaslovne {
 	var out []KarticaNaslovne
 	for _, id := range karticeUloge(perms) {
-		out = append(out, poveznicaKojuVidi(h.kartica(r, perms, data, id), data.Modules))
+		if k, ima := h.karticaKojaPostoji(r, perms, data, id); ima {
+			out = append(out, poveznicaKojuVidi(k, data.Modules))
+		}
 	}
 	return out
+}
+
+// karticaKojaPostoji slaže karticu po oznaci; Snijeg u Alpama postoji samo
+// dok ima puno snijega
+func (h *DashboardHandler) karticaKojaPostoji(r *http.Request, perms *models.UserPermissions, data *DashboardViewData, id string) (KarticaNaslovne, bool) {
+	if id == kSnijeg {
+		return h.karticaSnijega(data.Modules)
+	}
+	return h.kartica(r, perms, data, id), true
 }
 
 // poveznicaKojuVidi skida poveznicu kartice koja vodi u modul koji račun ne
@@ -305,7 +316,7 @@ func (h *DashboardHandler) sporaKartica(r *http.Request, perms *models.UserPermi
 
 // zajednickeKartice rukovoditelj dionice ima kao i ostale uloge; ostale
 // njegove kartice slaže karticaRukovoditeljaDionice
-var zajednickeKartice = []string{kVrijeme, kJaceOborine, kZaRijesiti, kNaloziDao}
+var zajednickeKartice = []string{kVrijeme, kJaceOborine, kSnijeg, kZaRijesiti, kNaloziDao}
 
 // sporeKartice: kako se računa tijelo koje spore kartice; ostalo je Sustav
 var sporeKartice = map[string]func(h *DashboardHandler, r *http.Request, perms *models.UserPermissions, id string, sad time.Time) KarticaNaslovne{

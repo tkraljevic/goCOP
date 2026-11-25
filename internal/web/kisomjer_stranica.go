@@ -17,6 +17,7 @@ import (
 	"gocop/internal/prognoza"
 	"gocop/internal/repository"
 	"gocop/internal/service"
+	"gocop/internal/snijeg"
 )
 
 // Stranica kišomjera ima isti raspored kao letva: Očitanja su svježe — zadnji
@@ -33,6 +34,7 @@ type KisomjerStranicaHandler struct {
 	arhiva   func() *repository.ArhivaRepository
 	mjerenja func() *kisomjeri.Spremiste
 	tmpl     func(string) *template.Template
+	snijeg   func() *snijeg.Izvor // snijeg na tlu u alpskim slivovima; nil ili nil izvor bez njega
 }
 
 // RedKise je jedna vrijednost u popisu: sat (ili 12 sati) koji završava u
@@ -42,7 +44,16 @@ type RedKise struct {
 	Sati     int // 1, 12 ili 24
 	Mm       float64
 	Izvor    string
-	Nepotpun bool // dan još traje
+	Nepotpun bool     // dan još traje
+	Snijeg   *float64 // od toga snijeg (mm vode); nil kad se ne zna
+}
+
+// SnijegMm je snijeg retka, nula kad se ne zna.
+func (r RedKise) SnijegMm() float64 {
+	if r.Snijeg == nil {
+		return 0
+	}
+	return *r.Snijeg
 }
 
 // Oznaka je vrijeme retka kako ga dežurni čita: sat kraja razdoblja po
@@ -60,9 +71,10 @@ func (r RedKise) Oznaka() string {
 
 // DanPrognoze je prognozirana kiša jednog dana
 type DanPrognoze struct {
-	Dan  time.Time
-	Mm   float64
-	Sati int // koliko sati dana prognoza pokriva
+	Dan    time.Time
+	Mm     float64
+	Snijeg float64 // od toga snijeg (mm vode)
+	Sati   int     // koliko sati dana prognoza pokriva
 }
 
 // MjesecKise je zbroj jednog mjeseca u historijatu
@@ -99,12 +111,15 @@ type KisomjerStranica struct {
 	LetvaID       string // za poveznicu na očitanja letve
 	Stranica      string // ocitanja | historijat
 	Procjena      bool   // izvedena točka: brojke su model, ne mjerenje
+	Alpski        bool   // točka je u alpskom međuslivu (A, B, K, L): uz kišu i snijeg
 	UPrognozi     bool   // dnevni model čita kišu ove točke
 	RazlogVan     string // zašto ne ulazi
 	PrognozaLetve string // letve čija prognoza je čita
 	// Vrh stranice: zadnjih sedam dana i druge točke istog međusliva
 	SedamDana         []DanKise
 	ZbrojSedam        float64
+	SnijegSedam       float64           // od toga snijeg (mm vode)
+	SnijegNaTlu       *SnijegNaTluTocke // nil izvan alpskih slivova
 	DrugihUMedjuslivu int
 
 	// Očitanja
@@ -167,7 +182,7 @@ func (h *KisomjerStranicaHandler) podaci(w http.ResponseWriter, r *http.Request)
 	perms, _ := ctx.Value(contextKeyPerms).(*models.UserPermissions)
 	p := &KisomjerStranica{CurrentUser: u, Permissions: perms, ActiveNav: "slivovi",
 		SuccessMessage: r.URL.Query().Get("success"), ErrorMessage: r.URL.Query().Get("error"),
-		ViewAsBanner: viewBanner(r), Tocka: *t, Procjena: !t.JeStvarni()}
+		ViewAsBanner: viewBanner(r), Tocka: *t, Procjena: !t.JeStvarni(), Alpski: jeAlpski(t.Sliv)}
 	tezina := 0.0
 	if t.Tezina != nil {
 		tezina = *t.Tezina
@@ -212,6 +227,7 @@ func (h *KisomjerStranicaHandler) ShowOcitanja(w http.ResponseWriter, r *http.Re
 	sada := time.Now()
 	od := sada.Add(-time.Duration(dana) * 24 * time.Hour)
 	satni, dnevni := h.nizKise(r.Context(), p.Tocka, od, sada)
+	h.snijegUNizu(r.Context(), p, satni, dnevni, od, sada)
 	p.NemaSvjezih = len(satni) == 0 && len(dnevni) == 0
 
 	// Sažetak: zadnji sat i zadnja 24 i 72 sata iz satnih (i 12-satnih)
@@ -268,13 +284,13 @@ func (h *KisomjerStranicaHandler) ShowOcitanja(w http.ResponseWriter, r *http.Re
 	if dana <= 7 {
 		for _, x := range satni {
 			if x.Sati == 1 {
-				stupci = append(stupci, stupacKise{Kad: x.Kad.Add(-time.Hour), Sati: 1, Mm: x.Mm})
+				stupci = append(stupci, stupacKise{Kad: x.Kad.Add(-time.Hour), Sati: 1, Mm: x.Mm, Snijeg: x.SnijegMm()})
 			}
 		}
 		if len(stupci) == 0 {
 			// samo 12-satni kišomjer: stupac je pola dana
 			for _, x := range satni {
-				stupci = append(stupci, stupacKise{Kad: x.Kad.Add(-12 * time.Hour), Sati: 12, Mm: x.Mm})
+				stupci = append(stupci, stupacKise{Kad: x.Kad.Add(-12 * time.Hour), Sati: 12, Mm: x.Mm, Snijeg: x.SnijegMm()})
 			}
 		}
 		for _, x := range h.prognozaSati(r.Context(), p, sada, 72) {
@@ -283,14 +299,14 @@ func (h *KisomjerStranicaHandler) ShowOcitanja(w http.ResponseWriter, r *http.Re
 		p.GrafOpis = "po satima, s prognozom za tri dana"
 	} else {
 		for _, x := range dnevni {
-			stupci = append(stupci, stupacKise{Kad: danUZagrebu(x.Kad), Sati: 24, Mm: x.Mm, Nepotpun: x.Nepotpun})
+			stupci = append(stupci, stupacKise{Kad: danUZagrebu(x.Kad), Sati: 24, Mm: x.Mm, Snijeg: x.SnijegMm(), Nepotpun: x.Nepotpun})
 		}
 		for _, d := range p.Prognoza {
-			stupci = append(stupci, stupacKise{Kad: d.Dan, Sati: 24, Mm: d.Mm, Prognoza: true})
+			stupci = append(stupci, stupacKise{Kad: d.Dan, Sati: 24, Mm: d.Mm, Snijeg: d.Snijeg, Prognoza: true})
 		}
 		p.GrafOpis = "po danima, s prognozom za tjedan"
 	}
-	p.Graf = crtajKisu(stupci, sada)
+	p.Graf = crtajKisu(snijegZaPrikaz(p.Alpski, stupci), sada)
 
 	var redovi []RedKise
 	if p.Korak == "satni" {
@@ -322,6 +338,8 @@ func (h *KisomjerStranicaHandler) ShowOcitanja(w http.ResponseWriter, r *http.Re
 	p.Redovi = redovi[p.Pager.Odmak():do]
 	p.SedamDana = sedamDana(dnevni, sada)
 	p.ZbrojSedam = zbrojSedam(p.SedamDana)
+	p.SnijegSedam = snijegSedam(p.SedamDana)
+	h.snijegNaTlu(p, sada)
 	p.DrugihUMedjuslivu = h.drugiUMedjuslivu(r.Context(), p.Tocka)
 
 	if err := h.tmpl("kisomjer.html").ExecuteTemplate(w, "kisomjer.html", p); err != nil {
@@ -618,7 +636,7 @@ func (h *KisomjerStranicaHandler) prognoza(ctx context.Context, p *KisomjerStran
 		return
 	}
 	sat := sada.Unix() / 3600
-	rows, err := sp.DB.QueryContext(ctx, `SELECT sat, oborina, preuzeto FROM satne
+	rows, err := sp.DB.QueryContext(ctx, `SELECT sat, oborina, COALESCE(snijeg, 0), preuzeto FROM satne
 		WHERE kisomjer = ? AND sat > ? AND oborina IS NOT NULL ORDER BY sat`, code, sat)
 	if err != nil {
 		return
@@ -628,8 +646,8 @@ func (h *KisomjerStranicaHandler) prognoza(ctx context.Context, p *KisomjerStran
 	var dani []string
 	for rows.Next() {
 		var s, preuzeto int64
-		var v float64
-		if rows.Scan(&s, &v, &preuzeto) != nil {
+		var v, sn float64
+		if rows.Scan(&s, &v, &sn, &preuzeto) != nil {
 			continue
 		}
 		if s <= sat+24 {
@@ -648,11 +666,13 @@ func (h *KisomjerStranicaHandler) prognoza(ctx context.Context, p *KisomjerStran
 			dani = append(dani, d)
 		}
 		po[d].Mm += v
+		po[d].Snijeg += math.Min(sn, v)
 		po[d].Sati++
 	}
 	for _, d := range dani {
 		x := po[d]
 		x.Mm = math.Round(x.Mm*10) / 10
+		x.Snijeg = math.Round(x.Snijeg*10) / 10
 		p.Prognoza = append(p.Prognoza, *x)
 	}
 	p.Prognoza24 = math.Round(p.Prognoza24*10) / 10
@@ -670,7 +690,7 @@ func (h *KisomjerStranicaHandler) prognozaSati(ctx context.Context, p *KisomjerS
 		return nil
 	}
 	sat := sada.Unix() / 3600
-	rows, err := sp.DB.QueryContext(ctx, `SELECT sat, oborina FROM satne
+	rows, err := sp.DB.QueryContext(ctx, `SELECT sat, oborina, COALESCE(snijeg, 0) FROM satne
 		WHERE kisomjer = ? AND sat > ? AND sat <= ? AND oborina IS NOT NULL ORDER BY sat`, code, sat, sat+sati)
 	if err != nil {
 		return nil
@@ -679,9 +699,9 @@ func (h *KisomjerStranicaHandler) prognozaSati(ctx context.Context, p *KisomjerS
 	var out []stupacKise
 	for rows.Next() {
 		var s int64
-		var v float64
-		if rows.Scan(&s, &v) == nil {
-			out = append(out, stupacKise{Kad: time.Unix((s-1)*3600, 0), Sati: 1, Mm: v, Prognoza: true})
+		var v, sn float64
+		if rows.Scan(&s, &v, &sn) == nil {
+			out = append(out, stupacKise{Kad: time.Unix((s-1)*3600, 0), Sati: 1, Mm: v, Snijeg: sn, Prognoza: true})
 		}
 	}
 	return out
@@ -692,6 +712,7 @@ type stupacKise struct {
 	Kad      time.Time
 	Sati     int
 	Mm       float64
+	Snijeg   float64 // od toga snijeg (mm vode)
 	Prognoza bool
 	Nepotpun bool
 }
@@ -757,31 +778,7 @@ func crtajKisu(stupci []stupacKise, sada time.Time) template.HTML {
 			x(d), H-8, d.Format("2.1."))
 	}
 	for _, s := range stupci {
-		x0 := x(s.Kad)
-		x1 := x(s.Kad.Add(time.Duration(s.Sati) * time.Hour))
-		w := math.Max(1, (x1-x0)*0.85)
-		boja := "var(--primary)"
-		prozirnost := "1"
-		if s.Prognoza {
-			boja, prozirnost = "var(--primary-muted, #7c97bd)", "0.75"
-		} else if s.Nepotpun {
-			prozirnost = "0.6"
-		}
-		opis := s.Kad.In(models.Zagreb).Format("02.01.2006.")
-		if s.Sati < 24 {
-			opis = s.Kad.In(models.Zagreb).Format("02.01. 15:04") + "–" + s.Kad.Add(time.Duration(s.Sati)*time.Hour).In(models.Zagreb).Format("15:04")
-		}
-		if s.Prognoza {
-			opis += ", prognoza"
-		} else if s.Nepotpun {
-			opis += ", dan još traje"
-		}
-		if s.Mm <= 0 {
-			continue
-		}
-		fmt.Fprintf(&b, `<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" style="fill:%s;opacity:%s"><title>%s: %s mm</title></rect>`,
-			x0+(x1-x0-w)/2, y(math.Min(s.Mm, gornja)), w, H-dno-y(math.Min(s.Mm, gornja)), boja, prozirnost,
-			template.HTMLEscapeString(opis), brojHRf(s.Mm, 1))
+		crtajStupacKise(&b, s, x(s.Kad), x(s.Kad.Add(time.Duration(s.Sati)*time.Hour)), func(v float64) float64 { return y(math.Min(v, gornja)) }, H-dno)
 	}
 	if !sada.IsZero() && sada.After(od) && sada.Before(kraj) {
 		fmt.Fprintf(&b, `<line x1="%.1f" x2="%.1f" y1="%.1f" y2="%.1f" style="stroke:var(--accent, #20ba70);stroke-width:2"/>`,

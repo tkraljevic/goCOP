@@ -26,6 +26,7 @@ import (
 	"gocop/internal/prognoza"
 	"gocop/internal/repository"
 	"gocop/internal/skok"
+	"gocop/internal/snijeg"
 	"gocop/internal/web"
 )
 
@@ -153,6 +154,9 @@ func pokreniPrognozu(o ovisnostiPrognoze) *sql.DB {
 	server.SetKisaSlivova(kisaSlivova(osvjezivac, arhivaRO, pb, peersService))
 	oborineUvoznik, kisUvoznik, ob := pripremiOborine(database, dbPath, node, server, osvjezivac)
 	oborineDB = ob
+	if oborineUvoznik != nil {
+		pokreniSnijegNaTlu(syncCtx, database, arhivaRO, oborineUvoznik, server)
+	}
 	krug := &satniKrug{
 		uvoznik: javniUvoznik, mreza: peersService, baza: database, prognoze: pb,
 		osvjezivac: osvjezivac, oborine: oborineUvoznik, kisomjeri: kisUvoznik,
@@ -277,6 +281,62 @@ func izvorOborina(registar, arhiva *sql.DB, u *oborine.Uvoznik) (*prognoza.Obori
 		Izmjerene: (&kisomjeri.Spremiste{DB: u.DB}).PoSatima,
 		Snijeg:    u.SnijegITemperatura, ZalihaSnijega: zalihaSnijegaZa(arhiva, u).NaPocetku}, nil
 }
+
+// pokreniSnijegNaTlu preuzima snijeg na tlu (SNOWGRID) za izvedene točke
+// alpskih slivova u bazu oborina i daje ga poslužitelju za karticu Snijeg u
+// Alpama, stranicu kišomjera i Slivove. Radi na svakom čvoru, neovisno o
+// ulozi: izvor je javan, pa ga svaki čvor čita sam i ništa ne ide razmjenom.
+func pokreniSnijegNaTlu(ctx context.Context, registar, arhiva *sql.DB, u *oborine.Uvoznik, server *web.Server) {
+	naTlu := &oborine.SnijegNaTlu{DB: u.DB, Tocke: oborine.TockeAlpskihSlivova(registar, snijeg.Oznake()), Javi: log.Printf}
+	izvor := izvorSnijega(registar, arhiva, u, naTlu)
+	naTlu.NakonUpisa = izvor.Zaboravi
+	server.SetSnijegNaTlu(izvor)
+	vrtiSnijegNaTlu(ctx, naTlu)
+}
+
+// izvorSnijega slaže snijeg na tlu za prikaz: točke iz registra, SNOWGRID
+// i satni nizovi iz baze oborina, a za točku bez SNOWGRID-a model snijega
+// prognoze. Upozorenje o kiši i topljenju računa svaki čvor sam: satnu
+// kišu s prognozom, snijegom i temperaturom čvor koji ne izdaje prognozu
+// dobije uz izdanje (tablica satne), a razine vode iz svoje arhive.
+func izvorSnijega(registar, arhiva *sql.DB, u *oborine.Uvoznik, naTlu *oborine.SnijegNaTlu) *snijeg.Izvor {
+	return &snijeg.Izvor{
+		Tocke:  func() ([]prognoza.OborinskaTocka, error) { return prognoza.OborinskeTocke(registar) },
+		NaTlu:  naTlu.Nizovi,
+		Satne:  u.Satne,
+		Snijeg: u.SnijegITemperatura,
+		Model:  zalihaSnijegaZa(arhiva, u).Sezona,
+		Voda: func(sada int64) (voda, kisa map[string]prognoza.DnevniNiz, err error) {
+			iz, err := izvorOborina(registar, arhiva, u)
+			if err != nil {
+				return nil, nil, err
+			}
+			return snijeg.VodaIzOborina(iz, sada)
+		},
+		PovijestVode: func() (map[string]prognoza.DnevniNiz, error) {
+			tocke, err := prognoza.OborinskeTocke(registar)
+			if err != nil {
+				return nil, err
+			}
+			return prognoza.DnevneOborine(arhiva, alpskeTocke(tocke))
+		},
+	}
+}
+
+// alpskeTocke su točke alpskih međuslivova.
+func alpskeTocke(tocke []prognoza.OborinskaTocka) []prognoza.OborinskaTocka {
+	var out []prognoza.OborinskaTocka
+	for _, t := range tocke {
+		if _, alpski := snijeg.AlpskiSliv(t.Sliv); alpski {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+// vrtiSnijegNaTlu pokrene preuzimanje snijega na tlu u pozadini; testovi ga
+// zamjenjuju, jer pravo ide na internet
+var vrtiSnijegNaTlu = func(ctx context.Context, s *oborine.SnijegNaTlu) { go s.Vrti(ctx) }
 
 // zalihaSnijega pamti zalihu snijega na tlu kroz satne krugove, jer se izvor
 // oborina slaže iznova svaki krug, a zaliha se računa jednom na dan.

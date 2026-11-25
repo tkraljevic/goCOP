@@ -181,6 +181,23 @@
   <p class="sliv-kisa-sad{{if .Klasa}} {{.Klasa}}{{end}}">{{icon "cloud-rain"}}
     {{if eq .Palo24 "—"}}Kiša sada: nema podataka.{{else}}Kiša sada: {{if ne .Palo72 "—"}}{{.Palo72}} palo u 72 h, {{end}}{{.Palo24}} palo u 24 h · {{.Dolazi48}} očekivano u 48 h · {{.Rijetko}}{{if ne .Raste "—"}} · raste: {{.Raste}}{{end}}{{end}}</p>
   {{end}}
+  {{$sliv := .Sliv}}
+  {{with .Snijeg}}{{$sn := .}}
+  {{/* Snijeg na tlu (crtež „slivovi”, 24. 11. 2026.): krivulja sezone iz SNOWGRID-a, procjena za pet dana i pragovi. */}}
+  <section class="list-kartica sli-snijeg" aria-labelledby="snijeg-{{$sliv.Oznaka}}">
+    <div class="sli-snijeg-glava"><h3 id="snijeg-{{$sliv.Oznaka}}">Snijeg na tlu · {{$sliv.Oznaka}} · {{$sliv.Naziv}}</h3><span class="dl-sitno">{{.Stanje}}</span></div>
+    <p class="dl-sitno sli-snijeg-podrucje">{{.Podrucje}}</p>
+    <p class="kis-snijeg-vrh"><strong>{{.Mm}}</strong>{{with .Rijetko}} <span class="badge {{$sn.Klasa}}">{{.}}</span>{{end}}{{with .Trend}} <span>{{.}}</span>{{end}}</p>
+    {{with .Kasni}}<p class="form-help">{{.}}</p>{{end}}
+    {{.Graf}}
+    <ul class="kis-snijeg-kljuc">
+      <li><span class="kis-snijeg-crta"></span>SNOWGRID, prosjek austrijskog dijela sliva</li>
+      <li><span class="kis-snijeg-crta procjena"></span>procjena iz prognoze</li>
+    </ul>
+    <p class="form-help">{{if .Pragovi}}Crte su pragovi ovog sliva: toliko snijega bude jednom u 3, 5 i 10 zima. {{end}}Puna crta je do danas, crtkana procjena iz prognoze za 5 dana.</p>
+    <p class="form-help mb-0">Snijeg na tlu: SNOWGRID, GeoSphere Austria (austrijski dio sliva, kasni 1–2 dana).</p>
+  </section>
+  {{end}}
   {{if .UPrognozi}}
   <p class="kis-prognoza-sliv kis-u-prognozi">{{icon "check"}} Kiša ovog međusliva ulazi u dnevnu prognozu za:
     <strong>{{range $i, $l := .UPrognozi}}{{if $i}}, {{end}}{{$l}}{{end}}</strong> — iz {{.UPrognoziTocaka}} {{uzBroj .UPrognoziTocaka "izvedene točke" "izvedene točke" "izvedenih točaka"}}.</p>
