@@ -108,25 +108,37 @@ func Otvori(put string) (*Spremiste, error) {
 			return nil, fmt.Errorf("spremište sadržaja: %w", err)
 		}
 	}
-	// stupci uvedeni nakon što je spremište već stvoreno
+	if err := dopuniSpremiste(db); err != nil {
+		_ = db.Close() // greška dopune je važnija od greške zatvaranja
+		return nil, err
+	}
+	return s, nil
+}
+
+// dopuniSpremiste dodaje stupce uvedene nakon što je spremište već
+// stvoreno, a zatim kazalo po kanalu. Kanal stoji iza podataka (stupac je
+// dodan poslije), pa traženje po kanalu bez kazala čita svaki dokument
+// cijeli; stranica Pretplate to radi za svaki kanal koji se ne prati.
+func dopuniSpremiste(db *sql.DB) error {
 	for _, c := range []struct{ tablica, stupac, opis string }{
 		{"sadrzaj", "kanal", "TEXT NOT NULL DEFAULT ''"},
 		{"sadrzaj_zeljen", "kanal", "TEXT NOT NULL DEFAULT ''"},
 	} {
 		ima, err := imaStupac(db, c.tablica, c.stupac)
 		if err != nil {
-			db.Close()
-			return nil, err
+			return err
 		}
 		if ima {
 			continue
 		}
 		if _, err := db.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", c.tablica, c.stupac, c.opis)); err != nil {
-			db.Close()
-			return nil, fmt.Errorf("spremište sadržaja, stupac %s.%s: %w", c.tablica, c.stupac, err)
+			return fmt.Errorf("spremište sadržaja, stupac %s.%s: %w", c.tablica, c.stupac, err)
 		}
 	}
-	return s, nil
+	if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_sadrzaj_kanal ON sadrzaj(kanal)`); err != nil {
+		return fmt.Errorf("spremište sadržaja, kazalo kanala: %w", err)
+	}
+	return nil
 }
 
 // imaStupac javlja postoji li stupac u tablici
