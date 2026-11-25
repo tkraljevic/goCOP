@@ -7,9 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"gocop/internal/raspakiraj"
@@ -392,39 +394,26 @@ func vrijednostCelije(tip, v, is string, sst []string) string {
 }
 
 // xlsxUOcitanja pretvara list u redke koje razumije čitač zalijepljenog
-// ispisa. Traži se zaglavlje „Vrijeme očitanja“, pa stupac vrijednosti — prvi
-// s ispunjenim naslovom nakon rednog broja. Prazne ćelije se preskaču: to su
-// sati koje preuzimanje nije stiglo, a ne greške.
+// ispisa. Prima izvoz s letva.voda.hr (Vrijeme očitanja | Rbr. | vodostaj)
+// i vlastitu tablicu s dva stupca (vrijeme | vodostaj). Zaglavlje je redak
+// s „Vrijeme očitanja“, odnosno redak kojem prvi stupac počinje s „Vrijeme“
+// ili „Datum“; stupac vrijednosti je prvi iza njega s naslovom koji nije
+// redni broj. Vrijeme smije biti tekst ili pravi Excelov datum. Prazne
+// ćelije se preskaču: to su sati koje preuzimanje nije stiglo, a ne greške.
 func xlsxUOcitanja(redci [][]string) (string, string, error) {
-	zaglavlje, postaja := -1, ""
+	zaglavlje := -1
 	for i, r := range redci {
-		for _, c := range r {
-			if strings.Contains(strings.ToLower(c), "vrijeme očitanja") {
-				zaglavlje = i
-				break
-			}
-		}
-		if zaglavlje >= 0 {
-			for j := len(r) - 1; j >= 0; j-- {
-				if s := strings.TrimSpace(r[j]); s != "" && !strings.EqualFold(s, "Rbr.") &&
-					!strings.Contains(strings.ToLower(s), "vrijeme") {
-					postaja = s
-				}
-			}
+		if jeZaglavljeOcitanja(r) {
+			zaglavlje = i
 			break
 		}
 	}
 	if zaglavlje < 0 {
-		return "", "", fmt.Errorf("u tablici nema stupca „Vrijeme očitanja“ — je li to ispis s letve?")
+		return "", "", fmt.Errorf("u tablici nema stupca „Vrijeme očitanja“ ni „Vrijeme“ — prvi redak treba imati naslove stupaca")
 	}
-	stupacVrijednosti := 2
-	if len(redci[zaglavlje]) > 2 {
-		for j := 2; j < len(redci[zaglavlje]); j++ {
-			if strings.TrimSpace(redci[zaglavlje][j]) != "" {
-				stupacVrijednosti = j
-				break
-			}
-		}
+	stupacVrijednosti, postaja := stupacVodostaja(redci[zaglavlje])
+	if stupacVrijednosti < 0 {
+		return "", "", fmt.Errorf("u zaglavlju nema stupca s vodostajem — uz „Vrijeme“ treba stupac s naslovom, npr. „Vodostaj (cm)“")
 	}
 
 	var sb strings.Builder
@@ -439,7 +428,7 @@ func xlsxUOcitanja(redci [][]string) (string, string, error) {
 		if v == "" {
 			continue // sat koji preuzimanje nije stiglo
 		}
-		sb.WriteString(strings.TrimSpace(r[0]))
+		sb.WriteString(vrijemeCelije(r[0]))
 		sb.WriteByte('\t')
 		sb.WriteString(v)
 		sb.WriteByte('\n')
@@ -448,4 +437,55 @@ func xlsxUOcitanja(redci [][]string) (string, string, error) {
 		return "", postaja, fmt.Errorf("u tablici nema nijedne vrijednosti")
 	}
 	return sb.String(), postaja, nil
+}
+
+// jeZaglavljeOcitanja javlja je li redak zaglavlje tablice očitanja: ima
+// „Vrijeme očitanja“ (izvoz s letva.voda.hr) ili mu prvi stupac počinje s
+// „Vrijeme“ ili „Datum“ (vlastita tablica).
+func jeZaglavljeOcitanja(r []string) bool {
+	for _, c := range r {
+		if strings.Contains(strings.ToLower(c), "vrijeme očitanja") {
+			return true
+		}
+	}
+	if len(r) == 0 {
+		return false
+	}
+	prvi := strings.ToLower(strings.TrimSpace(r[0]))
+	return strings.HasPrefix(prvi, "vrijeme") || strings.HasPrefix(prvi, "datum")
+}
+
+// stupacVodostaja je prvi stupac iza vremena s naslovom koji nije redni broj
+// ni vrijeme; njegov naslov je i ime postaje kad je tablica izvoz s letve.
+// Vraća -1 kad takvog stupca nema.
+func stupacVodostaja(zaglavlje []string) (int, string) {
+	for j := 1; j < len(zaglavlje); j++ {
+		s := strings.TrimSpace(zaglavlje[j])
+		l := strings.ToLower(s)
+		if s == "" || strings.HasPrefix(l, "rbr") || strings.HasPrefix(l, "r. br") ||
+			strings.Contains(l, "vrijeme") || strings.HasPrefix(l, "datum") {
+			continue
+		}
+		return j, s
+	}
+	return -1, ""
+}
+
+// vrijemeCelije vraća vrijeme iz prvog stupca kao tekst koji čita čitač
+// ispisa. Pravi Excelov datum u ćeliji je broj dana od 30. 12. 1899. (s
+// dijelom dana kao satom), pa se pretvara u „25.11.2026. 07:00“; tekst ostaje
+// kakav jest.
+func vrijemeCelije(c string) string {
+	c = strings.TrimSpace(c)
+	f, err := strconv.ParseFloat(c, 64)
+	if err != nil || f < 1 || f > 2958465 {
+		return c
+	}
+	dani := math.Floor(f)
+	minute := math.Round((f - dani) * 24 * 60)
+	t := time.Date(1899, 12, 30, 0, 0, 0, 0, time.UTC).AddDate(0, 0, int(dani)).Add(time.Duration(minute) * time.Minute)
+	if minute == 0 && f == dani {
+		return t.Format("02.01.2006.")
+	}
+	return t.Format("02.01.2006. 15:04")
 }

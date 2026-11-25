@@ -199,6 +199,13 @@ očitanja na toj letvi.
 - Svaki redak je vrijeme i vodostaj u centimetrima, npr. `2026-03-01 07:00;245`.
 - Prima i ispis s letva.voda.hr: `07.09.2026. 00 h    -118`,
   `08.09.2026. 00:00  -123` ili samo datum za dnevnu vrijednost.
+- Prima i CSV koji sprema hrvatski Excel: `25.11.2026. 07:00;512`, datum i
+  sat u odvojenim stupcima `25.11.2026.;07:00;512`, ćelije u navodnicima i
+  sat sa sekundama. Decimalni zarez ostaje dio broja (`512,5`).
+- Excel (`.xlsx`): izvoz s letva.voda.hr (Vrijeme očitanja | Rbr. | vodostaj)
+  ili vlastita tablica s dva stupca, npr. `Vrijeme | Vodostaj (cm)`. Prvi
+  redak su naslovi; prvi stupac počinje s „Vrijeme” ili „Datum”. Vrijeme
+  smije biti tekst ili pravi Excelov datum.
 - **Vrijeme je lokalno, po zagrebačkom vremenu**, s ljetnim i zimskim
   računanjem.
 - Zaglavlja i prazni redci se preskaču. Redak koji počinje datumom, a ne da
