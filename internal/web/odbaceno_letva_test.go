@@ -195,7 +195,7 @@ func TestPomocOpisujeRasponOcitanja(t *testing.T) {
 	h := pomocHTML(t)
 	for _, s := range []string{`id="ocitanja-raspon"`, "vodostaj od −500 do 3000 cm", "satno preuzimanje",
 		"evidencije BP16", "kota u cm n. m.", "5000 do 40 000 cm", "Odbačeno izvan raspona: 50",
-		"putuje razmjenom", "starijom verzijom programa (0.0.34) raspon ne provjerava",
+		"putuje razmjenom", "lažni skok",
 		"Oznaku postavlja program; u obrascu letve se ne mijenja", "greška u zapisu", "ne poništava"} {
 		if !strings.Contains(h, s) {
 			t.Errorf("pomoć ne spominje %q", s)
