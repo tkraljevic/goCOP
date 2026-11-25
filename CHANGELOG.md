@@ -4,6 +4,37 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.67-alfa — 25. 11. 2026.
+
+Prognoza vodostaja sad računa sa snijegom u Alpama, a Naslovna javlja kad
+ga je puno i kad na njega pada kiša. Baza oborina dobiva dvije tablice za
+snijeg na tlu, a baza prognoza tablicu postavki modela; program ih doda sam
+pri pokretanju. Prvo pokretanje skida povijest snijega od 1961. (oko 20
+minuta, u pozadini). Razmjena se ne mijenja, osim što primijenjene postavke
+snijega putuju s modelom, kao i do sada model letve.
+
+- **Snijeg u prognozi.** Snijeg koji padne na slivovima ostaje na tlu i u
+  prognozu ulazi tek kad se otopi, isto pri učenju modela i uživo. Na
+  povijesti 2012.–2025. promašaj 6. dana u snježnim zimama manji je za
+  oko petinu (npr. Botovo 2012./13. s 48 na 36 cm, Komárom 2018./19. s 58
+  na 42 cm); ljeti se ništa ne mijenja. Kartica Jače oborine i kiša uz
+  izdanje i dalje pokazuju svu oborinu koja je pala.
+- **Kartica „Snijeg u Alpama”.** Na Naslovnoj, dok u gornjoj Dravi, Muri,
+  Innu i Salzachu ili Traunu i Ennsu ima snijega kao jednom u 3 zime ili
+  više nego obično za to doba godine. Snijeg na tlu je iz SNOWGRID-a
+  (GeoSphere Austria), koji svako računalo samo preuzima svaki dan.
+- **Uzbuna „Kiša i topljenje na puno snijega!”.** Crveni natpis kad je
+  snijega neobično puno za to doba godine, a u idućih 5 dana s Alpa stiže
+  voda (kiša i otopljeni snijeg) kakva bude jednom u 2 godine ili rjeđe.
+  Na povijesti od 1962. upalila bi se 7–11 dana prije velikih voda 1965.,
+  1975. i 2006., i nijednom bez velike vode.
+- **Snijeg na kišomjeru i na Slivovima.** Kišomjer u alpskom slivu ima
+  oznaku, snijeg kao svijetli dio stupca oborine, stupac „od toga snijeg” i
+  krivulju snijega na tlu; Slivovi imaju snijeg na tlu sliva kroz sezonu s
+  pragovima za 3, 5 i 10 zima.
+- **Model snijega u Postavkama prognoze.** Uključuje se i ugađa (brzina i
+  temperatura topljenja) kroz nacrt, probu na zimama od 2012. i primjenu.
+
 ## 0.0.66-alfa — 24. 11. 2026.
 
 Popravci nakon prvog dana rada s 0.0.65: obrana se prekida i sa stranice
