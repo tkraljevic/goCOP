@@ -449,9 +449,22 @@ func (s *VodocuvarService) ocitanja(ctx context.Context, userID string, dan time
 		if x.Vodostaj == nil {
 			continue
 		}
-		fmt.Fprintf(&b, "%s: %+d cm (%s)\n", x.Postaja, *x.Vodostaj, x.Kad.In(models.Zagreb).Format("15:04"))
+		fmt.Fprintf(&b, "%s: %s (%s)\n", x.Postaja, vodostajiObjekta(x), x.Kad.In(models.Zagreb).Format("15:04"))
 	}
 	return strings.TrimSpace(b.String())
+}
+
+// vodostajiObjekta: letva ima jedan vodostaj, ustava uzvodni i nizvodni, a
+// crpna stanica kanal i vanjsku stranu
+func vodostajiObjekta(x repository.OcitanjeDana) string {
+	if x.Vodostaj2 == nil {
+		return fmt.Sprintf("%+d cm", *x.Vodostaj)
+	}
+	prvi, drugi := "uzvodno", "nizvodno"
+	if x.Vrsta == models.StructureKindPumpingStation {
+		prvi, drugi = "kanal", "vanjska strana"
+	}
+	return fmt.Sprintf("%s %+d cm, %s %+d cm", prvi, *x.Vodostaj, drugi, *x.Vodostaj2)
 }
 
 // UnosLista je ono što vodočuvar upiše

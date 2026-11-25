@@ -322,3 +322,45 @@ func TestZadaciPodrucja(t *testing.T) {
 		t.Error("zadaci područja: zatvorena baza bez greške")
 	}
 }
+
+// Očitanje ustave ili crpne stanice stoji na listu s imenom objekta i s oba
+// vodostaja; kopija istog očitanja na letvi objekta ne stoji još jednom.
+func TestOcitanjaDanaSObjekata(t *testing.T) {
+	baza, repo := vodocuvarProbe(t)
+	ctx := context.Background()
+	kad := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	const letva, ustava, cs = "0f1e2d3c-0000-4000-8000-0000000000b1", "0f1e2d3c-0000-4000-8000-0000000000b2", "0f1e2d3c-0000-4000-8000-0000000000b3"
+	for _, q := range []struct {
+		upit string
+		arg  []any
+	}{
+		{`INSERT OR IGNORE INTO sectors (id, name, vgo_name, center_cop) VALUES ('B', 'Sektor B', 'VGO', 'COP')`, nil},
+		{`INSERT OR IGNORE INTO areas (id, sector_id, name, vgi_name) VALUES (16, 'B', 'Područje 16', 'VGI')`, nil},
+		{`INSERT INTO stations (id, code, name, created_at, updated_at) VALUES (?, 'PRO-U', 'Probna ustava GV', ?, ?)`, []any{letva, kad, kad}},
+		{`INSERT INTO structures (id, code, name, kind, sector_id, area_id, created_at, updated_at) VALUES (?, 'PU', 'Probna ustava', 'USTAVA', 'B', 16, ?, ?)`, []any{ustava, kad, kad}},
+		{`INSERT INTO structures (id, code, name, kind, sector_id, area_id, created_at, updated_at) VALUES (?, 'PCS', 'CS Probna', 'CRPNA_STANICA', 'B', 16, ?, ?)`, []any{cs, kad, kad}},
+		{`INSERT INTO readings (id, structure_id, measured_at, level_cm, level2_cm, user_id, created_at, updated_at) VALUES ('o-1', ?, ?, 312, 287, ?, ?, ?)`,
+			[]any{ustava, time.Date(2026, 3, 10, 9, 40, 0, 0, models.Zagreb).UTC(), vodocuvarMarko, kad, kad}},
+		{`INSERT INTO readings (id, station_id, measured_at, level_cm, user_id, source_ref, created_at, updated_at) VALUES ('o-2', ?, ?, 312, ?, 'objekt:o-1', ?, ?)`,
+			[]any{letva, time.Date(2026, 3, 10, 9, 40, 0, 0, models.Zagreb).UTC(), vodocuvarMarko, kad, kad}},
+		{`INSERT INTO readings (id, structure_id, measured_at, level_cm, level2_cm, user_id, created_at, updated_at) VALUES ('o-3', ?, ?, 95, 310, ?, ?, ?)`,
+			[]any{cs, time.Date(2026, 3, 10, 11, 20, 0, 0, models.Zagreb).UTC(), vodocuvarMarko, kad, kad}},
+	} {
+		if _, err := baza.Exec(q.upit, q.arg...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	l, err := repo.OcitanjaDana(ctx, vodocuvarMarko, time.Date(2026, 3, 10, 18, 0, 0, 0, models.Zagreb))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(l) != 2 {
+		t.Fatalf("dva očitanja s objekata, bez kopije na letvi; dobio %+v", l)
+	}
+	if l[0].Postaja != "Probna ustava" || l[0].Vrsta != models.StructureKindSluice || *l[0].Vodostaj != 312 || l[0].Vodostaj2 == nil || *l[0].Vodostaj2 != 287 {
+		t.Errorf("ustava: %+v", l[0])
+	}
+	if l[1].Postaja != "CS Probna" || l[1].Vrsta != models.StructureKindPumpingStation || l[1].Vodostaj2 == nil || *l[1].Vodostaj2 != 310 {
+		t.Errorf("crpna stanica: %+v", l[1])
+	}
+}
