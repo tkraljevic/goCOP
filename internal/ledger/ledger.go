@@ -439,9 +439,28 @@ func boolInt(b bool) int {
 // Granica se slaže samo od verzija koje bi razmjena danas primila
 // (uvjetGranice): verzija s oznakom krivog oblika, iz budućnosti ili sa
 // znakom | u imenu autora, primljena prije te provjere, ne pomiče je.
+//
+// GROUP BY nad cijelom knjigom prolazi svaku verziju (stotine tisuća, oko
+// sekunde), a stranice i razmjena granicu traže često. Zato se autori i
+// kanali preskaču kroz indekse (rekurzivni min(x) > prethodni), a za svaki
+// par se najveća verzija čita izravno iz indeksa (node_id, channel,
+// version_id): isti uvjet, isti ishod, nekoliko milisekundi.
 func (r *Recorder) Frontier(ctx context.Context) (map[string]string, error) {
 	uvjet, args := uvjetGranice(Sada())
-	rows, err := r.db.QueryContext(ctx, `SELECT node_id, channel, MAX(version_id) FROM record_versions WHERE `+uvjet+` GROUP BY node_id, channel`, args...)
+	rows, err := r.db.QueryContext(ctx, `WITH RECURSIVE
+		autori(n) AS (
+			SELECT min(node_id) FROM record_versions
+			UNION ALL
+			SELECT (SELECT min(node_id) FROM record_versions WHERE node_id > autori.n) FROM autori WHERE autori.n IS NOT NULL),
+		parovi(n, c) AS (
+			SELECT n, (SELECT min(channel) FROM record_versions WHERE node_id = autori.n) FROM autori WHERE n IS NOT NULL
+			UNION ALL
+			SELECT n, (SELECT min(channel) FROM record_versions WHERE node_id = parovi.n AND channel > parovi.c) FROM parovi WHERE parovi.c IS NOT NULL)
+		SELECT n, c, najvisa FROM (
+			SELECT n, c, (SELECT MAX(version_id) FROM record_versions
+				WHERE node_id = parovi.n AND channel = parovi.c AND `+uvjet+`) AS najvisa
+			FROM parovi WHERE c IS NOT NULL)
+		WHERE najvisa IS NOT NULL`, args...)
 	if err != nil {
 		return nil, err
 	}
