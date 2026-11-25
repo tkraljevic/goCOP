@@ -12,9 +12,11 @@ package oborine
 //
 // Kao vodostaje, izvor čita samo jedan čvor: onaj koji izdaje prognozu
 // (Smije). On preuzeto ulaže u arhivsko stablo (izvor snowgrid, veličina
-// snijeg-na-tlu, po danu, letva je šifra točke) i izdaje pakete točaka, pa
-// povijest ostalima stiže paketima arhive, a tekuću sezonu šalje uz svako
-// izdanje prognoze (tablica snijeg_na_tlu). Ostali čvorovi izvor ne zovu.
+// snijeg-na-tlu, po danu, letva snowgrid-<točka>) i najviše jednom tjedno
+// izdaje pakete, pa povijest ostalima stiže paketima arhive, a tekuću
+// sezonu šalje uz svako izdanje prognoze (tablica snijeg_na_tlu). Ostali
+// čvorovi izvor ne zovu. Izdavač preuzima samo dane koje još nema ni u
+// arhivi ni u bazi oborina.
 
 import (
 	"context"
@@ -102,7 +104,9 @@ func pripremiSnijegNaTlu(d *sql.DB) error {
 	);
 	CREATE TABLE IF NOT EXISTS snijeg_na_tlu_u_arhivi (
 		kisomjer TEXT PRIMARY KEY,
-		do INTEGER NOT NULL
+		od INTEGER NOT NULL,
+		do INTEGER NOT NULL,
+		kad INTEGER NOT NULL
 	)`)
 	return err
 }
@@ -434,6 +438,50 @@ func zadaci(tocke []Tocka, preuzeto map[string]map[int64]int64, kraj int64) []za
 	return out
 }
 
+// dodajPoznato dopiše u preuzeto razdoblja koja čvor već ima iz arhive ili
+// baze oborina (poznatiDani), pa čvor koji tek postane izdavač, ili ima
+// povijest iz paketa, nastavlja od zadnjeg dana koji ima, a ne od 1961.
+// Razdoblje se uzima kao preuzeto od svog početka do zadnjeg poznatog dana.
+func (s *SnijegNaTlu) dodajPoznato(preuzeto map[string]map[int64]int64, tocke []Tocka, kraj int64) error {
+	for _, t := range tocke {
+		p, ima, err := s.poznatiDani(t.Code)
+		if err != nil {
+			return err
+		}
+		if !ima {
+			continue
+		}
+		if preuzeto[t.Code] == nil {
+			preuzeto[t.Code] = map[int64]int64{}
+		}
+		for _, r := range razdobljaDo(kraj) {
+			poznatoURazdoblju(preuzeto[t.Code], p, r)
+		}
+	}
+	return nil
+}
+
+// poznatoURazdoblju uzima razdoblje r kao preuzeto do zadnjeg poznatog dana
+// p kad poznati dani pokrivaju njegov početak, a dosad zapisano je manje.
+func poznatoURazdoblju(preuzeto map[int64]int64, p [2]int64, r razdobljeSnowgrida) {
+	if p[0] > r.od || p[1] < r.od {
+		return
+	}
+	if do, bilo := preuzeto[r.od]; !bilo || do < min(p[1], r.do) {
+		preuzeto[r.od] = min(p[1], r.do)
+	}
+}
+
+// preuzetoIPoznato su razdoblja točaka i dan dokle ih čvor ima: što je sam
+// preuzeo i što već ima iz arhive ili baze oborina (dodajPoznato).
+func (s *SnijegNaTlu) preuzetoIPoznato(tocke []Tocka, kraj int64) (map[string]map[int64]int64, error) {
+	preuzeto, err := s.preuzetoDo()
+	if err != nil {
+		return nil, err
+	}
+	return preuzeto, s.dodajPoznato(preuzeto, tocke, kraj)
+}
+
 // Nadopuni preuzme što nedostaje do zadnjeg dana izvora: prvi put cijelu
 // povijest, poslije samo nove dane. Između zahtjeva čeka predah. Vraća
 // koliko je zahtjeva za dane poslano.
@@ -446,7 +494,7 @@ func (s *SnijegNaTlu) Nadopuni(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	preuzeto, err := s.preuzetoDo()
+	preuzeto, err := s.preuzetoIPoznato(tocke, kraj)
 	if err != nil {
 		return 0, err
 	}
@@ -539,7 +587,7 @@ func (s *SnijegNaTlu) izArhive(tocka string, od, do int64) (map[int64]float64, e
 	}
 	r, err := s.Arhiva.Query(`SELECT vrijeme / 86400, vrijednost FROM spoj
 		WHERE letva = ? AND velicina = ? AND korak = 'dnevni' AND vrijeme BETWEEN ? AND ?`,
-		tocka, VelicinaSnijega, od*86400, do*86400)
+		LetvaSnijega(tocka), VelicinaSnijega, od*86400, do*86400)
 	if err != nil {
 		if jeBezTablice(err) {
 			return map[int64]float64{}, nil // arhiva još nije stigla
@@ -555,75 +603,159 @@ func jeBezTablice(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "no such table")
 }
 
+// LetvaSnijega je ključ niza snijega na tlu točke u arhivi. Zasebna letva,
+// ne šifra točke: paket tada nosi samo SNOWGRID, malen je i ne ovisi o
+// paketu točke s ERA5, pa ga primi i čvor koji točke drži iz svog stabla.
+func LetvaSnijega(tocka string) string { return IzvorSnowgrida + "-" + tocka }
+
+// IzdajSnijegSvakih je koliko se najčešće snijeg točke ponovno ulaže u
+// arhivu i izdaje paketom. Novi dani ionako idu uz svako izdanje prognoze,
+// pa paket treba samo za povijest.
+const IzdajSnijegSvakih = 7 * 24 * time.Hour
+
+// Granice dana (od 1970.) za čitanje cijelog niza.
+const (
+	najranijiDan  = -100000
+	najkasnijiDan = 100000
+)
+
 // Ulozi stavlja preuzeti snijeg na tlu u arhivsko stablo (koren), u mapu
-// sliva sliv: za svaku točku dane od zadnjeg ulaganja, s devet dana prije
-// njega jer ih izvor zna ispraviti, a prvi put cijelu povijest. Vraća točke
-// kojima se niz promijenio, da se mogu izgraditi i izdati.
-func (s *SnijegNaTlu) Ulozi(koren, sliv string) ([]string, error) {
+// sliva sliv, kao letvu LetvaSnijega točke. Točka se ulaže prvi put (s
+// poviješću koju arhiva već ima), kad stigne starija povijest i inače
+// najviše jednom u IzdajSnijegSvakih, od devet dana prije zadnjeg uloženog
+// dana jer ih izvor zna ispraviti. Vraća letve koje treba izgraditi i izdati.
+func (s *SnijegNaTlu) Ulozi(koren, sliv string, sada time.Time) ([]string, error) {
 	tocke, err := s.Tocke()
 	if err != nil {
 		return nil, err
 	}
-	var promijenjene []string
+	var letve []string
 	var ostaci error
 	for _, t := range tocke {
-		ulozeno, err := s.uloziTocku(koren, sliv, t.Code)
+		ulozeno, err := s.uloziTocku(koren, sliv, t.Code, sada)
 		if err = arhiva.SkupiOstatak(err, &ostaci); err != nil {
-			return promijenjene, errors.Join(ostaci, fmt.Errorf("%s: %w", t.Code, err))
+			return letve, errors.Join(ostaci, fmt.Errorf("%s: %w", t.Code, err))
 		}
 		if ulozeno {
-			promijenjene = append(promijenjene, t.Code)
+			letve = append(letve, LetvaSnijega(t.Code))
 		}
 	}
-	return promijenjene, ostaci
+	return letve, ostaci
 }
 
-// uloziTocku uloži dane jedne točke od zadnjeg ulaganja (prvi put sve) i
-// zapamti dokle je uloženo; javlja je li išta uloženo. Stari niz koji je
-// ostao (arhiva.StariNizOstao) vraća se uz uloženo.
-func (s *SnijegNaTlu) uloziTocku(koren, sliv, tocka string) (bool, error) {
-	var bilo sql.NullInt64
-	if err := s.DB.QueryRow(`SELECT do FROM snijeg_na_tlu_u_arhivi WHERE kisomjer = ?`, tocka).Scan(&bilo); err != nil && err != sql.ErrNoRows {
+// ulozenoTocke je što je od točke uloženo: prvi i zadnji dan i kad.
+type ulozenoTocke struct {
+	od, do, kad int64
+	ima         bool
+}
+
+// trebaUloziti javlja je li točka na redu: nikad uložena, stigla je
+// starija povijest (preuzimanje ide od najnovijeg desetljeća) ili je prošao
+// tjedan od zadnjeg ulaganja.
+func (u ulozenoTocke) trebaUloziti(prvi int64, sada time.Time) bool {
+	return !u.ima || prvi < u.od || sada.Unix()-u.kad >= int64(IzdajSnijegSvakih/time.Second)
+}
+
+// uloziTocku uloži jednu točku kad je na redu i zapamti što je uloženo;
+// javlja je li išta uloženo. Stari niz koji je ostao (arhiva.StariNizOstao)
+// vraća se uz uloženo.
+func (s *SnijegNaTlu) uloziTocku(koren, sliv, tocka string, sada time.Time) (bool, error) {
+	bilo, err := s.ulozeno(tocka)
+	if err != nil {
 		return false, err
 	}
-	od := int64(math.MinInt64) // prvi put sve
-	if bilo.Valid {
-		od = bilo.Int64 - ponovnoDana
-	}
-	redci, zadnji, err := s.redciOd(tocka, od)
-	if err != nil || len(redci) == 0 {
+	prvi, _, ima, err := rasponDana(s.DB, `SELECT min(dan), max(dan) FROM snijeg_na_tlu WHERE kisomjer = ?`, tocka)
+	if err != nil || !ima || !bilo.trebaUloziti(prvi, sada) {
 		return false, err
 	}
-	_, ostatak := arhiva.Dopuni(koren, sliv, tocka, IzvorSnowgrida, VelicinaSnijega, vrstaSnijegaNaTlu, redci)
+	nizovi, err := s.Nizovi([]string{tocka}, bilo.odKada(prvi), najkasnijiDan)
+	if err != nil {
+		return false, err
+	}
+	redci, prviUlozen, zadnji := redciPoDanu(nizovi[tocka])
+	_, ostatak := arhiva.Dopuni(koren, sliv, LetvaSnijega(tocka), IzvorSnowgrida, VelicinaSnijega, vrstaSnijegaNaTlu, redci)
 	if arhiva.SkupiOstatak(ostatak, new(error)) != nil {
 		return false, ostatak
 	}
-	if _, err := s.DB.Exec(`INSERT INTO snijeg_na_tlu_u_arhivi (kisomjer, do) VALUES (?, ?)
-		ON CONFLICT(kisomjer) DO UPDATE SET do = excluded.do`, tocka, zadnji); err != nil {
-		return false, err
+	if bilo.ima {
+		prviUlozen = min(prviUlozen, bilo.od)
 	}
-	return true, ostatak
+	_, err = s.DB.Exec(`INSERT INTO snijeg_na_tlu_u_arhivi (kisomjer, od, do, kad) VALUES (?, ?, ?, ?)
+		ON CONFLICT(kisomjer) DO UPDATE SET od = excluded.od, do = excluded.do, kad = excluded.kad`,
+		tocka, prviUlozen, zadnji, sada.Unix())
+	return err == nil, errors.Join(err, ostatak)
 }
 
-// redciOd su dani točke od dana od kao retci arhive (po danu), i zadnji dan.
-func (s *SnijegNaTlu) redciOd(tocka string, od int64) ([]arhiva.Redak, int64, error) {
-	r, err := s.DB.Query(`SELECT dan, swe FROM snijeg_na_tlu WHERE kisomjer = ? AND dan >= ? ORDER BY dan`, tocka, od)
-	if err != nil {
-		return nil, 0, err
+// ulozeno je što je od točke dosad uloženo u arhivu.
+func (s *SnijegNaTlu) ulozeno(tocka string) (ulozenoTocke, error) {
+	var u ulozenoTocke
+	err := s.DB.QueryRow(`SELECT od, do, kad FROM snijeg_na_tlu_u_arhivi WHERE kisomjer = ?`, tocka).Scan(&u.od, &u.do, &u.kad)
+	if err == sql.ErrNoRows {
+		return u, nil
 	}
-	defer r.Close()
-	var out []arhiva.Redak
-	var zadnji int64
-	for r.Next() {
-		var d int64
-		var v float64
-		if err := r.Scan(&d, &v); err != nil {
-			return nil, 0, err
-		}
-		out = append(out, arhiva.Redak{Vrijeme: time.Unix(d*86400, 0).UTC(), PoDanu: true, Vrijednost: v})
-		zadnji = d
+	u.ima = err == nil
+	return u, err
+}
+
+// odKada je prvi dan koji se ulaže: prvi put sve (i povijest koju arhiva
+// već ima), kad stigne starija povijest od nje, a inače devet dana prije
+// zadnjeg uloženog, jer ih izvor zna ispraviti.
+func (u ulozenoTocke) odKada(prvi int64) int64 {
+	switch {
+	case !u.ima:
+		return najranijiDan
+	case prvi < u.od:
+		return prvi
 	}
-	return out, zadnji, r.Err()
+	return u.do - ponovnoDana
+}
+
+// redciPoDanu su dani niza redom kao retci arhive (po danu), s prvim i
+// zadnjim danom.
+func redciPoDanu(niz map[int64]float64) ([]arhiva.Redak, int64, int64) {
+	dani := make([]int64, 0, len(niz))
+	for d := range niz {
+		dani = append(dani, d)
+	}
+	sort.Slice(dani, func(i, j int) bool { return dani[i] < dani[j] })
+	out := make([]arhiva.Redak, 0, len(dani))
+	for _, d := range dani {
+		out = append(out, arhiva.Redak{Vrijeme: time.Unix(d*86400, 0).UTC(), PoDanu: true, Vrijednost: niz[d]})
+	}
+	if len(dani) == 0 {
+		return out, 0, 0
+	}
+	return out, dani[0], dani[len(dani)-1]
+}
+
+// rasponDana čita prvi i zadnji dan upitom koji vraća min i max; ima je
+// netočno kad dana nema.
+func rasponDana(db *sql.DB, upit string, args ...any) (od, do int64, ima bool, err error) {
+	var a, b sql.NullInt64
+	if err := db.QueryRow(upit, args...).Scan(&a, &b); err != nil {
+		return 0, 0, false, err
+	}
+	return a.Int64, b.Int64, a.Valid && b.Valid, nil
+}
+
+// poznatiDani je prvi i zadnji dan koji čvor za točku već ima, u arhivi
+// (paketima) ili u bazi oborina (svoje preuzimanje i izdanja prognoze).
+func (s *SnijegNaTlu) poznatiDani(tocka string) ([2]int64, bool, error) {
+	od, do, ima, err := rasponDana(s.DB, `SELECT min(dan), max(dan) FROM snijeg_na_tlu WHERE kisomjer = ?`, tocka)
+	if err != nil || s.Arhiva == nil {
+		return [2]int64{od, do}, ima, err
+	}
+	aOd, aDo, aIma, err := rasponDana(s.Arhiva, `SELECT min(vrijeme) / 86400, max(vrijeme) / 86400 FROM spoj
+		WHERE letva = ? AND velicina = ? AND korak = 'dnevni'`, LetvaSnijega(tocka), VelicinaSnijega)
+	switch {
+	case jeBezTablice(err) || (err == nil && !aIma):
+		return [2]int64{od, do}, ima, nil
+	case err != nil:
+		return [2]int64{}, false, err
+	case !ima:
+		return [2]int64{aOd, aDo}, true, nil
+	}
+	return [2]int64{min(od, aOd), max(do, aDo)}, true, nil
 }
 
 func citajNiz(r *sql.Rows) (map[int64]float64, error) {

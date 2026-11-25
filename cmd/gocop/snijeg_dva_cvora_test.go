@@ -118,8 +118,9 @@ func slivA(t *testing.T, iz *snijeg.Izvor) snijeg.StanjeSliva {
 }
 
 // Snijeg na tlu između dva čvora, kao vodostaji: SNOWGRID čita samo
-// izdavač (kućni server). On preuzeto uloži u stablo, izgradi točku i izda
-// paket; drugi čvor (laptop) povijest dobije paketom arhive, a tekuću
+// izdavač (kućni server). On preuzeto uloži u stablo kao letvu
+// snowgrid-k-a-1, izgradi je i izda paket; drugi čvor (laptop) povijest
+// dobije tim paketom i kad točku k-a-1 drži iz svog stabla, a tekuću
 // sezonu uz izdanje prognoze, i izvor nijednom ne zove. Pragovi „jednom u
 // 3/5/10 zima” i stanje sliva su mu isti kao izdavaču. Brojevi su
 // izmišljeni.
@@ -173,9 +174,20 @@ func TestSnijegNaTluDvaCvora(t *testing.T) {
 	if _, err := recB.Apply(ctx, verzije); err != nil {
 		t.Fatal(err)
 	}
+	// laptop drži točku k-a-1 (ERA5) iz svog stabla i sam preuzima
+	// vodostaje, pa paket te točke ne bi ugradio; snijeg je zasebna letva
 	putB := filepath.Join(t.TempDir(), "vodostaji.db")
+	arhivaB := bazaZaTest(t, putB)
+	if err := arhiva.PripremiPraznu(arhivaB); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := arhivaB.Exec(`INSERT INTO nizovi (sliv, letva, izvor, velicina, vrsta, zapisa, do_)
+		VALUES ('drava', 'k-a-1', 'openmeteo-era5', 'oborina', 'satni', 9, '2026-11-19')`); err != nil {
+		t.Fatal(err)
+	}
 	spB := spremisteZaTest(t)
 	rb := &razmjenaArhive{baza: bazaB, rec: recB, sp: spB, arhivaPut: putB, javljeno: map[string]bool{},
+		preuzima: func() bool { return true },
 		zeli: func(context.Context, string, string) bool { return true },
 		ugradi: func(s *arhiva.Sadrzaj) error {
 			d, err := sql.Open("sqlite", putB)

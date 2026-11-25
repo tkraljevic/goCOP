@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -71,7 +72,7 @@ func probnaArhiva(t *testing.T, dani map[int64]float64) *sql.DB {
 	}
 	for d, v := range dani {
 		if _, err := a.Exec(`INSERT INTO spoj (letva, velicina, korak, vrijeme, vrijednost, izvor, vrsta, tocnost)
-			VALUES ('k-a', 'snijeg-na-tlu', 'dnevni', ?, ?, 'snowgrid', 'dnevni', 0)`, d*86400, v); err != nil {
+			VALUES ('snowgrid-k-a', 'snijeg-na-tlu', 'dnevni', ?, ?, 'snowgrid', 'dnevni', 0)`, d*86400, v); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -113,9 +114,11 @@ func TestNizoviIzArhiveIBaze(t *testing.T) {
 	}
 }
 
-// Ulaganje u stablo: prvi put sva povijest točke, poslije od devet dana
-// prije zadnjeg uloženog; točka bez dana se preskače. Gradnja iz stabla
-// stavlja niz u spojeni dnevni niz na ponoć UTC, i dan prije 1970.
+// Ulaganje u stablo: zasebna letva snowgrid-<točka>, prvi put sva povijest
+// točke (i ona koju arhiva već ima), poslije najviše jednom tjedno od devet
+// dana prije zadnjeg uloženog, a odmah kad stigne starija povijest. Točka
+// bez dana se preskače. Gradnja iz stabla stavlja niz u spojeni dnevni niz
+// na ponoć UTC, i dan prije 1970.
 func TestUloziSnijegUStablo(t *testing.T) {
 	dir := t.TempDir()
 	d, err := Otvori(filepath.Join(dir, "oborine.db"))
@@ -124,31 +127,47 @@ func TestUloziSnijegUStablo(t *testing.T) {
 	}
 	defer d.Close()
 	koren := filepath.Join(dir, "stablo")
-	s := &SnijegNaTlu{DB: d, Tocke: func() ([]Tocka, error) { return []Tocka{{"k-a", 47, 13}, {"k-b", 47, 14}}, nil }}
+	s := &SnijegNaTlu{DB: d, Arhiva: probnaArhiva(t, map[int64]float64{19000: 7}),
+		Tocke: func() ([]Tocka, error) { return []Tocka{{"k-a", 47, 13}, {"k-b", 47, 14}}, nil }}
 	prvi := dan(1961, 1, 1)
-	if _, err := d.Exec(`INSERT INTO snijeg_na_tlu (kisomjer, dan, swe) VALUES ('k-a', ?, 0), ('k-a', 20000, 55.5), ('k-a', 20010, 60)`, prvi); err != nil {
+	if _, err := d.Exec(`INSERT INTO snijeg_na_tlu (kisomjer, dan, swe) VALUES ('k-a', 20000, 55.5), ('k-a', 20010, 60)`); err != nil {
 		t.Fatal(err)
 	}
-	tocke, err := s.Ulozi(koren, "drava")
-	if err != nil || len(tocke) != 1 || tocke[0] != "k-a" {
-		t.Fatalf("uložene točke %v (%v)", tocke, err)
+	sada := time.Date(2026, 11, 20, 8, 0, 0, 0, time.UTC)
+	letve, err := s.Ulozi(koren, "drava", sada)
+	if err != nil || len(letve) != 1 || letve[0] != "snowgrid-k-a" {
+		t.Fatalf("uložene letve %v (%v)", letve, err)
 	}
-	redci, err := arhiva.PostojeciRedci(koren, "drava", "k-a", IzvorSnowgrida, VelicinaSnijega, "dnevni")
-	if err != nil || len(redci) != 3 {
-		t.Fatalf("u stablu %d redaka (%v)", len(redci), err)
+	redciStabla := func() int {
+		t.Helper()
+		redci, err := arhiva.PostojeciRedci(koren, "drava", "snowgrid-k-a", IzvorSnowgrida, VelicinaSnijega, "dnevni")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return len(redci)
 	}
-	// drugi put: samo od 20001, a stari dio ostaje
+	if n := redciStabla(); n != 3 {
+		t.Fatalf("u stablu %d redaka, želim 3 (s danom iz arhive)", n)
+	}
+	// novi dan unutar tjedna ne ide u arhivu, a nakon tjedna ide
 	if _, err := d.Exec(`INSERT INTO snijeg_na_tlu (kisomjer, dan, swe) VALUES ('k-a', 20011, 61)`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.Ulozi(koren, "drava"); err != nil {
+	if letve, err := s.Ulozi(koren, "drava", sada.Add(6*24*time.Hour)); err != nil || len(letve) != 0 || redciStabla() != 3 {
+		t.Errorf("unutar tjedna: %v (%v)", letve, err)
+	}
+	if letve, err := s.Ulozi(koren, "drava", sada.Add(IzdajSnijegSvakih)); err != nil || len(letve) != 1 || redciStabla() != 4 {
+		t.Errorf("nakon tjedna: %v (%v)", letve, err)
+	}
+	// starija povijest (preuzimanje desetljeća unatrag) ide odmah
+	if _, err := d.Exec(`INSERT INTO snijeg_na_tlu (kisomjer, dan, swe) VALUES ('k-a', ?, 0)`, prvi); err != nil {
 		t.Fatal(err)
 	}
-	if redci, err := arhiva.PostojeciRedci(koren, "drava", "k-a", IzvorSnowgrida, VelicinaSnijega, "dnevni"); err != nil || len(redci) != 4 {
-		t.Errorf("nakon dopune %d redaka (%v)", len(redci), err)
+	if letve, err := s.Ulozi(koren, "drava", sada.Add(IzdajSnijegSvakih+time.Hour)); err != nil || len(letve) != 1 || redciStabla() != 5 {
+		t.Errorf("starija povijest: %v (%v)", letve, err)
 	}
 	baza := filepath.Join(dir, "vodostaji.db")
-	if _, err := arhiva.Izgradi(koren, baza, "k-a", nil); err != nil {
+	if _, err := arhiva.Izgradi(koren, baza, "snowgrid-k-a", nil); err != nil {
 		t.Fatal(err)
 	}
 	a, err := sql.Open("sqlite", baza)
@@ -157,12 +176,41 @@ func TestUloziSnijegUStablo(t *testing.T) {
 	}
 	defer a.Close()
 	niz, err := (&SnijegNaTlu{DB: d, Arhiva: a}).izArhive("k-a", prvi, 30000)
-	if err != nil || len(niz) != 4 || niz[prvi] != 0 || niz[20000] != 55.5 || niz[20011] != 61 {
+	if err != nil || len(niz) != 5 || niz[prvi] != 0 || niz[19000] != 7 || niz[20000] != 55.5 || niz[20011] != 61 {
 		t.Errorf("iz arhive %v (%v)", niz, err)
 	}
-	ime := filepath.Join(koren, "drava", "k-a")
-	if dat, err := os.ReadDir(ime); err != nil || len(dat) == 0 || !strings.HasPrefix(dat[0].Name(), "k-a_snowgrid_snijeg-na-tlu_dnevni_") {
+	ime := filepath.Join(koren, "drava", "snowgrid-k-a")
+	if dat, err := os.ReadDir(ime); err != nil || len(dat) == 0 || !strings.HasPrefix(dat[0].Name(), "snowgrid-k-a_snowgrid_snijeg-na-tlu_dnevni_") {
 		t.Errorf("datoteke %v (%v)", dat, err)
+	}
+}
+
+// Čvor koji postane izdavač, ili ima povijest iz paketa, preuzima samo dane
+// koje nema: točka s poviješću u arhivi od 1961. do prije tri dana traži
+// samo zadnje desetljeće od devet dana prije toga, a točka bez ičega cijelu
+// povijest.
+func TestNadopuniNastavljaOdPoznatog(t *testing.T) {
+	kraj := dan(1975, 6, 30)
+	izvor := &laziIzvor{kraj: kraj, v: func(int64) *float64 { return broj(3) }}
+	s, _ := probniSnijeg(t, izvor, Tocka{"k-a", 47, 13}, Tocka{"k-b", 47.2, 14.3})
+	povijest := map[int64]float64{}
+	for d := dan(1961, 1, 1); d <= kraj-3; d++ {
+		povijest[d] = 1
+	}
+	s.Arhiva = probnaArhiva(t, povijest)
+	n, err := s.Nadopuni(context.Background())
+	if err != nil || n != 3 {
+		t.Fatalf("%d zahtjeva (%v), želim 3", n, err)
+	}
+	want := []string{"1975-06-18…1975-06-30", "1971-01-01…1975-06-30", "1961-01-01…1970-12-31"}
+	if !reflect.DeepEqual(izvor.trazeno, want) {
+		t.Errorf("traženo %v, želim %v", izvor.trazeno, want)
+	}
+	// i dani dobiveni uz izdanje prognoze vrijede kao poznati
+	izvor.trazeno, izvor.kraj = nil, kraj+1
+	if n, err := s.Nadopuni(context.Background()); err != nil || n != 2 ||
+		izvor.trazeno[0] != "1975-06-21…1975-07-01" {
+		t.Errorf("novi dan: %d %v (%v)", n, izvor.trazeno, err)
 	}
 }
 
@@ -174,12 +222,57 @@ func TestUloziSnijegGreske(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := &SnijegNaTlu{DB: d, Tocke: func() ([]Tocka, error) { return nil, errors.New("registar") }}
-	if _, err := s.Ulozi(t.TempDir(), "drava"); err == nil {
+	if _, err := s.Ulozi(t.TempDir(), "drava", time.Now()); err == nil {
 		t.Error("točke bez greške")
 	}
 	s.Tocke = func() ([]Tocka, error) { return []Tocka{{"k-a", 47, 13}}, nil }
 	d.Close()
-	if _, err := s.Ulozi(t.TempDir(), "drava"); err == nil {
+	if _, err := s.Ulozi(t.TempDir(), "drava", time.Now()); err == nil {
 		t.Error("zatvorena baza bez greške")
+	}
+}
+
+// Arhiva koja se ne da pročitati zaustavi preuzimanje prije ijednog
+// zahtjeva za dane; raspon dana bez tablice je greška.
+func TestNadopuniArhivaSGreskom(t *testing.T) {
+	izvor := &laziIzvor{kraj: dan(1962, 1, 5), v: func(int64) *float64 { return broj(1) }}
+	s, _ := probniSnijeg(t, izvor, Tocka{"k-a", 47, 13})
+	pokvarena, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "vodostaji.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pokvarena.Exec(`CREATE TABLE spoj (letva TEXT)`); err != nil {
+		t.Fatal(err)
+	}
+	defer pokvarena.Close()
+	s.Arhiva = pokvarena
+	if n, err := s.Nadopuni(context.Background()); err == nil || n != 0 || len(izvor.trazeno) != 0 {
+		t.Errorf("pokvarena arhiva: %d zahtjeva (%v)", n, err)
+	}
+	if _, _, _, err := rasponDana(s.DB, `SELECT min(dan), max(dan) FROM nema_je`); err == nil {
+		t.Error("raspon bez tablice bez greške")
+	}
+}
+
+// Poznati dani vrijede samo za razdoblje čiji početak pokrivaju, i ne
+// skraćuju ono što je već zapisano kao preuzeto; prazan niz nema redaka.
+func TestPoznatoURazdoblju(t *testing.T) {
+	r := razdobljeSnowgrida{100, 200}
+	preuzeto := map[int64]int64{}
+	poznatoURazdoblju(preuzeto, [2]int64{150, 300}, r) // samo sezona iz izdanja
+	if len(preuzeto) != 0 {
+		t.Errorf("razdoblje bez početka uzeto kao preuzeto: %v", preuzeto)
+	}
+	poznatoURazdoblju(preuzeto, [2]int64{50, 300}, r)
+	if preuzeto[100] != 200 {
+		t.Errorf("pokriveno razdoblje: %v", preuzeto)
+	}
+	preuzeto[100] = 250
+	poznatoURazdoblju(preuzeto, [2]int64{50, 120}, r)
+	if preuzeto[100] != 250 {
+		t.Errorf("skraćeno preuzeto: %v", preuzeto)
+	}
+	if redci, od, do := redciPoDanu(nil); len(redci) != 0 || od != 0 || do != 0 {
+		t.Errorf("prazan niz: %v %d %d", redci, od, do)
 	}
 }

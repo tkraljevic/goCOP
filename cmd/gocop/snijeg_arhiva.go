@@ -1,13 +1,15 @@
 package main
 
 // Snijeg na tlu u arhivi. Čvor koji izdaje prognozu jedini čita SNOWGRID;
-// preuzete dane ulaže u arhivsko stablo kao niz točke (izvor snowgrid,
-// veličina snijeg-na-tlu, po danu), gradi točku i izdaje njezin paket, pa
-// povijest ostalim čvorovima stiže paketima arhive, kao kiša kišomjera.
+// preuzete dane ulaže u arhivsko stablo kao zasebnu letvu točke
+// (snowgrid-<točka>: izvor snowgrid, veličina snijeg-na-tlu, po danu),
+// gradi je i izdaje njezin paket, najviše jednom tjedno. Povijest tako
+// ostalim čvorovima stiže paketima arhive, a novi dani uz izdanje prognoze.
 
 import (
 	"log"
 	"sync"
+	"time"
 
 	"gocop/internal/config"
 	"gocop/internal/kisomjeri"
@@ -38,15 +40,15 @@ func (u *snijegUArhivu) ulozi() {
 		})
 		return
 	}
-	tocke, err := u.naTlu.Ulozi(u.podaci, kisomjeri.SlivStabla)
+	letve, err := u.naTlu.Ulozi(u.podaci, kisomjeri.SlivStabla, time.Now())
 	if err != nil {
 		log.Printf("snijeg na tlu (SNOWGRID), ulaganje u arhivu: %v", err)
 	}
-	izdano := izgradiIIzdaj(u.arh, tocke, "snijeg na tlu")
+	izdano := izgradiIIzdaj(u.arh, letve, "snijeg na tlu")
 	if izdano > 0 && u.razmjenaArh != nil {
 		u.razmjenaArh.potakniKrug() // kazalo novih paketa ide u razmjenu odmah
 	}
-	if len(tocke) > 0 {
-		log.Printf("snijeg na tlu (SNOWGRID): u arhivu uloženo %d točaka, izdano %d paketa", len(tocke), izdano)
+	if len(letve) > 0 {
+		log.Printf("snijeg na tlu (SNOWGRID): u arhivu uloženo %d točaka, izdano %d paketa", len(letve), izdano)
 	}
 }
