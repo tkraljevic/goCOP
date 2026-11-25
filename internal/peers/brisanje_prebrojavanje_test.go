@@ -56,8 +56,11 @@ func TestPregledBrojiKaoDvaUpita(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tx.Rollback() //nolint:errcheck // proba, poništavanje nije predmet
+	defer tx.Rollback()
 	if _, _, err := (korakBrisanja{"nema_tablice", "1", "1"}).izvedi(ctxRub, tx, nil, false); err == nil {
 		t.Error("tablica koje nema: nema greške")
+	}
+	if _, _, err := (korakBrisanja{"stavke", "1", "'nije broj'"}).izvedi(ctxRub, tx, nil, false); err == nil {
+		t.Error("uvjet koji nije logički izraz: nema greške")
 	}
 }
