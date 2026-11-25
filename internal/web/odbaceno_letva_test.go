@@ -190,12 +190,14 @@ func TestKarticaLetveNosiOznakuKote(t *testing.T) {
 	}
 }
 
-// Pomoć opisuje zajednički raspon, oznaku kote i upozorenje na stranici letve
+// Pomoć opisuje zajednički raspon, oznaku kote i upozorenje na stranici letve.
+// Da broj odbačenih vidi svako računalo koje prati letvu, Pomoć kaže bez
+// riječi „razmjena”, koju vodočuvar ne zna (25. 11. 2026.).
 func TestPomocOpisujeRasponOcitanja(t *testing.T) {
 	h := pomocHTML(t)
 	for _, s := range []string{`id="ocitanja-raspon"`, "vodostaj od −500 do 3000 cm", "satno preuzimanje",
 		"evidencije BP16", "kota u cm n. m.", "5000 do 40 000 cm", "Odbačeno izvan raspona: 50",
-		"putuje razmjenom", "lažni skok",
+		"Broj vidi svako računalo koje prati letvu", "lažni skok",
 		"Oznaku postavlja program; u obrascu letve se ne mijenja", "greška u zapisu", "ne poništava"} {
 		if !strings.Contains(h, s) {
 			t.Errorf("pomoć ne spominje %q", s)
