@@ -1807,15 +1807,82 @@
       su tu bez imena onoga tko ih je napravio, jer ga program tada nije bilježio.</p>
 
     <h3 id="vodocuvar">Vodočuvarski dnevnik</h3>
-    <p>Svaki vodočuvar ima godišnju knjigu s jednim dnevnim listom po danu. List nosi redovno
-      radno vrijeme iz postavke obračuna, očitanja, stanje objekata, zadatke, bilješke i upise
-      rukovoditelja ili ovlaštenika. Zadaci se mogu planirati do 30 dana unaprijed i pregledati
-      u kalendaru.</p>
+    <p>Svaki vodočuvar ima godišnju knjigu s jednim dnevnim listom po danu. Na listu su radno
+      vrijeme, vremenske prilike, naredbe i zadaci rukovoditelja, opis rada, zapažanja i vodostaji
+      koje je taj dan očitao. Rukovoditelj na list upisuje bilješke, parafira ga i ovjerava.</p>
+    <p><strong>Kako se vodi dnevni list.</strong></p>
+    <ol>
+      <li>Na Naslovnoj, na kartici <em>Dnevni list</em>, pritisnite <em>Otvori list</em>. Ispod je
+        kartica <em>Zadaci rukovoditelja</em> s onim što vam je za danas zadano.</li>
+      <li>Upišite početak i svršetak rada i vremenske prilike.</li>
+      <li>Pod <em>Naredbe rukovoditelja</em> uz svaki zadatak označite je li obavljen, i ukratko
+        upišite što je napravljeno ili zašto nije. Naredbe izdane usmeno upišite pod <em>Ostale
+        naredbe</em>.</li>
+      <li>Upišite <em>Opis radnih aktivnosti</em>; bez njega se list ne predaje. Što ste
+        primijetili, npr. procjeđivanje ili oštećenje, upišite pod <em>Posebna zapažanja</em>.
+        Vodostaje koje ste taj dan očitali ne prepisujete: upisuju se sami.</li>
+      <li>Na kraju dana pritisnite <em>Potpiši i predaj</em>.</li>
+    </ol>
+    {{template "pomocSlika" (list "vodocuvar-naslovna" "Naslovna vodočuvara na mobitelu: kartica Dnevni list s gumbom Otvori list, a ispod kartica Zadaci rukovoditelja s jednim zadatkom, obilaskom dionice." "359")}}
+    {{template "pomocSlika" (list "vodocuvar-list-vrh" "Dnevni list u pisanju na mobitelu: početak rada 07:00, svršetak 15:00, vremenske prilike, a pod Naredbe rukovoditelja zadatak s označenim obavljeno i upisom što je napravljeno." "359")}}
+    <p><em>Spremi</em> sprema list kao nacrt, pa ga tijekom dana možete dopunjavati.
+      <em>Potpiši i predaj</em> list elektronički potpisuje vašim ključem; <em>Lozinka za
+      potpis</em> ga otključava i ne sprema se. Predan list više se ne mijenja. Ako predaja nije
+      dopuštena, npr. jer fali opis rada ili zadatak nije obavljen a nije obrazložen zašto,
+      upisano ostaje spremljeno kao nacrt, a poruka kaže što treba dopuniti.</p>
+    {{template "pomocSlika" (list "vodocuvar-list-dno" "Dno dnevnog lista na mobitelu: upisan opis radnih aktivnosti, prazna posebna zapažanja, rečenica da se današnji vodostaji upisuju sami, te gumbi Potpiši i predaj i Spremi." "359")}}
+    <p><strong>Zadaci i kalendar.</strong> Zadatak je nalog rukovoditelja za određeni dan: npr.
+      obilazak dionice, pregled objekta ili očitanje letava usput. Zadatak koji nije obavljen, a
+      označite da se prenosi, uz obrazloženje prelazi na sljedeći list.</p>
     <p>Kalendar zadataka pokazuje zadatke po danima. Zadatak stoji na dnevnom listu od planiranog
       dana, a neobavljeni se prenosi dalje. Tko smije zadavati zadatke, zadaje ih na + u danu. Prošli
       dani i dani dalje od 30 dana nemaju +, a vodočuvar koji vodi samo svoju knjigu nema ga uopće.</p>
     <p>Na mobitelu je kalendar popis dana: danas i tri sljedeća dana, a ostali su sklopljeni. Dan
       sa zadatkom uvijek se vidi. Prošli dani otvaraju se sami kad u njima ima otvoren zadatak.</p>
+    {{template "pomocSlika" (list "vodocuvar-kalendar" "Kalendar zadataka vodočuvara na računalu, kako ga vidi rukovoditelj: mjesec po danima, na današnjem danu zadatak obilaska dionice, a od danas do 30 dana unaprijed uz svaki dan + za novi zadatak." "736")}}
+    <p><strong>Predaja i ovjera.</strong></p>
+    <p>Vodočuvar list predaje osobnim elektroničkim potpisom, a rukovoditelj branjenog područja
+      ili njegov zamjenik ga zatim ovjerava svojim. List ovjerava i onaj tko je vodočuvaru zadao
+      zadatak koji stoji na tom listu. Kad rukovoditelja i zamjenika nema, list ovjerava
+      rukovoditelj sektora ili zamjenik, glavni rukovoditelj ili zamjenik, a zasad i globalni
+      administrator. Ako područje ima rukovoditelja ili zamjenika, program ih uz gumb
+      <em>Ovjeri list</em> pita da potvrde da ovjeravaju umjesto njega. Voditelj COP-a i
+      voditelj centra list ne ovjeravaju, osim kad je na njemu njihov zadatak. Ostali, npr.
+      tehničar ili poslovođa, list parafiraju; parafa nije ovjera. Nitko ne ovjerava svoj list,
+      ni globalni administrator: tko je uz vodočuvara i rukovoditelj ili zamjenik, svoj list
+      ostavlja drugome.
+      Ako predaja nije dopuštena zbog nepotpunog opisa ili zadatka,
+      uneseno ostaje spremljeno kao nacrt, a poruka kaže što treba dopuniti.
+      Dok list kojemu je dan prošao (od 00:00 idućeg dana) nije predan, vodočuvar na početnoj
+      stranici i u svom dnevniku vidi upozorenje „Niste potpisali i predali dnevni list za …”,
+      s poveznicom na svaki takav list. Upozorenja nema za današnji i budući nacrt, za list
+      prenesen iz ranije evidencije ni za list iz knjige prošle godine, jer se u arhiviranu
+      knjigu više ne upisuje. Nema ga ni za list koji je otvorio samo program (upis akta ili
+      „Upiši” rukovoditelja), a vodočuvar na njemu nije ništa upisao ni objavio prijavu: taj
+      dan nije radio.
+      Potpisani PDF je izvornik; stranica provjerava svaki potpis i
+      pokazuje pokriva li cijeli dokument. Istekom godine knjiga prelazi u arhivu samo za čitanje
+      i ispis cijele knjige. Vodočuvar vidi samo svoju knjigu.</p>
+    <p><strong>Tko čita tuđe listove.</strong></p>
+    <p>Tuđe listove čitaju rukovoditelj branjenog područja, ovlaštenici za praćenje ugovora,
+      rukovoditelji dionica tog područja, uprava i dežurni operater u COP-u svog sektora.
+      Rukovoditelj branjenog područja, ovlaštenici i uprava parafiraju, upisuju bilješke i
+      zadaju zadatke. Rukovoditelj dionice parafira i upisuje bilješku samo na list vodočuvara
+      koji je na dan lista čuvao njegovu dionicu ili cijelo područje (i kad je to zaduženje
+      poslije isteklo, opozvano ili izmijenjeno; list s dana prije vodočuvarova prvog zaduženja u programu,
+      npr. prenesen iz BP16, vezan je uz zaduženje s kojim je vodočuvar ušao u program), a zadatak mu zadaje samo dok je vodočuvar na toj dionici
+      i na njoj traje redovna ili izvanredna obrana ili izvanredno stanje. Rukovoditelj dionice
+      kojemu na dužnosti nije upisana nijedna dionica vodi sve dionice svog područja. Dežurni operater
+      upisuje bilješku, ali ne parafira i ne zadaje zadatke; njegova bilješka nije naredba, pa na
+      listu i u njegovu PDF-u stoji pod posebnim zapažanjima, a ne pod naredbama rukovoditelja. Voditelj usluga / poslovođa
+      izvođača, rukovoditelj obrane izvođača i zamjenik, strojari i skladištari bez vodočuvarske
+      dužnosti dnevnik ne vide.</p>
+    <p>Vodočuvar na privremenoj ispomoći na drugom branjenom području ulazi i u doseg tog
+      područja: njegove listove i prijave iz vremena ispomoći čitaju, parafiraju i u njih upisuju
+      i tamošnji rukovoditelji, po istim pravilima (rukovoditelj dionice uz vezu sa svojom
+      dionicom), a zadatke mu zadaju dok ispomoć traje. Listovi od prije ispomoći ostaju samo
+      području na kojem su napisani, a ovjera ostaje rukovoditelju tog područja.</p>
+    <p><strong>Listovi za druge dane.</strong></p>
     <p>List za dan koji još nije počeo smije postojati samo kao nacrt, najviše 30 dana
       unaprijed. Takav nacrt nastaje kad se na taj dan nešto upiše: rukovoditeljev upis („Upiši”),
       akt o obrani ili prijava s terena za sutrašnji dan. Vodočuvar ga zatim vidi u svom dnevniku
@@ -1848,6 +1915,7 @@
       Zadatak kojemu u ranijoj
       evidenciji nema odgovora nosi sivu oznaku „bez upisanog odgovora”: iz izostanka upisa ne
       slijedi da posao nije obavljen.</p>
+    <p><strong>Isti list na dva računala.</strong></p>
     <p>Jedan vodočuvar za jedan dan ima jedan dnevni list, i kad ga pišu dva čvora bez veze
       (npr. prijenosno računalo na terenu i poslužitelj sektora): nakon razmjene to je isti list.
       Predan list ima prednost pred nacrtom s drugog čvora, a bilješke rukovoditelja s nacrta
@@ -1864,47 +1932,7 @@
       br. …”, a u ispisu cijele knjige „dvostruki list – vidi i list br. …”. Na stranici lista piše
       „Dvostruki list: vidi i list br. …”, a tko čita tuđi list, drugi list vidi i u ploči radnji.
       Svaki se list ovjerava zasebno.</p>
-    <p>Vodočuvar list predaje osobnim elektroničkim potpisom, a rukovoditelj branjenog područja
-      ili njegov zamjenik ga zatim ovjerava svojim. List ovjerava i onaj tko je vodočuvaru zadao
-      zadatak koji stoji na tom listu. Kad rukovoditelja i zamjenika nema, list ovjerava
-      rukovoditelj sektora ili zamjenik, glavni rukovoditelj ili zamjenik, a zasad i globalni
-      administrator. Ako područje ima rukovoditelja ili zamjenika, program ih uz gumb
-      <em>Ovjeri list</em> pita da potvrde da ovjeravaju umjesto njega. Voditelj COP-a i
-      voditelj centra list ne ovjeravaju, osim kad je na njemu njihov zadatak. Ostali, npr.
-      tehničar ili poslovođa, list parafiraju; parafa nije ovjera. Nitko ne ovjerava svoj list,
-      ni globalni administrator: tko je uz vodočuvara i rukovoditelj ili zamjenik, svoj list
-      ostavlja drugome.
-      Ako predaja nije dopuštena zbog nepotpunog opisa ili zadatka,
-      uneseno ostaje spremljeno kao nacrt, a poruka kaže što treba dopuniti.
-      Dok list kojemu je dan prošao (od 00:00 idućeg dana) nije predan, vodočuvar na početnoj
-      stranici i u svom dnevniku vidi upozorenje „Niste potpisali i predali dnevni list za …”,
-      s poveznicom na svaki takav list. Upozorenja nema za današnji i budući nacrt, za list
-      prenesen iz ranije evidencije ni za list iz knjige prošle godine, jer se u arhiviranu
-      knjigu više ne upisuje. Nema ga ni za list koji je otvorio samo program (upis akta ili
-      „Upiši” rukovoditelja), a vodočuvar na njemu nije ništa upisao ni objavio prijavu: taj
-      dan nije radio.
-      Potpisani PDF je izvornik; stranica provjerava svaki potpis i
-      pokazuje pokriva li cijeli dokument. Istekom godine knjiga prelazi u arhivu samo za čitanje
-      i ispis cijele knjige. Vodočuvar vidi samo svoju knjigu.</p>
-    <p>Tuđe listove čitaju rukovoditelj branjenog područja, ovlaštenici za praćenje ugovora,
-      rukovoditelji dionica tog područja, uprava i dežurni operater u COP-u svog sektora.
-      Rukovoditelj branjenog područja, ovlaštenici i uprava parafiraju, upisuju bilješke i
-      zadaju zadatke. Rukovoditelj dionice parafira i upisuje bilješku samo na list vodočuvara
-      koji je na dan lista čuvao njegovu dionicu ili cijelo područje (i kad je to zaduženje
-      poslije isteklo, opozvano ili izmijenjeno; list s dana prije vodočuvarova prvog zaduženja u programu,
-      npr. prenesen iz BP16, vezan je uz zaduženje s kojim je vodočuvar ušao u program), a zadatak mu zadaje samo dok je vodočuvar na toj dionici
-      i na njoj traje redovna ili izvanredna obrana ili izvanredno stanje. Rukovoditelj dionice
-      kojemu na dužnosti nije upisana nijedna dionica vodi sve dionice svog područja. Dežurni operater
-      upisuje bilješku, ali ne parafira i ne zadaje zadatke; njegova bilješka nije naredba, pa na
-      listu i u njegovu PDF-u stoji pod posebnim zapažanjima, a ne pod naredbama rukovoditelja. Voditelj usluga / poslovođa
-      izvođača, rukovoditelj obrane izvođača i zamjenik, strojari i skladištari bez vodočuvarske
-      dužnosti dnevnik ne vide.</p>
-    <p>Vodočuvar na privremenoj ispomoći na drugom branjenom području ulazi i u doseg tog
-      područja: njegove listove i prijave iz vremena ispomoći čitaju, parafiraju i u njih upisuju
-      i tamošnji rukovoditelji, po istim pravilima (rukovoditelj dionice uz vezu sa svojom
-      dionicom), a zadatke mu zadaju dok ispomoć traje. Listovi od prije ispomoći ostaju samo
-      području na kojem su napisani, a ovjera ostaje rukovoditelju tog područja.</p>
-
+    {{if .VidiVodocuvarskiDnevnik}}<p><a class="btn btn-secondary btn-sm" href="/vodocuvar">{{icon "notebook"}} Otvori Vodočuvarski dnevnik</a></p>{{end}}
     <h3 id="prijave">Prijave i obavijesti s terena</h3>
     <p>Vodočuvar s terena sastavlja obavijest, prijavu, izvješće ili zahtjev: opisuje što je
       zatekao, bira vodotok, objekt ili dionicu, označava mjesto na karti i prilaže fotografije.

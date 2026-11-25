@@ -25,9 +25,12 @@ func TestPomocNudiPoveznicuSamoUDioKojiImate(t *testing.T) {
 		t.Fatal(err)
 	}
 	h := NewPomocHandler(tmpl)
-	stranica := func(moduli models.Visibility) string {
+	stranica := func(moduli models.Visibility, u ...*models.User) string {
 		r := httptest.NewRequest("GET", "/pomoc", nil)
 		r = r.WithContext(context.WithValue(r.Context(), contextKeyModules, moduli))
+		if len(u) > 0 {
+			r = r.WithContext(context.WithValue(r.Context(), contextKeyUser, u[0]))
+		}
 		w := httptest.NewRecorder()
 		h.ShowPomoc(w, r)
 		return w.Body.String()
@@ -56,6 +59,13 @@ func TestPomocNudiPoveznicuSamoUDioKojiImate(t *testing.T) {
 	}
 
 	admin := stranica(models.Visibility{models.ModuleAdmin: true, models.ModuleJournals: true})
+	// gumb za Vodočuvarski dnevnik vidi samo tko dnevnik vodi ili čita
+	if strings.Contains(admin, "Otvori Vodočuvarski dnevnik") {
+		t.Error("bez prijavljene osobe Pomoć nudi Vodočuvarski dnevnik")
+	}
+	if s := stranica(models.Visibility{}, &models.User{IsGlobalAdmin: true}); !strings.Contains(s, `href="/vodocuvar">`) {
+		t.Error("tko čita Vodočuvarski dnevnik, ne dobiva gumb Otvori Vodočuvarski dnevnik")
+	}
 	if strings.Contains(admin, "Otvori Očitanja") || strings.Contains(admin, "Otvori Moje letve") {
 		t.Error("bez Očitanja Pomoć ipak nudi gumb Otvori Očitanja")
 	}

@@ -34,6 +34,8 @@ type PomocPageData struct {
 	VidiAdministraciju bool
 	VidiDokumente      bool
 	VidiOcitanja       bool
+	// VidiVodocuvarskiDnevnik: vodočuvar, rukovoditelji i uprava koji dnevnik vode ili čitaju
+	VidiVodocuvarskiDnevnik bool
 }
 
 func (h *PomocHandler) ShowPomoc(w http.ResponseWriter, r *http.Request) {
@@ -47,6 +49,7 @@ func (h *PomocHandler) ShowPomoc(w http.ResponseWriter, r *http.Request) {
 	data.VidiAdministraciju = moduli.Sees(models.ModuleAdmin)
 	data.VidiDokumente = moduli.Sees(models.ModuleJournals)
 	data.VidiOcitanja = moduli.Sees(models.ModuleReadings)
+	data.VidiVodocuvarskiDnevnik = u != nil && u.VidiVodocuvarskiDnevnik()
 	if err := h.tmpl.ExecuteTemplate(w, "pomoc.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
