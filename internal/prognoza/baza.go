@@ -1079,11 +1079,30 @@ func SviPojasi(db *sql.DB) (map[string][]Pojas, error) {
 // ZadnjeIzdanje vraća sat najnovijeg izdanja.
 func ZadnjeIzdanje(db *sql.DB) (int64, bool, error) {
 	var sat sql.NullInt64
-	if err := db.QueryRow(`SELECT max(izdano) FROM izdane`).Scan(&sat); err != nil {
+	if err := db.QueryRow(zadnjeIzdanjeSQL).Scan(&sat); err != nil {
 		return 0, false, err
 	}
 	return sat.Int64, sat.Valid, nil
 }
+
+// zadnjeIzdanjeSQL je najkasniji sat izdanja u tablici izdane. Ključ tablice
+// počinje letvom i veličinom, pa goli max(izdano) prolazi cijelu tablicu
+// (milijuni redaka, pola sekunde, a traži ga gotovo svaka stranica s
+// prognozom). Zato se letve i veličine preskaču kroz ključ (rekurzivni
+// min(x) > prethodni), a za svaki par najkasnije izdanje se čita izravno iz
+// ključa.
+const zadnjeIzdanjeSQL = `WITH RECURSIVE
+	letve(letva) AS (
+		SELECT min(letva) FROM izdane
+		UNION ALL
+		SELECT (SELECT min(letva) FROM izdane WHERE letva > letve.letva) FROM letve WHERE letve.letva IS NOT NULL),
+	velicine(letva, velicina) AS (
+		SELECT letva, (SELECT min(velicina) FROM izdane WHERE letva = letve.letva) FROM letve WHERE letva IS NOT NULL
+		UNION ALL
+		SELECT letva, (SELECT min(velicina) FROM izdane WHERE letva = velicine.letva AND velicina > velicine.velicina)
+			FROM velicine WHERE velicina IS NOT NULL)
+	SELECT max((SELECT max(izdano) FROM izdane WHERE letva = velicine.letva AND velicina = velicine.velicina))
+	FROM velicine WHERE velicina IS NOT NULL`
 
 // Izdanje čita sve prognoze jednog izdanja, složene po letvi i poredane po
 // ciljnom satu.
