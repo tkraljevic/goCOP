@@ -6516,6 +6516,9 @@ h3.kis-podnaslov { margin:1rem 0 0.4rem; display:flex; align-items:center; gap:0
 .snijeg-alarm-naslov { font-size: 16px; line-height: 22px; font-weight: 700; color: var(--md-sys-color-error); }
 .snijeg-alarm-tekst { font-size: 13px; line-height: 18px; }
 .snijeg-alarm .snijeg-alarm-tekst + .snijeg-alarm-tekst { margin-top: 4px; }
+/* u tamnoj temi crveni naslov na tamnocrvenoj podlozi slabo se čita */
+:root[data-theme="dark"] .snijeg-alarm-naslov,
+:root[data-theme="dark"] .snijeg-alarm svg { color: var(--md-sys-color-on-error-container); }
 .snijeg-uvod { display: grid; gap: 8px; padding: 0 16px 4px; }
 .snijeg-uvod p { margin: 0; }
 .snijeg-uvod-glavno { font-size: 14px; line-height: 20px; font-weight: 500; color: var(--text); }
