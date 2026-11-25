@@ -1,6 +1,7 @@
 package snijeg
 
 import (
+	"log"
 	"sort"
 	"sync"
 	"time"
@@ -34,12 +35,20 @@ type Izvor struct {
 	// Model je zaliha snijega točke po danu sezone iz modela prognoze
 	// (prognoza.ZalihaSnijega.Sezona), za točku gdje SNOWGRID nema podataka
 	Model func(tocka string, dan int64) (map[int64]float64, error)
+	// Voda je ulaz modela prognoze po međuslivu za dane +1…+5 od sata sada
+	// (VodaIzOborina), a PovijestVode isti ulaz po danu iz arhive
+	// (prognoza.DnevneOborine), za razine vode. Bez njih upozorenja nema.
+	Voda         func(sada int64) (voda, kisa map[string]prognoza.DnevniNiz, err error)
+	PovijestVode func() (map[string]prognoza.DnevniNiz, error)
 	// Sad je sada; prazno znači pravo vrijeme
 	Sad func() time.Time
 
 	mu         sync.Mutex
 	pragovi    map[string]Pragovi
+	povijest   map[string]map[int64]float64 // SNOWGRID sliva od 1961., za „za ovo doba”
 	pragoviDan int64
+	razine     map[string]RazineVode // po rijeci; nil dok nisu izračunate
+	razineDan  int64
 	slivovi    []StanjeSliva
 	izracunato time.Time
 }
@@ -60,20 +69,13 @@ type StanjeSliva struct {
 	ImaPragove bool
 	Razina     int  // 0–3 (Razina)
 	Ukljucen   bool // sliv drži karticu na Naslovnoj (Ukljucen)
+	PunoZaDoba bool // snijeg je neobično velik za ovo doba godine (PunoZaDoba)
 	Trend      string
 	Sezona     []TockaKrivulje // od 1. 8. do Dan
 	Procjena   []TockaKrivulje // od Dan do pet dana od danas
-	// Alarm je kuka za upozorenje „Kiša i topljenje na puno snijega”:
-	// koliko vode u idućih pet dana stiže na sliv i koliko je to rijetko.
-	// Pravilo se još dogovara, pa se zasad nikad ne puni.
-	Alarm *AlarmSliva
-}
-
-// AlarmSliva je upozorenje uz sliv: kiša i otopljeni snijeg u idućih pet
-// dana (mm vode) i koliko je to rijetko („jednom u 5 godina”).
-type AlarmSliva struct {
-	Mm      float64
-	Rijetko string
+	// Alarm je upozorenje „Kiša i topljenje na puno snijega!” za rijeku
+	// sliva, isto za sve njezine slivove; nil kad ga nema.
+	Alarm *AlarmRijeke
 }
 
 // Kasni kaže je li zadnji dan SNOWGRID-a stariji od tri dana.
@@ -104,7 +106,7 @@ func (i *Izvor) sad() time.Time {
 func (i *Izvor) Zaboravi() {
 	i.mu.Lock()
 	defer i.mu.Unlock()
-	i.pragovi, i.slivovi = nil, nil
+	i.pragovi, i.povijest, i.slivovi = nil, nil, nil
 }
 
 // alpskeTocke su točke alpskih međuslivova s težinom, po međuslivu.
@@ -134,7 +136,7 @@ func (i *Izvor) Slivovi() ([]StanjeSliva, error) {
 	if i.slivovi != nil && sad.Sub(i.izracunato) < vrijediStanje {
 		return i.slivovi, nil
 	}
-	out, err := i.izracunajSlivove(sad.UTC().Unix() / 86400)
+	out, err := i.izracunajSlivove(sad)
 	if err != nil {
 		return nil, err
 	}
@@ -142,8 +144,9 @@ func (i *Izvor) Slivovi() ([]StanjeSliva, error) {
 	return out, nil
 }
 
-// izracunajSlivove računa stanje svih alpskih međuslivova za dan danas.
-func (i *Izvor) izracunajSlivove(danas int64) ([]StanjeSliva, error) {
+// izracunajSlivove računa stanje svih alpskih međuslivova u trenutku sad.
+func (i *Izvor) izracunajSlivove(sad time.Time) ([]StanjeSliva, error) {
+	danas := sad.UTC().Unix() / 86400
 	po, kodovi, err := i.alpskeTocke()
 	if err != nil {
 		return nil, err
@@ -164,13 +167,16 @@ func (i *Izvor) izracunajSlivove(danas int64) ([]StanjeSliva, error) {
 	out := make([]StanjeSliva, 0, len(Alpski))
 	for _, s := range Alpski {
 		p, ima := pragovi[s.Oznaka]
-		out = append(out, stanjeSliva(s, po[s.Oznaka], nizovi, dani, p, ima, od, danas))
+		st := stanjeSliva(s, po[s.Oznaka], nizovi, dani, p, ima, od, danas)
+		st.PunoZaDoba = st.Ima && PunoZaDoba(i.povijest[s.Oznaka], st.Dan, st.Mm)
+		out = append(out, st)
 	}
+	i.dodajAlarme(out, sad)
 	return out, nil
 }
 
-// pragoviSlivova su pragovi međuslivova iz cijele povijesti SNOWGRID-a,
-// računaju se jednom na dan.
+// pragoviSlivova su pragovi međuslivova iz cijele povijesti SNOWGRID-a;
+// računaju se jednom na dan, a povijest sliva ostaje za „za ovo doba”.
 func (i *Izvor) pragoviSlivova(po map[string][]prognoza.OborinskaTocka, kodovi []string, danas int64) (map[string]Pragovi, error) {
 	if i.pragovi != nil && i.pragoviDan == danas {
 		return i.pragovi, nil
@@ -179,14 +185,80 @@ func (i *Izvor) pragoviSlivova(po map[string][]prognoza.OborinskaTocka, kodovi [
 	if err != nil {
 		return nil, err
 	}
-	out := map[string]Pragovi{}
+	out, povijest := map[string]Pragovi{}, map[string]map[int64]float64{}
 	for oznaka, tocke := range po {
 		niz := NizSliva(nizovi, tezineTocaka(tocke))
+		povijest[oznaka] = niz
 		if p, ima := PragoviIz(ZimskiMaksimumi(niz, danas)); ima {
 			out[oznaka] = p
 		}
 	}
-	i.pragovi, i.pragoviDan = out, danas
+	i.pragovi, i.povijest, i.pragoviDan = out, povijest, danas
+	return out, nil
+}
+
+// dodajAlarme upiše upozorenje rijeke u njezine slivove: kad je u nekom
+// slivu snijega neobično puno za ovo doba, a SNOWGRID ne kasni, i kiša s
+// otopljenim snijegom u idućih pet dana doseže razinu za 2 godine. Greška
+// vode ili povijesti samo se zabilježi: kartica ostaje, bez upozorenja.
+func (i *Izvor) dodajAlarme(slivovi []StanjeSliva, sad time.Time) {
+	puno := rijekePunogSnijega(slivovi, sad)
+	if len(puno) == 0 || i.Voda == nil || i.PovijestVode == nil {
+		return
+	}
+	razine, err := i.razineVode(sad.UTC())
+	if err != nil {
+		log.Printf("snijeg: razine vode iz arhive: %v", err)
+		return
+	}
+	voda, kisa, err := i.Voda(sad.Unix() / 3600)
+	if err != nil {
+		log.Printf("snijeg: voda idućih 5 dana: %v", err)
+		return
+	}
+	alarmi := map[string]*AlarmRijeke{}
+	for rijeka := range puno {
+		if r, ima := razine[rijeka]; ima {
+			alarmi[rijeka] = AlarmIz(rijeka, voda, kisa, r)
+		}
+	}
+	for k := range slivovi {
+		slivovi[k].Alarm = alarmi[slivovi[k].Rijeka]
+	}
+}
+
+// rijekePunogSnijega su rijeke koje imaju sliv s neobično puno snijega za
+// ovo doba, a SNOWGRID mu ne kasni.
+func rijekePunogSnijega(slivovi []StanjeSliva, sad time.Time) map[string]bool {
+	puno := map[string]bool{}
+	for _, s := range slivovi {
+		if s.PunoZaDoba && !s.Kasni(sad) {
+			puno[s.Rijeka] = true
+		}
+	}
+	return puno
+}
+
+// razineVode su razine vode po rijeci iz arhive, jednom na dan.
+func (i *Izvor) razineVode(sad time.Time) (map[string]RazineVode, error) {
+	danas := sad.Unix() / 86400
+	if i.razine != nil && i.razineDan == danas {
+		return i.razine, nil
+	}
+	nizovi, err := i.PovijestVode()
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]RazineVode{}
+	for _, s := range Alpski {
+		if _, ima := out[s.Rijeka]; ima {
+			continue
+		}
+		if r, ima := RazineVodeIz(GodisnjiMaksimumi(VodaRijeke(nizovi, s.Rijeka), sad.Year())); ima {
+			out[s.Rijeka] = r
+		}
+	}
+	i.razine, i.razineDan = out, danas
 	return out, nil
 }
 

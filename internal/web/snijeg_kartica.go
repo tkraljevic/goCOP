@@ -10,11 +10,13 @@ import (
 	"gocop/internal/snijeg"
 )
 
-// Kartica Snijeg u Alpama na Naslovnoj (crtež „snijeg”, Odluke 24. 11.
-// 2026.): snijeg na tlu u četiri alpska međusliva iz SNOWGRID-a, s trakom
-// prema pragovima za 3, 5 i 10 zima. Kartica postoji dok je barem jedan
-// sliv na razini „jednom u 3 zime”, a nestane kad svi padnu ispod pola
-// tog praga (snijeg.Ukljucen). Vide je isti kao i karticu Jača kiša.
+// Kartica Snijeg u Alpama na Naslovnoj (crtež „snijeg”, Odluke 24. i 25.
+// 11. 2026.): snijeg na tlu u četiri alpska međusliva iz SNOWGRID-a, s
+// trakom prema pragovima za 3, 5 i 10 zima. Kartica postoji dok je barem
+// jedan sliv na razini „jednom u 3 zime” (snijeg.Ukljucen) ili ima neobično
+// puno snijega za ovo doba (snijeg.PunoZaDoba). Na vrhu je upozorenje
+// „Kiša i topljenje na puno snijega!” kad ga ima koja rijeka. Vide je isti
+// kao i karticu Jača kiša.
 
 const kSnijeg = "snijeg-u-alpama"
 
@@ -23,23 +25,32 @@ var klaseSnijega = [4]string{"", "kisa-zuto", "kisa-narancasto", "kisa-crveno"}
 
 // SnijegNaslovne su podaci tijela kartice Snijeg u Alpama.
 type SnijegNaslovne struct {
-	// Alarm je kuka za upozorenje „Kiša i topljenje na puno snijega!” na
-	// vrhu kartice. Pravilo se još dogovara, pa je zasad uvijek nil.
+	// Alarm je upozorenje „Kiša i topljenje na puno snijega!” na vrhu
+	// kartice; nil kad ga nema
 	Alarm   *AlarmSnijega
 	Skupine []SkupinaSnijega
 	Kasni   string // napomena kad SNOWGRID kasni više od tri dana
 	Vise    string // adresa „Više na Prognoze › Vrijeme”; prazno kad je račun ne vidi
 }
 
-// AlarmSnijega je crveni okvir na vrhu kartice.
+// AlarmSnijega je crveni okvir na vrhu kartice: naslov, rečenica o vodi i
+// savjet.
 type AlarmSnijega struct {
-	Naslov, Tekst string
+	Naslov, Tekst, Savjet string
 }
+
+// savjetAlarma je druga rečenica okvira (Odluke 25. 11. 2026.)
+const savjetAlarma = "Ovako je bilo 7–11 dana prije velikih voda 1965., 1975. i 2006. Pratite prognozu vodostaja i pripremite obranu."
 
 // SkupinaSnijega su retci jedne rijeke (Drava, Dunav).
 type SkupinaSnijega struct {
 	Rijeka string
 	Retci  []RedakSnijega
+	// Alarm je crveni redak ispod zadnjeg sliva rijeke („idućih 5 dana
+	// stiže 81 mm vode, od toga 53 mm otopljeni snijeg”); prazno bez
+	// upozorenja
+	Alarm string
+	alarm *snijeg.AlarmRijeke
 }
 
 // RedakSnijega je jedan alpski međusliv na kartici.
@@ -50,9 +61,6 @@ type RedakSnijega struct {
 	Popuna               float64 // traka, % širine
 	Crtice               []CrticaTrake
 	Opis                 string // traka riječima, za čitač zaslona
-	// Alarm je crveni redak ispod sliva („idućih 5 dana: 95 mm vode ·
-	// jednom u 5 godina”); kuka kao SnijegNaslovne.Alarm, zasad prazna
-	Alarm string
 }
 
 // rijetkoSnijega: „jednom u 3 zime”, „jednom u 5 zima”, „jednom u 10 zima”
@@ -61,10 +69,18 @@ func rijetkoSnijega(i int) string {
 	return "jednom u " + brojHRf(float64(n), 0) + " " + models.UzBrojHR(n, "zimu", "zime", "zima")
 }
 
+// zaOvoDoba je natpis sliva s neobično puno snijega za ovo doba godine
+const zaOvoDoba = "za ovo doba: više nego u 9 od 10 godina"
+
+// rijetkoVode: „jednom u 2 godine”, „jednom u 5 godina”
+func rijetkoVode(godina int) string {
+	return "jednom u " + brojHRf(float64(godina), 0) + " " + models.UzBrojHR(godina, "godinu", "godine", "godina")
+}
+
 // snijegUkljucen kaže drži li ijedan sliv karticu
 func snijegUkljucen(slivovi []snijeg.StanjeSliva) bool {
 	for _, s := range slivovi {
-		if s.Ukljucen {
+		if s.Ukljucen || s.PunoZaDoba {
 			return true
 		}
 	}
@@ -101,7 +117,12 @@ func karticaSnijega(slivovi []snijeg.StanjeSliva, sad time.Time, vise string) Ka
 		}
 		sk := &p.Skupine[len(p.Skupine)-1]
 		sk.Retci = append(sk.Retci, redakSnijega(s))
+		if s.Alarm != nil {
+			sk.alarm = s.Alarm
+			sk.Alarm = "idućih 5 dana stiže " + mmVode(s.Alarm.Mm) + ", od toga " + brojHRf(math.Round(s.Alarm.Topljenje), 0) + " mm otopljeni snijeg"
+		}
 	}
+	p.Alarm = alarmSnijega(p.Skupine)
 	return KarticaNaslovne{ID: kSnijeg, Naslov: "Snijeg u Alpama", Tijelo: "snijeg", Podaci: p}
 }
 
@@ -116,6 +137,41 @@ func kasniSnijeg(slivovi []snijeg.StanjeSliva, sad time.Time) string {
 	return ""
 }
 
+// uRijeku: „u Dravu”, „u Dunav”
+func uRijeku(rijeka string) string {
+	if rijeka == "Drava" {
+		return "u Dravu"
+	}
+	return "u " + rijeka
+}
+
+// alarmSnijega je okvir na vrhu kartice kad koja rijeka ima upozorenje:
+// „U idućih 5 dana s Alpa u Dunav stiže oko 81 mm vode (kiša i otopljeni
+// snijeg), toliko bude jednom u 2 godine.”, a za obje rijeke jedna rečenica.
+func alarmSnijega(skupine []SkupinaSnijega) *AlarmSnijega {
+	var alarmi []*snijeg.AlarmRijeke
+	for _, sk := range skupine {
+		if sk.alarm != nil {
+			alarmi = append(alarmi, sk.alarm)
+		}
+	}
+	var tekst string
+	switch len(alarmi) {
+	case 0:
+		return nil
+	case 1:
+		a := alarmi[0]
+		tekst = "U idućih 5 dana s Alpa " + uRijeku(a.Rijeka) + " stiže oko " + mmVode(a.Mm) +
+			" (kiša i otopljeni snijeg), toliko bude " + rijetkoVode(a.Godina) + "."
+	default:
+		a, b := alarmi[0], alarmi[1]
+		tekst = "U idućih 5 dana s Alpa " + uRijeku(a.Rijeka) + " stiže oko " + mmVode(a.Mm) +
+			" (toliko bude " + rijetkoVode(a.Godina) + "), a " + uRijeku(b.Rijeka) + " oko " +
+			brojHRf(math.Round(b.Mm), 0) + " mm (" + rijetkoVode(b.Godina) + "); to su kiša i otopljeni snijeg."
+	}
+	return &AlarmSnijega{Naslov: "Kiša i topljenje na puno snijega!", Tekst: tekst, Savjet: savjetAlarma}
+}
+
 // mmVode: „170 mm vode”
 func mmVode(v float64) string { return brojHRf(math.Round(v), 0) + " mm vode" }
 
@@ -127,11 +183,11 @@ func redakSnijega(s snijeg.StanjeSliva) RedakSnijega {
 		return r
 	}
 	r.Mm = mmVode(s.Mm)
-	if s.Razina > 0 {
+	switch {
+	case s.Razina > 0:
 		r.Klasa, r.Rijetko = klaseSnijega[s.Razina], rijetkoSnijega(s.Razina-1)
-	}
-	if s.Alarm != nil {
-		r.Alarm = "idućih 5 dana: " + mmVode(s.Alarm.Mm) + " · " + s.Alarm.Rijetko
+	case s.PunoZaDoba:
+		r.Klasa, r.Rijetko = klaseSnijega[2], zaOvoDoba
 	}
 	r.Popuna, r.Crtice = trakaSnijega(s)
 	r.Opis = strings.Join(append([]string{r.Mm}, pragoviRijecima(s)...), "; ")

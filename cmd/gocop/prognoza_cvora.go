@@ -296,7 +296,9 @@ func pokreniSnijegNaTlu(ctx context.Context, registar, arhiva *sql.DB, u *oborin
 
 // izvorSnijega slaže snijeg na tlu za prikaz: točke iz registra, SNOWGRID
 // i satni nizovi iz baze oborina, a za točku bez SNOWGRID-a model snijega
-// prognoze.
+// prognoze. Upozorenje o kiši i topljenju računa svaki čvor sam: satnu
+// kišu s prognozom, snijegom i temperaturom čvor koji ne izdaje prognozu
+// dobije uz izdanje (tablica satne), a razine vode iz svoje arhive.
 func izvorSnijega(registar, arhiva *sql.DB, u *oborine.Uvoznik, naTlu *oborine.SnijegNaTlu) *snijeg.Izvor {
 	return &snijeg.Izvor{
 		Tocke:  func() ([]prognoza.OborinskaTocka, error) { return prognoza.OborinskeTocke(registar) },
@@ -304,7 +306,32 @@ func izvorSnijega(registar, arhiva *sql.DB, u *oborine.Uvoznik, naTlu *oborine.S
 		Satne:  u.Satne,
 		Snijeg: u.SnijegITemperatura,
 		Model:  zalihaSnijegaZa(arhiva, u).Sezona,
+		Voda: func(sada int64) (voda, kisa map[string]prognoza.DnevniNiz, err error) {
+			iz, err := izvorOborina(registar, arhiva, u)
+			if err != nil {
+				return nil, nil, err
+			}
+			return snijeg.VodaIzOborina(iz, sada)
+		},
+		PovijestVode: func() (map[string]prognoza.DnevniNiz, error) {
+			tocke, err := prognoza.OborinskeTocke(registar)
+			if err != nil {
+				return nil, err
+			}
+			return prognoza.DnevneOborine(arhiva, alpskeTocke(tocke))
+		},
 	}
+}
+
+// alpskeTocke su točke alpskih međuslivova.
+func alpskeTocke(tocke []prognoza.OborinskaTocka) []prognoza.OborinskaTocka {
+	var out []prognoza.OborinskaTocka
+	for _, t := range tocke {
+		if _, alpski := snijeg.AlpskiSliv(t.Sliv); alpski {
+			out = append(out, t)
+		}
+	}
+	return out
 }
 
 // vrtiSnijegNaTlu pokrene preuzimanje snijega na tlu u pozadini; testovi ga

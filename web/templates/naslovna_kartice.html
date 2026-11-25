@@ -1,9 +1,11 @@
 {{/* Kartica Naslovne: glava s naslovom, brojem i poveznicom, pa tijelo.
      Tijelo je popis redaka (najviše pet, na mobitelu tri) s retkom „Više”,
      prazna kartica s jednim od četiri stanja ili posebno tijelo (vrijeme).
-     Kartica s Lijeno ima samo glavu, a tijelo se učita nakon stranice. */}}
+     Kartica s Lijeno ima samo glavu, a tijelo se učita nakon stranice.
+     Upozorenje kartice Snijeg u Alpama stoji iznad glave. */}}
 {{define "karticaNaslovne"}}
 <section class="kartica-naslovne" id="kartica-{{.ID}}" aria-labelledby="naslov-{{.ID}}"{{if .Lijeno}} data-lijeno="{{.Lijeno}}"{{end}}>
+  {{if eq .Tijelo "snijeg"}}{{with .Podaci.Alarm}}<div class="snijeg-alarm" role="alert">{{icon "triangle-alert"}}<div><p class="snijeg-alarm-naslov">{{.Naslov}}</p><p class="snijeg-alarm-tekst">{{.Tekst}}</p>{{with .Savjet}}<p class="snijeg-alarm-tekst">{{.}}</p>{{end}}</div></div>{{end}}{{end}}
   <header class="kartica-glava">
     <h2 id="naslov-{{.ID}}">{{.Naslov}}</h2>
     {{if .Broj}}<span class="kartica-broj" aria-label="{{.Broj}} {{uzBroj .Broj "stavka" "stavke" "stavki"}}">{{.Broj}}</span>{{end}}
@@ -88,13 +90,12 @@
 {{with .ViseMobitel}}<a class="kartica-vise samo-mobitel" href="/slivovi#kisa">{{.}} →</a>{{end}}
 {{end}}
 
-{{/* Snijeg u Alpama (crtež „snijeg”, 24. 11. 2026.): četiri alpska međusliva po
-     rijekama, traka snijega na tlu prema pragovima za 3, 5 i 10 zima, razina i kako
-     se snijeg mijenjao u tri dana. Alarm na vrhu i crveni redak ispod sliva su kuka
-     za upozorenje „Kiša i topljenje na puno snijega”: pravilo se još dogovara, pa
-     se zasad ne pune (SnijegNaslovne.Alarm, RedakSnijega.Alarm). */}}
+{{/* Snijeg u Alpama (crtež „snijeg”, 24. i 25. 11. 2026.): četiri alpska međusliva
+     po rijekama, traka snijega na tlu prema pragovima za 3, 5 i 10 zima, razina ili
+     „za ovo doba” i kako se snijeg mijenjao u tri dana. Upozorenje „Kiša i topljenje
+     na puno snijega!” je iznad glave kartice (karticaNaslovne), a crveni redak ispod
+     zadnjeg sliva rijeke koja ga ima. */}}
 {{define "tijeloSnijegaNaslovne"}}
-{{with .Alarm}}<div class="snijeg-alarm" role="alert">{{icon "triangle-alert"}}<div><p class="snijeg-alarm-naslov">{{.Naslov}}</p><p class="snijeg-alarm-tekst">{{.Tekst}}</p></div></div>{{end}}
 <div class="snijeg-uvod">
   <p class="snijeg-uvod-glavno">Na tlu je puno snijega. Kad se otopi, Drava i Dunav mogu narasti.</p>
   <p class="kisa-lanac-natpis">Snijeg na tlu u mm vode, prosjek sliva · kako se mijenjao u zadnja 3 dana</p>
@@ -109,16 +110,16 @@
       <span class="kisa-redak-glava"><span class="kisa-redak-ime">{{$r.Naziv}}</span>{{with $r.Rijetko}}<span class="badge {{$r.Klasa}}">{{.}}</span>{{end}}</span>
       <span class="kisa-redak-sporedno">{{$r.Podrucje}}</span>
       <span class="kisa-traka" role="img" aria-label="{{$r.Opis}}"><span class="kisa-traka-dio snijeg-traka-dio" style="width: {{$r.Popuna}}%"></span>{{range $r.Crtice}}<span class="kisa-traka-crtica {{.Klasa}}" style="left: {{.Lijevo}}%" title="{{.Naslov}}"></span>{{end}}</span>
-      {{with $r.Alarm}}<span class="snijeg-redak-alarm">{{icon "triangle-alert"}}<span>{{.}}</span></span>{{end}}
       <span class="snijeg-redak-dno"><span class="kisa-redak-palo">{{$r.Mm}}</span>{{with $r.Trend}}<span class="kisa-redak-palo">{{.}}</span>{{end}}</span>
     </a>
   </li>
   {{end}}
 </ul>
+{{with .Alarm}}<p class="snijeg-redak-alarm">{{icon "triangle-alert"}}<span>{{.}}</span></p>{{end}}
 {{end}}
 <div class="snijeg-podnozje">
   <p>Crtice: toliko snijega bude jednom u 3, 5 i 10 zima.</p>
-  <p>Kartica nestane kad snijeg u svim slivovima padne ispod pola praga za 3 zime.</p>
+  <p>Kartica nestane kad snijeg u svim slivovima padne ispod pola praga za 3 zime i bude kao obično za ovo doba.</p>
   <p>Snijeg na tlu: SNOWGRID, GeoSphere Austria (austrijski dio sliva, kasni 1–2 dana).</p>
   <p>Prognoza vodostaja računa s topljenjem snijega.</p>
 </div>

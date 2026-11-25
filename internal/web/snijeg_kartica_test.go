@@ -68,31 +68,98 @@ func TestKarticaSnijega(t *testing.T) {
 	for _, zeli := range []string{`id="kartica-snijeg-u-alpama"`, "Snijeg u Alpama", "Na tlu je puno snijega.", ">Drava<", ">Dunav<",
 		"Južni i Istočni Tirol, Koruška, slovenska Drava do Borla", `class="kisa-redak snijeg-redak snijeg-ispod"`,
 		`<span class="badge kisa-crveno">jednom u 10 zima</span>`, `style="width: 61.8%"`, "topi se",
-		"Crtice: toliko snijega bude jednom u 3, 5 i 10 zima.", "Kartica nestane kad snijeg u svim slivovima padne ispod pola praga za 3 zime.",
+		"Crtice: toliko snijega bude jednom u 3, 5 i 10 zima.", "Kartica nestane kad snijeg u svim slivovima padne ispod pola praga za 3 zime i bude kao obično za ovo doba.",
 		"Snijeg na tlu: SNOWGRID, GeoSphere Austria (austrijski dio sliva, kasni 1–2 dana).",
 		"Prognoza vodostaja računa s topljenjem snijega.", `href="/prognoze/vrijeme"`, "Više na Prognoze › Vrijeme"} {
 		if !strings.Contains(html, zeli) {
 			t.Errorf("kartica nema %q", zeli)
 		}
 	}
-	if strings.Contains(html, "snijeg-alarm") {
+	if strings.Contains(html, "snijeg-alarm") || strings.Contains(html, "Ovako je bilo") {
 		t.Error("alarm se prikazuje")
 	}
 
-	// kuka za alarm: kad se jednom napuni, okvir i redak su na kartici
-	p.Alarm = &AlarmSnijega{Naslov: "Kiša i topljenje na puno snijega!", Tekst: "U idućih 5 dana s gornje Drave dolazi oko 95 mm vode."}
-	sa := stanjaSnijega(zadnji)
-	sa[0].Alarm = &snijeg.AlarmSliva{Mm: 95, Rijetko: "jednom u 5 godina"}
-	p.Skupine[0].Retci[0] = redakSnijega(sa[0])
-	k.Podaci = p
-	b2.Reset()
-	if err := o.h.tmpl.ExecuteTemplate(&b2, "karticaNaslovne", k); err != nil {
+}
+
+// Upozorenje za Dunav: okvir iznad glave kartice s rečenicom i crveni redak
+// ispod zadnjeg sliva Dunava; Drava ga nema.
+func TestKarticaSnijegaUpozorenje(t *testing.T) {
+	sad := time.Date(2026, 11, 24, 12, 0, 0, 0, time.UTC)
+	sa := stanjaSnijega(sad.Unix()/86400 - 1)
+	a := &snijeg.AlarmRijeke{Rijeka: "Dunav", Mm: 81.4, Topljenje: 52.6, Godina: 2}
+	sa[2].Alarm, sa[3].Alarm = a, a
+	k := karticaSnijega(sa, sad, "")
+	p := k.Podaci.(SnijegNaslovne)
+	zeli := "U idućih 5 dana s Alpa u Dunav stiže oko 81 mm vode (kiša i otopljeni snijeg), toliko bude jednom u 2 godine."
+	if p.Alarm == nil || p.Alarm.Naslov != "Kiša i topljenje na puno snijega!" || p.Alarm.Tekst != zeli {
+		t.Fatalf("upozorenje %+v", p.Alarm)
+	}
+	if p.Skupine[0].Alarm != "" || p.Skupine[1].Alarm != "idućih 5 dana stiže 81 mm vode, od toga 53 mm otopljeni snijeg" {
+		t.Errorf("retci upozorenja %q / %q", p.Skupine[0].Alarm, p.Skupine[1].Alarm)
+	}
+	o := novaOkolinaNaslovne(t)
+	var b bytes.Buffer
+	if err := o.h.tmpl.ExecuteTemplate(&b, "karticaNaslovne", k); err != nil {
 		t.Fatal(err)
 	}
-	for _, zeli := range []string{`class="snijeg-alarm" role="alert"`, "Kiša i topljenje na puno snijega!", "idućih 5 dana: 95 mm vode · jednom u 5 godina"} {
-		if !strings.Contains(b2.String(), zeli) {
-			t.Errorf("alarm: nema %q", zeli)
-		}
+	html := b.String()
+	okvir, glava := strings.Index(html, `class="snijeg-alarm" role="alert"`), strings.Index(html, `class="kartica-glava"`)
+	savjet := "<p class=\"snijeg-alarm-tekst\">Ovako je bilo 7–11 dana prije velikih voda 1965., 1975. i 2006. Pratite prognozu vodostaja i pripremite obranu.</p>"
+	if okvir < 0 || glava < okvir || !strings.Contains(html, zeli) || !strings.Contains(html, savjet) {
+		t.Errorf("okvir upozorenja nije iznad glave (%d, %d)", okvir, glava)
+	}
+	redak := strings.Index(html, `<p class="snijeg-redak-alarm">`)
+	if redak < strings.Index(html, "Traun i Enns") || !strings.Contains(html, "idućih 5 dana stiže 81 mm vode, od toga 53 mm otopljeni snijeg") ||
+		strings.Count(html, "snijeg-redak-alarm") != 1 {
+		t.Errorf("crveni redak nije ispod Trauna i Ennsa: %d", redak)
+	}
+
+	// obje rijeke: jedna rečenica
+	d := &snijeg.AlarmRijeke{Rijeka: "Drava", Mm: 80.6, Topljenje: 8, Godina: 5}
+	sa[0].Alarm, sa[1].Alarm = d, d
+	a.Mm = 91
+	p = karticaSnijega(sa, sad, "").Podaci.(SnijegNaslovne)
+	zeli = "U idućih 5 dana s Alpa u Dravu stiže oko 81 mm vode (toliko bude jednom u 5 godina), a u Dunav oko 91 mm (jednom u 2 godine); to su kiša i otopljeni snijeg."
+	if p.Alarm == nil || p.Alarm.Tekst != zeli {
+		t.Errorf("obje rijeke: %+v", p.Alarm)
+	}
+	if p.Skupine[0].Alarm != "idućih 5 dana stiže 81 mm vode, od toga 8 mm otopljeni snijeg" {
+		t.Errorf("Drava: %q", p.Skupine[0].Alarm)
+	}
+	if r := rijetkoVode(10); r != "jednom u 10 godina" {
+		t.Errorf("rijetko %q", r)
+	}
+}
+
+// Sliv ispod praga za 3 zime, ali s neobično puno snijega za ovo doba:
+// kartica je tu, a natpis je „za ovo doba” narančasto.
+func TestKarticaSnijegaZaOvoDoba(t *testing.T) {
+	sad := time.Date(2026, 11, 24, 12, 0, 0, 0, time.UTC)
+	sa := stanjaSnijega(sad.Unix()/86400 - 1)
+	for i := range sa {
+		sa[i].Ukljucen, sa[i].Razina = false, 0
+	}
+	if snijegUkljucen(sa) {
+		t.Fatal("kartica bez ijednog sliva")
+	}
+	sa[1].PunoZaDoba = true
+	if !snijegUkljucen(sa) {
+		t.Fatal("kartice nema, a Mura ima puno snijega za ovo doba")
+	}
+	p := karticaSnijega(sa, sad, "").Podaci.(SnijegNaslovne)
+	if r := p.Skupine[0].Retci[1]; r.Rijetko != "za ovo doba: više nego u 9 od 10 godina" || r.Klasa != "kisa-narancasto" {
+		t.Errorf("Mura %+v", r)
+	}
+	if r := p.Skupine[0].Retci[0]; r.Rijetko != "" || r.Klasa != "" {
+		t.Errorf("Gornja Drava %+v", r)
+	}
+	// prag za zime ima prednost
+	sa[1].Razina = 1
+	if r := redakSnijega(sa[1]); r.Rijetko != "jednom u 3 zime" || r.Klasa != "kisa-zuto" {
+		t.Errorf("Mura na pragu %+v", r)
+	}
+	if p.Alarm != nil {
+		t.Error("upozorenje bez vode")
 	}
 }
 
