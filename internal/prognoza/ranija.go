@@ -18,13 +18,13 @@ import (
 // taj sat kad je tada izdano, inače najbliže ranije. ok je false kad do tog
 // sata nema nijednog izdanja.
 func IzdanjeDo(db *sql.DB, sat int64) (izdano int64, ok bool, err error) {
-	return satIzdanja(db, `SELECT max(izdano) FROM izdane WHERE izdano <= ?`, sat)
+	return satIzdanja(db, satKrozKljuc("max", " AND izdano <= ?"), sat)
 }
 
 // PrvoIzdanje vraća sat najstarijeg izdanja u bazi; ok je false dok izdanja
 // nema.
 func PrvoIzdanje(db *sql.DB) (izdano int64, ok bool, err error) {
-	return satIzdanja(db, `SELECT min(izdano) FROM izdane`)
+	return satIzdanja(db, satKrozKljuc("min", ""))
 }
 
 // Pocetci su satovi od kojih baza ima koji dio izdanja; 0 je dio kojeg nema
@@ -39,13 +39,23 @@ type Pocetci struct {
 	Upozorenja int64 // zapis s upozorenjima
 }
 
-// PocetciZapisa čita od kojeg sata baza ima koji dio izdanja.
+// PocetciZapisa čita od kojeg sata baza ima koji dio izdanja. Ključevi
+// satnih i dnevnih vrijednosti počinju letvom, pa se prvi sat čita kroz
+// ključ svake letve, a ne prolaskom kroz cijelu tablicu.
 func PocetciZapisa(db *sql.DB) (Pocetci, error) {
-	var n [4]sql.NullInt64
-	err := db.QueryRow(`SELECT (SELECT min(izdano) FROM izdane), (SELECT min(izdano) FROM dnevne),
+	izdane, _, err := PrvoIzdanje(db)
+	if err != nil {
+		return Pocetci{}, err
+	}
+	var n [3]sql.NullInt64
+	err = db.QueryRow(`WITH RECURSIVE letve(letva) AS (
+			SELECT min(letva) FROM dnevne
+			UNION ALL
+			SELECT (SELECT min(letva) FROM dnevne WHERE letva > letve.letva) FROM letve WHERE letve.letva IS NOT NULL)
+		SELECT (SELECT min((SELECT min(izdano) FROM dnevne WHERE letva = letve.letva)) FROM letve WHERE letva IS NOT NULL),
 		(SELECT min(izdano) FROM izdanja), (SELECT min(izdano) FROM izdanja WHERE upozorenja != '')`).
-		Scan(&n[0], &n[1], &n[2], &n[3])
-	return Pocetci{Izdane: n[0].Int64, Dnevne: n[1].Int64, Zapis: n[2].Int64, Upozorenja: n[3].Int64}, err
+		Scan(&n[0], &n[1], &n[2])
+	return Pocetci{Izdane: izdane, Dnevne: n[0].Int64, Zapis: n[1].Int64, Upozorenja: n[2].Int64}, err
 }
 
 // satIzdanja čita jedan sat izdanja upitom koji vraća max ili min.

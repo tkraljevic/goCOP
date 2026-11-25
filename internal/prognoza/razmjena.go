@@ -149,7 +149,7 @@ func SastaviIzdanje(db *sql.DB, ishod *Ishod) (PaketIzdanja, error) {
 		sql string
 		od  int64
 	}{
-		{&p.Izdane, `SELECT * FROM izdane WHERE izdano = ?`, ishod.Sada},
+		{&p.Izdane, izdaneIzdanjaSQL, ishod.Sada},
 		{&p.Dnevne, `SELECT * FROM dnevne WHERE izdano = ?`, ishod.Sada},
 		{&p.Izbor, `SELECT * FROM izbor WHERE izdano = ?`, ishod.Sada},
 		{&p.Tude, `SELECT * FROM tude WHERE izdano > ?`, ishod.Sada - TudeUnatragSati},
@@ -320,7 +320,7 @@ func primiTude(db *sql.DB, p PaketIzdanja) error {
 // i vrati „OR REPLACE”, a za starije „OR IGNORE”.
 func zamjenaTudih(tx *sql.Tx, p PaketIzdanja) (string, error) {
 	var zadnje sql.NullInt64
-	if err := tx.QueryRow(`SELECT max(izdano) FROM izdane`).Scan(&zadnje); err != nil {
+	if err := tx.QueryRow(zadnjeIzdanjeSQL).Scan(&zadnje); err != nil {
 		return "", err
 	}
 	if zadnje.Valid && p.Zapis.Izdano < zadnje.Int64 {

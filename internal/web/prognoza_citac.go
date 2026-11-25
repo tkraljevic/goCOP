@@ -355,18 +355,10 @@ func (c *CitacPrognoza) Brojke() (vrijednosti int64, izdanja int) {
 // brojIzdanjaSQL broji različite sate izdanja u tablici izdane. Ključ tablice
 // je (letva, velicina, izdano, ciljni), pa count(DISTINCT izdano) prolazi sve
 // vrijednosti (milijuni redaka, sekunda i pol). Umjesto toga letve, veličine
-// i sati izdanja preskaču se kroz ključ (rekurzivni min(x) > prethodni): po
-// jedan skok za svaki sat izdanja svake letve, desetak puta brže.
-const brojIzdanjaSQL = `WITH RECURSIVE
-	letve(letva) AS (
-		SELECT min(letva) FROM izdane
-		UNION ALL
-		SELECT (SELECT min(letva) FROM izdane WHERE letva > letve.letva) FROM letve WHERE letve.letva IS NOT NULL),
-	velicine(letva, velicina) AS (
-		SELECT letva, (SELECT min(velicina) FROM izdane WHERE letva = letve.letva) FROM letve WHERE letva IS NOT NULL
-		UNION ALL
-		SELECT letva, (SELECT min(velicina) FROM izdane WHERE letva = velicine.letva AND velicina > velicine.velicina)
-			FROM velicine WHERE velicina IS NOT NULL),
+// i sati izdanja preskaču se kroz ključ (prognoza.LetveIVelicine i rekurzivni
+// min(izdano) > prethodni): po jedan skok za svaki sat izdanja svake letve,
+// desetak puta brže.
+const brojIzdanjaSQL = prognoza.LetveIVelicine + `,
 	sati(letva, velicina, izdano) AS (
 		SELECT letva, velicina, (SELECT min(izdano) FROM izdane WHERE letva = velicine.letva AND velicina = velicine.velicina)
 			FROM velicine WHERE velicina IS NOT NULL
