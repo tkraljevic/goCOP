@@ -32,9 +32,11 @@ var (
 	// njezina Excel ispisa — isti podatak, dva zapisa istog sata. Dijelove
 	// smije dijeliti i točka-zarez, kako CSV sprema hrvatski Excel
 	// („25.11.2026. 07:00;512“ ili datum i sat u odvojenim stupcima
-	// „25.11.2026.;07:00;512“), a sat smije imati i sekunde.
-	reSatni  = regexp.MustCompile(`^\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})\.?[\s;]+(\d{1,2})(?::(\d{2}))?(?::\d{2})?\s*h?[\s;]+(-?[\d.,]+)[\s;]*$`)
-	reDnevni = regexp.MustCompile(`^\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})\.?[\s;]+(-?[\d.,]+)[\s;]*$`)
+	// „25.11.2026.;07:00;512“), i zarez, kako ga sprema engleski Excel ili
+	// LibreOffice („25.11.2026. 07:00,512“); zarez unutar vrijednosti
+	// („512,5“) ostaje decimalni. Sat smije imati i sekunde.
+	reSatni  = regexp.MustCompile(`^\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})\.?[\s;,]+(\d{1,2})(?::(\d{2}))?(?::\d{2})?\s*h?[\s;,]+(-?[\d.,]+)[\s;,]*$`)
+	reDnevni = regexp.MustCompile(`^\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})\.?[\s;,]+(-?[\d.,]+)[\s;,]*$`)
 	reISO    = regexp.MustCompile(`^\s*(\d{4})-(\d{2})-(\d{2})[ T]?(\d{2})?(?::(\d{2}))?:?\d*\s*[;\t ]\s*(-?[\d.,]+)[\s;]*$`)
 
 	// Redak koji počinje datumom, ali se nije dao pročitati do kraja. Bez ovoga

@@ -20,6 +20,8 @@ func TestUvozPrimaOblikeIzExcelaILetve(t *testing.T) {
 		{"CSV sa sekundama", "25.11.2026. 07:00:00;512"},
 		{"CSV s praznim stupcem na kraju", "25.11.2026. 07:00;512;"},
 		{"ISO s točkom-zarezom", "2026-11-25 07:00;512"},
+		{"CSV sa zarezom (engleski Excel, LibreOffice)", "25.11.2026. 07:00,512"},
+		{"CSV sa zarezom, datum i sat odvojeno", "25.11.2026.,07:00,512"},
 	} {
 		redci, satni, err := citajZalijepljeno(r.redak)
 		if err != nil || len(redci) != 1 || redci[0].Greska != "" {
@@ -40,6 +42,14 @@ func TestUvozCSVDecimalniZarezIMinus(t *testing.T) {
 	}
 	if redci[0].Vrijedi != 512.5 || redci[1].Vrijedi != -35 {
 		t.Errorf("vrijednosti %v i %v", redci[0].Vrijedi, redci[1].Vrijedi)
+	}
+}
+
+// U CSV-u sa zarezom vrijednost s decimalnim zarezom ostaje jedan broj.
+func TestUvozCSVSaZarezomIDecimalniZarez(t *testing.T) {
+	redci, _, err := citajZalijepljeno("25.11.2026. 07:00,512,5")
+	if err != nil || len(redci) != 1 || redci[0].Vrijedi != 512.5 {
+		t.Errorf("%v %+v", err, redci)
 	}
 }
 
