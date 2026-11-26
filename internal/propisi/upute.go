@@ -108,13 +108,15 @@ func mjestoUpute(s string, c *models.CiljUpute) string {
 }
 
 // podijeliRadnje dijeli rečenicu s više radnji („…, a iza riječi: …”).
+// Indeksi pogodaka su na cijeloj rečenici, pa se reže samo po njoj.
 func podijeliRadnje(s string) []string {
 	var out []string
+	pocetak := 0
 	for _, m := range razdjelnikRadnji.FindAllStringSubmatchIndex(s, -1) {
-		out = append(out, s[:m[0]])
-		s = s[m[2]:]
+		out = append(out, s[pocetak:m[0]])
+		pocetak = m[2]
 	}
-	return append(out, s)
+	return append(out, s[pocetak:])
 }
 
 // prepoznaj prepoznaje jednu radnju uzorcima redom, pa blagim uzorkom za
@@ -135,31 +137,63 @@ func prepoznaj(radnja string, c models.CiljUpute) models.UputaIzmjene {
 	return models.UputaIzmjene{Vrsta: models.UputaVlastita}
 }
 
-// izmedju su brojevi između dva broja raspona, bez njih: 1 i 4 daju 2 i 3,
-// a 100.a i 100.d daju 100.b i 100.c.
+// izmedju su oznake između dvije oznake raspona, bez njih: 1 i 4 daju 2
+// i 3, XX i XXIII daju XXI i XXII, 100.a i 100.d daju 100.b i 100.c, a 5 i
+// 5.c daju 5.a i 5.b.
 func izmedju(od, doBroja string) []string {
-	a, errA := strconv.Atoi(od)
-	b, errB := strconv.Atoi(doBroja)
-	if errA == nil && errB == nil && b-a <= najveciRaspon {
+	if a, b, ok := brojeviRaspona(od, doBroja, strconv.Atoi); ok {
 		var out []string
 		for i := a + 1; i < b; i++ {
 			out = append(out, strconv.Itoa(i))
 		}
 		return out
 	}
+	if a, b, ok := brojeviRaspona(od, doBroja, izRimskogGreska); ok {
+		var out []string
+		for i := a + 1; i < b; i++ {
+			out = append(out, Rimski(i))
+		}
+		return out
+	}
 	return izmedjuSlova(od, doBroja)
 }
 
+// brojeviRaspona čita oba kraja raspona istim čitačem. ok je false kad
+// koji kraj nije broj ili kad je raspon veći od najveciRaspon.
+func brojeviRaspona(od, doBroja string, citaj func(string) (int, error)) (a, b int, ok bool) {
+	a, errA := citaj(od)
+	b, errB := citaj(doBroja)
+	return a, b, errA == nil && errB == nil && b-a <= najveciRaspon
+}
+
+// izRimskogGreska je IzRimskog s greškom umjesto ok, za brojeviRaspona.
+func izRimskogGreska(s string) (int, error) {
+	if n, ok := IzRimskog(s); ok {
+		return n, nil
+	}
+	return 0, strconv.ErrSyntax
+}
+
 // izmedjuSlova su oznake između dvije oznake s istim brojem i slovom na
-// kraju („100.a” i „100.d”); drugo daje prazno.
+// kraju („100.a” i „100.d” daju 100.b i 100.c) ili između broja i istog
+// broja sa slovom („5” i „5.c” daju 5.a i 5.b); drugo daje prazno.
 func izmedjuSlova(od, doBroja string) []string {
-	n := len(od)
-	if n < 2 || len(doBroja) != n || od[:n-1] != doBroja[:n-1] || !slovo(od[n-1]) || !slovo(doBroja[n-1]) {
+	n := len(doBroja)
+	if n < 2 || !slovo(doBroja[n-1]) {
+		return nil
+	}
+	osnova, zadnje := doBroja[:n-1], doBroja[n-1]
+	prvo := byte('a' - 1)
+	switch {
+	case od+"." == osnova:
+	case len(od) == n && od[:n-1] == osnova && slovo(od[n-1]):
+		prvo = od[n-1]
+	default:
 		return nil
 	}
 	var out []string
-	for z := od[n-1] + 1; z < doBroja[n-1]; z++ {
-		out = append(out, od[:n-1]+string(z))
+	for z := prvo + 1; z < zadnje; z++ {
+		out = append(out, osnova+string(z))
 	}
 	return out
 }

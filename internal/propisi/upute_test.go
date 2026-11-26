@@ -102,6 +102,25 @@ func TestDvijeRadnjeUJednojRecenici(t *testing.T) {
 	}
 }
 
+// Rečenica s tri radnje dijeli se na tri upute. Prije se od druge radnje
+// rezalo po krivim mjestima, a duža rečenica srušila je čitanje.
+func TestTriRadnjeUJednojRecenici(t *testing.T) {
+	r := "U članku 5. stavku 1. riječi: »a« zamjenjuju se riječima: »b«, a riječi: »c« zamjenjuju se riječima: »d«, a iza riječi: »e« dodaju se riječi: »f«."
+	u := PrepoznajUpute([]models.DioPropisa{clanakIzmjeneZa("clanak-1", r)})
+	if len(u) != 3 {
+		t.Fatalf("%d uputa, želi 3: %+v", len(u), u)
+	}
+	zeli := [][2]string{{"a", "b"}, {"c", "d"}, {"e", "f"}}
+	for i, z := range zeli {
+		if u[i].Stari != z[0] || u[i].Novi != z[1] || !reflect.DeepEqual(u[i].Cilj.Clanci, []string{"5"}) {
+			t.Errorf("uputa %d: %+v", i+1, u[i])
+		}
+	}
+	if u[2].Vrsta != models.UputaDodavanjeRijeci {
+		t.Errorf("treća uputa %v", u[2].Vrsta)
+	}
+}
+
 // Odluke (25. 11. 2026.): mjesto se nasljeđuje unutar članka izmjene: „U
 // stavku 5.” ostaje u istom članku, a „Točke 2. i 3.” i u istom stavku.
 // Novi članak izmjene počinje bez mjesta.
@@ -144,13 +163,22 @@ func TestRasponDoSeRazvija(t *testing.T) {
 	if !reflect.DeepEqual(u.NoveOznake, []string{"30.a", "30.b", "30.c", "30.d"}) {
 		t.Errorf("nove oznake %v", u.NoveOznake)
 	}
+	b := jednaUputa(t, "Točke XX. do XXIII. brišu se.")
+	if !reflect.DeepEqual(b.Cilj.Clanci, []string{"XX", "XXI", "XXII", "XXIII"}) {
+		t.Errorf("brisanje točaka %+v", b.Cilj)
+	}
 	for ulaz, zeli := range map[string][]string{
-		"1. do 4.":     {"1", "2", "3", "4"},
-		"8. i 9.":      {"8", "9"},
-		"do 3.":        {"3"},
-		"5.a do 6.c":   {"5.a", "6.c"},
-		"1. do 900.":   {"1", "900"},
-		"XI. do XIII.": {"XI", "XIII"},
+		"1. do 4.":      {"1", "2", "3", "4"},
+		"8. i 9.":       {"8", "9"},
+		"do 3.":         {"3"},
+		"5.a do 6.c":    {"5.a", "6.c"},
+		"1. do 900.":    {"1", "900"},
+		"XI. do XIII.":  {"XI", "XII", "XIII"},
+		"XX. do XXIII.": {"XX", "XXI", "XXII", "XXIII"},
+		"5. do 5.c":     {"5", "5.a", "5.b", "5.c"},
+		"5.a do 5.c":    {"5.a", "5.b", "5.c"},
+		"5. do 6.c":     {"5", "6.c"},
+		"I. do CCC.":    {"I", "CCC"},
 	} {
 		if got := razvijPopis(ulaz); !reflect.DeepEqual(got, zeli) {
 			t.Errorf("razvijPopis(%q) = %v, želi %v", ulaz, got, zeli)
