@@ -182,7 +182,9 @@ func TestIzvornikPrijavePoStanjuPotpisa(t *testing.T) {
 			[]string{">PDF</a>", "potpis Ivan Primjer: <strong>dokument je mijenjan</strong>", objavljeno}, false},
 		{"izvornik bez potpisa", potpisiIzvornika{Ima: true},
 			[]string{">PDF</a>", "bez elektroničkog potpisa", objavljeno}, false},
-		{"izvornika nema na ovom računalu", potpisiIzvornika{}, []string{objavljeno}, false},
+		{"izvornika nema", potpisiIzvornika{}, []string{objavljeno}, false},
+		{"izvornik nije na ovom računalu", potpisiIzvornika{Ima: true, NijeOvdje: true},
+			[]string{"Izvornik prijave, PDF kakav je objavljen, nije na ovom računalu, pa se ovdje ne mogu provjeriti potpisi", objavljeno}, false},
 	} {
 		t.Run(c.ime, func(t *testing.T) {
 			s := stranicaPrijave(t, PrijavePageData{Prijava: prijavaZaStranicu("PRIJAVA", models.PrijavaObjavljena), Izvornik: c.iz})
@@ -218,7 +220,7 @@ func TestFotografijaPrijaveDrziDokaz(t *testing.T) {
 		{ID: "s2", Naziv: "IMG_2042.jpg", Sirina: 1000, Visina: 750, Otisak: cijeli},
 		{ID: "s3", Naziv: "IMG_2043.jpg"},
 	}
-	s := stranicaPrijave(t, PrijavePageData{Prijava: p})
+	s := stranicaPrijave(t, PrijavePageData{Prijava: p, Izvornik: potpisiIzvornika{Ima: true}})
 	for _, x := range []string{
 		"IMG_2041.jpg · 1000×750",
 		"26. 10. 2026. 08:52:17 · 45,73120; 18,87410 · mobitel Primjer X1 · <span class=\"prijava-otisak\" title=\"Izvorna datoteka IMG_2041.jpg, 3,0 MB, SHA-256 " + cijeli + "\">SHA-256 7f3a…c91e</span>",
@@ -235,6 +237,13 @@ func TestFotografijaPrijaveDrziDokaz(t *testing.T) {
 	}
 	if !strings.Contains(s, "<h2>Fotografije (3)</h2>") {
 		t.Error("broj fotografija")
+	}
+	// fotografija ne upućuje na PDF koji nije ovdje, ni na PDF iscrtan bez nje
+	for _, iz := range []potpisiIzvornika{{}, {Ima: true, NijeOvdje: true}} {
+		s := stranicaPrijave(t, PrijavePageData{Prijava: p, Izvornik: iz})
+		if !strings.Contains(s, "<span>Fotografija nije na ovom računalu.</span>") || strings.Contains(s, "PDF-u</a>") || strings.Contains(s, "više nije") {
+			t.Errorf("izvornik %+v: fotografija koje nema upućuje na PDF", iz)
+		}
 	}
 	p.Slike = nil
 	if s := stranicaPrijave(t, PrijavePageData{Prijava: p}); !strings.Contains(s, "Bez fotografija.") || !strings.Contains(s, "<h2>Fotografije (0)</h2>") {

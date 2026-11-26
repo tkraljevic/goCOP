@@ -82,7 +82,7 @@ func TestNapomenaPrijave(t *testing.T) {
 		{objavljena, true, "bez elektroničkog potpisa"},
 		{objavljena, false, "potpisano ključem vodočuvara"},
 	} {
-		if n := napomenaPrijave(s.p, s.bezPotpisa); !strings.Contains(n, s.ima) {
+		if n := napomenaPrijave(s.p, prilogPrijave{}, s.bezPotpisa); !strings.Contains(n, s.ima) {
 			t.Errorf("napomena %q nema %q", n, s.ima)
 		}
 	}

@@ -18,7 +18,7 @@
     <p class="page-desc">{{$p.Naslov}} · {{$p.Ime}}{{if not $p.Datum.IsZero}} · {{$p.Datum.Format "2. 1. 2006."}}{{end}}{{if $p.AreaID}} · BP {{$p.AreaID}}{{with .Podrucje}}, {{.Name}}{{end}}{{end}}{{if $p.Rijesena}} · riješio {{$p.Rijesio}}{{end}}</p>
   </div>
   <div class="page-actions">
-    <a href="/prijave/{{$p.ID}}/prijava.pdf" target="_blank" class="btn btn-link">PDF{{if not $p.Objavljena}} (pregled nacrta){{end}}</a>
+    {{if not .Izvornik.NijeOvdje}}<a href="/prijave/{{$p.ID}}/prijava.pdf" target="_blank" class="btn btn-link">PDF{{if not $p.Objavljena}} (pregled nacrta){{end}}</a>{{end}}
     {{if and .Moja (not $p.Objavljena)}}<a href="/prijave/{{$p.ID}}/uredi" class="btn btn-link">Uredi</a>{{end}}
   </div>
 </div>
@@ -44,7 +44,8 @@
     {{$otvara := or ($.Sees "dnevnici") (and $.Moja $.VodiDnevnik)}}
     {{/* Riječ „preneseni list” samo kad veza na list postoji. Prenesena prijava bez veze ima crticu. */}}
     {{if $p.Objavljena}}<dt>Dnevni list</dt><dd>{{with .DnevniList}}{{if $otvara}}<a href="/vodocuvar/{{.ID}}">{{end}}{{if .Broj}}list {{printf "%03d" .Broj}}/{{.Datum.Year}}{{else if .Rekonstrukcija}}preneseni list{{if not .Datum.IsZero}} od {{.Datum.Format "2. 1. 2006."}}{{end}}{{else}}nacrt bez broja{{if not .Datum.IsZero}} od {{.Datum.Format "02.01.2006."}}{{end}}{{end}}{{if $otvara}}</a>{{end}}{{else}}{{if $p.ListID}}{{if $otvara}}<a href="/vodocuvar/{{$p.ListID}}">{{end}}{{if $p.ListBroj}}list {{printf "%03d" $p.ListBroj}}/{{$p.Godina}}{{else}}nacrt bez broja{{end}}{{if $otvara}}</a>{{end}}{{else}}—{{end}}{{end}}</dd>{{end}}
-    {{if .Izvornik.Ima}}<dt>Izvornik</dt><dd><a href="/prijave/{{$p.ID}}/prijava.pdf" target="_blank">{{if $potpisan}}potpisani PDF{{else}}PDF{{end}}</a>{{if .Izvornik.Potpisi}}<ul class="list-potpisi">{{range .Izvornik.Potpisi}}
+    {{if .Izvornik.NijeOvdje}}<dt>Izvornik</dt><dd>{{if $p.Rekonstrukcija}}PDF koji je složen pri prijenosu prijave iz ranije evidencije nije na ovom računalu, pa se ovdje ne može otvoriti.{{else}}Izvornik prijave, PDF kakav je objavljen, nije na ovom računalu, pa se ovdje ne mogu provjeriti potpisi ni otvoriti PDF prijave.{{end}}</dd>
+    {{else if .Izvornik.Ima}}<dt>Izvornik</dt><dd><a href="/prijave/{{$p.ID}}/prijava.pdf" target="_blank">{{if $potpisan}}potpisani PDF{{else}}PDF{{end}}</a>{{if .Izvornik.Potpisi}}<ul class="list-potpisi">{{range .Izvornik.Potpisi}}
       {{if .Simulacija}}<li>{{icon "x"}}<div><strong>SIMULIRANI potpis, bezvrijedan</strong> ({{.Ime}})</div></li>
       {{else if .Valjan}}<li>{{icon "lock"}}<div>elektronički potpisao {{.Ime}}{{if not .Kad.IsZero}}, {{vrijemeLista .Kad}}{{end}} (potpis valjan{{if .Cijeli}}, pokriva cijeli dokument{{end}})</div></li>
       {{else}}<li>{{icon "x"}}<div>potpis {{.Ime}}: <strong>{{.Greska}}</strong></div></li>{{end}}
@@ -58,10 +59,17 @@
   {{end}}
 </section>
 
-{{if and $p.Objavljena (eq $p.Vrsta "PRIJAVA") (or .SmijeRijesiti .Moja)}}
+{{if and .UrudzbaCekaIzvornik (or .SmijeRijesiti .Moja)}}
+{{/* Urudžba se dopisuje na izvornik, a on nije ovdje: bez polja urudžbe, rješava se bez nje. */}}
 <section class="detail-section list-kartica ploca-stranice prijava-radnja{{if .SmijeRijesiti}} prijava-radnja-prva{{end}}">
   <h2>Urudžbeni zapisnik</h2>
-  <p class="page-desc list-objasnjenje">Jedino prijava ide iz kuće: ispisana i vlastoručno potpisana ulazi u urudžbeni zapisnik kao dolazni akt. Klasu i urudžbeni broj koje da pisarnica upišite ovdje pa se dopišu na PDF kao bilješka, bez ičijeg parafa.{{if .SmijeRijesiti}} „Pregledano, riješeno” potvrđuje da je pregledana i riješena.{{end}}</p>
+  <p class="page-desc list-objasnjenje">Klasa i urudžbeni broj dopisuju se na {{if $p.Rekonstrukcija}}PDF prijave{{else}}izvornik prijave{{end}}, a on nije na ovom računalu. Upišite ih na računalu na kojem je prijava {{if $p.Rekonstrukcija}}prenesena{{else}}objavljena{{end}} ili koje prati PDF-ove prijava s terena.{{if .SmijeRijesiti}} „Pregledano, riješeno” ovdje potvrđuje samo da je prijava pregledana i riješena.{{end}}</p>
+  {{if .SmijeRijesiti}}<form method="POST" action="/prijave/{{$p.ID}}/radnja" class="list-radnje" onsubmit="return confirm('Označiti prijavu riješenom? Time potvrđujete da ste je pregledali i riješili.')"><input type="hidden" name="radnja" value="rijesi"><button type="submit" class="btn btn-primary">Pregledano, riješeno</button></form>{{end}}
+</section>
+{{else if and $p.Objavljena (eq $p.Vrsta "PRIJAVA") (or .SmijeRijesiti .Moja)}}
+<section class="detail-section list-kartica ploca-stranice prijava-radnja{{if .SmijeRijesiti}} prijava-radnja-prva{{end}}">
+  <h2>Urudžbeni zapisnik</h2>
+  <p class="page-desc list-objasnjenje">Jedino prijava ide iz kuće: ispisana i vlastoručno potpisana ulazi u urudžbeni zapisnik kao dolazni akt. Klasu i urudžbeni broj koje da pisarnica upišite ovdje{{if .Izvornik.Ima}} pa se dopišu na PDF kao bilješka, bez ičijeg parafa{{end}}.{{if .SmijeRijesiti}} „Pregledano, riješeno” potvrđuje da je pregledana i riješena.{{end}}</p>
   {{/* Oba gumba su u istoj formi: rješavanje čita i polja urudžbe. */}}
   <form method="POST" action="/prijave/{{$p.ID}}/radnja" class="prijava-terena-obrazac">
     <div class="form-group list-polje"><label class="form-label" for="klasa">KLASA</label><input class="form-control" id="klasa" name="klasa" value="{{$p.Klasa}}" placeholder="325-02/24-01/0000513"></div>
@@ -105,7 +113,7 @@
       <a href="/prijave/{{$p.ID}}/slika/{{.ID}}" target="_blank"><img src="/prijave/{{$p.ID}}/slika/{{.ID}}" alt="{{.Naziv}}" loading="lazy" onerror="this.parentElement.parentElement.classList.add('nema')"></a>
       {{/* Otisak je na zaslonu skraćen. Cijeli stoji u title, zajedno s izvornom datotekom i veličinom, i u PDF-u. */}}
       <figcaption>{{.Naziv}}{{if .Sirina}}{{if .Naziv}} · {{end}}{{.Sirina}}×{{.Visina}}{{end}}<br><span class="reading-meta">{{.ZapisNaStranici}}{{if .OtisakKratko}}{{if .ImaZapisFotoaparata}} ·{{end}} <span class="prijava-otisak" title="{{.Izvornik}}">SHA-256 {{.OtisakKratko}}</span>{{end}}</span></figcaption>
-      <p class="form-help nema-slike">{{icon "info"}}<span>Izvorna slika više nije na ovom računalu. Nalazi se u <a href="/prijave/{{$p.ID}}/prijava.pdf" target="_blank">PDF-u</a>.</span></p>
+      <p class="form-help nema-slike">{{icon "info"}}<span>Fotografija nije na ovom računalu.{{if and $.Izvornik.Ima (not $.Izvornik.NijeOvdje)}} Nalazi se u <a href="/prijave/{{$p.ID}}/prijava.pdf" target="_blank">PDF-u</a>.{{end}}</span></p>
       {{if and $.Moja (not $p.Objavljena)}}<form method="POST" action="/prijave/{{$p.ID}}/radnja" class="prijava-ukloni"><input type="hidden" name="radnja" value="obrisi-sliku"><input type="hidden" name="slika" value="{{.ID}}"><button type="submit" class="btn btn-sm btn-link btn-opasno">{{icon "trash"}} Ukloni</button></form>{{end}}
     </figure>{{end}}
   </div>

@@ -299,7 +299,7 @@ func pdfPrijave(p *models.PrijavaSTerena, pr prilogPrijave, t models.OrgTerms, c
 	}
 	// podnožje na svakoj stranici: oznaka i broj stranice; na prvoj još
 	// napomena i QR kod za provjeru
-	napomena := napomenaPrijave(p, crtajBlok)
+	napomena := napomenaPrijave(p, pr, crtajBlok)
 	qrTekst := sadrzajQR(p, pr.Adresa)
 	d.Podnozje = func(d *pdfw.Doc, stranica, ukupno int) {
 		const qrW = 40.0
@@ -468,17 +468,38 @@ func PDFPrijaveRekonstrukcija(ctx context.Context, p *models.PrijavaSTerena, sli
 	return pdf
 }
 
-// napomenaPrijave je rečenica u podnožju prve stranice: nacrt, prenesena
+// napomenaPrijave je napomena u podnožju prve stranice: nacrt, prenesena
 // prijava ili objava; bez potpisnog ključa (blok nacrtan ovdje) kaže da PDF
-// nema elektroničkog potpisa
-func napomenaPrijave(p *models.PrijavaSTerena, bezPotpisa bool) string {
+// nema elektroničkog potpisa. Da su fotografije ugrađene kaže samo kad jesu:
+// fotografija koje nema na računalu na kojem se PDF crta u njemu stoji samo
+// natpis.
+func napomenaPrijave(p *models.PrijavaSTerena, pr prilogPrijave, bezPotpisa bool) string {
+	ugradjene := sveFotografijeUgradjene(p, pr)
 	switch {
 	case p.ObjavljenoAt == nil:
 		return "NACRT: prijava još nije objavljena ni potpisana."
-	case p.Rekonstrukcija:
+	case p.Rekonstrukcija && ugradjene:
 		return "Rekonstrukcija: prijava prenesena iz ranije evidencije VGI Baranja (app.bp16.xyz), složena iz podataka u goCOP-u; fotografije su smanjene i ugrađene."
-	case bezPotpisa:
-		return "Upisano na dnevni list vodočuvara " + listPrijave(p) + ". Sastavljeno u goCOP-u bez elektroničkog potpisa: oznaka objave nosi vrijeme objave i kontrolni kod, a ispis se potpisuje vlastoručno. Fotografije su smanjene i ugrađene."
+	case p.Rekonstrukcija:
+		return "Rekonstrukcija: prijava prenesena iz ranije evidencije VGI Baranja (app.bp16.xyz), složena iz podataka u goCOP-u."
 	}
-	return "Upisano na dnevni list vodočuvara " + listPrijave(p) + ". Sastavljeno u goCOP-u i elektronički potpisano ključem vodočuvara; ispis se potpisuje i vlastoručno. Fotografije su smanjene i ugrađene."
+	n := "Upisano na dnevni list vodočuvara " + listPrijave(p) + ". Sastavljeno u goCOP-u i elektronički potpisano ključem vodočuvara; ispis se potpisuje i vlastoručno."
+	if bezPotpisa {
+		n = "Upisano na dnevni list vodočuvara " + listPrijave(p) + ". Sastavljeno u goCOP-u bez elektroničkog potpisa: oznaka objave nosi vrijeme objave i kontrolni kod, a ispis se potpisuje vlastoručno."
+	}
+	if ugradjene {
+		n += " Fotografije su smanjene i ugrađene."
+	}
+	return n
+}
+
+// sveFotografijeUgradjene javlja ima li svaka fotografija prijave bajtove za
+// PDF, istim uvjetom po kojem je PDF ugrađuje
+func sveFotografijeUgradjene(p *models.PrijavaSTerena, pr prilogPrijave) bool {
+	for _, sl := range p.Slike {
+		if len(pr.Slike[sl.ID]) == 0 || sl.Sirina == 0 || sl.Visina == 0 {
+			return false
+		}
+	}
+	return true
 }
