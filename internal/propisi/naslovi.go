@@ -221,12 +221,13 @@ func (t *razvrstavanje) potpis(od int) {
 
 // naslovVelikim razvrstava redak napisan velikim slovima: „ODLUKU” i
 // „O PROGLAŠENJU …” su odluka o proglašenju, redak iza kojeg slijedi još
-// jedan redak velikim slovima i nastavak „O …” su naslov akta, a ostalo je
-// naslov dijela Plana ili glave bez broja.
+// jedan redak velikim slovima i nastavak „O …” su naslov akta, kao i naslov
+// akta u jednom retku („PRAVILNIK O ČUVANJU NASIPA”), a ostalo je naslov
+// dijela Plana ili glave bez broja.
 func (t *razvrstavanje) naslovVelikim(i int) string {
 	s := t.o[i].Tekst
 	switch {
-	case s == "ODLUKU", i+1 < len(t.o) && velikimSlovima(t.o[i+1].Tekst) && !t.oznaka(i+1):
+	case s == "ODLUKU", i+1 < len(t.o) && velikimSlovima(t.o[i+1].Tekst) && !t.oznaka(i+1), t.naslovAkta(i):
 		return klasaNaslov
 	case strings.HasPrefix(s, "O ") && i > 0 && (t.o[i-1].Klasa == klasaNaslov || t.o[i-1].Klasa == klasaNaslovDalje):
 		return klasaNaslovDalje
@@ -234,6 +235,24 @@ func (t *razvrstavanje) naslovVelikim(i int) string {
 		return klasaDioPlana
 	}
 	return klasaSredina
+}
+
+// uzorakVrsteAkta je početak naslova akta: „ZAKON O …”, „PRAVILNIK O …”.
+var uzorakVrsteAkta = regexp.MustCompile(`^(?:ZAKON|PRAVILNIK|UREDBA|ODLUKA|NAREDBA|NAPUTAK|UPUTA|RJEŠENJE|STATUT|POSLOVNIK|PROGRAM|STRATEGIJA|DRŽAVNI PLAN|PLAN)\b`)
+
+// naslovAkta javlja je li redak velikim slovima naslov akta u jednom retku:
+// počinje vrstom akta i stoji prije prvog članka, točke ili glave.
+func (t *razvrstavanje) naslovAkta(i int) bool {
+	if !uzorakVrsteAkta.MatchString(t.o[i].Tekst) {
+		return false
+	}
+	for _, o := range t.o[:i] {
+		switch o.Klasa {
+		case klasaClanak, klasaSredina, klasaDioPlana, klasaPrilog:
+			return false
+		}
+	}
+	return true
 }
 
 func (t *razvrstavanje) clanak(i int) bool {

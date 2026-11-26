@@ -64,6 +64,20 @@ func TestTekstNaslovVelikimSlovima(t *testing.T) {
 	}
 }
 
+// Naslov akta u jednom retku nije glava: prije su svi članci padali pod
+// glavu s naslovom akta. Isti redak velikim slovima iza članka ostaje glava.
+func TestTekstNaslovAktaUJednomRetku(t *testing.T) {
+	p := podijeliTekst("Na temelju članka 7. Zakona o čuvanju nasipa ministar donosi\nPRAVILNIK O ČUVANJU NASIPA\n" +
+		"Predmet\nČlanak 1.\nTekst.\nČlanak 2.\nTekst.\nPLAN RADA\nČlanak 3.\nTekst.")
+	zeli := []string{"uvod", "clanak-1", "clanak-2", "glava-1", "clanak-3"}
+	if got := oznake(p.Dijelovi); !reflect.DeepEqual(got, zeli) {
+		t.Fatalf("oznake %v, želi %v", got, zeli)
+	}
+	if p.Dijelovi[1].Roditelj != "" || p.Dijelovi[4].Roditelj != "glava-1" {
+		t.Errorf("roditelji %q %q", p.Dijelovi[1].Roditelj, p.Dijelovi[4].Roditelj)
+	}
+}
+
 // Odluke (25. 11. 2026.): datoteka s Windowsa ima BOM i CRLF, a stari Mac
 // samo CR; svaki neprazan redak je odlomak.
 func TestTekstCRLFIBOM(t *testing.T) {
