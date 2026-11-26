@@ -301,6 +301,7 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 			t.Errorf("%s nije označena kao poslana", x.Adresa)
 		}
 	}
+	slanjeAktaBezIzvornika(t, ctx, baza, aktiRepo, id, srv, zovi, stranica)
 	nePrimaNista(t, ctx, aktiRepo, akti, id, srv, post, stranica)
 
 	// Sandučić: pisma s privitcima, ugrađenim slikama i mapama

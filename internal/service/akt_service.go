@@ -1311,11 +1311,21 @@ func kljucImena(s string) string {
 	return strings.Join(dijelovi, " ")
 }
 
-// Izvornik vraća potpisani PDF akta; nil kad akt nije potpisan u SIGNATOR-u
+// ErrIzvornikAktaNijeOvdje: izvornik ovjerenog akta postoji, a njegov PDF
+// još nije stigao na ovo računalo (repository.Izvornik.NijeOvdje)
+var ErrIzvornikAktaNijeOvdje = errors.New("izvornik akta, PDF kakav je ovjeren, još nije stigao na ovo računalo")
+
+// Izvornik vraća PDF izvornika akta: PDF spremljen pri ovjeri ili sken s
+// potpisom i žigom. nil bez greške kad akt izvornika nema, pa se crta
+// iznova; ErrIzvornikAktaNijeOvdje kad izvornik postoji, a PDF nije na ovom
+// računalu, jer crtež tada ne smije zamijeniti izvornik.
 func (s *AktService) Izvornik(ctx context.Context, id string) ([]byte, error) {
 	iz, err := s.repo.GetIzvornik(ctx, id)
 	if err != nil || iz == nil {
 		return nil, err
+	}
+	if iz.NijeOvdje() {
+		return nil, ErrIzvornikAktaNijeOvdje
 	}
 	return iz.PDF, nil
 }
@@ -1750,7 +1760,7 @@ func (s *AktService) SpremiIzvornikPDF(ctx context.Context, a *models.Akt, pdf [
 	if !a.Ovjeren() || len(pdf) == 0 {
 		return nil
 	}
-	if iz, err := s.repo.GetIzvornik(ctx, a.ID); err != nil || iz != nil {
+	if iz, err := s.repo.ZapisIzvornika(ctx, a.ID); err != nil || iz != nil {
 		return err
 	}
 	h := sha256.Sum256(pdf)

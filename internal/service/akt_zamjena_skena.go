@@ -41,7 +41,7 @@ func (s *AktService) ZamijeniSken(ctx context.Context, perms *models.UserPermiss
 	}
 	z := models.ZamjenaSkena{StariSazetak: stari, NoviSazetak: novi, ZamijenioID: u.ID.String(), Zamijenio: u.FullName,
 		ZamijenjenoAt: time.Now().UTC().Truncate(time.Second), Razlog: strings.TrimSpace(razlog), Cvor: s.cvor}
-	if iz, err := s.repo.GetIzvornik(ctx, a.ID); err == nil && iz != nil {
+	if iz, err := s.repo.ZapisIzvornika(ctx, a.ID); err == nil && iz != nil {
 		z.StariBajtova = iz.Bajtova
 	}
 	if len(s.kljuc) == ed25519.PrivateKeySize {

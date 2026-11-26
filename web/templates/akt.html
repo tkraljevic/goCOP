@@ -19,7 +19,7 @@
     <p class="page-desc">{{$a.StationName}} · BP {{$a.AreaID}}{{with .Podrucje}} {{.Name}}{{end}} · {{term "sektor"}} {{$a.Sektor}}</p>
   </div>
   <div class="page-actions">
-    <a href="/akti/{{$a.ID}}/akt.pdf" class="btn btn-link" target="_blank">PDF</a>
+    {{if not .IzvornikNijeOvdje}}<a href="/akti/{{$a.ID}}/akt.pdf" class="btn btn-link" target="_blank">PDF</a>{{end}}
   </div>
 </div>
 
@@ -32,6 +32,11 @@
 {{with .StornoOdbijen}}
 <div class="akt-traka" id="storno-odbijen">{{icon "triangle-alert"}}
   <div>{{.}}{{with $.KasnijiAkt}} <a href="/akti/{{.ID}}">Otvori {{.Oznaka}}</a>{{end}}</div>
+</div>
+{{end}}
+{{if .IzvornikNijeOvdje}}
+<div class="akt-traka neutralna" id="izvornik">{{icon "clock"}}
+  <div><strong>Izvornik akta još nije stigao na ovo računalo.</strong> To je PDF kakav je ovjeren{{if $a.Rucno}}, sken s potpisom i žigom{{end}}. Dok ne stigne, akt se ovdje ne može ni otvoriti kao PDF ni poslati. Stići će kad se ovo računalo razmijeni s računalom koje ga ima.</div>
 </div>
 {{end}}
 {{if and $a.Ovjeren (eq .Potpis "NE_VRIJEDI")}}
@@ -219,9 +224,9 @@
       {{if .SpremaPoslano}}<p class="form-help">Pisma se šalju preko poslužitelja tvrtke kao iz Outlooka i ostaju u vašoj mapi Poslano.</p>
       {{else}}<label class="checkbox-label"><input type="checkbox" name="kopija" value="1" checked> Pošalji kopiju i meni (poslužitelj ne sprema poslanu poštu u Outlookovu mapu Poslano)</label>{{end}}
       <div class="mt-2 d-flex gap-2 flex-wrap items-center">
-        <button type="submit" class="btn btn-primary" id="akt-posalji" {{if or (not .Podesena) (not .Racun) (not .Posiljatelj) .Zabrana}}disabled{{end}}>{{icon "mail"}} Pošalji odabranima<span class="akt-posalji-broj"></span></button>
-        <button type="submit" class="btn btn-secondary" name="proba" value="1" formnovalidate {{if or (not .Podesena) (not .Racun) (not .Posiljatelj) .Zabrana}}disabled{{end}}>{{icon "user"}} Probno samo meni</button>
-        {{if .Zabrana}}<span class="form-help akt-slanje-zabrana">Ne može se poslati jer elektronički potpis ne vrijedi. Prvo treba provjeriti akt.</span>{{else if eq .NijePoslanoJos 0}}<span class="form-help">Svim adresama je već poslano.</span>{{end}}</div>
+        <button type="submit" class="btn btn-primary" id="akt-posalji" {{if or (not .Podesena) (not .Racun) (not .Posiljatelj) .Zabrana $.IzvornikNijeOvdje}}disabled{{end}}>{{icon "mail"}} Pošalji odabranima<span class="akt-posalji-broj"></span></button>
+        <button type="submit" class="btn btn-secondary" name="proba" value="1" formnovalidate {{if or (not .Podesena) (not .Racun) (not .Posiljatelj) .Zabrana $.IzvornikNijeOvdje}}disabled{{end}}>{{icon "user"}} Probno samo meni</button>
+        {{if .Zabrana}}<span class="form-help akt-slanje-zabrana">Ne može se poslati jer elektronički potpis ne vrijedi. Prvo treba provjeriti akt.</span>{{else if $.IzvornikNijeOvdje}}<span class="form-help akt-slanje-zabrana">Ne može se poslati dok izvornik akta ne stigne na ovo računalo.</span>{{else if eq .NijePoslanoJos 0}}<span class="form-help">Svim adresama je već poslano.</span>{{end}}</div>
       <script>
         (function () {
           var f = document.getElementById('akt-slanje-obrazac');
@@ -296,7 +301,7 @@
   {{if .Adresati}}
   <details class="list-kartica akt-slanje-poruka">
     <summary>Poruka koja se šalje {{icon "chevron-right"}}</summary>
-    <p><strong>Od:</strong> {{$.CurrentUser.FullName}} &lt;{{.Posiljatelj}}&gt;<br><strong>Predmet:</strong> {{.Poruka.Predmet}}<br><strong>Privitak:</strong> {{.Poruka.ImeDatoteke}} (izvornik)</p>
+    <p><strong>Od:</strong> {{$.CurrentUser.FullName}} &lt;{{.Posiljatelj}}&gt;<br><strong>Predmet:</strong> {{.Poruka.Predmet}}<br><strong>Privitak:</strong> {{.Poruka.ImeDatoteke}} (izvornik{{if $.IzvornikNijeOvdje}}, još nije stigao na ovo računalo{{end}})</p>
     <pre>{{.Poruka.Tekst}}</pre>
     <p class="form-help mb-0">Svaki primatelj dobiva zasebnu poruku, pa ne vidi ostale adrese.</p>
   </details>
@@ -393,7 +398,7 @@
   {{with $a.Rucno}}
   <section class="list-kartica akt-stanje-potpisa">
     {{icon "check"}}<div><p class="mb-0"><strong>Potpisan vlastoručno i ovjeren žigom:</strong> {{.Potpisnik}}. Izvornik je sken ispisa; učitao ga je {{.Ucitao}}, {{formatDate (localTime .UcitanoAt)}}.
-    <a href="/akti/{{$a.ID}}/akt.pdf" target="_blank">Otvori izvornik</a></p>
+    {{if not $.IzvornikNijeOvdje}}<a href="/akti/{{$a.ID}}/akt.pdf" target="_blank">Otvori izvornik</a>{{end}}</p>
     {{with $a.ZamjeneSkena}}<ul class="akt-zamjene-skena mb-0">{{range .}}
       <li><s>Prethodni sken</s> zamijenio je {{.Zamijenio}}, {{formatDate (localTime .ZamijenjenoAt)}}. Razlog: {{.Razlog}}. <a href="/akti/{{$a.ID}}/sken/{{.StariSazetak}}" target="_blank">Otvori prethodni sken</a></li>{{end}}
     </ul>{{end}}</div>
@@ -438,7 +443,7 @@
      danom i potpisnikom, a puni tekst je u PDF-u. Na širem zaslonu se ne vidi, jer tamo stoji papir. */}}
 {{define "akt_sazetak"}}{{$a := .Akt}}
 <section class="list-kartica akt-sazetak">
-  <div class="akt-sazetak-glava"><h2>Dokument akta</h2><a href="/akti/{{$a.ID}}/akt.pdf" class="btn btn-secondary" target="_blank">Otvori PDF</a></div>
+  <div class="akt-sazetak-glava"><h2>Dokument akta</h2>{{if not .IzvornikNijeOvdje}}<a href="/akti/{{$a.ID}}/akt.pdf" class="btn btn-secondary" target="_blank">Otvori PDF</a>{{end}}</div>
   <p class="akt-sazetak-naslov">{{if $a.Storniran}}PONIŠTEN · {{end}}{{$a.VrstaNaziv}} o {{$a.RadnjaLabel}} {{$a.Predmet}}{{if not $a.Ovjeren}} · NACRT{{end}}</p>
   <dl>
     <dt>Letva</dt><dd>{{$a.StationName}}{{with $a.VodostajCm}} · {{.}} cm u {{(localTime $a.VodostajKad).Format "15:04"}}{{end}}</dd>
