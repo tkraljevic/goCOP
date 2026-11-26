@@ -398,4 +398,10 @@ func TestZahtjevObnoveIzBuducnosti(t *testing.T) {
 	if n := verzijaZapisa(t, b, EntityZahtjeviObnove, b.node.ID); n != prije+1 {
 		t.Errorf("novih zahtjeva %d, a treba točno jedan", n-prije)
 	}
+
+	// kad se zahtjevi ne daju pročitati, računalo ne traži obnovu
+	pokvariTablicu(t, b, "record_versions")
+	if !b.nedavnoZatrazeno(ctxRub, b.NetworkInfo()) {
+		t.Error("zahtjevi se ne daju pročitati, a računalo bi tražilo obnovu")
+	}
 }
