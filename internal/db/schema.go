@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"gocop/internal/geometrija"
 	"gocop/internal/ledger"
@@ -1564,6 +1565,11 @@ var renamedColumns = []struct {
 // terenskim laptopima koji se ne stvaraju iznova — bez ovoga bi stara baza
 // pucala na prvom upitu koji traži novi stupac.
 func migrateSchema(database *sql.DB) error {
+	// Izmjene knjige na mjestu ne diraju potpisane verzije, jer bi im potpis
+	// prestao vrijediti (Odluke (26. 11. 2026.), 11). Prvi upisi niže idu
+	// prije dodavanja stupaca; knjiga otprije potpisa nema stupca potpis, a
+	// ni potpisanih verzija, pa joj uvjet ne treba.
+	uKnjigu := upitiKnjige(database)
 	// "Arhivirana" prijava preimenovana je u "riješena": arhiviranje u smislu
 	// repozitorija događa se objavom, a ovo je rukovoditeljevo zatvaranje
 	// predmeta. Stanje i polja mijenjaju se u tablici, u podacima i u knjizi
@@ -1574,18 +1580,18 @@ func migrateSchema(database *sql.DB) error {
 	for _, q := range []string{
 		`UPDATE record_versions SET channel = (SELECT 'vodocuvarski/' || l.area_id || '/' || substr(l.datum, 1, 4)
 			FROM vodocuvarski_listovi l WHERE l.id = record_versions.entity_id)
-		 WHERE entity = 'vodocuvarski_listovi' AND channel = ''
+		 WHERE entity = 'vodocuvarski_listovi' AND channel = '' AND potpis = ''
 		   AND EXISTS (SELECT 1 FROM vodocuvarski_listovi l WHERE l.id = record_versions.entity_id AND l.area_id > 0)`,
 		`UPDATE record_versions SET channel = (SELECT 'vodocuvarski/' || l.area_id || '/' || substr(l.datum, 1, 4)
 			FROM vodocuvarski_listovi l WHERE l.id = record_versions.entity_id)
-		 WHERE entity = 'vodocuvarski_izvornici' AND channel = ''
+		 WHERE entity = 'vodocuvarski_izvornici' AND channel = '' AND potpis = ''
 		   AND EXISTS (SELECT 1 FROM vodocuvarski_listovi l WHERE l.id = record_versions.entity_id AND l.area_id > 0)`,
 		`UPDATE record_versions SET channel = (SELECT 'vodocuvarski/' || z.area_id || '/' || substr(coalesce(nullif(z.za, ''), z.zadano_at), 1, 4)
 			FROM vodocuvarski_zadaci z WHERE z.id = record_versions.entity_id)
-		 WHERE entity = 'vodocuvarski_zadaci' AND channel = ''
+		 WHERE entity = 'vodocuvarski_zadaci' AND channel = '' AND potpis = ''
 		   AND EXISTS (SELECT 1 FROM vodocuvarski_zadaci z WHERE z.id = record_versions.entity_id AND z.area_id > 0)`,
 	} {
-		if _, err := database.Exec(q); err != nil {
+		if _, err := database.Exec(uKnjigu(q)); err != nil {
 			return fmt.Errorf("kanal vodočuvarskog dnevnika: %w", err)
 		}
 	}
@@ -1594,7 +1600,7 @@ func migrateSchema(database *sql.DB) error {
 	// iz tablice, da ih pretplata može birati kao dnevnike.
 	for _, q := range []string{
 		`UPDATE record_versions SET channel = (SELECT 'prijave/' || p.area_id || '/' || substr(p.datum, 1, 4) FROM prijave p WHERE p.id = record_versions.entity_id)
-		 WHERE entity IN ('prijave', 'prijave_izvornici') AND channel = ''
+		 WHERE entity IN ('prijave', 'prijave_izvornici') AND channel = '' AND potpis = ''
 		   AND EXISTS (SELECT 1 FROM prijave p WHERE p.id = record_versions.entity_id AND p.area_id > 0)`,
 		`UPDATE prijave SET status = 'RIJESENA' WHERE status = 'ARHIVIRANA'`,
 		`UPDATE prijave SET podaci = json_remove(json_set(podaci,
@@ -1604,15 +1610,15 @@ func migrateSchema(database *sql.DB) error {
 			'$.arhivirao_id', '$.arhivirao', '$.arhivirano_at')
 		 WHERE json_extract(podaci, '$.arhivirao_id') IS NOT NULL`,
 		`UPDATE record_versions SET payload = json_set(payload, '$.status', 'RIJESENA')
-		 WHERE entity = 'prijave' AND json_extract(payload, '$.status') = 'ARHIVIRANA'`,
+		 WHERE entity = 'prijave' AND potpis = '' AND json_extract(payload, '$.status') = 'ARHIVIRANA'`,
 		`UPDATE record_versions SET payload = json_remove(json_set(payload,
 			'$.rijesio_id', json_extract(payload, '$.arhivirao_id'),
 			'$.rijesio', json_extract(payload, '$.arhivirao'),
 			'$.rijeseno_at', json_extract(payload, '$.arhivirano_at')),
 			'$.arhivirao_id', '$.arhivirao', '$.arhivirano_at')
-		 WHERE entity = 'prijave' AND json_extract(payload, '$.arhivirao_id') IS NOT NULL`,
+		 WHERE entity = 'prijave' AND potpis = '' AND json_extract(payload, '$.arhivirao_id') IS NOT NULL`,
 	} {
-		if _, err := database.Exec(q); err != nil {
+		if _, err := database.Exec(uKnjigu(q)); err != nil {
 			return fmt.Errorf("prijave: arhivirana u riješena: %w", err)
 		}
 	}
@@ -2151,13 +2157,13 @@ func migrateSchema(database *sql.DB) error {
 			`UPDATE journals SET channel = 'dnevnici/' || area_id || '/' || CASE WHEN year > 0 THEN year ELSE strftime('%Y', created_at) END
 				WHERE area_id > 0 AND channel = ''`,
 			`UPDATE record_versions SET channel = (SELECT channel FROM readings WHERE readings.id = record_versions.entity_id)
-				WHERE entity = 'readings' AND channel = '' AND EXISTS (SELECT 1 FROM readings WHERE readings.id = record_versions.entity_id)`,
+				WHERE entity = 'readings' AND channel = '' AND potpis = '' AND EXISTS (SELECT 1 FROM readings WHERE readings.id = record_versions.entity_id)`,
 			`UPDATE record_versions SET channel = (SELECT channel FROM journals WHERE journals.id = record_versions.entity_id)
-				WHERE entity = 'journals' AND channel = '' AND EXISTS (SELECT 1 FROM journals WHERE journals.id = record_versions.entity_id)`,
+				WHERE entity = 'journals' AND channel = '' AND potpis = '' AND EXISTS (SELECT 1 FROM journals WHERE journals.id = record_versions.entity_id)`,
 			`UPDATE record_versions SET channel = (SELECT j.channel FROM journal_sheets sh JOIN journals j ON j.id = sh.journal_id WHERE sh.id = record_versions.entity_id)
-				WHERE entity = 'journal_sheets' AND channel = '' AND EXISTS (SELECT 1 FROM journal_sheets WHERE journal_sheets.id = record_versions.entity_id)`,
+				WHERE entity = 'journal_sheets' AND channel = '' AND potpis = '' AND EXISTS (SELECT 1 FROM journal_sheets WHERE journal_sheets.id = record_versions.entity_id)`,
 			`UPDATE record_versions SET channel = (SELECT j.channel FROM journal_entries e JOIN journals j ON j.id = e.journal_id WHERE e.id = record_versions.entity_id)
-				WHERE entity = 'journal_entries' AND channel = '' AND EXISTS (SELECT 1 FROM journal_entries WHERE journal_entries.id = record_versions.entity_id)`,
+				WHERE entity = 'journal_entries' AND channel = '' AND potpis = '' AND EXISTS (SELECT 1 FROM journal_entries WHERE journal_entries.id = record_versions.entity_id)`,
 		} {
 			if _, err := database.Exec(stmt); err != nil {
 				return fmt.Errorf("greška pri dodjeli kanala postojećim zapisima: %w", err)
@@ -2233,7 +2239,7 @@ func rekeySeedIdentities(database *sql.DB) error {
 		}
 		// knjiga verzija nosi identifikator i u ključu i u sadržaju
 		if _, err := tx.Exec(`UPDATE record_versions SET entity_id = REPLACE(entity_id, ?, ?), payload = REPLACE(payload, ?, ?)
-			WHERE entity_id LIKE '%' || ? || '%' OR payload LIKE '%' || ? || '%'`, old, new, old, new, old, old); err != nil {
+			WHERE potpis = '' AND (entity_id LIKE '%' || ? || '%' OR payload LIKE '%' || ? || '%')`, old, new, old, new, old, old); err != nil {
 			return err
 		}
 		return nil
@@ -2294,6 +2300,20 @@ func rekeySeedIdentities(database *sql.DB) error {
 			len(stations), len(links))
 	}
 	return nil
+}
+
+// bezPotpisanih je uvjet kojim izmjena knjige na mjestu preskače potpisane
+// verzije
+const bezPotpisanih = " AND potpis = ''"
+
+// upitiKnjige prilagodi izmjenu knjige na mjestu bazi: knjiga bez stupca
+// potpis nema ni potpisanih verzija, pa joj se uvjet bezPotpisanih skida.
+// Kad se stupac ne da provjeriti, uvjet ostaje i upit javi grešku sam.
+func upitiKnjige(database *sql.DB) func(string) string {
+	if ima, err := columnExists(database, "record_versions", "potpis"); err != nil || ima {
+		return func(q string) string { return q }
+	}
+	return func(q string) string { return strings.ReplaceAll(q, bezPotpisanih, "") }
 }
 
 func columnExists(database *sql.DB, table, column string) (bool, error) {

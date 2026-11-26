@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"gocop/internal/db"
+	"gocop/internal/peers"
 	"gocop/internal/service"
 )
 
@@ -16,7 +17,7 @@ import (
 // izlaz. Web poslužitelj, razmjena i popravci pri pokretanju se ne diraju,
 // pa radi i dok čvor radi (ista baza, WAL). Greške i trag idu u dnevnik;
 // vraća izlazni kod programa.
-func ponistiLozinkuSKonzole(dbPath, cvor, ime string, aktiviraj bool, izlaz io.Writer) int {
+func ponistiLozinkuSKonzole(dbPath, cvor, protokol, ime string, aktiviraj bool, izlaz io.Writer) int {
 	// Kriva putanja ne smije stvoriti praznu bazu: OpenDB bi je napravio
 	if _, err := os.Stat(dbPath); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -33,7 +34,17 @@ func ponistiLozinkuSKonzole(dbPath, cvor, ime string, aktiviraj bool, izlaz io.W
 	}
 	defer database.Close()
 
-	ishod, err := service.PonistiLozinkuNaCvoru(database, cvor, ime, aktiviraj)
+	// Verzija u knjizi potpisuje se ključem čvora uz bazu (Odluke
+	// (26. 11. 2026.), 8); bez njega ide bez potpisa, uz zapis u dnevniku
+	potpis, err := peers.PotpisnikIzDatoteke(dbPath, protokol)
+	if err != nil {
+		log.Printf("Oporavak lozinke: ključ čvora: %v", err)
+		return 1
+	}
+	if potpis == nil {
+		log.Printf("Oporavak lozinke: uz bazu nema ključa čvora, pa verzija u knjizi ide bez potpisa")
+	}
+	ishod, err := service.PonistiLozinkuNaCvoru(database, cvor, potpis, ime, aktiviraj)
 	if ishod != nil {
 		ispisiPonistenje(izlaz, ishod, cvor)
 	}

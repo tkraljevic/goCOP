@@ -1593,6 +1593,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /administracija/uvoz-profila/upisi", s.authMiddleware(http.HandlerFunc(uvozH.UpisiProfile)))
 	uvozH.SetIzdavanje(func() string { return s.paketiDir }, s.IzdajArhivu, s.KatalogIzdanja, s.poslovi)
 	uvozH.SetOcitanja(func() *sql.DB { return s.db }, func() string { return s.recorder.Cvor() })
+	uvozH.SetKnjiga(s.recorder)
 	s.mux.Handle("POST /administracija/ulaganje/pregled", s.samoAdmin(http.HandlerFunc(uvozH.PregledUlaganja)))
 	s.mux.Handle("POST /administracija/ulaganje", s.samoAdmin(http.HandlerFunc(uvozH.UloziOcitanja)))
 	s.mux.Handle("POST /administracija/ulaganje/pospremi", s.samoAdmin(http.HandlerFunc(uvozH.Pospremi)))

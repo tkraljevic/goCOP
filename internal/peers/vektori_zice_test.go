@@ -54,6 +54,12 @@ type vektoriRazgovora struct {
 
 	Cop      vektoriCopa     `json:"cop"`      // paket datotekom
 	Primanje vektoriPrimanja `json:"primanje"` // primanje na daljinu
+
+	// DeltaSPotpisom: verzija sa sadržajem s <, > i & i s potpisom autora
+	// (ključ A, protokol gocop), kako ide žicom računalu s oznakom
+	// potpis-verzije/1 i u retku .cop paketa. Potpis pokriva oblik iz
+	// vektora potpisVerzije u internal/razmjena.
+	DeltaSPotpisom string `json:"deltaSPotpisom"`
 }
 
 // vektoriCopa: dijelovi paketa .cop koji se potpisuju ili otiskuju.
@@ -184,6 +190,12 @@ func izradiVektoreRazgovora(t *testing.T) vektoriRazgovora {
 	v.Vjerodajnice = string(vj)
 	v.Cop = izradiVektoreCopa(t, privA, []ledger.Version{prva, druga})
 	v.Primanje = izradiVektorePrimanja(t, mreza, od)
+
+	potpisana := treca
+	if potpisana.Potpis, potpisana.KljucAutora, err = razmjena.PotpisiVerziju(privA, Protocol, PodaciVerzije(treca)); err != nil {
+		t.Fatal(err)
+	}
+	v.DeltaSPotpisom = redakPoruke(t, ja, kindDelta, deltaMsg{Versions: []ledger.Version{potpisana}})
 	return v
 }
 
