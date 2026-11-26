@@ -521,7 +521,9 @@ func (s *PropisiService) SpremiIzmjenu(ctx context.Context, perms *models.UserPe
 	return &iz, nil
 }
 
-// rucniCiljevi primjenjuje izbore administratora na kopiju uputa
+// rucniCiljevi primjenjuje izbore administratora na kopiju uputa. Odredba
+// same izmjene ili stupanje na snagu koje administrator veže uz članak
+// postaju odredba koja mijenja taj članak, inače bi izbor ostao bez učinka.
 func rucniCiljevi(upute []models.UputaIzmjene, ciljevi map[int]string, osnova *models.Propis) ([]models.UputaIzmjene, error) {
 	postoji := map[string]bool{}
 	for _, d := range osnova.Dijelovi {
@@ -540,6 +542,9 @@ func rucniCiljevi(upute []models.UputaIzmjene, ciljevi map[int]string, osnova *m
 			return nil, porukaCiljNijeUPropisu
 		default:
 			out[i].Cilj.Clanci = []string{izbor}
+			if !out[i].MijenjaPropis() {
+				out[i].Vrsta = models.UputaNeprepoznata
+			}
 		}
 		out[i].Rucno = true
 	}

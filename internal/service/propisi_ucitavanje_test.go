@@ -369,9 +369,18 @@ func TestRucniCiljIzmjene(t *testing.T) {
 	if _, err := svc.SpremiIzmjenu(ctx, adminPropisa, upisivac, pr, map[int]string{7: "clanak-999"}); !errors.Is(err, porukaCiljNijeUPropisu) {
 		t.Fatalf("kriv članak: %v", err)
 	}
-	iz, err := svc.SpremiIzmjenu(ctx, adminPropisa, upisivac, pr, map[int]string{7: " clanak-119 ", 1: NeMijenjaClanke, 2: ""})
+	iz, err := svc.SpremiIzmjenu(ctx, adminPropisa, upisivac, pr, map[int]string{7: " clanak-119 ", 1: NeMijenjaClanke, 2: "", 9: "clanak-4", 10: "clanak-1"})
 	if err != nil {
 		t.Fatal(err)
+	}
+	// odredba same izmjene i stupanje vezani uz članak mijenjaju taj članak
+	for _, u := range iz.Upute[8:10] {
+		if !u.MijenjaPropis() || u.Vrsta != models.UputaNeprepoznata {
+			t.Errorf("vlastita ili stupanje uz članak: %+v", u)
+		}
+	}
+	if pr.Izmjena.Upute[8].Vrsta != models.UputaVlastita {
+		t.Error("izbor je promijenio vrstu u pregledu na čekanju")
 	}
 	if u := iz.Upute[6]; !u.Rucno || !reflect.DeepEqual(u.Cilj.Clanci, []string{"clanak-119"}) {
 		t.Errorf("ručno povezana: %+v", u)
@@ -389,6 +398,11 @@ func TestRucniCiljIzmjene(t *testing.T) {
 	if st.Nepovezane != 0 || len(st.Oznake["clanak-119"]) != 1 || st.Oznake["clanak-119"][0].Natpis != "mijenjan NN 47/26" {
 		t.Errorf("oznake: %d nepovezanih, %+v", st.Nepovezane, st.Oznake["clanak-119"])
 	}
+	for clanak, tekst := range map[string]string{"clanak-4": iz.Upute[8].Tekst, "clanak-1": iz.Upute[9].Tekst} {
+		if !imaOdredbu(st.Oznake[clanak], tekst) {
+			t.Errorf("uz %s nema odredbe %q: %+v", clanak, tekst, st.Oznake[clanak])
+		}
+	}
 	if iz.Ucitao != "Pero Perić" {
 		t.Errorf("učitao %q", iz.Ucitao)
 	}
@@ -397,6 +411,18 @@ func TestRucniCiljIzmjene(t *testing.T) {
 	if err != nil || !drugi.CreatedAt.Equal(iz.CreatedAt) {
 		t.Errorf("%v %v", drugi, err)
 	}
+}
+
+// imaOdredbu javlja stoji li odredba s tim tekstom u kojoj oznaci dijela
+func imaOdredbu(oznake []OznakaIzmjene, tekst string) bool {
+	for _, o := range oznake {
+		for _, od := range o.Odredbe {
+			if od.Tekst == tekst {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // Neprepoznata odredba ne priječi spremanje (O10): izmjena se sprema, uz
