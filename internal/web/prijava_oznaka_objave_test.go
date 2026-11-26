@@ -63,3 +63,26 @@ func TestDnevniListBezKljucaNosiOznakePredajeIOvjere(t *testing.T) {
 		t.Errorf("list bez ključa: %.800s", tekst)
 	}
 }
+
+// Podnožje prve stranice kaže u kakvom je stanju prijava i ima li PDF
+// elektronički potpis.
+func TestNapomenaPrijave(t *testing.T) {
+	kad := time.Date(2026, 11, 26, 17, 12, 0, 0, time.UTC)
+	nacrt := &models.PrijavaSTerena{}
+	objavljena := &models.PrijavaSTerena{ObjavljenoAt: &kad, ListBroj: 1}
+	prenesena := &models.PrijavaSTerena{ObjavljenoAt: &kad, Rekonstrukcija: true}
+	for _, s := range []struct {
+		p          *models.PrijavaSTerena
+		bezPotpisa bool
+		ima        string
+	}{
+		{nacrt, true, "NACRT"},
+		{prenesena, true, "Rekonstrukcija"},
+		{objavljena, true, "bez elektroničkog potpisa"},
+		{objavljena, false, "potpisano ključem vodočuvara"},
+	} {
+		if n := napomenaPrijave(s.p, s.bezPotpisa); !strings.Contains(n, s.ima) {
+			t.Errorf("napomena %q nema %q", n, s.ima)
+		}
+	}
+}
