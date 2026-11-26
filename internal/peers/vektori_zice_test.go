@@ -197,7 +197,10 @@ func izradiVektoreCopa(t *testing.T, priv ed25519.PrivateKey, verzije []ledger.V
 		{Otisak: "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824", Vrsta: "text/plain", Bajtova: 5, Kanal: "primjer/7/2026", Ukljucen: true},
 		{Otisak: "0000000000000000000000000000000000000000000000000000000000000001", Vrsta: "application/pdf", Bajtova: 12},
 	}
-	popis, _ := json.MarshalIndent(sadrzaji, "", " ")
+	popis, err := json.MarshalIndent(sadrzaji, "", " ")
+	if err != nil {
+		t.Fatal(err)
+	}
 	m := CopManifest{
 		Inacica: 3, Obuhvat: CopObuhvat{Vrsta: "primjer", AreaID: 7, Od: 2026}, Kanali: []string{"primjer/7/2026", ""},
 		Izdanje: 2, Prethodno: "aa", Izdao: "admin-1", Nastalo: time.Unix(1_760_000_000, 0).UTC(),
@@ -210,7 +213,10 @@ func izradiVektoreCopa(t *testing.T, priv ed25519.PrivateKey, verzije []ledger.V
 		if _, err := ProvjeriCopPotpis(m); err != nil {
 			t.Fatal(err)
 		}
-		b, _ := json.MarshalIndent(m, "", " ")
+		b, err := json.MarshalIndent(m, "", " ")
+		if err != nil {
+			t.Fatal(err)
+		}
 		return string(kanon), m.Potpis.Potpis, string(b)
 	}
 	var v vektoriCopa
@@ -245,7 +251,10 @@ func izradiVektorePrimanja(t *testing.T, mreza razmjena.NetworkKey, od time.Time
 	z.Dokaz = dokaz(kljuc, verzijaZahtjeva, z.signedBytes())
 	z.Potpis = base64.StdEncoding.EncodeToString(ed25519.Sign(privB, z.signedBytes()))
 	v.ZahtjevDokaz, v.ZahtjevPotpis = z.Dokaz, z.Potpis
-	b, _ := json.MarshalIndent(z, "", "  ")
+	b, err := json.MarshalIndent(z, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
 	v.Zahtjev = string(b)
 	if _, k, err := procitajZahtjevSKodom(b, "7kq4 m2xd"); err != nil || !bytes.Equal(k, kljuc) {
 		t.Fatalf("zahtjev iz vektora se ne da pročitati s kodom: %v", err)
@@ -259,7 +268,10 @@ func izradiVektorePrimanja(t *testing.T, mreza razmjena.NetworkKey, od time.Time
 		Izdao: "admin-1", Izdano: od, Sol: z.Sol,
 		Cvorovi: []CvorPotvrde{{Peer: Peer{NodeID: "admin-1", Name: "Admin 1", PublicKey: razmjena.PublicKeyString(ed25519.NewKeyFromSeed(bytes.Repeat([]byte{0x01}, ed25519.SeedSize)).Public().(ed25519.PublicKey)),
 			Addresses: []string{"192.0.2.1:4710"}, CreatedAt: od}}}}
-	bez, _ := json.Marshal(p)
+	bez, err := json.Marshal(p)
+	if err != nil {
+		t.Fatal(err)
+	}
 	kanon, err := kanonPotvrde(bez)
 	if err != nil {
 		t.Fatal(err)
