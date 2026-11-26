@@ -286,7 +286,9 @@ func pdfPrijave(p *models.PrijavaSTerena, pr prilogPrijave, t models.OrgTerms, c
 		d.Crta(m.xVodocuvar+10, crta, m.xVodocuvar+pw-10, crta)
 		d.TekstSredina(m.xVodocuvar+pw/2, crta+11, 9, false, p.Ime)
 	default:
-		crtajPotpisLista(d, m.xVodocuvar, m.y, pw, p.Ime, p.ObjavljenoAt, "prijava "+p.Oznaka(), p.Kod(), p.Cvor, pr.Otisci[p.UserID], crtajBlok, false)
+		// blok koji se crta ovdje nije potpis: s ključem ga crta potpis, preko
+		// istog mjesta (handlers_prijave.go), pa ovdje nosi samo oznaku objave
+		crtajPotpisListaNaslovom(d, m.xVodocuvar, m.y, pw, "OBJAVLJENO U goCOP-u", p.Ime, p.ObjavljenoAt, "prijava "+p.Oznaka(), p.Kod(), p.Cvor, pr.Otisci[p.UserID], crtajBlok, false)
 		if p.ObjavljenoAt == nil {
 			d.TekstSredina(m.xVodocuvar+pw/2, m.y+46+42+11, 8, false, "( "+p.Ime+" )")
 		}
@@ -301,8 +303,10 @@ func pdfPrijave(p *models.PrijavaSTerena, pr prilogPrijave, t models.OrgTerms, c
 	switch {
 	case p.Rekonstrukcija && p.ObjavljenoAt != nil:
 		napomena = "Rekonstrukcija: prijava prenesena iz ranije evidencije VGI Baranja (app.bp16.xyz), složena iz podataka u goCOP-u; fotografije su smanjene i ugrađene."
+	case p.ObjavljenoAt != nil && crtajBlok:
+		napomena = "Upisano na dnevni list vodočuvara " + listPrijave(p) + ". Sastavljeno u goCOP-u bez elektroničkog potpisa: oznaka objave nosi vrijeme objave i kontrolni kod, a ispis se potpisuje vlastoručno. Fotografije su smanjene i ugrađene."
 	case p.ObjavljenoAt != nil:
-		napomena = "Upisano na dnevni list vodočuvara " + listPrijave(p) + ". Sastavljeno u goCOP-u; elektronički potpis je vremenska oznaka, a ispis se potpisuje i vlastoručno. Fotografije su smanjene i ugrađene."
+		napomena = "Upisano na dnevni list vodočuvara " + listPrijave(p) + ". Sastavljeno u goCOP-u i elektronički potpisano ključem vodočuvara; ispis se potpisuje i vlastoručno. Fotografije su smanjene i ugrađene."
 	}
 	qrTekst := sadrzajQR(p, pr.Adresa)
 	d.Podnozje = func(d *pdfw.Doc, stranica, ukupno int) {

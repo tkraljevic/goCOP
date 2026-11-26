@@ -445,6 +445,12 @@ const visinaPotpisa = 46 + 42 + 11 + 12
 // ispod njega, crtu i ime. Isti crtež služi kao izgled polja potpisa koje se
 // dodaje naknadno, s x i y od nule.
 func crtajPotpisLista(d *pdfw.Doc, x, y, w float64, ime string, kad *time.Time, list, kod, cvor string, sken *models.PotpisSlika, crtajBlok, simulacija bool) {
+	crtajPotpisListaNaslovom(d, x, y, w, "ELEKTRONIČKI POTPISANO U goCOP-u", ime, kad, list, kod, cvor, sken, crtajBlok, simulacija)
+}
+
+// crtajPotpisListaNaslovom je crtajPotpisLista s danim natpisom bloka: prijava
+// objavljena bez potpisnog ključa nosi oznaku objave, a ne natpis potpisa
+func crtajPotpisListaNaslovom(d *pdfw.Doc, x, y, w float64, naslov, ime string, kad *time.Time, list, kod, cvor string, sken *models.PotpisSlika, crtajBlok, simulacija bool) {
 	staro := d.Y
 	if kad != nil && crtajBlok {
 		d.Y = y
@@ -453,7 +459,7 @@ func crtajPotpisLista(d *pdfw.Doc, x, y, w float64, ime string, kad *time.Time, 
 			blokOvjereBoja(d, x, w, "SIMULIRANI POTPIS · BEZVRIJEDNO", ime+" (SIMULACIJA)",
 				k.Format("02.01.2006. u 15:04")+" "+k.Format("MST")+" · "+list+" · samo za testiranje", "čvor "+cvor, crvena, crvena)
 		} else {
-			blokOvjere(d, x, w, "ELEKTRONIČKI POTPISANO U goCOP-u", ime,
+			blokOvjere(d, x, w, naslov, ime,
 				k.Format("02.01.2006. u 15:04")+" "+k.Format("MST")+" · "+list+" · kod "+kod, "čvor "+cvor)
 		}
 		if sken != nil && len(sken.Slika) > 0 {
