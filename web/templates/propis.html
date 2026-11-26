@@ -34,7 +34,7 @@
 <div class="dash-traka propis-traka" role="status">{{icon "info"}}<span>Izmjena {{.IzmjenaNN.Kratko}} mijenja riječi u cijelom tekstu propisa{{with .IzClanka}} ({{.}} izmjene){{end}}. Ta mjesta nisu označena uz članke. <a href="{{.Poveznica}}">Otvori izmjenu</a></span></div>
 {{end}}
 {{if $.JeAdministrator}}
-{{if .Nepovezane}}<div class="dash-traka propis-traka" role="status">{{icon "triangle-alert"}}<span>{{.Nepovezane}} {{uzBroj .Nepovezane "odredba izmjene nije povezana" "odredbe izmjena nisu povezane" "odredbi izmjena nije povezano"}} s člankom. Otvorite izmjenu i povežite je.</span></div>{{end}}
+{{range .NepovezaneIzmjene}}<div class="dash-traka propis-traka" role="status">{{icon "triangle-alert"}}<span>{{.Broj}} {{uzBroj .Broj "odredba izmjene" "odredbe izmjene" "odredbi izmjene"}} {{.NN.Puno}} {{uzBroj .Broj "nije povezana" "nisu povezane" "nije povezano"}} s člankom. {{if .IzTeksta}}Izmjena je unesena kao tekst: <a href="/propisi/{{$p.Adresa}}/dodaj-izmjenu">dodajte je ponovno</a> i na provjeri izaberite članak.{{else}}<a href="{{.Poveznica}}">Otvorite izmjenu</a> i povežite odredbe gumbom „Dohvati ponovno i poveži odredbe”.{{end}}</span></div>{{end}}
 {{with .Neucitane}}<div class="dash-traka propis-traka" role="status">{{icon "info"}}<span>Narodne novine navode {{len .}} {{uzBroj (len .) "izmjenu koja nije učitana" "izmjene koje nisu učitane" "izmjena koje nisu učitane"}}: {{range $i, $nn := .}}{{if $i}}, {{end}}{{$nn.Puno}}{{end}}.</span></div>{{end}}
 <div class="propisi-gumbi propis-admin samo-racunalo">
   <a href="/propisi/{{$p.Adresa}}/dodaj-izmjenu" class="btn btn-secondary">{{icon "plus"}} Dodaj izmjenu</a>

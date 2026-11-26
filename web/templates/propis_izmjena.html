@@ -57,6 +57,8 @@
     <input type="hidden" name="nacin" value="nn">
     <button type="submit" class="btn btn-secondary">{{icon "download"}} Dohvati ponovno i poveži odredbe</button>
   </form>
+  {{else}}
+  <a href="/propisi/{{$p.Adresa}}/dodaj-izmjenu" class="btn btn-secondary">{{icon "plus"}} Dodaj ponovno i poveži odredbe</a>
   {{end}}
   <details class="propis-ukloni">
     <summary class="btn btn-link btn-opasno">Ukloni izmjenu</summary>

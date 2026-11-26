@@ -480,8 +480,11 @@ func TestNeprepoznataSeSpremaBezOznake(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st.Nepovezane != 1 {
-		t.Errorf("nepovezanih %d", st.Nepovezane)
+	if st.Nepovezane != 1 || len(st.NepovezaneIzmjene) != 1 {
+		t.Fatalf("nepovezanih %d u %+v", st.Nepovezane, st.NepovezaneIzmjene)
+	}
+	if n := st.NepovezaneIzmjene[0]; n.NN != nnIzmjene || n.Broj != 1 || n.IzTeksta || n.Poveznica != "/propisi/zakon-o-cuvanju-nasipa/izmjene/"+nnIzmjene.ID() {
+		t.Errorf("nepovezana izmjena %+v", n)
 	}
 	// propis uklonjen dok je pregled čekao
 	if _, err := svc.Ukloni(ctx, adminPropisa, upisivac, zakon.Adresa, "krivo učitan"); err != nil {

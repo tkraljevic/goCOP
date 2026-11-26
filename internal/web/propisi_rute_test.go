@@ -217,7 +217,8 @@ func TestStalnaAdresaDijelaI404(t *testing.T) {
 	}
 	naslovnica := o.get("/propisi/zakon-o-cuvanju-nasipa", o.admin).Body.String()
 	for _, ima := range []string{"Izmjene: ", "stupila na snagu 9. 6. 2026.", "mijenja riječi u cijelom tekstu propisa (članak 1. izmjene)",
-		"1 odredba izmjene nije povezana s člankom.", "Narodne novine navode 1 izmjenu koja nije učitana: NN 9/2027.",
+		`1 odredba izmjene NN 47/2026 nije povezana s člankom. <a href="/propisi/zakon-o-cuvanju-nasipa/izmjene/nn-2026-47-808">Otvorite izmjenu</a>`,
+		"Narodne novine navode 1 izmjenu koja nije učitana: NN 9/2027.",
 		"članci 1.–2.", `href="/propisi/zakon-o-cuvanju-nasipa/glava-i"`, `href="#uvod"`, "https://narodne-novine.nn.hr/eli/sluzbeni/2026/12/201"} {
 		if !strings.Contains(naslovnica, ima) {
 			t.Errorf("naslovnica administratoru nema %q", ima)
@@ -249,6 +250,27 @@ func TestStalnaAdresaDijelaI404(t *testing.T) {
 		if w.Code != http.StatusNotFound || !strings.Contains(w.Body.String(), poruka) {
 			t.Errorf("%s: %d, nema %q", put, w.Code, poruka)
 		}
+	}
+}
+
+// Traka o nepovezanoj odredbi kaže koja izmjena ju ima. Izmjena unesena kao
+// tekst ne može se dohvatiti ponovno, pa traka i stranica izmjene vode na
+// ponovno dodavanje.
+func TestNepovezanaOdredbaIzmjeneIzTeksta(t *testing.T) {
+	o := novaOkolinaPropisa(t)
+	o.napuni()
+	iz := izmjenaZaRute(zakonZaRute())
+	iz.Izvor = models.IzvorPropisaTekst
+	if err := o.repo.SpremiIzmjenu(context.Background(), iz); err != nil {
+		t.Fatal(err)
+	}
+	naslovnica := o.get("/propisi/zakon-o-cuvanju-nasipa", o.admin).Body.String()
+	if !strings.Contains(naslovnica, `1 odredba izmjene NN 47/2026 nije povezana s člankom. Izmjena je unesena kao tekst: <a href="/propisi/zakon-o-cuvanju-nasipa/dodaj-izmjenu">dodajte je ponovno</a>`) {
+		t.Error("traka ne vodi na ponovno dodavanje izmjene")
+	}
+	stranica := o.get("/propisi/zakon-o-cuvanju-nasipa/izmjene/nn-2026-47-808", o.admin).Body.String()
+	if !strings.Contains(stranica, "Dodaj ponovno i poveži odredbe") || strings.Contains(stranica, "Dohvati ponovno") {
+		t.Error("stranica izmjene iz teksta nema ponovno dodavanje")
 	}
 }
 

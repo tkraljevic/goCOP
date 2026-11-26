@@ -172,6 +172,15 @@ type RedakIzmjene struct {
 	Poveznica string
 }
 
+// NepovezanaIzmjena je izmjena s odredbama koje nisu povezane s člankom:
+// „1 odredba izmjene NN 47/2023 nije povezana s člankom.”
+type NepovezanaIzmjena struct {
+	NN        models.IzdanjeNN
+	Broj      int
+	Poveznica string // stranica izmjene
+	IzTeksta  bool   // unesena kao tekst: povezuje se ponovnim dodavanjem, ne dohvatom
+}
+
 // StranicaPropisa je naslovnica propisa
 type StranicaPropisa struct {
 	Propis       *models.Propis
@@ -180,6 +189,8 @@ type StranicaPropisa struct {
 	Oznake       map[string][]OznakaIzmjene // oznaka dijela → oznake, redom po izdanju
 	CijeliTekst  []OznakaIzmjene
 	Nepovezane   int                // odredbe izmjena koje nisu povezane s člankom
+	// NepovezaneIzmjene su izmjene s odredbama koje nisu povezane, redom po izdanju
+	NepovezaneIzmjene []NepovezanaIzmjena
 	Neucitane    []models.IzdanjeNN // izmjene koje Narodne novine navode, a nisu učitane
 	Dijelovi     []DioNaStranici    // svi dijelovi, redom kao u propisu
 	Sadrzaj      []DioNaStranici    // dijelovi bez roditelja: sadržaj sa strane
@@ -212,6 +223,10 @@ func slaziStranicu(p *models.Propis, izmjene []models.IzmjenaPropisa) *StranicaP
 	for _, iz := range izmjene {
 		st.PopisIzmjena = append(st.PopisIzmjena, RedakIzmjene{NN: iz.NN, Naziv: iz.Naziv,
 			Stupila: danHR(iz.StupaNaSnagu), Poveznica: poveznicaIzmjene(p, iz.NN)})
+		if n := brojNepovezanih(iz.Upute); n > 0 {
+			st.NepovezaneIzmjene = append(st.NepovezaneIzmjene, NepovezanaIzmjena{NN: iz.NN, Broj: n,
+				Poveznica: poveznicaIzmjene(p, iz.NN), IzTeksta: iz.Izvor == models.IzvorPropisaTekst})
+		}
 	}
 	rasponi := rasponiCjelina(p.Dijelovi)
 	for _, d := range p.Dijelovi {
@@ -289,7 +304,7 @@ func oznakeIzmjena(osnova *models.Propis, izmjene []models.IzmjenaPropisa) (map[
 				o.Vrsta, o.Natpis = OznakaCijeliTekst, "u cijelom tekstu "+iz.NN.Kratko()
 				cijeli = dodajOznaku(cijeli, o)
 			case !u.MijenjaPropis():
-				if u.Vrsta == models.UputaNeprepoznata && !u.Rucno {
+				if nepovezana(u) {
 					nepovezane++
 				}
 			default:
@@ -300,6 +315,23 @@ func oznakeIzmjena(osnova *models.Propis, izmjene []models.IzmjenaPropisa) (map[
 		}
 	}
 	return oznake, cijeli, nepovezane
+}
+
+// nepovezana je neprepoznata odredba koju administrator nije povezao s
+// člankom ni označio da ne mijenja članke
+func nepovezana(u models.UputaIzmjene) bool {
+	return u.Vrsta == models.UputaNeprepoznata && !u.Rucno && !u.MijenjaPropis()
+}
+
+// brojNepovezanih je broj nepovezanih odredbi izmjene
+func brojNepovezanih(upute []models.UputaIzmjene) int {
+	n := 0
+	for _, u := range upute {
+		if nepovezana(u) {
+			n++
+		}
+	}
+	return n
 }
 
 // naziviDijelova su imena dijelova malim početnim slovom („članak 224.”),
