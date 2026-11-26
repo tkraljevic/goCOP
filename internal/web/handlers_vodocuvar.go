@@ -151,6 +151,9 @@ type VodocuvarPageData struct {
 	Simulacija    bool             // tuđim očima uz opciju: potpisuje se simuliranim ključem, bez lozinke
 	Izvornik      potpisiIzvornika // potpisi u potpisanom PDF-u lista
 	SmijeOvjeriti bool
+	// OvjeraCekaIzvornik: osoba bi list smjela ovjeriti, ali izvornik
+	// predaje nije na ovom računalu (Izvornik.NijeOvdje)
+	OvjeraCekaIzvornik bool
 	// OvjeraUmjesto: osoba list ovjerava umjesto rukovoditelja branjenog
 	// područja, pa obrazac traži potvrdu (OvjeravaUmjesto)
 	OvjeraUmjesto   bool
@@ -396,6 +399,19 @@ func (h *VodocuvarHandler) ShowList(w http.ResponseWriter, r *http.Request) {
 	h.prikazi(w, r, d, perms, l, l.UserID == u.ID.String())
 }
 
+// izvornikNaStranici puni potpise izvornika predanog lista. Ovjera se
+// dopisuje na izvornik predaje, pa kad on nije ovdje gumba ovjere nema, a
+// stranica kaže zašto.
+func (h *VodocuvarHandler) izvornikNaStranici(ctx context.Context, s *service.VodocuvarService, perms *models.UserPermissions, l *models.VodocuvarskiList, d *VodocuvarPageData) {
+	if l.ID == "" || !l.Predan() {
+		return
+	}
+	d.Izvornik = h.provjeriIzvornik(ctx, s, perms, l.ID)
+	if d.Izvornik.NijeOvdje && d.SmijeOvjeriti {
+		d.SmijeOvjeriti, d.OvjeraUmjesto, d.OvjeraCekaIzvornik = false, false, true
+	}
+}
+
 // nudiOvjeru javlja nudi li stranica lista gumb „Ovjeri list”: osoba list
 // smije ovjeriti, list je predan, nije ni ovjeren ni prenesen iz ranije
 // evidencije, a njegov je dan počeo (Odluke (8. 10. 2026.), pitanje 5)
@@ -434,9 +450,7 @@ func (h *VodocuvarHandler) prikazi(w http.ResponseWriter, r *http.Request, d Vod
 		}
 	}
 	d.Simulacija = h.simulacijaKljuca(r)
-	if l.ID != "" && l.Predan() {
-		d.Izvornik = h.provjeriIzvornik(r.Context(), s, perms, l.ID)
-	}
+	h.izvornikNaStranici(r.Context(), s, perms, l, &d)
 	d.UpisNaredba = s.SmijeParafirati(perms, l)
 	d.SmijeParafirati = d.UpisNaredba && l.Predan() && !l.Rekonstrukcija
 	d.SmijeUpisati = nudiUpis(s, perms, l)
@@ -697,21 +711,40 @@ func (h *VodocuvarHandler) IzvoziPDF(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	var area *models.Area
-	if org := h.org(); org != nil && l.AreaID > 0 {
-		area, _ = org.GetArea(r.Context(), l.AreaID)
+	pdf, gotovo := izvornikZaIspis(w, r, s, perms, l)
+	if gotovo {
+		return
 	}
 	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Disposition", `inline; filename="dnevni-list-`+l.Datum.In(models.Zagreb).Format("2006-01-02")+`.pdf"`)
-	// predan list ima izvornik s potpisima; nacrt se crta iznova
-	if iz, _ := s.Izvornik(r.Context(), perms, l.ID); iz != nil && len(iz.PDF) > 0 {
-		_, _ = w.Write(iz.PDF)
+	if pdf != nil {
+		_, _ = w.Write(pdf)
 		return
 	}
 	// bez izvornika list se crta iznova, bez skena potpisa
 	pr := PrilogListaPDF{Slike: h.priloziLista(r.Context(), s, l)}
 	pr.Karte, pr.Zasluge = h.karteObuhvata(r.Context(), s, l)
-	_, _ = w.Write(PDFListaSPrilozima(l, models.Terms(), area, models.OtisciLista{}, pr))
+	_, _ = w.Write(PDFListaSPrilozima(l, models.Terms(), h.podrucje(r.Context(), l), models.OtisciLista{}, pr))
+}
+
+// izvornikZaIspis daje PDF izvornika lista kad je ovdje; nil kad izvornika
+// nema, pa se list crta iznova (nacrt). Kad izvornik postoji, a nije ovdje,
+// ili se ne da pročitati, sam odgovori i javi gotovo: crtež bi izgledao kao
+// potpisan list, a potpisa nema.
+func izvornikZaIspis(w http.ResponseWriter, r *http.Request, s *service.VodocuvarService, perms *models.UserPermissions, l *models.VodocuvarskiList) (pdf []byte, gotovo bool) {
+	iz, err := s.Izvornik(r.Context(), perms, l.ID)
+	if err != nil {
+		http.Error(w, "PDF lista nije otvoren: izvornik lista nije se dao pročitati.", http.StatusInternalServerError)
+		return nil, true
+	}
+	if iz.NijeOvdje() {
+		redirectWith(w, r, "/vodocuvar/"+l.ID, "error", porukaPDFNijeOvdje)
+		return nil, true
+	}
+	if iz != nil && len(iz.PDF) > 0 {
+		return iz.PDF, false
+	}
+	return nil, false
 }
 
 // IzvoziKnjigu daje cijelu godišnju knjigu vodočuvara kao PDF
