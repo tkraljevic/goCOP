@@ -61,7 +61,8 @@ U mapi podataka su:
 | Datoteka ili mapa | Što je |
 |---|---|
 | `gocop.db` (uz `-wal` i `-shm`) | glavna baza |
-| `sadrzaj.db`, `prognoze.db`, `oborine.db` | spremište privitaka, prognoze, kiša |
+| `sadrzaj.db`, `prognoze.db`, `oborine.db` | popis privitaka, prognoze, kiša |
+| `sadrzaj/` | privitci (PDF-ovi, fotografije, paketi arhive), datoteka po otisku |
 | `vodostaji.db` | hidrološka arhiva (može narasti na desetak GB) |
 | `node-key` | ključ čvora (`0600`) — identitet ovog računala na mreži |
 | `network-key` | ključ mreže (`0600`), samo na čvoru koji drži ključ: osnivač ili čvor koji je učitao kopiju ključa |

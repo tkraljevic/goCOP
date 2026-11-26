@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -20,6 +21,7 @@ import (
 	"gocop/internal/models"
 	"gocop/internal/peers"
 	"gocop/internal/repository"
+	"gocop/internal/sadrzaj"
 )
 
 // Održavanje baze: koliko je velika i od čega, sažimanje knjige verzija,
@@ -66,6 +68,7 @@ type DatotekaProstora struct {
 	Bajtova           int64
 	Postotak          int // širina trake prema najvećoj datoteci, 1–100
 	Poveznica, Natpis string
+	mapa              string // mapa čije se datoteke broje uz datoteku (sadržaj)
 }
 
 // prostorDatoteka su datoteke koje čvor puni, od najveće: baza i datoteke
@@ -82,7 +85,8 @@ func prostorDatoteka(dbPath, arhivaPut string) []DatotekaProstora {
 		{Naziv: "Arhiva vodostaja", Put: arhivaPut, Poveznica: "/administracija/uvoz-niza", Natpis: "Unos u arhivu"},
 		{Naziv: "Prognoze", Put: filepath.Join(dir, "prognoze.db")},
 		{Naziv: "Baza", Put: dbPath, Poveznica: "#baz-knjiga", Natpis: "Knjiga verzija"},
-		{Naziv: "Sadržaj, PDF-ovi i slike", Put: filepath.Join(dir, "sadrzaj.db"), Poveznica: "#pohrana", Natpis: "Pohrana"},
+		{Naziv: "Sadržaj, PDF-ovi i slike", Put: filepath.Join(dir, "sadrzaj.db"), Poveznica: "#pohrana", Natpis: "Pohrana",
+			mapa: sadrzaj.MapaUz(filepath.Join(dir, "sadrzaj.db"))},
 		{Naziv: "Oborine", Put: filepath.Join(dir, "oborine.db")},
 	} {
 		fi, err := os.Stat(d.Put)
@@ -92,6 +96,9 @@ func prostorDatoteka(dbPath, arhivaPut string) []DatotekaProstora {
 		d.Bajtova = fi.Size()
 		if wal, err := os.Stat(d.Put + "-wal"); err == nil {
 			d.Bajtova += wal.Size()
+		}
+		if d.mapa != "" {
+			d.Bajtova += velicinaMape(d.mapa)
 		}
 		najvise = max(najvise, d.Bajtova)
 		out = append(out, d)
@@ -511,4 +518,18 @@ func humanBytes(n int64) string {
 		return fmt.Sprintf("%.0f KB", float64(n)/(1<<10))
 	}
 	return fmt.Sprintf("%d B", n)
+}
+
+// velicinaMape zbraja datoteke u mapi i podmapama; mapa koje nema je 0
+func velicinaMape(mapa string) int64 {
+	var n int64
+	filepath.WalkDir(mapa, func(_ string, e fs.DirEntry, err error) error { //nolint:errcheck // nečitljivo se ne broji, zbroj je ono što se dalo pročitati
+		if err == nil && !e.IsDir() {
+			if fi, err := e.Info(); err == nil {
+				n += fi.Size()
+			}
+		}
+		return nil // nečitljiva datoteka ili mapa ne broji se
+	})
+	return n
 }

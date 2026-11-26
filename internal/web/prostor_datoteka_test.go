@@ -59,3 +59,27 @@ func TestArhivaRukovateljaBaze(t *testing.T) {
 		t.Error("putanja arhive")
 	}
 }
+
+// Sadržaj je popis u sadrzaj.db i datoteke u mapi uz nju: kartica broji oboje
+func TestProstorSadrzajaSMapom(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "sadrzaj.db"), []byte("popis"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	podmapa := filepath.Join(dir, "sadrzaj", "ab")
+	if err := os.MkdirAll(podmapa, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for ime, n := range map[string]int{"ab01": 1000, "ab02": 2000} {
+		if err := os.WriteFile(filepath.Join(podmapa, ime), make([]byte, n), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got := prostorDatoteka(filepath.Join(dir, "gocop.db"), "")
+	if len(got) != 1 || got[0].Bajtova != 3005 {
+		t.Errorf("sadržaj s mapom: %+v", got)
+	}
+	if n := velicinaMape(filepath.Join(dir, "nema")); n != 0 {
+		t.Errorf("mapa koje nema: %d", n)
+	}
+}

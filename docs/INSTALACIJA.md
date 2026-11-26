@@ -68,7 +68,8 @@ Detaljni postupci i ovlasti opisani su u ugrađenoj stranici **Pomoć**.
   | datoteka | što je |
   |---|---|
   | `gocop.db` (+ `-wal`, `-shm`) | SQLite baza — operativa, registri, korisnici i knjiga verzija |
-  | `sadrzaj.db` (+ `-wal`, `-shm`) | PDF-ovi i drugi veliki službeni sadržaji, spremljeni jednom po SHA-256 otisku |
+  | `sadrzaj.db` (+ `-wal`, `-shm`) | popis PDF-ova, fotografija i paketa arhive: vrsta, veličina i uz koji su zapis vezani |
+  | `sadrzaj\` (mapa) | sami PDF-ovi, fotografije i paketi arhive, svaki kao datoteka imena svog SHA-256 otiska; datoteke se nikad ne mijenjaju, briše ih samo program |
   | `vodostaji.db` (+ `-wal`, `-shm`) | obnovljiva hidrološka arhiva i evidencija primljenih izdanja |
   | `prognoze.db` (+ `-wal`, `-shm`) | lokalna i primljena izdanja prognoza, parametri i rezultati provjere |
   | `oborine.db` (+ `-wal`, `-shm`) | mjerenja i prognozirane oborine |
@@ -251,7 +252,7 @@ Portovi se mijenjaju u `gocop.toml`.
 ## 3. Podaci i sigurnost
 
 - **Podaci su na računalu.** Operativa i kazalo službenih zapisa su u
-  `gocop.db`, veliki PDF-ovi i drugi sadržaji u `sadrzaj.db`, a hidrološka
+  `gocop.db`, veliki PDF-ovi i drugi sadržaji u mapi `sadrzaj` (popis u `sadrzaj.db`), a hidrološka
   povijest u `vodostaji.db` i izvornom stablu. Datoteka `prognoze.db` ne prenosi
   se cijela: izdanja prognoza, promjene modela i pripadajuća kiša putuju knjigom
   verzija. Izdanja su ondje dostupna sedam dana, a u lokalnoj bazi prognoza ostaju.
@@ -1113,8 +1114,8 @@ Povratak na 0.0.53-alfa probano je samo u testovima, ne cijelim programom:
 nove tablice to izdanje ne čita, prijave se tada ne vide, a slike se ne brišu
 dok se računalo opet ne nadogradi.
 
-Slika prijave nakon 30 dana nestane iz programa, ali ostaje u kopijama baze
-sadržaja (`sadrzaj.db`), a na disku dok je SQLite ne prepiše.
+Slika prijave nakon 30 dana nestane iz programa i s diska; ostaje samo u
+sigurnosnim kopijama mape `data` napravljenima prije toga.
 
 Na Linuxu baza i mapa `kopije` moraju pripadati korisniku `gocop`, pa to treba
 provjeriti prije nadogradnje. Ako taj korisnik ne može pročitati bazu ili pisati

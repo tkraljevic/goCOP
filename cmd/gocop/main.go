@@ -410,14 +410,16 @@ func otvoriBazu(dbPath string) (*sql.DB, *sadrzaj.Spremiste, []db.PocetnaLozinka
 		return nil, nil, nil, fmt.Errorf("Kritična greška pri inicijalizaciji sheme: %w", err)
 	}
 
-	// 2a. Spremište sadržaja: PDF-ovi i slike po otisku, u vlastitoj datoteci
-	// uz glavnu bazu, da glavna raste s brojem zapisa a ne s megabajtima
+	// 2a. Spremište sadržaja: PDF-ovi i slike po otisku, kao datoteke u mapi
+	// sadrzaj uz glavnu bazu, s popisom u sadrzaj.db, da baze rastu s brojem
+	// zapisa a ne s megabajtima
 	spremiste, err := sadrzaj.Otvori(filepath.Join(filepath.Dir(dbPath), "sadrzaj.db"))
 	if err != nil {
 		_ = database.Close() // vraća se greška otvaranja, ne zatvaranja
 		return nil, nil, nil, fmt.Errorf("Kritična greška pri otvaranju spremišta sadržaja: %w", err)
 	}
 	repository.SetSpremiste(spremiste)
+	go preseliSadrzaj(spremiste)
 	if n, bajtova, err := repository.PreseliSadrzaj(context.Background(), database); err != nil {
 		return database, spremiste, nil, fmt.Errorf("Seljenje sadržaja u spremište: %w", err)
 	} else if n > 0 {
@@ -819,18 +821,8 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	defer prijaveGresaka.PokreniPoruke(ctx, drugiKorak, func() string { return cfg.JavnaAdresa })()
 	// slika zaslona briše se 30 dana nakon što je prijava riješena
 	defer prijaveGresaka.PokreniCiscenjeSlika(ctx)()
-	// primljeni sadržaj kojem je po pretplati istekao rok držanja otpušta se
-	// s računala; zapisi ostaju i sadržaj se može opet dohvatiti
-	go func() {
-		for {
-			time.Sleep(6 * time.Hour)
-			if n, b, err := peersService.OtpustiStare(context.Background()); err != nil {
-				log.Printf("otpuštanje starog sadržaja: %v", err)
-			} else if n > 0 {
-				log.Printf("otpušteno %d primljenih sadržaja (%.1f MB) po roku pretplate", n, float64(b)/1e6)
-			}
-		}
-	}()
+	// primljeni sadržaj kojem je istekao rok otpušta se, a višak datoteka miče
+	go pospremajSadrzaj(func() bool { time.Sleep(pospremanjeSadrzajaSvakih); return true }, peersService.OtpustiStare, spremiste)
 	// izvorne fotografije s terena brišu se nakon roka iz opcija; PDF ih nosi trajno
 	go func() {
 		for {
