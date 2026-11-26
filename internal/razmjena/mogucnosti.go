@@ -79,6 +79,18 @@ const ImeWeb = "web"
 // OznakaWeb je prva inačica WEB synca
 const OznakaWeb = ImeWeb + "/1"
 
+// ImePotpisVerzije je ime oznake potpisa autora verzije (Odluke
+// (26. 11. 2026.)): verzije u delti nose potpis i ključ autora (polja
+// potpis i kljuc_autora). Računalo s oznakom primljeni potpis provjerava,
+// sprema i prosljeđuje dalje, pa se šalje samo kad Dogovor kaže da obje
+// strane imaju oznaku; drugoj strani delta ostaje bajt za bajt ista.
+// Računalo s oznakom potpis ne skida, pa nepotpisanu verziju od njega
+// primatelj smije tumačiti strože.
+const ImePotpisVerzije = "potpis-verzije"
+
+// OznakaPotpisVerzije je prva inačica potpisa autora verzije
+const OznakaPotpisVerzije = ImePotpisVerzije + "/1"
+
 // Ograde onoga što se od druge strane pamti: popis i mapa idu u bazu
 const (
 	najduljeIme   = 32   // znakova u imenu oznake
@@ -146,7 +158,7 @@ const (
 // NaseMogucnosti su oznake koje ovaj program objavljuje, poredane i bez
 // ponavljanja. Svaki poziv daje novi popis.
 func NaseMogucnosti() []string {
-	return []string{OznakaDijeloviKarte, OznakaGranicaOdbijenih, OznakaRazmjena, OznakaRupe}
+	return []string{OznakaDijeloviKarte, OznakaGranicaOdbijenih, OznakaPotpisVerzije, OznakaRazmjena, OznakaRupe}
 }
 
 // NepoznateOznake su ispravne oznake druge strane čije ime ovaj program ne

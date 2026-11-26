@@ -57,10 +57,10 @@ func TestVrijednostiIzvanRaspona(t *testing.T) {
 	rd := Reading{LevelCm: cmR(-1102), Level2Cm: cmR(3500), TempC: broj(85), FlowM3s: broj(-3)}
 	izvan := VrijednostiIzvanRaspona(rd, false)
 	ocekivano := []struct{ polje, opis, poruka string }{
-		{PoljeVodostaj, "−1102 cm", "vodostaj -1102 cm je izvan razumnog raspona"},
-		{PoljeNizvodni, "3500 cm nizvodno", "vodostaj 3500 cm je izvan razumnog raspona"},
-		{PoljeTemperatura, "temperatura 85,0 °C", "temperatura vode 85.0 °C je izvan razumnog raspona"},
-		{PoljeProtok, "protok −3,0 m³/s", "protok -3.0 m³/s je izvan razumnog raspona"},
+		{PoljeVodostaj, "−1102 cm", "vodostaj −1102 cm je izvan raspona: program prima od −500 do 3000 cm. Provjerite broj."},
+		{PoljeNizvodni, "3500 cm nizvodno", "vodostaj 3500 cm je izvan raspona: program prima od −500 do 3000 cm. Provjerite broj."},
+		{PoljeTemperatura, "temperatura 85,0 °C", "temperatura vode 85,0 °C je izvan raspona: program prima od −5 do 45 °C. Provjerite broj."},
+		{PoljeProtok, "protok −3,0 m³/s", "protok −3,0 m³/s je izvan raspona: program prima od 0 do 100 000 m³/s. Provjerite broj."},
 	}
 	if len(izvan) != len(ocekivano) {
 		t.Fatalf("odbačeno %d: %+v", len(izvan), izvan)
@@ -73,7 +73,7 @@ func TestVrijednostiIzvanRaspona(t *testing.T) {
 	// letva akumulacije: kota u cm n. m., vlastiti raspon
 	kota := VrijednostiIzvanRaspona(Reading{LevelCm: cmR(300)}, true)
 	if len(kota) != 1 || kota[0].Polje != PoljeKota || kota[0].Opis != "300 cm n. m." ||
-		kota[0].Error() != "kota 300 cm n. m. je izvan razumnog raspona" {
+		kota[0].Error() != "kota 300 cm n. m. je izvan raspona: program prima od 5000 do 40 000 cm n. m. Provjerite broj." {
 		t.Errorf("kota: %+v", kota)
 	}
 	if izvan := VrijednostiIzvanRaspona(Reading{LevelCm: cmR(19089)}, true); len(izvan) != 0 {

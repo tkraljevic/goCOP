@@ -1000,8 +1000,7 @@ func (h *ReadingsHandler) ShowForm(w http.ResponseWriter, r *http.Request) {
 		data.IsEdit = true
 		data.MozeObrisati = h.readingService.CanDelete(ctx, perms, existing)
 	} else {
-		q := r.URL.Query()
-		rd.StationID, rd.StructureID = q.Get("station"), q.Get("structure")
+		rd = noviIzUpita(r, rd, data.ErrorMessage != "")
 	}
 	data.Station, data.Structure = h.gauge(r, rd.StationID, rd.StructureID)
 	if data.Station == nil && data.Structure == nil {
@@ -1086,6 +1085,43 @@ func izvorniTrenutak(r *http.Request, polje string, procitano time.Time) time.Ti
 
 // novoOcitanjeIzObrasca čita obrazac novog očitanja. Identifikator novom
 // očitanju daje program, pa se poslani iz obrasca izbaci prije čitanja.
+// poljaUpisa su polja obrasca očitanja koja se nakon neuspjelog upisa vraćaju
+// u obrazac (adresom preusmjeravanja), da se upisano ne izgubi
+var poljaUpisa = []string{"level_cm", "level2_cm", "oborina_mm", "temp_c", "temp_note", "flow_m3s",
+	"flow_method", "flow_note", "gate", "gate_pct", "structure_state", "ag_hours_1", "ag_hours_2",
+	"ag_hours_3", "vrsta_biljeske", "note", "measured_at", "source", "observer"}
+
+// upisanoUObrascu je dio adrese s onim što je u obrazac bilo upisano
+// noviIzUpita postavi letvu ili objekt iz upita. Upis koji nije prošao
+// vraća se s porukom i s onim što je bilo upisano, da ga vodočuvar ne mora
+// tipkati ponovno.
+func noviIzUpita(r *http.Request, rd *models.Reading, greska bool) *models.Reading {
+	q := r.URL.Query()
+	rd.StationID, rd.StructureID = q.Get("station"), q.Get("structure")
+	if !greska || !q.Has("measured_at") {
+		return rd
+	}
+	upisano, err := novoOcitanjeIzObrasca(r)
+	if err != nil {
+		return rd
+	}
+	upisano.StationID, upisano.StructureID = rd.StationID, rd.StructureID
+	return upisano
+}
+
+func upisanoUObrascu(r *http.Request) string {
+	v := url.Values{}
+	for _, k := range poljaUpisa {
+		if s := r.PostFormValue(k); s != "" {
+			v.Set(k, s)
+		}
+	}
+	if len(v) == 0 {
+		return ""
+	}
+	return "&" + v.Encode()
+}
+
 func novoOcitanjeIzObrasca(r *http.Request) (*models.Reading, error) {
 	_ = r.FormValue("id") // pročita obrazac, da bi se polje dalo izbaciti
 	r.Form.Del("id")
@@ -1256,11 +1292,11 @@ func (h *ReadingsHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 	_, perms := h.base(r)
 	rd, err := novoOcitanjeIzObrasca(r)
 	if err != nil {
-		redirectWith(w, r, "/readings/new?station="+r.FormValue("station_id")+"&structure="+r.FormValue("structure_id"), "error", err.Error())
+		redirectWith(w, r, "/readings/new?station="+r.FormValue("station_id")+"&structure="+r.FormValue("structure_id")+upisanoUObrascu(r), "error", err.Error())
 		return
 	}
 	if err := h.readingService.Create(r.Context(), perms, rd); err != nil {
-		redirectWith(w, r, "/readings/new?station="+rd.StationID+"&structure="+rd.StructureID+"&back="+url.QueryEscape(r.FormValue("back")), "error", err.Error())
+		redirectWith(w, r, "/readings/new?station="+rd.StationID+"&structure="+rd.StructureID+"&back="+url.QueryEscape(r.FormValue("back"))+upisanoUObrascu(r), "error", err.Error())
 		return
 	}
 	target := povratnaPutanja(r.FormValue("back"), rd.GaugeURL())

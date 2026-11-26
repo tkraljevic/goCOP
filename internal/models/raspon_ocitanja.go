@@ -189,13 +189,13 @@ func razinaIzvan(polje string, v *int, kota bool) *IzvanRaspona {
 	}
 	if polje == PoljeKota {
 		return &IzvanRaspona{Polje: polje, Opis: cijeliHR(*v) + " cm n. m.",
-			poruka: fmt.Sprintf("kota %d cm n. m. je izvan razumnog raspona", *v)}
+			poruka: fmt.Sprintf("kota %s cm n. m. je izvan raspona: program prima od %s do %s cm n. m. Provjerite broj.", cijeliHR(*v), cijeliHR(KotaNajmanjeCm), tisuceHR(KotaNajviseCm))}
 	}
 	opis := cijeliHR(*v) + " cm"
 	if polje == PoljeNizvodni {
 		opis += " nizvodno"
 	}
-	return &IzvanRaspona{Polje: polje, Opis: opis, poruka: fmt.Sprintf("vodostaj %d cm je izvan razumnog raspona", *v)}
+	return &IzvanRaspona{Polje: polje, Opis: opis, poruka: fmt.Sprintf("vodostaj %s cm je izvan raspona: program prima od %s do %s cm. Provjerite broj.", cijeliHR(*v), cijeliHR(VodostajNajmanjeCm), cijeliHR(VodostajNajviseCm))}
 }
 
 // uvjeti su obrnuti da i NaN (koji nije ni manji ni veći) padne
@@ -204,7 +204,7 @@ func temperaturaIzvan(v *float64) *IzvanRaspona {
 		return nil
 	}
 	return &IzvanRaspona{Polje: PoljeTemperatura, Opis: "temperatura " + decimalniHR(*v) + " °C",
-		poruka: fmt.Sprintf("temperatura vode %.1f °C je izvan razumnog raspona", *v)}
+		poruka: fmt.Sprintf("temperatura vode %s °C je izvan raspona: program prima od %s do %s °C. Provjerite broj.", decimalniHR(*v), cijeliHR(int(TemperaturaNajmanjeC)), cijeliHR(int(TemperaturaNajviseC)))}
 }
 
 func protokIzvan(v *float64) *IzvanRaspona {
@@ -212,7 +212,7 @@ func protokIzvan(v *float64) *IzvanRaspona {
 		return nil
 	}
 	return &IzvanRaspona{Polje: PoljeProtok, Opis: "protok " + decimalniHR(*v) + " m³/s",
-		poruka: fmt.Sprintf("protok %.1f m³/s je izvan razumnog raspona", *v)}
+		poruka: fmt.Sprintf("protok %s m³/s je izvan raspona: program prima od 0 do %s m³/s. Provjerite broj.", decimalniHR(*v), tisuceHR(int(ProtokNajviseM3s)))}
 }
 
 func kisaIzvan(v *float64) *IzvanRaspona {
@@ -220,7 +220,7 @@ func kisaIzvan(v *float64) *IzvanRaspona {
 		return nil
 	}
 	return &IzvanRaspona{Polje: PoljeKisa, Opis: "oborina " + decimalniHR(*v) + " mm",
-		poruka: "oborina mora biti između 0 i 300 mm"}
+		poruka: fmt.Sprintf("oborina %s mm je izvan raspona: program prima od 0 do %s mm. Provjerite broj.", decimalniHR(*v), cijeliHR(int(KisaNajviseMm)))}
 }
 
 func opisVremena(kad time.Time) string {
@@ -229,6 +229,16 @@ func opisVremena(kad time.Time) string {
 
 // cijeliHR piše cijeli broj s pravim znakom minus, kako se piše u tekstu
 func cijeliHR(v int) string { return strings.Replace(strconv.Itoa(v), "-", "−", 1) }
+
+// tisuceHR piše velik cijeli broj s razmakom među tisućicama, kako stoji u
+// Pomoći („40 000”, „100 000”)
+func tisuceHR(v int) string {
+	s := strconv.Itoa(v)
+	for i := len(s) - 3; i > 0; i -= 3 {
+		s = s[:i] + " " + s[i:]
+	}
+	return s
+}
 
 // decimalniHR piše broj na jednu decimalu s decimalnim zarezom
 func decimalniHR(v float64) string {

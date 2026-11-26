@@ -96,7 +96,7 @@ func TestPregledIspravakaPokazujeRaspon(t *testing.T) {
 		t.Fatalf("pregled %d", w.Code)
 	}
 	s := html.UnescapeString(w.Body.String())
-	for _, treba := range []string{"vodostaj 9999 cm je izvan razumnog raspona", "temperatura"} {
+	for _, treba := range []string{"vodostaj 9999 cm je izvan raspona", "temperatura"} {
 		if !strings.Contains(s, treba) {
 			t.Errorf("pregled nema %q", treba)
 		}

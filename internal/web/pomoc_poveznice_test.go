@@ -25,9 +25,12 @@ func TestPomocNudiPoveznicuSamoUDioKojiImate(t *testing.T) {
 		t.Fatal(err)
 	}
 	h := NewPomocHandler(tmpl)
-	stranica := func(moduli models.Visibility) string {
+	stranica := func(moduli models.Visibility, u ...*models.User) string {
 		r := httptest.NewRequest("GET", "/pomoc", nil)
 		r = r.WithContext(context.WithValue(r.Context(), contextKeyModules, moduli))
+		if len(u) > 0 {
+			r = r.WithContext(context.WithValue(r.Context(), contextKeyUser, u[0]))
+		}
 		w := httptest.NewRecorder()
 		h.ShowPomoc(w, r)
 		return w.Body.String()
@@ -51,7 +54,33 @@ func TestPomocNudiPoveznicuSamoUDioKojiImate(t *testing.T) {
 		}
 	}
 
+	// gumb Otvori Očitanja vidi samo tko ima Očitanja
+	const otvoriOcitanja = `href="/readings">`
+	if !strings.Contains(vodocuvar, otvoriOcitanja) || !strings.Contains(vodocuvar, "Otvori Očitanja") {
+		t.Error("s Očitanjima Pomoć ne nudi gumb Otvori Očitanja")
+	}
+	if !strings.Contains(vodocuvar, `href="/readings?moje=1">`) {
+		t.Error("s Očitanjima Pomoć u Obilasku ne nudi gumb Otvori Moje letve")
+	}
+
 	admin := stranica(models.Visibility{models.ModuleAdmin: true, models.ModuleJournals: true})
+	// gumb za Vodočuvarski dnevnik vidi samo tko dnevnik vodi ili čita
+	if strings.Contains(admin, "Otvori Vodočuvarski dnevnik") {
+		t.Error("bez prijavljene osobe Pomoć nudi Vodočuvarski dnevnik")
+	}
+	if s := stranica(models.Visibility{}, &models.User{IsGlobalAdmin: true}); !strings.Contains(s, `href="/vodocuvar">`) {
+		t.Error("tko čita Vodočuvarski dnevnik, ne dobiva gumb Otvori Vodočuvarski dnevnik")
+	}
+	// gumb za Prijave s terena prati isto pravilo kao Dokumenti, skupina Teren
+	if strings.Contains(admin, "Otvori Prijave s terena") {
+		t.Error("bez prijavljene osobe Pomoć nudi Prijave s terena")
+	}
+	if s := stranica(models.Visibility{}, &models.User{IsGlobalAdmin: true}); !strings.Contains(s, `href="/prijave">`) {
+		t.Error("tko čita Vodočuvarski dnevnik, ne dobiva gumb Otvori Prijave s terena")
+	}
+	if strings.Contains(admin, "Otvori Očitanja") || strings.Contains(admin, "Otvori Moje letve") {
+		t.Error("bez Očitanja Pomoć ipak nudi gumb Otvori Očitanja")
+	}
 	for _, p := range poveznice {
 		if !strings.Contains(admin, p) {
 			t.Errorf("s Administracijom i Dokumentima Pomoć ne nudi %s", p)

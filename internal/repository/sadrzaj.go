@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"time"
 
@@ -200,8 +201,8 @@ func kanalDnevnikaIz(ctx context.Context, db *sql.DB, id string) string {
 // PreseliSadrzaj seli PDF-ove i fotografije iz tablica otprije spremišta
 // sadržaja u spremište i prepisuje njihove verzije u knjizi tako da nose
 // samo otisak. Jedina iznimka od pravila da se knjiga ne prepisuje: radi se
-// jednom, na svakom čvoru za njegove vlastite zapise, i verzija zadržava
-// isti version_id. Vraća koliko je datoteka preseljeno i koliko bajtova.
+// jednom, na svakom čvoru, i verzija zadržava isti version_id. Vraća
+// koliko je datoteka preseljeno i koliko bajtova.
 func PreseliSadrzaj(ctx context.Context, db *sql.DB) (int, int64, error) {
 	var ukupno int
 	var bajtova int64
@@ -376,17 +377,22 @@ func preseliJednu(ctx context.Context, db *sql.DB, p preseljenje) (int, int64, e
 }
 
 // prepisiVerzije mijenja verzije izvornika u knjizi: bajtovi van, otisak u.
-// Ostatak zapisa (sažetak, vrijeme) ostaje kakav je bio.
+// Ostatak zapisa (sažetak, vrijeme) ostaje kakav je bio. Prepisuje svaku
+// verziju koja nosi bajtove PDF-a, svoju i tuđu (Odluke (26. 11. 2026.),
+// 11, dopuna). Takve su samo verzije od prije spremišta (#647), a potpis
+// nastaje tek poslije, pa potpisane među njima ne bi smjelo biti. Ako ipak
+// naiđe na potpisanu, skine joj potpis i ključ autora, jer prepisanoj ne
+// bi vrijedio, i zapiše to u dnevnik.
 func prepisiVerzije(ctx context.Context, tx *sql.Tx, entitet, id, otisak string, bajtova int) error {
-	rows, err := tx.QueryContext(ctx, `SELECT version_id, payload FROM record_versions WHERE entity = ? AND entity_id = ?`, entitet, id)
+	rows, err := tx.QueryContext(ctx, `SELECT version_id, payload, potpis FROM record_versions WHERE entity = ? AND entity_id = ?`, entitet, id)
 	if err != nil {
 		return err
 	}
-	type v struct{ id, payload string }
+	type v struct{ id, payload, potpis string }
 	var verzije []v
 	for rows.Next() {
 		var x v
-		if err := rows.Scan(&x.id, &x.payload); err != nil {
+		if err := rows.Scan(&x.id, &x.payload, &x.potpis); err != nil {
 			rows.Close()
 			return err
 		}
@@ -394,19 +400,32 @@ func prepisiVerzije(ctx context.Context, tx *sql.Tx, entitet, id, otisak string,
 	}
 	rows.Close()
 	for _, x := range verzije {
-		var zapis map[string]any
-		if err := json.Unmarshal([]byte(x.payload), &zapis); err != nil {
+		body, ok := bezBajtova(x.payload, otisak, bajtova)
+		if !ok {
 			continue
 		}
-		delete(zapis, "pdf")
-		zapis["otisak"], zapis["bajtova"], zapis["vrsta"] = otisak, bajtova, "application/pdf"
-		body, err := json.Marshal(zapis)
-		if err != nil {
-			return err
+		if x.potpis != "" {
+			log.Printf("seljenje PDF-ova: verzija %s (%s/%s) nosila je potpis, a prepisana ide bez njega", x.id, entitet, id)
 		}
-		if _, err := tx.ExecContext(ctx, `UPDATE record_versions SET payload = ? WHERE version_id = ?`, string(body), x.id); err != nil {
+		if _, err := tx.ExecContext(ctx, `UPDATE record_versions SET payload = ?, potpis = '', kljuc_autora = '' WHERE version_id = ?`, body, x.id); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// bezBajtova je zapis izvornika s otiskom umjesto bajtova PDF-a. Vraća
+// false kad zapis nije JSON objekt ili bajtova u sebi nema.
+func bezBajtova(payload, otisak string, bajtova int) (string, bool) {
+	var zapis map[string]any
+	if err := json.Unmarshal([]byte(payload), &zapis); err != nil {
+		return "", false
+	}
+	if _, ima := zapis["pdf"]; !ima {
+		return "", false
+	}
+	delete(zapis, "pdf")
+	zapis["otisak"], zapis["bajtova"], zapis["vrsta"] = otisak, bajtova, "application/pdf"
+	body, _ := json.Marshal(zapis) // mapa pročitana iz JSON-a uvijek se da zapisati
+	return string(body), true
 }

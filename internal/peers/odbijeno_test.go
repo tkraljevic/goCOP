@@ -191,3 +191,33 @@ func TestKvaroviRazmjene(t *testing.T) {
 		t.Errorf("kvarovi %q", k)
 	}
 }
+
+// Promjene s krivim potpisom autora idu na pločicu jednom po računalu od
+// kojeg su stigle i jednom za uvoz, samo iz zadnja 24 sata
+func TestKvaroviPotpisa(t *testing.T) {
+	s := rubniCvor(t, "cop-osijek")
+	if err := s.SavePeer(ctxRub, Peer{NodeID: "laptop-baranja", Name: "Laptop Baranja", PublicKey: javniKljuc(t)}); err != nil {
+		t.Fatal(err)
+	}
+	sada := time.Now().UTC()
+	upisi := func(razlog, racunalo string, zadnje time.Time) {
+		t.Helper()
+		if _, err := s.db.Exec(`INSERT INTO razmjena_odbijeno (dan, vrsta, put, razlog, racunalo, broj, zadnje) VALUES (?, ?, '', ?, ?, 3, ?)`,
+			zadnje.Format(time.DateOnly), VrstaVerzija, razlog, racunalo, zadnje); err != nil {
+			t.Fatal(err)
+		}
+	}
+	upisi(RazlogKrivPotpis, "laptop-baranja", sada)
+	upisi(RazlogKrivPotpis, "", sada)
+	upisi(RazlogKrivPotpis, "ured-vinkovci", sada.Add(-25*time.Hour))
+	upisi("drugo", "ured-vukovar", sada)
+	s.zabiljeziOdbijenoBroj(ctxRub, VrstaVerzija, "", RazlogKrivPotpis, "laptop-baranja", 2)
+	k := s.KvaroviRazmjene(ctxRub)
+	if len(k) != 2 || !strings.HasPrefix(k[0], "Od računala Laptop Baranja stiglo je promjena s potpisom") ||
+		!strings.HasPrefix(k[1], "U uvezenoj datoteci") {
+		t.Errorf("kvarovi %q", k)
+	}
+	if z, err := s.Odbijeno(ctxRub, 1); err != nil || len(z) == 0 || z[0].Broj != 5 {
+		t.Errorf("zbroj: %+v, %v", z, err)
+	}
+}

@@ -207,6 +207,8 @@ type Service struct {
 	// preskocene su primljene neispravne verzije (ledger.Ispravna) koje su
 	// već zapisane u dnevnik (preskociNeispravne); na ploči se ne broje
 	preskocene sync.Map
+	// strogiEntiteti su entiteti prava i mreže (PostaviStrogePotpise)
+	strogiEntiteti map[string]bool
 	// satiDrugih su autori čije su verzije nedavno stigle s vremenom
 	// predaleko ispred sata ovog računala (sat_drugih.go); samo u memoriji
 	satiDrugih satiDrugih

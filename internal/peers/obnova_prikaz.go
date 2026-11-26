@@ -50,7 +50,7 @@ func (s *Service) upozorenjaRokova(ctx context.Context, clanovi []Member) []stri
 	}
 	clanstvo, ovlast := s.VlastitiRokovi(ctx)
 	var out []string
-	for _, t := range []string{tekstVlastitogClanstva(clanstvo), tekstVlastiteOvlasti(ovlast)} {
+	for _, t := range []string{tekstVlastitogClanstva(clanstvo, n.DrziKljuc), tekstVlastiteOvlasti(ovlast)} {
 		if t != "" {
 			out = append(out, t)
 		}
@@ -61,8 +61,20 @@ func (s *Service) upozorenjaRokova(ctx context.Context, clanovi []Member) []stri
 	return append(out, s.obnovljeneOvlasti(ctx, n.DrziKljuc)...)
 }
 
-// tekstVlastitogClanstva je rečenica o roku članstva ovog računala, ili ""
-func tekstVlastitogClanstva(r *Rok) string {
+// tekstVlastitogClanstva je rečenica o roku članstva ovog računala, ili "".
+// Računalo s ključem mreže obnavlja sebi članstvo samo, gumbom ili uz
+// razmjenu, i prima druga računala i s isteklim članstvom, pa za njega
+// isteklo članstvo ima svoje rečenice.
+func tekstVlastitogClanstva(r *Rok, drziKljuc bool) string {
+	if r != nil && drziKljuc && r.Stanje != RokIstjece {
+		return tekstClanstvaSKljucem(r)
+	}
+	return tekstClanstvaBezKljuca(r)
+}
+
+// tekstClanstvaBezKljuca je rečenica o roku članstva računala koje nema
+// ključ mreže, ili ""
+func tekstClanstvaBezKljuca(r *Rok) string {
 	if r == nil {
 		return ""
 	}
@@ -78,6 +90,19 @@ func tekstVlastitogClanstva(r *Rok) string {
 		return fmt.Sprintf("Članstvo ovog računala u mreži isteklo je %s i pričuva je prošla, pa razmjena ne ide. Računalo treba ponovno primiti u mrežu: uparite ga s računalom koje prima ili mu pošaljite zahtjev za primanje na daljinu.", datumHR(r.Do))
 	}
 	return ""
+}
+
+// tekstClanstvaSKljucem je rečenica o isteklom članstvu računala koje drži
+// ključ mreže, ili "" dok vrijedi
+func tekstClanstvaSKljucem(r *Rok) string {
+	switch r.Stanje {
+	case RokVrijedi:
+		return ""
+	case RokPricuva:
+		return fmt.Sprintf("Članstvo ovog računala u mreži isteklo je %s Razmjena s drugim računalima radi još do %s. Ovo računalo drži ključ mreže, pa članstvo obnavlja samo sebi: kliknite Obnovi članstvo na stranici Ovo računalo i mreža, pod Mreža.",
+			datumHR(r.Do), datumHR(r.Do.Add(PricuvniRok)))
+	}
+	return fmt.Sprintf("Članstvo ovog računala u mreži isteklo je %s i pričuva je prošla, pa druga računala s njim ne razmjenjuju. Ovo računalo drži ključ mreže, pa članstvo obnavlja samo sebi: kliknite Obnovi članstvo na stranici Ovo računalo i mreža, pod Mreža. Druga računala i dalje može primati u mrežu.", datumHR(r.Do))
 }
 
 // tekstVlastiteOvlasti je rečenica o roku ovlasti ovog računala, ili ""

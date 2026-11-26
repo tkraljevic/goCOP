@@ -433,3 +433,22 @@ func TestNoviListNosiPrilike(t *testing.T) {
 		t.Errorf("prilike novog lista: %q", l.Prilike)
 	}
 }
+
+// Na dnevnom listu letva ima jedan vodostaj, ustava uzvodni i nizvodni, a
+// crpna stanica kanal i vanjsku stranu.
+func TestVodostajiObjektaNaListu(t *testing.T) {
+	n := func(v int) *int { return &v }
+	for _, s := range []struct {
+		o    repository.OcitanjeDana
+		htio string
+	}{
+		{repository.OcitanjeDana{Vodostaj: n(150)}, "+150 cm"},
+		{repository.OcitanjeDana{Vrsta: models.StructureKindSluice, Vodostaj: n(312), Vodostaj2: n(287)}, "uzvodno +312 cm, nizvodno +287 cm"},
+		{repository.OcitanjeDana{Vrsta: models.StructureKindPumpingStation, Vodostaj: n(95), Vodostaj2: n(310)}, "kanal +95 cm, vanjska strana +310 cm"},
+		{repository.OcitanjeDana{Vrsta: models.StructureKindPumpingStation, Vodostaj: n(95)}, "+95 cm"},
+	} {
+		if g := vodostajiObjekta(s.o); g != s.htio {
+			t.Errorf("%+v: %q, htio %q", s.o, g, s.htio)
+		}
+	}
+}
