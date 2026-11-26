@@ -173,7 +173,7 @@ func TestProvjeraOcitanja(t *testing.T) {
 		}, ""},
 		{"samo drugi vodostaj", func(r *models.Reading) { r.LevelCm, r.Level2Cm = nil, cmP(40) }, ""},
 		{"vodostaj -500", func(r *models.Reading) { r.LevelCm = cmP(-500) }, ""},
-		{"vodostaj -501", func(r *models.Reading) { r.LevelCm = cmP(-501) }, "izvan razumnog raspona"},
+		{"vodostaj -501", func(r *models.Reading) { r.LevelCm = cmP(-501) }, "izvan raspona"},
 		{"vodostaj 3000", func(r *models.Reading) { r.LevelCm = cmP(3000) }, ""},
 		{"vodostaj 3001", func(r *models.Reading) { r.LevelCm = cmP(3001) }, "3001 cm"},
 		{"drugi vodostaj 3001", func(r *models.Reading) { r.Level2Cm = cmP(3001) }, "3001 cm"},
