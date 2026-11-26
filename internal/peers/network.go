@@ -8,12 +8,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"maps"
 	"os"
 	"path/filepath"
 	"slices"
 	"time"
 
+	"gocop/internal/db"
 	"gocop/internal/razmjena"
 )
 
@@ -132,8 +134,9 @@ func (s *Service) CreateNetwork(ctx context.Context, name string) error {
 	// nikoga primio u ovu bazu, pa ga osnivanje preuzme umjesto da odbije
 	// ili ga pregazi: ključ se nikad ne briše sam.
 	var key razmjena.NetworkKey
+	zatecen := false
 	if priv, err := razmjena.LoadKey(s.networkKeyPath()); err == nil {
-		key = razmjena.LoadNetworkKey(name, priv)
+		key, zatecen = razmjena.LoadNetworkKey(name, priv), true
 	} else if errors.Is(err, os.ErrNotExist) {
 		if key, err = razmjena.NewNetwork(name); err != nil {
 			return err
@@ -145,9 +148,11 @@ func (s *Service) CreateNetwork(ctx context.Context, name string) error {
 		return fmt.Errorf("zatečena datoteka ključa mreže se ne čita: %w", err)
 	}
 
+	// Zatečeni ključ znači da je mreža postojala i prije ove baze, pa
+	// njezina računala već imaju djelatnike i organizaciju: punjenje ovog
+	// računala ne šalje se, kao kod primanja u mrežu
 	now := time.Now().UTC()
-	if _, err := s.db.ExecContext(ctx, `INSERT INTO network (id, name, public_key, joined_at, protokol) VALUES (1, ?, ?, ?, ?)`,
-		name, razmjena.PublicKeyString(key.Public), now, s.protokol()); err != nil {
+	if err := s.upisiMrezu(ctx, name, razmjena.PublicKeyString(key.Public), now, zatecen); err != nil {
 		return err
 	}
 	s.mu.Lock()
@@ -180,8 +185,7 @@ func (s *Service) joinNetwork(ctx context.Context, pack welcomePack) error {
 	}
 
 	now := time.Now().UTC()
-	if _, err := s.db.ExecContext(ctx, `INSERT INTO network (id, name, public_key, joined_at, protokol) VALUES (1, ?, ?, ?, ?)`,
-		pack.NetworkName, pack.NetworkKey, now, s.protokol()); err != nil {
+	if err := s.upisiMrezu(ctx, pack.NetworkName, pack.NetworkKey, now, true); err != nil {
 		return err
 	}
 	key := razmjena.PublicNetwork(pack.NetworkName, pubKey)
@@ -191,6 +195,35 @@ func (s *Service) joinNetwork(ctx context.Context, pack welcomePack) error {
 	s.mu.Unlock()
 
 	return s.saveMembership(ctx, *pack.ForYou)
+}
+
+// upisiMrezu upisuje mrežu kojoj ovo računalo od sada pripada. Kad je mreža
+// postojala i prije (primanje u mrežu, osnivanje sa zatečenim ključem), u
+// istoj transakciji odbaci oznake prvog punjenja: djelatnike i organizaciju
+// tada daje mreža, a verzije iz datoteka uz bazu bile bi novije od svega u
+// njoj i vratile bi stanje iz datoteka na sva računala (db.OdbaciPunjenje,
+// Odluke (26. 11. 2026.)).
+func (s *Service) upisiMrezu(ctx context.Context, naziv, kljuc string, kad time.Time, postojeca bool) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() // nakon Commita ne radi ništa; prije njega poništava upis
+	if _, err := tx.ExecContext(ctx, `INSERT INTO network (id, name, public_key, joined_at, protokol) VALUES (1, ?, ?, ?, ?)`,
+		naziv, kljuc, kad, s.protokol()); err != nil {
+		return err
+	}
+	var odbaceno int64
+	if postojeca {
+		if odbaceno, err = db.OdbaciPunjenje(ctx, tx); err != nil {
+			return err
+		}
+	}
+	if err = tx.Commit(); err == nil && odbaceno > 0 {
+		log.Printf("Mreža %q: djelatnici i organizacija iz datoteka uz bazu (%d zapisa) ne šalju se drugim računalima; dobivaju se od mreže. "+
+			"Ako je ovo prvo računalo nove mreže, a uz bazu je ostala datoteka network-key od ranijeg osnivanja, maknite je i bazu napunite iznova prije osnivanja", naziv, odbaceno)
+	}
+	return err
 }
 
 // myMembership vraća potvrdu ovog čvora, ako je ima

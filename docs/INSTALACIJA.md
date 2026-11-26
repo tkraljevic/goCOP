@@ -746,8 +746,14 @@ može prijaviti,
 `gocop -ponisti-lozinku ime` na računalu čvora da privremenu lozinku
 globalnom administratoru.
 
-Popis vrijedi za čvor koji ga je složio. Imenik zato stavite uz bazu samo
-prvog čvora mreže; ostali čvorovi djelatnike dobiju razmjenom.
+Popis složi i pokaže samo čvor koji je napunio imenik. Imenik zato stavite uz bazu samo
+prvog čvora mreže, onoga koji mrežu osniva; ostali čvorovi djelatnike
+dobiju razmjenom kad se na prvom preuzme popis ili mu prođe rok. Dotad su
+djelatnici samo na prvom čvoru. Čvor primljen u postojeću mrežu djelatnike
+i organizaciju iz svoje mape `data` ne šalje drugima, nego ih dobiva od
+mreže. S njima putuje i sažetak privremene lozinke, pa se osoba može
+prijaviti i na drugom čvoru, a lozinku i ondje mora promijeniti pri prvoj
+prijavi.
 
 Otvoriti `http://localhost` (ili `http://localhost:8080`). Dok ustroj nije
 gotov, globalni administrator u Administraciji, iznad skupina kartica, vidi

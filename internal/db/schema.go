@@ -717,6 +717,17 @@ func InitSchema(database *sql.DB) error {
 			password_hash TEXT NOT NULL,
 			napunjeno DATETIME
 		);`,
+		// Retci koje je prvo punjenje upisalo na ovom računalu, a koji još
+		// nemaju verziju u knjizi: djelatnici, njihove dužnosti, sektori i
+		// branjena područja (punjenje_za_knjigu.go). Upisuje ih
+		// repository.UpisiPunjenje i briše oznaku; primanje u postojeću
+		// mrežu oznake odbaci (OdbaciPunjenje). Samo na ovom čvoru: ne ide
+		// razmjenom.
+		`CREATE TABLE IF NOT EXISTS punjenje_za_knjigu (
+			entity TEXT NOT NULL,
+			entity_id TEXT NOT NULL,
+			PRIMARY KEY (entity, entity_id)
+		);`,
 
 		`CREATE TABLE IF NOT EXISTS duties (
 			id TEXT PRIMARY KEY,

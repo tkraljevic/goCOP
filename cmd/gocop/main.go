@@ -430,8 +430,9 @@ func otvoriBazu(dbPath string) (*sql.DB, *sadrzaj.Spremiste, []db.PocetnaLozinka
 		log.Printf("Spremište sadržaja: %d sadržaja, %.1f MB, %d za dohvat", st.Sadrzaja, float64(st.Bajtova)/1e6, st.Zeljenih)
 	}
 
-	// 3. Popunjavanje početnih podataka (Sektori A-F, Branjena područja 1-34, Globalni admin Tomislav Kraljević)
-	// Registri i imenik stoje uz bazu, izvan programa; čitaju se samo pri prvom punjenju
+	// 3. Popunjavanje početnih podataka (organizacija, registri, djelatnici iz imenika i početni račun admin)
+	// Registri i imenik stoje uz bazu, izvan programa; čitaju se samo pri prvom punjenju.
+	// U knjigu verzija djelatnike i organizaciju upisuje tek upisiPunjenjeUKnjigu, i to samo na računalu koje je osnovalo mrežu.
 	db.DataDir = filepath.Dir(dbPath)
 	db.ImenikPath = db.DataFile("imenik.json")
 	lozinke, err := db.SeedInitialData(database)
@@ -651,9 +652,16 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	// potpisanu ključem mreže, a stanje koje ga još nema dobiva je pri
 	// pokretanju i kad računalo dobije ključ (Odluke (30. 10. 2026.), 16)
 	userRepo.PostaviPotpisMreze(peersService)
+	orgRepo := repository.NewOrgRepository(database, recorder)
+	// djelatnici i organizacija iz prvog punjenja ulaze u knjigu verzija,
+	// pa stižu i na druga računala: samo s računala koje je osnovalo mrežu,
+	// pri pokretanju i čim dobije ključ mreže, a računi s popisa početnih lozinki tek
+	// kad se popis preuzme ili mu prođe rok (Odluke (26. 11. 2026.))
+	upisiPunjenje := func(ctx context.Context) (int, error) { return userRepo.UpisiPunjenje(ctx, orgRepo) }
+	upisiPunjenjeUKnjigu(context.Background(), upisiPunjenje)
 	potpisiStanjePrava := potpisStanjaPrava(database, recorder, peersService)
 	potpisiStanjePrava(context.Background())
-	peersService.NakonKljucaMreze(potpisiStanjePrava)
+	peersService.NakonKljucaMreze(nakonKljucaMreze(upisiPunjenje, potpisiStanjePrava))
 	sessionRepo := repository.NewSessionRepository(database)
 	sectionRepo := repository.NewSectionRepository(database, recorder)
 
@@ -663,7 +671,6 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	sectionService := service.NewSectionService(sectionRepo, sseBroker)
 	territoryRepo := repository.NewTerritoryRepository(database, recorder)
 	territoryService := service.NewTerritoryService(territoryRepo, sectionService)
-	orgRepo := repository.NewOrgRepository(database, recorder)
 	userService.SetFirme(orgRepo.ListContractors)
 	orgService := service.NewOrgService(orgRepo, sseBroker)
 	if terms, err := orgRepo.GetTerms(context.Background()); err == nil {
@@ -859,7 +866,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	server.SetLokalnaImena(cfg.Web.LokalnaImena)
 	postaviTailscale(server, cfg)
 	server.SetKljucPostave(kljucPostave(z.podPostavom, os.Getenv, os.Unsetenv))
-	server.SetPocetneLozinke(pocetneLozinke, rokPopisaLozinki(database, pocetneLozinke), func() error { return db.PocetneLozinkePreuzete(database) })
+	server.SetPocetneLozinke(pocetneLozinke, rokPopisaLozinki(database, pocetneLozinke), nakonPopisaLozinki(database, upisiPunjenje))
 	// prijava otvorena starom zajedničkom lozinkom prestaje pri prvom zahtjevu
 	authService.SetZakljucanaLozinka(server.StaraLozinkaZakljucava)
 	// ponovno pokretanje iz Administracije (postavke čvora niže, uz putanje)
@@ -1085,6 +1092,43 @@ func postaviRazmjenu(s *peers.Service, cfg config.Config) {
 func potpisStanjaPrava(baza *sql.DB, rec *ledger.Recorder, potpis repository.PotpisMreze) func(context.Context) {
 	return func(ctx context.Context) {
 		zabiljeziPotpisStanja(repository.PotpisiStanjePrava(ctx, baza, rec, potpis))
+	}
+}
+
+// upisiPunjenjeUKnjigu upisuje u knjigu verzija djelatnike i organizaciju
+// iz prvog punjenja (repository.UpisiPunjenje). Greška ide samo u dnevnik:
+// čvor radi i bez toga, a upis se ponovi pri sljedećem pokretanju.
+func upisiPunjenjeUKnjigu(ctx context.Context, upisi func(context.Context) (int, error)) {
+	n, err := upisi(ctx)
+	switch {
+	case err != nil:
+		log.Printf("Djelatnici i organizacija iz prvog punjenja nisu upisani za razmjenu (%v); pokušava se pri sljedećem pokretanju", err)
+	case n > 0:
+		log.Printf("Prvo punjenje: %d zapisa djelatnika i organizacije upisano je za razmjenu s drugim računalima", n)
+	}
+}
+
+// nakonKljucaMreze je ono što se radi kad računalo dobije ključ mreže
+// (osnuje mrežu ili učita kopiju ključa): djelatnike i organizaciju iz
+// prvog punjenja upiše u knjigu, pa potpiše stanje prava
+func nakonKljucaMreze(upisi func(context.Context) (int, error), potpisi func(context.Context)) func(context.Context) {
+	return func(ctx context.Context) {
+		upisiPunjenjeUKnjigu(ctx, upisi)
+		potpisi(ctx)
+	}
+}
+
+// nakonPopisaLozinki briše popis početnih lozinki iz baze kad je preuzet ili
+// mu je prošao rok, pa račune s njega upiše u knjigu verzija. Greška upisa
+// ide samo u dnevnik i ne vraća se: preuzimanje popisa ne smije pasti zbog
+// nje, a upis se ponovi pri sljedećem pokretanju.
+func nakonPopisaLozinki(database *sql.DB, upisi func(context.Context) (int, error)) func() error {
+	return func() error {
+		if err := db.PocetneLozinkePreuzete(database); err != nil {
+			return err
+		}
+		upisiPunjenjeUKnjigu(context.Background(), upisi)
+		return nil
 	}
 }
 

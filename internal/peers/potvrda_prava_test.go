@@ -25,13 +25,33 @@ import (
 // svi znaju jedni za druge, prate sve, a primljeno ide na površinu
 func mrezaSKljucem(t *testing.T, stari func(*Service), ids ...string) []*Service {
 	t.Helper()
-	k := rubnaMreza(t, ids[0])
-	cv := []*Service{k}
+	cv := make([]*Service, len(ids))
+	for i, id := range ids {
+		cv[i] = rubniCvor(t, id)
+	}
+	spojiUMrezu(t, cv)
+	k := cv[0]
+	if stari != nil {
+		stari(cv[1])
+	}
+	// računalo s ključem pokrenuto je novim programom: potpisalo je prijelaz
+	if _, err := repository.PotpisiStanjePrava(ctxRub, k.db, k.rec, k); err != nil {
+		t.Fatal(err)
+	}
+	return cv
+}
+
+// spojiUMrezu: prvo računalo osniva mrežu i prima ostala; svi znaju jedni
+// za druge, prate sve, a primljeno ide na površinu
+func spojiUMrezu(t *testing.T, cv []*Service) {
+	t.Helper()
+	k := cv[0]
+	if err := k.CreateNetwork(ctxRub, "Hrvatske vode"); err != nil {
+		t.Fatal(err)
+	}
 	clanstva := []razmjena.Membership{*k.myMembership(ctxRub)}
-	for _, id := range ids[1:] {
-		s := rubniCvor(t, id)
+	for _, s := range cv[1:] {
 		clanstva = append(clanstva, primiIzravno(t, k, s))
-		cv = append(cv, s)
 	}
 	for i, a := range cv {
 		a.SetWantsAll(true)
@@ -45,14 +65,6 @@ func mrezaSKljucem(t *testing.T, stari func(*Service), ids ...string) []*Service
 			}
 		}
 	}
-	if stari != nil {
-		stari(cv[1])
-	}
-	// računalo s ključem pokrenuto je novim programom: potpisalo je prijelaz
-	if _, err := repository.PotpisiStanjePrava(ctxRub, k.db, k.rec, k); err != nil {
-		t.Fatal(err)
-	}
-	return cv
 }
 
 // racuniNa su računi računala s potpisom ključem mreže, kao u programu
