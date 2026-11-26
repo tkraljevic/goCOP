@@ -11,6 +11,8 @@ package peers
 import (
 	"bytes"
 	"crypto/ed25519"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -49,6 +51,39 @@ type vektoriRazgovora struct {
 	// SadrzajBezKanala: stavka sadržaja u zajedničkom kanalu. Polje kanal
 	// tada izostaje, pa ga primatelj ne smije tražiti.
 	SadrzajBezKanala string `json:"sadrzajBezKanala"`
+
+	Cop      vektoriCopa     `json:"cop"`      // paket datotekom
+	Primanje vektoriPrimanja `json:"primanje"` // primanje na daljinu
+}
+
+// vektoriCopa: dijelovi paketa .cop koji se potpisuju ili otiskuju.
+// Inačica 3 je paket bez rupa, inačica 4 s rupama.
+type vektoriCopa struct {
+	Zapisi       string `json:"zapisi"`       // zapisi.jsonl
+	Sadrzaji     string `json:"sadrzaji"`     // sadrzaji.json
+	Otisak       string `json:"otisak"`       // otisak izdanja
+	Kanonski     string `json:"kanonski"`     // potpisani zapis manifesta
+	Potpis       string `json:"potpis"`       // ključ A nad kanonskim zapisom
+	Manifest     string `json:"manifest"`     // manifest.json
+	KanonskiRupe string `json:"kanonskiRupe"` // isto, s rupama (inačica 4)
+	PotpisRupe   string `json:"potpisRupe"`
+	ManifestRupe string `json:"manifestRupe"`
+}
+
+// vektoriPrimanja: kod za primanje, zahtjev novog računala i potvrda
+// primatelja. Sol i kod su stalni; ključ dokaza je scrypt (N = 2^16, r = 8,
+// p = 1) nad kodom bez crtice i soli s oznakom gocop-primanje/1|.
+type vektoriPrimanja struct {
+	Kod            string `json:"kod"`            // kako ga čovjek prepiše
+	Sol            string `json:"sol"`            // base64, 16 bajtova
+	KljucDokaza    string `json:"kljucDokaza"`    // hex
+	ZahtjevBajtovi string `json:"zahtjevBajtovi"` // pokrivaju ih potpis i dokaz
+	ZahtjevDokaz   string `json:"zahtjevDokaz"`
+	ZahtjevPotpis  string `json:"zahtjevPotpis"` // ključ B
+	Zahtjev        string `json:"zahtjev"`       // datoteka zahtjeva
+	PotvrdaKanon   string `json:"potvrdaKanon"`  // pokriva ga dokaz potvrde
+	PotvrdaDokaz   string `json:"potvrdaDokaz"`
+	Potvrda        string `json:"potvrda"` // datoteka potvrde
 }
 
 // redakPoruke zapiše poruku kako je piše razgovor: omotnica s imenom
@@ -147,6 +182,108 @@ func izradiVektoreRazgovora(t *testing.T) vektoriRazgovora {
 		t.Fatal(err)
 	}
 	v.Vjerodajnice = string(vj)
+	v.Cop = izradiVektoreCopa(t, privA, []ledger.Version{prva, druga})
+	v.Primanje = izradiVektorePrimanja(t, mreza, od)
+	return v
+}
+
+func izradiVektoreCopa(t *testing.T, priv ed25519.PrivateKey, verzije []ledger.Version) vektoriCopa {
+	t.Helper()
+	zapisi, ispravne, neispravne := zapisiZaCop(verzije)
+	if len(ispravne) != len(verzije) || len(neispravne) != 0 {
+		t.Fatalf("zapisi paketa: %d ispravnih, %d neispravnih", len(ispravne), len(neispravne))
+	}
+	sadrzaji := []CopSadrzaj{
+		{Otisak: "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824", Vrsta: "text/plain", Bajtova: 5, Kanal: "primjer/7/2026", Ukljucen: true},
+		{Otisak: "0000000000000000000000000000000000000000000000000000000000000001", Vrsta: "application/pdf", Bajtova: 12},
+	}
+	popis, err := json.MarshalIndent(sadrzaji, "", " ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := CopManifest{
+		Inacica: 3, Obuhvat: CopObuhvat{Vrsta: "primjer", AreaID: 7, Od: 2026}, Kanali: []string{"primjer/7/2026", ""},
+		Izdanje: 2, Prethodno: "aa", Izdao: "admin-1", Nastalo: time.Unix(1_760_000_000, 0).UTC(),
+		Otisak: otisakIzdanja(zapisi, sadrzaji), Zapisa: len(ispravne), Sadrzaja: len(sadrzaji), Ukljuceno: 1,
+	}
+	potpisi := func(m CopManifest) (string, string, string) {
+		kanon := kanonskiCop(m)
+		m.Potpis = &CopPotpis{Kljuc: base64.StdEncoding.EncodeToString(priv.Public().(ed25519.PublicKey)),
+			Potpis: base64.StdEncoding.EncodeToString(ed25519.Sign(priv, kanon))}
+		if _, err := ProvjeriCopPotpis(m); err != nil {
+			t.Fatal(err)
+		}
+		b, err := json.MarshalIndent(m, "", " ")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(kanon), m.Potpis.Potpis, string(b)
+	}
+	var v vektoriCopa
+	v.Zapisi, v.Sadrzaji, v.Otisak = string(zapisi), string(popis), m.Otisak
+	v.Kanonski, v.Potpis, v.Manifest = potpisi(m)
+	m.Rupe = map[string]raspon{ledger.FrontierKey("racunalo-b", ""): {Od: "", Do: "0199c82c-0000-7000-8000-000000000009"}}
+	m.Inacica = inacicaCopa(m.Rupe)
+	v.KanonskiRupe, v.PotpisRupe, v.ManifestRupe = potpisi(m)
+	return v
+}
+
+func izradiVektorePrimanja(t *testing.T, mreza razmjena.NetworkKey, od time.Time) vektoriPrimanja {
+	t.Helper()
+	if scryptN != 1<<16 {
+		t.Fatalf("cijena izvoda ključa iz koda je %d, a vektori traže 2^16", scryptN)
+	}
+	privB := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{0x02}, ed25519.SeedSize))
+	pubB := privB.Public().(ed25519.PublicKey)
+	var v vektoriPrimanja
+	v.Kod = "7KQ4-M2XD"
+	sol := bytes.Repeat([]byte{0xCC}, 16)
+	v.Sol = base64.StdEncoding.EncodeToString(sol)
+	kljuc, err := kljucIzKoda(v.Kod, sol)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v.KljucDokaza = hex.EncodeToString(kljuc)
+
+	z := Zahtjev{V: verzijaZahtjeva, Cvor: "racunalo-b", Naziv: "Računalo B", Kljuc: razmjena.PublicKeyString(pubB),
+		Izdanje: "1.0.0", Vrijeme: od, Sol: v.Sol}
+	v.ZahtjevBajtovi = string(z.signedBytes())
+	z.Dokaz = dokaz(kljuc, verzijaZahtjeva, z.signedBytes())
+	z.Potpis = base64.StdEncoding.EncodeToString(ed25519.Sign(privB, z.signedBytes()))
+	v.ZahtjevDokaz, v.ZahtjevPotpis = z.Dokaz, z.Potpis
+	b, err := json.MarshalIndent(z, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	v.Zahtjev = string(b)
+	if _, k, err := procitajZahtjevSKodom(b, "7kq4 m2xd"); err != nil || !bytes.Equal(k, kljuc) {
+		t.Fatalf("zahtjev iz vektora se ne da pročitati s kodom: %v", err)
+	}
+
+	clan, err := mreza.AdmitOd(z.Cvor, pubB, "admin-1", od, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := Potvrda{V: verzijaPotvrde, Mreza: mreza.Name, KljucMreze: razmjena.PublicKeyString(mreza.Public), Clanstvo: clan,
+		Izdao: "admin-1", Izdano: od, Sol: z.Sol,
+		Cvorovi: []CvorPotvrde{{Peer: Peer{NodeID: "admin-1", Name: "Admin 1", PublicKey: razmjena.PublicKeyString(ed25519.NewKeyFromSeed(bytes.Repeat([]byte{0x01}, ed25519.SeedSize)).Public().(ed25519.PublicKey)),
+			Addresses: []string{"192.0.2.1:4710"}, CreatedAt: od}}}}
+	bez, err := json.Marshal(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	kanon, err := kanonPotvrde(bez)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v.PotvrdaKanon = string(kanon)
+	datoteka := p.potpisanKodom(kljuc)
+	v.Potvrda = string(datoteka)
+	var procitana Potvrda
+	if err := json.Unmarshal(datoteka, &procitana); err != nil {
+		t.Fatal(err)
+	}
+	v.PotvrdaDokaz = procitana.Dokaz
 	return v
 }
 
