@@ -62,7 +62,7 @@ func TestPrazanPopisPrijava(t *testing.T) {
 	}
 	for _, adresa := range []string{"/prijave?status=NACRT", "/prijave?sektor=P", "/prijave?q=rampa", "/prijave?godina=2022", "/prijave?podrucje=1"} {
 		s := pr.get(t, nov, adresa).Body.String()
-		if !strings.Contains(s, nemaIzbora) || !strings.Contains(s, "Novu prijavu otvarate gumbom gore ili s Terena.") || strings.Contains(s, josNema) {
+		if !strings.Contains(s, nemaIzbora) || !strings.Contains(s, "Novu prijavu otvarate gumbom gore ili s Naslovne.") || strings.Contains(s, josNema) {
 			t.Errorf("%s: prazan izbor mora ostati rečenica o izboru", adresa)
 		}
 	}
