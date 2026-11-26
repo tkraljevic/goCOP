@@ -113,5 +113,45 @@
     },
     "odbijenica": "{\"kind\":\"odbijeno\",\"reason\":\"a\\u003cb\\u003e\\u0026c\",\"kod\":259}\n",
     "odbijenicaSRazdjelnicima": "{\"kind\":\"odbijeno\",\"reason\":\"a\\u2028b\\u2029c\",\"kod\":259}\n"
+  },
+  "potpisVerzije": {
+    "obicna": {
+      "ulaz": {
+        "version_id": "019a2b3c-4d5e-7f00-8000-000000000001",
+        "entity": "users",
+        "entity_id": "korisnik-1",
+        "node_id": "admin-1",
+        "supersedes": "",
+        "archived": false,
+        "channel": "",
+        "schema_version": 1,
+        "created_at": "2025-10-09T08:53:20Z",
+        "payload": "{\"full_name\":\"Ana Horvat\",\"username\":\"ahorvat\"}"
+      },
+      "oblikSadrzaja": "{\"full_name\":\"Ana Horvat\",\"username\":\"ahorvat\"}",
+      "sadrzaj": "f91643dfb36449376fa63a8013b822fc8849fcb4372cd4ab15096e603afd453e",
+      "bajtovi": "gocop-verzija-v1|{\"version_id\":\"019a2b3c-4d5e-7f00-8000-000000000001\",\"entity\":\"users\",\"entity_id\":\"korisnik-1\",\"node_id\":\"admin-1\",\"supersedes\":\"\",\"archived\":false,\"channel\":\"\",\"schema_version\":1,\"created_at\":1760000000,\"kljuc_autora\":\"iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=\",\"sadrzaj\":\"f91643dfb36449376fa63a8013b822fc8849fcb4372cd4ab15096e603afd453e\"}",
+      "kljucAutora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=",
+      "potpis": "EJz/fA0DxfGJvduZ70r2R2IFnZhv9oyEZ4Vq/W7Od/s1ePCelqT+iuS8eunLJKA+MSJ4K7naQGBJvLE67OBjBQ=="
+    },
+    "posebniZnakovi": {
+      "ulaz": {
+        "version_id": "019a2b3c-4d5e-7f00-8000-000000000002",
+        "entity": "readings",
+        "entity_id": "ocitanje-1",
+        "node_id": "a<b>&c",
+        "supersedes": "019a2b3c-4d5e-7f00-8000-000000000001",
+        "archived": true,
+        "channel": "ocitanja/16/2026",
+        "schema_version": 2,
+        "created_at": "2025-10-09T08:53:21.5Z",
+        "payload": "{ \"napomena\": \"a<b>&c\u2028d\",\n  \"cm\": 312 }"
+      },
+      "oblikSadrzaja": "{\"napomena\":\"a\\u003cb\\u003e\\u0026c\\u2028d\",\"cm\":312}",
+      "sadrzaj": "12e8d3a8916b1fba21113959ad161ead44d88ef8aed86bcb686daa43acdb7f5e",
+      "bajtovi": "gocop-verzija-v1|{\"version_id\":\"019a2b3c-4d5e-7f00-8000-000000000002\",\"entity\":\"readings\",\"entity_id\":\"ocitanje-1\",\"node_id\":\"a\\u003cb\\u003e\\u0026c\",\"supersedes\":\"019a2b3c-4d5e-7f00-8000-000000000001\",\"archived\":true,\"channel\":\"ocitanja/16/2026\",\"schema_version\":2,\"created_at\":1760000001,\"kljuc_autora\":\"iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=\",\"sadrzaj\":\"12e8d3a8916b1fba21113959ad161ead44d88ef8aed86bcb686daa43acdb7f5e\"}",
+      "kljucAutora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=",
+      "potpis": "O9hAYeypmvDeT48LzhjXwXjLSi2547qOwZCwuFbHALC4TXTH2MZlahzxlB+v+O5NEShBng1NAYr4uxxvX6KGCw=="
+    }
   }
 }
