@@ -133,6 +133,9 @@ type AktiPageData struct {
 	SmijeUreditiNacrt bool
 	MoguPotpisati     []models.User // za izbor potpisnika uz sken
 	Slanje            *SlanjeData   // slanje izvornika primateljima "na znanje"
+	// IzvornikNijeOvdje: ovjeren akt ima izvornik, a PDF još nije stigao na
+	// ovo računalo, pa stranica ne nudi ni PDF ni slanje
+	IzvornikNijeOvdje bool
 	Upozorenja        []string
 
 	// StornoOdbijen je poruka odbijenog poništenja, RazlogStorna razlog koji
@@ -703,6 +706,7 @@ func (h *AktiHandler) ShowAkt(w http.ResponseWriter, r *http.Request) {
 	data.Potpis = service.ProvjeriPotpis(a)
 	data.SmijePripremiti = !a.Ovjeren() && s.SmijePripremiti(perms, u, a)
 	data.Slanje = h.slanjeZaStranicu(r, s, perms, u, a)
+	data.IzvornikNijeOvdje = izvornikAktaNijeOvdje(r.Context(), s, a)
 	data.SmijeOvjeriti, data.SmijePonistiti = ovjeraIPonistenje(r, s, perms, u, a)
 	data.SmijeZamijenitiSken = data.SmijePonistiti && s.SmijeZamijenitiSken(r.Context(), perms, u, a)
 	data.SmijePrekinuti = prekidljivi(r, s, perms, []models.Akt{*a})[a.ID]
@@ -993,22 +997,58 @@ func (h *AktiHandler) IzvoziPDF(w http.ResponseWriter, r *http.Request) {
 	if a == nil {
 		return
 	}
-	// ovjeren akt ima izvornik: PDF spremljen pri ovjeri ili sken s potpisom
-	// i žigom; služi se bajt za bajt, isti na svakom čvoru
-	if a.Ovjeren() {
-		if pdf, err := s.Izvornik(r.Context(), a.ID); err == nil && pdf != nil {
-			w.Header().Set("Content-Type", "application/pdf")
-			w.Header().Set("Content-Disposition", `inline; filename="`+imeDatotekeAkta(a)+`"`)
-			_, _ = w.Write(pdf)
-			return
-		}
+	pdf, gotovo := izvornikAktaZaIspis(w, r, s, a)
+	if gotovo {
+		return
+	}
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", `inline; filename="`+imeDatotekeAkta(a)+`"`)
+	if pdf != nil {
+		_, _ = w.Write(pdf)
+		return
 	}
 	// bez izvornika akt se crta iznova, sa žigom, ali bez skena potpisa
 	sek, area := h.sektorIPodrucje(a)
-	ime := imeDatotekeAkta(a)
-	w.Header().Set("Content-Type", "application/pdf")
-	w.Header().Set("Content-Disposition", `inline; filename="`+ime+`"`)
 	_, _ = w.Write(PDFAktaSaZigom(a, models.Terms(), sek, area, s.OtisciIspisa(r.Context(), a)))
+}
+
+// porukaPDFAktaNijeOvdje: izvornik akta postoji, a PDF još nije stigao na
+// ovo računalo. Akt je u zajedničkom kanalu, pa ga svako računalo dohvaća
+// i ne otpušta; zato poruka smije reći da će stići. Ne upućuje na računalo
+// na kojem je akt ovjeren: nakon zamjene skena izvornik ima računalo na
+// kojem je sken zamijenjen.
+const porukaPDFAktaNijeOvdje = "PDF akta nije otvoren: izvornik akta, PDF kakav je ovjeren, još nije stigao na ovo računalo. " +
+	"Stići će kad se ovo računalo razmijeni s računalom koje ga ima, a dotad ga otvorite na tom računalu."
+
+// izvornikAktaZaIspis daje PDF izvornika ovjerenog akta (PDF spremljen pri
+// ovjeri ili sken s potpisom i žigom), bajt za bajt isti na svakom
+// računalu; nil kad ga nema, pa se akt crta iznova (nacrt, akt bez
+// izvornika). Kad izvornik postoji, a nije ovdje, ili se ne da pročitati,
+// sam odgovori i javi gotovo: crtež pod imenom izvornika nije izvornik.
+func izvornikAktaZaIspis(w http.ResponseWriter, r *http.Request, s *service.AktService, a *models.Akt) (pdf []byte, gotovo bool) {
+	if !a.Ovjeren() {
+		return nil, false
+	}
+	pdf, err := s.Izvornik(r.Context(), a.ID)
+	switch {
+	case errors.Is(err, service.ErrIzvornikAktaNijeOvdje):
+		redirectWith(w, r, "/akti/"+a.ID, "error", porukaPDFAktaNijeOvdje)
+		return nil, true
+	case err != nil:
+		http.Error(w, "PDF akta nije otvoren: izvornik akta nije se dao pročitati.", http.StatusInternalServerError)
+		return nil, true
+	}
+	return pdf, false
+}
+
+// izvornikAktaNijeOvdje javlja da ovjeren akt ima izvornik, a njegov PDF još
+// nije stigao na ovo računalo: stranica tada ne nudi ni PDF ni slanje
+func izvornikAktaNijeOvdje(ctx context.Context, s *service.AktService, a *models.Akt) bool {
+	if !a.Ovjeren() {
+		return false
+	}
+	_, err := s.Izvornik(ctx, a.ID)
+	return errors.Is(err, service.ErrIzvornikAktaNijeOvdje)
 }
 
 // IzvoziZaIspis daje PDF nacrta za ispis, vlastoručni potpis i žig

@@ -677,6 +677,14 @@ type Izvornik struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+// NijeOvdje javlja da izvornik akta postoji, ali njegov PDF nije na ovom
+// računalu: zapis je stigao razmjenom, a PDF još nije. Takav akt se ne smije
+// crtati ni slati iznova umjesto izvornika, jer crtež nije PDF kakav je
+// ovjeren (kod ručno potpisanog akta nema ni skena s potpisom i žigom).
+func (iz *Izvornik) NijeOvdje() bool {
+	return iz != nil && iz.Otisak != "" && len(iz.PDF) == 0
+}
+
 const izvornikUpsert = `INSERT INTO akti_izvornici (akt_id, otisak, bajtova, vrsta, sazetak, created_at) VALUES (?, ?, ?, ?, ?, ?)
 	ON CONFLICT(akt_id) DO UPDATE SET otisak = excluded.otisak, bajtova = excluded.bajtova, vrsta = excluded.vrsta,
 		sazetak = excluded.sazetak, created_at = excluded.created_at`
@@ -753,8 +761,24 @@ func (r *AktiRepository) ZamijenjeniSken(ctx context.Context, sazetak string) []
 	return ucitajSadrzaj(ctx, sazetak)
 }
 
-// GetIzvornik čita potpisani PDF akta; nil kad ga nema
+// GetIzvornik čita potpisani PDF akta; nil kad ga nema. Kad zapis postoji, a
+// PDF nije na ovom računalu, zapis se vraća bez bajtova (NijeOvdje). PDF
+// koji je ovdje, a ne da se pročitati, greška je: inače bi izgledao kao
+// PDF koji još nije stigao, a takav se ne traži ponovno.
 func (r *AktiRepository) GetIzvornik(ctx context.Context, aktID string) (*Izvornik, error) {
+	iz, err := r.ZapisIzvornika(ctx, aktID)
+	if err != nil || iz == nil {
+		return nil, err
+	}
+	if iz.PDF, err = pdfIzvornika(ctx, iz.Otisak); err != nil {
+		return nil, fmt.Errorf("izvornik akta %s: %w", aktID, err)
+	}
+	return iz, nil
+}
+
+// ZapisIzvornika čita zapis izvornika akta bez PDF-a; nil kad ga nema. Za
+// pitanja na koja PDF ne treba (postoji li izvornik, koliko je velik).
+func (r *AktiRepository) ZapisIzvornika(ctx context.Context, aktID string) (*Izvornik, error) {
 	iz := Izvornik{AktID: aktID}
 	err := r.db.QueryRowContext(ctx, `SELECT otisak, bajtova, vrsta, sazetak, created_at FROM akti_izvornici WHERE akt_id = ?`, aktID).
 		Scan(&iz.Otisak, &iz.Bajtova, &iz.Vrsta, &iz.Sazetak, &iz.CreatedAt)
@@ -764,8 +788,24 @@ func (r *AktiRepository) GetIzvornik(ctx context.Context, aktID string) (*Izvorn
 	if err != nil {
 		return nil, err
 	}
-	iz.PDF = ucitajSadrzaj(ctx, iz.Otisak)
 	return &iz, nil
+}
+
+// pdfIzvornika čita PDF izvornika iz spremišta: nil bez greške kad ga ovo
+// računalo nema, a greška kad spremište nije otvoreno ili se PDF koji je
+// ovdje ne da pročitati
+func pdfIzvornika(ctx context.Context, otisak string) ([]byte, error) {
+	if otisak == "" {
+		return nil, nil
+	}
+	if spremiste == nil {
+		return nil, errBezSpremista
+	}
+	b, _, err := spremiste.Citaj(ctx, otisak)
+	if errors.Is(err, sadrzaj.ErrNema) {
+		return nil, nil
+	}
+	return b, err
 }
 
 // ---- slanje na znanje ----
@@ -1214,7 +1254,10 @@ func (r *AktiRepository) DeleteAktTrajno(ctx context.Context, id string) error {
 		return err
 	}
 	slanja, _ := r.ListSlanja(ctx, id)
-	iz, _ := r.GetIzvornik(ctx, id)
+	iz, err := r.ZapisIzvornika(ctx, id)
+	if err != nil {
+		return err
+	}
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -1228,13 +1271,8 @@ func (r *AktiRepository) DeleteAktTrajno(ctx context.Context, id string) error {
 			return err
 		}
 	}
-	if iz != nil {
-		if _, err := tx.ExecContext(ctx, `DELETE FROM akti_izvornici WHERE akt_id = ?`, id); err != nil {
-			return err
-		}
-		if _, err := r.rec.Archive(ctx, tx, EntityIzvornici, id, iz); err != nil {
-			return err
-		}
+	if err := r.obrisiIzvornik(ctx, tx, iz); err != nil {
+		return err
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM akti WHERE id = ?`, id); err != nil {
 		return err
@@ -1243,4 +1281,17 @@ func (r *AktiRepository) DeleteAktTrajno(ctx context.Context, id string) error {
 		return err
 	}
 	return tx.Commit()
+}
+
+// obrisiIzvornik briše zapis izvornika akta i bilježi brisanje u knjizi;
+// ništa kad akt izvornika nema
+func (r *AktiRepository) obrisiIzvornik(ctx context.Context, tx *sql.Tx, iz *Izvornik) error {
+	if iz == nil {
+		return nil
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM akti_izvornici WHERE akt_id = ?`, iz.AktID); err != nil {
+		return err
+	}
+	_, err := r.rec.Archive(ctx, tx, EntityIzvornici, iz.AktID, iz)
+	return err
 }

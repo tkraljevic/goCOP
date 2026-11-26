@@ -522,12 +522,9 @@ func (s *AktService) PosaljiNaZnanje(ctx context.Context, perms *models.UserPerm
 	if err != nil {
 		return nil, err
 	}
-	pdf, err := s.Izvornik(ctx, a.ID)
-	if err != nil || pdf == nil {
-		pdf = poruka.PDF // program izrađuje PDF ovjerenog akta
-	}
-	if len(pdf) == 0 {
-		return nil, fmt.Errorf("PDF akta nije dostupan")
+	pdf, err := s.privitakAkta(ctx, a.ID, poruka.PDF)
+	if err != nil {
+		return nil, err
 	}
 
 	// šalje se samo na adrese s popisa "na znanje"
@@ -589,6 +586,33 @@ func (s *AktService) PosaljiNaZnanje(ctx context.Context, perms *models.UserPerm
 		return ishod, fmt.Errorf("poslano, ali zapis slanja nije spremljen: %w", err)
 	}
 	return ishod, nil
+}
+
+// ErrSlanjeBezIzvornika: akt se šalje kao izvornik, a PDF izvornika još nije
+// stigao na ovo računalo. Akt je u zajedničkom kanalu, pa ga svako računalo
+// dohvaća i ne otpušta: stigne kad ga ima računalo s kojim se razmjenjuje.
+// Ne upućuje na računalo na kojem je akt ovjeren: nakon zamjene skena
+// izvornik ima računalo na kojem je sken zamijenjen.
+var ErrSlanjeBezIzvornika = errors.New("akt nije poslan: izvornik akta, PDF kakav je ovjeren, još nije stigao na ovo računalo, a primatelji dobivaju baš njega. " +
+	"Stići će kad se ovo računalo razmijeni s računalom koje ga ima. Tada akt pošaljite odavde, ili ga dotad pošaljite s tog računala")
+
+// privitakAkta je PDF koji primatelji dobivaju: izvornik akta, a PDF koji
+// izradi program (nacrtan) samo kad akt izvornika nema. Izvornik koji
+// postoji, a nije ovdje ili se ne da pročitati, ne zamjenjuje se crtežom:
+// primatelji bi dobili PDF koji nije izvornik.
+func (s *AktService) privitakAkta(ctx context.Context, id string, nacrtan []byte) ([]byte, error) {
+	pdf, err := s.Izvornik(ctx, id)
+	switch {
+	case errors.Is(err, ErrIzvornikAktaNijeOvdje):
+		return nil, ErrSlanjeBezIzvornika
+	case err != nil:
+		return nil, fmt.Errorf("akt nije poslan: izvornik akta nije se dao pročitati (%w)", err)
+	case len(pdf) > 0:
+		return pdf, nil
+	case len(nacrtan) == 0:
+		return nil, fmt.Errorf("PDF akta nije dostupan")
+	}
+	return nacrtan, nil
 }
 
 // racunKorisnika vraća korisnikov račun e-pošte s otključanom lozinkom

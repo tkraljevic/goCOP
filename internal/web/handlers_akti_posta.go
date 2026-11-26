@@ -263,7 +263,8 @@ func (h *AktiHandler) HandlePosalji(w http.ResponseWriter, r *http.Request) {
 	}
 	sek, area := h.sektorIPodrucje(a)
 	por := porukaAkta(a, sek, u)
-	// privitak je izvornik; bez njega akt se crta iznova, bez skena potpisa
+	// privitak je izvornik; crtež bez skena potpisa šalje se samo kad akt
+	// izvornika nema, a izvornik koji nije ovdje servis crtežom ne zamjenjuje
 	por.PDF = PDFAktaSaZigom(a, models.Terms(), sek, area, s.OtisciIspisa(r.Context(), a))
 	dodatne := posta.Adrese(r.FormValue("dodatne"))
 	if r.FormValue("dodatne") != "" && len(dodatne) == 0 {
