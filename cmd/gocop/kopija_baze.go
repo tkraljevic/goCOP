@@ -48,12 +48,14 @@ func kopijaUzPokretanje(baza string) error {
 }
 
 // izdanjePrograma je izdanje bez oznake commita, isto kao u imenu kopije
-// koje daje Postava
+// koje daje Postava. Slika za Docker zadaje version s oznakom commita
+// ("0.0.70-alfa (abc1234)"), pa se oznaka ovdje reže.
 func izdanjePrograma() string {
-	if version != "" {
-		return version
+	if version == "" {
+		return verzijaPrograma
 	}
-	return verzijaPrograma
+	izdanje, _, _ := strings.Cut(version, " (")
+	return izdanje
 }
 
 // kopijaPrijeNadogradnje kopira bazu na putu baza prije nego je otvori

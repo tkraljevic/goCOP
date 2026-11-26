@@ -199,6 +199,14 @@ func TestIzdanjePrograma(t *testing.T) {
 	if got := izdanjePrograma(); got != "0.0.70-alfa" {
 		t.Errorf("s oznakom: %q", got)
 	}
+	// slika za Docker zadaje izdanje s oznakom commita
+	version = "0.0.70-alfa (abc1234)"
+	if got := izdanjePrograma(); got != "0.0.70-alfa" {
+		t.Errorf("izdanje s oznakom commita = %q, želim 0.0.70-alfa", got)
+	}
+	if got := imeIzdanja(izdanjePrograma()); got != "0.0.70-alfa" {
+		t.Errorf("ime kopije = %q, želim 0.0.70-alfa", got)
+	}
 }
 
 func TestOstaviNajnovijeBezMape(t *testing.T) {
