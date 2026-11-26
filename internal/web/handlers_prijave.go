@@ -109,6 +109,9 @@ type PrijavePageData struct {
 	ImaKljuc      bool
 	Simulacija    bool
 	SmijeRijesiti bool
+	// UrudzbaCekaIzvornik: urudžba se dopisuje na izvornik prijave, a on nije
+	// na ovom računalu (Izvornik.NijeOvdje), pa obrasca urudžbe nema
+	UrudzbaCekaIzvornik bool
 	// DnevniList je list na kojem je prijava, s brojem kakav sada ima
 	DnevniList *models.VodocuvarskiList
 	Lat, Lon   string
@@ -360,17 +363,31 @@ func (h *PrijaveHandler) ShowPrijava(w http.ResponseWriter, r *http.Request) {
 	d.Simulacija = h.vod.simulacijaKljuca(r)
 	if p.Objavljena() {
 		d.DnevniList = s.ListPrijave(r.Context(), p)
-		if iz, _ := s.Izvornik(r.Context(), perms, p.ID); iz != nil && len(iz.PDF) > 0 {
-			d.Izvornik.Ima = true
-			if h.vod.potpis != nil {
-				if ps := h.vod.potpis(); ps != nil {
-					d.Izvornik.Potpisi = ps.Provjeri(r.Context(), iz.PDF)
-				}
-			}
-		}
+		h.izvornikNaStranici(r.Context(), s, perms, p, &d)
 	}
 	if err := h.tmplView.ExecuteTemplate(w, "prijava.html", d); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// izvornikNaStranici puni potpise izvornika objavljene prijave. Kad izvornik
+// postoji, a nije ovdje, stranica to kaže, a urudžbe, koja se dopisuje na
+// izvornik, ne nudi.
+func (h *PrijaveHandler) izvornikNaStranici(ctx context.Context, s *service.PrijavaService, perms *models.UserPermissions, p *models.PrijavaSTerena, d *PrijavePageData) {
+	iz, err := s.Izvornik(ctx, perms, p.ID)
+	if err != nil || iz == nil {
+		return
+	}
+	if iz.NijeOvdje() {
+		d.Izvornik = potpisiIzvornika{Ima: true, NijeOvdje: true}
+		d.UrudzbaCekaIzvornik = p.Vrsta == models.PrijavaPrijava
+		return
+	}
+	d.Izvornik.Ima = true
+	if h.vod.potpis != nil {
+		if ps := h.vod.potpis(); ps != nil {
+			d.Izvornik.Potpisi = ps.Provjeri(ctx, iz.PDF)
+		}
 	}
 }
 
@@ -435,6 +452,25 @@ func (h *PrijaveHandler) biljeskaUrudzbe(r *http.Request, s *service.PrijavaServ
 	}
 }
 
+// pratiDopis javlja je li bilješka urudžbe dopisana na PDF: prijava bez
+// izvornika dobiva klasu i urbroj bez bilješke
+func pratiDopis(izradi func(p *models.PrijavaSTerena, izvornik []byte) ([]byte, error)) (func(p *models.PrijavaSTerena, izvornik []byte) ([]byte, error), *bool) {
+	dopisano := new(bool)
+	return func(p *models.PrijavaSTerena, izvornik []byte) ([]byte, error) {
+		pdf, err := izradi(p, izvornik)
+		*dopisano = err == nil
+		return pdf, err
+	}, dopisano
+}
+
+// porukaUrudzbe kaže je li urudžba dopisana i na PDF
+func porukaUrudzbe(dopisano bool) string {
+	if dopisano {
+		return "Klasa i urudžbeni broj su upisani i dopisani na PDF; potpis vodočuvara ostaje kakav jest."
+	}
+	return "Klasa i urudžbeni broj su upisani."
+}
+
 // HandleRadnja: objavi (s lozinkom za potpis), riješi, urudžbiraj, obriši nacrt, makni sliku
 func (h *PrijaveHandler) HandleRadnja(w http.ResponseWriter, r *http.Request) {
 	u, perms, _ := h.base(r)
@@ -485,8 +521,9 @@ func (h *PrijaveHandler) HandleRadnja(w http.ResponseWriter, r *http.Request) {
 		_, err = s.RijesiSUrudzbom(r.Context(), perms, u, id, urudzbaIzObrasca(r), h.biljeskaUrudzbe(r, s, u))
 		poruka = "Prijava je označena kao pregledana i riješena."
 	case "urudzbiraj":
-		_, err = s.Urudzbiraj(r.Context(), perms, u, id, urudzbaIzObrasca(r), h.biljeskaUrudzbe(r, s, u))
-		poruka = "Klasa i urudžbeni broj su upisani i dopisani na PDF; potpis vodočuvara ostaje kakav jest."
+		izradi, dopisano := pratiDopis(h.biljeskaUrudzbe(r, s, u))
+		_, err = s.Urudzbiraj(r.Context(), perms, u, id, urudzbaIzObrasca(r), izradi)
+		poruka = porukaUrudzbe(*dopisano)
 	case "obrisi":
 		err = s.Obrisi(r.Context(), u, id)
 		poruka = "Nacrt je obrisan."
@@ -533,19 +570,56 @@ func (h *PrijaveHandler) IzvoziPDF(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	izvornik, gotovo := izvornikPrijaveZaIspis(w, r, s, perms, p)
+	if gotovo {
+		return
+	}
 	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Disposition", `inline; filename="prijava-`+sigurnoIme(p.Oznaka())+`.pdf"`)
-	if p.Objavljena() {
-		if iz, _ := s.Izvornik(r.Context(), perms, p.ID); iz != nil && len(iz.PDF) > 0 {
-			_, _ = w.Write(iz.PDF)
-			return
-		}
-		if !p.Rekonstrukcija {
-			http.Error(w, "izvornik objavljene prijave nedostaje", http.StatusConflict)
-			return
-		}
-		// prenesena iz ranije evidencije bez skena: crta se iznova, bez potpisa
+	if izvornik != nil {
+		_, _ = w.Write(izvornik)
+		return
 	}
+	// nacrt, ili prenesena iz ranije evidencije bez izvornika: crta se
+	// iznova, bez potpisa
 	pdf, _ := pdfPrijave(p, h.prilog(r.Context(), r, s, p), models.Terms(), true)
 	_, _ = w.Write(pdf)
+}
+
+// porukaPDFPrijaveNijeOvdje: izvornik prijave postoji, a PDF nije na ovom
+// računalu. Ne obećava da će PDF stići: uz pretplatu bez PDF-ova ne stiže
+// nikad, a otpušten nakon roka ne traži se ponovno. Prenesena prijava nije
+// objavljena ni na jednom računalu: PDF joj je složen pri prijenosu.
+func porukaPDFPrijaveNijeOvdje(p *models.PrijavaSTerena) string {
+	if p.Rekonstrukcija {
+		return "PDF prijave nije otvoren: na ovom računalu nema PDF-a koji je složen pri prijenosu prijave iz ranije evidencije. " +
+			"Otvorite ga na računalu na kojem je prijava prenesena ili koje prati PDF-ove prijava s terena."
+	}
+	return "PDF prijave nije otvoren: na ovom računalu nema izvornika prijave, PDF-a kakav je objavljen. " +
+		"Otvorite ga na računalu na kojem je prijava objavljena ili koje prati PDF-ove prijava s terena."
+}
+
+// izvornikPrijaveZaIspis daje PDF izvornika objavljene prijave kad je ovdje;
+// nil za nacrt i za prenesenu prijavu bez izvornika, koje se crtaju iznova.
+// Kad izvornik postoji, a nije ovdje, ili se ne da pročitati, sam odgovori i
+// javi gotovo: crtež bi pod imenom izvornika dao PDF bez potpisa.
+func izvornikPrijaveZaIspis(w http.ResponseWriter, r *http.Request, s *service.PrijavaService, perms *models.UserPermissions, p *models.PrijavaSTerena) (pdf []byte, gotovo bool) {
+	if !p.Objavljena() {
+		return nil, false
+	}
+	iz, err := s.Izvornik(r.Context(), perms, p.ID)
+	switch {
+	case err != nil:
+		http.Error(w, "PDF prijave nije otvoren: izvornik prijave nije se dao pročitati.", http.StatusInternalServerError)
+		return nil, true
+	case iz.NijeOvdje():
+		redirectWith(w, r, "/prijave/"+p.ID, "error", porukaPDFPrijaveNijeOvdje(p))
+		return nil, true
+	case iz != nil && len(iz.PDF) > 0:
+		return iz.PDF, false
+	case !p.Rekonstrukcija:
+		http.Error(w, "izvornik objavljene prijave nedostaje", http.StatusConflict)
+		return nil, true
+	}
+	return nil, false
 }

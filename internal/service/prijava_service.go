@@ -442,7 +442,7 @@ type Urudzba struct {
 // (samo vrsta PRIJAVA ide iz kuće u urudžbeni zapisnik). Prijava je
 // isključivo dokument vodočuvara: nitko je ne parafira; urudžba se dopisuje
 // kao bilješka na potpisani PDF, koju pozivatelj izradi (izradi smije biti
-// nil). Smije vodočuvar sam, ili uprava njegove knjige (upravaKnjige).
+// nil, ali izvornik koji nije ovdje odbija urudžbu i tada). Smije vodočuvar sam, ili uprava njegove knjige (upravaKnjige).
 func (s *PrijavaService) Urudzbiraj(ctx context.Context, perms *models.UserPermissions, u *models.User, id string, ur Urudzba, izradi func(p *models.PrijavaSTerena, izvornik []byte) ([]byte, error)) (*models.PrijavaSTerena, error) {
 	p, err := s.repo.Get(ctx, id)
 	if err != nil || p == nil {
@@ -465,18 +465,84 @@ func (s *PrijavaService) Urudzbiraj(ctx context.Context, perms *models.UserPermi
 		t := time.Now()
 		p.PrimljenoAt = &t
 	}
-	var pdf []byte
-	sazetak := ""
-	if izradi != nil {
-		if iz, _ := s.repo.Izvornik(ctx, p.ID); iz != nil && len(iz.PDF) > 0 {
-			if pdf, err = izradi(p, iz.PDF); err != nil {
-				return nil, err
-			}
-			h := sha256.Sum256(pdf)
-			sazetak = hex.EncodeToString(h[:])
-		}
+	pdf, sazetak, err := s.biljeskaNaIzvornik(ctx, p, izradi)
+	if err != nil {
+		return nil, err
 	}
 	return p, s.repo.Urudzbiraj(ctx, p, pdf, sazetak)
+}
+
+// ErrUrudzbaCekaIzvornik: izvornik objavljene prijave postoji, a njegov PDF
+// nije na ovom računalu (models.IzvornikLista.NijeOvdje), pa se urudžba
+// ovdje ne upisuje. Ne obećava da će PDF stići: uz pretplatu bez PDF-ova ne
+// stiže nikad. Prenesena prijava dobiva grešku s drugim tekstom, koju
+// errors.Is prepoznaje kao ovu (greskaCekaIzvornik).
+var ErrUrudzbaCekaIzvornik = errors.New(tekstCekaIzvornik(false, false))
+
+// ErrRjesenjeCekaIzvornik je ErrUrudzbaCekaIzvornik kad je urudžba upisana
+// uz „Pregledano, riješeno”: ni prijava tada nije riješena
+var ErrRjesenjeCekaIzvornik = errors.New(tekstCekaIzvornik(true, false))
+
+// cekaIzvornik je ErrUrudzbaCekaIzvornik ili ErrRjesenjeCekaIzvornik s
+// tekstom za prenesenu prijavu
+type cekaIzvornik struct {
+	osnovna error
+	tekst   string
+}
+
+func (e cekaIzvornik) Error() string        { return e.tekst }
+func (e cekaIzvornik) Is(target error) bool { return target == e.osnovna }
+
+// greskaCekaIzvornik odbija urudžbu (ili rješenje s urudžbom) prijave čiji
+// izvornik nije ovdje. Prenesena prijava nije objavljena ni na jednom
+// računalu: njezin PDF složen je pri prijenosu iz ranije evidencije.
+func greskaCekaIzvornik(p *models.PrijavaSTerena, rjesenje bool) error {
+	osnovna := ErrUrudzbaCekaIzvornik
+	if rjesenje {
+		osnovna = ErrRjesenjeCekaIzvornik
+	}
+	if !p.Rekonstrukcija {
+		return osnovna
+	}
+	return cekaIzvornik{osnovna: osnovna, tekst: tekstCekaIzvornik(rjesenje, true)}
+}
+
+// tekstCekaIzvornik: što se nije upisalo, kojeg PDF-a nema i gdje se upisuje
+func tekstCekaIzvornik(rjesenje, prenesena bool) string {
+	sto, gdje := "izvornika prijave, PDF-a kakav je objavljen", "na kojem je prijava objavljena"
+	if prenesena {
+		sto, gdje = "PDF-a koji je složen pri prijenosu prijave iz ranije evidencije", "na kojem je prijava prenesena"
+	}
+	if rjesenje {
+		return "prijava nije označena riješenom: na ovom računalu nema " + sto + ", a klasa i urudžbeni broj dopisuju se na njega. " +
+			"Upišite urudžbu na računalu " + gdje + " ili koje prati PDF-ove prijava s terena, a ovdje prijavu označite riješenom bez klase i urudžbenog broja"
+	}
+	return "urudžba nije upisana: na ovom računalu nema " + sto + ", a klasa i urudžbeni broj dopisuju se na njega. " +
+		"Upišite ih na računalu " + gdje + " ili koje prati PDF-ove prijava s terena"
+}
+
+// biljeskaNaIzvornik dopisuje urudžbu na bajtove izvornika (izradi) i vraća
+// novi izvornik sa sažetkom; bez izvornika, ili kad je izradi nil, ništa.
+// Izvornik koji postoji, a nije ovdje, odbija urudžbu i kad je izradi nil:
+// prijava bi dobila klasu bez bilješke na PDF-u, a nitko je ne bi dopisao
+// ni poslije.
+func (s *PrijavaService) biljeskaNaIzvornik(ctx context.Context, p *models.PrijavaSTerena, izradi func(p *models.PrijavaSTerena, izvornik []byte) ([]byte, error)) ([]byte, string, error) {
+	iz, err := s.repo.Izvornik(ctx, p.ID)
+	if err != nil {
+		return nil, "", fmt.Errorf("urudžba nije upisana: izvornik prijave nije se dao pročitati (%w)", err)
+	}
+	if iz.NijeOvdje() {
+		return nil, "", greskaCekaIzvornik(p, false)
+	}
+	if izradi == nil || iz == nil || len(iz.PDF) == 0 {
+		return nil, "", nil
+	}
+	pdf, err := izradi(p, iz.PDF)
+	if err != nil {
+		return nil, "", err
+	}
+	h := sha256.Sum256(pdf)
+	return pdf, hex.EncodeToString(h[:]), nil
 }
 
 // Rijesi zatvara objavljenu prijavu: rukovoditelj je pregledao i riješio.
@@ -506,7 +572,9 @@ func (s *PrijavaService) RijesiSUrudzbom(ctx context.Context, perms *models.User
 		return nil, ErrUnauthorized
 	}
 	if ur.Klasa != "" || ur.Urbroj != "" {
-		if _, err := s.Urudzbiraj(ctx, perms, u, id, ur, izradi); err != nil {
+		if _, err := s.Urudzbiraj(ctx, perms, u, id, ur, izradi); errors.Is(err, ErrUrudzbaCekaIzvornik) {
+			return nil, greskaCekaIzvornik(p, true)
+		} else if err != nil {
 			return nil, err
 		}
 	}

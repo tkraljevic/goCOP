@@ -89,6 +89,7 @@ func novaProbaPrijava(t *testing.T) *probaPrijava {
 	pr.mux.HandleFunc("GET /prijave", h.ShowPopis)
 	pr.mux.HandleFunc("GET /prijave/{id}", h.ShowPrijava)
 	pr.mux.HandleFunc("GET /prijave/{id}/prijava.pdf", h.IzvoziPDF)
+	pr.mux.HandleFunc("POST /prijave/{id}/radnja", h.HandleRadnja)
 	return pr
 }
 

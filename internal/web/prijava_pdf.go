@@ -297,13 +297,7 @@ func pdfPrijave(p *models.PrijavaSTerena, pr prilogPrijave, t models.OrgTerms, c
 	}
 	// podnožje na svakoj stranici: oznaka i broj stranice; na prvoj još
 	// napomena i QR kod za provjeru
-	napomena := "NACRT: prijava još nije objavljena ni potpisana."
-	switch {
-	case p.Rekonstrukcija && p.ObjavljenoAt != nil:
-		napomena = "Rekonstrukcija: prijava prenesena iz ranije evidencije VGI Baranja (app.bp16.xyz), složena iz podataka u goCOP-u; fotografije su smanjene i ugrađene."
-	case p.ObjavljenoAt != nil:
-		napomena = "Upisano na dnevni list vodočuvara " + listPrijave(p) + ". Sastavljeno u goCOP-u; elektronički potpis je vremenska oznaka, a ispis se potpisuje i vlastoručno. Fotografije su smanjene i ugrađene."
-	}
+	napomena := napomenaPrijave(p, pr)
 	qrTekst := sadrzajQR(p, pr.Adresa)
 	d.Podnozje = func(d *pdfw.Doc, stranica, ukupno int) {
 		const qrW = 40.0
@@ -470,4 +464,35 @@ func PDFPrijaveRekonstrukcija(ctx context.Context, p *models.PrijavaSTerena, sli
 	}
 	pdf, _ := pdfPrijave(p, pr, models.Terms(), true)
 	return pdf
+}
+
+// napomenaPrijave je napomena u podnožju prve stranice. Da su fotografije
+// ugrađene kaže samo kad jesu: fotografija koje nema na računalu na kojem se
+// PDF crta u njemu stoji samo natpis.
+func napomenaPrijave(p *models.PrijavaSTerena, pr prilogPrijave) string {
+	ugradjene := sveFotografijeUgradjene(p, pr)
+	switch {
+	case p.ObjavljenoAt == nil:
+		return "NACRT: prijava još nije objavljena ni potpisana."
+	case p.Rekonstrukcija && ugradjene:
+		return "Rekonstrukcija: prijava prenesena iz ranije evidencije VGI Baranja (app.bp16.xyz), složena iz podataka u goCOP-u; fotografije su smanjene i ugrađene."
+	case p.Rekonstrukcija:
+		return "Rekonstrukcija: prijava prenesena iz ranije evidencije VGI Baranja (app.bp16.xyz), složena iz podataka u goCOP-u."
+	}
+	n := "Upisano na dnevni list vodočuvara " + listPrijave(p) + ". Sastavljeno u goCOP-u; elektronički potpis je vremenska oznaka, a ispis se potpisuje i vlastoručno."
+	if ugradjene {
+		n += " Fotografije su smanjene i ugrađene."
+	}
+	return n
+}
+
+// sveFotografijeUgradjene javlja ima li svaka fotografija prijave bajtove za
+// PDF, istim uvjetom po kojem je PDF ugrađuje
+func sveFotografijeUgradjene(p *models.PrijavaSTerena, pr prilogPrijave) bool {
+	for _, sl := range p.Slike {
+		if len(pr.Slike[sl.ID]) == 0 || sl.Sirina == 0 || sl.Visina == 0 {
+			return false
+		}
+	}
+	return true
 }
