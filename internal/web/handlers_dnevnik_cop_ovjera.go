@@ -103,18 +103,9 @@ func (h *JournalsHandler) IzvoziDnevnikPDF(w http.ResponseWriter, r *http.Reques
 		http.NotFound(w, r)
 		return
 	}
-	pdf, err := h.journals.IzvornikCOP(r.Context(), j.ID)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	pdf, gotovo := h.izvornikDnevnikaZaIspis(w, r, j)
+	if gotovo {
 		return
-	}
-	if j.Ovjeren() {
-		// ovjeren dnevnik ima samo jedan PDF: potpisani izvornik; bez njega ili
-		// s izmijenjenim ne daje se ništa što bi se moglo držati za izvornik
-		if st := h.journals.ProvjeriIzvornikCOP(r.Context(), j); !st.Ispravan {
-			http.Error(w, st.Greska, http.StatusConflict)
-			return
-		}
 	}
 	if len(pdf) == 0 {
 		zapisi, e := h.journals.EntriesForJournal(r.Context(), j.ID)
@@ -127,4 +118,43 @@ func (h *JournalsHandler) IzvoziDnevnikPDF(w http.ResponseWriter, r *http.Reques
 	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Disposition", `inline; filename="dnevnik-cop.pdf"`)
 	_, _ = w.Write(pdf)
+}
+
+// porukaDnevnikPDFNijeOvdje: izvornik ovjerenog dnevnika postoji, a PDF nije
+// na ovom računalu. Dnevnik COP-a je u zajedničkom kanalu, pa ga svako
+// računalo traži i ne otpušta; ipak ne obećava da će stići, jer ga možda
+// nema nijedno računalo do kojeg ovo dopire.
+const porukaDnevnikPDFNijeOvdje = "PDF dnevnika nije otvoren: na ovom računalu nema izvornika dnevnika, PDF-a kakav je ovjeren. " +
+	"Ovo računalo ga traži razmjenom; ako vam treba sada, otvorite ga na računalu na kojem je dnevnik ovjeren."
+
+// porukaDnevnikNijeProcitan: zapis izvornika se ne da pročitati iz baze
+const porukaDnevnikNijeProcitan = "PDF dnevnika nije otvoren: izvornik dnevnika nije se dao pročitati. " +
+	"Pokušajte ponovno; ako se ponovi, javite administratoru."
+
+// izvornikDnevnikaZaIspis daje potpisani izvornik ovjerenog dnevnika, a za
+// neovjeren dnevnik izvornik ako ga ima, inače nil, pa se dnevnik crta
+// iznova. Ovjeren dnevnik ima samo jedan PDF: kad izvornik nije ovdje, nije
+// ispravan ili se ne da pročitati, sam odgovori i javi gotovo, jer crtež
+// bi izgledao kao izvornik, a potpisa nema.
+func (h *JournalsHandler) izvornikDnevnikaZaIspis(w http.ResponseWriter, r *http.Request, j *models.Journal) (pdf []byte, gotovo bool) {
+	if !j.Ovjeren() {
+		b, err := h.journals.IzvornikCOP(r.Context(), j.ID)
+		if err != nil {
+			http.Error(w, porukaDnevnikNijeProcitan, http.StatusInternalServerError)
+			return nil, true
+		}
+		return b, false
+	}
+	b, st, err := h.journals.IzvornikOvjerenogCOP(r.Context(), j)
+	switch {
+	case err != nil:
+		http.Error(w, porukaDnevnikNijeProcitan, http.StatusInternalServerError)
+	case st.NijeOvdje:
+		redirectWith(w, r, "/dnevnici/"+j.ID, "error", porukaDnevnikPDFNijeOvdje)
+	case !st.Ispravan:
+		http.Error(w, st.Greska, http.StatusConflict)
+	default:
+		return b, false
+	}
+	return nil, true
 }

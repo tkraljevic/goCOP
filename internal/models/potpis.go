@@ -63,3 +63,10 @@ type IzvornikDnevnika struct {
 	Sazetak   string    `json:"sazetak"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
+
+// NijeOvdje javlja da izvornik dnevnika postoji, ali njegov PDF nije na ovom
+// računalu: zapis je stigao razmjenom, a PDF još nije. Takav izvornik nije
+// neispravan, samo se ovdje ne može ni otvoriti ni provjeriti.
+func (iz *IzvornikDnevnika) NijeOvdje() bool {
+	return iz != nil && iz.Otisak != "" && len(iz.PDF) == 0
+}

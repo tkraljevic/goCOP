@@ -562,10 +562,12 @@
 
 {{/* Radnje dnevnika COP-a, iste u zaglavlju i u izborniku „Još”. Uvjeti su
      isti kao prije: Zaglavlje uprava centra, Obriši uprava centra, oboje
-     dok dnevnik nije ovjeren. */}}
+     dok dnevnik nije ovjeren. PDF ovjerenog dnevnika je njegov izvornik, pa
+     ga nema kad izvornik nije na ovom računalu; traka na kartici Zapisi kaže
+     zašto. */}}
 {{define "dnevnikRadnje"}}
 {{$j := .Journal}}
-<a href="/dnevnici/{{$j.ID}}/dnevnik.pdf" class="btn btn-link" title="Renderirani dnevnik za ispis i ovjeru">PDF</a>
+{{if not .IzvornikCOP.NijeOvdje}}<a href="/dnevnici/{{$j.ID}}/dnevnik.pdf" class="btn btn-link" title="Renderirani dnevnik za ispis i ovjeru">PDF</a>{{end}}
 <a href="/dnevnici/{{$j.ID}}/dnevnik.xlsx{{if .Podrucje}}?podrucje={{.Podrucje}}{{end}}" class="btn btn-link" title="Podaci dnevnika za analizu">Excel</a>
 {{if and .CanManage (not $j.Ovjeren)}}<a href="/dnevnici/{{$j.ID}}/edit" class="btn btn-link">Zaglavlje</a>{{end}}
 {{if and .UpravaCentra (not $j.Ovjeren)}}<form method="POST" action="/dnevnici/{{$j.ID}}/obrisi" class="d-inline"

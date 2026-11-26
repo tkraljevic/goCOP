@@ -631,8 +631,15 @@ func (h *JournalsHandler) ShowJournal(w http.ResponseWriter, r *http.Request) {
 // zaglavljeCOP puni ono što traži zajedničko zaglavlje dnevnika COP-a
 // (dnevnikZaglavlje) na karticama Zapisi, Plan dežurstava i Obračun sati:
 // ista prava koja su stranice i prije čitale, samo na jednom mjestu.
-func (h *JournalsHandler) zaglavljeCOP(d *JournalPageData, j *models.Journal, area *models.Area, kartica string) {
+func (h *JournalsHandler) zaglavljeCOP(ctx context.Context, d *JournalPageData, j *models.Journal, area *models.Area, kartica string) {
 	d.KarticaCOP = kartica
+	// i radnje u zaglavlju gledaju izvornik: PDF se ne nudi kad ga nema
+	// ovdje. Kartica Zapisi izvornik već provjerava cijeli, za traku; ostalim
+	// karticama dosta je pitati spremište, bez čitanja PDF-a.
+	if kartica != "zapisi" {
+		n := h.journals.IzvornikCOPNijeOvdje(ctx, j)
+		d.IzvornikCOP = service.StanjeIzvornika{Ima: n, NijeOvdje: n}
+	}
 	d.VidiPlan = h.journals.VidiPlanDezurstava(d.Permissions, d.Opseg, j)
 	d.VidiObracun = h.journals.VidiObracun(d.Permissions, j)
 	d.UpravaCentra = h.journals.UpravaCentra(d.Permissions, j)
@@ -664,7 +671,8 @@ func (h *JournalsHandler) showDnevnikCOP(w http.ResponseWriter, r *http.Request,
 		}
 		zapisi = samo
 	}
-	h.zaglavljeCOP(&data, j, area, "zapisi")
+	data.IzvornikCOP = h.journals.ProvjeriIzvornikCOP(ctx, j)
+	h.zaglavljeCOP(ctx, &data, j, area, "zapisi")
 	data.Dani = poDanima(zapisi)
 	for _, d := range data.Dani {
 		if d.Dan.Format("2006-01-02") == data.Today {
@@ -672,7 +680,6 @@ func (h *JournalsHandler) showDnevnikCOP(w http.ResponseWriter, r *http.Request,
 		}
 	}
 	data.VoditeljCOP = h.journals.VoditeljCOP(data.CurrentUser, j)
-	data.IzvornikCOP = h.journals.ProvjeriIzvornikCOP(ctx, j)
 	h.render(w, h.tmplCOP, "dnevnik_cop.html", data)
 }
 
