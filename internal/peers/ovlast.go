@@ -197,13 +197,27 @@ func (s *Service) provjeriClanstvo(ctx context.Context, networkPub ed25519.Publi
 // opozivClanstva je greška ErrOpozvano kad je članstvo m opozvano, ili
 // ovlast njegova primatelja; inače nil. Rok i potpis se ovdje ne gledaju.
 func (s *Service) opozivClanstva(ctx context.Context, networkPub ed25519.PublicKey, m razmjena.Membership) error {
-	if s.opozvano(ctx, OpozivClanstva, m.DeviceKey, m.IssuedAt, opozivateljiClanstva(networkPub, m)...) {
+	if s.opozvano(ctx, OpozivClanstva, m.DeviceKey, pokrivenoOd(m), opozivateljiClanstva(networkPub, m)...) {
 		return fmt.Errorf("%w: članstvo čvora %s", ErrOpozvano, m.DeviceID)
 	}
 	if o := m.Primatelj; o != nil && s.opozvano(ctx, OpozivOvlasti, o.DeviceKey, o.IssuedAt, networkPub) {
 		return fmt.Errorf("%w: ovlast primatelja %s, koji je primio %s", ErrOpozvano, o.DeviceID, m.DeviceID)
 	}
 	return nil
+}
+
+// pokrivenoOd je trenutak od kojeg opoziv pokriva članstvo m. Članstvo
+// ključem mreže pokriva opoziv izdan do njegova trenutka, pa ga ključ mreže
+// smije ponovno izdati. Članstvo koje je potpisao primatelj pokriva svaki
+// opoziv tog ključa koji je potpisao ključ mreže ili taj primatelj, bez
+// obzira na trenutke (Odluke (26. 11. 2026.)): inače bi primatelj koji
+// opoziv još nije primio opozvanom članu izdao članstvo s kasnijim
+// trenutkom (obnova, gumb Obnovi, uparivanje), i ono bi vrijedilo svugdje.
+func pokrivenoOd(m razmjena.Membership) time.Time {
+	if m.Primatelj != nil {
+		return time.Time{}
+	}
+	return m.IssuedAt
 }
 
 // opozivateljiClanstva su ključevi čiji opoziv članstva vrijedi: ključ
@@ -287,10 +301,10 @@ func (s *Service) mojaOvlast(ctx context.Context) *razmjena.Ovlast {
 }
 
 // izdajClanstvo prima uređaj u mrežu: ključem mreže kad ga ovaj čvor drži,
-// inače ključem ovog čvora uz njegovu ovlast. Članstvo nosi trenutak iza
-// zadnjeg opoziva članstva tog ključa koji je potpisao ključ mreže ili ovaj
-// čvor (nakonOpoziva), pa ponovni prijem nakon opoziva vrijedi i u istoj
-// sekundi i kad sat ovog računala kasni.
+// inače ključem ovog čvora uz njegovu ovlast. Članstvo ključem mreže nosi
+// trenutak iza zadnjeg opoziva članstva tog ključa koji je potpisao ključ
+// mreže ili ovaj čvor (nakonOpoziva), pa ponovni prijem nakon opoziva
+// vrijedi i u istoj sekundi i kad sat ovog računala kasni.
 func (s *Service) izdajClanstvo(ctx context.Context, id string, kljuc ed25519.PublicKey) (razmjena.Membership, error) {
 	s.mu.Lock()
 	network := s.network
@@ -306,18 +320,17 @@ func (s *Service) izdajClanstvo(ctx context.Context, id string, kljuc ed25519.Pu
 	if network.CanSign() {
 		return network.AdmitOd(id, kljuc, s.node.ID, od, MembershipValidity)
 	}
-	return s.izdajKaoPrimatelj(ctx, id, kljuc, sada, od)
+	return s.izdajKaoPrimatelj(ctx, network.Public, id, kljuc, sada)
 }
 
-// najviseUnaprijed je koliko članstvo koje izda primatelj smije nositi
-// trenutak unaprijed, kao razlika satova u razmjena.Membership.Verify
-const najviseUnaprijed = time.Hour
-
 // izdajKaoPrimatelj prima uređaj ključem ovog čvora uz njegovu ovlast i
-// vlastito članstvo izvan pričuve, s trenutkom od. Članstvo koje bi nosilo
-// trenutak više od sat vremena iza sada druga računala ne bi primila, pa
-// takav prijem radi samo računalo s ključem mreže.
-func (s *Service) izdajKaoPrimatelj(ctx context.Context, id string, kljuc ed25519.PublicKey, sada, od time.Time) (razmjena.Membership, error) {
+// vlastito članstvo izvan pričuve. Ključ koji je ikad opozvan ključem mreže
+// ili ključem ovog čvora ne prima (pokrivenoOd): takvo članstvo ne bi
+// vrijedilo, pa ga ponovno prima samo računalo s ključem mreže.
+func (s *Service) izdajKaoPrimatelj(ctx context.Context, mreza ed25519.PublicKey, id string, kljuc ed25519.PublicKey, sada time.Time) (razmjena.Membership, error) {
+	if s.opozvano(ctx, OpozivClanstva, razmjena.PublicKeyString(kljuc), time.Time{}, mreza, s.node.key.Public().(ed25519.PublicKey)) {
+		return razmjena.Membership{}, fmt.Errorf("članstvo računala %s je opozvano; ponovno ga može primiti samo računalo s ključem mreže", id)
+	}
 	o := s.mojaOvlast(ctx)
 	if o == nil {
 		return razmjena.Membership{}, fmt.Errorf("ovaj čvor ne smije primati članove: nema ključ mreže ni ovlast za primanje")
@@ -327,10 +340,7 @@ func (s *Service) izdajKaoPrimatelj(ctx context.Context, id string, kljuc ed2551
 	if m, err := s.izabranoClanstvo(ctx, s.node.ID); err != nil || m.DeviceKey != s.node.PublicKey() || rokZa(m.ExpiresAt, sada, true).Stanje == RokPricuva {
 		return razmjena.Membership{}, fmt.Errorf("ovaj čvor ne smije primati članove: njegovo članstvo u mreži je isteklo; obnovite ga (Ovo računalo i mreža, pod Mreža: Obnovi članstvo)")
 	}
-	if od.After(sada.Add(najviseUnaprijed)) {
-		return razmjena.Membership{}, fmt.Errorf("članstvo računala %s opozvano je do %s; ponovno ga može primiti samo računalo s ključem mreže", id, datumHR(od))
-	}
-	return razmjena.AdmitAsOd(s.node.key, *o, id, kljuc, od, MembershipValidity)
+	return razmjena.AdmitAsOd(s.node.key, *o, id, kljuc, sada, MembershipValidity)
 }
 
 // IzdajOvlast daje članu ovlast da prima druge, za ključ iz članstva koje
