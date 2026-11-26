@@ -5,11 +5,14 @@ package peers
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
+	"gocop/internal/ledger"
 	"gocop/internal/razmjena"
 )
 
@@ -242,11 +245,11 @@ func TestUpozorenjaRokova(t *testing.T) {
 		ima  string
 		tekt func(*Rok) string
 	}{
-		{nil, "", tekstVlastitogClanstva},
-		{&Rok{Do: sada.Add(100 * dan), Stanje: RokVrijedi}, "", tekstVlastitogClanstva},
-		{&Rok{Do: sada.Add(5 * dan), Stanje: RokIstjece}, "ističe", tekstVlastitogClanstva},
-		{&Rok{Do: sada.Add(-5 * dan), Stanje: RokPricuva}, "Razmjena radi još do", tekstVlastitogClanstva},
-		{&Rok{Do: sada.Add(-40 * dan), Stanje: RokIsteklo}, "pričuva je prošla", tekstVlastitogClanstva},
+		{nil, "", clanstvoBezKljuca},
+		{&Rok{Do: sada.Add(100 * dan), Stanje: RokVrijedi}, "", clanstvoBezKljuca},
+		{&Rok{Do: sada.Add(5 * dan), Stanje: RokIstjece}, "ističe", clanstvoBezKljuca},
+		{&Rok{Do: sada.Add(-5 * dan), Stanje: RokPricuva}, "Razmjena radi još do", clanstvoBezKljuca},
+		{&Rok{Do: sada.Add(-40 * dan), Stanje: RokIsteklo}, "pričuva je prošla", clanstvoBezKljuca},
 		{nil, "", tekstVlastiteOvlasti},
 		{&Rok{Do: sada.Add(5 * dan), Stanje: RokIstjece}, "Ovlast ovog računala za primanje ističe", tekstVlastiteOvlasti},
 		{&Rok{Do: sada.Add(-5 * dan), Stanje: RokIsteklo}, "istekla je", tekstVlastiteOvlasti},
@@ -275,5 +278,124 @@ func TestUpozorenjaRokova(t *testing.T) {
 	}
 	if clanstvo, _ := d.VlastitiRokovi(ctxRub); clanstvo == nil || clanstvo.Stanje != RokIsteklo {
 		t.Errorf("rok nakon pričuve: %+v", clanstvo)
+	}
+}
+
+// clanstvoBezKljuca je rečenica o članstvu računala koje nema ključ mreže
+func clanstvoBezKljuca(r *Rok) string { return tekstVlastitogClanstva(r, false) }
+
+// Računalo s ključem mreže s isteklim članstvom obnavlja se gumbom i prima
+// druge, pa mu pločica, popis članova i e-pošta ne kažu da ga treba ponovno
+// primiti ni da ne prima; računalu bez ključa kažu.
+func TestTekstClanstvaSKljucem(t *testing.T) {
+	sada := time.Now()
+	for _, c := range []struct {
+		stanje    string
+		do        time.Time
+		kljuc     bool
+		ima, nema string
+	}{
+		{RokPricuva, sada.Add(-5 * dan), false, "treba ponovno primiti", "drži ključ mreže"},
+		{RokPricuva, sada.Add(-5 * dan), true, "kliknite Obnovi članstvo", "ponovno primiti"},
+		{RokPricuva, sada.Add(-5 * dan), true, "Razmjena s drugim računalima radi još do", "ne prima druga računala"},
+		{RokIsteklo, sada.Add(-40 * dan), false, "treba ponovno primiti", "drži ključ mreže"},
+		{RokIsteklo, sada.Add(-40 * dan), true, "kliknite Obnovi članstvo", "ponovno primiti"},
+		{RokIsteklo, sada.Add(-40 * dan), true, "i dalje može primati", "uparite"},
+		{RokIstjece, sada.Add(5 * dan), true, "Obnova se traži sama", "ponovno primiti"},
+	} {
+		got := tekstVlastitogClanstva(&Rok{Do: c.do, Stanje: c.stanje}, c.kljuc)
+		if !strings.Contains(got, c.ima) || strings.Contains(got, c.nema) {
+			t.Errorf("%s, ključ %v: %q", c.stanje, c.kljuc, got)
+		}
+	}
+
+	o := ObavijestRoka{Racunalo: "cop-osijek", Vrsta: VrstaObavijestiClanstvo, Rok: Rok{Do: sada.Add(-5 * dan), Stanje: RokPricuva}}
+	if r := redakObavijesti(o); !strings.Contains(r, "ponovno primiti") {
+		t.Errorf("e-pošta za računalo bez ključa: %q", r)
+	}
+	o.sKljucem = true
+	if r := redakObavijesti(o); strings.Contains(r, "ponovno primiti") || !strings.Contains(r, "Obnovi članstvo") {
+		t.Errorf("e-pošta za računalo s ključem: %q", r)
+	}
+
+	// pravo računalo s ključem, s članstvom u pričuvi, pa nakon pričuve
+	a := rubnaMreza(t, "cop-osijek")
+	b := rubniCvor(t, "server-kuca")
+	primiIzravno(t, a, b)
+	if _, err := a.db.Exec(`DELETE FROM memberships WHERE node_id = ?`, a.node.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.db.Exec(`DELETE FROM record_versions WHERE entity = ? AND entity_id = ?`, EntityMemberships, a.node.ID); err != nil {
+		t.Fatal(err)
+	}
+	pricuva := potpisanoClanstvo(t, a.network.Private(), a.node.ID, a.javni(), sada.Add(-370*dan), sada.Add(-5*dan))
+	if err := a.saveMembership(ctxRub, pricuva); err != nil {
+		t.Fatal(err)
+	}
+	if u := strings.Join(a.upozorenjaRokova(ctxRub, nil), "\n"); strings.Contains(u, "ponovno primiti") || !strings.Contains(u, "kliknite Obnovi članstvo") {
+		t.Errorf("pločica računala s ključem u pričuvi:\n%s", u)
+	}
+	obavijesti := a.ObavijestiRoka(ctxRub)
+	if !slices.ContainsFunc(obavijesti, func(o ObavijestRoka) bool { return o.sKljucem && o.Racunalo == a.node.ID }) {
+		t.Errorf("e-pošta ne zna da računalo drži ključ: %+v", obavijesti)
+	}
+	if _, tekst := TekstObavijesti(obavijesti, a.node.ID); strings.Contains(tekst, "ponovno primiti") || !strings.Contains(tekst, "drži ključ mreže") {
+		t.Errorf("e-pošta:\n%s", tekst)
+	}
+	if _, err := a.db.Exec(`DELETE FROM memberships WHERE node_id = ?`, a.node.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.db.Exec(`DELETE FROM record_versions WHERE entity = ? AND entity_id = ?`, EntityMemberships, a.node.ID); err != nil {
+		t.Fatal(err)
+	}
+	isteklo := potpisanoClanstvo(t, a.network.Private(), a.node.ID, a.javni(), sada.Add(-400*dan), sada.Add(-35*dan))
+	if err := a.saveMembership(ctxRub, isteklo); err != nil {
+		t.Fatal(err)
+	}
+	clanovi, err := a.ListMembers(ctxRub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range clanovi {
+		if m.IsSelf && (strings.Contains(m.Problem, "ponovno primiti") || !strings.Contains(m.Problem, "Obnovi članstvo")) {
+			t.Errorf("popis članova, računalo s ključem: %q", m.Problem)
+		}
+	}
+	if m := b.problemClanstva(ctxRub, b.network, isteklo); !strings.Contains(m, "ponovno primiti") {
+		t.Errorf("računalo bez ključa o tuđem isteklom članstvu: %q", m)
+	}
+}
+
+// Zahtjev za obnovu napisan dok je sat bio dva dana unaprijed ima najveću
+// oznaku. Nakon povratka sata on ne zaustavlja nove zahtjeve, a zahtjev se
+// i dalje piše najviše jednom na dan. Ne zaustavlja ih ni zahtjev pod
+// imenom ovog računala s tuđim ključem.
+func TestZahtjevObnoveIzBuducnosti(t *testing.T) {
+	a := rubnaMreza(t, "cop-osijek")
+	b, c := rubniCvor(t, "laptop-baranja"), rubniCvor(t, "laptop-vinkovci")
+	uMrezuSRokom(t, a, b, 10*dan)
+	mreza := b.NetworkInfo().PublicKey
+	zapisi := func(potpisnik *Service, oznaka string, kad time.Time) {
+		t.Helper()
+		z := ZahtjevObnove{NodeID: b.node.ID, PublicKey: potpisnik.node.PublicKey(), Network: mreza, Kad: kad.UTC().Truncate(time.Second)}
+		z.Potpis = potpisiZahtjev(potpisnik, z)
+		p, err := json.Marshal(z)
+		if err != nil {
+			t.Fatal(err)
+		}
+		v := ledger.Version{VersionID: oznaka, Entity: EntityZahtjeviObnove, EntityID: b.node.ID, NodeID: b.node.ID, Payload: p, CreatedAt: time.Now().UTC(), SchemaVersion: 1}
+		if _, err := b.rec.Apply(ctxRub, []ledger.Version{v}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	sada := time.Now()
+	zapisi(b, oznakaVremena(sada.Add(48*time.Hour), 1), sada.Add(48*time.Hour))
+	zapisi(b, oznakaVremena(sada.Add(-25*time.Hour), 1), sada.Add(-25*time.Hour)) // nakon ponovnog pokretanja: manja oznaka
+	zapisi(c, oznakaVremena(sada.Add(-time.Minute), 1), sada.Add(-time.Minute))   // tuđi ključ
+	prije := verzijaZapisa(t, b, EntityZahtjeviObnove, b.node.ID)
+	b.mozdaZatraziObnovu(ctxRub)
+	b.mozdaZatraziObnovu(ctxRub)
+	if n := verzijaZapisa(t, b, EntityZahtjeviObnove, b.node.ID); n != prije+1 {
+		t.Errorf("novih zahtjeva %d, a treba točno jedan", n-prije)
 	}
 }

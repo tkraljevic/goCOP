@@ -596,12 +596,22 @@ func (s *Service) problemClanstva(ctx context.Context, network *razmjena.Network
 		return "neispravan ključ"
 	}
 	if err := s.provjeriClanstvo(ctx, network.Public, m, pub); err != nil {
-		if errors.Is(err, razmjena.ErrExpired) {
-			return fmt.Sprintf("članstvo je isteklo %s i pričuva je prošla; računalo treba ponovno primiti u mrežu", datumHR(m.ExpiresAt))
-		}
-		return err.Error()
+		return s.razlogNevaljanog(network, m, err)
 	}
 	return ""
+}
+
+// razlogNevaljanog je riječima greška err provjere članstva m. Računalo s
+// ključem mreže svoje isteklo članstvo obnavlja samo, gumbom, pa ga ne
+// treba ponovno primati.
+func (s *Service) razlogNevaljanog(network *razmjena.NetworkKey, m razmjena.Membership, err error) string {
+	switch {
+	case !errors.Is(err, razmjena.ErrExpired):
+		return err.Error()
+	case m.DeviceID == s.node.ID && network.CanSign():
+		return fmt.Sprintf("članstvo je isteklo %s i pričuva je prošla; ovo računalo drži ključ mreže, pa ga obnovite gumbom Obnovi članstvo", datumHR(m.ExpiresAt))
+	}
+	return fmt.Sprintf("članstvo je isteklo %s i pričuva je prošla; računalo treba ponovno primiti u mrežu", datumHR(m.ExpiresAt))
 }
 
 // welcomeFor sastavlja paket dobrodošlice za uparenog čvora; potvrdu
