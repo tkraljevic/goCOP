@@ -131,7 +131,17 @@ njima. Ako niste sigurni, izaberite postojeću mrežu.
 
 Imenik djelatnika (`imenik.json`) stavlja se samo uz bazu prvog računala
 mreže, u mapu `data`. Oblik je opisan u [predlošcima uvoza](predlosci/README.md).
-Ostala računala djelatnike dobiju razmjenom.
+To mora biti računalo koje osniva mrežu. Ostala računala djelatnike dobiju
+razmjenom, ali tek kad se na ovom računalu preuzme popis privremenih
+lozinki ili mu prođe rok. Dotad su djelatnici samo na ovom računalu.
+
+Računalo koje primite u postojeću mrežu ne šalje drugima djelatnike ni
+organizaciju iz svoje mape `data`, ni kad ondje stoje `imenik.json` i
+`organizacija.json`. Te podatke dobiva od mreže, pa izmjene napravljene u
+mreži ostaju. Isto vrijedi kad mrežu osnujete na novoj bazi, a ključ mreže
+(`network-key`) ostao je uz nju od ranije. Ako je to ipak prvo računalo
+nove mreže, prije osnivanja maknite staru datoteku `network-key` i bazu
+napunite iznova; inače djelatnici iz imenika ne stignu drugima.
 
 Pri prvom pokretanju program upiše djelatnike iz imenika i svakome složi
 njegovu privremenu lozinku. Zajedničke početne lozinke nema. Kad imenik

@@ -404,7 +404,14 @@ tailscale_lokalno` uključen.
   privremene lozinke i novi popis. Popis vrijedi 24 sata od prvog punjenja
   (Odluke (30. 10. 2026.)); tada se briše iz memorije i baze, uz redak u
   dnevniku, a lozinke se daju poništenjem. Privremena lozinka mijenja se
-  pri prvoj prijavi. Popis vrijedi za čvor koji ga je složio.
+  pri prvoj prijavi. Popis složi i pokaže samo čvor koji je napunio imenik.
+  Dok popis čeka, računi iz imenika ne idu razmjenom. Kad se popis preuzme
+  ili mu prođe rok, računi s dužnostima putuju na ostale čvorove, a s
+  njima i sažetak privremene lozinke uz obaveznu promjenu pri prvoj
+  prijavi. To radi samo čvor koji je osnovao mrežu: čvor primljen u
+  postojeću mrežu svoje punjenje ne šalje, pa ne može vratiti privremenu
+  lozinku preko lozinke koju je osoba već promijenila. Početni račun
+  `admin` ne putuje tim putem.
 - Računi iz izdanja do 0.0.46-alfa koji još imaju staru zajedničku početnu
   lozinku ne prijavljuju se ni s jedne adrese, ni iz lokalne mreže, dok im
   administrator ne poništi lozinku (Odluke (30. 10. 2026.)). Ta lozinka ne

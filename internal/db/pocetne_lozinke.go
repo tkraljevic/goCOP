@@ -24,6 +24,13 @@ import (
 // mijenja pri prvoj prijavi (must_change_password). Popis vrijedi 24 sata
 // od prvog punjenja (Odluke (30. 10. 2026.)); nakon toga se briše, a
 // lozinke se daju poništenjem.
+//
+// Dok popis čeka, računi s njega nemaju verziju u knjizi i ne putuju, pa
+// obnova popisa (ObnoviPocetneLozinke) zna da ih nitko nije dirao. Kad se
+// popis preuzme ili mu prođe rok, repository.UpisiPunjenje upiše račune i
+// njihove dužnosti u knjigu, sa sažetkom privremene lozinke i obaveznom
+// promjenom, pa stižu i na druga računala (Odluke (26. 11. 2026.)). To radi
+// samo računalo koje je osnovalo mrežu (punjenje_za_knjigu.go).
 
 // RokPopisaLozinki je koliko popis privremenih lozinki vrijedi od prvog
 // punjenja
@@ -177,8 +184,9 @@ func popisLozinki(users []seedUser, lozinke []string, dodanAdmin bool) []Pocetna
 
 // upisiRacune upisuje račune i njihove dužnosti u jednoj transakciji;
 // sazeci[i] je sažetak lozinke računa users[i], a zadnji je za račun admin.
-// Uz imenik zapamti i da popis lozinki čeka preuzimanje. Javlja je li račun
-// admin upisan.
+// Račune iz imenika i njihove dužnosti označi za knjigu verzija
+// (oznaciRacune). Uz imenik zapamti i da popis lozinki čeka preuzimanje.
+// Javlja je li račun admin upisan.
 func upisiRacune(database *sql.DB, users []seedUser, sazeci []string, dodajAdmina bool) (bool, error) {
 	tx, err := database.Begin()
 	if err != nil {
@@ -217,11 +225,20 @@ func upisiRacune(database *sql.DB, users []seedUser, sazeci []string, dodajAdmin
 	}
 	adminUpisan := dodajAdmina && upisiAdmina(insertUserStmt, insertDutyStmt, sazeci[len(users)], now)
 	if len(users) > 0 {
-		if err := zapamtiCekanje(tx, users, sazeci, adminUpisan, now); err != nil {
+		if err := zabiljeziImenik(tx, users, sazeci, adminUpisan, now); err != nil {
 			return false, err
 		}
 	}
 	return adminUpisan, tx.Commit()
+}
+
+// zabiljeziImenik označi račune iz imenika i njihove dužnosti za knjigu
+// verzija (oznaciRacune) i zapamti da popis lozinki čeka preuzimanje
+func zabiljeziImenik(tx *sql.Tx, users []seedUser, sazeci []string, adminUpisan bool, napunjeno time.Time) error {
+	if err := oznaciRacune(tx, users); err != nil {
+		return err
+	}
+	return zapamtiCekanje(tx, users, sazeci, adminUpisan, napunjeno)
 }
 
 // upisiAdmina upisuje račun admin. Kao i dosad je pomoćni, pa njegova greška
@@ -266,13 +283,13 @@ func upisiRacun(insertUserStmt, insertDutyStmt *sql.Stmt, u seedUser, sazetak st
 		return fmt.Errorf("greška pri unosu korisnika %s: %w", u.Username, err)
 	}
 	for i, d := range u.Duties {
-		dID := StableID("duty", fmt.Sprintf("%s|%d", u.Username, i))
+		dID := idDuznosti(u.Username, i)
 		isPrimaryInt := 0
 		if d.IsPrimary {
 			isPrimaryInt = 1
 		}
 		if _, err := insertDutyStmt.Exec(
-			dID.String(), uIDStr, d.Title, d.Role, d.ScopeType, d.SectorID, d.AreaID, d.SectionCodes, isPrimaryInt, now,
+			dID, uIDStr, d.Title, d.Role, d.ScopeType, d.SectorID, d.AreaID, d.SectionCodes, isPrimaryInt, now,
 		); err != nil {
 			return fmt.Errorf("greška pri unosu dužnosti '%s' za %s: %w", d.Title, u.Username, err)
 		}

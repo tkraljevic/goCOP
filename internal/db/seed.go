@@ -9,14 +9,17 @@ import (
 	"gocop/internal/models"
 	"log"
 	"os"
+	"strconv"
 	"time"
 )
 
 // Imenik djelatnika NIJE ugrađen u program: nosi imena, telefone i adrese
 // e-pošte zaposlenih, a kod i binarna datoteka su javni. Datoteka stoji uz
 // bazu (data/imenik.json), izvan repozitorija, i čita se samo pri prvom
-// punjenju. Ostali čvorovi djelatnike dobivaju sinkronizacijom, pa imenik
-// treba jedino prvom čvoru u mreži.
+// punjenju. Imenik treba jedino čvoru koji osniva mrežu: ostali čvorovi
+// djelatnike dobivaju razmjenom, kad se na njemu preuzme popis početnih
+// lozinki ili mu prođe rok (repository.UpisiPunjenje). Čvor primljen u
+// postojeću mrežu svoje punjenje ne šalje (punjenje_za_knjigu.go).
 var ImenikPath = "data/imenik.json"
 
 // UseRepoImenik traži imenik u mapi data/ repozitorija i javlja je li nađen;
@@ -59,7 +62,10 @@ type seedUser struct {
 // SeedInitialData puni praznu bazu: organizaciju i registre iz datoteka uz
 // bazu kad ih ima, djelatnike iz imenika i račun admin. Vraća privremene
 // lozinke računa iz imenika, koje globalni administrator jednom preuzme i
-// preda ljudima; u bazi je samo njihov sažetak.
+// preda ljudima; u bazi je samo njihov sažetak. Djelatnike (osim računa
+// admin), njihove dužnosti, sektore i branjena područja koje je upisao
+// označi za knjigu verzija (punjenje_za_knjigu.go); ostali registri iz
+// punjenja zasad nemaju verziju.
 func SeedInitialData(database *sql.DB) ([]PocetnaLozinka, error) {
 	// 1. Organizacija: sektori i branjena područja. Program ih ne zna sam;
 	// stvara ih globalni administrator ili se učitaju uz bazu pri prvom punjenju.
@@ -302,7 +308,9 @@ func LoadSections() ([]models.Section, error) {
 
 // seedOrganization učita sektore i branjena područja iz data/organizacija.json
 // u praznu bazu. Bez datoteke tablice ostaju prazne, a organizaciju upisuje
-// globalni administrator u registru Organizacija.
+// globalni administrator u registru Organizacija. Učitane sektore i područja
+// repository.UpisiPunjenje poslije upiše u knjigu verzija, pa stižu i na
+// druga računala.
 func seedOrganization(database *sql.DB) error {
 	var n int
 	if err := database.QueryRow("SELECT COUNT(*) FROM sectors").Scan(&n); err != nil || n > 0 {
@@ -327,14 +335,16 @@ func seedOrganization(database *sql.DB) error {
 		return err
 	}
 	defer tx.Rollback()
+	// upisani sektori i područja dobiju oznaku za knjigu verzija
+	// (punjenje_za_knjigu.go), a redak koji je u bazi već bio ne
 	for _, s := range org.Sectors {
-		if _, err := tx.Exec(`INSERT INTO sectors (id, name, vgo_name, center_cop, address, phone, email, level) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		if err := upisiOznaceno(tx, entitetSektora, s.ID, `INSERT INTO sectors (id, name, vgo_name, center_cop, address, phone, email, level) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(id) DO NOTHING`, s.ID, s.Name, s.VgoName, s.CenterCop, s.Address, s.Phone, s.Email, s.Level); err != nil {
 			return fmt.Errorf("sektor %s: %w", s.ID, err)
 		}
 	}
 	for _, a := range org.Areas {
-		if _, err := tx.Exec(`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter, contractor_name, direct_to_sector) VALUES (?, ?, ?, ?, ?, ?, ?)
+		if err := upisiOznaceno(tx, entitetPodrucja, strconv.Itoa(a.ID), `INSERT INTO areas (id, sector_id, name, vgi_name, subcenter, contractor_name, direct_to_sector) VALUES (?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(id) DO NOTHING`, a.ID, a.SectorID, a.Name, a.VgiName, a.Subcenter, a.ContractorName, boolInt(a.DirectToSector)); err != nil {
 			return fmt.Errorf("branjeno područje %d: %w", a.ID, err)
 		}

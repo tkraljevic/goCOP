@@ -18,7 +18,10 @@ package web
 // Postojeća mreža na daljinu: čvor napravi zahtjev (ime i ključ, potpisan) i
 // pokaže tajni kod za primanje, koji osoba uz čvor telefonom pročita
 // primatelju; primatelj ga primi u Postavkama i vrati potvrdu, a ovdje se
-// potvrda učita (provjerena istim kodom). Djelatnici zatim stižu sinkronizacijom.
+// potvrda učita (provjerena istim kodom). Djelatnici zatim stižu razmjenom;
+// one iz imenika šalje računalo koje je osnovalo mrežu, kad se ondje
+// preuzme popis početnih lozinki ili mu prođe rok (repository.UpisiPunjenje).
+// Primljeno računalo svoje punjenje odbaci (db.OdbaciPunjenje).
 
 import (
 	"context"

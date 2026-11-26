@@ -168,8 +168,11 @@ Napomene:
   popis. Popis vrijedi 24 sata od prvog punjenja, a nakon toga se lozinke
   daju samo poništenjem. Ako u imeniku nema računa `admin`, program ga doda sam. Prije nego
   što čvor izložite mreži, pročitajte [SECURITY.md](../../SECURITY.md).
-- **Imenik stavite uz bazu samo prvog čvora mreže.** Popis lozinki vrijedi
-  za čvor koji ga je složio; ostali čvorovi djelatnike dobiju razmjenom.
+- **Imenik stavite uz bazu samo prvog čvora mreže**, onoga koji mrežu
+  osniva. Popis lozinki složi i pokaže samo taj čvor; ostali čvorovi
+  djelatnike dobiju razmjenom kad se popis preuzme ili mu prođe rok. Čvor
+  primljen u postojeću mrežu imenik i organizaciju iz svoje mape ne šalje
+  drugima.
 - `imenik.json` nosi osobne podatke. Ne stavljajte ga u repozitorij ni u
   dijeljene mape.
 - **Šifra vode** je službeni naziv malim slovima, bez dijakritika, s crticama:

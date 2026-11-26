@@ -34,8 +34,10 @@ func (s *Service) DrziKljucMreze() bool {
 }
 
 // NakonKljucaMreze zadaje što se radi kad ovo računalo dobije ključ mreže:
-// osnuje mrežu ili učita kopiju ključa. Program tada potpiše potvrde stanja
-// prava koje ovo računalo drži (repository.PotpisiStanjePrava).
+// osnuje mrežu ili učita kopiju ključa. Program tada upiše prvo punjenje u
+// knjigu verzija (repository.UpisiPunjenje; na primljenom računalu oznake
+// su već odbačene pri primanju) i potpiše potvrde stanja prava koje ovo
+// računalo drži (repository.PotpisiStanjePrava).
 func (s *Service) NakonKljucaMreze(f func(context.Context)) { s.nakonKljuca.Store(&f) }
 
 // nakonUpisaKljuca javlja da ovo računalo drži ključ mreže, kad je upis

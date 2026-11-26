@@ -90,8 +90,10 @@ func ProvjeriKljucCvora(dbPath string, dopustiNovi bool) (noviIdentitet bool, er
 }
 
 // knjigaImaZapisa javlja ima li baza ijednu verziju u knjizi: tada je to
-// postojeći čvor. Svjež čvor ni nakon prvog punjenja nema verzija (početni
-// podaci ne ulaze u knjigu), a baza koje nema ili je prazna nema ni knjige.
+// postojeći čvor. Prvo punjenje samo ne piše verzije; djelatnike i
+// organizaciju iz njega u knjigu upisuje repository.UpisiPunjenje, tek kad
+// je čvor osnovao mrežu. Svjež čvor zato nema verzija, a baza koje nema ili
+// je prazna nema ni knjige.
 func knjigaImaZapisa(dbPath string) (ima bool, err error) {
 	if ima, err = postoji(dbPath); !ima {
 		return false, err
