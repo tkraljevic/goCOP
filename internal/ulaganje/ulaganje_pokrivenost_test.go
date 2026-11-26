@@ -13,7 +13,9 @@ import (
 	"github.com/google/uuid"
 	"gocop/internal/arhiva"
 	"gocop/internal/db"
+	"gocop/internal/ledger"
 	"gocop/internal/models"
+	"gocop/internal/repository"
 )
 
 const idBatine = "6f1c2a3e-0000-4000-8000-000000000001"
@@ -330,8 +332,11 @@ func TestUloziIZaboraviCijeliPut(t *testing.T) {
 	koren := stablo(t)
 	arh := izgradenaArhiva(t, koren)
 	ctx := context.Background()
+	// knjiga pokrenutog čvora potpisuje verzije bilješki
+	knjiga := ledger.New(baza, "cvor-probni")
+	knjiga.PostaviPotpisnika(func(ledger.Version) (string, string, error) { return "UA==", "Sw==", nil })
 	z := Zahtjev{Baza: baza, Koren: koren, ArhivaPut: arh, Cvor: "cvor-probni", Letva: "batina",
-		Od: pocetak, Do: pocetak.Add(24 * time.Hour), Izdanje: "2026-09-15"}
+		Od: pocetak, Do: pocetak.Add(24 * time.Hour), Izdanje: "2026-09-15", Knjiga: knjiga}
 
 	p, err := Pripremi(ctx, z)
 	if err != nil {
@@ -341,6 +346,11 @@ func TestUloziIZaboraviCijeliPut(t *testing.T) {
 	iz, err := p.Ulozi(ctx, z, &j)
 	if err != nil {
 		t.Fatalf("ulaganje: %v\n%s", err, j.String())
+	}
+	var potpisanih int
+	if err := baza.QueryRow(`SELECT COUNT(*) FROM record_versions WHERE entity = ? AND node_id = 'cvor-probni'
+		AND potpis = 'UA==' AND kljuc_autora = 'Sw=='`, repository.EntityBiljeske).Scan(&potpisanih); err != nil || potpisanih != 1 {
+		t.Errorf("bilješka nije upisana knjigom čvora: %d potpisanih, %v", potpisanih, err)
 	}
 	// tri dojavljena, jedno ručno, jedno rekonstruirano i jedna temperatura
 	if iz.Provjereno != 6 {

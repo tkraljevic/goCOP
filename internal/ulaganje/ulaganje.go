@@ -45,6 +45,19 @@ type Zahtjev struct {
 	IzvorRucno string // prazno → IzvorRucnog
 	Vrsta      string // prazno → zatečena u arhivi, pa pogađanje iz gustoće
 	Izdanje    string // oznaka koja se upisuje uz uloženo; prazno → današnji dan
+
+	// Knjiga je knjiga verzija pokrenutog čvora, koja potpisuje ključem
+	// čvora; bez nje bilješke idu u knjigu bez potpisa, u ime Cvor
+	Knjiga *ledger.Recorder
+}
+
+// knjiga je knjiga verzija u koju idu bilješke: knjiga čvora, a bez nje
+// nova, u ime Cvor
+func (z Zahtjev) knjiga() *ledger.Recorder {
+	if z.Knjiga != nil {
+		return z.Knjiga
+	}
+	return ledger.New(z.Baza, z.Cvor)
 }
 
 func (z Zahtjev) izvor() string {
@@ -299,7 +312,7 @@ func (p *Pregled) Ulozi(ctx context.Context, z Zahtjev, zapisi io.Writer) (*Isho
 	iz.Provjereno = ukupno
 	fmt.Fprintf(zapisi, "provjera: svih %d vrijednosti je u arhivi\n", ukupno)
 
-	rec := ledger.New(z.Baza, z.Cvor)
+	rec := z.knjiga()
 	if len(p.biljeske) > 0 {
 		bilRepo := repository.NewBiljeskaRepository(z.Baza, rec)
 		n, err := bilRepo.Spremi(ctx, biljeskeZa(p.Postaja.Code, p.VrstaRucnog, p.biljeske))

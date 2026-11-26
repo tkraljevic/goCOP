@@ -214,8 +214,9 @@ var stupciOporavka = [][2]string{{"users", "pin_adresa_potvrdena"}, {"users", "o
 // PonistiLozinkuNaCvoru sastavlja ono malo servisa što poništenje treba i
 // poništava lozinku računa u bazi čvora. Shemu ne stvara ni ne mijenja: baza
 // može biti otvorena u poslužitelju koji radi, a naredba se ne smije
-// ponašati kao pokretanje. Verzija u knjizi nastaje u ime čvora cvor.
-func PonistiLozinkuNaCvoru(database *sql.DB, cvor, ime string, aktiviraj bool) (*PonistenjeSKonzole, error) {
+// ponašati kao pokretanje. Verzija u knjizi nastaje u ime čvora cvor i
+// potpisuje je potpis (ključ čvora); bez njega ide bez potpisa.
+func PonistiLozinkuNaCvoru(database *sql.DB, cvor string, potpis ledger.Potpisnik, ime string, aktiviraj bool) (*PonistenjeSKonzole, error) {
 	if strings.TrimSpace(cvor) == "" {
 		return nil, errors.New("čvor nema identifikator (node.id u gocop.toml ili -node)")
 	}
@@ -244,6 +245,7 @@ func PonistiLozinkuNaCvoru(database *sql.DB, cvor, ime string, aktiviraj bool) (
 	}
 
 	rec := ledger.New(database, cvor)
+	rec.PostaviPotpisnika(potpis)
 	userRepo := repository.NewUserRepository(database, rec)
 	auth := NewAuthService(userRepo, repository.NewSessionRepository(database))
 	// Drugom koraku za opoziv treba samo njegova tablica; ključ čvora,

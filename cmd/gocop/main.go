@@ -521,7 +521,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	// Oporavak lozinke s konzole: samo baza, bez poslužitelja i razmjene;
 	// postavke se ne zapisuju, jer ovo nije pokretanje čvora
 	if zadane["ponisti-lozinku"] {
-		return ponistiLozinkuSKonzole(cfg.DB, cfg.Node.ID, z.ponistiLozinku, z.aktivirajRacun, os.Stdout)
+		return ponistiLozinkuSKonzole(cfg.DB, cfg.Node.ID, cfg.Sync.Protokol, z.ponistiLozinku, z.aktivirajRacun, os.Stdout)
 	}
 	if z.aktivirajRacun {
 		log.Fatalf("-aktiviraj vrijedi samo uz -ponisti-lozinku")
@@ -590,16 +590,21 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	}
 	applyReadingPolicy()
 
+	// Identitet čvora (ključ uz bazu). Učitava se prije prvog upisa u
+	// knjigu: svaku verziju koju ovo računalo upiše potpisuje ključem čvora,
+	// i one iz popravaka podataka (Odluke (26. 11. 2026.), 8).
+	node, err := peers.LoadNode(*dbPath, *nodeID, *nodeName, punaVerzija())
+	if err != nil {
+		log.Fatalf("Kritična greška: %v", err)
+	}
+	recorder.PostaviPotpisnika(node.PotpisnikVerzija(cfg.Sync.Protokol))
+
 	// Jednokratni popravci podataka koji moraju ostaviti verziju u knjizi
 	if err := repository.RunFixups(context.Background(), database, recorder); err != nil {
 		log.Fatalf("Popravci podataka nisu uspjeli: %v", err)
 	}
 
-	// Identitet čvora (ključ uz bazu) i sinkronizacija s drugim čvorovima
-	node, err := peers.LoadNode(*dbPath, *nodeID, *nodeName, punaVerzija())
-	if err != nil {
-		log.Fatalf("Kritična greška: %v", err)
-	}
+	// Sinkronizacija s drugim čvorovima
 	peersService, err := peers.NewService(database, recorder, node, peers.Ports{
 		Exchange: *syncPort, Pair: *pairPort, Discovery: *discoveryPort,
 	})
@@ -612,6 +617,12 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	// (G7); zamjenjuje dnevnik postavljen gore, pa ono što je u knjizi već
 	// bilo pri pokretanju ide samo u dnevnik i ne broji se iznova
 	peersService.PratiNovosti(recorder)
+	// Prava i mreža: nepotpisana verzija tuđeg autora koji već potpisuje ne
+	// ulazi u knjigu kad stigne od računala koje potpis prenosi (Odluke
+	// (26. 11. 2026.), 7)
+	peersService.PostaviStrogePotpise(repository.EntityUsers, repository.EntityDuties, repository.EntityRoleModules,
+		repository.EntityUserModules, repository.EntityPotvrdePrava, peers.EntityMemberships, peers.EntityOvlasti,
+		peers.EntityOpozivi, peers.EntityZahtjeviObnove)
 	// Paketi se potpisuju ključem čvora. Nepotpisan paket je samo tvrdnja o
 	// tome tko ga je izdao — svaki koji danas izađe nepotpisan ostaje takav,
 	// jer se onaj koji je već otišao ne da naknadno potpisati.

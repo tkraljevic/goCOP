@@ -28,6 +28,7 @@ var opisVrsteOdbijenog = map[string]string{
 	peers.VrstaOdbiliSmo:  "ovo računalo odbilo je razmjenu",
 	peers.VrstaOdbiliSu:   "drugo računalo odbilo je razmjenu",
 	peers.VrstaDjelomicno: "stiglo je nešto što ovaj program ne razumije",
+	peers.VrstaVerzija:    "primljena promjena nije upisana",
 }
 
 var opisPutaOdbijenog = map[string]string{
@@ -47,6 +48,7 @@ var opisRazlogaOdbijenog = map[string]string{
 	peers.RazlogOznaka:                  "oznaka mogućnosti",
 	peers.RazlogNepoznatZapis:           "vrsta zapisa koju program ne poznaje:",
 	peers.RazlogNovijaShema:             "zapis novije sheme:",
+	peers.RazlogKrivPotpis:              "potpis autora ne vrijedi",
 }
 
 // opisRazloga je razlog riječima; uz oznaku i vrstu zapisa ide njihovo ime,

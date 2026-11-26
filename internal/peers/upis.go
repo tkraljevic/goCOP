@@ -22,6 +22,7 @@ package peers
 
 import (
 	"context"
+	"crypto/ed25519"
 	"errors"
 	"fmt"
 	"log"
@@ -86,6 +87,9 @@ func (s *Service) primijeni(ctx context.Context, verzije []ledger.Version) (appl
 	// površini, iz koje ih čita trusted
 	defer s.nakonClanstva(verzije)
 	applied, err = s.rec.Apply(ctx, verzije)
+	if err == nil {
+		s.dopuniPotpise(ctx, verzije)
+	}
 	if err != nil || applied == 0 || s.onApplied == nil {
 		return applied, nil, err
 	}
@@ -102,7 +106,8 @@ func (s *Service) primijeniPodBravom(ctx context.Context, verzije []ledger.Versi
 		return 0, err
 	}
 	defer s.pustiBravu()
-	applied, povrsina, err := s.primijeni(ctx, s.preskociNeispravne("uvoz", verzije))
+	ispravne, _ := s.preskociNeispravne(ctx, prijem{put: "uvoz"}, verzije)
+	applied, povrsina, err := s.primijeni(ctx, ispravne)
 	s.zabiljeziUvoz(applied, true)
 	if povrsina != nil {
 		return applied, fmt.Errorf("površina nije osvježena: %w", povrsina)
@@ -116,7 +121,7 @@ func (s *Service) primijeniPodBravom(ctx context.Context, verzije []ledger.Versi
 // primljene neispravne. Upis koji popuni rupu u nizu broji se kao uvoz
 // (popunjavaRupu, zabiljeziUvoz).
 func (s *Service) primijeniAkoStigne(ctx context.Context, verzije []ledger.Version, p promjenaRupa) (int, error) {
-	verzije = s.preskociNeispravne("razmjena", verzije)
+	verzije, _ = s.preskociNeispravne(ctx, prijem{put: "razmjena"}, verzije)
 	if p.nista(verzije) {
 		return 0, nil
 	}
@@ -157,37 +162,74 @@ func (s *Service) suziNakonUpisa(ctx context.Context, p promjenaRupa, upis error
 	}
 }
 
+// prijem je jedno primanje verzija: put kojim su stigle (razmjena ili
+// uvoz), ključ računala od kojeg su stigle (za zapis odbijenog; nil kod
+// uvoza) i je li ono javilo oznaku potpis-verzije/1 (provjeraPotpisa)
+type prijem struct {
+	put    string
+	od     ed25519.PublicKey
+	strogo bool
+}
+
 // preskociNeispravne izostavi primljene verzije koje knjiga ovog računala
 // ne prima (ledger.ProvjeriPrimljenu): bez oznake, entiteta ili
 // identifikatora zapisa, s oznakom koja nije ispravnog oblika, sa znakom |
 // u imenu autora ili kanala, s vremenom predaleko u budućnosti, ili s
-// imenom ovog računala i vremenom ispred njegova sata. Ostale prođu, a
+// imenom ovog računala i vremenom ispred njegova sata. Zatim izostavi one
+// čiji potpis autora ne prolazi (provjeraPotpisa). Ostale prođu, a
 // razgovor zbog njih ne staje. Neispravnu zapiše u dnevnik jednom po
-// verziji, s putem kojim je stigla (razmjena ili uvoz) i razlogom; verzije
-// preskočene samo zbog vremena zapiše jednim retkom po autoru
-// (zabiljeziKasne), jer ih uz krivi sat stiže mnogo i stići će kad im
-// vrijeme dođe. Izostavlja ih već ovdje, a ne samo knjiga, jer površina
-// smije dobiti samo ispravne: zbog jedne neispravne pala bi za cijeli
-// paket. Sadržaj ne ide u dnevnik, a autor je pod navodnicima jer ga piše
-// druga strana. To nisu neispravne verzije iz vlastite knjige
-// (zabiljeziNeispravne), pa se ne broje na ploči.
-func (s *Service) preskociNeispravne(put string, verzije []ledger.Version) []ledger.Version {
+// verziji, s putem kojim je stigla i razlogom; verzije preskočene samo
+// zbog vremena zapiše jednim retkom po autoru (zabiljeziKasne), jer ih uz
+// krivi sat stiže mnogo i stići će kad im vrijeme dođe, a isto tako i one
+// koje čekaju članstvo ili potpisanu inačicu (zabiljeziCekaju).
+// Izostavlja ih već ovdje, a ne samo knjiga, jer površina smije dobiti
+// samo ispravne: zbog jedne neispravne pala bi za cijeli paket. Sadržaj ne
+// ide u dnevnik, a autor je pod navodnicima jer ga piše druga strana. To
+// nisu neispravne verzije iz vlastite knjige (zabiljeziNeispravne), pa se
+// ne broje na ploči. Vraća i verzije s krivim potpisom: one su odbijene
+// zauvijek (granica odbijenih) i broje se u zapisu odbijenog.
+func (s *Service) preskociNeispravne(ctx context.Context, pr prijem, verzije []ledger.Version) (ispravne, krive []ledger.Version) {
 	sada := ledger.Sada()
-	ispravne := make([]ledger.Version, 0, len(verzije))
-	var kasne kasneVerzije
+	potpisi := s.novaProvjeraPotpisa(ctx, verzije, pr.strogo)
+	r := razvrstano{s: s, put: pr.put, ispravne: make([]ledger.Version, 0, len(verzije))}
 	for _, v := range verzije {
 		zasto := ledger.ProvjeriPrimljenu(v, s.node.ID, sada)
-		switch {
-		case zasto == nil:
-			ispravne = append(ispravne, v)
-		case kasni(zasto):
-			kasne.dodaj(v, zasto)
-		default:
-			s.zabiljeziPreskocenu(put, v, zasto)
+		if zasto == nil {
+			zasto = potpisi.provjeri(v)
+		}
+		r.dodaj(v, zasto)
+	}
+	s.zabiljeziKasne(pr.put, r.kasne)
+	s.zabiljeziCekaju(pr.put, r.cekaju)
+	if len(r.krive) > 0 {
+		s.zabiljeziOdbijenoBroj(ctx, VrstaVerzija, "", RazlogKrivPotpis, s.imeKljuca(pr.od), len(r.krive))
+	}
+	return r.ispravne, r.krive
+}
+
+// razvrstano su primljene verzije po tome zašto ne ulaze u knjigu
+type razvrstano struct {
+	s               *Service
+	put             string
+	ispravne, krive []ledger.Version
+	kasne, cekaju   kasneVerzije
+}
+
+// dodaj svrsta verziju po razlogu (nil: ispravna); neispravnu zapiše u dnevnik
+func (r *razvrstano) dodaj(v ledger.Version, zasto error) {
+	switch {
+	case zasto == nil:
+		r.ispravne = append(r.ispravne, v)
+	case kasni(zasto):
+		r.kasne.dodaj(v, zasto)
+	case ceka(zasto):
+		r.cekaju.dodaj(v, zasto)
+	default:
+		r.s.zabiljeziPreskocenu(r.put, v, zasto)
+		if errors.Is(zasto, errKrivPotpis) {
+			r.krive = append(r.krive, v)
 		}
 	}
-	s.zabiljeziKasne(put, kasne)
-	return ispravne
 }
 
 // zabiljeziPreskocenu zapiše u dnevnik primljenu neispravnu verziju, jednom
