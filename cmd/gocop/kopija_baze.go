@@ -7,7 +7,9 @@ package main
 // i sam program: kad bazu otvara drugo izdanje od onoga koje ju je zadnje
 // otvorilo, prvo je kopira u mapu kopije uz bazu, istim imenom i istim
 // brojem kopija kao Postava. Ako je Postava ili instalacija kopiju upravo
-// napravila, druga se ne radi.
+// napravila, druga se ne radi. Uz glavnu bazu kopira se i baza sadržaja
+// (sadrzaj.db): izdanje koje je bajtove PDF-ova i slika preselilo u datoteke
+// ostavlja je takvu da prethodno izdanje u njoj više ne nalazi ništa.
 
 import (
 	"errors"
@@ -30,6 +32,10 @@ const (
 	izdanjeBazeDatoteka = "izdanje-baze.txt"
 	// mapaKopija je mapa uz bazu, ista kao kod Postave i instalacije
 	mapaKopija = "kopije"
+	// imeKopijeBaze i imeKopijeSadrzaja su početak imena kopije glavne baze
+	// (kao kod Postave) i kopije baze sadržaja
+	imeKopijeBaze     = "gocop"
+	imeKopijeSadrzaja = "sadrzaj"
 	// cuvajKopija: toliko najnovijih kopija ostaje, kao kod Postave
 	cuvajKopija = 3
 	// svjezaKopija: kopija mlađa od ovoga znači da je bazu upravo kopirala
@@ -40,11 +46,16 @@ const (
 // kopijaUzPokretanje je kopija baze prije prvog pokretanja ovog izdanja,
 // uz redak u dnevniku kad je kopija napravljena
 func kopijaUzPokretanje(baza string) error {
-	kopija, err := kopijaPrijeNadogradnje(baza, izdanjePrograma(), time.Now())
-	if kopija != "" {
+	kopije, err := kopijaPrijeNadogradnje(baza, izdanjePrograma(), time.Now())
+	for _, kopija := range kopije {
 		log.Printf("Prije prvog pokretanja izdanja %s baza je kopirana u %s", izdanjePrograma(), kopija)
 	}
 	return err
+}
+
+// putSadrzaja je baza sadržaja (popis PDF-ova i slika) uz glavnu bazu
+func putSadrzaja(baza string) string {
+	return filepath.Join(filepath.Dir(baza), "sadrzaj.db")
 }
 
 // izdanjePrograma je izdanje bez oznake commita, isto kao u imenu kopije
@@ -58,28 +69,43 @@ func izdanjePrograma() string {
 	return izdanje
 }
 
-// kopijaPrijeNadogradnje kopira bazu na putu baza prije nego je otvori
-// izdanje izdanje, kad ju je zadnje otvorilo drugo izdanje (ili se ne zna
-// koje). Za novu bazu samo zapamti izdanje. Greška znači da kopije nema, pa
-// čvor ne smije krenuti: novo izdanje može promijeniti bazu tako da je
-// prethodno više ne otvara.
-func kopijaPrijeNadogradnje(baza, izdanje string, sada time.Time) (kopija string, err error) {
+// kopijaPrijeNadogradnje kopira bazu na putu baza i bazu sadržaja uz nju
+// prije nego ih otvori izdanje izdanje, kad ih je zadnje otvorilo drugo
+// izdanje (ili se ne zna koje). Za novu bazu samo zapamti izdanje. Vraća
+// putove napravljenih kopija. Greška znači da kopije nema, pa čvor ne smije
+// krenuti: novo izdanje može promijeniti bazu tako da je prethodno više ne
+// otvara.
+func kopijaPrijeNadogradnje(baza, izdanje string, sada time.Time) (kopije []string, err error) {
 	oznaka := filepath.Join(filepath.Dir(baza), izdanjeBazeDatoteka)
 	staro, err := procitajIzdanjeBaze(oznaka)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if staro == izdanje {
-		return "", nil
+		return nil, nil
 	}
-	if _, err := os.Stat(baza); err == nil {
-		if kopija, err = kopirajBazu(baza, staro, sada); err != nil {
-			return "", fmt.Errorf("kopija baze prije prvog pokretanja izdanja %s nije spremljena: %w", izdanje, err)
+	za := []struct{ put, ime string }{{baza, imeKopijeBaze}, {putSadrzaja(baza), imeKopijeSadrzaja}}
+	for _, b := range za {
+		kopija, err := kopirajAkoPostoji(b.put, b.ime, staro, sada)
+		if err != nil {
+			return nil, fmt.Errorf("kopija baze prije prvog pokretanja izdanja %s nije spremljena: %w", izdanje, err)
 		}
-	} else if !errors.Is(err, fs.ErrNotExist) {
+		if kopija != "" {
+			kopije = append(kopije, kopija)
+		}
+	}
+	return kopije, trajno.Zapisi(oznaka, []byte(izdanje+"\n"), 0o600)
+}
+
+// kopirajAkoPostoji kopira bazu koja postoji; za bazu koje još nema nema
+// što kopirati
+func kopirajAkoPostoji(baza, ime, staro string, sada time.Time) (string, error) {
+	if _, err := os.Stat(baza); errors.Is(err, fs.ErrNotExist) {
+		return "", nil
+	} else if err != nil {
 		return "", err
 	}
-	return kopija, trajno.Zapisi(oznaka, []byte(izdanje+"\n"), 0o600)
+	return kopirajBazu(baza, ime, staro, sada)
 }
 
 // procitajIzdanjeBaze je zapamćeno izdanje; "" kad ga još nema
@@ -91,21 +117,22 @@ func procitajIzdanjeBaze(oznaka string) (string, error) {
 	return strings.TrimSpace(string(b)), err
 }
 
-// kopirajBazu sprema bazu (i njezin WAL) u mapu kopije uz nju i ostavlja
-// tri najnovije; vraća put kopije, ili "" kad je svježa kopija već tu
-func kopirajBazu(baza, staro string, sada time.Time) (string, error) {
+// kopirajBazu sprema bazu (i njezin WAL) u mapu kopije uz nju, pod imenom
+// koje počinje s ime, i ostavlja tri najnovije takve; vraća put kopije, ili
+// "" kad je svježa kopija već tu
+func kopirajBazu(baza, ime, staro string, sada time.Time) (string, error) {
 	mapa := filepath.Join(filepath.Dir(baza), mapaKopija)
 	if err := os.MkdirAll(mapa, 0o700); err != nil {
 		return "", err
 	}
-	kopije, err := kopijeU(mapa)
+	kopije, err := kopijeU(mapa, ime)
 	if err != nil {
 		return "", err
 	}
 	if len(kopije) > 0 && sada.Sub(kopije[0].kad) < svjezaKopija {
 		return "", nil
 	}
-	put := filepath.Join(mapa, fmt.Sprintf("gocop-%s-%s.db", sada.Format("20060102-150405"), imeIzdanja(staro)))
+	put := filepath.Join(mapa, fmt.Sprintf("%s-%s-%s.db", ime, sada.Format("20060102-150405"), imeIzdanja(staro)))
 	for _, nastavak := range []string{"", "-wal"} {
 		if _, err := os.Stat(baza + nastavak); err != nil {
 			continue
@@ -114,12 +141,12 @@ func kopirajBazu(baza, staro string, sada time.Time) (string, error) {
 			return "", err
 		}
 	}
-	return put, ostaviNajnovije(mapa)
+	return put, ostaviNajnovije(mapa, ime)
 }
 
-// ostaviNajnovije briše sve kopije u mapi osim tri najnovije
-func ostaviNajnovije(mapa string) error {
-	kopije, err := kopijeU(mapa)
+// ostaviNajnovije briše sve kopije tog imena u mapi osim tri najnovije
+func ostaviNajnovije(mapa, ime string) error {
+	kopije, err := kopijeU(mapa, ime)
 	if err != nil {
 		return err
 	}
@@ -151,15 +178,15 @@ type kopijaBaze struct {
 	kad time.Time
 }
 
-// kopijeU su kopije baze u mapi (gocop-*.db), najnovija prva
-func kopijeU(mapa string) ([]kopijaBaze, error) {
+// kopijeU su kopije baze u mapi (<ime>-*.db), najnovija prva
+func kopijeU(mapa, ime string) ([]kopijaBaze, error) {
 	stavke, err := os.ReadDir(mapa)
 	if err != nil {
 		return nil, err
 	}
 	var out []kopijaBaze
 	for _, s := range stavke {
-		if !strings.HasPrefix(s.Name(), "gocop-") || !strings.HasSuffix(s.Name(), ".db") {
+		if !strings.HasPrefix(s.Name(), ime+"-") || !strings.HasSuffix(s.Name(), ".db") {
 			continue
 		}
 		if info, err := s.Info(); err == nil {

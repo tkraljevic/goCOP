@@ -413,13 +413,13 @@ func otvoriBazu(dbPath string) (*sql.DB, *sadrzaj.Spremiste, []db.PocetnaLozinka
 	// 2a. Spremište sadržaja: PDF-ovi i slike po otisku, kao datoteke u mapi
 	// sadrzaj uz glavnu bazu, s popisom u sadrzaj.db, da baze rastu s brojem
 	// zapisa a ne s megabajtima
-	spremiste, err := sadrzaj.Otvori(filepath.Join(filepath.Dir(dbPath), "sadrzaj.db"))
+	spremiste, err := sadrzaj.Otvori(putSadrzaja(dbPath))
 	if err != nil {
 		_ = database.Close() // vraća se greška otvaranja, ne zatvaranja
 		return nil, nil, nil, fmt.Errorf("Kritična greška pri otvaranju spremišta sadržaja: %w", err)
 	}
 	repository.SetSpremiste(spremiste)
-	go preseliSadrzaj(spremiste)
+	go preseliSadrzaj(func() { time.Sleep(odgodaSeljenja) }, spremiste)
 	if n, bajtova, err := repository.PreseliSadrzaj(context.Background(), database); err != nil {
 		return database, spremiste, nil, fmt.Errorf("Seljenje sadržaja u spremište: %w", err)
 	} else if n > 0 {
