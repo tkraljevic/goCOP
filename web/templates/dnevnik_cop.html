@@ -180,6 +180,19 @@
     Rukovoditelj sektora dobiva zaključeni dnevnik na znanje. Izvornik je ispravan.</p>
   <a href="/dnevnici/{{.Journal.ID}}/dnevnik.pdf" class="btn btn-link" title="Izvornik, SHA-256 {{printf "%.16s" .IzvornikCOP.Sazetak}}…">Potpisani PDF</a>
 </div>
+{{else if .IzvornikCOP.NijeOvdje}}
+{{/* Izvornik je ispravan, samo PDF još nije na ovom računalu: administrator
+     tu nema što popraviti. */}}
+<div class="alert alert-warning cop-ovjera">
+  {{icon "lock"}}
+  <p><strong>Dnevnik je ovjeren.</strong> Zaključio i potpisao {{.Journal.Zakljucio}}, {{.Journal.ZakljucenoAt.Format "2. 1. 2006. u 15:04"}}.
+    Izvornik dnevnika, PDF kakav je ovjeren, nije na ovom računalu, pa se ovdje ne može otvoriti ni provjeriti.
+    Ovo računalo ga traži razmjenom; ako vam treba sada, otvorite ga na računalu na kojem je dnevnik ovjeren.</p>
+</div>
+{{else if .IzvornikCOP.NijeProcitan}}
+{{/* Izvornik se nije dao pročitati: ne zna se je li neispravan, pa se to
+     i ne tvrdi. */}}
+<div class="alert alert-error">{{icon "x"}} <strong>Dnevnik je ovjeren ({{.Journal.Zakljucio}}, {{.Journal.ZakljucenoAt.Format "2. 1. 2006. u 15:04"}}), ali se izvornik dnevnika nije dao pročitati</strong>, pa se ovdje ne može otvoriti ni provjeriti. Pokušajte ponovno; ako se ponovi, javite administratoru.</div>
 {{else}}
 <div class="alert alert-error">{{icon "x"}} <strong>Dnevnik je ovjeren ({{.Journal.Zakljucio}}, {{.Journal.ZakljucenoAt.Format "2. 1. 2006. u 15:04"}}), ali izvornik nije ispravan:</strong> {{.IzvornikCOP.Greska}}. Javite administratoru; izvornik se obnavlja iz knjige verzija drugog čvora.</div>
 {{end}}

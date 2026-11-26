@@ -39,7 +39,7 @@ func (h *JournalsHandler) ShowDezurstva(w http.ResponseWriter, r *http.Request) 
 	slices.Reverse(data.Dezurstva)
 	data.OpisiRada = models.OpisiRada
 	data.Areas, _ = h.users.ListAreas(j.CentarSektor)
-	h.zaglavljeCOP(&data, j, area, "plan")
+	h.zaglavljeCOP(r.Context(), &data, j, area, "plan")
 	data.Osobe = h.osobeZaPlan(data, j)
 	h.render(w, h.tmplDezurstva, "dnevnik_dezurstva.html", data)
 }
@@ -185,7 +185,7 @@ func (h *JournalsHandler) ShowObracun(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, porukaObracuna, http.StatusForbidden)
 		return
 	}
-	h.zaglavljeCOP(&data, j, area, "obracun")
+	h.zaglavljeCOP(r.Context(), &data, j, area, "obracun")
 	od, do := h.razdobljeObracuna(r, j)
 	data.From, data.To = od.Format("2006-01-02"), do.AddDate(0, 0, -1).Format("2006-01-02")
 	var err error

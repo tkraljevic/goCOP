@@ -13,6 +13,7 @@ import (
 
 	"gocop/internal/ledger"
 	"gocop/internal/models"
+	"gocop/internal/sadrzaj"
 )
 
 // Nazivi entiteta dnevnika u knjizi verzija
@@ -319,8 +320,47 @@ func (r *JournalRepository) IzvornikDnevnika(ctx context.Context, journalID stri
 	if err != nil {
 		return nil, err
 	}
-	iz.PDF = ucitajSadrzaj(ctx, iz.Otisak)
+	if iz.PDF, err = pdfIzvornikaDnevnika(ctx, iz.Otisak); err != nil {
+		return nil, fmt.Errorf("PDF izvornika dnevnika %s: %w", journalID, err)
+	}
 	return &iz, nil
+}
+
+// pdfIzvornikaDnevnika čita PDF izvornika iz spremišta. Kad ga ovo računalo
+// nema, vraća prazno bez greške: PDF nije ovdje. Svaka druga greška (baza
+// spremišta, čitanje datoteke) javlja se, jer prazno bi značilo da PDF nije
+// ovdje i da ga ovo računalo traži, a to tada nije istina.
+func pdfIzvornikaDnevnika(ctx context.Context, otisak string) ([]byte, error) {
+	if otisak == "" {
+		return nil, nil
+	}
+	if spremiste == nil {
+		return nil, errBezSpremista
+	}
+	b, _, err := spremiste.Citaj(ctx, otisak)
+	if errors.Is(err, sadrzaj.ErrNema) {
+		return nil, nil
+	}
+	return b, err
+}
+
+// IzvornikDnevnikaNijeOvdje javlja, bez čitanja PDF-a, da dnevnik ima zapis
+// izvornika, a spremište nema njegov PDF. Bez zapisa izvornika javlja false.
+// Spremište koje se ne da pitati (Spremiste.Ima) javlja se kao PDF koji nije
+// ovdje; točan razlog daje IzvornikDnevnika.
+func (r *JournalRepository) IzvornikDnevnikaNijeOvdje(ctx context.Context, journalID string) (bool, error) {
+	var otisak string
+	err := r.db.QueryRowContext(ctx, `SELECT otisak FROM journal_izvornici WHERE journal_id=?`, journalID).Scan(&otisak)
+	if errors.Is(err, sql.ErrNoRows) || (err == nil && otisak == "") {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if spremiste == nil {
+		return false, errBezSpremista
+	}
+	return !spremiste.Ima(ctx, otisak), nil
 }
 
 func (r *JournalRepository) JournalIzvornik(ctx context.Context, journalID string) ([]byte, error) {

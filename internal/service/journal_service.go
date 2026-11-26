@@ -1007,28 +1007,62 @@ type StanjeIzvornika struct {
 	Ispravan bool   // sažetak PDF-a odgovara upisanom
 	Sazetak  string // upisani SHA-256
 	Greska   string
+	// NijeOvdje: izvornik postoji, ali njegov PDF nije na ovom računalu, pa
+	// se ovdje ne može ni otvoriti ni provjeriti. Nije neispravan, pa nema
+	// ni Greske (models.IzvornikDnevnika.NijeOvdje).
+	NijeOvdje bool
+	// NijeProcitan: izvornik se nije dao pročitati (baza, spremište,
+	// datoteka). Ne zna se ni je li ispravan ni je li ovdje; Greska kaže
+	// što je puklo.
+	NijeProcitan bool
 }
 
 // ProvjeriIzvornikCOP provjerava da ovjeren dnevnik ima izvornik i da PDF
 // nije mijenjan otkad je upisan (sažetak iz knjige verzija)
 func (s *JournalService) ProvjeriIzvornikCOP(ctx context.Context, j *models.Journal) StanjeIzvornika {
+	_, st, err := s.IzvornikOvjerenogCOP(ctx, j)
+	if err != nil {
+		return StanjeIzvornika{NijeProcitan: true, Greska: err.Error()}
+	}
+	return st
+}
+
+// IzvornikCOPNijeOvdje javlja, bez čitanja i provjere PDF-a, da ovjeren
+// dnevnik ima izvornik, a njegov PDF nije na ovom računalu. Služi samo za
+// odluku nudi li se gumb PDF. Kad se zapis izvornika ne da pročitati,
+// javlja false: gumb ostaje, a PDF sam kaže što nije u redu.
+func (s *JournalService) IzvornikCOPNijeOvdje(ctx context.Context, j *models.Journal) bool {
 	if j == nil || !j.Ovjeren() {
-		return StanjeIzvornika{}
+		return false
+	}
+	nijeOvdje, err := s.repo.IzvornikDnevnikaNijeOvdje(ctx, j.ID)
+	return err == nil && nijeOvdje
+}
+
+// IzvornikOvjerenogCOP vraća potpisani PDF ovjerenog dnevnika i nalaz
+// njegove provjere iz istog čitanja. PDF vraća samo kad je izvornik
+// ispravan; greška je greška čitanja zapisa izvornika.
+func (s *JournalService) IzvornikOvjerenogCOP(ctx context.Context, j *models.Journal) ([]byte, StanjeIzvornika, error) {
+	if j == nil || !j.Ovjeren() {
+		return nil, StanjeIzvornika{}, nil
 	}
 	iz, err := s.repo.IzvornikDnevnika(ctx, j.ID)
 	if err != nil {
-		return StanjeIzvornika{Greska: err.Error()}
+		return nil, StanjeIzvornika{}, err
+	}
+	if iz.NijeOvdje() {
+		return nil, StanjeIzvornika{Ima: true, NijeOvdje: true, Sazetak: iz.Sazetak}, nil
 	}
 	if iz == nil || len(iz.PDF) == 0 {
-		return StanjeIzvornika{Greska: "izvornik ovjerenog dnevnika nedostaje"}
+		return nil, StanjeIzvornika{Greska: "izvornik ovjerenog dnevnika nedostaje"}, nil
 	}
 	st := StanjeIzvornika{Ima: true, Sazetak: iz.Sazetak}
 	if h := fmt.Sprintf("%x", sha256.Sum256(iz.PDF)); h != iz.Sazetak {
 		st.Greska = "izvornik je mijenjan nakon ovjere: sažetak PDF-a ne odgovara upisanom"
-		return st
+		return nil, st, nil
 	}
 	st.Ispravan = true
-	return st
+	return iz.PDF, st, nil
 }
 
 // CentriZaOtvaranje vraća centre u kojima osoba smije otvoriti dnevnik.
