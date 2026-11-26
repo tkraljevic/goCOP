@@ -4,6 +4,53 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.70-alfa — 26. 11. 2026.
+
+Propisi iz Narodnih novina u programu, potpis računala na svakoj promjeni i
+PDF-ovi kao obične datoteke. Baza se mijenja: knjiga promjena dobiva tri
+stupca za potpis, a propisi svoje tablice; program ih doda sam pri
+pokretanju. Prije toga sam kopira glavnu bazu i popis sadržaja. Ovo izdanje
+ide najprije na jedno računalo, a na ostala nakon dana rada bez greške.
+Računala na 0.0.69-alfa dotad razmjenjuju kao i dosad.
+
+- **Propisi.** U Dokumentima je nova skupina Propisi. Administrator učita
+  propis iz Narodnih novina brojem glasila i akta, ili zalijepi tekst kad
+  nema interneta. Program ga podijeli na glave, članke, točke i priloge i
+  pokaže podjelu prije spremanja. Izmjena se veže uz članke koje mijenja, pa
+  uz njih stoji npr. „mijenjan NN 84/21”. Propis stiže na sva računala u
+  mreži. Ondje ga čitaju i pretražuju svi prijavljeni, i bez interneta.
+- **Potpis računala na promjenama.** Svaka promjena koju računalo upiše
+  nosi potpis njegova ključa. Računalo koje je primi potpis provjerava.
+  Promjenu s potpisom koji ne vrijedi ne upisuje i to javlja na pločici
+  razmjene, s imenom računala od kojeg je stigla. Računala na starijem
+  izdanju potpis ne dobivaju i rade kao dosad.
+- **Opozvano računalo ostaje opozvano.** Računalo koje prima članove, a
+  opoziv još nije dobilo, moglo je opozvanom računalu izdati novo članstvo.
+  Sad takvo članstvo ne vrijedi: opozvano računalo u mrežu vraća samo
+  računalo s ključem mreže. Računalu s ključem mreže poruke o isteku
+  članstva više ne pišu da ga treba ponovno primiti; ono se obnavlja gumbom.
+- **PDF-ovi i fotografije izvan baze.** Dosad su bili u bazi sadržaja, koja
+  je rasla sa svakim dokumentom. Sad su obične datoteke u mapi `sadrzaj` uz
+  bazu, složene po vrsti i mjesecu. Postojeće program preseli sam, pet
+  minuta nakon pokretanja, dok se normalno radi.
+- **Kopija prije nadogradnje.** Kad prvi put krene novim izdanjem, program
+  sam kopira glavnu bazu i popis sadržaja u mapu `kopije` i čuva tri
+  najnovije. To vrijedi i u slici za Docker i kad se program pokrene ručno.
+  Ne može li kopiju spremiti, ne kreće, a razlog piše u dnevniku. Povratak
+  na prethodno izdanje opisan je u
+  [administratorskim uputama](docs/INSTALACIJA.md).
+- **Očitanja.** Kad je upisana vrijednost izvan raspona, poruka kaže koji
+  raspon program prima, a upisano ostaje u obrascu.
+- **Dnevni list vodočuvara.** Očitanje ustave ili crpne stanice piše s
+  imenom objekta i oba vodostaja, npr. „Bakanka: uzvodno +70 cm, nizvodno
+  +250 cm”, i više se ne ponavlja.
+- **Prijava i dnevni list bez potpisnog ključa.** PDF je imao okvir
+  „Elektronički potpisano u goCOP-u” i kad potpisa nije bilo. Sad tada piše
+  „Objavljeno u goCOP-u”, odnosno „Predano” i „Ovjereno”, a ispis se
+  potpisuje vlastoručno.
+- **Pomoć.** Nove su upute za Naslovnu, prijave s terena i upis vodostaja,
+  sa slikama.
+
 ## 0.0.69-alfa — 26. 11. 2026.
 
 Arhiva se sama puni svježim podacima, a model prognoze sam se priprema
