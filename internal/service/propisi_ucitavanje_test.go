@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"gocop/internal/ledger"
 	"gocop/internal/models"
 	"gocop/internal/propisi"
 	"gocop/internal/repository"
@@ -485,10 +487,13 @@ func TestIzmjenaKojaSeNeVeze(t *testing.T) {
 	}
 }
 
-// Uklanjanje traži razlog; propis i izmjena nestaju, a razlog i osoba
-// ostaju u zapisu
+// Uklanjanje traži razlog; propis i izmjena nestaju, a razlog, osoba i
+// vrijeme ostaju u zapisu
 func TestUklanjanjeTraziRazlog(t *testing.T) {
-	svc, repo := servisSDohvatom(t, nil)
+	_, repo, baza := servisPropisa(t)
+	svc := NewPropisiService(repo, nil)
+	sat := time.Date(2026, 11, 25, 9, 30, 0, 0, time.FixedZone("CET", 3600))
+	svc.sada = func() time.Time { return sat }
 	ctx := context.Background()
 	zakon := zakonNasipa()
 	spremiPropise(t, repo, zakon)
@@ -522,6 +527,32 @@ func TestUklanjanjeTraziRazlog(t *testing.T) {
 	if ostao, err := repo.Get(ctx, zakon.ID); err != nil || ostao != nil {
 		t.Errorf("propis ostao: %+v %v", ostao, err)
 	}
+	knjiga := ledger.New(baza, "ured")
+	for _, z := range []struct{ entitet, id, razlog string }{
+		{repository.EntityPropisiIzmjene, iz.ID, "dvaput učitana"},
+		{repository.EntityPropisi, zakon.ID, "krivo učitan"},
+	} {
+		u := uklanjanjeIzKnjige(t, knjiga, z.entitet, z.id)
+		if u == nil || u.Razlog != z.razlog || u.Tko != upisivac.FullName || !u.Kad.Equal(sat) || u.Kad.Location() != time.UTC {
+			t.Errorf("zapis o uklanjanju %s: %+v", z.entitet, u)
+		}
+	}
+}
+
+// uklanjanjeIzKnjige čita zapis o uklanjanju iz zadnje verzije u knjizi
+func uklanjanjeIzKnjige(t *testing.T, knjiga *ledger.Recorder, entitet, id string) *models.Uklanjanje {
+	t.Helper()
+	v, err := knjiga.Latest(context.Background(), entitet, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var x struct {
+		Uklonjeno *models.Uklanjanje `json:"uklonjeno"`
+	}
+	if err := json.Unmarshal(v.Payload, &x); err != nil || !v.Archived {
+		t.Fatalf("%s/%s: arhivirano %v, %v", entitet, id, v.Archived, err)
+	}
+	return x.Uklonjeno
 }
 
 // Kvar baze u učitavanju je greška, a ne prazan pregled ili tiho spremanje
