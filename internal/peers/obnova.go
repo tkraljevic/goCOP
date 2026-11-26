@@ -358,11 +358,15 @@ func (s *Service) zatrazenoOd(ctx context.Context, mreza string, sada time.Time)
 	if err != nil {
 		return false, err
 	}
-	od := sada.Add(-razmakObnove)
 	return slices.ContainsFunc(zahtjevi, func(z ZahtjevObnove) bool {
-		return z.NodeID == s.node.ID && z.PublicKey == s.node.PublicKey() && z.Network == mreza &&
-			z.Kad.After(od) && !z.Kad.After(sada) && z.potpisan()
+		return z.NodeID == s.node.ID && z.PublicKey == s.node.PublicKey() && z.uZadnjiDan(mreza, sada)
 	}), nil
+}
+
+// uZadnjiDan: zahtjev je za mrežu mreza, napisan u zadnjih dan do sada (ne
+// poslije) i potpisan ključem iz njega
+func (z ZahtjevObnove) uZadnjiDan(mreza string, sada time.Time) bool {
+	return z.Network == mreza && z.Kad.After(sada.Add(-razmakObnove)) && !z.Kad.After(sada) && z.potpisan()
 }
 
 // obradiZahtjeveObnove: računalo koje smije primati obnovi članstvo svakom
