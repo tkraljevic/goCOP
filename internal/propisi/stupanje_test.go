@@ -44,3 +44,27 @@ func TestStupanjeNaSnagu(t *testing.T) {
 		t.Errorf("bez datuma objave: %v %q %v", dan, izraz, ok)
 	}
 }
+
+// Stupanje na snagu iz teksta u navodnicima nije stupanje same izmjene, a
+// prijelazna odredba ispred završne ne vrijedi za cijeli akt. Prije se uzimala
+// prva rečenica sa „stupa na snagu”.
+func TestStupanjeIzZavrsneOdredbe(t *testing.T) {
+	objava := time.Date(2023, 5, 3, 0, 0, 0, 0, time.UTC)
+	for _, retci := range [][]string{
+		{"U članku 250. riječi: »stupa na snagu 1. siječnja 2024.« zamjenjuju se riječima: »stupa na snagu 1. siječnja 2026.«.",
+			"Ovaj Zakon stupa na snagu osmoga dana od dana objave u »Narodnim novinama«."},
+		{"Članak 12. stupa na snagu 1. siječnja 2024.",
+			"Ovaj Zakon stupa na snagu osmoga dana od dana objave u »Narodnim novinama«.",
+			"Članak 14. stupa na snagu 1. siječnja 2025."},
+	} {
+		dan, izraz, ok := StupaNaSnagu(dioSTekstom(retci...), objava)
+		if !ok || dan.Format("2006-01-02") != "2023-05-11" || izraz != "osmoga dana od dana objave" {
+			t.Errorf("%q: %v %q %v", retci[0], dan.Format("2006-01-02"), izraz, ok)
+		}
+	}
+	// Bez završne odredbe vrijedi zadnja rečenica sa „stupa na snagu”.
+	dan, _, ok := StupaNaSnagu(dioSTekstom("Članak 12. stupa na snagu 1. siječnja 2024.", "Članak 14. stupa na snagu 1. siječnja 2025."), objava)
+	if !ok || dan.Format("2006-01-02") != "2025-01-01" {
+		t.Errorf("bez završne: %v %v", dan, ok)
+	}
+}
