@@ -615,6 +615,12 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	// (G7); zamjenjuje dnevnik postavljen gore, pa ono što je u knjizi već
 	// bilo pri pokretanju ide samo u dnevnik i ne broji se iznova
 	peersService.PratiNovosti(recorder)
+	// Prava i mreža: nepotpisana verzija tuđeg autora koji već potpisuje ne
+	// ulazi u knjigu kad stigne od računala koje potpis prenosi (Odluke
+	// (26. 11. 2026.), 7)
+	peersService.PostaviStrogePotpise(repository.EntityUsers, repository.EntityDuties, repository.EntityRoleModules,
+		repository.EntityUserModules, repository.EntityPotvrdePrava, peers.EntityMemberships, peers.EntityOvlasti,
+		peers.EntityOpozivi, peers.EntityZahtjeviObnove)
 	// Paketi se potpisuju ključem čvora. Nepotpisan paket je samo tvrdnja o
 	// tome tko ga je izdao — svaki koji danas izađe nepotpisan ostaje takav,
 	// jer se onaj koji je već otišao ne da naknadno potpisati.

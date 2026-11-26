@@ -298,7 +298,9 @@ func (r *razgovorSCvorom) zapamtiDelte(moja, stigla deltaMsg, neispravne []ledge
 
 // upisiPrimljeno upiše primljene verzije pod bravom čvora (upis.go).
 // Neispravne (preskociNeispravne) otpadaju prije svega ostalog, pa ne
-// ulaze ni u granicu odbijenih ni u rupe. Kad je upis predugo zauzet,
+// ulaze ni u granicu odbijenih ni u rupe. Iznimka je verzija s krivim
+// potpisom autora: ona ne vrijedi nikad, pa ide u granicu odbijenih
+// (odbaci), a ona koja čeka članstvo ne ide. Kad je upis predugo zauzet,
 // razgovor završi bez upisa (zavrsiZauzet), a primljeno stigne sljedećom
 // razmjenom. Ne upisuje se ni ono što bi granicu knjige
 // pomaknulo preko verzija koje je druga strana preskočila po granici
@@ -308,7 +310,11 @@ func (r *razgovorSCvorom) zapamtiDelte(moja, stigla deltaMsg, neispravne []ledge
 // (zapamtiOdbijene), i to prije kraja razgovora, pa ga već sljedeći
 // razgovor javlja.
 func (r *razgovorSCvorom) upisiPrimljeno(ctx context.Context, stiglo []ledger.Version) error {
-	wanted := r.bezPreskocenog(r.zaUpis(ctx, r.s.preskociNeispravne("razmjena", stiglo)))
+	ispravne, krive := r.s.preskociNeispravne(ctx, prijem{put: "razmjena", od: r.kljucDruge(), strogo: r.potpisDogovoren()}, stiglo)
+	for _, v := range krive {
+		r.odbaci(v) // kriv potpis ne vrijedi nikad: pošiljatelj ga ne treba slati iznova
+	}
+	wanted := r.bezPreskocenog(r.zaUpis(ctx, ispravne))
 	applied, err := r.s.primijeniAkoStigne(ctx, wanted, r.promjenaRupa(wanted))
 	if err != nil {
 		r.s.zavrsiZauzet(r.c, r.initiator, err)

@@ -93,8 +93,9 @@ const programCvora = `"program":"0.0.39-test","gradnja":"0.0.39-test (abc1234)"`
 // naseOznake su mogućnosti čvora kako idu žicom. namjerno promijenjeno: G4
 // (plan WEB synca, §3); do G4 samo ["razmjena/1"]. namjerno
 // promijenjeno: G4b; i rupe/1. namjerno promijenjeno: karta razmjenom; i
-// dijelovi-karte/1
-const naseOznake = `["dijelovi-karte/1","granica-odbijenih/1","razmjena/1","rupe/1"]`
+// dijelovi-karte/1. namjerno promijenjeno: potpis autora verzije (3d.4); i
+// potpis-verzije/1
+const naseOznake = `["dijelovi-karte/1","granica-odbijenih/1","potpis-verzije/1","razmjena/1","rupe/1"]`
 
 // poruke čvora koje se ponavljaju
 var (

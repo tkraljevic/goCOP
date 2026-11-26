@@ -158,7 +158,7 @@ func (s *Service) ImportFile(ctx context.Context, path string) (ImportReport, er
 	}
 	// isto kao razmjena: neispravne otpadaju odmah, pa rupe, u knjigu, pa
 	// na površinu; arhiva knjige ne prolazi kroz Accept, pa odbijenoga nema
-	versions = s.preskociNeispravne("uvoz", versions)
+	versions, _ = s.preskociNeispravne(ctx, prijem{put: "uvoz"}, versions)
 	rep.Applied, err = s.uveziSRupama(ctx, versions, s.promjenaUvoza(ctx, versions, odlukeUvoza{ograda: s.ogradaSada()}, rupeIzArhive(ctx, in, versions)))
 	return rep, err
 }

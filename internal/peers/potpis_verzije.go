@@ -3,8 +3,8 @@ package peers
 // Potpis autora verzije (Odluke (26. 11. 2026.)): ovo računalo svaku
 // verziju koju upiše u knjigu potpiše ključem čvora (razmjena.PotpisiVerziju).
 // Potpis putuje uz verziju u .cop paketu i .db arhivi, a razmjenom samo
-// računalu koje je javilo oznaku potpis-verzije/1. Primljeni potpis knjiga
-// još ne sprema; to dolazi s provjerom pri primanju.
+// računalu koje je javilo oznaku potpis-verzije/1. Primljeni potpis se
+// provjerava i sprema uz verziju (potpis_provjera.go).
 
 import (
 	"crypto/ed25519"
