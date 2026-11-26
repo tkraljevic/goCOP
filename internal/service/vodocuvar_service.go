@@ -834,6 +834,11 @@ func (s *VodocuvarService) vodocuvariZa(ctx context.Context, perms *models.UserP
 	return out
 }
 
+// ErrIzvornikNijeOvdje: izvornik predaje postoji, a njegov PDF nije na ovom
+// računalu (models.IzvornikLista.NijeOvdje), pa se ovjera ovdje ne upisuje
+var ErrIzvornikNijeOvdje = errors.New("ovjera nije upisana: na ovom računalu nema izvornika lista, PDF-a kakav je predan, a ovjera se upisuje u njega. " +
+	"Ovjerite list na računalu na kojem je predan ili koje prati PDF-ove vodočuvarskog dnevnika")
+
 // Ovjeri potvrđuje list (SmijeOvjeriti). umjesto je potvrda da osoba list
 // ovjerava umjesto rukovoditelja branjenog područja (OvjeravaUmjesto).
 func (s *VodocuvarService) Ovjeri(ctx context.Context, perms *models.UserPermissions, u *models.User, id string, umjesto bool) (*models.VodocuvarskiList, error) {
@@ -855,6 +860,16 @@ func (s *VodocuvarService) Ovjeri(ctx context.Context, perms *models.UserPermiss
 	}
 	if err := provjeriDanOvjere(l.Datum, s.sada()); err != nil {
 		return nil, err
+	}
+	// ovjera se dopisuje na bajtove izvornika predaje: bez njih ovdje list bi
+	// ostao ovjeren bez ovjere u izvorniku, ili bi novi crtež zamijenio
+	// potpisani izvornik na svim računalima
+	iz, err := s.repo.GetIzvornik(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("ovjera nije upisana: izvornik lista nije se dao pročitati (%w)", err)
+	}
+	if iz.NijeOvdje() {
+		return nil, ErrIzvornikNijeOvdje
 	}
 	kad := time.Now()
 	l.PotvrdioID, l.Potvrdio, l.PotvrdenoAt = u.ID.String(), u.FullName, &kad

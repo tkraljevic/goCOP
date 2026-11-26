@@ -24,7 +24,7 @@
     <p class="page-desc prvo-slovo-veliko">{{$l.DanUTjednu}}, {{$l.Datum.Day}}. {{$l.MjesecGenitiv}} {{$l.Datum.Year}}.{{if not .Moj}} · {{$l.Ime}}{{with .Podrucje}} · BP {{.ID}}{{end}}{{end}}</p>
   </div>
   <div class="page-actions">
-    {{if $l.ID}}<a href="/vodocuvar/{{$l.ID}}/list.pdf" target="_blank" class="btn btn-link">PDF lista</a>{{end}}
+    {{if and $l.ID (not .Izvornik.NijeOvdje)}}<a href="/vodocuvar/{{$l.ID}}/list.pdf" target="_blank" class="btn btn-link">PDF lista</a>{{end}}
     {{if and .Moj (not $l.Rekonstrukcija) (ne ($l.Datum.Format "2006-01-02") .Danas)}}<a href="/vodocuvar/dan?datum={{.Danas}}" class="btn btn-link">Današnji</a>{{end}}
   </div>
 </div>
@@ -117,7 +117,8 @@
     {{if or (not $prenesen) $l.Potvrden}}<dt>Ovjera rukovoditelja</dt><dd>{{if $l.Potvrden}}{{$l.Potvrdio}}, {{vrijemeLista (derefTime $l.PotvrdenoAt)}}{{else}}čeka ovjeru{{end}}</dd>{{end}}
     {{if $l.Parafe}}<dt>Parafe</dt><dd>{{range $i, $p := $l.Parafe}}{{if $i}}; {{end}}{{$p.Ime}}{{with $p.Funkcija}} ({{.}}){{end}}, {{vrijemeLista $p.Kad}}{{end}}</dd>{{end}}
     {{/* PDF je gore u glavi. Razlog i izdavatelj crtež ne pokazuje, a ostaju kao sitniji tekst. */}}
-    {{if .Izvornik.Ima}}<dt>Izvornik</dt><dd>{{if .Izvornik.Potpisi}}<ul class="list-potpisi">{{range .Izvornik.Potpisi}}
+    {{if .Izvornik.NijeOvdje}}<dt>Izvornik</dt><dd>Izvornik lista, PDF kakav je predan, nije na ovom računalu, pa se ovdje ne mogu provjeriti potpisi ni otvoriti PDF lista.{{if .OvjeraCekaIzvornik}} Ovjera se upisuje u izvornik: list ovjerite na računalu na kojem je predan ili koje prati PDF-ove vodočuvarskog dnevnika.{{end}}</dd>
+    {{else if .Izvornik.Ima}}<dt>Izvornik</dt><dd>{{if .Izvornik.Potpisi}}<ul class="list-potpisi">{{range .Izvornik.Potpisi}}
       {{if .Simulacija}}<li>{{icon "x"}}<div><strong>SIMULIRANI potpis, bezvrijedan</strong> ({{.Ime}}, {{vrijemeLista .Kad}}; {{if .Valjan}}tehnički ispravan, {{end}}samo za testiranje)</div></li>
       {{else if .Valjan}}<li>{{icon "lock"}}<div>elektronički potpisao {{.Ime}}{{with .Funkcija}}, {{.}}{{end}}, {{vrijemeLista .Kad}} (potpis valjan{{if .Cijeli}}, pokriva cijeli dokument{{end}})<div class="form-help">{{.Razlog}}; izdao {{.Izdao}}</div></div></li>
       {{else}}<li>{{icon "x"}}<div>potpis {{.Ime}}: <strong>{{.Greska}}</strong></div></li>{{end}}
@@ -202,7 +203,7 @@
     {{range $l.Prilozi}}<figure>
       <a href="/vodocuvar/{{$l.ID}}/prilog/{{.ID}}" target="_blank"><img src="/vodocuvar/{{$l.ID}}/prilog/{{.ID}}" alt="{{.Naziv}}" loading="lazy" onerror="this.parentElement.parentElement.classList.add('nema')"></a>
       <figcaption>{{.Naziv}}{{if .Sirina}} · {{.Sirina}}×{{.Visina}}{{end}}<br><span class="reading-meta">{{.Podaci}}</span></figcaption>
-      <p class="form-help nema-slike">Fotografija nije na ovom računalu; nosi je ispis lista.</p>
+      <p class="form-help nema-slike">Fotografija nije na ovom računalu{{if not $.Izvornik.NijeOvdje}}; nosi je ispis lista{{end}}.</p>
     </figure>{{end}}
   </div>
 </section>

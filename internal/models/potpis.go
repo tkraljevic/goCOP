@@ -44,6 +44,14 @@ type IzvornikLista struct {
 	PredanoAt *time.Time `json:"predano_at,omitempty"`
 }
 
+// NijeOvdje javlja da izvornik postoji, ali njegov PDF nije na ovom
+// računalu: zapis je stigao razmjenom, a PDF ovo računalo po pretplati ne
+// drži ili ga još čeka. Takav list se ne smije crtati iznova umjesto
+// izvornika, jer crtež nema potpisa iz izvornika.
+func (iz *IzvornikLista) NijeOvdje() bool {
+	return iz != nil && iz.Otisak != "" && len(iz.PDF) == 0
+}
+
 type IzvornikDnevnika struct {
 	JournalID string `json:"journal_id"`
 	// PDF su bajtovi izvornika: pune se iz spremišta sadržaja pri čitanju, a

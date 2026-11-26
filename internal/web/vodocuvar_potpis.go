@@ -16,7 +16,16 @@ import (
 type potpisiIzvornika struct {
 	Ima     bool // izvornik postoji
 	Potpisi []potpis.Potpis
+	// NijeOvdje: izvornik postoji, ali PDF nije na ovom računalu, pa se
+	// potpisi ne mogu provjeriti (models.IzvornikLista.NijeOvdje)
+	NijeOvdje bool
 }
+
+// porukaPDFNijeOvdje: izvornik lista postoji, a PDF nije na ovom računalu.
+// Ne obećava da će PDF stići: uz pretplatu bez PDF-ova ne stiže nikad, a
+// otpušten nakon roka ne traži se ponovno.
+const porukaPDFNijeOvdje = "PDF lista nije otvoren: na ovom računalu nema izvornika lista, PDF-a kakav je predan. " +
+	"Otvorite ga na računalu na kojem je list predan ili koje prati PDF-ove vodočuvarskog dnevnika."
 
 // simulacijaKljuca javlja potpisuje li se simuliranim ključem: gleda se
 // tuđim očima, u tom pogledu nastaju i upisi i opcija je uključena. Bez
@@ -142,7 +151,9 @@ func (h *VodocuvarHandler) izvornikPredaje(ctx context.Context, s *service.Vodoc
 
 // izvornikOvjere dodaje ovjeru rukovoditelja na izvornik predaje, kao
 // dodatak na iste bajtove pa potpis vodočuvara vrijedi i dalje; bez
-// izvornika predaje list se iscrta iznova
+// izvornika predaje list se iscrta iznova. Izvornik koji postoji, a nije
+// ovdje, ne crta se iznova: novi izvornik bi zamijenio potpisani na svim
+// računalima. s.Ovjeri zato takvu ovjeru odbije prije upisa.
 func (h *VodocuvarHandler) izvornikOvjere(ctx context.Context, s *service.VodocuvarService, perms *models.UserPermissions, l *models.VodocuvarskiList, p *potpis.Potpisnik) error {
 	if l.PotvrdenoAt == nil {
 		return nil
@@ -151,14 +162,21 @@ func (h *VodocuvarHandler) izvornikOvjere(ctx context.Context, s *service.Vodocu
 	otisci := h.otisakPotpisnika(ctx, l.PotvrdioID, p)
 	var pdf []byte
 	var m mjestaPotpisa
-	if iz, _ := s.Izvornik(ctx, perms, l.ID); iz != nil && len(iz.PDF) > 0 {
+	iz, err := s.Izvornik(ctx, perms, l.ID)
+	if err != nil {
+		return err
+	}
+	if iz.NijeOvdje() {
+		return service.ErrIzvornikNijeOvdje
+	}
+	if iz != nil && len(iz.PDF) > 0 {
 		pdf = iz.PDF
 		_, m = pdfLista(l, models.Terms(), area, otisci, crtanjeBlokova{vodocuvar: true, rukovoditelj: false}, PrilogListaPDF{Slike: h.priloziLista(ctx, s, l)})
 	} else {
 		pdf, m = pdfLista(l, models.Terms(), area, otisci, crtanjeBlokova{vodocuvar: true, rukovoditelj: false}, PrilogListaPDF{Slike: h.priloziLista(ctx, s, l)})
 	}
 	dod := h.dodatakPotpisa(m, m.xRuk, l, l.Potvrdio, *l.PotvrdenoAt, l.KodOvjere(), "Ovjera dnevnog lista,", otisci[l.PotvrdioID], p)
-	pdf, err := potpisiIzvornik(pdf, p, dod)
+	pdf, err = potpisiIzvornik(pdf, p, dod)
 	if err != nil {
 		return err
 	}
@@ -178,6 +196,9 @@ func (h *VodocuvarHandler) provjeriIzvornik(ctx context.Context, s *service.Vodo
 	iz, _ := s.Izvornik(ctx, perms, id)
 	if iz == nil {
 		return potpisiIzvornika{}
+	}
+	if iz.NijeOvdje() {
+		return potpisiIzvornika{Ima: true, NijeOvdje: true}
 	}
 	out := potpisiIzvornika{Ima: true}
 	if h.potpis != nil {
