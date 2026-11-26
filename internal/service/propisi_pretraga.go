@@ -54,6 +54,7 @@ type RezultatPretrage struct {
 	Prekratko bool   // upit nema ni riječi od tri slova ni broja
 	Sazetak   string // „Pronađeno: 5 točaka u propisu „…” i 2 članka u propisu „…”.”
 	Cipovi    []CipPretrage
+	USvima    string // pretraga istog upita u svim propisima, kad u odabranom nema pogodaka
 }
 
 // Trazi traži upit u svim propisima i njihovim izmjenama. Broj točke ili
@@ -85,7 +86,7 @@ func (s *PropisiService) Trazi(ctx context.Context, upit, adresa string) (*Rezul
 
 // slozi puni rezultat pogocima: izbor svih propisa, pogoce odabranog (bez
 // odabira svih) i sažetak. Upit po broju koji pogađa jedan dio je izravan
-// pogodak.
+// pogodak. Bez pogodaka u odabranom propisu nudi se pretraga svih.
 func (rez *RezultatPretrage) slozi(svi []PogociPropisa, odabran string, poBroju bool) {
 	rez.Cipovi = cipoviPretrage(rez.Upit, svi, odabran)
 	for _, g := range svi {
@@ -96,6 +97,9 @@ func (rez *RezultatPretrage) slozi(svi []PogociPropisa, odabran string, poBroju 
 	}
 	if poBroju && rez.Ukupno == 1 {
 		rez.Izravno = &rez.PoPropisu[0].Pogoci[0]
+	}
+	if odabran != "" && rez.Ukupno == 0 {
+		rez.USvima = "/propisi?q=" + url.QueryEscape(rez.Upit)
 	}
 	rez.Sazetak = sazetakPretrage(rez.PoPropisu)
 }

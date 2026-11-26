@@ -278,8 +278,12 @@ func TestPretragaIIzravanPogodak(t *testing.T) {
 	if s := o.get("/propisi?q=ophodar", o.vodocuvar).Body.String(); !strings.Contains(s, "U izmjeni NN 47/26 · članak 1.") {
 		t.Errorf("pogodak u izmjeni: %s", s)
 	}
-	if s := o.get("/propisi?q=nasip&propis=zakon-o-cuvanju-nasipa", o.vodocuvar).Body.String(); !strings.Contains(s, `name="propis" value="zakon-o-cuvanju-nasipa"`) {
-		t.Error("pretraga unutar propisa ne pamti propis")
+	// nova pretraga iz polja ide po svim propisima, a ne samo po odabranom
+	if s := o.get("/propisi?q=nasip&propis=zakon-o-cuvanju-nasipa", o.vodocuvar).Body.String(); strings.Contains(s, `name="propis"`) {
+		t.Error("obrazac pretrage pamti odabrani propis")
+	}
+	if s := o.get("/propisi?q=pripremno+stanje&propis=zakon-o-cuvanju-nasipa", o.vodocuvar).Body.String(); !strings.Contains(s, `u ovom propisu. <a href="/propisi?q=pripremno&#43;stanje">Traži u svim propisima</a>`) {
+		t.Errorf("bez pogodaka u odabranom propisu nema pretrage svih: %s", s)
 	}
 	if s := o.get("/propisi?q=nasip", o.vodocuvar).Body.String(); !strings.Contains(s, "Svi propisi (") || !strings.Contains(s, "propis=plan-obrane-primjerova") {
 		t.Errorf("izbor propisa: %s", s)

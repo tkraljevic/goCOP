@@ -22,7 +22,6 @@
   <label for="propisi-q">Traži u propisima</label>
   <div class="propisi-trazi-polje">
     <input type="search" id="propisi-q" name="q" value="{{.Upit}}" class="form-control" placeholder="npr. pripremno stanje ili točka XXIII.">
-    {{if .Odabran}}<input type="hidden" name="propis" value="{{.Odabran}}">{{end}}
     <button type="submit" class="btn btn-primary">{{icon "search"}} Traži</button>
   </div>
   <p class="form-help">Traži po riječima u tekstu svih propisa, i u drugim padežima. Točku ili članak možete tražiti i brojem, npr. XXIII. ili članak 119.</p>
@@ -33,7 +32,7 @@
   {{if .Prekratko}}
   <p class="reg-empty">Upišite barem tri slova ili broj točke ili članka.</p>
   {{else if not .PoPropisu}}
-  <p class="reg-empty">Ništa nije pronađeno za „{{.Upit}}”. Pokušajte s početkom riječi, npr. „pripremn”, ili s brojem točke ili članka.</p>
+  <p class="reg-empty">Ništa nije pronađeno za „{{.Upit}}”{{if .USvima}} u ovom propisu. <a href="{{.USvima}}">Traži u svim propisima</a>{{else}}. Pokušajte s početkom riječi, npr. „pripremn”, ili s brojem točke ili članka.{{end}}</p>
   {{else}}
   <p class="propisi-sazetak">{{.Sazetak}}</p>
   {{with .Cipovi}}
