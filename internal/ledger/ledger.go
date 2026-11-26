@@ -47,8 +47,8 @@ type Version struct {
 	// Potpis i KljucAutora su potpis autora nad verzijom i njegov javni
 	// ključ, oba base64 (razmjena.PotpisiVerziju). Prazni su kod verzije
 	// bez potpisa: sve što je nastalo prije potpisivanja i sve što je
-	// stiglo od drugog računala dok primanje potpisa ne dođe. Stariji
-	// program polja zanemari.
+	// stiglo bez potpisa (stariji program, posrednik bez oznake
+	// potpis-verzije/1). Stariji program polja zanemari.
 	Potpis      string `json:"potpis,omitempty"`
 	KljucAutora string `json:"kljuc_autora,omitempty"`
 }
@@ -380,10 +380,10 @@ func Ispravne(versions []Version) (ispravne, neispravne []Version) {
 // verzije (Ispravne) preskoči, a ostale upiše; greška baze vrati cijeli
 // paket.
 //
-// Potpis primljene verzije se ne upisuje: u knjigu ulazi samo potpis koji
-// je ovo računalo napisalo ili provjerilo, a provjera pri primanju dolazi
-// zasebno. Do tada se primljena verzija upisuje bez potpisa, kao od
-// starijeg programa. Uz svaku se upiše kad je primljena.
+// Potpis i ključ autora upisuju se kakvi su stigli. Knjiga potpis ne
+// provjerava (to je razmjena): pozivatelj mora poslati samo verzije čiji je
+// potpis provjerio, jer svaki potpisan redak u knjizi vrijedi kao
+// provjeren. Uz svaku se upiše kad je primljena.
 func (r *Recorder) Apply(ctx context.Context, versions []Version) (applied int, err error) {
 	versions, _ = Ispravne(versions)
 	if len(versions) == 0 {
@@ -398,8 +398,9 @@ func (r *Recorder) Apply(ctx context.Context, versions []Version) (applied int, 
 
 	stmt, err := tx.PrepareContext(ctx, `
 		INSERT INTO record_versions (
-			version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version, channel, primljeno
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version, channel, primljeno,
+			potpis, kljuc_autora
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(version_id) DO NOTHING
 	`)
 	if err != nil {
@@ -411,7 +412,7 @@ func (r *Recorder) Apply(ctx context.Context, versions []Version) (applied int, 
 	var nove []Version
 	for _, v := range versions {
 		res, err := stmt.ExecContext(ctx, v.VersionID, v.Entity, v.EntityID, v.NodeID, v.Supersedes,
-			boolInt(v.Archived), string(v.Payload), v.CreatedAt.UTC(), v.SchemaVersion, v.Channel, primljeno)
+			boolInt(v.Archived), string(v.Payload), v.CreatedAt.UTC(), v.SchemaVersion, v.Channel, primljeno, v.Potpis, v.KljucAutora)
 		if err != nil {
 			return 0, fmt.Errorf("greška pri primanju verzije %s: %w", v.VersionID, err)
 		}
@@ -429,6 +430,56 @@ func (r *Recorder) Apply(ctx context.Context, versions []Version) (applied int, 
 		r.nov.zabiljezi(v.Entity, max(v.SchemaVersion, SchemaVersion), 1)
 	}
 	return applied, nil
+}
+
+// NepotpisaneMedju su verzije s oznakama iz ids koje su u knjizi bez
+// potpisa. Treba ih dopuna potpisa (DopuniPotpise).
+func (r *Recorder) NepotpisaneMedju(ctx context.Context, ids []string) ([]Version, error) {
+	var out []Version
+	for start := 0; start < len(ids); start += 500 {
+		dio := ids[start:min(start+500, len(ids))]
+		upit := `SELECT ` + columns + ` FROM record_versions WHERE potpis = '' AND version_id IN (?` + strings.Repeat(", ?", len(dio)-1) + `)`
+		args := make([]any, len(dio))
+		for i, id := range dio {
+			args[i] = id
+		}
+		verzije, err := r.query(ctx, upit, args...)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, verzije...)
+	}
+	return out, nil
+}
+
+// DopuniPotpise upiše potpis i ključ autora u redak koji je u knjizi bez
+// potpisa, kad je ista verzija stigla potpisana nakon što je prva stigla
+// bez potpisa (npr. kroz starije računalo). Mijenja samo ta dva prazna
+// stupca, nikad zapis i nikad postojeći potpis: to je jedina dopuštena
+// izmjena primljenog retka (Odluke (26. 11. 2026.), 6). Pozivatelj mora
+// provjeriti da potpis vrijedi nad spremljenim retkom. Vraća koliko je
+// redaka dopunjeno.
+func (r *Recorder) DopuniPotpise(ctx context.Context, versions []Version) (int, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	n := 0
+	for _, v := range versions {
+		if v.Potpis == "" || v.KljucAutora == "" {
+			continue
+		}
+		res, err := tx.ExecContext(ctx, `UPDATE record_versions SET potpis = ?, kljuc_autora = ? WHERE version_id = ? AND potpis = ''`,
+			v.Potpis, v.KljucAutora, v.VersionID)
+		if err != nil {
+			return 0, fmt.Errorf("dopuna potpisa verzije %s: %w", v.VersionID, err)
+		}
+		if k, _ := res.RowsAffected(); k > 0 { //nolint:errcheck // SQLite broj promijenjenih redaka uvijek zna
+			n++
+		}
+	}
+	return n, tx.Commit()
 }
 
 // Count vraća broj verzija po entitetu — za stranicu Postavke

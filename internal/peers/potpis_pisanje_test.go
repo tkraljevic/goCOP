@@ -78,40 +78,38 @@ func TestPotpisPriUpisu(t *testing.T) {
 	}
 }
 
-// sPotpisom su naše oznake i potpis-verzije/1, kakve će objaviti izdanje
-// koje primljeni potpis provjerava
-func sPotpisom() []string {
-	o := append(razmjena.NaseMogucnosti(), razmjena.OznakaPotpisVerzije)
-	slices.Sort(o)
-	return o
+// bezOznakePotpisa su naše oznake bez potpis-verzije/1, kakve objavljuje
+// izdanje od prije provjere potpisa
+func bezOznakePotpisa() []string {
+	return slices.DeleteFunc(razmjena.NaseMogucnosti(), func(o string) bool { return o == razmjena.OznakaPotpisVerzije })
 }
 
 // Potpis autora ide razmjenom samo kad obje strane imaju oznaku
 // potpis-verzije/1; inače druga strana dobije verziju bez potpisa, kao
-// prije. Ovo izdanje oznaku ne objavljuje, pa potpis žicom još ne ide.
-// Primljeni potpis knjiga ne sprema dok ga ne provjeri (dolazi posebno).
+// prije. Primatelj s oznakom potpis provjeri i spremi uz verziju.
+// Namjerno promijenjeno: 3d.4; oznaka se objavljuje i primljeni potpis se
+// sprema.
 func TestPotpisZicomSamoUzOznaku(t *testing.T) {
-	if slices.Contains(razmjena.NaseMogucnosti(), razmjena.OznakaPotpisVerzije) {
-		t.Fatal("oznaka potpis-verzije/1 objavljuje se prije nego što se primljeni potpis provjerava")
+	if !slices.Contains(razmjena.NaseMogucnosti(), razmjena.OznakaPotpisVerzije) {
+		t.Fatal("ovo izdanje provjerava primljeni potpis, a oznaku potpis-verzije/1 ne objavljuje")
 	}
 	for _, slucaj := range []struct {
-		ime     string
-		oznake  func() []string
-		potpis  bool
-		jednaBe bool
+		ime              string
+		posiljatelj, nas func() []string
+		potpis           bool
 	}{
-		{"bez oznake (ovo izdanje)", nil, false, false},
-		{"oznaka samo kod pošiljatelja", sPotpisom, false, true},
-		{"oznaka kod obje strane", sPotpisom, true, false},
+		{"obje strane s oznakom (ovo izdanje)", nil, nil, true},
+		{"primatelj bez oznake", nil, bezOznakePotpisa, false},
+		{"pošiljatelj bez oznake", bezOznakePotpisa, nil, false},
 	} {
 		t.Run(slucaj.ime, func(t *testing.T) {
 			a, b := serverILaptop(t)
 			a.rec.PostaviPotpisnika(a.node.PotpisnikVerzija(Protocol))
-			if slucaj.oznake != nil {
-				a.mogucnosti = slucaj.oznake
-				if !slucaj.jednaBe {
-					b.mogucnosti = slucaj.oznake
-				}
+			if slucaj.posiljatelj != nil {
+				a.mogucnosti = slucaj.posiljatelj
+			}
+			if slucaj.nas != nil {
+				b.mogucnosti = slucaj.nas
 			}
 			var mu sync.Mutex
 			var stiglo []ledger.Version
@@ -136,53 +134,75 @@ func TestPotpisZicomSamoUzOznaku(t *testing.T) {
 			if len(stiglo) != 1 {
 				t.Fatalf("stiglo %d verzija", len(stiglo))
 			}
+			v, err := b.rec.Latest(ctxRub, "probni", "potpisano")
+			if err != nil {
+				t.Fatal(err)
+			}
 			if slucaj.potpis {
 				vrijediPotpis(t, a, Protocol, stiglo[0])
-			} else if stiglo[0].Potpis != "" || stiglo[0].KljucAutora != "" {
-				t.Errorf("potpis otišao strani bez oznake: %q, %q", stiglo[0].Potpis, stiglo[0].KljucAutora)
+				vrijediPotpis(t, a, Protocol, *v)
+				return
 			}
-			if v, err := b.rec.Latest(ctxRub, "probni", "potpisano"); err != nil || v.Potpis != "" || v.KljucAutora != "" {
-				t.Errorf("primljeni potpis upisan bez provjere: %+v, %v", v, err)
+			if stiglo[0].Potpis != "" || stiglo[0].KljucAutora != "" || v.Potpis != "" {
+				t.Errorf("potpis je otišao strani bez oznake: %q, %q; u knjizi %q", stiglo[0].Potpis, stiglo[0].KljucAutora, v.Potpis)
 			}
 		})
 	}
 }
 
-// .db arhiva nosi potpis autora uz verziju. Uvoz ga čita, ali ga knjiga
-// ne sprema dok ga ne provjeri; arhiva starijeg programa, bez stupaca
-// potpisa, uvozi se kao i do sada.
+// .db arhiva nosi potpis autora uz verziju. Uvoz ga provjeri i spremi;
+// potpis iz mreže s drugim imenom protokola ne vrijedi, pa takva verzija ne
+// ulazi u knjigu i broji se u zapisu odbijenog. Arhiva starijeg programa,
+// bez stupaca potpisa, uvozi se kao i do sada. Namjerno promijenjeno: 3d.4.
 func TestPotpisUArhivi(t *testing.T) {
-	a := rubniCvor(t, "cop-osijek")
-	a.rec.PostaviPotpisnika(a.node.PotpisnikVerzija(protokolProbe))
+	a := rubnaMreza(t, "cop-osijek")
 	kanal := "ocitanja/16/2026"
-	upisiOcitanja(t, a, kanal, "o1")
-	arhiva := filepath.Join(t.TempDir(), "arhiva.db")
-	if n, err := a.ExportFile(ctxRub, arhiva, []string{kanal}); err != nil || n != 1 {
-		t.Fatalf("izvoz: %d, %v", n, err)
+	izvezi := func(protokol, id string) (string, ledger.Version) {
+		a.rec.PostaviPotpisnika(a.node.PotpisnikVerzija(protokol))
+		upisiOcitanja(t, a, kanal, id)
+		arhiva := filepath.Join(t.TempDir(), "arhiva.db")
+		if _, err := a.ExportFile(ctxRub, arhiva, []string{kanal}); err != nil {
+			t.Fatal(err)
+		}
+		in, err := sql.Open("sqlite", db.SamoZaCitanje(arhiva))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer in.Close()
+		var u ledger.Version
+		var archived int
+		var payload string
+		err = in.QueryRow(`SELECT version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version, channel, potpis, kljuc_autora
+			FROM record_versions WHERE entity_id = ?`, id).Scan(&u.VersionID, &u.Entity, &u.EntityID, &u.NodeID, &u.Supersedes, &archived, &payload, &u.CreatedAt, &u.SchemaVersion, &u.Channel, &u.Potpis, &u.KljucAutora)
+		if err != nil {
+			t.Fatal(err)
+		}
+		u.Archived, u.Payload = archived != 0, []byte(payload)
+		vrijediPotpis(t, a, protokol, u)
+		return arhiva, u
 	}
-	in, err := sql.Open("sqlite", db.SamoZaCitanje(arhiva))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var u ledger.Version
-	u.Payload = nil
-	var archived int
-	var payload string
-	err = in.QueryRow(`SELECT version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version, channel, potpis, kljuc_autora
-		FROM record_versions`).Scan(&u.VersionID, &u.Entity, &u.EntityID, &u.NodeID, &u.Supersedes, &archived, &payload, &u.CreatedAt, &u.SchemaVersion, &u.Channel, &u.Potpis, &u.KljucAutora)
-	in.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
-	u.Archived, u.Payload = archived != 0, []byte(payload)
-	vrijediPotpis(t, a, protokolProbe, u)
 
-	c := rubniCvor(t, "treci")
+	arhiva, _ := izvezi(Protocol, "o1")
+	c := primateljOd(t, a)
 	if rep, err := c.ImportFile(ctxRub, arhiva); err != nil || rep.Applied != 1 {
 		t.Fatalf("uvoz: %+v, %v", rep, err)
 	}
-	if v, err := c.rec.Latest(ctxRub, "probni", "o1"); err != nil || v.Potpis != "" {
-		t.Errorf("potpis iz arhive upisan bez provjere: %+v, %v", v, err)
+	if v, err := c.rec.Latest(ctxRub, "probni", "o1"); err != nil {
+		t.Fatal(err)
+	} else {
+		vrijediPotpis(t, a, Protocol, *v)
+	}
+
+	tudja, _ := izvezi(protokolProbe, "o2")
+	if rep, err := c.ImportFile(ctxRub, tudja); err != nil || rep.Applied != 0 {
+		t.Fatalf("uvoz s potpisom druge mreže: %+v, %v", rep, err)
+	}
+	if _, err := c.rec.Latest(ctxRub, "probni", "o2"); !errors.Is(err, ledger.ErrNoVersion) {
+		t.Errorf("verzija s krivim potpisom je u knjizi: %v", err)
+	}
+	if zapisi, err := c.Odbijeno(ctxRub, 1); err != nil || len(zapisi) != 1 || zapisi[0].Vrsta != VrstaVerzija ||
+		zapisi[0].Razlog != RazlogKrivPotpis || zapisi[0].Broj != 1 || zapisi[0].Racunalo != "" {
+		t.Errorf("zapis odbijenog: %+v, %v", zapisi, err)
 	}
 
 	stara := staraArhiva(t, kanal)
@@ -266,8 +286,11 @@ func TestPotpisUPaketu(t *testing.T) {
 	if _, err := b.UveziCop(ctxRub, put); err != nil {
 		t.Fatal(err)
 	}
-	if v, err := b.rec.Latest(ctxRub, "probni", "p1"); err != nil || v.Potpis != "" {
-		t.Errorf("potpis iz paketa upisan bez provjere: %+v, %v", v, err)
+	// namjerno promijenjeno: 3d.4; primatelj potpis provjeri i spremi
+	if v, err := b.rec.Latest(ctxRub, "probni", "p1"); err != nil {
+		t.Fatal(err)
+	} else {
+		vrijediPotpis(t, a, Protocol, *v)
 	}
 }
 

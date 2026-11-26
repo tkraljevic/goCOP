@@ -29,6 +29,8 @@ const (
 	VrstaOdbiliSu = "odbili-su"
 	// VrstaDjelomicno: stiglo je nešto što ovaj program ne razumije
 	VrstaDjelomicno = "djelomicno"
+	// VrstaVerzija: primljena verzija nije upisana u knjigu
+	VrstaVerzija = "verzija"
 )
 
 // Putovi vrata u zapisu
@@ -46,6 +48,7 @@ const (
 	RazlogOznaka            = "oznaka"
 	RazlogNepoznatZapis     = "nepoznat-zapis"
 	RazlogNovijaShema       = "novija-shema"
+	RazlogKrivPotpis        = "kriv-potpis"
 	cuvajOdbijenoDana       = 30
 	kvaroviOdbijenogUnatrag = 24 * time.Hour
 )
@@ -61,11 +64,17 @@ type ZapisOdbijenog struct {
 // obriše retke starije od 30 dana. Zapis je pomoćni, pa greška baze ide
 // samo u dnevnik.
 func (s *Service) zabiljeziOdbijeno(ctx context.Context, vrsta, put, razlog, racunalo string) {
+	s.zabiljeziOdbijenoBroj(ctx, vrsta, put, razlog, racunalo, 1)
+}
+
+// zabiljeziOdbijenoBroj doda broj događaja odjednom (npr. sve verzije s
+// krivim potpisom iz jedne poruke)
+func (s *Service) zabiljeziOdbijenoBroj(ctx context.Context, vrsta, put, razlog, racunalo string, broj int) {
 	sada := time.Now().UTC()
 	if _, err := s.db.ExecContext(ctx, `INSERT INTO razmjena_odbijeno (dan, vrsta, put, razlog, racunalo, broj, zadnje)
-		VALUES (?, ?, ?, ?, ?, 1, ?)
-		ON CONFLICT (dan, vrsta, put, razlog, racunalo) DO UPDATE SET broj = broj + 1, zadnje = excluded.zadnje`,
-		sada.Format(time.DateOnly), vrsta, put, razlog, racunalo, sada); err != nil {
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT (dan, vrsta, put, razlog, racunalo) DO UPDATE SET broj = broj + excluded.broj, zadnje = excluded.zadnje`,
+		sada.Format(time.DateOnly), vrsta, put, razlog, racunalo, broj, sada); err != nil {
 		log.Printf("razmjena: zapis odbijenog nije spremljen: %v", err)
 		return
 	}
@@ -233,6 +242,25 @@ func (s *Service) KvaroviRazmjene(ctx context.Context) []string {
 	out := make([]string, 0, len(ids))
 	for _, id := range ids {
 		out = append(out, s.imeRacunala(ctx, id)+" zove ovo računalo, ali ovdje nije član mreže (članstvo je isteklo ili je opozvano), pa razmjena s njim ne ide. Javite administratoru.")
+	}
+	return append(out, s.kvaroviPotpisa(ctx, zapisi, granica)...)
+}
+
+// kvaroviPotpisa su rečenice za pločicu o promjenama s krivim potpisom
+// autora nakon granice: jedna po računalu od kojeg su stigle, i jedna za uvoz
+func (s *Service) kvaroviPotpisa(ctx context.Context, zapisi []ZapisOdbijenog, granica time.Time) []string {
+	var out []string
+	vidjeno := map[string]bool{}
+	for _, z := range zapisi {
+		if z.Vrsta != VrstaVerzija || z.Razlog != RazlogKrivPotpis || z.Zadnje.Before(granica) || vidjeno[z.Racunalo] {
+			continue
+		}
+		vidjeno[z.Racunalo] = true
+		od := "U uvezenoj datoteci bilo je"
+		if z.Racunalo != "" {
+			od = "Od računala " + s.imeRacunala(ctx, z.Racunalo) + " stiglo je"
+		}
+		out = append(out, od+" promjena s potpisom autora koji ne vrijedi, pa nisu upisane. Javite administratoru.")
 	}
 	return out
 }
