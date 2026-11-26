@@ -14,6 +14,7 @@ package razmjena
 import (
 	"bytes"
 	"crypto/ed25519"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
@@ -122,6 +123,68 @@ type vektoriZice struct {
 		// razlog nosi U+2028 i U+2029; Go ih piše kao \u2028 i \u2029
 		OdbijenicaRazdjelnici string `json:"odbijenicaSRazdjelnicima"`
 	} `json:"posebniZnakovi"`
+
+	// PotpisVerzije: verzija iz knjige koju autor (računalo A) potpiše.
+	// Druga ima sadržaj s razmacima, s <, > i & i s U+2028, vrijeme s
+	// nanosekundama i druge vrijednosti ostalih polja.
+	PotpisVerzije struct {
+		Obicna         vektorVerzije `json:"obicna"`
+		PosebniZnakovi vektorVerzije `json:"posebniZnakovi"`
+	} `json:"potpisVerzije"`
+}
+
+// ulazVerzije su podaci verzije kako stoje u knjizi
+type ulazVerzije struct {
+	VersionID     string `json:"version_id"`
+	Entity        string `json:"entity"`
+	EntityID      string `json:"entity_id"`
+	NodeID        string `json:"node_id"`
+	Supersedes    string `json:"supersedes"`
+	Archived      bool   `json:"archived"`
+	Channel       string `json:"channel"`
+	SchemaVersion int    `json:"schema_version"`
+	CreatedAt     string `json:"created_at"` // RFC 3339 s nanosekundama
+	Payload       string `json:"payload"`    // kako je spremljen
+}
+
+type vektorVerzije struct {
+	Ulaz        ulazVerzije `json:"ulaz"`
+	OblikSadrz  string      `json:"oblikSadrzaja"` // sadržaj kako ga Go šalje žicom; nad njim je sažetak
+	Sadrzaj     string      `json:"sadrzaj"`       // sažetak sadržaja, heks SHA-256
+	Bajtovi     string      `json:"bajtovi"`       // što se potpisuje, kao tekst
+	KljucAutora string      `json:"kljucAutora"`
+	Potpis      string      `json:"potpis"` // base64
+}
+
+func vektorPotpisaVerzije(t *testing.T, autor ed25519.PrivateKey, protokol string, v PodaciVerzije) vektorVerzije {
+	t.Helper()
+	sazetak, err := SazetakSadrzaja(v.Payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	potpis, kljuc, err := PotpisiVerziju(autor, protokol, v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := BajtoviVerzije(protokol, v, kljuc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ProvjeriPotpisVerzije(protokol, v, potpis, kljuc); err != nil {
+		t.Fatalf("potpis verzije ne prolazi provjeru: %v", err)
+	}
+	oblik, err := json.Marshal(json.RawMessage(v.Payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h := sha256.Sum256(oblik); hex.EncodeToString(h[:]) != sazetak {
+		t.Fatal("sažetak sadržaja nije SHA-256 Go-ova oblika sadržaja")
+	}
+	return vektorVerzije{
+		Ulaz: ulazVerzije{v.VersionID, v.Entity, v.EntityID, v.NodeID, v.Supersedes, v.Archived, v.Channel,
+			v.SchemaVersion, v.CreatedAt.Format(time.RFC3339Nano), string(v.Payload)},
+		OblikSadrz: string(oblik), Sadrzaj: sazetak, Bajtovi: string(b), KljucAutora: kljuc, Potpis: potpis,
+	}
 }
 
 func sjeme(b byte) []byte { return bytes.Repeat([]byte{b}, ed25519.SeedSize) }
@@ -279,6 +342,18 @@ func izradiVektore(t *testing.T, protokol string) vektoriZice {
 	}
 	v.PosebniZnakovi.Odbijenica = kaoRedak(t, Odbijenica(KodOdbijeno, ime))
 	v.PosebniZnakovi.OdbijenicaRazdjelnici = kaoRedak(t, Odbijenica(KodOdbijeno, "a\u2028b\u2029c"))
+
+	// potpis verzije, ključem računala A
+	v.PotpisVerzije.Obicna = vektorPotpisaVerzije(t, privA, protokol, PodaciVerzije{
+		VersionID: "019a2b3c-4d5e-7f00-8000-000000000001", Entity: "users", EntityID: "korisnik-1", NodeID: "admin-1",
+		SchemaVersion: 1, CreatedAt: od, Payload: []byte(`{"full_name":"Ana Horvat","username":"ahorvat"}`),
+	})
+	v.PotpisVerzije.PosebniZnakovi = vektorPotpisaVerzije(t, privA, protokol, PodaciVerzije{
+		VersionID: "019a2b3c-4d5e-7f00-8000-000000000002", Entity: "readings", EntityID: "ocitanje-1", NodeID: ime,
+		Supersedes: "019a2b3c-4d5e-7f00-8000-000000000001", Archived: true, Channel: "ocitanja/16/2026",
+		SchemaVersion: 2, CreatedAt: od.Add(1500 * time.Millisecond),
+		Payload: []byte("{ \"napomena\": \"a<b>&c\u2028d\",\n  \"cm\": 312 }"),
+	})
 	return v
 }
 
