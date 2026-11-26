@@ -28,6 +28,14 @@ func uMrezuSRokom(t *testing.T, a, b *Service, rok time.Duration) razmjena.Membe
 	if err != nil {
 		t.Fatal(err)
 	}
+	uMrezuS(t, a, b, m)
+	return m
+}
+
+// uMrezuS: članstvo m od b upiše se kod a i b. Kad b još nije u mreži od
+// a, ulazi bez provjere roka, kao da je primljen davno.
+func uMrezuS(t *testing.T, a, b *Service, m razmjena.Membership) {
+	t.Helper()
 	if err := a.saveMembership(ctxRub, m); err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +52,6 @@ func uMrezuSRokom(t *testing.T, a, b *Service, rok time.Duration) razmjena.Membe
 	if err := b.saveMembership(ctxRub, m); err != nil {
 		t.Fatal(err)
 	}
-	return m
 }
 
 // potpisiZahtjev je potpis zahtjeva ključem računala s

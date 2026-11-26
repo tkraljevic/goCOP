@@ -22,7 +22,11 @@ func TestPorukaSeljenja(t *testing.T) {
 	if p := porukaSeljenja(3, errors.New("disk pun")); !strings.Contains(p, "disk pun") || !strings.Contains(p, "nastavlja se") {
 		t.Errorf("greška: %q", p)
 	}
-	preseliSadrzaj(otvoriSpremiste(t)) // novo spremište nema što seliti
+	cekao := false
+	preseliSadrzaj(func() { cekao = true }, otvoriSpremiste(t)) // novo spremište nema što seliti
+	if !cekao {
+		t.Error("seljenje nije čekalo da prođe rok u kojem Postava vraća prethodni program")
+	}
 }
 
 func otvoriSpremiste(t *testing.T) *sadrzaj.Spremiste {

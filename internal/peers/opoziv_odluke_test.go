@@ -225,10 +225,11 @@ func clanstvoPrimateljaOd(t *testing.T, p *Service, o razmjena.Ovlast, id string
 	return m
 }
 
-// Ponovni prijem nosi trenutak iza zadnjeg opoziva članstva tog ključa koji
-// ga pokriva, i kad sat ovog računala kasni; opoziv s drugim potpisom
-// trenutak ne pomiče. Primatelj ne prima s trenutkom više od sat
-// unaprijed.
+// Ponovni prijem ključem mreže nosi trenutak iza zadnjeg opoziva članstva
+// tog ključa koji ga pokriva, i kad sat ovog računala kasni; opoziv s
+// drugim potpisom trenutak ne pomiče. Primatelj opozvani ključ ne prima
+// ponovno, a članstvo koje mu potpiše i s trenutkom iza opoziva ne vrijedi
+// (Odluke (26. 11. 2026.)).
 func TestPonovniPrijemIzaOpoziva(t *testing.T) {
 	a := rubnaMreza(t, "cop-osijek")
 	b := rubniCvor(t, "ured-vukovar")
@@ -247,18 +248,15 @@ func TestPonovniPrijemIzaOpoziva(t *testing.T) {
 	}
 
 	p := rubniCvor(t, "ured-osijek")
-	primateljUMrezi(t, a, p)
+	o := primateljUMrezi(t, a, p)
 	c := rubniCvor(t, "laptop-baranja")
 	zapisiOpozivKljucem(t, p, a.network.Private(), OpozivClanstva, c.node.ID, c.node.PublicKey(), unaprijed)
-	if m, err = p.izdajClanstvo(ctxRub, c.node.ID, c.javni()); err != nil || !m.IssuedAt.Equal(unaprijed.Add(time.Second)) {
-		t.Errorf("primatelj: članstvo iza opoziva: %v, %v", m.IssuedAt, err)
-	}
-	if err := p.provjeriClanstvo(ctxRub, a.network.Public, m, c.javni()); err != nil {
-		t.Errorf("primatelj: članstvo iza opoziva ne vrijedi: %v", err)
-	}
-	zapisiOpozivKljucem(t, p, p.node.key, OpozivClanstva, c.node.ID, c.node.PublicKey(), unaprijed.Add(2*time.Hour))
 	if _, err := p.izdajClanstvo(ctxRub, c.node.ID, c.javni()); err == nil || !strings.Contains(err.Error(), "samo računalo s ključem mreže") {
-		t.Errorf("primatelj: prijem dva sata unaprijed: %v", err)
+		t.Errorf("primatelj ponovno prima opozvani ključ: %v", err)
+	}
+	iza := clanstvoPrimateljaOd(t, p, o, c.node.ID, c.javni(), unaprijed.Add(time.Second))
+	if err := p.provjeriClanstvo(ctxRub, a.network.Public, iza, c.javni()); !errors.Is(err, ErrOpozvano) {
+		t.Errorf("primatelj: članstvo iza opoziva vrijedi: %v", err)
 	}
 	pokvariTablicu(t, a, "opozivi")
 	if _, err := a.izdajClanstvo(ctxRub, b.node.ID, b.javni()); err == nil {

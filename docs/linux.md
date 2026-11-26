@@ -68,7 +68,8 @@ U mapi podataka su:
 | `network-key` | ključ mreže (`0600`), samo na čvoru koji drži ključ: osnivač ili čvor koji je učitao kopiju ključa |
 | `gocop.toml` | postavke čvora |
 | `vodostaji/`, `pakete/`, `skenovi/` | izvorne datoteke arhive, `.cop` paketi, skenovi prijava |
-| `kopije/` | kopije baze koje skripta napravi prije nadogradnje |
+| `kopije/` | kopije baze koje skripta napravi prije nadogradnje (ili sam program kad prvi put krene novim izdanjem); program kopira i popis sadržaja, kao `sadrzaj-…db` |
+| `izdanje-baze.txt` | izdanje programa koje je bazu zadnje otvorilo |
 
 Datoteke uz bazu (`gocop.toml`, `vodostaji.db`, `skenovi/`…) program traži
 uz bazu, a relativne mape `podaci` i `pakete` (zadano `vodostaji` i `pakete`)

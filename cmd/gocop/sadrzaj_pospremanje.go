@@ -12,10 +12,17 @@ import (
 // pospremanjeSadrzajaSvakih je razmak između dva pospremanja sadržaja
 const pospremanjeSadrzajaSvakih = 6 * time.Hour
 
+// odgodaSeljenja je koliko program nakon pokretanja čeka prije seljenja.
+// Postava novom izdanju daje 90 s da se javi i inače vraća prethodni
+// program, a bazu ne vraća. Dok seljenje nije počelo, prethodno izdanje u
+// bazi sadržaja nalazi sve kao prije.
+const odgodaSeljenja = 5 * time.Minute
+
 // preseliSadrzaj seli PDF-ove i slike iz vremena kad su bili u bazi u
-// datoteke. Ide u pozadini: svaka datoteka ide na disk posebno, a
-// nadogradnja čeka da se program javi.
-func preseliSadrzaj(sp *sadrzaj.Spremiste) {
+// datoteke. Ide u pozadini i tek nakon čekanja (odgodaSeljenja): svaka
+// datoteka ide na disk posebno, a nadogradnja čeka da se program javi.
+func preseliSadrzaj(cekaj func(), sp *sadrzaj.Spremiste) {
+	cekaj()
 	uDnevnik(porukaSeljenja(sp.PreseliIzBaze(context.Background())))
 }
 

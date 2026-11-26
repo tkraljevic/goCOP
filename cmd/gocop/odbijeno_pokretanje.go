@@ -25,7 +25,12 @@ func provjeriPokretanje(cfg config.Config, cfgFrom string, dopustiNovi bool) err
 	if err := provjeriKljuc(cfg, cfgFrom, dopustiNovi); err != nil {
 		return err
 	}
-	return peers.ProvjeriProtokolMreze(cfg.DB, cfg.Sync.Protokol)
+	if err := peers.ProvjeriProtokolMreze(cfg.DB, cfg.Sync.Protokol); err != nil {
+		return err
+	}
+	// prvo pokretanje novog izdanja kopira bazu prije nego je promijeni, i
+	// bez Postave (slika za Docker, ručno pokretanje); bazu ne dira
+	return kopijaUzPokretanje(cfg.DB)
 }
 
 // provjeriKljuc je provjera ključa čvora pri pokretanju

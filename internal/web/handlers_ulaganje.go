@@ -50,7 +50,7 @@ func (h *UvozHandler) zahtjevIzObrasca(r *http.Request) (ulaganje.Zahtjev, strin
 		cvor = h.cvor()
 	}
 	return ulaganje.Zahtjev{
-		Baza: h.baza(), ArhivaPut: h.arhivaPut(), Koren: h.podaciDir(), Cvor: cvor,
+		Baza: h.baza(), ArhivaPut: h.arhivaPut(), Koren: h.podaciDir(), Cvor: cvor, Knjiga: h.knjiga,
 		Letva: letva, Od: od, Do: do,
 	}, odS, doS, nil
 }

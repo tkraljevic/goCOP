@@ -64,12 +64,14 @@ func (s *Service) promjenaUvoza(ctx context.Context, wanted []ledger.Version, od
 }
 
 // uveziSRupama upiše uvezene verzije kao razmjena: najprije pod bravom
-// rupe (prosiri), pa verzije u serijama od 2000. Kad se rupe ne daju
+// rupe (prosiri), pa verzije u serijama od 2000, članstva prva
+// (clanstvaNaPocetak). Kad se rupe ne daju
 // zapisati, ne upisuje ništa.
 func (s *Service) uveziSRupama(ctx context.Context, wanted []ledger.Version, p promjenaRupa) (int, error) {
 	if err := s.rupePodBravom(ctx, p, promjenaKljuca.prosiri); err != nil {
 		return 0, err
 	}
+	wanted = clanstvaNaPocetak(wanted)
 	ukupno := 0
 	for start := 0; start < len(wanted); start += 2000 {
 		applied, err := s.primijeniPodBravom(ctx, wanted[start:min(start+2000, len(wanted))])
@@ -163,4 +165,24 @@ func inacicaCopa(rupe map[string]raspon) int {
 		return 3
 	}
 	return CopInacica
+}
+
+// clanstvaNaPocetak su iste verzije, članstva prva, a ostale istim redom.
+// Svaka serija uvoza ponovno provjerava potpise (primijeniPodBravom), a
+// ključ autora vezan je uz ime tek kad je njegovo članstvo u knjizi ili u
+// istoj seriji. Računalo potpisuje i prije ulaska u mrežu, pa njegovo
+// članstvo može biti novije od njegovih verzija.
+func clanstvaNaPocetak(verzije []ledger.Version) []ledger.Version {
+	out := make([]ledger.Version, 0, len(verzije))
+	for _, v := range verzije {
+		if v.Entity == EntityMemberships {
+			out = append(out, v)
+		}
+	}
+	for _, v := range verzije {
+		if v.Entity != EntityMemberships {
+			out = append(out, v)
+		}
+	}
+	return out
 }

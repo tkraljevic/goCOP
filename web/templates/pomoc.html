@@ -80,7 +80,7 @@
   </div>
   <div class="pomoc-skupina">
     <h3>Svaki dan</h3>
-    <a class="pomoc-tema" href="#dashboard">{{icon "house"}}<span>Naslovna</span><small>8 podnaslova</small>{{icon "chevron-right"}}</a>
+    <a class="pomoc-tema" href="#dashboard">{{icon "house"}}<span>Naslovna</span><small>9 podnaslova</small>{{icon "chevron-right"}}</a>
     <a class="pomoc-tema" href="#readings">{{icon "ruler"}}<span>Očitanja</span><small>11 podnaslova</small>{{icon "chevron-right"}}</a>
     <a class="pomoc-tema" href="#prognoze">{{icon "chart-column"}}<span>Prognoze</span><small>6 podnaslova</small>{{icon "chevron-right"}}</a>
     <a class="pomoc-tema" href="#karta">{{icon "map"}}<span>Karta</span>{{icon "chevron-right"}}</a>
@@ -272,114 +272,159 @@
   <h2>{{icon "house"}} Naslovna</h2>
   <div class="pomoc-poglavlje">
   <details class="pomoc-podnaslovi" data-pomoc-podnaslovi open>
-    <summary><small>U ovom poglavlju</small><span>8 podnaslova</span>{{icon "chevron-down"}}</summary>
+    <summary><small>U ovom poglavlju</small><span>9 podnaslova</span>{{icon "chevron-down"}}</summary>
     <nav aria-label="U ovom poglavlju: Naslovna">
-      <a href="#dashboard-hero">Prijavljeni djelatnik i profil</a>
-      <a href="#dashboard-kartice">Moduli</a>
-      <a href="#dashboard-vrijeme">Vrijeme i vode</a>
-      <a href="#dashboard-kisa">Kiša po slivovima</a>
-      <a href="#dashboard-stanje">Stanje obrane</a>
-      <a href="#dashboard-brojke">Podaci u sustavu</a>
+      <a href="#dashboard-kartice">Kako se slažu kartice</a>
+      <a href="#dashboard-uloge">Kartice po ulogama</a>
+      <a href="#dashboard-teren">Vodočuvar</a>
+      <a href="#dashboard-podrucje">Rukovoditelj područja i dionice</a>
+      <a href="#dashboard-za-rijesiti">Za riješiti</a>
+      <a href="#dashboard-stanje">COP, sektor i stanje obrane</a>
+      <a href="#dashboard-vrijeme">Vodostaji, vrijeme i kiša</a>
       <a href="#dashboard-razmjena">Razmjena s čvorovima</a>
-      <a href="#dashboard-dogadjanja">Zid događanja</a>
+      <a href="#dashboard-bez-uloge">Račun bez uloge</a>
     </nav>
   </details>
   <div class="reg-card pomoc-tekst">
-    <p>Početna stranica je operativna ploča. Odozgo redom pokazuje module za koje imate ovlasti,
-      vrijeme i vode za vaše područje, kišu po slivovima, način rada svakog sektora, podatke u
-      sustavu, razmjenu s čvorovima, prečace i najnovija događanja. Služi za orijentaciju i brzi
-      prijelaz na posao; podatak se mijenja na stranici zapisa na koji događaj vodi.</p>
+    <p>Naslovna je složena od kartica prema vašoj dužnosti. Vodočuvar na njoj ima dnevni list,
+      zadatke i svoje letve, rukovoditelj branjenog područja stanje područja i ono što čeka
+      njega, a dežurni svoje dežurstvo i dnevnik COP-a. Kartica pokazuje samo ono najvažnije, a
+      poveznica desno od naslova ili redak vode na stranicu na kojoj se radi.</p>
 
-    <h3 id="dashboard-hero">Prijavljeni djelatnik i profil</h3>
-    <p>Na vrhu stoji <strong>kartica prijavljenog djelatnika</strong> koja odmah potvrđuje vaš
-      identitet i operativni položaj: puno ime i prezime, uloga u obrani (npr. Glavni koordinator,
-      Voditelj centra, Rukovoditelj dionice, Vodočuvar) te ustrojstvena jedinica (VGO, sektor,
-      područje ili Direkcija). Ako imate status administratora sustava, i to je ovdje naznačeno.</p>
-    <p>Uz karticu se nalaze dvije brze radnje:</p>
+    <h3 id="dashboard-kartice">Kako se slažu kartice</h3>
+    <p>Svaka kartica ima naslov, a mnoge desno i poveznicu na cijeli popis, npr.
+      <em>Prognoze</em> ili <em>Akti</em>. Na računalu i tabletu kartica pokazuje najviše 5
+      redaka, a na mobitelu 3. Kartica s poveznicom ostalo nabraja u zadnjem retku <em>Više: još
+      N</em>, a <em>Za riješiti</em> uz naslov piše koliko stavki ima. Prazna kartica to kaže jednom rečenicom,
+      npr. „Nema ništa za riješiti.” ili „Nijedna letva nije iznad praga.”</p>
+    <p>Neke kartice podatke dohvaćaju nakon što se stranica otvori, pa dotad pišu
+      <em>Učitavam…</em>. Ako se ne učitaju, pišu da podaci trenutačno nisu dostupni i da
+      stranicu osvježite za koju minutu. Poveznica u dio programa koji ne vidite se ne
+      prikazuje.</p>
+    <p>Kartice su istim redom na svim uređajima. Na mobitelu idu jedna ispod druge, na tabletu u
+      dva stupca, a na računalu u tri. Vodočuvar, skladištar, izvođač, strojar, rukovatelj,
+      voditelj posade, preglednik i gost imaju najviše dva stupca: na računalu dva, a na tabletu
+      i mobitelu jedan.</p>
+
+    <h3 id="dashboard-uloge">Kartice po ulogama</h3>
     <ul>
-      <li><strong>Profil</strong> — pregled vlastitih podataka, ureda, radne stanice i
-        promjena lozinke.</li>
-      <li><strong>Djelatnici</strong> — prečac na središnji imenik sudionika obrane,
-        njihovih dužnosti i kontakata (prikazuje se onima čija uloga ima pristup imeniku).</li>
+      <li><strong>Vodočuvar</strong>: Dnevni list, Zadaci rukovoditelja, Moje letve, Vrijeme.</li>
+      <li><strong>Rukovoditelj branjenog područja i zamjenik</strong>: kartica područja (BP),
+        Za riješiti, Zadaci vodočuvarima, Crpne stanice, Ustave, Nalozi koje sam dao,
+        Vodostaji, Vrijeme, Jača kiša.</li>
+      <li><strong>Rukovoditelj dionice i zamjenik</strong>: Moje dionice, Za riješiti, Objekti na
+        dionicama, Nalozi koje sam dao, Vodostaji, Vrijeme, Jača kiša.</li>
+      <li><strong>Dežurni operater</strong>: Moje dežurstvo, Za riješiti, Stanje obrane · Sektor,
+        Dnevnik COP-a, Vodostaji, Vrijeme, Jača kiša.</li>
+      <li><strong>Rukovoditelj sektora, voditelj COP-a i zamjenici</strong>: Stanje obrane · Sektor,
+        Za riješiti, Dnevnik COP-a, Nalozi koje sam dao, Vodostaji, Vrijeme, Jača kiša.</li>
+      <li><strong>Glavni rukovoditelj, voditelj Glavnog centra i zamjenici</strong>: Stanje obrane,
+        Za riješiti, Vodostaji, Vrijeme, Jača kiša, Događanja.</li>
+      <li><strong>Ovlaštenik za praćenje ugovora A.2 i A.3</strong>: Ugovor, Za riješiti, Nalozi,
+        Vodostaji, Vrijeme, Jača kiša.</li>
+      <li><strong>Izvođač</strong>: voditelj usluga ima Dnevnik radova, Nalozi, Na terenu danas i
+        Vrijeme; rukovoditelj obrane izvođača uz to i Stanje obrane, Vodostaji i Jaču kišu.</li>
+      <li><strong>Strojar, rukovatelj i voditelj posade</strong>: Moji objekti, Nalozi, Vrijeme.</li>
+      <li><strong>Skladištar</strong>: Za riješiti, Skladište, Na terenu, Zadnji promet.</li>
+      <li><strong>Preglednik i gost</strong>: Stanje obrane, Vodostaji, Vrijeme, Jača kiša, a
+        preglednik i Događanja. Iznad kartica piše da račun služi samo za pregled.</li>
     </ul>
+    <p>Dok u Alpama ima puno snijega, većina uloga uz Jaču kišu ima i karticu <em>Snijeg u
+      Alpama</em>. Tko ima više dužnosti, vidi kartice svih svojih uloga, svaku samo jednom:
+      najprije kartice uloge koja je prva po redu prednosti (uprava prije sektora, sektor prije
+      dežurnog, područje prije dionice, dionica prije vodočuvara), pa nove kartice ostalih.
+      Kartica <em>Za riješiti</em> tada spaja posao svih uloga; ako je prva uloga nema, ide na
+      vrh.</p>
 
-    <h3 id="dashboard-kartice">Moduli</h3>
-    <p>Odmah ispod kartice djelatnika nalazi se red modula. <strong>Prikazuju se samo moduli za
-      koje vaša uloga ima ovlasti</strong>:</p>
-    <ul>
-      <li><strong>Očitanja</strong> — moje letve za obilazak na vrhu, operativni vodostaji: zadnja očitana stanja, stupnjevi
-        i pragovi obrane od poplava, grafikoni kretanja vodostaja, praćene postaje i prognoze.</li>
-      <li><strong>Dokumenti</strong> — dnevnici, dežurstva, izvješća, događanja, akti i
-        vodočuvarska knjiga.</li>
-      <li><strong>Registri</strong> — temeljne evidencije: administrativna organizacija, dionice,
-        teritorijalne jedinice, vodomjerne postaje, objekti, vodotoci, slivovi i meteorološke
-        postaje, licencirane firme, održavanje i sredstva za obranu.</li>
-      <li><strong>Djelatnici</strong> — operativni imenik svih sudionika obrane s kontaktima,
-        funkcijama i rasporedom zaduženja po dionicama.</li>
-      <li><strong>Administracija</strong> — postavke čvora, moduli i ovlasti, nazivi i održavanje
-        baze.</li>
-    </ul>
-    <p>Prognoze, izvješća, akti, događanja, sredstva za obranu i popis firmi ne otvaraju se bez
-      svog modula ni izravnom adresom, ni njihov izvoz u Excel ili CSV. Akti, događanja i
-      vodočuvarska knjiga su pod Dokumentacijom. Vodočuvar svoj dnevni list vodi i bez nje,
-      osim kad mu je administrator Dokumentaciju sakrio baš za njegov račun.
-      Ako neku karticu ne vidite, to znači da je vaša uloga u sustavu ne koristi. Ako vam je
-      pojedini modul potreban za rad, ovlasti uređuje administrator pod <em>Administracija → Moduli
-      i ovlasti</em>.</p>
+    <h3 id="dashboard-teren">Vodočuvar</h3>
+    <p>Na vrhu je traka sa stanjem obrane vašeg branjenog područja, npr. „BP 16: preventivna
+      obrana” ili „BP 16: redovna obrana od 06:15”. Kad je drugdje u sektoru proglašen viši
+      stupanj, traka to dopisuje. Ispod su gumbi <em>Nova prijava</em> (vidi <a href="#prijave">Prijave
+      i obavijesti s terena</a>) i <em>Nazovi</em>. <em>Nazovi</em> nudi dežurnog u COP-u dok
+      dežurstvo traje, rukovoditelja područja i zamjenika, rukovoditelja vaše dionice i
+      zamjenika te voditelja COP-a; pritisak na ime na mobitelu zove broj.</p>
+    {{template "pomocSlika" (list "naslovna-vodocuvar" "Vrh Naslovne vodočuvara na mobitelu: traka BP 16: preventivna obrana, gumbi Nova prijava i Nazovi, a ispod otvoren izbor Nazovi s rukovoditeljem i zamjenikom BP 16, rukovoditeljem i zamjenikom dionice i voditeljem COP-a." "359")}}
+    <p>Kartica <em>Dnevni list</em> kaže je li današnji list otvoren i predan, a gumb
+      <em>Otvori list</em> vodi na njega. <em>Zadaci rukovoditelja</em> nabrajaju otvorene
+      zadatke, s tim tko ih je zadao i kada. <em>Moje letve</em> su letve koje ste u zadnjih 90
+      dana sami očitavali: neočitana ima gumb <em>Upiši</em>, koji se nakon upisa vraća na
+      Naslovnu (vidi <a href="#obilazak">Obilazak letava</a>).</p>
+    {{template "pomocSlika" (list "vodocuvar-naslovna" "Naslovna vodočuvara na mobitelu: kartica Dnevni list s gumbom Otvori list, a ispod kartica Zadaci rukovoditelja sa zadatkom Obilazak l.o. Dravskog nasipa od mađarske granice do CS Velika." "359")}}
+    <p>Kad prošli dnevni list nije predan, iznad trake stoji upozorenje „Niste potpisali i
+      predali dnevni list za …”, s poveznicom na svaki takav list.</p>
 
-    <h3 id="dashboard-vrijeme">Vrijeme i vode</h3>
-    <p>Ispod reda modula je ploča za vaše područje: ured VGI-ja iz vaše dužnosti, ili Osijek
-      kad područja nemate. Gumb <strong>Moja lokacija</strong> koristi lokaciju preglednika kad je
-      preglednik smije dati. Ploča pokazuje upozorenja DHMZ-a za županiju (i broj upozorenja
-      drugdje u Hrvatskoj), trenutno vrijeme na najbližoj glavnoj postaji, današnju prognozu za
-      regiju, hidrološki bilten DHMZ-a za sve rijeke, redom po važnosti za regiju, izmjerenu kišu
-      na najbližem stvarnom kišomjeru i prognozu kiše na najbližoj izvedenoj točki. Županija se
-      određuje po najbližem središtu, pa uz granicu zna biti susjedna. Podaci DHMZ-a su otvoreni
-      podaci (meteo.hr) i osvježavaju se svakih petnaest minuta; bez interneta ploča pokazuje
-      zadnje što je pročitala ili javlja da podataka nema. Kad za županiju nema upozorenja, ploča
-      u jednom retku kaže do kada DHMZ ne javlja opasne pojave; kad se upozorenja ne daju
-      dohvatiti, piše da nisu dostupna, a ne da ih nema.</p>
-    <p>Redak s upozorenjima drugdje u Hrvatskoj vodi na <em>Prognoze → Vrijeme</em>, gdje su ta
-      upozorenja složena po područjima: jedno područje je jedan redak, s brojem upozorenja i
-      razinama, a najviša razina je prva. Klik na županiju pokazuje sva njezina upozorenja i
-      vrijeme za nju, a pomorsko područje otvara svoja upozorenja ispod retka. Broj je isti na
-      Naslovnoj i na Prognozama.</p>
+    <h3 id="dashboard-podrucje">Rukovoditelj područja i dionice</h3>
+    <p>Rukovoditelj branjenog područja i zamjenik na prvoj kartici imaju stanje obrane područja,
+      broj vodočuvara koji su danas otvorili dnevni list i koliko područje ima crpnih stanica,
+      ustava i dionica. <em>Zadaci vodočuvarima</em> pokazuju otvorene i
+      nedavno zaključene zadatke, a gumb <em>Novi zadatak</em> vodi na zadavanje.
+      <em>Crpne stanice</em> pokazuju samo stanice koje rade, sifoniraju ili su u kvaru, a
+      <em>Ustave</em> samo ustave kojima se zapornica promijenila od prethodnog očitanja.
+      <em>Nalozi koje sam dao</em> stavljaju na vrh naloge izvođaču koji čekaju vašu
+      potvrdu.</p>
+    {{template "pomocSlika" (list "naslovna-bp" "Prve tri kartice rukovoditelja BP 16 na računalu: kartica područja s preventivnom obranom, jednim vodočuvarom na terenu i objektima, Za riješiti s dvije prijave s terena i Zadaci vodočuvarima sa zadatkom obilaska i gumbom Novi zadatak." "736")}}
+    <p>Rukovoditelj dionice i zamjenik u kartici <em>Moje dionice</em> vide svaku svoju dionicu i
+      stupanj obrane na njoj, a dionice u obrani idu prve. <em>Objekti na dionicama</em> su crpne
+      stanice koje rade, sifoniraju ili su u kvaru i ustave kojima se zapornica promijenila od
+      prethodnog očitanja.</p>
 
-    <h3 id="dashboard-kisa">Kiša po slivovima</h3>
-    <p>Ispod ploče vremena stoji kiša po međuslivovima koji ulaze u prognozu (Drava, Mura, Dunav
-      od Komároma do Aljmaša): koliko je palo u zadnja 24 i 72 sata i koliko se očekuje u sljedećih
-      48 sati, kao srednjak međusliva. Uspoređuje se s onim što je za taj međusliv uobičajeno
-      (reanaliza ERA5 od 1990.): <strong>žuto</strong> kad je palo ili se očekuje koliko prosječno
-      padne tri puta godišnje, <strong>narančasto</strong> jednom godišnje, <strong>crveno</strong>
-      jednom u pet godina. Upozorenje kaže na kojim će letvama porasti voda, redom niz tok, s
-      najvećim porastom i danom iz zadnje dnevne prognoze. Za letve kojima zadnje izdanje nema dnevne
-      prognoze (npr. kad uzvodna letva nema mjerenja) porasta nema, a uz upozorenje piše koje su to
-      letve, ili da dnevne prognoze nema. Gleda se i kiša koja tek dolazi, jer je
-      za prognozu vodostaja ona najvažnija — upozorenje se zato može pojaviti dan-dva prije nego
-      kiša padne. Kad ničeg neuobičajenog nema, stoji jedan redak, a na klik kiša po svim
-      međuslivovima s uobičajenim pragom.</p>
-    <p>Na kartici <strong>Jača kiša</strong> svaki redak je jedan međusliv, dio sliva između dvije
-      letve („Botovo → Terezino Polje”). Broj nije mjerenje jednog kišomjera nego prosjek tog
-      međusliva iz modela. Klik na redak otvara međusliv na stranici Slivova, s točkama iz kojih se
-      broj računa i pravim kišomjerima u njemu; „Više” otvara tablicu kiše po svim međuslivovima.</p>
+    <h3 id="dashboard-za-rijesiti">Za riješiti</h3>
+    <p>Kartica <em>Za riješiti</em> skuplja ono što čeka baš vas; broj uz naslov je broj
+      redaka. Rukovoditelj branjenog područja u njoj vidi dnevne listove koji čekaju ovjeru,
+      listove koji nisu predani i objavljene prijave s terena koje još nisu riješene: prijave iz
+      zadnjih 7 dana svaku u svom retku, a starije u jednom retku s brojem. Rukovoditelj dionice
+      vidi listove koji čekaju parafu i prijave svojih dionica, a ovlaštenik listove koji čekaju
+      potvrdu nadzora i naloge preko roka.</p>
+    <p>Rukovoditelj sektora i voditelj COP-a uz to vide akte koji čekaju potpis, a dok je sektor
+      u obrani i sektorsko izvješće koje još nije sastavljeno (rok 10:00). Dežurni i Glavni
+      centar vide sektorska izvješća koja nedostaju u sektorima u obrani i nepredane dnevne
+      listove po sektorima. Rukovoditelj područja i dionice vide robu koja stiže na teren, a
+      sektor i dežurni pošiljke na putu dulje od 24 sata. Skladištar vidi pošiljke koje stižu u
+      njegova skladišta, a u prosincu i godišnji popis koji još nije zaključen. Redak vodi ravno
+      na posao.</p>
+    {{template "pomocSlika" (list "naslovna-za-rijesiti" "Kartica Za riješiti rukovoditelja BP 16 na mobitelu: broj 2 uz naslov i dvije objavljene prijave s terena, o otpadu kod CS Velika i o rupama od divljači kod ustave Bakanka, s dionicom, vodočuvarom i vremenom objave." "359")}}
 
-    <h3 id="dashboard-stanje">Stanje obrane</h3>
-    <p>Ispod kiše po slivovima, odjeljak <em>Sektori obrane od poplava</em> daje pregled sektora
-      koje smijete vidjeti. Otvoren dnevnik COP-a znači <strong>aktivnu obranu</strong>: vode se
-      dežurstva, akti i izvješća. Bez otvorenog dnevnika sektor je u <strong>preventivnoj
-      obrani</strong>. Uz sektor stoje najviši proglašeni stupanj i broj dionica u obrani,
-      otvoreni dnevnik COP-a (otvara se pritiskom) s dežurnim, današnja izvješća dionica i
-      sredstva na terenu. Izvješća stoje samo uz modul Dokumenti, a sredstva samo uz modul
-      Registri.</p>
+    <h3 id="dashboard-stanje">COP, sektor i stanje obrane</h3>
+    <p><em>Stanje obrane · Sektor</em> pokazuje svako branjeno područje sektora s rukovoditeljem i
+      brojem ljudi na terenu; područja u obrani idu na vrh, s bojom i stupnjem obrane.
+      <em>Moje dežurstvo</em> kaže do kada dežurate i tko preuzima smjenu, ili tko dežura sada.
+      <em>Dnevnik COP-a</em> pokazuje zadnje upise i gumb <em>Upiši u dnevnik</em>; dok sektor
+      nije u obrani, dnevnik nije otvoren.</p>
+    {{template "pomocSlika" (list "naslovna-dezurni" "Prve tri kartice dežurnog operatera: Moje dežurstvo kaže da je Sektor B u preventivnoj obrani pa dežurstva nema, Za riješiti nema ništa, a Stanje obrane · Sektor B pokazuje BP 16 u preventivnoj obrani s rukovoditeljem i jednim čovjekom na terenu." "371")}}
+    <p>Kartica <em>Stanje obrane</em> (uprava, preglednik, gost te rukovoditelj obrane izvođača i
+      zamjenik) daje sve sektore koje smijete vidjeti: sektor u obrani u svom retku, s dežurnim i brojem dionica u obrani, a
+      sektori bez obrane zajedno u jednom retku. Izvođač i gost ne vide ime dežurnog, a redak
+      vodi u dnevnik COP-a samo onoga tko ima Dokumente. Kartica <em>Događanja</em> pokazuje
+      zadnje zapise sa zida događanja; cijeli zid je pod <em>Dokumenti → Događanja</em>, a na
+      njemu su samo događaji modula koje vidite.</p>
 
-    <h3 id="dashboard-brojke">Podaci u sustavu</h3>
-    <p>Ispod sektora stoje brojke o tome koliko program zna: zapisi u arhivi i zauzeće diska,
-      godine povijesti, letve, satni i dnevni vodostaji, protoci, oborina, izdane i unatrag
-      provjerene prognoze, očitanja i profili korita, uz arhivu po desetljećima i najviše
-      izmjerene vodostaje na Dunavu i Dravi. Brojke su izbrojene, ne procijenjene, i rastu dok je
-      stranica otvorena. Vide ih samo prijavljeni.</p>
+    <h3 id="dashboard-vrijeme">Vodostaji, vrijeme i kiša</h3>
+    <p><em>Vodostaji</em> pokazuju letve s vodostajem, vremenom očitanja i promjenom u 24 sata.
+      Uprava, preglednik i gost vide letve iznad praga u cijeloj državi, a dežurni i
+      rukovoditelj obrane izvođača letve iznad praga u svom sektoru. Uprava sektora vidi sve
+      letve sektora, rukovoditelj područja i ovlaštenik sve letve svog područja, a rukovoditelj
+      dionice letve svojih dionica; letve iznad praga su na vrhu. Očitanje starije od 36 sati je
+      sivo, a letva koja se tri dana nije očitala ne stoji na kartici kao da je danas iznad
+      praga.</p>
+    <p><em>Vrijeme</em> je za mjesto vašeg branjenog područja, a bez njega za Osijek: upozorenja
+      DHMZ-a, broj upozorenja drugdje u Hrvatskoj, trenutno vrijeme s kišom na najbližem
+      kišomjeru i prognoza za regiju. Poveznica <em>Prognoze</em> vodi na cijelu prognozu
+      vremena.</p>
+    <p><em>Jača kiša</em> pokazuje međuslivove u kojima je palo ili se očekuje više kiše nego što
+      je ondje uobičajeno: <strong>žuto</strong> koliko prosječno padne tri puta godišnje,
+      <strong>narančasto</strong> jednom godišnje, <strong>crveno</strong> jednom u pet godina.
+      Redak kaže koliko je palo u 3 dana i u zadnja 24 sata, koliko još dolazi u 2 dana i na
+      kojoj će letvi porasti voda prema prognozi. Gleda se i kiša koja tek dolazi, pa se
+      upozorenje može pojaviti dan-dva prije nego kiša padne. Bez jače kiše kartica kaže „Nema
+      jače kiše.”</p>
 
     <h3 id="dashboard-razmjena">Razmjena s čvorovima</h3>
+    <p>Globalni administrator na kartici <em>Sustav</em> vidi koliko je računala usklađeno, kad je
+      izdana prognoza (i upozorenje kad je izdanje starije od tri sata) te koliko podataka program
+      ima. Pojedinosti razmjene su pod <a href="#sync">Stanje razmjene</a>. Cijela pločica razmjene,
+      opisana u nastavku, stoji samo na starijoj Naslovnoj (vidi <a href="#dashboard-bez-uloge">Račun
+      bez uloge</a>).</p>
+
     <p>Pločica pokazuje s kojim se čvorovima ovo računalo usklađuje, kada je bila zadnja
       razmjena, koliko još treba poslati ili primiti, dokle je stigla ugradnja arhive vodostaja i
       koji čvor izdaje prognozu. Uz svaki čvor stoji izdanje programa na kojem radi i put kojim
@@ -423,31 +468,16 @@
       mijenja montaža mape <code>/arhiva</code>. Gdje su sada, piše u Administraciji pod
       <em>Održavanje baze</em>.</p>
 
-    <h3 id="dashboard-dogadjanja">Zid događanja</h3>
-    <p>Zid spaja posljednje promjene iz različitih modula u jednu kronologiju: očitanja, dnevnike,
-      akte, izvješća, sredstva i druge poslovne zapise. Naslov otvara izvorni zapis. Gumbi iznad
-      zida (<em>sve</em>, <em>Obrana</em>, <em>Dnevnik COP-a</em>, <em>Dežurstva</em>,
-      <em>Izvješća</em>, <em>Prijave s terena</em>, <em>Sredstva</em>, <em>Očitanja</em>,
-      <em>Registri</em>) suze ga na jedan modul. Cijela kronologija s filtrima i Excel izvozom
-      nalazi se pod <em>Dokumenti → Događanja</em>.</p>
-    <p>Na zidu su samo događaji modula koje vidite. Bez Registara na njemu nema sredstava ni
-      registara, a bez Dokumentacije nema dnevnika, dežurstava ni izvješća. Isto vrijedi za
-      izvoz u Excel. Bez Dokumentacije nema ni poveznice na stranicu Događanja. Izvođač
-      (voditelj usluga / poslovođa, rukovoditelj obrane izvođača i zamjenik) na zidu ne vidi
-      dnevnik COP-a ni dežurstva.</p>
-    <p>Prijave s terena na zidu su objava (obavijest, prijava, izvješće ili zahtjev; vrsta
-      <em>Prijava</em> je istaknuta) i rješenje, koje zatvara predmet i u naslovu nosi vrstu (npr.
-      <em>Riješen zahtjev s terena</em>). Redak prijave vidi samo onaj tko tu
-      prijavu smije čitati u <em>Dokumenti → Prijave s terena</em>. Nacrti i prijave
-      prenesene iz ranije evidencije BP16 ne idu na zid.</p>
-    <p>Očitanje iznad praga ide na zid sektora letve, onog do kojeg se dolazi preko njezinih
-      dionica. Letva bez dionica (strana letva) ide na zid sektora koji je prate, upisanih u obrascu
-      letve; očitanje letve koju ne prati nijedan sektor vide svi.</p>
-    <p>Iznad zida stoje i <strong>prečaci</strong> za ono što se u vašoj dužnosti radi svaki dan:
-      <em>Dnevnik COP-a</em> i <em>Izvješće sektora</em> za upravu sektora, <em>Novo dnevno
-      izvješće</em> za one koji pišu po dionicama i područjima, <em>Sredstva</em>,
-      <em>Teren</em> za terenske djelatnike te uvijek <em>Događanja</em>. Prečac u modul koji ne
-      vidite se ne prikazuje.</p>
+    <h3 id="dashboard-bez-uloge">Račun bez uloge</h3>
+    <p>Račun koji još nema dužnost vidi stariju Naslovnu, uz obavijest „Vaš račun čeka da mu
+      administrator dodijeli ulogu. Dotad možete samo gledati.” Istu Naslovnu, bez te obavijesti,
+      vidi i račun čija dužnost još nema svoju Naslovnu, ili joj fali upisano područje ili sektor.
+      Na njoj su prijavljeni
+      djelatnik s gumbima <em>Profil</em> i <em>Djelatnici</em>, gumbi modula, vrijeme i vode,
+      kiša po slivovima, sektori obrane, podaci u sustavu, pločica razmjene, prečaci i zid
+      događanja. Prikazuju se samo moduli koje račun vidi. To administrator uređuje pod
+      <em>Administracija → Vidljivost modula</em>, a iznimku za jedan račun na kartonu
+      djelatnika.</p>
   </div>
   </div>
   {{template "pomocPoglavljeNav" (list "Kako se program koristi" "#pocetak" "Obilazak letava" "#obilazak")}}
@@ -1828,7 +1858,7 @@
       <li>Upišite <em>Opis radnih aktivnosti</em>; bez njega se list ne predaje. Što ste
         primijetili, npr. procjeđivanje ili oštećenje, upišite pod <em>Posebna zapažanja</em>.
         Vodostaje koje ste taj dan očitali ne prepisujete: upisuju se sami.</li>
-      <li>Na kraju dana pritisnite <em>Potpiši i predaj</em>.</li>
+      <li>Na kraju radnog dana pritisnite <em>Potpiši i predaj</em>.</li>
     </ol>
     {{template "pomocSlika" (list "vodocuvar-naslovna" "Naslovna vodočuvara na mobitelu: kartica Dnevni list s gumbom Otvori list, a ispod kartica Zadaci rukovoditelja sa zadatkom Obilazak l.o. Dravskog nasipa od mađarske granice do CS Velika." "359")}}
     {{template "pomocSlika" (list "vodocuvar-list-vrh" "Dnevni list u pisanju na mobitelu: početak rada 07:00, svršetak 15:00, vremenske prilike, a pod Naredbe rukovoditelja zadatak obilaska Dravskog nasipa s označenim obavljeno i upisom što je napravljeno." "359")}}
@@ -1852,12 +1882,11 @@
     <p>Vodočuvar list predaje osobnim elektroničkim potpisom, a rukovoditelj branjenog područja
       ili njegov zamjenik ga zatim ovjerava svojim. List ovjerava i onaj tko je vodočuvaru zadao
       zadatak koji stoji na tom listu. Kad rukovoditelja i zamjenika nema, list ovjerava
-      rukovoditelj sektora ili zamjenik, glavni rukovoditelj ili zamjenik, a zasad i globalni
-      administrator. Ako područje ima rukovoditelja ili zamjenika, program ih uz gumb
+      rukovoditelj sektora ili zamjenik, ili glavni rukovoditelj ili zamjenik. Ako područje ima rukovoditelja ili zamjenika, program ih uz gumb
       <em>Ovjeri list</em> pita da potvrde da ovjeravaju umjesto njega. Voditelj COP-a i
       voditelj centra list ne ovjeravaju, osim kad je na njemu njihov zadatak. Ostali, npr.
-      tehničar ili poslovođa, list parafiraju; parafa nije ovjera. Nitko ne ovjerava svoj list,
-      ni globalni administrator: tko je uz vodočuvara i rukovoditelj ili zamjenik, svoj list
+      tehničar ili poslovođa, list parafiraju; parafa nije ovjera. Nitko ne ovjerava svoj list:
+      tko je uz vodočuvara i rukovoditelj ili zamjenik, svoj list
       ostavlja drugome.
       Ako predaja nije dopuštena zbog nepotpunog opisa ili zadatka,
       uneseno ostaje spremljeno kao nacrt, a poruka kaže što treba dopuniti.
@@ -1942,38 +1971,97 @@
       Svaki se list ovjerava zasebno.</p>
     {{if .VidiVodocuvarskiDnevnik}}<p><a class="btn btn-secondary btn-sm" href="/vodocuvar">{{icon "notebook"}} Otvori Vodočuvarski dnevnik</a></p>{{end}}
     <h3 id="prijave">Prijave i obavijesti s terena</h3>
-    <p>Vodočuvar s terena sastavlja obavijest, prijavu, izvješće ili zahtjev: opisuje što je
-      zatekao, bira vodotok, objekt ili dionicu, označava mjesto na karti i prilaže fotografije.
-      Nacrt se može uređivati i obrisati samo prije objave.</p>
-    <p>Na mobitelu su građevina, važnost, dionica i stacionaža pod <em>Više o mjestu</em>, a gumb
-      <em>Snimi fotografiju</em> otvara kameru.</p>
-    <p>Objavom prijava dobiva broj, osobni elektronički potpis i trajni PDF izvornik s ugrađenim
-      fotografijama. Tada postaje službeni zapis i istodobno se upisuje na vodočuvarov dnevni
-      list za dan događaja; kad za taj dan, koji je prošao, lista nema ili je list tog dana
-      prenesen iz ranije evidencije, upisuje se na današnji list, uz dan događaja. Objavljenu prijavu čita tko čita vodočuvarov dnevnik, a
-      rukovoditelj dionice samo prijavu vezanu uz svoju dionicu: onu u kojoj je navedena
-      njegova dionica ili objekt koji je u registru na njegovoj dionici; i onu u kojoj nije navedena
-      ni dionica ni objekt s dionicom, kad mu je vezan i vodočuvarov list za taj dan (vodočuvar
-      je tada čuvao njegovu dionicu ili cijelo područje). Prijava koja navodi dionicu ili objekt
-      s dionicom vezana je samo uz tu dionicu, i kad je vodočuvar ne čuva. U polju Dionica broje
-      se šifre dionica područja iz registra, bez obzira na velika slova i na to jesu li odvojene
-      zarezom, razmakom ili veznikom; ono što nije šifra dionice tog područja (npr. pogrešno
-      upisana šifra) ne navodi nijednu dionicu. Dnevni list i njegov potpisani PDF nose
-      oznaku, vrstu i naslov svake prijave objavljene za taj dan, kao dio zapisa koji vodočuvar
-      potpisuje: tko čita list vidi ih, ali samu prijavu otvara samo tko je smije čitati.
-      Uprava je nakon pregleda može označiti <strong>pregledanom i riješenom</strong>; to je stanje predmeta,
-      a ne naknadno arhiviranje. Objavljeni sadržaj time se ne mijenja. Tko je uz vodočuvara
-      i rukovoditelj, zamjenik ili globalni administrator, svoju prijavu ne označava riješenom. Objava i rješenje
-      pojavljuju se i na zidu događanja, pod gumbom <em>Prijave s terena</em>, samo onima koji
-      prijavu smiju čitati.</p>
-    <p>Ispod svake fotografije, u dokumentu i na stranici, stoji što je fotoaparat zapisao —
-      vrijeme snimanja, položaj i uređaj. Uz to stoji i SHA-256 otisak izvorne datoteke: u dokumentu
-      cijeli, na stranici skraćen, a cijeli se vidi kad pokazivač zadržite na njemu. Zato se snima s uključenom lokacijom. Prijava bez označenog mjesta dobiva položaj s fotografije.</p>
-    <p>Program fotografije odmah smanjuje radi prostora. Izvorne smanjene slike ostaju lokalno
-      onoliko dana koliko globalni administrator zada na stranici <em>Održavanje baze</em>, u dijelu
-      <em>Pohrana</em>, a zatim se brišu; potpisani PDF sa svim
-      slikama ostaje službeni izvornik. PDF se u spremištu sadržaja čuva jednom po SHA-256 otisku
-      i prenosi odgovarajućim čvorovima prema njihovoj pretplati.</p>
+    <p>Što vodočuvar zatekne na terenu, npr. rupe od divljači u kosini nasipa, otpad uz nasip ili
+      provalu u čuvarnicu, javlja prijavom s terena. Ona ima opis, mjesto na karti i fotografije, a objavom
+      postaje službeni zapis: dobiva broj i trajni PDF izvornik s ugrađenim fotografijama.</p>
+    <p>Postoje četiri vrste: <em>Obavijest</em> (što ste vidjeli), <em>Prijava</em> (šteta, otpad,
+      provala), <em>Izvješće</em> (rezultat obilaska) i <em>Zahtjev</em> (što treba nabaviti ili
+      popraviti). Jedino prijava ide iz kuće: ispisana i vlastoručno potpisana ulazi u urudžbeni
+      zapisnik kao dolazni akt. Ostale vrste ostaju u kući.</p>
+    <p><strong>Kako se piše prijava.</strong></p>
+    <ol>
+      <li>Na Naslovnoj pritisnite <em>Nova prijava</em>. Isti gumb je i na popisu prijava
+        (Dokumenti, <em>Prijave s terena</em>).</li>
+      <li>Odaberite vrstu i dan događaja, pa upišite naslov i opis: što ste zatekli, kada, koliko
+        je hitno i što predlažete.</li>
+      <li>Pod <em>Mjesto</em> dodirnite kartu ili pritisnite <em>Moj položaj</em>, pa odaberite
+        vodu ili objekt. Građevina, važnost, dionica i stacionaža su na mobitelu pod <em>Više o
+        mjestu</em>.</li>
+      <li>Pod <em>Fotografije</em> pritisnite <em>Snimi fotografiju</em> (na računalu <em>Dodaj
+        fotografije</em>). Prijava ima najviše 6 fotografija.</li>
+      <li>Pritisnite <em>Spremi nacrt</em>. Pregledajte ga, po želji i kao <em>PDF (pregled
+        nacrta)</em>, pa pritisnite <em>Objavi i potpiši</em>.</li>
+    </ol>
+    {{template "pomocSlika" (list "prijave-nova" "Nova prijava na mobitelu: odabrana vrsta Prijava s objašnjenjem šteta, otpad, provala, dan događaja 26. 11. 2026., naslov o rupama od divljači u kosini Dravskog nasipa kod ustave Bakanka i opis rupa." "359")}}
+    <p>Nacrt vidite samo vi. Dok nije objavljen, možete ga urediti (<em>Uredi</em>), ukloniti
+      pojedinu fotografiju ili ga obrisati (<em>Obriši nacrt</em>).</p>
+    {{template "pomocSlika" (list "prijave-objava" "Nacrt prijave o otpadu uz nasip kod CS Velika: poveznice PDF (pregled nacrta) i Uredi, a ispod ploča Objavi i potpiši s gumbom za objavu i poveznicom Obriši nacrt." "359")}}
+    <p><strong>Fotografije i položaj.</strong> Ispod svake fotografije, na stranici i u PDF-u,
+      stoji što je zapisao fotoaparat: vrijeme snimanja, položaj i uređaj. Uz to je otisak SHA-256
+      izvorne datoteke, na stranici skraćen, a u PDF-u cijeli. To dokazuje da slika nije
+      izmišljena, pa snimajte s uključenom lokacijom na telefonu. Ako mjesto na karti ne označite,
+      prijava uzima položaj s fotografije; na karti ga možete pomaknuti.</p>
+    {{template "pomocSlika" (list "prijave-fotografija" "Prava fotografija rupa od divljači u kosini nasipa u prijavi, a ispod nje vrijeme snimanja 26. 11. 2026. 09:14:32, položaj 45,77140; 18,15290, uređaj i skraćeni otisak SHA-256." "325")}}
+    <p><strong>Što se događa objavom.</strong> Prijava dobiva broj, npr. B-T-1/2026 (sektor,
+      redni broj u godini). PDF s fotografijama postaje izvornik i više se ne mijenja; ispravak je
+      nova prijava. Prijava se upisuje na vaš dnevni list za dan događaja. Ako je taj dan prošao,
+      a lista nema ili je list tog dana prenesen iz ranije evidencije, upisuje se na današnji
+      list, uz dan događaja. Dnevni list i njegov potpisani PDF nose oznaku, vrstu i naslov svake
+      prijave objavljene za taj dan, i one za raniji dan koja je upisana na taj list: tko čita
+      list vidi ih, ali samu prijavu otvara samo tko je smije čitati.</p>
+    <p>Ako imate potpisni ključ, uz gumb upisujete <em>Lozinku za potpis</em> i PDF se potpisuje
+      vašim ključem. Bez ključa prijava se objavi bez osobnog elektroničkog potpisa, a na stranici
+      uz izvornik piše „bez elektroničkog potpisa”. U PDF-u na mjestu potpisa vodočuvara u oba
+      slučaja stoji okvir s imenom, vremenom objave i kodom za provjeru, a ispis prijave potpisuje
+      se i vlastoručno.</p>
+    {{template "pomocSlika" (list "prijave-objavljena" "Dio objavljene prijave: objavljeno 26. 11. 2026. u 18:12, dnevni list 001/2026 kao poveznica i izvornik PDF bez elektroničkog potpisa." "325")}}
+    <p><strong>Urudžba.</strong> Kad pisarnica primi ispisanu prijavu, na stranici prijave, pod
+      <em>Urudžbeni zapisnik</em>, upišite KLASU, URBROJ i dan primitka, pa pritisnite <em>Upiši
+      urudžbu</em>. Bez dana primitka uzima se današnji. Upisuje ih vodočuvar sam ili onaj tko
+      smije riješiti prijavu, bez ičijeg parafa. Klasa i broj dopisuju se na PDF preko prijemnog
+      štambilja kao bilješka, a potpis vodočuvara ostaje valjan. Na popisu takva prijava ima
+      oznaku <em>urudžbirano</em>. Obavijest, izvješće i zahtjev nemaju urudžbu.</p>
+    {{template "pomocSlika" (list "prijave-urudzba" "Ploča Urudžbeni zapisnik na objavljenoj prijavi: objašnjenje da jedino prijava ide iz kuće, upisana KLASA 325-02/26-01/0000123 i URBROJ 374-26-3, prazno polje Primljeno i gumb Upiši urudžbu." "359")}}
+    <p><strong>Gdje su prijave.</strong> Svoje prijave vodočuvar nalazi pod <em>Moje prijave</em> u
+      Vodočuvarskom dnevniku ili u Dokumentima, pod <em>Prijave s terena</em>. Popis se sužava po
+      sektoru, branjenom području, stanju (nacrti, objavljene, riješene) i godini, a polje
+      <em>Traži</em> traži u naslovu, opisu i mjestu. Iznad kartica piše koliko je prijava za
+      odabrani izbor; na popisu su samo prijave koje smijete čitati. Na kartici je dan događaja, a
+      dan objave piše na stranici prijave.</p>
+    {{template "pomocSlika" (list "prijave-popis" "Popis Prijave i obavijesti s terena na mobitelu: gumb Nova prijava, izbori Sektor, Godina, Branjeno područje i Stanje, polje Traži, a ispod dvije prijave, nacrt o otpadu kod CS Velika i objavljena B-T-1/2026 o rupama od divljači s dvije fotografije." "359")}}
+    {{if .VidiVodocuvarskiDnevnik}}<p><a class="btn btn-secondary btn-sm" href="/prijave">{{icon "map-pin"}} Otvori Prijave s terena</a></p>{{end}}
+    <p><strong>Pregledano i riješeno.</strong> Nakon pregleda prijavu pregledanom i riješenom
+      označava, gumbom <em>Pregledano, riješeno</em>, uprava vodočuvarove knjige: rukovoditelj branjenog područja i
+      zamjenik, rukovoditelj sektora i zamjenik, voditelj COP-a i zamjenik, glavni rukovoditelj i
+      zamjenik. To je stanje predmeta, a ne naknadno arhiviranje: PDF,
+      potpis i upis na list ostaju isti. Svoju prijavu nitko ne označava riješenom, pa ni onaj
+      tko je uz vodočuvara i rukovoditelj ili zamjenik. Rukovoditelj
+      branjenog područja neriješene prijave vidi na Naslovnoj, u kartici <em>Za riješiti</em>:
+      one mlađe od 7 dana svaku posebno, a starije u jednom retku s poveznicom na popis. Objava i
+      rješenje pojavljuju se i na zidu događanja, pod gumbom <em>Prijave s terena</em>, samo onima
+      koji prijavu smiju čitati.</p>
+    <p><strong>Tko čita prijave.</strong> Objavljenu prijavu čita tko čita vodočuvarov dnevnik:
+      rukovoditelj branjenog područja, ovlaštenici, uprava i dežurni operater u COP-u svog
+      sektora, a rukovoditelj dionice samo prijavu vezanu uz svoju dionicu: onu u kojoj je
+      navedena njegova dionica ili objekt koji je u registru na njegovoj dionici, i onu u kojoj
+      nije navedena ni dionica ni objekt s dionicom, kad mu je vezan i vodočuvarov list za taj dan
+      (vodočuvar je tada čuvao njegovu dionicu ili cijelo područje). Prijava koja navodi dionicu
+      ili objekt s dionicom vezana je samo uz tu dionicu, i kad je vodočuvar ne čuva.
+      Rukovoditelj dionice kojemu na dužnosti nije upisana nijedna dionica vodi sve dionice svog
+      područja i čita sve njegove prijave.</p>
+    <p>U polju <em>Dionica</em> program prepoznaje šifre dionica tog područja iz registra, bez
+      obzira na velika slova i na to jesu li odvojene zarezom, razmakom ili veznikom, a ono što
+      nije šifra dionice tog područja (npr. pogrešno upisana šifra) ne navodi nijednu dionicu.
+      Iznimka je područje koje u registru još nema dionica: tada se svaka upisana riječ uzima kao
+      šifra.</p>
+    <p><strong>Pohrana fotografija.</strong> Program fotografije odmah smanjuje. Smanjene
+      izvorne slike čuvaju se na računalu 180 dana od objave; globalni administrator taj rok
+      mijenja na stranici <em>Održavanje baze</em>, u dijelu <em>Pohrana</em> (od 7 do 3650 dana),
+      ili zadaje da se brišu odmah po objavi. Kad slike više nema, stranica kaže da je u PDF-u:
+      potpisani PDF sa svim slikama ostaje službeni izvornik.</p>
+    <p><strong>Prenesene prijave.</strong> Prijave prenesene iz ranije evidencije (BP16) imaju
+      oznaku <em>rekonstrukcija</em>. PDF im je složen iz podataka i nema elektroničkog potpisa, a
+      uz neke stoji i <em>Sken potpisanog ispisa</em>. Ne pojavljuju se na zidu događanja.</p>
 
     <h3 id="akti">Rješenja i obavijesti</h3>
     <p>Akt se sastavlja po letvi i branjenom području u aktivnoj obrani. Bira se očitanje ili

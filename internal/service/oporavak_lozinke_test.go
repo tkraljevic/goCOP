@@ -177,7 +177,7 @@ func TestPonistenjeSKonzole(t *testing.T) {
 	}
 	prije := len(o.verzijeRacuna(t, o.sef.ID))
 
-	ishod, err := service.PonistiLozinkuNaCvoru(o.db, cvorKonzole, "  GlavniAdmin ", false)
+	ishod, err := service.PonistiLozinkuNaCvoru(o.db, cvorKonzole, nil, "  GlavniAdmin ", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -266,7 +266,7 @@ func TestPonistenjeSKonzoleNepostojeceIme(t *testing.T) {
 	}
 	prije := o.brojVerzija(t)
 	for _, ime := range []string{"nepostojeci", "glavniadmin2", "", "   "} {
-		ishod, err := service.PonistiLozinkuNaCvoru(o.db, cvorKonzole, ime, true)
+		ishod, err := service.PonistiLozinkuNaCvoru(o.db, cvorKonzole, nil, ime, true)
 		if err == nil || ishod != nil {
 			t.Fatalf("%q: ishod %+v, greška %v", ime, ishod, err)
 		}
@@ -291,7 +291,7 @@ func TestPonistenjeSKonzoleIskljucenRacun(t *testing.T) {
 	o := novaOkolinaOporavka(t)
 	ana := o.racun(t, "ana", "lozinka-ane", "ana@voda.hr", false, false)
 
-	ishod, err := service.PonistiLozinkuNaCvoru(o.db, cvorKonzole, "ana", false)
+	ishod, err := service.PonistiLozinkuNaCvoru(o.db, cvorKonzole, nil, "ana", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -303,7 +303,7 @@ func TestPonistenjeSKonzoleIskljucenRacun(t *testing.T) {
 	}
 
 	prije := len(o.verzijeRacuna(t, ana.ID))
-	ishod, err = service.PonistiLozinkuNaCvoru(o.db, cvorKonzole, "ana", true)
+	ishod, err = service.PonistiLozinkuNaCvoru(o.db, cvorKonzole, nil, "ana", true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -325,7 +325,7 @@ func TestPonistenjeSKonzoleIskljucenRacun(t *testing.T) {
 	}
 
 	// već aktivan račun -aktiviraj ne dira
-	ishod, err = service.PonistiLozinkuNaCvoru(o.db, cvorKonzole, "glavniadmin", true)
+	ishod, err = service.PonistiLozinkuNaCvoru(o.db, cvorKonzole, nil, "glavniadmin", true)
 	if err != nil || ishod.Aktiviran {
 		t.Fatalf("aktivan račun uz -aktiviraj: %+v %v", ishod, err)
 	}
@@ -339,7 +339,7 @@ func TestPonistenjeSKonzoleBezBaze(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer prazna.Close()
-	if _, err := service.PonistiLozinkuNaCvoru(prazna, cvorKonzole, "admin", false); err == nil || !strings.Contains(err.Error(), "nema tablice") {
+	if _, err := service.PonistiLozinkuNaCvoru(prazna, cvorKonzole, nil, "admin", false); err == nil || !strings.Contains(err.Error(), "nema tablice") {
 		t.Errorf("prazna baza: %v", err)
 	}
 	var n int
@@ -348,7 +348,7 @@ func TestPonistenjeSKonzoleBezBaze(t *testing.T) {
 	}
 
 	o := novaOkolinaOporavka(t)
-	if _, err := service.PonistiLozinkuNaCvoru(o.db, " ", "glavniadmin", false); err == nil {
+	if _, err := service.PonistiLozinkuNaCvoru(o.db, " ", nil, "glavniadmin", false); err == nil {
 		t.Error("čvor bez identifikatora prošao")
 	}
 	if _, err := o.auth.ProvjeriPrijavu("glavniadmin", "stara-lozinka"); err != nil {
@@ -384,7 +384,7 @@ func TestPonistenjeSKonzoleUkljucujeTekNakonLozinke(t *testing.T) {
 		t.Fatal(err)
 	}
 	prije := len(o.verzijeRacuna(t, ana.ID))
-	ishod, err := service.PonistiLozinkuNaCvoru(o.db, cvorKonzole, "ana", true)
+	ishod, err := service.PonistiLozinkuNaCvoru(o.db, cvorKonzole, nil, "ana", true)
 	if err == nil {
 		t.Fatalf("poništenje je prošlo unatoč grešci baze: %+v", ishod)
 	}
@@ -416,7 +416,7 @@ func TestPonistenjeSKonzoleUkljucujeTekNakonLozinke(t *testing.T) {
 		WHEN NEW.is_active = 1 BEGIN SELECT RAISE(ABORT, 'disk je pun'); END`); err != nil {
 		t.Fatal(err)
 	}
-	ishod, err = service.PonistiLozinkuNaCvoru(o.db, cvorKonzole, "ana", true)
+	ishod, err = service.PonistiLozinkuNaCvoru(o.db, cvorKonzole, nil, "ana", true)
 	if err == nil || ishod == nil {
 		t.Fatalf("neuspjelo uključenje: ishod %+v, greška %v", ishod, err)
 	}
@@ -447,7 +447,7 @@ func TestPonistenjeSKonzoleUkljucujeTekNakonLozinke(t *testing.T) {
 	if _, err := o.db.Exec(`DROP TRIGGER proba_ukljucenje`); err != nil {
 		t.Fatal(err)
 	}
-	ishod, err = service.PonistiLozinkuNaCvoru(o.db, cvorKonzole, "ana", true)
+	ishod, err = service.PonistiLozinkuNaCvoru(o.db, cvorKonzole, nil, "ana", true)
 	if err != nil || !ishod.Aktiviran || !ishod.Korisnik.IsActive || !ishod.Korisnik.MustChangePassword {
 		t.Fatalf("ponovljeno uz -aktiviraj: %+v %v", ishod, err)
 	}
@@ -472,7 +472,7 @@ func TestPonistenjeSKonzoleImenaRazlicitaSamoUSlovima(t *testing.T) {
 	}
 
 	prije := o.brojVerzija(t)
-	ishod, err := service.PonistiLozinkuNaCvoru(o.db, cvorKonzole, "GLAVNIADMIN", false)
+	ishod, err := service.PonistiLozinkuNaCvoru(o.db, cvorKonzole, nil, "GLAVNIADMIN", false)
 	if err == nil || ishod != nil {
 		t.Fatalf("dvoznačno ime: ishod %+v, greška %v", ishod, err)
 	}
@@ -488,7 +488,7 @@ func TestPonistenjeSKonzoleImenaRazlicitaSamoUSlovima(t *testing.T) {
 		t.Error("dvoznačno ime promijenilo je lozinku")
 	}
 
-	ishod, err = service.PonistiLozinkuNaCvoru(o.db, cvorKonzole, "GlavniAdmin", false)
+	ishod, err = service.PonistiLozinkuNaCvoru(o.db, cvorKonzole, nil, "GlavniAdmin", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -499,7 +499,7 @@ func TestPonistenjeSKonzoleImenaRazlicitaSamoUSlovima(t *testing.T) {
 		t.Error("lozinka nije poništena računu točnog imena")
 	}
 
-	ishod, err = service.PonistiLozinkuNaCvoru(o.db, cvorKonzole, " glavniadmin ", false)
+	ishod, err = service.PonistiLozinkuNaCvoru(o.db, cvorKonzole, nil, " glavniadmin ", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -528,7 +528,7 @@ func TestPonistenjeSKonzoleUklanjaPotpisniKljuc(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ishod, err := service.PonistiLozinkuNaCvoru(o.db, cvorKonzole, "glavniadmin", false)
+	ishod, err := service.PonistiLozinkuNaCvoru(o.db, cvorKonzole, nil, "glavniadmin", false)
 	if err != nil {
 		t.Fatal(err)
 	}
