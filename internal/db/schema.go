@@ -1752,6 +1752,12 @@ func migrateSchema(database *sql.DB) error {
 		{"sections", "parts", "TEXT NOT NULL DEFAULT '[]'"},
 		{"users", "short_mobile", "TEXT"},
 		{"record_versions", "channel", "TEXT NOT NULL DEFAULT ''"},
+		// Potpis autora verzije, ključ kojim je potpisana i kad je verzija
+		// primljena (ledger.Schema). Stare verzije ostaju bez potpisa i bez
+		// vremena primanja; nijedan postojeći bajt knjige se ne mijenja.
+		{"record_versions", "potpis", "TEXT NOT NULL DEFAULT ''"},
+		{"record_versions", "kljuc_autora", "TEXT NOT NULL DEFAULT ''"},
+		{"record_versions", "primljeno", "DATETIME"},
 		{"sectors", "level", "INTEGER NOT NULL DEFAULT 2"},
 		{"sectors", "vgo_phone", "TEXT NOT NULL DEFAULT ''"},
 		{"subscriptions", "razina", "TEXT NOT NULL DEFAULT 'sve'"},
