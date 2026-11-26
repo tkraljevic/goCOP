@@ -316,7 +316,8 @@ func TestObrazacDioniceNudiSljedecu(t *testing.T) {
 
 // Dnevnici se ne miješaju: dežurni zapisnik COP-a i dnevnik usluge održavanja
 // nemaju isti sadržaj ni istog voditelja. Razdjelnica ih dijeli u skupine
-// Obrana, Teren, Usluge i Kronologija, a naslov piše u gornjoj traci.
+// Obrana, Teren, Usluge, Kronologija i Propisi (Odluke (25. 11. 2026.), O3),
+// a naslov piše u gornjoj traci.
 func TestRazdjelnicaDnevnikaDijeliTriVrste(t *testing.T) {
 	html := iscrtaj(t, "dnevnici_izbor.html", JournalPageData{
 		CurrentUser: &models.User{FullName: "P", IsGlobalAdmin: true},
@@ -327,7 +328,7 @@ func TestRazdjelnicaDnevnikaDijeliTriVrste(t *testing.T) {
 		`data-naziv-stranice="Dokumenti"`, "Dnevnik COP-a", "Plan dežurstava", "Dnevna izvješća", "Dnevnik usluga A.02", "Dnevnik usluga A.03",
 		"/dnevnici/popis?vrsta=OBRANA", "/dnevnici/popis?vrsta=DEZURSTVA", "/izvjesca", "/dnevnici/popis?vrsta=ODRZAVANJE_A02", "/dnevnici/popis?vrsta=ODRZAVANJE_A03",
 		"zapisnik centra", ">13<", ">4<", "Rješenja i obavijesti", "/akti", "Vodočuvarski dnevnik", "/vodocuvar", "/prijave", "/dogadjanja",
-		">Obrana</h3>", ">Teren</h3>", ">Usluge</h3>", ">Kronologija</h3>",
+		">Obrana</h3>", ">Teren</h3>", ">Usluge</h3>", ">Kronologija</h3>", ">Propisi</h3>", `href="/propisi"`,
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("razdjelnica nema %q", want)
@@ -338,10 +339,10 @@ func TestRazdjelnicaDnevnikaDijeliTriVrste(t *testing.T) {
 			t.Errorf("razdjelnica ima %q", nesmije)
 		}
 	}
-	// Svaki od devet redaka ima ikonu: akti, COP, dežurstva, izvješća,
-	// vodočuvarski dnevnik, prijave, A.02, A.03 i događanja.
-	if n := len(regexp.MustCompile(`<a class="redak"[^>]*>\s*<svg`).FindAllString(html, -1)); n != 9 {
-		t.Errorf("ikona na %d redaka, a ima ih devet", n)
+	// Svaki od deset redaka ima ikonu: akti, COP, dežurstva, izvješća,
+	// vodočuvarski dnevnik, prijave, A.02, A.03, događanja i propisi.
+	if n := len(regexp.MustCompile(`<a class="redak"[^>]*>\s*<svg`).FindAllString(html, -1)); n != 10 {
+		t.Errorf("ikona na %d redaka, a ima ih deset", n)
 	}
 	// Broj stoji samo uz COP, dežurstva, izvješća, A.02 i A.03, kao dosad.
 	if n := strings.Count(html, `class="redak-vrijednost"`); n != 5 {

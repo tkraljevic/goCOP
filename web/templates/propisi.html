@@ -1,0 +1,86 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Propisi{{end}}
+
+{{/* Znak „?” vodi na odjeljak Pomoći o propisima */}}
+{{define "sidroPomoci"}}#propisi{{end}}
+
+{{/* Popis propisa i pretraga (goCOP-m3, 15g · Dokumenti · Propisi, 1 i 3). Propise čita svaki
+     prijavljeni (Odluke (25. 11. 2026.), O2), pa povratak vodi na Dokumente samo onoga tko ih vidi.
+     Tekst propisa ispisuje se samo kao tekst, a pogodak u isječku kao <mark>. */}}
+{{define "content"}}
+{{if .Sees "dnevnici"}}<a href="/dnevnici" class="povratna-poveznica">← Dokumenti</a>{{else}}<a href="/" class="povratna-poveznica">← Naslovna</a>{{end}}
+<div class="page-header list-glava">
+  <div>
+    <h1 class="page-title" data-naziv-stranice>Propisi</h1>
+    <p class="page-desc">Propisi o obrani od poplava i drugi, učitani iz Narodnih novina. Rade i bez interneta.</p>
+  </div>
+</div>
+
+<form method="GET" action="/propisi" class="reg-card propisi-trazi" role="search">
+  <label for="propisi-q">Traži u propisima</label>
+  <div class="propisi-trazi-polje">
+    <input type="search" id="propisi-q" name="q" value="{{.Upit}}" class="form-control" placeholder="npr. pripremno stanje ili točka XXIII.">
+    {{if .Odabran}}<input type="hidden" name="propis" value="{{.Odabran}}">{{end}}
+    <button type="submit" class="btn btn-primary">{{icon "search"}} Traži</button>
+  </div>
+  <p class="form-help">Traži po riječima u tekstu svih propisa, i u drugim padežima. Točku ili članak možete tražiti i brojem, npr. XXIII. ili članak 119.</p>
+</form>
+
+{{with .Pretraga}}
+<section class="propisi-rezultat" aria-label="Rezultat pretrage">
+  {{if .Prekratko}}
+  <p class="reg-empty">Upišite barem tri slova ili broj točke ili članka.</p>
+  {{else if not .PoPropisu}}
+  <p class="reg-empty">Ništa nije pronađeno za „{{.Upit}}”. Pokušajte s početkom riječi, npr. „pripremn”, ili s brojem točke ili članka.</p>
+  {{else}}
+  <p class="propisi-sazetak">{{.Sazetak}}</p>
+  {{with .Cipovi}}
+  <div class="ocitanja-cipovi cipovi-stranice" role="group" aria-label="Propis">
+    {{range .}}<a class="ocitanja-cip" href="{{.Href}}" aria-pressed="{{if .Odabran}}true{{else}}false{{end}}">{{.Naziv}} ({{.Broj}})</a>{{end}}
+  </div>
+  {{end}}
+  {{range .PoPropisu}}
+  <section class="reg-card propisi-pogoci">
+    <h2><a href="/propisi/{{.Adresa}}">{{.Naziv}}</a></h2>
+    <ul class="propisi-pogoci-popis">
+      {{range .Pogoci}}
+      <li class="propis-pogodak">
+        <a class="propis-pogodak-put" href="{{.Adresa}}">{{.Put}}</a>
+        <p>{{range .Isjecak}}{{if .Istaknuto}}<mark>{{.Tekst}}</mark>{{else}}{{.Tekst}}{{end}}{{end}}</p>
+        {{if .Jos}}<p class="form-help">{{.Jos}} <a href="{{.Adresa}}">Prikaži sve</a></p>{{end}}
+      </li>
+      {{end}}
+    </ul>
+  </section>
+  {{end}}
+  {{end}}
+</section>
+{{else}}
+{{if .Skupine}}
+<section class="ulaz-ploca propisi-skupine">
+  <h2 class="sr-only">Učitani propisi</h2>
+  <div class="ulaz-skupine">
+    {{range .Skupine}}
+    <section class="ulaz-skupina">
+      <h3>{{.Naziv}}</h3>
+      {{with .Opis}}<p class="form-help">{{.}}</p>{{end}}
+      <ul class="kartica-redovi">
+        {{range .Propisi}}
+        <li><a class="redak" href="/propisi/{{.Adresa}}">{{icon "scale"}}<span class="redak-tekst"><span class="redak-glavno">{{.Naziv}}</span><span class="redak-sporedno">{{.NN.Puno}}{{with .Opseg.Opis}} · {{.}}{{end}}</span><span class="redak-sporedno">izvorni tekst{{if .Izmjena}} · {{.Izmjena}} {{uzBroj .Izmjena "izmjena" "izmjene" "izmjena"}}{{end}} · učitano {{datumDana .CreatedAt}}</span></span>{{icon "chevron-right"}}</a></li>
+        {{end}}
+      </ul>
+    </section>
+    {{end}}
+  </div>
+</section>
+{{else}}
+<div class="reg-empty">
+  <p>Još nema učitanih propisa.</p>
+  <p>Propise učitava globalni administrator. Kad ih učita, stižu na sva računala.</p>
+</div>
+{{end}}
+{{end}}
+
+<p class="form-help propisi-napomena">Prikazan je izvorni tekst, a uz članke koje je izmjena mijenjala stoji oznaka „mijenjan NN …”. Službeni tekst je onaj u Narodnim novinama.</p>
+{{end}}

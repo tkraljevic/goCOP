@@ -361,6 +361,23 @@ func TestRuteSeDajuRegistriratiBezSudara(t *testing.T) {
 		"GET /dnevnici/{id}/edit",
 		"GET /dnevnici/{id}/ispis",
 		"GET /dnevnici/{id}/listovi/{sheet}",
+		// Propisi (Odluke (25. 11. 2026.)): adresa propisa i oznaka dijela su
+		// zamjenski segmenti, pa doslovne riječi učitavanja i izmjena ne smiju
+		// s njima u sukob
+		"GET /propisi",
+		"GET /propisi/{propis}",
+		"GET /propisi/{propis}/{dio}",
+		"GET /propisi/{propis}/izmjene/{izmjena}",
+		"GET /propisi/ucitaj",
+		"POST /propisi/ucitaj",
+		"GET /propisi/ucitaj/provjera",
+		"POST /propisi/ucitaj/spremi",
+		"GET /propisi/{propis}/dodaj-izmjenu",
+		"POST /propisi/{propis}/dodaj-izmjenu",
+		"GET /propisi/{propis}/dodaj-izmjenu/provjera",
+		"POST /propisi/{propis}/dodaj-izmjenu/spremi",
+		"POST /propisi/{propis}/ukloni",
+		"POST /propisi/{propis}/izmjene/{izmjena}/ukloni",
 	} {
 		mux.Handle(uzorak, http.NotFoundHandler())
 	}

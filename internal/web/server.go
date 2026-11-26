@@ -68,6 +68,7 @@ func (k KartaPostavke) Ima() bool { return k.Plocice != "" }
 
 type Server struct {
 	prijaveGresaka *service.PrijavaGreskeService // prijave grešaka i prijedlozi s kukca u gornjoj traci
+	propisi        *service.PropisiService       // Dokumenti › Propisi, propisi_rute.go
 
 	stareLozinke *stareLozinke                                     // računi sa starom zajedničkom lozinkom, stare_lozinke.go
 	postavljanje *PostavljanjeHandler                              // stranica Postavljanje svježeg čvora
@@ -633,7 +634,7 @@ func NewServer(
 	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "station_history.html", "station_history_form.html", "paket_pregled.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "slivovi.html", "kisomjer_form.html", "kisomjer.html", "karta.html", "structures.html", "structure_detail.html", "structure_form.html", "povezanost_objekata.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
 		"administracija.html", "administracija_prijave.html", "administracija_prijava.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html", "baza_paket.html", "izvori.html", "uvoz_niza.html",
 		"dnevnici.html", "dnevnici_izbor.html", "administracija_potpisi.html", "prijave.html", "prijava_form.html", "prijava.html", "vodocuvar.html", "vodocuvar_list.html", "vodocuvar_kalendar.html", "posao.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_cop.html", "dnevnik_cop_form.html", "dnevnik_list.html", "dnevnik_obracun.html", "dnevnik_dezurstva.html", "dnevnik_iors.html", "izvjesca.html", "izvjesce_form.html", "izvjesce.html", "sektorsko_form.html", "sektorsko.html", "obracun_postavke.html",
-		"sredstva.html", "katalog.html", "skladiste.html", "zaprimi.html", "potrebe_form.html", "potrebe.html", "dogadjanja.html", "skladiste_form.html", "promet_form.html", "promet.html", "gdje_ima.html", "na_terenu.html", "popisi.html", "popis_form.html", "popis.html", "pomoc.html", "prognoze.html", "prognoze_vrijeme.html", "prognoze_metoda.html", "prognoze_postavke.html", "prognoze_model.html", "prognoze_racun.html", "akti.html", "akt_form.html", "akt.html", "primatelji.html", "spranca.html", "posta_racun.html", "administracija_posta.html", "posta_sanducic.html", "posta_pismo.html", "posta_novo.html", "posta_potpis.html", "sektor.html", "administracija_opcije.html", "administracija_tema.html", "administracija_karte.html", "administracija_telemetrija.html", "imenik_exchange.html", "county_detail.html", "djelatnici_dezurstva.html", "odbijenica.html", "administracija_prijava_izvana.html"} {
+		"sredstva.html", "katalog.html", "skladiste.html", "zaprimi.html", "potrebe_form.html", "potrebe.html", "dogadjanja.html", "skladiste_form.html", "promet_form.html", "promet.html", "gdje_ima.html", "na_terenu.html", "popisi.html", "popis_form.html", "popis.html", "pomoc.html", "prognoze.html", "prognoze_vrijeme.html", "prognoze_metoda.html", "prognoze_postavke.html", "prognoze_model.html", "prognoze_racun.html", "akti.html", "akt_form.html", "akt.html", "primatelji.html", "spranca.html", "posta_racun.html", "administracija_posta.html", "posta_sanducic.html", "posta_pismo.html", "posta_novo.html", "posta_potpis.html", "sektor.html", "administracija_opcije.html", "administracija_tema.html", "administracija_karte.html", "administracija_telemetrija.html", "imenik_exchange.html", "county_detail.html", "djelatnici_dezurstva.html", "odbijenica.html", "administracija_prijava_izvana.html", "propisi.html", "propis.html", "propis_izmjena.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, DijeloviPredloska(page)...)
 		if err != nil {
 			return nil, fmt.Errorf("greška pri parsiranju predloška %s: %w", page, err)
@@ -1102,6 +1103,7 @@ func (s *Server) setupRoutes() {
 	adminH.SetVidljivost(s.stanjeVidljivosti)
 	s.mux.Handle("GET /administracija", s.authMiddleware(http.HandlerFunc(adminH.ShowAdmin)))
 	s.rutePrijavaGresaka(adminH, usersH)
+	s.rutePropisa()
 	s.mux.Handle("GET /administracija/uvozi", s.authMiddleware(http.HandlerFunc(adminH.ShowImports)))
 
 	// Administrativna organizacija: sektori i branjena područja
@@ -1741,6 +1743,8 @@ func DijeloviPredloska(stranica string) []string {
 		dijelovi = append(dijelovi, "prognoze_kartice.html")
 	case "settings.html", "pretplate.html", "baza.html", "administracija_karte.html", "administracija_potpisi.html":
 		dijelovi = append(dijelovi, "postavke_cvora.html")
+	case "propis.html", "propis_izmjena.html":
+		dijelovi = append(dijelovi, "propisi_dijelovi.html")
 	case "vodocuvar_list.html":
 		// Oznaka stanja lista stoji u vodocuvar.html. Stranica lista čita se zadnja,
 		// pa naslov i sadržaj ostaju njezini.

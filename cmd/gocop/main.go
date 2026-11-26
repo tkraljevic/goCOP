@@ -812,6 +812,8 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	server.SetPrijave(prijavaService)
 	prijaveGresaka := service.NewPrijavaGreskeService(repository.NewPrijavaGreskeRepository(database, recorder), imeCvora(node))
 	server.SetPrijaveGresaka(prijaveGresaka)
+	// Propisi se zasad samo čitaju; dohvat iz Narodnih novina dolazi s učitavanjem
+	server.SetPropisi(service.NewPropisiService(repository.NewPropisiRepository(database, recorder), nil))
 	// e-pošta o novoj prijavi ide u pozadini; zaustavlja se prije zatvaranja baze
 	defer prijaveGresaka.PokreniPoruke(ctx, drugiKorak, func() string { return cfg.JavnaAdresa })()
 	// slika zaslona briše se 30 dana nakon što je prijava riješena

@@ -40,6 +40,11 @@ func TestPomocNudiPoveznicuSamoUDioKojiImate(t *testing.T) {
 			t.Errorf("bez Administracije i Dokumenata Pomoć ipak nudi %s", p)
 		}
 	}
+	// Propise čita svaki prijavljeni (Odluke (25. 11. 2026.), O2), pa gumb
+	// stoji i vodočuvaru bez modula Dokumenti
+	if !strings.Contains(vodocuvar, `href="/propisi"`) {
+		t.Error("Pomoć vodočuvaru ne nudi propise")
+	}
 	for _, tekst := range []string{"Ovo računalo i mreža", "Stanje razmjene"} {
 		if !strings.Contains(vodocuvar, tekst) {
 			t.Errorf("bez poveznice nestao je i tekst %q", tekst)

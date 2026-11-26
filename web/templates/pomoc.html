@@ -88,7 +88,7 @@
   </div>
   <div class="pomoc-skupina">
     <h3>Obrana i dokumenti</h3>
-    <a class="pomoc-tema" href="#journals">{{icon "file-text"}}<span>Dokumenti</span><small>10 podnaslova</small>{{icon "chevron-right"}}</a>
+    <a class="pomoc-tema" href="#journals">{{icon "file-text"}}<span>Dokumenti</span><small>11 podnaslova</small>{{icon "chevron-right"}}</a>
     <a class="pomoc-tema" href="#potpisi">{{icon "lock"}}<span>Potpisi, žigovi i izvornici</span>{{icon "chevron-right"}}</a>
     <a class="pomoc-tema" href="#sredstva">{{icon "package"}}<span>Sredstva</span>{{icon "chevron-right"}}</a>
     <a class="pomoc-tema" href="#posta">{{icon "mailbox"}}<span>Sandučić i adresar tvrtke</span>{{icon "chevron-right"}}</a>
@@ -1486,7 +1486,7 @@
   <h2>{{icon "file-text"}} Dokumenti</h2>
   <div class="pomoc-poglavlje">
   <details class="pomoc-podnaslovi" data-pomoc-podnaslovi open>
-    <summary><small>U ovom poglavlju</small><span>10 podnaslova</span>{{icon "chevron-down"}}</summary>
+    <summary><small>U ovom poglavlju</small><span>11 podnaslova</span>{{icon "chevron-down"}}</summary>
     <nav aria-label="U ovom poglavlju: Dokumenti">
       <a href="#tok-obrane">Tok aktivne obrane</a>
       <a href="#dnevnik-cop">Dnevnik COP-a</a>
@@ -1498,14 +1498,15 @@
       <a href="#prijave">Prijave s terena</a>
       <a href="#akti">Rješenja i obavijesti</a>
       <a href="#dnevnik-usluge">Dnevnici usluga A.02 i A.03</a>
+      <a href="#propisi">Propisi</a>
     </nav>
   </details>
   <div class="reg-card pomoc-tekst">
-    <p>Ulaz u Dokumente razdvaja povezane, ali različite poslove u četiri skupine. Pod Obranom su
+    <p>Ulaz u Dokumente razdvaja povezane, ali različite poslove u pet skupina. Pod Obranom su
       rješenja i obavijesti, dnevnici COP-a, plan dežurstava i dnevna izvješća, pod Terenom
       vodočuvarski dnevnik i prijave s terena, pod Uslugama dnevnik usluga A.02 i dnevnik usluga
-      A.03, a pod Kronologijom događanja. Prikazuju se samo retci koje vaša uloga koristi. Skupina
-      bez ijednog takvog retka ne prikazuje se.</p>
+      A.03, pod Kronologijom događanja, a pod Propisima propisi iz Narodnih novina. Prikazuju se
+      samo retci koje vaša uloga koristi. Skupina bez ijednog takvog retka ne prikazuje se.</p>
 
     <h3 id="tok-obrane">Tok aktivne obrane</h3>
     <ol>
@@ -1985,6 +1986,20 @@
       <span class="reg-chip">Naslovnica: ovlaštenik i uprava</span>
       <span class="reg-chip">Briše: uprava sektora</span></p>
     {{if .VidiDokumente}}<p><a class="btn btn-secondary btn-sm" href="/dnevnici">{{icon "notebook"}} Otvori Dnevnike</a></p>{{end}}
+
+    <h3 id="propisi">Propisi</h3>
+    <p>Pod Dokumentima su i propisi: Državni plan obrane od poplava, Zakon o vodama i drugi, s
+      tekstom iz Narodnih novina. Tekst je spremljen na svakom računalu, pa se čita i bez
+      interneta.</p>
+    <p>Točku ili članak nađete pretragom. Upišite riječ, npr. „pripremno stanje”, ili broj, npr.
+      „XXIII.” ili „članak 119”. Pretraga nalazi i druge padeže.</p>
+    <p>Svaki dio ima stalnu adresu, npr. /propisi/zakon-o-vodama/clanak-119, pa je možete poslati
+      kolegi.</p>
+    <p>Uz članak koji je izmjena mijenjala stoji oznaka „mijenjan NN 47/23”. Otvorite je i vidite
+      odredbu izmjene. Prikazan je izvorni tekst. Službeni tekst je onaj u Narodnim novinama.</p>
+    <p>Propise učitava, izmjene dodaje i uklanja ih globalni administrator, na računalu s
+      internetom. Ostala računala ih dobiju razmjenom.</p>
+    <p><a class="btn btn-secondary btn-sm" href="/propisi">{{icon "scale"}} Otvori propise</a></p>
   </div>
   </div>
   {{template "pomocPoglavljeNav" (list "Prognoze" "#prognoze" "Sredstva" "#sredstva")}}

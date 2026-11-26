@@ -262,6 +262,10 @@ Akte, događanja, dnevnike i tuđe listove vodočuvara otvara samo tko vidi
 Dokumentaciju. Vodočuvar svoj dnevnik vodi i bez nje, osim kad mu je
 globalni administrator Dokumentaciju sakrio na njegovoj stranici.
 
+Propise iz Narodnih novina (Dokumenti › Propisi) čita svatko tko je
+prijavljen, i bez Dokumentacije, pa i vodočuvar svoj pravilnik. Propise
+učitava, izmjene dodaje i uklanja ih globalni administrator.
+
 ## Kako vaša organizacija zove uloge i razine
 
 Nazivi u ovom dokumentu su nazivi Hrvatskih voda. Druga organizacija iste

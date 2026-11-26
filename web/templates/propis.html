@@ -1,0 +1,76 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Propisi{{end}}
+
+{{/* Znak „?” vodi na odjeljak Pomoći o propisima */}}
+{{define "sidroPomoci"}}#propisi{{end}}
+
+{{/* Naslovnica propisa i stalna adresa dijela (goCOP-m3, 15g · Dokumenti · Propisi, 2 i 2b).
+     Sadržaj sa strane je isti kao u poglavlju Pomoći (pomoc-poglavlje, data-pomoc-podnaslovi), pa ga
+     ista skripta ističe dok se čita. Na naslovnici akta bez glava, dijelova i priloga stoji cijeli
+     tekst; inače stoje cjeline s poveznicom na svoju stranicu. Prikazan je izvorni tekst, a izmjene
+     su oznake uz dijelove koje mijenjaju. */}}
+{{define "content"}}
+{{with .Stranica}}{{$p := .Propis}}{{$dio := $.Dio}}{{$svi := .SviClanci}}
+{{if $dio}}<a href="/propisi/{{$p.Adresa}}" class="povratna-poveznica">← {{$p.Naziv}}</a>{{else}}<a href="/propisi" class="povratna-poveznica">← Propisi</a>{{end}}
+<div class="page-header list-glava">
+  <div>
+    <h1 class="page-title" data-naziv-stranice>{{$p.Naziv}}</h1>
+    <p class="page-desc">{{$p.NN.Puno}}{{with $p.Donositelj}} · {{.}}{{end}} · izvorni tekst{{with .Opseg.Opis}} · {{.}}{{end}} · učitano {{datumDana $p.CreatedAt}}</p>
+  </div>
+</div>
+
+{{if not $dio}}
+<div class="reg-card propis-napomena">
+  {{if .Izmjene}}
+  <p>Ovo je izvorni tekst iz Narodnih novina. Izmjene nisu unesene u tekst, nego uz članke koje mijenjaju stoji oznaka „mijenjan NN …”.</p>
+  <p>Izmjene: {{range $i, $iz := .PopisIzmjena}}{{if $i}} · {{end}}<a href="{{$iz.Poveznica}}">{{$iz.NN.Puno}}</a>{{with $iz.Stupila}}, stupila na snagu {{.}}{{end}}{{end}}</p>
+  {{else}}
+  <p>Ovo je izvorni tekst iz Narodnih novina. Propis u programu nema izmjena.</p>
+  {{end}}
+  <p><a href="{{.PoveznicaNN}}" target="_blank" rel="noopener">Narodne novine {{$p.NN.Broj}}/{{$p.NN.Godina}} ↗</a></p>
+</div>
+{{range .CijeliTekst}}
+<div class="dash-traka propis-traka" role="status">{{icon "info"}}<span>Izmjena {{.IzmjenaNN.Kratko}} mijenja riječi u cijelom tekstu propisa{{with .IzClanka}} ({{.}} izmjene){{end}}. Ta mjesta nisu označena uz članke. <a href="{{.Poveznica}}">Otvori izmjenu</a></span></div>
+{{end}}
+{{if $.JeAdministrator}}
+{{if .Nepovezane}}<div class="dash-traka propis-traka" role="status">{{icon "triangle-alert"}}<span>{{.Nepovezane}} {{uzBroj .Nepovezane "odredba izmjene nije povezana" "odredbe izmjena nisu povezane" "odredbi izmjena nije povezano"}} s člankom. Otvorite izmjenu i povežite je.</span></div>{{end}}
+{{with .Neucitane}}<div class="dash-traka propis-traka" role="status">{{icon "info"}}<span>Narodne novine navode {{len .}} {{uzBroj (len .) "izmjenu koja nije učitana" "izmjene koje nisu učitane" "izmjena koje nisu učitane"}}: {{range $i, $nn := .}}{{if $i}}, {{end}}{{$nn.Puno}}{{end}}.</span></div>{{end}}
+{{end}}
+{{end}}
+
+<div class="pomoc-poglavlje propis-okvir">
+  <details class="pomoc-podnaslovi propis-sadrzaj" data-pomoc-podnaslovi open>
+    <summary><small>Sadržaj</small><span>{{if $dio}}{{$dio.Dio.Naziv}}{{else}}{{$p.Naziv}}{{end}}</span>{{icon "chevron-down"}}</summary>
+    <nav aria-label="Sadržaj propisa">
+      {{range .Sadrzaj}}<a href="{{if or $dio (and .Cjelina (not $svi))}}{{.Poveznica}}{{else}}#{{.Oznaka}}{{end}}"{{if and $dio (eq $dio.Vrh .Oznaka)}} aria-current="true"{{end}}>{{.Naziv}}{{if and .Broj .Naslov .Cjelina}} {{.Naslov}}{{end}}{{with .Raspon}}<small>{{.}}</small>{{end}}</a>{{end}}
+    </nav>
+  </details>
+
+  <div class="propis-tekst">
+  {{with $dio}}
+    {{with .Put}}<p class="propis-put">{{range .}}<a href="/propisi/{{$p.Adresa}}/{{.Oznaka}}">{{.Naziv}}{{if and .Broj .Naslov}} {{.Naslov}}{{end}}</a> › {{end}}</p>{{end}}
+    {{template "propisDio" .Dio}}
+    {{range .Djeca}}{{template "propisDio" .}}{{end}}
+    <nav class="propis-susjedi" aria-label="Susjedni dijelovi">
+      {{with .Prethodni}}<a href="/propisi/{{$p.Adresa}}/{{.Oznaka}}">← {{.Naziv}}</a>{{else}}<span></span>{{end}}
+      {{if not .Cijeli}}{{with .Nadredeni}}<a href="/propisi/{{$p.Adresa}}/{{.Oznaka}}">Cijeli dio: {{if .Naslov}}{{.Naslov}}{{else}}{{.Naziv}}{{end}}</a>{{end}}{{end}}
+      {{with .Sljedeci}}<a href="/propisi/{{$p.Adresa}}/{{.Oznaka}}">{{.Naziv}} →</a>{{else}}<span></span>{{end}}
+    </nav>
+  {{else}}
+    {{if $svi}}
+    {{range .Dijelovi}}{{template "propisDio" .}}{{end}}
+    {{else}}
+    {{range .Sadrzaj}}
+    {{if .Cjelina}}
+    <a class="redak propis-cjelina" href="{{.Poveznica}}" id="{{.Oznaka}}">{{icon "book-open"}}<span class="redak-tekst"><span class="redak-glavno">{{.Naziv}}{{if and .Broj .Naslov}} {{.Naslov}}{{end}}</span>{{with .Raspon}}<span class="redak-sporedno">{{.}}</span>{{end}}</span>{{range .Oznake}}<span class="propis-oznaka-kratko">{{.Natpis}}</span>{{end}}{{icon "chevron-right"}}</a>
+    {{else}}
+    {{template "propisDio" .}}
+    {{end}}
+    {{end}}
+    {{end}}
+  {{end}}
+  </div>
+</div>
+{{end}}
+{{end}}
