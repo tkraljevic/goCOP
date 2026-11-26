@@ -14,15 +14,17 @@ import (
 // „bez elektroničkog potpisa”. Bez ključa blok je sad oznaka objave; natpis
 // potpisa crta samo potpis ključem, preko istog mjesta.
 func TestPrijavaBezKljucaNosiOznakuObjave(t *testing.T) {
-	if _, err := exec.LookPath("pdftotext"); err != nil {
-		t.Skip("pdftotext nije dostupan")
-	}
 	kad := time.Date(2026, 11, 26, 17, 12, 0, 0, time.UTC)
 	p := &models.PrijavaSTerena{ID: "p1", UserID: "u1", Ime: "Ivo Ivić", Sektor: "B", Broj: 1, Godina: 2026,
 		Vrsta: models.PrijavaPrijava, Naslov: "Rupe od divljači", Opis: "Rupe u kosini nasipa.", Datum: kad,
 		Status: models.PrijavaObjavljena, ObjavljenoAt: &kad, Cvor: "proba"}
 
+	// PDF se slaže uvijek, a tekst se provjerava samo uz pdftotext
 	bez, _ := pdfPrijave(p, prilogPrijave{}, models.Terms(), true)
+	s, _ := pdfPrijave(p, prilogPrijave{}, models.Terms(), false)
+	if _, err := exec.LookPath("pdftotext"); err != nil {
+		t.Skip("pdftotext nije dostupan")
+	}
 	tekst := pdfTekst(t, bez)
 	if !strings.Contains(tekst, "OBJAVLJENO U goCOP-u") || strings.Contains(tekst, "ELEKTRONIČKI POTPISANO") {
 		t.Errorf("bez ključa blok mora biti oznaka objave: %.400s", tekst)
@@ -33,7 +35,6 @@ func TestPrijavaBezKljucaNosiOznakuObjave(t *testing.T) {
 
 	// s ključem blok ovdje se ne crta (crta ga potpis), a podnožje kaže da je
 	// izvornik potpisan ključem vodočuvara
-	s, _ := pdfPrijave(p, prilogPrijave{}, models.Terms(), false)
 	tekst = pdfTekst(t, s)
 	if strings.Contains(tekst, "OBJAVLJENO U goCOP-u") || !strings.Contains(tekst, "potpisano ključem vodočuvara") {
 		t.Errorf("s ključem: %.600s", tekst)
@@ -44,9 +45,6 @@ func TestPrijavaBezKljucaNosiOznakuObjave(t *testing.T) {
 // oznaku predaje i ovjere, a ne natpis elektroničkog potpisa. Ovjera bez
 // ključa dodaje se kao pečat preko izvornika predaje.
 func TestDnevniListBezKljucaNosiOznakePredajeIOvjere(t *testing.T) {
-	if _, err := exec.LookPath("pdftotext"); err != nil {
-		t.Skip("pdftotext nije dostupan")
-	}
 	predano := time.Date(2026, 11, 26, 15, 0, 0, 0, time.UTC)
 	ovjereno := predano.Add(2 * time.Hour)
 	l := &models.VodocuvarskiList{ID: "l1", UserID: "u1", Ime: "Ivo Ivić", Broj: 1, Datum: predano, Cvor: "proba",
@@ -57,6 +55,9 @@ func TestDnevniListBezKljucaNosiOznakePredajeIOvjere(t *testing.T) {
 	pdf, err := potpisiIzvornik(pdf, nil, dod)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if _, err := exec.LookPath("pdftotext"); err != nil {
+		t.Skip("pdftotext nije dostupan")
 	}
 	tekst := pdfTekst(t, pdf)
 	if !strings.Contains(tekst, "PREDANO U goCOP-u") || !strings.Contains(tekst, "OVJERENO U goCOP-u") || strings.Contains(tekst, "ELEKTRONIČKI POTPISANO") {
