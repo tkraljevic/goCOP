@@ -67,6 +67,7 @@ var vezeNaRoditelje = []vezaNaRoditelja{
 	{EntitySectionTerritories, "county_id", EntityCounties},
 	{EntitySectionTerritories, "municipality_id", EntityMunicipalities},
 	{EntitySectionTerritories, "settlement_id", EntitySettlements},
+	vezaIzmjenePropisa,
 }
 
 // vezeDjeteta i vezeRoditelja su iste veze, po entitetu djeteta i po

@@ -35,6 +35,10 @@ var obnovaPovrsine = []struct{ entitet, naziv string }{
 	{EntityIspravci, "ispravci arhive"},
 	{EntityBiljeske, "bilješke arhive"},
 	{entitetOpozivi, "opozivi"},
+	// propis prije izmjene; čvor na 0.0.68 propise drži samo u knjizi, pa ih
+	// nakon nadogradnje stavlja na površinu ova obnova
+	{EntityPropisi, "propisi"},
+	{EntityPropisiIzmjene, "izmjene propisa"},
 }
 
 // paketObnove je koliko zapisa ide u jednu transakciju površine i u jedan

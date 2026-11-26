@@ -87,6 +87,8 @@ var oznakeUSadrzaju = map[string]oznakaIzSadrzaja{
 	EntitySluzbe:                 oznakaPolja(func(x *models.Sluzba) string { return x.ID }),
 	EntityPrijaveGresaka:         oznakaPolja(func(x *models.PrijavaGreske) string { return x.ID }),
 	EntityPrijaveGresakaOdgovori: oznakaPolja(func(x *models.OdgovorNaPrijavu) string { return x.ID }),
+	EntityPropisi:                oznakaPolja(func(x *models.Propis) string { return x.ID }),
+	EntityPropisiIzmjene:         oznakaPolja(func(x *models.IzmjenaPropisa) string { return x.ID }),
 	EntityWatercourses:           oznakaPolja(func(x *models.Watercourse) string { return x.Code }),
 	EntityStructures:             oznakaPolja(func(x *models.Structure) string { return x.ID.String() }),
 	EntitySections:               oznakaPolja(func(x *models.Section) string { return x.Code }),
