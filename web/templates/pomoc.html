@@ -1677,8 +1677,8 @@
       <li>Centar obrane od poplava (voditelj, zamjenik i dežurni operater) sastavlja nacrt akta:
         Dokumenti, <em>Rješenja i obavijesti</em>, <em>Novi akt</em>, ili na stranici letve
         <em>Proglasi / prekini</em>. Pripremno stanje ide obaviješću, ostali stupnjevi rješenjem.</li>
-      <li>Nacrt ovjerava rukovoditelj branjenog područja ili zamjenik, a akt o izvanrednoj obrani
-        rukovoditelj sektora ili zamjenik: gumbom <em>Ovjeri u goCOP-u</em> ili skenom potpisanog
+      <li>Nacrt ovjerava rukovoditelj branjenog područja ili zamjenik, osim akta o izvanrednoj
+        obrani; rukovoditelj sektora ili zamjenik ovjerava akte svih stupnjeva. Ovjerava se gumbom <em>Ovjeri u goCOP-u</em> ili skenom potpisanog
         ispisa. Rukovoditelj područja nacrt nalazi u <em>Rješenjima i obavijestima</em>, pod čipom
         <em>Čeka ovjeru</em>; program mu ne javlja posebno da nacrt čeka.</li>
       <li>Ovjereni akt mijenja stanje obrane od vremena „Vrijedi od” i sam se bilježi u dnevniku
@@ -1695,8 +1695,9 @@
         (<em>Zaključi i ovjeri</em>). Ovjera zaključava i plan dežurstava.</li>
     </ol>
     <p><strong>Kraj dnevnika upišite tek kad su ovjereni svi akti o prekidu.</strong> S upisanim
-      krajem sektor je opet u preventivnoj obrani i nijedan akt, pa ni prekid, više se ne može
-      ovjeriti.</p>
+      krajem, ako u sektoru nema drugog otvorenog dnevnika COP-a, sektor je opet u preventivnoj
+      obrani i nijedan akt, pa ni prekid, ne može se ovjeriti. Dok dnevnik nije ovjeren, uprava
+      sektora može kraj obrisati u zaglavlju i tako dnevnik ponovno otvoriti.</p>
     <p>Prelazak praga na vodomjeru upozorenje je ljudima; sam po sebi ne proglašava obranu.
       Odluka nastaje tek ovjerenim rješenjem ili obaviješću.</p>
 
@@ -1711,10 +1712,11 @@
       COP-a</em>. Ispod su raniji dnevnici sektora: razdoblje, broj
       kalendarskih dana od početka do kraja i stanje (zaključen, čeka ovjeru; ovjeren; prijepis
       iz uveza).</p>
-    <p>Operater upisuje tekst zapisa i bira vrstu (dojava, obavijest, napomena). Dan i vrijeme
+    <p>Operater upisuje tekst zapisa i bira vrstu (dojava, obavijest, napomena ili dežurstvo;
+      preuzimanje i predaju dežurstva program upisuje sam). Dan i vrijeme
       događaja već su upisani kao sada, pa ih mijenja samo kad je događaj bio ranije. Upisuje i
       <strong>tko je javio</strong>, kad to nije on sam, i područje na koje se zapis odnosi
-      (zadano je cijeli sektor). Gumb je <em>Upiši</em>. Program zasebno pamti kada je unos
+      (zadano je cijeli sektor, a kad je popis suzen na područje, to područje). Gumb je <em>Upiši</em>. Program zasebno pamti kada je unos
       stvarno napravljen i tko ga je napravio, a uz zapis piše tko ga je upisao.</p>
     {{template "pomocSlika" (list "dokumenti-dnevnik-cop" "Dnevnik COP-a Sektora B u aktivnoj obrani: traka Dežura Ivana Probić s gumbom Predajem dežurstvo, kartice Zapisi i Plan dežurstava, a ispod tri zapisa za 26. 11.: preuzimanje dežurstva, dojava vodočuvara o porastu Drave kod Donjeg Miholjca i obavijest da je rukovoditelj BP 16 obaviješten." "736")}}
     <p>Zapisi stoje po danima. Najnoviji dan je otvoren, dan prije njega sklopljen, a stariji
@@ -1727,8 +1729,8 @@
       <span class="reg-chip">Zaglavlje: uprava sektora</span></p>
     <p>Izvođač, odnosno voditelj usluga ili poslovođa, rukovoditelj obrane izvođača i zamjenik, dnevnik COP-a i plan dežurstava ne čita,
       ne piše u njih, ne preuzima dežurstvo i ne upisuje se u plan. Ni smjenu ne predaje sam:
-      ako je ostao upisan kao dežurni, nitko drugi ne preuzima dežurstvo dok uprava centra ne
-      preuzme dežurstvo i time zaključi njegovu smjenu. Njegova smjena tada ostaje samo zapis u dnevniku i ne
+      ako je ostao upisan kao dežurni, nitko drugi ne preuzima dežurstvo dok uprava centra njegovu
+      smjenu ne zaključi: gumbom <em>Predajem dežurstvo</em> ili tako da sama preuzme dežurstvo. Njegova smjena tada ostaje samo zapis u dnevniku i ne
       ulazi u plan ni u obračun sati. On piše
       samo u dnevnike usluga svoje firme. Izvođača plaća njegova firma, pa nema IORS i ne
       ulazi u obračun sati centra. Ovdje je izvođač samo tko danas ima važeću dužnost izvođača; tko ju
@@ -1828,8 +1830,9 @@
     <p>Izvješće dionice piše i predaje samo rukovoditelj dionice ili njegov zamjenik. Uprava
       područja i sektora, globalni administrator i vodočuvar ga čitaju, ali ga ne pišu.</p>
     <p>Uprava sektora (voditelj COP-a, rukovoditelj sektora i zamjenici) zatim slaže izvješće
-      sektora iz predanih izvješća dionica i zapisa dnevnika COP-a toga dana (dojave, obavijesti
-      i napomene). Pri spremanju se snima sadržaj tablica, pa kasnija izmjena izvornog
+      sektora od izvješća dionica i zapisa dnevnika COP-a toga dana koje označi. Program unaprijed
+      označi predana izvješća dionica i sve dojave, obavijesti i napomene, a označiti se može i
+      nepredano izvješće. Pri spremanju se snima sadržaj tablica, pa kasnija izmjena izvornog
       izvješća ne prepisuje već izrađeni sektorski dokument.</p>
     <p>Stranica <em>Dnevna izvješća</em> ima dvije kartice. <em>Svi</em> je jedan popis izvješća
       dionica i sektora, noviji dan prvi, s čipovima <em>Sva</em>, <em>Dionice</em> i
