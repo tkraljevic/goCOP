@@ -86,6 +86,47 @@ func TestIstiAktNaDvaCvoraJedanZapis(t *testing.T) {
 	slozni(t, ured, laptop)
 }
 
+// Dva različita akta istog naziva učitana na dva računala prije razmjene
+// dobiju istu adresu. Nakon razmjene na oba računala adresa vodi na stariji,
+// a mlađi nosi oznaku zapisa kao adresu, pa se uklanjanjem po njoj uklanja
+// baš on.
+func TestDvaAktaIsteAdreseNaDvaCvora(t *testing.T) {
+	sNedovrsenima(t)
+	ured, laptop := noviCvor(t, "ured"), noviCvor(t, "laptop")
+	stariji, mladji := zakonNasipa(nnZakona), zakonNasipa(models.IzdanjeNN{Godina: 2027, Broj: 9, Akt: 77})
+	stariji.CreatedAt = time.Date(2026, 5, 1, 8, 0, 0, 0, time.UTC)
+	mladji.CreatedAt = time.Date(2026, 5, 2, 8, 0, 0, 0, time.UTC)
+	nuzno(t, NewPropisiRepository(ured.db, ured.rec).Spremi(ctxRaz, stariji))
+	nuzno(t, NewPropisiRepository(laptop.db, laptop.rec).Spremi(ctxRaz, mladji))
+	razmijeni(t, ured, laptop)
+	razmijeni(t, laptop, ured)
+	for _, c := range []*cvor{ured, laptop} {
+		repo := NewPropisiRepository(c.db, c.rec)
+		x, err := repo.PoAdresi(ctxRaz, stariji.Adresa)
+		if err != nil || x == nil || x.ID != stariji.ID {
+			t.Fatalf("%s: adresa vodi na %+v %v", c.ime, x, err)
+		}
+		if y, err := repo.PoAdresi(ctxRaz, mladji.ID); err != nil || y == nil || y.Adresa != mladji.ID {
+			t.Errorf("%s: mlađi ima adresu %+v %v", c.ime, y, err)
+		}
+	}
+	laptopRepo := NewPropisiRepository(laptop.db, laptop.rec)
+	y, err := laptopRepo.PoAdresi(ctxRaz, mladji.ID)
+	nuzno(t, err)
+	nuzno(t, laptopRepo.Ukloni(ctxRaz, y.ID, models.Uklanjanje{Razlog: "krivo učitan", Tko: "Pero Perić"}))
+	razmijeni(t, laptop, ured)
+	for _, c := range []*cvor{ured, laptop} {
+		repo := NewPropisiRepository(c.db, c.rec)
+		if x, err := repo.Get(ctxRaz, stariji.ID); err != nil || x == nil {
+			t.Errorf("%s: stariji je nestao: %v", c.ime, err)
+		}
+		if x, err := repo.Get(ctxRaz, mladji.ID); err != nil || x != nil {
+			t.Errorf("%s: mlađi je ostao: %+v %v", c.ime, x, err)
+		}
+	}
+	slozni(t, ured, laptop)
+}
+
 // Uklonjen propis odnosi izmjene: i onu na površini i onu koja je samo u
 // knjizi. Spomenici nose razlog, a površina i kazalo prazni su na izvoru i
 // na računalu koje primi uklanjanje (Odluke (25. 11. 2026.), O7).

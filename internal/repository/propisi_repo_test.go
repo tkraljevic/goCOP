@@ -203,14 +203,29 @@ func TestSukobAdresaCitaStarijiZapis(t *testing.T) {
 	nuzno(t, repo.Spremi(ctxRaz, mladji))
 	nuzno(t, repo.Spremi(ctxRaz, stariji))
 	x, err := repo.PoAdresi(ctxRaz, "zakon-o-cuvanju-nasipa")
-	if err != nil || x == nil || x.ID != stariji.ID {
+	if err != nil || x == nil || x.ID != stariji.ID || x.Adresa != "zakon-o-cuvanju-nasipa" {
 		t.Fatalf("adresa vodi na %+v, %v; treba stariji zapis", x, err)
 	}
-	if x, err := repo.PoAdresi(ctxRaz, mladji.ID); err != nil || x == nil || x.ID != mladji.ID {
-		t.Errorf("mlađi se i dalje čita po oznaci zapisa: %+v %v", x, err)
+	// mlađi se čita po oznaci zapisa i nosi je kao adresu, pa poveznice i
+	// obrasci na njegovoj stranici ne vode na stariji
+	if x, err := repo.PoAdresi(ctxRaz, mladji.ID); err != nil || x == nil || x.ID != mladji.ID || x.Adresa != mladji.ID {
+		t.Errorf("mlađi po oznaci zapisa: %+v %v", x, err)
 	}
-	if popis, err := repo.Popis(ctxRaz); err != nil || len(popis) != 2 {
-		t.Errorf("popis: %+v %v", popis, err)
+	popis, err := repo.Popis(ctxRaz)
+	if err != nil || len(popis) != 2 {
+		t.Fatalf("popis: %+v %v", popis, err)
+	}
+	for _, s := range popis {
+		if zeli := map[string]string{stariji.ID: "zakon-o-cuvanju-nasipa", mladji.ID: mladji.ID}[s.ID]; s.Adresa != zeli {
+			t.Errorf("popis: %s ima adresu %q, želi %q", s.ID, s.Adresa, zeli)
+		}
+	}
+	// oznaka zapisa ima prednost pred adresom drugog propisa
+	treci := zakonNasipa(models.IzdanjeNN{Godina: 2024, Broj: 7, Akt: 1})
+	treci.Adresa, treci.CreatedAt = mladji.ID, time.Date(2026, 4, 1, 8, 0, 0, 0, time.UTC)
+	nuzno(t, repo.Spremi(ctxRaz, treci))
+	if x, err := repo.PoAdresi(ctxRaz, mladji.ID); err != nil || x == nil || x.ID != mladji.ID {
+		t.Errorf("oznaka zapisa nema prednost: %+v %v", x, err)
 	}
 }
 

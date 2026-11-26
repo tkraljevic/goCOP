@@ -283,12 +283,22 @@ func (r *PropisiRepository) Get(ctx context.Context, id string) (*models.Propis,
 	return jedanZapis[models.Propis](ctx, r.db, `SELECT sadrzaj FROM propisi WHERE id = ?`, id)
 }
 
-// PoAdresi čita propis po stalnoj adresi ili po oznaci zapisa. Kad dva
-// zapisa imaju istu adresu (učitana na dva računala prije razmjene),
-// vrijedi stariji.
+// adresaPoveznice je adresa koja vodi na zapis p: njegova stalna adresa, a
+// oznaka zapisa kad istu adresu ima stariji zapis (dva akta istog naziva
+// učitana na dva računala prije razmjene). Stariji je onaj na kojeg adresa
+// vodi u PoAdresi.
+const adresaPoveznice = `CASE WHEN EXISTS (SELECT 1 FROM propisi s WHERE s.adresa = p.adresa
+	AND (s.created_at < p.created_at OR (s.created_at = p.created_at AND s.id < p.id))) THEN p.id ELSE p.adresa END`
+
+// PoAdresi čita propis po stalnoj adresi ili po oznaci zapisa; oznaka
+// zapisa ima prednost. Kad dva zapisa imaju istu adresu (učitana na dva
+// računala prije razmjene), adresa vodi na stariji, a mlađi se čita po
+// oznaci zapisa. Adresa u vraćenom propisu je ona koja vodi na njega, pa
+// poveznice i obrasci ne pogađaju drugi propis.
 func (r *PropisiRepository) PoAdresi(ctx context.Context, adresa string) (*models.Propis, error) {
-	return jedanZapis[models.Propis](ctx, r.db, `SELECT sadrzaj FROM propisi WHERE adresa = ? OR id = ?
-		ORDER BY created_at, id LIMIT 1`, adresa, adresa)
+	return jedanZapis[models.Propis](ctx, r.db, `SELECT json_set(p.sadrzaj, '$.adresa', `+adresaPoveznice+`)
+		FROM propisi p WHERE p.adresa = ? OR p.id = ?
+		ORDER BY p.id = ? DESC, p.created_at, p.id LIMIT 1`, adresa, adresa, adresa)
 }
 
 // Izmjena čita izmjenu po oznaci zapisa; nil, nil kad je nema
@@ -303,13 +313,13 @@ func (r *PropisiRepository) Izmjene(ctx context.Context, propisID string) ([]mod
 }
 
 // Popis su svi propisi bez teksta, po nazivu, s opsegom osnovnog teksta iz
-// kazala i brojem izmjena
+// kazala i brojem izmjena. Adresa je ona koja vodi na propis (kao u PoAdresi).
 func (r *PropisiRepository) Popis(ctx context.Context) ([]SazetakPropisa, error) {
 	opsezi, err := r.opsezi(ctx)
 	if err != nil {
 		return nil, err
 	}
-	rows, err := r.db.QueryContext(ctx, `SELECT p.id, p.adresa, p.naziv, p.skupina, p.eli, p.nn_godina, p.nn_broj, p.nn_akt,
+	rows, err := r.db.QueryContext(ctx, `SELECT p.id, `+adresaPoveznice+`, p.naziv, p.skupina, p.eli, p.nn_godina, p.nn_broj, p.nn_akt,
 		(SELECT count(*) FROM propisi_izmjene i WHERE i.propis_id = p.id), p.created_at, p.updated_at
 		FROM propisi p ORDER BY p.naziv, p.id`)
 	if err != nil {

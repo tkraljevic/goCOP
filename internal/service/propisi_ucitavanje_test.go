@@ -359,6 +359,39 @@ func TestPonovnoUcitavanjeZadrzavaAdresu(t *testing.T) {
 	}
 }
 
+// Akt kojem je istu adresu prije uzeo drugi akt (dva računala prije
+// razmjene) ponovnim učitavanjem zadrži adresu koja vodi na njega, a ne
+// adresu starijeg. Propis čija je adresa slučajno oznaka zapisa novog akta
+// nije „već učitan”.
+func TestPonovnoUcitavanjeIsteAdreseDvaAkta(t *testing.T) {
+	svc, repo := servisSDohvatom(t, nil)
+	ctx := context.Background()
+	stariji, mladji := zakonNasipa(), zakonNasipa()
+	stariji.ID, stariji.NN = "nn-2025-3-40", models.IzdanjeNN{Godina: 2025, Broj: 3, Akt: 40}
+	stariji.CreatedAt = time.Date(2026, 5, 1, 8, 0, 0, 0, time.UTC)
+	mladji.CreatedAt = time.Date(2026, 5, 2, 8, 0, 0, 0, time.UTC)
+	spremiPropise(t, repo, stariji, mladji)
+	pr := pregledTeksta(t, svc, "12/2026", "201", "Zakon o čuvanju nasipa", "Članak 1.\nNovi tekst.")
+	if pr.Postoji == nil || pr.Postoji.ID != mladji.ID || pr.Propis.Adresa != mladji.ID {
+		t.Fatalf("pregled: %+v", pr.Postoji)
+	}
+	p, err := svc.Spremi(ctx, adminPropisa, upisivac, pr, OdabirPropisa{})
+	if err != nil || p.Adresa != mladji.ID {
+		t.Fatalf("%+v %v", p, err)
+	}
+	if x, err := repo.PoAdresi(ctx, stariji.Adresa); err != nil || x == nil || x.ID != stariji.ID {
+		t.Errorf("adresa starijeg: %+v %v", x, err)
+	}
+	if err := repo.Ukloni(ctx, mladji.ID, models.Uklanjanje{Razlog: "proba"}); err != nil {
+		t.Fatal(err)
+	}
+	stariji.Adresa = mladji.ID
+	spremiPropise(t, repo, stariji)
+	if pr := pregledTeksta(t, svc, "12/2026", "201", "Zakon o čuvanju nasipa", "Članak 1.\nNovi tekst."); pr.Postoji != nil {
+		t.Errorf("tuđi propis je uzet kao već učitan: %+v", pr.Postoji)
+	}
+}
+
 // Administrator odredbu poveže s člankom sam: kriv članak se odbija, „-”
 // kaže da odredba ne mijenja članke, a izbor ispravlja i prepoznat cilj.
 // Pregled na čekanju ostaje kakav je bio.

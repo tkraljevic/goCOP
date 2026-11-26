@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -380,6 +381,43 @@ func TestUkloniPropisIIzmjenu(t *testing.T) {
 	}
 	if w := o.posalji("/propisi/zakon-o-cuvanju-nasipa/ukloni", o.admin, url.Values{"razlog": {"opet"}}); w.Code != http.StatusNotFound {
 		t.Errorf("propis kojeg nema: %d", w.Code)
+	}
+}
+
+// Dva akta istog naziva učitana na dva računala prije razmjene imaju istu
+// adresu. Stranica mlađeg vodi obrasce po oznaci zapisa, pa „Ukloni propis”
+// i „Dodaj izmjenu” pogađaju njega, a ne stariji akt.
+func TestIstaAdresaDvaAktaUklanjaPraviPropis(t *testing.T) {
+	o := novaOkolinaPropisa(t)
+	ctx := context.Background()
+	stariji, mladji := zakonZaRute(), zakonZaRute()
+	mladji.ID, mladji.NN = "nn-2027-9-77", models.IzdanjeNN{Godina: 2027, Broj: 9, Akt: 77}
+	stariji.CreatedAt = time.Date(2026, 5, 1, 8, 0, 0, 0, time.UTC)
+	mladji.CreatedAt = time.Date(2026, 5, 2, 8, 0, 0, 0, time.UTC)
+	for _, p := range []*models.Propis{mladji, stariji} {
+		if err := o.repo.Spremi(ctx, p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	popis := o.get("/propisi", o.vodocuvar).Body.String()
+	if !strings.Contains(popis, `href="/propisi/zakon-o-cuvanju-nasipa"`) || !strings.Contains(popis, `href="/propisi/nn-2027-9-77"`) {
+		t.Errorf("popis ne vodi na oba propisa")
+	}
+	stranica := o.get("/propisi/nn-2027-9-77", o.admin).Body.String()
+	for _, z := range []string{`action="/propisi/nn-2027-9-77/ukloni"`, `href="/propisi/nn-2027-9-77/dodaj-izmjenu"`} {
+		if !strings.Contains(stranica, z) {
+			t.Errorf("stranica mlađeg nema %s", z)
+		}
+	}
+	put, _ := mjesto(t, o.posalji("/propisi/nn-2027-9-77/ukloni", o.admin, url.Values{"razlog": {"krivo učitan"}}))
+	if put != "/propisi" {
+		t.Errorf("uklanjanje: %s", put)
+	}
+	if x, err := o.repo.Get(ctx, mladji.ID); err != nil || x != nil {
+		t.Errorf("mlađi nije uklonjen: %+v %v", x, err)
+	}
+	if x, err := o.repo.Get(ctx, stariji.ID); err != nil || x == nil {
+		t.Errorf("uklonjen je stariji propis: %v", err)
 	}
 }
 

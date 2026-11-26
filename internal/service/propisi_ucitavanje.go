@@ -143,7 +143,7 @@ func (s *PropisiService) Procitaj(ctx context.Context, perms *models.UserPermiss
 		Dijelovi: podjela.Dijelovi, Skupina: skupinaIliOstali(u.Skupina)}
 	p.StupaNaSnagu, _ = stupanje(podjela.Dijelovi, p.DatumObjave)
 	pregled := &PregledPropisa{Podjela: podjela, Opseg: propisi.OpsegIz(p.Dijelovi), Raspon: rasponBrojeva(p.Dijelovi), Znakova: znakovaUDijelovima(p.Dijelovi)}
-	if pregled.Postoji, err = s.repo.Get(ctx, p.ID); err != nil {
+	if pregled.Postoji, err = s.zapisPropisa(ctx, p.ID); err != nil {
 		return nil, err
 	}
 	var izmjene []models.IzmjenaPropisa
@@ -321,7 +321,8 @@ type OdabirPropisa struct {
 }
 
 // Spremi sprema propis iz pregleda. Novi propis dobije upisanu stalnu
-// adresu; isti akt, učitan ponovno, zadrži staru adresu i izmjene.
+// adresu; isti akt, učitan ponovno, zadrži adresu koja vodi na njega i
+// izmjene.
 func (s *PropisiService) Spremi(ctx context.Context, perms *models.UserPermissions, tko *models.User, p *PregledPropisa, o OdabirPropisa) (*models.Propis, error) {
 	if err := requireGlobalAdmin(perms, "spremanje propisa"); err != nil {
 		return nil, err
@@ -332,7 +333,7 @@ func (s *PropisiService) Spremi(ctx context.Context, perms *models.UserPermissio
 		return nil, porukaBezClanka
 	}
 	propis.Skupina = skupinaIliOstali(o.Skupina)
-	postoji, err := s.repo.Get(ctx, propis.ID)
+	postoji, err := s.zapisPropisa(ctx, propis.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -346,6 +347,18 @@ func (s *PropisiService) Spremi(ctx context.Context, perms *models.UserPermissio
 		return nil, porukaSpremanja(err)
 	}
 	return &propis, nil
+}
+
+// zapisPropisa je spremljeni propis s tom oznakom zapisa, s adresom koja
+// vodi na njega; nil kad ga nema. Propis kojem je istu adresu prije uzeo
+// drugi akt (dva računala prije razmjene) tako ponovnim učitavanjem trajno
+// dobije oznaku zapisa za adresu.
+func (s *PropisiService) zapisPropisa(ctx context.Context, id string) (*models.Propis, error) {
+	p, err := s.repo.PoAdresi(ctx, id)
+	if p != nil && p.ID != id {
+		p = nil
+	}
+	return p, err
 }
 
 // imaClanak: propis ima barem jedan članak, točku ili prilog
