@@ -8,16 +8,19 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 )
 
-// datoteke drže bajtove sadržaja izvan baze: svaki sadržaj je jedna
-// datoteka imena svog otiska u mapi uz bazu (sadrzaj/ab/abcd…). Datoteka se
-// nikad ne mijenja, samo nastaje i nestaje. Memorijsko spremište (proba)
-// drži bajtove u mapi u memoriji.
+// datoteke drže bajtove sadržaja izvan baze. Svaki sadržaj je jedna
+// datoteka u mapi uz bazu, složena po vrsti i mjesecu primitka:
+// sadrzaj/pdf/2026-11/<otisak>.pdf. Mjesto datoteke (relativno, s „/”)
+// piše u popisu, u stupcu datoteka, pa ga promjena rasporeda ne izgubi.
+// Datoteka se nikad ne mijenja, samo nastaje i nestaje. Memorijsko
+// spremište (proba) drži bajtove u mapi u memoriji.
 type datoteke struct {
 	mapa string // prazno: u memoriji
 
@@ -40,25 +43,59 @@ func ispravanOtisak(otisak string) bool {
 	return err == nil
 }
 
-func (d *datoteke) put(otisak string) (string, error) {
+// mapeVrsta su mapa i nastavak datoteke po vrsti sadržaja
+var mapeVrsta = map[string][2]string{
+	"application/pdf":              {"pdf", ".pdf"},
+	"image/jpeg":                   {"slike", ".jpg"},
+	"image/png":                    {"slike", ".png"},
+	"application/vnd.gocop.arhiva": {"paketi-arhive", ".cop"},
+}
+
+// noviPut je mjesto nove datoteke: mapa vrste, mjesec primitka, otisak s
+// nastavkom. Vrsta koju program ne zna ide u ostalo, bez nastavka.
+func noviPut(vrsta, otisak string, primljeno time.Time) (string, error) {
 	if !ispravanOtisak(otisak) {
 		return "", fmt.Errorf("neispravan otisak sadržaja %q", otisak)
 	}
-	return filepath.Join(d.mapa, otisak[:2], otisak), nil
+	m, ok := mapeVrsta[vrsta]
+	if !ok {
+		m = [2]string{"ostalo", ""}
+	}
+	return path.Join(m[0], primljeno.UTC().Format("2006-01"), otisak+m[1]), nil
 }
 
-// zapisi sprema bajtove pod otiskom. Datoteka koja već postoji ostaje: isti
-// otisak su isti bajtovi. Nova se piše pod privremenim imenom, ide na disk i
-// tek onda dobije pravo ime, pa nakon nestanka struje nema napola zapisane
-// datoteke pod pravim imenom.
-func (d *datoteke) zapisi(otisak string, b []byte) error {
-	if d.mapa == "" {
-		d.uMemoriju(otisak, b)
-		return nil
+// otisakIzImena vraća otisak iz imena datoteke sadržaja; prazno kad ime
+// nije otisak s nastavkom
+func otisakIzImena(ime string) string {
+	o := strings.TrimSuffix(ime, path.Ext(ime))
+	if !ispravanOtisak(o) {
+		return ""
 	}
-	put, err := d.put(otisak)
+	return o
+}
+
+// put je puna putanja datoteke na mjestu rel; mjesto mora ostati unutar
+// mape sadržaja
+func (d *datoteke) put(rel string) (string, error) {
+	lokalno := filepath.FromSlash(rel)
+	if rel == "" || !filepath.IsLocal(lokalno) {
+		return "", fmt.Errorf("neispravno mjesto datoteke sadržaja %q", rel)
+	}
+	return filepath.Join(d.mapa, lokalno), nil
+}
+
+// zapisi sprema bajtove na mjesto rel. Datoteka koja već postoji ostaje:
+// isto mjesto nosi otisak, a isti otisak su isti bajtovi. Nova se piše pod
+// privremenim imenom, ide na disk i tek onda dobije pravo ime, pa nakon
+// nestanka struje nema napola zapisane datoteke pod pravim imenom.
+func (d *datoteke) zapisi(rel string, b []byte) error {
+	put, err := d.put(rel)
 	if err != nil {
 		return err
+	}
+	if d.mapa == "" {
+		d.uMemoriju(rel, b)
+		return nil
 	}
 	if fi, err := os.Stat(put); err == nil && fi.Size() == int64(len(b)) {
 		return nil
@@ -75,13 +112,13 @@ func (d *datoteke) zapisi(otisak string, b []byte) error {
 }
 
 // uMemoriju sprema kopiju bajtova memorijskog spremišta
-func (d *datoteke) uMemoriju(otisak string, b []byte) {
+func (d *datoteke) uMemoriju(rel string, b []byte) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if d.mem == nil {
 		d.mem = map[string][]byte{}
 	}
-	d.mem[otisak] = append([]byte(nil), b...)
+	d.mem[rel] = append([]byte(nil), b...)
 }
 
 // zapisiPaPreimenuj piše bajtove u privremenu datoteku u mapi, šalje ih na
@@ -113,24 +150,24 @@ func zapisiPaPreimenuj(mapa, put string, b []byte) error {
 func syncMapu(mapa string) {
 	if f, err := os.Open(mapa); err == nil {
 		_ = f.Sync() // na Windowsu ne ide; datoteka je već na disku
-		f.Close() //nolint:errcheck // mapa je samo čitana
+		f.Close()    //nolint:errcheck // mapa je samo čitana
 	}
 }
 
-// citaj vraća bajtove; ErrNema kad datoteke nema
-func (d *datoteke) citaj(otisak string) ([]byte, error) {
+// citaj vraća bajtove s mjesta rel; ErrNema kad datoteke nema
+func (d *datoteke) citaj(rel string) ([]byte, error) {
+	put, err := d.put(rel)
+	if err != nil {
+		return nil, ErrNema // zapis bez mjesta: datoteke nema
+	}
 	if d.mapa == "" {
 		d.mu.Lock()
 		defer d.mu.Unlock()
-		b, ok := d.mem[otisak]
+		b, ok := d.mem[rel]
 		if !ok {
 			return nil, ErrNema
 		}
 		return b, nil
-	}
-	put, err := d.put(otisak)
-	if err != nil {
-		return nil, err
 	}
 	b, err := os.ReadFile(put)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -139,17 +176,17 @@ func (d *datoteke) citaj(otisak string) ([]byte, error) {
 	return b, err
 }
 
-// ima javlja postoji li datoteka
-func (d *datoteke) ima(otisak string) bool {
+// ima javlja postoji li datoteka na mjestu rel
+func (d *datoteke) ima(rel string) bool {
+	put, err := d.put(rel)
+	if err != nil {
+		return false
+	}
 	if d.mapa == "" {
 		d.mu.Lock()
 		defer d.mu.Unlock()
-		_, ok := d.mem[otisak]
+		_, ok := d.mem[rel]
 		return ok
-	}
-	put, err := d.put(otisak)
-	if err != nil {
-		return false
 	}
 	_, err = os.Stat(put)
 	return err == nil
@@ -157,48 +194,68 @@ func (d *datoteke) ima(otisak string) bool {
 
 // obrisi miče datoteku. Ako ne ide (na Windowsu je netko još čita), ostaje
 // višak koji pospremanje kasnije makne.
-func (d *datoteke) obrisi(otisak string) {
+func (d *datoteke) obrisi(rel string) {
+	put, err := d.put(rel)
+	if err != nil {
+		return
+	}
 	if d.mapa == "" {
 		d.mu.Lock()
 		defer d.mu.Unlock()
-		delete(d.mem, otisak)
+		delete(d.mem, rel)
 		return
 	}
-	if put, err := d.put(otisak); err == nil {
-		_ = os.Remove(put) // višak makne PocistiDatoteke
-	}
+	_ = os.Remove(put) // višak makne PocistiDatoteke
 }
 
-// ukloniDatoteke miče datoteke sadržaja kojih više nema u bazi. Zove se
-// nakon što je brisanje u bazi potvrđeno, pod istom bravom kao upis, pa
+// mjesto je mjesto datoteke sadržaja koji se upisuje: zapisano mjesto ako
+// ga redak ima, a inače novo, po vrsti i vremenu primitka retka ako redak
+// postoji, odnosno po zadanoj vrsti i vremenu
+func (s *Spremiste) mjesto(ctx context.Context, otisak, vrsta string, sad time.Time) (string, error) {
+	var rel, vrstaRetka string
+	var primljeno time.Time
+	err := s.db.QueryRowContext(ctx, `SELECT datoteka, vrsta, primljeno FROM sadrzaj WHERE otisak = ?`, otisak).Scan(&rel, &vrstaRetka, &primljeno)
+	switch {
+	case err == sql.ErrNoRows:
+		return noviPut(vrsta, otisak, sad)
+	case err != nil:
+		return "", err
+	case rel != "":
+		return rel, nil
+	}
+	return noviPut(vrstaRetka, otisak, primljeno)
+}
+
+// ukloniDatoteke miče datoteke na mjestima koja popis više ne navodi. Zove
+// se nakon što je brisanje u bazi potvrđeno, pod istom bravom kao upis, pa
 // istodobni upis istog sadržaja ne ostane bez datoteke.
-func (s *Spremiste) ukloniDatoteke(ctx context.Context, otisci []string) {
-	if len(otisci) == 0 {
+func (s *Spremiste) ukloniDatoteke(ctx context.Context, mjesta []string) {
+	if len(mjesta) == 0 {
 		return
 	}
 	s.upis.Lock()
 	defer s.upis.Unlock()
-	for _, o := range otisci {
-		if !s.uBazi(ctx, o) {
-			s.dat.obrisi(o)
+	for _, rel := range mjesta {
+		if rel != "" && !s.navedeno(ctx, rel) {
+			s.dat.obrisi(rel)
 		}
 	}
 }
 
-// uBazi javlja ima li sadržaj redak u bazi
-func (s *Spremiste) uBazi(ctx context.Context, otisak string) bool {
+// navedeno javlja navodi li popis datoteku na mjestu rel
+func (s *Spremiste) navedeno(ctx context.Context, rel string) bool {
 	var n int
-	if err := s.db.QueryRowContext(ctx, `SELECT count(*) FROM sadrzaj WHERE otisak = ?`, otisak).Scan(&n); err != nil {
+	if err := s.db.QueryRowContext(ctx, `SELECT count(*) FROM sadrzaj WHERE datoteka = ?`, rel).Scan(&n); err != nil {
 		return true // ne zna se: datoteka ostaje
 	}
 	return n > 0
 }
 
-// visakStariji je koliko datoteka bez retka u bazi mora biti stara da je
-// pospremanje makne: novija je možda upravo zapisana, a redak još ne
+// visakStariji je koliko datoteka koju popis ne navodi mora biti stara da
+// je pospremanje makne: novija je možda upravo zapisana, a redak još ne
 const visakStariji = time.Hour
 
-// PocistiDatoteke miče datoteke sadržaja kojih nema u bazi i ostatke
+// PocistiDatoteke miče datoteke sadržaja koje popis ne navodi i ostatke
 // prekinutih upisa, starije od sata. Vraća koliko ih je maknuto.
 func (s *Spremiste) PocistiDatoteke(ctx context.Context) (int, error) {
 	if s.dat.mapa == "" {
@@ -211,19 +268,19 @@ func (s *Spremiste) PocistiDatoteke(ctx context.Context) (int, error) {
 	n := 0
 	s.upis.Lock()
 	defer s.upis.Unlock()
-	for _, put := range visak {
-		if ime := filepath.Base(put); ispravanOtisak(ime) && s.uBazi(ctx, ime) {
+	for _, rel := range visak {
+		if s.navedeno(ctx, rel) {
 			continue // u međuvremenu ponovno upisan
 		}
-		if os.Remove(put) == nil {
+		if put, err := s.dat.put(rel); err == nil && os.Remove(put) == nil {
 			n++
 		}
 	}
 	return n, nil
 }
 
-// visakDatoteka su datoteke u mapi sadržaja starije od prije koje baza ne
-// navodi i ostaci prekinutih upisa. Mapa koje nema nema ni viška.
+// visakDatoteka su mjesta datoteka u mapi sadržaja starijih od prije koje
+// popis ne navodi i ostataka prekinutih upisa. Mapa koje nema nema ni viška.
 func (s *Spremiste) visakDatoteka(ctx context.Context, prije time.Time) ([]string, error) {
 	var visak []string
 	err := filepath.WalkDir(s.dat.mapa, func(put string, e fs.DirEntry, err error) error {
@@ -233,25 +290,33 @@ func (s *Spremiste) visakDatoteka(ctx context.Context, prije time.Time) ([]strin
 		if err != nil {
 			return err
 		}
-		if s.jeVisak(ctx, e, prije) {
-			visak = append(visak, put)
+		if rel, da := s.jeVisak(ctx, put, e, prije); da {
+			visak = append(visak, rel)
 		}
 		return nil
 	})
 	return visak, err
 }
 
-// jeVisak javlja je li stavka mape datoteka koju treba maknuti
-func (s *Spremiste) jeVisak(ctx context.Context, e fs.DirEntry, prije time.Time) bool {
+// jeVisak javlja je li stavka mape datoteka koju treba maknuti, i njezino
+// mjesto. Dira samo datoteke imena otiska i ostatke prekinutih upisa.
+func (s *Spremiste) jeVisak(ctx context.Context, put string, e fs.DirEntry, prije time.Time) (string, bool) {
 	if e.IsDir() {
-		return false
+		return "", false
 	}
 	fi, err := e.Info()
 	if err != nil || !fi.ModTime().Before(prije) {
-		return false // nestala u međuvremenu ili još svježa
+		return "", false // nestala u međuvremenu ili još svježa
 	}
-	ime := e.Name()
-	return strings.HasPrefix(ime, ".novo-") || (ispravanOtisak(ime) && !s.uBazi(ctx, ime))
+	rel, err := filepath.Rel(s.dat.mapa, put)
+	if err != nil {
+		return "", false
+	}
+	rel = filepath.ToSlash(rel)
+	if strings.HasPrefix(e.Name(), ".novo-") {
+		return rel, true
+	}
+	return rel, otisakIzImena(e.Name()) != "" && !s.navedeno(ctx, rel)
 }
 
 // PreseliIzBaze prebacuje bajtove iz stupca podaci starog spremišta u
@@ -264,7 +329,7 @@ func (s *Spremiste) PreseliIzBaze(ctx context.Context) (int, error) {
 	if !s.stari.Load() {
 		return 0, nil
 	}
-	otisci, err := otisciUpita(ctx, s.db, `SELECT otisak FROM sadrzaj WHERE length(podaci) > 0`)
+	otisci, err := stupacUpita(ctx, s.db, `SELECT otisak FROM sadrzaj WHERE datoteka = ''`)
 	if err != nil {
 		return 0, err
 	}
@@ -302,28 +367,35 @@ func (s *Spremiste) makniStupac(ctx context.Context) error {
 	return nil
 }
 
-// preseliJedan zapisuje jedan sadržaj iz stupca u datoteku, pod bravom upisa,
-// da ga istodobno brisanje ne ostavi bez retka s datotekom ili obratno.
-// Sadržaj koji je u međuvremenu obrisan preskače se.
+// preseliJedan zapisuje jedan sadržaj iz stupca u datoteku i upisuje joj
+// mjesto, pod bravom upisa, da ga istodobno brisanje ne ostavi bez retka s
+// datotekom ili obratno. Sadržaj koji je u međuvremenu obrisan ili već ima
+// datoteku preskače se.
 func (s *Spremiste) preseliJedan(ctx context.Context, otisak string) (bool, error) {
 	s.upis.Lock()
 	defer s.upis.Unlock()
 	var b []byte
-	err := s.db.QueryRowContext(ctx, `SELECT podaci FROM sadrzaj WHERE otisak = ?`, otisak).Scan(&b)
-	if err == sql.ErrNoRows {
-		return false, nil // u međuvremenu obrisan
+	var vrsta, rel string
+	var primljeno time.Time
+	err := s.db.QueryRowContext(ctx, `SELECT podaci, vrsta, primljeno, datoteka FROM sadrzaj WHERE otisak = ?`, otisak).Scan(&b, &vrsta, &primljeno, &rel)
+	if err == sql.ErrNoRows || (err == nil && rel != "") {
+		return false, nil // u međuvremenu obrisan ili upisan nanovo, s datotekom
 	}
 	if err != nil {
 		return false, err
 	}
-	if len(b) == 0 {
-		return false, nil // u međuvremenu upisan nanovo: bajtovi su već u datoteci
+	if rel, err = noviPut(vrsta, otisak, primljeno); err != nil {
+		return false, err
 	}
-	return true, s.dat.zapisi(otisak, b)
+	if err := s.dat.zapisi(rel, b); err != nil {
+		return false, err
+	}
+	_, err = s.db.ExecContext(ctx, `UPDATE sadrzaj SET datoteka = ? WHERE otisak = ?`, rel, otisak)
+	return err == nil, err
 }
 
 // izStupca čita bajtove iz starog stupca dok seljenje traje; nil kad
-// stupca više nema ili je sadržaj već preseljen
+// stupca više nema ili je sadržaj prazan
 func (s *Spremiste) izStupca(ctx context.Context, otisak string) []byte {
 	if !s.stari.Load() {
 		return nil

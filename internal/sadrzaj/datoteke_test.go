@@ -22,8 +22,14 @@ func otvoriNaDisku(t *testing.T) (*Spremiste, string) {
 	return s, put
 }
 
-func datotekaSadrzaja(put, otisak string) string {
-	return filepath.Join(MapaUz(put), otisak[:2], otisak)
+// datotekaSadrzaja je datoteka sadržaja upisanog ovaj mjesec
+func datotekaSadrzaja(t *testing.T, put, vrsta, otisak string) string {
+	t.Helper()
+	rel, err := noviPut(vrsta, otisak, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return filepath.Join(MapaUz(put), filepath.FromSlash(rel))
 }
 
 // PDF je obična datoteka uz bazu, a baza drži samo popis: bez stupca s
@@ -37,7 +43,10 @@ func TestSadrzajJeDatotekaUzBazu(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	na := datotekaSadrzaja(put, otisak)
+	na := datotekaSadrzaja(t, put, "application/pdf", otisak)
+	if ocekivano := filepath.Join(MapaUz(put), "pdf", time.Now().UTC().Format("2006-01"), otisak+".pdf"); na != ocekivano {
+		t.Errorf("mjesto %s, treba %s", na, ocekivano)
+	}
 	if b, err := os.ReadFile(na); err != nil || !bytes.Equal(b, pdf) {
 		t.Fatalf("datoteka %s: %q, %v", na, b, err)
 	}
@@ -89,10 +98,10 @@ func TestPospremanjeMiceDatoteke(t *testing.T) {
 	if err != nil || n != 1 {
 		t.Fatalf("pospremljeno %d, %v; treba 1", n, err)
 	}
-	if _, err := os.Stat(datotekaSadrzaja(put, stari)); !errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(datotekaSadrzaja(t, put, "application/vnd.gocop.arhiva", stari)); !errors.Is(err, os.ErrNotExist) {
 		t.Errorf("stari paket ostavio je datoteku: %v", err)
 	}
-	if _, err := os.Stat(datotekaSadrzaja(put, novi)); err != nil {
+	if _, err := os.Stat(datotekaSadrzaja(t, put, "application/vnd.gocop.arhiva", novi)); err != nil {
 		t.Errorf("paket koji ostaje nema datoteku: %v", err)
 	}
 }
@@ -157,6 +166,9 @@ func TestSeljenjeIzBaze(t *testing.T) {
 			t.Errorf("nakon seljenja %s: %d bajtova, %v", o[:8], len(b), err)
 		}
 	}
+	if _, err := os.Stat(datotekaSadrzaja(t, put, "application/pdf", otisak)); err != nil {
+		t.Errorf("preseljeni PDF nije u mapi pdf/mjesec: %v", err)
+	}
 	poslije, err := os.Stat(put)
 	if err != nil {
 		t.Fatal(err)
@@ -170,22 +182,42 @@ func TestSeljenjeIzBaze(t *testing.T) {
 }
 
 // Otisak stiže i s drugih čvorova, a od njega nastaje ime datoteke: ništa
-// osim SHA-256 heksom ne smije postati put
+// osim SHA-256 heksom ne smije postati ime, a mjesto ne smije izaći iz mape
+// sadržaja. Svaka vrsta ima svoju mapu, a nepoznata ide u ostalo.
 func TestOtisakNijePut(t *testing.T) {
 	s, _ := otvoriNaDisku(t)
 	for _, o := range []string{"", "../../gocop.db", "AB" + Otisak(nil)[2:], Otisak(nil) + "/x", "zz" + Otisak(nil)[2:]} {
-		if ispravanOtisak(o) {
+		if ispravanOtisak(o) || otisakIzImena(o+".pdf") != "" {
 			t.Errorf("%q prihvaćen kao otisak", o)
 		}
-		if err := s.dat.zapisi(o, []byte("x")); err == nil {
-			t.Errorf("%q: upis datoteke bez greške", o)
-		}
-		if s.dat.ima(o) {
-			t.Errorf("%q: ima datoteku", o)
+		if _, err := noviPut("application/pdf", o, time.Now()); err == nil {
+			t.Errorf("%q: mjesto bez greške", o)
 		}
 	}
-	if !ispravanOtisak(Otisak([]byte("x"))) {
-		t.Error("pravi otisak odbijen")
+	for _, rel := range []string{"", "../gocop.db", "/etc/passwd", "pdf/../../x"} {
+		if err := s.dat.zapisi(rel, []byte("x")); err == nil {
+			t.Errorf("%q: upis izvan mape bez greške", rel)
+		}
+		if s.dat.ima(rel) {
+			t.Errorf("%q: ima datoteku", rel)
+		}
+		if _, err := s.dat.citaj(rel); !errors.Is(err, ErrNema) {
+			t.Errorf("%q: čitanje %v", rel, err)
+		}
+		s.dat.obrisi(rel) // ne smije ništa obrisati ni pasti
+	}
+	o := Otisak([]byte("x"))
+	studeni := time.Date(2026, 11, 26, 8, 0, 0, 0, time.UTC)
+	for vrsta, ocekivano := range map[string]string{
+		"application/pdf":              "pdf/2026-11/" + o + ".pdf",
+		"image/jpeg":                   "slike/2026-11/" + o + ".jpg",
+		"image/png":                    "slike/2026-11/" + o + ".png",
+		"application/vnd.gocop.arhiva": "paketi-arhive/2026-11/" + o + ".cop",
+		"text/plain":                   "ostalo/2026-11/" + o,
+	} {
+		if rel, err := noviPut(vrsta, o, studeni); err != nil || rel != ocekivano {
+			t.Errorf("%s: %q, %v; treba %q", vrsta, rel, err, ocekivano)
+		}
 	}
 }
 
@@ -202,7 +234,7 @@ func TestPocistiDatoteke(t *testing.T) {
 	staro := time.Now().Add(-2 * time.Hour)
 	napravi := func(ime string, star bool) string {
 		t.Helper()
-		p := filepath.Join(MapaUz(put), "ab", ime)
+		p := filepath.Join(MapaUz(put), "pdf", "2026-01", ime)
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -216,10 +248,11 @@ func TestPocistiDatoteke(t *testing.T) {
 		}
 		return p
 	}
-	sirotan := napravi("ab"+Otisak([]byte("siroce"))[2:], true)
+	sirotan := napravi(Otisak([]byte("siroce"))+".pdf", true)
+	tudja := napravi("biljeska.txt", true)
 	prekinut := napravi(".novo-123", true)
-	svjez := napravi("ab"+Otisak([]byte("svjeze"))[2:], false)
-	zivaDatoteka := datotekaSadrzaja(put, zivi)
+	svjez := napravi(Otisak([]byte("svjeze"))+".pdf", false)
+	zivaDatoteka := datotekaSadrzaja(t, put, "image/jpeg", zivi)
 	if err := os.Chtimes(zivaDatoteka, staro, staro); err != nil {
 		t.Fatal(err)
 	}
@@ -233,7 +266,7 @@ func TestPocistiDatoteke(t *testing.T) {
 			t.Errorf("%s ostao: %v", filepath.Base(p), err)
 		}
 	}
-	for _, p := range []string{svjez, zivaDatoteka} {
+	for _, p := range []string{svjez, zivaDatoteka, tudja} {
 		if _, err := os.Stat(p); err != nil {
 			t.Errorf("%s obrisan: %v", filepath.Base(p), err)
 		}
@@ -290,8 +323,16 @@ func TestSeljenjePreskace(t *testing.T) {
 	if b, _, err := s.Citaj(ctx, Otisak(nova)); err != nil || !bytes.Equal(b, nova) {
 		t.Errorf("prazan stupac pregazio je datoteku: %q, %v", b, err)
 	}
-	if n, err := s.PreseliIzBaze(ctx); err != nil || n != 1 {
-		t.Errorf("preseljeno %d, %v; treba 1", n, err)
+	// isti PDF primljen opet prije seljenja: redak dobije mjesto, pa ga
+	// seljenje preskoči
+	if err := s.UpisiProvjereno(ctx, Otisak(pdf), "application/pdf", pdf, "cvor:ured"); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := s.PreseliIzBaze(ctx); err != nil || n != 0 {
+		t.Errorf("preseljeno %d, %v; treba 0", n, err)
+	}
+	if b, err := os.ReadFile(datotekaSadrzaja(t, s.Put(), "application/pdf", Otisak(pdf))); err != nil || !bytes.Equal(b, pdf) {
+		t.Errorf("datoteka ponovno primljenog PDF-a: %q, %v", b, err)
 	}
 }
 
@@ -316,15 +357,24 @@ func TestSeljenjeGreske(t *testing.T) {
 	if err := s.makniStupac(ctx); err == nil {
 		t.Error("zatvorena baza: nema greške brisanja stupca")
 	}
-	if !s.uBazi(ctx, Otisak(pdf)) {
+	if !s.navedeno(ctx, "pdf/2026-11/"+Otisak(pdf)+".pdf") {
 		t.Error("kad se baza ne da pitati, datoteka mora ostati")
 	}
-	if _, err := otisciUpita(ctx, s.db, `SELECT 1`); err == nil {
+	if s.Ima(ctx, Otisak(pdf)) {
+		t.Error("kad se baza ne da pitati, sadržaja nema")
+	}
+	if _, err := s.mjesto(ctx, Otisak(pdf), "application/pdf", time.Now()); err == nil {
+		t.Error("zatvorena baza: nema greške mjesta")
+	}
+	if _, err := s.Upisi(ctx, "application/pdf", []byte("novi PDF"), "ovdje"); err == nil {
+		t.Error("zatvorena baza: upis bez greške")
+	}
+	if _, err := stupacUpita(ctx, s.db, `SELECT 1`); err == nil {
 		t.Error("zatvorena baza: nema greške upita")
 	}
 
 	d, _ := otvoriNaDisku(t)
-	if _, err := otisciUpita(ctx, d.db, `SELECT 'a', 'b'`); err == nil {
+	if _, err := stupacUpita(ctx, d.db, `SELECT 'a', 'b'`); err == nil {
 		t.Error("dva stupca: nema greške čitanja")
 	}
 	if err := d.makniStupac(ctx); err == nil {
@@ -378,8 +428,9 @@ func TestUpisBezDatotekeNemaRetka(t *testing.T) {
 	if _, err := s.Upisi(ctx, "application/pdf", pdf, "ovdje"); err == nil {
 		t.Fatal("upis bez mape: nema greške")
 	}
-	if s.uBazi(ctx, Otisak(pdf)) {
-		t.Error("redak upisan bez datoteke")
+	var n int
+	if err := s.db.QueryRow(`SELECT count(*) FROM sadrzaj`).Scan(&n); err != nil || n != 0 {
+		t.Errorf("redak upisan bez datoteke: %d, %v", n, err)
 	}
 
 	tx, err := s.db.BeginTx(ctx, nil)

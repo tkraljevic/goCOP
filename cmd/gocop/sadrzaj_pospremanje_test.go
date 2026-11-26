@@ -40,7 +40,7 @@ func otvoriSpremiste(t *testing.T) *sadrzaj.Spremiste {
 func TestPospremiSadrzaj(t *testing.T) {
 	ctx := context.Background()
 	sp := otvoriSpremiste(t)
-	visak := filepath.Join(sadrzaj.MapaUz(sp.Put()), "ab", "ab"+sadrzaj.Otisak([]byte("siroce"))[2:])
+	visak := filepath.Join(sadrzaj.MapaUz(sp.Put()), "pdf", "2026-01", sadrzaj.Otisak([]byte("siroce"))+".pdf")
 	if err := os.MkdirAll(filepath.Dir(visak), 0o755); err != nil {
 		t.Fatal(err)
 	}

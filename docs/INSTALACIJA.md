@@ -69,7 +69,7 @@ Detaljni postupci i ovlasti opisani su u ugrađenoj stranici **Pomoć**.
   |---|---|
   | `gocop.db` (+ `-wal`, `-shm`) | SQLite baza — operativa, registri, korisnici i knjiga verzija |
   | `sadrzaj.db` (+ `-wal`, `-shm`) | popis PDF-ova, fotografija i paketa arhive: vrsta, veličina i uz koji su zapis vezani |
-  | `sadrzaj\` (mapa) | sami PDF-ovi, fotografije i paketi arhive, svaki kao datoteka imena svog SHA-256 otiska; datoteke se nikad ne mijenjaju, briše ih samo program |
+  | `sadrzaj\` (mapa) | sami PDF-ovi, fotografije i paketi arhive, složeni po vrsti i mjesecu (`pdf\2026-11\`, `slike\`, `paketi-arhive\`); ime datoteke je njezin SHA-256 otisak; datoteke se nikad ne mijenjaju, briše ih samo program |
   | `vodostaji.db` (+ `-wal`, `-shm`) | obnovljiva hidrološka arhiva i evidencija primljenih izdanja |
   | `prognoze.db` (+ `-wal`, `-shm`) | lokalna i primljena izdanja prognoza, parametri i rezultati provjere |
   | `oborine.db` (+ `-wal`, `-shm`) | mjerenja i prognozirane oborine |

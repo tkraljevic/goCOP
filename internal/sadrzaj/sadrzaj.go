@@ -95,7 +95,8 @@ func Otvori(put string) (*Spremiste, error) {
 			bajtova INTEGER NOT NULL,
 			primljeno DATETIME NOT NULL,
 			izvor TEXT NOT NULL DEFAULT 'ovdje',
-			kanal TEXT NOT NULL DEFAULT ''
+			kanal TEXT NOT NULL DEFAULT '',
+			datoteka TEXT NOT NULL DEFAULT ''
 		)`,
 		`CREATE TABLE IF NOT EXISTS sadrzaj_veze (
 			otisak TEXT NOT NULL,
@@ -140,6 +141,7 @@ func dopuniSpremiste(db *sql.DB) error {
 	for _, c := range []struct{ tablica, stupac, opis string }{
 		{"sadrzaj", "kanal", "TEXT NOT NULL DEFAULT ''"},
 		{"sadrzaj_zeljen", "kanal", "TEXT NOT NULL DEFAULT ''"},
+		{"sadrzaj", "datoteka", "TEXT NOT NULL DEFAULT ''"},
 	} {
 		ima, err := imaStupac(db, c.tablica, c.stupac)
 		if err != nil {
@@ -154,6 +156,10 @@ func dopuniSpremiste(db *sql.DB) error {
 	}
 	if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_sadrzaj_kanal ON sadrzaj(kanal)`); err != nil {
 		return fmt.Errorf("spremište sadržaja, kazalo kanala: %w", err)
+	}
+	// pospremanje za svaku datoteku u mapi pita navodi li je popis
+	if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_sadrzaj_datoteka ON sadrzaj(datoteka)`); err != nil {
+		return fmt.Errorf("spremište sadržaja, kazalo datoteka: %w", err)
 	}
 	return nil
 }
@@ -224,9 +230,14 @@ func (s *Spremiste) upisi(ctx context.Context, otisak, vrsta string, b []byte, i
 	kanal := kanalVeza(veze)
 	s.upis.Lock()
 	defer s.upis.Unlock()
+	sad := time.Now().UTC()
+	rel, err := s.mjesto(ctx, otisak, vrsta, sad)
+	if err != nil {
+		return err
+	}
 	// datoteka prije retka: prekid između ostavi višak datoteke, ne redak
 	// bez datoteke
-	if err := s.dat.zapisi(otisak, b); err != nil {
+	if err := s.dat.zapisi(rel, b); err != nil {
 		return err
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -237,7 +248,7 @@ func (s *Spremiste) upisi(ctx context.Context, otisak, vrsta string, b []byte, i
 	if kanal == "" {
 		_ = tx.QueryRowContext(ctx, `SELECT kanal FROM sadrzaj_zeljen WHERE otisak = ?`, otisak).Scan(&kanal)
 	}
-	if _, err := tx.ExecContext(ctx, s.upisRetka(), otisak, vrsta, len(b), time.Now().UTC(), izvor, kanal); err != nil {
+	if _, err := tx.ExecContext(ctx, s.upisRetka(), otisak, vrsta, len(b), sad, izvor, kanal, rel); err != nil {
 		return fmt.Errorf("upis sadržaja: %w", err)
 	}
 	for _, v := range veze {
@@ -262,16 +273,16 @@ func kanalVeza(veze []Veza) string {
 	return ""
 }
 
-// upisRetka je upis retka u popis sadržaja. Dok seljenje traje, stari
-// stupac podaci ne smije biti prazan (NOT NULL), pa dobije prazne bajtove:
-// pravi su u datoteci.
+// upisRetka je upis retka u popis sadržaja. Redak koji već postoji
+// zadržava sve osim mjesta datoteke, koje dobije ako ga još nema. Dok
+// seljenje traje, stari stupac podaci ne smije biti prazan (NOT NULL), pa
+// dobije prazne bajtove: pravi su u datoteci.
 func (s *Spremiste) upisRetka() string {
+	const vec = ` ON CONFLICT(otisak) DO UPDATE SET datoteka = excluded.datoteka WHERE sadrzaj.datoteka = ''`
 	if s.stari.Load() {
-		return `INSERT INTO sadrzaj (otisak, vrsta, bajtova, primljeno, izvor, kanal, podaci) VALUES (?, ?, ?, ?, ?, ?, x'')
-		ON CONFLICT(otisak) DO NOTHING`
+		return `INSERT INTO sadrzaj (otisak, vrsta, bajtova, primljeno, izvor, kanal, datoteka, podaci) VALUES (?, ?, ?, ?, ?, ?, ?, x'')` + vec
 	}
-	return `INSERT INTO sadrzaj (otisak, vrsta, bajtova, primljeno, izvor, kanal) VALUES (?, ?, ?, ?, ?, ?)
-		ON CONFLICT(otisak) DO NOTHING`
+	return `INSERT INTO sadrzaj (otisak, vrsta, bajtova, primljeno, izvor, kanal, datoteka) VALUES (?, ?, ?, ?, ?, ?, ?)` + vec
 }
 
 // Citaj vraća bajtove i vrstu sadržaja; ErrNema kad ga čvor ne drži
@@ -282,15 +293,15 @@ func (s *Spremiste) Citaj(ctx context.Context, otisak string) ([]byte, string, e
 
 // CitajSKanalom vraća bajtove, vrstu i kanal sadržaja; ErrNema kad ga nema
 func (s *Spremiste) CitajSKanalom(ctx context.Context, otisak string) ([]byte, string, string, error) {
-	var vrsta, kanal string
-	err := s.db.QueryRowContext(ctx, `SELECT vrsta, kanal FROM sadrzaj WHERE otisak = ?`, otisak).Scan(&vrsta, &kanal)
+	var vrsta, kanal, rel string
+	err := s.db.QueryRowContext(ctx, `SELECT vrsta, kanal, datoteka FROM sadrzaj WHERE otisak = ?`, otisak).Scan(&vrsta, &kanal, &rel)
 	if err == sql.ErrNoRows {
 		return nil, "", "", ErrNema
 	}
 	if err != nil {
 		return nil, "", "", err
 	}
-	b, err := s.dat.citaj(otisak)
+	b, err := s.dat.citaj(rel)
 	if errors.Is(err, ErrNema) {
 		if b = s.izStupca(ctx, otisak); b != nil {
 			err = nil // još nije preseljen
@@ -305,9 +316,11 @@ func (s *Spremiste) CitajSKanalom(ctx context.Context, otisak string) ([]byte, s
 // Ima javlja drži li čvor sadržaj: redak u popisu i datoteku. Bez datoteke
 // (netko je obrisao mapu) sadržaj se opet traži od drugih čvorova.
 func (s *Spremiste) Ima(ctx context.Context, otisak string) bool {
-	var n int
-	_ = s.db.QueryRowContext(ctx, `SELECT count(*) FROM sadrzaj WHERE otisak = ?`, otisak).Scan(&n)
-	return n > 0 && (s.dat.ima(otisak) || s.uStupcu(ctx, otisak))
+	var rel string
+	if s.db.QueryRowContext(ctx, `SELECT datoteka FROM sadrzaj WHERE otisak = ?`, otisak).Scan(&rel) != nil {
+		return false // nema retka ili se baza ne da pitati
+	}
+	return s.dat.ima(rel) || s.uStupcu(ctx, otisak)
 }
 
 // Vezi bilježi da zapis drži sadržaj; sadržaj ne mora još biti ovdje
@@ -383,13 +396,15 @@ func (s *Spremiste) OdveziIUkloni(ctx context.Context, otisak, vrsta string, v V
 		return false, err
 	}
 	bezVeze := ` WHERE otisak = ? AND vrsta = ? AND NOT EXISTS (SELECT 1 FROM sadrzaj_veze v WHERE v.otisak = ?)`
-	for _, tablica := range []string{"sadrzaj", "sadrzaj_zeljen"} {
-		if _, err := tx.ExecContext(ctx, `DELETE FROM `+tablica+bezVeze, otisak, vrsta, otisak); err != nil {
-			return false, err
-		}
+	mjesta, err := stupacUpita(ctx, tx, `DELETE FROM sadrzaj`+bezVeze+` RETURNING datoteka`, otisak, vrsta, otisak)
+	if err != nil {
+		return false, err
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM sadrzaj_zeljen`+bezVeze, otisak, vrsta, otisak); err != nil {
+		return false, err
 	}
 	bilo, _ := res.RowsAffected() // SQLite ga uvijek zna
-	return bilo > 0, s.potvrdiPaUkloni(ctx, tx, []string{otisak})
+	return bilo > 0, s.potvrdiPaUkloni(ctx, tx, mjesta)
 }
 
 // BrisanjeKanala kaže koliko sadržaja jednog kanala brisanje odnese s
@@ -428,15 +443,18 @@ func (s *Spremiste) ObrisiKanal(ctx context.Context, kanal string, treba TrebaZa
 		return BrisanjeKanala{}, err
 	}
 	defer tx.Rollback()
+	var mjesta []string
 	for _, o := range otisci {
-		if err := obrisiSadrzaj(ctx, tx, o); err != nil {
+		m, err := obrisiSadrzaj(ctx, tx, o)
+		if err != nil {
 			return BrisanjeKanala{}, err
 		}
+		mjesta = append(mjesta, m...)
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM sadrzaj_zeljen WHERE kanal = ?`, kanal); err != nil {
 		return BrisanjeKanala{}, err
 	}
-	return b, s.potvrdiPaUkloni(ctx, tx, otisci)
+	return b, s.potvrdiPaUkloni(ctx, tx, mjesta)
 }
 
 // zaBrisanjeKanala vraća otiske sadržaja kanala koji su stigli s drugih
@@ -552,13 +570,13 @@ func (s *Spremiste) zapisiSadrzaja(ctx context.Context, otisak string) ([][2]str
 	return out, rows.Err()
 }
 
-// obrisiSadrzaj miče jedan sadržaj i sve njegove veze
-func obrisiSadrzaj(ctx context.Context, tx *sql.Tx, otisak string) error {
+// obrisiSadrzaj miče jedan sadržaj i sve njegove veze; vraća mjesto
+// datoteke obrisanog sadržaja
+func obrisiSadrzaj(ctx context.Context, tx *sql.Tx, otisak string) ([]string, error) {
 	if _, err := tx.ExecContext(ctx, `DELETE FROM sadrzaj_veze WHERE otisak = ?`, otisak); err != nil {
-		return err
+		return nil, err
 	}
-	_, err := tx.ExecContext(ctx, `DELETE FROM sadrzaj WHERE otisak = ? AND izvor <> 'ovdje'`, otisak)
-	return err
+	return stupacUpita(ctx, tx, `DELETE FROM sadrzaj WHERE otisak = ? AND izvor <> 'ovdje' RETURNING datoteka`, otisak)
 }
 
 // Odvezi miče sve veze jednog zapisa (kad zapis nestane); sadržaj ostaje
@@ -672,15 +690,8 @@ func (s *Spremiste) PrimljeniPrije(ctx context.Context, prije time.Time) ([]Prim
 // zapis i dalje zna svoj otisak i sadržaj se može opet dohvatiti. Što je
 // nastalo ovdje ne otpušta se, jer bi ovaj čvor mogao biti jedini koji ga ima.
 func (s *Spremiste) Otpusti(ctx context.Context, otisak string) error {
-	res, err := s.db.ExecContext(ctx, `DELETE FROM sadrzaj WHERE otisak = ? AND izvor <> 'ovdje'`, otisak)
-	if err != nil {
-		return err
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return errors.New("sadržaj je nastao ovdje ili ga nema")
-	}
-	s.ukloniDatoteke(ctx, []string{otisak})
-	return nil
+	return s.obrisiRedak(ctx, `DELETE FROM sadrzaj WHERE otisak = ? AND izvor <> 'ovdje' RETURNING datoteka`, otisak,
+		"sadržaj je nastao ovdje ili ga nema")
 }
 
 // PospremiVrstu briše sadržaj zadane vrste koji nije u zadrzi, i želju za
@@ -698,7 +709,7 @@ func (s *Spremiste) PospremiVrstu(ctx context.Context, vrsta, entitet string, za
 			AND otisak IN (SELECT otisak FROM sadrzaj WHERE vrsta = ? UNION SELECT otisak FROM sadrzaj_zeljen WHERE vrsta = ?)`,
 			[]any{entitet, string(ostaju), vrsta, vrsta}},
 		{`DELETE FROM sadrzaj WHERE vrsta = ? AND otisak` + izvan + `
-			AND NOT EXISTS (SELECT 1 FROM sadrzaj_veze v WHERE v.otisak = sadrzaj.otisak) RETURNING otisak`, []any{vrsta, string(ostaju)}},
+			AND NOT EXISTS (SELECT 1 FROM sadrzaj_veze v WHERE v.otisak = sadrzaj.otisak) RETURNING datoteka`, []any{vrsta, string(ostaju)}},
 		{`DELETE FROM sadrzaj_zeljen WHERE vrsta = ? AND otisak` + izvan + `
 			AND NOT EXISTS (SELECT 1 FROM sadrzaj_veze v WHERE v.otisak = sadrzaj_zeljen.otisak)`, []any{vrsta, string(ostaju)}},
 	}
@@ -715,7 +726,7 @@ func (s *Spremiste) PospremiVrstu(ctx context.Context, vrsta, entitet string, za
 			}
 			continue
 		}
-		if obrisani, err = otisciUpita(ctx, tx, k.upit, k.args...); err != nil {
+		if obrisani, err = stupacUpita(ctx, tx, k.upit, k.args...); err != nil {
 			return 0, err
 		}
 	}
@@ -724,11 +735,11 @@ func (s *Spremiste) PospremiVrstu(ctx context.Context, vrsta, entitet string, za
 
 // potvrdiPaUkloni potvrđuje brisanje u bazi, pa miče datoteke sadržaja
 // kojih više nema; datoteke ostaju ako potvrda ne uspije
-func (s *Spremiste) potvrdiPaUkloni(ctx context.Context, tx *sql.Tx, otisci []string) error {
+func (s *Spremiste) potvrdiPaUkloni(ctx context.Context, tx *sql.Tx, mjesta []string) error {
 	if err := tx.Commit(); err != nil {
 		return err
 	}
-	s.ukloniDatoteke(ctx, otisci)
+	s.ukloniDatoteke(ctx, mjesta)
 	return nil
 }
 
@@ -737,8 +748,9 @@ type upitnik interface {
 	QueryContext(ctx context.Context, upit string, args ...any) (*sql.Rows, error)
 }
 
-// otisciUpita vraća otiske koje upit vrati (popis ili brisanje s RETURNING otisak)
-func otisciUpita(ctx context.Context, q upitnik, upit string, args ...any) ([]string, error) {
+// stupacUpita vraća prvi stupac svih redaka upita (popis, ili brisanje s
+// RETURNING)
+func stupacUpita(ctx context.Context, q upitnik, upit string, args ...any) ([]string, error) {
 	rows, err := q.QueryContext(ctx, upit, args...)
 	if err != nil {
 		return nil, err
@@ -797,14 +809,21 @@ func (s *Spremiste) Sirocad(ctx context.Context) ([]string, error) {
 // Ukloni briše bajtove sadržaja s ovog čvora, ali samo ako ga nijedan zapis
 // ne drži: sadržaj koji zapis traži ostaje dok je zapisa
 func (s *Spremiste) Ukloni(ctx context.Context, otisak string) error {
-	res, err := s.db.ExecContext(ctx, `DELETE FROM sadrzaj WHERE otisak = ? AND NOT EXISTS (SELECT 1 FROM sadrzaj_veze v WHERE v.otisak = sadrzaj.otisak)`, otisak)
+	return s.obrisiRedak(ctx, `DELETE FROM sadrzaj WHERE otisak = ? AND NOT EXISTS (SELECT 1 FROM sadrzaj_veze v WHERE v.otisak = sadrzaj.otisak) RETURNING datoteka`, otisak,
+		"sadržaj drži neki zapis ili ga nema")
+}
+
+// obrisiRedak briše redak sadržaja upitom s RETURNING datoteka i miče
+// njegovu datoteku; kad upit ništa ne obriše, vraća grešku s porukom nista
+func (s *Spremiste) obrisiRedak(ctx context.Context, upit, otisak, nista string) error {
+	mjesta, err := stupacUpita(ctx, s.db, upit, otisak)
 	if err != nil {
 		return err
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return errors.New("sadržaj drži neki zapis ili ga nema")
+	if len(mjesta) == 0 {
+		return errors.New(nista)
 	}
-	s.ukloniDatoteke(ctx, []string{otisak})
+	s.ukloniDatoteke(ctx, mjesta)
 	return nil
 }
 
