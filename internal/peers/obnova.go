@@ -339,14 +339,34 @@ func (s *Service) trebaObnova(ctx context.Context, kljucMreze bool) bool {
 }
 
 // nedavnoZatrazeno: računalo bez ključa mreže već je tražilo obnovu u
-// zadnjih dan, ili se njegovi zahtjevi ne daju pročitati
+// zadnjih dan, ili se njegovi zahtjevi ne daju pročitati. Gleda se svaki
+// vlastiti zahtjev, ne samo zadnji po oznaci: kad je sat bio unaprijed pa
+// je vraćen, zahtjev iz „budućnosti” ima veću oznaku od onih poslije, a
+// ne smije zaustaviti zahtjeve do svog vremena.
 func (s *Service) nedavnoZatrazeno(ctx context.Context, n *Network) bool {
 	if n.DrziKljuc {
 		return false
 	}
-	zahtjevi, err := s.zahtjeviObnove(ctx, n.PublicKey)
-	z, ima := zahtjevi[s.node.ID]
-	return err != nil || (ima && time.Since(z.Kad) < razmakObnove)
+	nedavno, err := s.zatrazenoOd(ctx, n.PublicKey, time.Now())
+	return err != nil || nedavno
+}
+
+// zatrazenoOd: u knjizi je vlastiti zahtjev za obnovu ove mreže, potpisan
+// ključem ovog računala, s vremenom u zadnjih dan do sada (ne poslije)
+func (s *Service) zatrazenoOd(ctx context.Context, mreza string, sada time.Time) (bool, error) {
+	zahtjevi, err := sadrzajiVerzija[ZahtjevObnove](ctx, s.db, `SELECT payload FROM record_versions WHERE entity = ? AND entity_id = ? AND archived = 0`, EntityZahtjeviObnove, s.node.ID)
+	if err != nil {
+		return false, err
+	}
+	return slices.ContainsFunc(zahtjevi, func(z ZahtjevObnove) bool {
+		return z.NodeID == s.node.ID && z.PublicKey == s.node.PublicKey() && z.uZadnjiDan(mreza, sada)
+	}), nil
+}
+
+// uZadnjiDan: zahtjev je za mrežu mreza, napisan u zadnjih dan do sada (ne
+// poslije) i potpisan ključem iz njega
+func (z ZahtjevObnove) uZadnjiDan(mreza string, sada time.Time) bool {
+	return z.Network == mreza && z.Kad.After(sada.Add(-razmakObnove)) && !z.Kad.After(sada) && z.potpisan()
 }
 
 // obradiZahtjeveObnove: računalo koje smije primati obnovi članstvo svakom

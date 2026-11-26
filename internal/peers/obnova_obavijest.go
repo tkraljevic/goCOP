@@ -47,6 +47,9 @@ type ObavijestRoka struct {
 	// Izvor je oznaka računala na kojem se dogodilo (za ključ), a Tekst
 	// redak obavijesti o događaju
 	Izvor, Tekst string
+	// sKljucem: rok vlastitog članstva računala koje drži ključ mreže; ono
+	// ga obnavlja samo sebi, pa ga ne treba ponovno primati
+	sKljucem bool
 }
 
 // poslanaObavijest je zapis u knjizi da je obavijest kljuc poslana
@@ -91,10 +94,13 @@ func (s *Service) rokoviClanstava(ctx context.Context) []ObavijestRoka {
 	if err != nil {
 		return nil
 	}
+	n := s.NetworkInfo()
 	var out []ObavijestRoka
 	for _, m := range clanovi {
 		if m.Valid && m.Rok.TraziPaznju() {
-			out = append(out, s.obavijest(ctx, m.DeviceID, VrstaObavijestiClanstvo, m.Rok))
+			o := s.obavijest(ctx, m.DeviceID, VrstaObavijestiClanstvo, m.Rok)
+			o.sKljucem = m.IsSelf && n != nil && n.DrziKljuc
+			out = append(out, o)
 		}
 	}
 	return out
@@ -194,6 +200,8 @@ func redakObavijesti(o ObavijestRoka) string {
 		return fmt.Sprintf("%s: ovlast za primanje istekla je %s; ako to računalo nema ključ mreže, više ne prima i ne obnavlja druga računala.", o.Racunalo, datumHR(o.Rok.Do))
 	case o.Rok.Stanje == RokIstjece:
 		return fmt.Sprintf("%s: članstvo u mreži ističe %s %s.", o.Racunalo, datumHR(o.Rok.Do), za)
+	case o.sKljucem:
+		return fmt.Sprintf("%s: članstvo u mreži isteklo je %s Razmjena radi još do %s. To računalo drži ključ mreže i članstvo obnavlja samo sebi, gumbom Obnovi članstvo.", o.Racunalo, datumHR(o.Rok.Do), datumHR(o.Rok.Do.Add(PricuvniRok)))
 	}
 	return fmt.Sprintf("%s: članstvo u mreži isteklo je %s Razmjena radi još do %s, a onda računalo treba ponovno primiti u mrežu.", o.Racunalo, datumHR(o.Rok.Do), datumHR(o.Rok.Do.Add(PricuvniRok)))
 }
