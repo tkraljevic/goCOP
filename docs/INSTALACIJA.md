@@ -1063,6 +1063,13 @@ mapa i ključeva: za datotečnu kopiju zaustaviti čvor, ne kopirati samo otvore
 SQLite `.db` bez njegova WAL-a. Probno provjeriti obnovu izolirano, bez
 istodobnog uključivanja dvaju čvorova s istim ključem.
 
+Uz to i sam program, kad prvi put krene novim izdanjem, prije otvaranja
+kopira bazu u mapu `kopije` uz nju (u spremniku `/data/kopije`) i čuva tri
+najnovije kopije, kao Postava i instalacija za Linux. Koje je izdanje bazu
+zadnje otvorilo, piše u `izdanje-baze.txt` uz bazu. Ne može li kopiju
+spremiti (npr. disk je pun), čvor ne kreće, a razlog piše u dnevniku. Ta
+kopija ne zamjenjuje kopiju svih mapa i ključeva prije nadogradnje.
+
 Nadograđuje se redom: najprije stalni čvor, odmah zatim ostala računala. Dok
 sva ne rade na istom izdanju, ne dodavati, mijenjati ni brisati djelatnike i
 zaduženja. Na kojem izdanju radi koji čvor, pokazuju pločica „Razmjena s
