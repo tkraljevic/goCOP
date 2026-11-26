@@ -291,3 +291,65 @@ func TestFotografijePrijavaUSpremistu(t *testing.T) {
 		t.Errorf("siročad nakon otpuštanja: %+v", st)
 	}
 }
+
+// Seljenje bajtova iz knjige prepisuje svaku verziju s bajtovima PDF-a,
+// svoju i tuđu (Odluke (26. 11. 2026.), 11, dopuna). Potpisanoj skine
+// potpis i ključ autora, a verziju bez bajtova ne dira.
+func TestSeljenjePrepisujeVerzijeSBajtovima(t *testing.T) {
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "gocop.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer baza.Close()
+	sadrzajSPDF := `{"pdf":"JVBERi0xLjQ=","sazetak":"abc"}`
+	vec := `{"bajtova":8,"otisak":"otisak-1","sazetak":"abc","vrsta":"application/pdf"}`
+	for _, v := range []struct{ id, payload, potpis string }{
+		{"v-potpisana", sadrzajSPDF, "UA=="},
+		{"v-nepotpisana", sadrzajSPDF, ""},
+		{"v-bez-bajtova", vec, "UA=="},
+		{"v-nije-objekt", `null`, ""},
+		{"v-nije-json", `nije json`, ""},
+	} {
+		if _, err := baza.Exec(`INSERT INTO record_versions (version_id, entity, entity_id, node_id, payload, created_at, potpis, kljuc_autora)
+			VALUES (?, ?, 'z1', 'stari-cvor', ?, '2026-09-19 10:00:00', ?, ?)`, v.id, EntityIzvornici, v.payload, v.potpis, v.potpis); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tx, err := baza.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := prepisiVerzije(context.Background(), tx, EntityIzvornici, "z1", "otisak-1", 8); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	type redak struct{ payload, potpis, kljuc string }
+	procitaj := func(id string) redak {
+		var r redak
+		if err := baza.QueryRow(`SELECT payload, potpis, kljuc_autora FROM record_versions WHERE version_id = ?`, id).Scan(&r.payload, &r.potpis, &r.kljuc); err != nil {
+			t.Fatal(err)
+		}
+		return r
+	}
+	for _, id := range []string{"v-potpisana", "v-nepotpisana"} {
+		r := procitaj(id)
+		var z map[string]any
+		if json.Unmarshal([]byte(r.payload), &z) != nil || z["otisak"] != "otisak-1" || z["pdf"] != nil {
+			t.Errorf("%s nije prepisana: %s", id, r.payload)
+		}
+		if r.potpis != "" || r.kljuc != "" {
+			t.Errorf("%s nakon prepisivanja nosi potpis: %+v", id, r)
+		}
+	}
+	if r := procitaj("v-bez-bajtova"); r.payload != vec || r.potpis != "UA==" {
+		t.Errorf("verzija bez bajtova je dirana: %+v", r)
+	}
+	if r := procitaj("v-nije-objekt"); r.payload != "null" {
+		t.Errorf("zapis koji nije objekt je diran: %+v", r)
+	}
+	if r := procitaj("v-nije-json"); r.payload != "nije json" {
+		t.Errorf("zapis koji nije JSON je diran: %+v", r)
+	}
+}

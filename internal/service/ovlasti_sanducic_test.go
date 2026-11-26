@@ -103,7 +103,7 @@ func TestPostavljenaLozinkaBriseSanducic(t *testing.T) {
 	}
 
 	// poništenje s konzole čvora
-	ishod, err := service.PonistiLozinkuNaCvoru(o.db, cvorKonzole, "vod3", false)
+	ishod, err := service.PonistiLozinkuNaCvoru(o.db, cvorKonzole, nil, "vod3", false)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -232,7 +232,7 @@ func TestNapomenaPrijaveOFotografijama(t *testing.T) {
 		if c.objavljena {
 			p.ObjavljenoAt = &sad
 		}
-		n := napomenaPrijave(p, prilogPrijave{Slike: c.bajtovi})
+		n := napomenaPrijave(p, prilogPrijave{Slike: c.bajtovi}, false)
 		if got := strings.Contains(strings.ToLower(n), "fotografije su smanjene i ugrađene"); got != c.ugradjene {
 			t.Errorf("%s: %q", c.ime, n)
 		}
@@ -242,7 +242,7 @@ func TestNapomenaPrijaveOFotografijama(t *testing.T) {
 	}
 	// prijava bez fotografija: napomena kakva je i bila
 	p := &models.PrijavaSTerena{ObjavljenoAt: &sad}
-	if n := napomenaPrijave(p, prilogPrijave{}); !strings.HasSuffix(n, "Fotografije su smanjene i ugrađene.") {
+	if n := napomenaPrijave(p, prilogPrijave{}, false); !strings.HasSuffix(n, "Fotografije su smanjene i ugrađene.") {
 		t.Errorf("prijava bez fotografija: %q", n)
 	}
 	// fotografija bez mjera ne ugrađuje se ni kad bajtovi postoje

@@ -494,16 +494,25 @@ func nacrtNijeObrisan(ctx context.Context, tx *sql.Tx, l *models.VodocuvarskiLis
 
 // OcitanjeDana je vodostaj koji je vodočuvar očitao tog dana
 type OcitanjeDana struct {
-	Postaja  string
+	Postaja  string // ime letve ili objekta
+	Vrsta    string // vrsta objekta (USTAVA, CRPNA_STANICA…); prazno za letvu
 	Kad      time.Time
 	Vodostaj *int
+	// Vodostaj2 je drugi vodostaj objekta: nizvodni na ustavi, vanjska
+	// strana na crpnoj stanici
+	Vodostaj2 *int
 }
 
 // OcitanjaDana vraća vodostaje koje je korisnik upisao tog dana, po postajama
 func (r *VodocuvarRepository) OcitanjaDana(ctx context.Context, userID string, dan time.Time) ([]OcitanjeDana, error) {
 	od := time.Date(dan.In(models.Zagreb).Year(), dan.In(models.Zagreb).Month(), dan.In(models.Zagreb).Day(), 0, 0, 0, 0, models.Zagreb)
-	rows, err := r.db.QueryContext(ctx, `SELECT COALESCE(s.name, ''), r.measured_at, r.level_cm FROM readings r LEFT JOIN stations s ON s.id = r.station_id
-		WHERE r.user_id = ? AND r.measured_at >= ? AND r.measured_at < ? AND r.level_cm IS NOT NULL ORDER BY r.measured_at`, userID, od.UTC(), od.AddDate(0, 0, 1).UTC())
+	// Očitanje objekta nosi ime i vrstu objekta. Njegove kopije na letvama
+	// objekta (source_ref „objekt:…”) se preskaču, da isto ne stoji dvaput.
+	rows, err := r.db.QueryContext(ctx, `SELECT CASE WHEN r.structure_id != '' THEN COALESCE(o.name, '') ELSE COALESCE(s.name, '') END,
+		CASE WHEN r.structure_id != '' THEN COALESCE(o.kind, '') ELSE '' END, r.measured_at, r.level_cm, r.level2_cm
+		FROM readings r LEFT JOIN stations s ON s.id = r.station_id LEFT JOIN structures o ON o.id = r.structure_id
+		WHERE r.user_id = ? AND r.measured_at >= ? AND r.measured_at < ? AND r.level_cm IS NOT NULL AND r.source_ref NOT LIKE 'objekt:%'
+		ORDER BY r.measured_at`, userID, od.UTC(), od.AddDate(0, 0, 1).UTC())
 	if err != nil {
 		return nil, err
 	}
@@ -511,13 +520,17 @@ func (r *VodocuvarRepository) OcitanjaDana(ctx context.Context, userID string, d
 	var out []OcitanjeDana
 	for rows.Next() {
 		var o OcitanjeDana
-		var v sql.NullInt64
-		if err := rows.Scan(&o.Postaja, &o.Kad, &v); err != nil {
+		var v, v2 sql.NullInt64
+		if err := rows.Scan(&o.Postaja, &o.Vrsta, &o.Kad, &v, &v2); err != nil {
 			return nil, err
 		}
 		if v.Valid {
 			n := int(v.Int64)
 			o.Vodostaj = &n
+		}
+		if v2.Valid {
+			n := int(v2.Int64)
+			o.Vodostaj2 = &n
 		}
 		out = append(out, o)
 	}

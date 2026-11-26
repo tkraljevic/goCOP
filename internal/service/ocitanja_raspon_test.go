@@ -37,10 +37,10 @@ func TestRucniUpisNaLetvuSKotom(t *testing.T) {
 		greska string
 	}{
 		{19089, true, ""}, {5000, true, ""}, {40000, true, ""},
-		{4999, true, "kota 4999 cm n. m. je izvan razumnog raspona"},
+		{4999, true, "kota 4999 cm n. m. je izvan raspona: program prima od 5000 do 40 000 cm n. m."},
 		{40001, true, "kota 40001 cm n. m."},
 		{300, true, "kota 300 cm n. m."},
-		{19089, false, "vodostaj 19089 cm je izvan razumnog raspona"},
+		{19089, false, "vodostaj 19089 cm je izvan raspona: program prima od −500 do 3000 cm."},
 		{300, false, ""},
 	} {
 		err := o.rs.validate(ocitanje(akumulacija, s.cm), s.kota)

@@ -139,6 +139,14 @@ func TestTemperaturaIProtokKrozRute(t *testing.T) {
 	if !strings.Contains(w.Header().Get("Location"), "error") {
 		t.Errorf("neispravna temperatura bi trebala vratiti grešku, dobiveno %s", w.Header().Get("Location"))
 	}
+	// vodostaj izvan raspona: poruka kaže raspon, a obrazac zadrži upisano
+	w = zovi(http.MethodPost, "/readings/create", url.Values{"station_id": {st.ID.String()}, "level_cm": {"3500"},
+		"note": {"letva u mulju"}, "measured_at": {jucer + "T10:00"}})
+	if lok := w.Header().Get("Location"); !strings.Contains(lok, "error") || !strings.Contains(lok, "level_cm=3500") {
+		t.Fatalf("vodostaj izvan raspona: %d %s", w.Code, lok)
+	}
+	mora(zovi(http.MethodGet, w.Header().Get("Location"), nil), "obrazac nakon greške",
+		"program prima od −500 do 3000 cm. Provjerite broj.", `value="3500"`, "letva u mulju", jucer+"T10:00")
 	// pri uređivanju očitanja koje ima samo temperaturu otvara se ta kartica
 	// (skripta), a obrazac nosi vrijednost
 	samoTemp, _ := readingRepo.List(ctx, repository.ReadingFilter{StationID: st.ID.String(), Limit: 1})
@@ -167,5 +175,23 @@ func TestProtokNaSliciKorita(t *testing.T) {
 	_ = tp.ExecuteTemplate(&sb, "presjekKorita", c)
 	if strings.Contains(sb.String(), "korito-protok") {
 		t.Error("bez protoka ne smije biti natpisa")
+	}
+}
+
+// Prazan obrazac ne dodaje ništa adresi povratka, a neispravno upisano
+// vrijeme ostavlja prazan obrazac letve.
+func TestUpisanoUObrascuIPovratak(t *testing.T) {
+	r := httptest.NewRequest(http.MethodPost, "/readings/create", strings.NewReader(""))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if s := upisanoUObrascu(r); s != "" {
+		t.Errorf("prazan obrazac: %q", s)
+	}
+	r = httptest.NewRequest(http.MethodGet, "/readings/new?station=s1&measured_at=nije-vrijeme&level_cm=300", nil)
+	rd := noviIzUpita(r, &models.Reading{}, true)
+	if rd.StationID != "s1" || rd.LevelCm != nil {
+		t.Errorf("neispravno vrijeme: %+v", rd)
+	}
+	if rd := noviIzUpita(r, &models.Reading{}, false); rd.LevelCm != nil {
+		t.Errorf("bez greške upisano se ne preuzima: %+v", rd)
 	}
 }

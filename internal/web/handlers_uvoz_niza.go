@@ -17,6 +17,7 @@ import (
 
 	"gocop/internal/arhiva"
 	gocopdb "gocop/internal/db"
+	"gocop/internal/ledger"
 	"gocop/internal/models"
 	"gocop/internal/poslovi"
 	"gocop/internal/repository"
@@ -85,6 +86,7 @@ type UvozHandler struct {
 	poslovi   *poslovi.Registar
 	baza      func() *sql.DB
 	cvor      func() string
+	knjiga    *ledger.Recorder
 	tmpl      *template.Template
 	// smijeLetvu javlja smije li osoba dirati podatke te letve. Arhiva je
 	// zajednička i sinkronizira se na sve čvorove, pa uvoz nije pravo nad
@@ -170,6 +172,12 @@ func (h *UvozHandler) SetIzdavanje(paketiDir func() string,
 // uložiti u arhivu. Bez nje se ta vrata ne pokazuju.
 func (h *UvozHandler) SetOcitanja(baza func() *sql.DB, cvor func() string) {
 	h.baza, h.cvor = baza, cvor
+}
+
+// SetKnjiga daje vratima knjigu verzija čvora: bilješke uz uloženo idu u
+// nju i potpisuju se ključem čvora
+func (h *UvozHandler) SetKnjiga(k *ledger.Recorder) {
+	h.knjiga = k
 }
 
 // ulaganjeRadi javlja može li se s ovog čvora ulagati.

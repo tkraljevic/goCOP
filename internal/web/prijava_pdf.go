@@ -286,7 +286,9 @@ func pdfPrijave(p *models.PrijavaSTerena, pr prilogPrijave, t models.OrgTerms, c
 		d.Crta(m.xVodocuvar+10, crta, m.xVodocuvar+pw-10, crta)
 		d.TekstSredina(m.xVodocuvar+pw/2, crta+11, 9, false, p.Ime)
 	default:
-		crtajPotpisLista(d, m.xVodocuvar, m.y, pw, p.Ime, p.ObjavljenoAt, "prijava "+p.Oznaka(), p.Kod(), p.Cvor, pr.Otisci[p.UserID], crtajBlok, false)
+		// blok koji se crta ovdje nije potpis: s ključem ga crta potpis, preko
+		// istog mjesta (handlers_prijave.go), pa ovdje nosi samo oznaku objave
+		crtajPotpisListaNaslovom(d, m.xVodocuvar, m.y, pw, "OBJAVLJENO U goCOP-u", p.Ime, p.ObjavljenoAt, "prijava "+p.Oznaka(), p.Kod(), p.Cvor, pr.Otisci[p.UserID], crtajBlok, false)
 		if p.ObjavljenoAt == nil {
 			d.TekstSredina(m.xVodocuvar+pw/2, m.y+46+42+11, 8, false, "( "+p.Ime+" )")
 		}
@@ -297,7 +299,7 @@ func pdfPrijave(p *models.PrijavaSTerena, pr prilogPrijave, t models.OrgTerms, c
 	}
 	// podnožje na svakoj stranici: oznaka i broj stranice; na prvoj još
 	// napomena i QR kod za provjeru
-	napomena := napomenaPrijave(p, pr)
+	napomena := napomenaPrijave(p, pr, crtajBlok)
 	qrTekst := sadrzajQR(p, pr.Adresa)
 	d.Podnozje = func(d *pdfw.Doc, stranica, ukupno int) {
 		const qrW = 40.0
@@ -466,10 +468,12 @@ func PDFPrijaveRekonstrukcija(ctx context.Context, p *models.PrijavaSTerena, sli
 	return pdf
 }
 
-// napomenaPrijave je napomena u podnožju prve stranice. Da su fotografije
-// ugrađene kaže samo kad jesu: fotografija koje nema na računalu na kojem se
-// PDF crta u njemu stoji samo natpis.
-func napomenaPrijave(p *models.PrijavaSTerena, pr prilogPrijave) string {
+// napomenaPrijave je napomena u podnožju prve stranice: nacrt, prenesena
+// prijava ili objava; bez potpisnog ključa (blok nacrtan ovdje) kaže da PDF
+// nema elektroničkog potpisa. Da su fotografije ugrađene kaže samo kad jesu:
+// fotografija koje nema na računalu na kojem se PDF crta u njemu stoji samo
+// natpis.
+func napomenaPrijave(p *models.PrijavaSTerena, pr prilogPrijave, bezPotpisa bool) string {
 	ugradjene := sveFotografijeUgradjene(p, pr)
 	switch {
 	case p.ObjavljenoAt == nil:
@@ -479,7 +483,10 @@ func napomenaPrijave(p *models.PrijavaSTerena, pr prilogPrijave) string {
 	case p.Rekonstrukcija:
 		return "Rekonstrukcija: prijava prenesena iz ranije evidencije VGI Baranja (app.bp16.xyz), složena iz podataka u goCOP-u."
 	}
-	n := "Upisano na dnevni list vodočuvara " + listPrijave(p) + ". Sastavljeno u goCOP-u; elektronički potpis je vremenska oznaka, a ispis se potpisuje i vlastoručno."
+	n := "Upisano na dnevni list vodočuvara " + listPrijave(p) + ". Sastavljeno u goCOP-u i elektronički potpisano ključem vodočuvara; ispis se potpisuje i vlastoručno."
+	if bezPotpisa {
+		n = "Upisano na dnevni list vodočuvara " + listPrijave(p) + ". Sastavljeno u goCOP-u bez elektroničkog potpisa: oznaka objave nosi vrijeme objave i kontrolni kod, a ispis se potpisuje vlastoručno."
+	}
 	if ugradjene {
 		n += " Fotografije su smanjene i ugrađene."
 	}

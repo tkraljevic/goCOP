@@ -207,14 +207,14 @@ func TestAktivirajSKonzoleJavljaZauzetuAdresu(t *testing.T) {
 	o.racun(t, "ana2", "lozinka-ane2", " Ana@Voda.hr", false, false)
 	o.racun(t, "ivo", "lozinka-ive", "ivo@voda.hr", false, false)
 
-	ishod, err := service.PonistiLozinkuNaCvoru(o.db, cvorKonzole, "ana2", true)
+	ishod, err := service.PonistiLozinkuNaCvoru(o.db, cvorKonzole, nil, "ana2", true)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !ishod.Aktiviran || ishod.AdresaZauzeta == "" {
 		t.Errorf("uključenje uz zauzetu adresu: aktiviran %v, adresa %q", ishod.Aktiviran, ishod.AdresaZauzeta)
 	}
-	ishod, err = service.PonistiLozinkuNaCvoru(o.db, cvorKonzole, "ivo", true)
+	ishod, err = service.PonistiLozinkuNaCvoru(o.db, cvorKonzole, nil, "ivo", true)
 	if err != nil {
 		t.Fatal(err)
 	}
