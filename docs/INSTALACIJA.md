@@ -1065,10 +1065,21 @@ istodobnog uključivanja dvaju čvorova s istim ključem.
 
 Uz to i sam program, kad prvi put krene novim izdanjem, prije otvaranja
 kopira bazu u mapu `kopije` uz nju (u spremniku `/data/kopije`) i čuva tri
-najnovije kopije, kao Postava i instalacija za Linux. Koje je izdanje bazu
-zadnje otvorilo, piše u `izdanje-baze.txt` uz bazu. Ne može li kopiju
-spremiti (npr. disk je pun), čvor ne kreće, a razlog piše u dnevniku. Ta
-kopija ne zamjenjuje kopiju svih mapa i ključeva prije nadogradnje.
+najnovije kopije, kao Postava i instalacija za Linux. Kopira i popis
+sadržaja (`sadrzaj.db`), pod imenom `sadrzaj-…db`, također tri najnovije.
+Koje je izdanje bazu zadnje otvorilo, piše u `izdanje-baze.txt` uz bazu. Ne
+može li kopiju spremiti (npr. disk je pun), čvor ne kreće, a razlog piše u
+dnevniku. Ta kopija ne zamjenjuje kopiju svih mapa i ključeva prije
+nadogradnje.
+
+Povratak na prethodno izdanje: zaustaviti čvor i vratiti prethodni program.
+Kopije `gocop-…db` i `sadrzaj-…db` od prije nadogradnje, svaku s njezinim
+`-wal` ako ga ima, staviti na mjesto `gocop.db` i `sadrzaj.db`. Obrisati
+`-wal` i `-shm` koji su ostali uz stare datoteke i `izdanje-baze.txt`, pa
+pokrenuti čvor. Bez kopije popisa sadržaja prethodno izdanje ne nalazi
+PDF-ove ni fotografije, jer ih novo izdanje pet minuta nakon pokretanja
+počinje seliti iz popisa u mapu `sadrzaj`. Sve upisano nakon nadogradnje
+vraćanjem kopije nestaje s tog računala.
 
 Nadograđuje se redom: najprije stalni čvor, odmah zatim ostala računala. Dok
 sva ne rade na istom izdanju, ne dodavati, mijenjati ni brisati djelatnike i

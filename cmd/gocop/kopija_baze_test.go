@@ -37,10 +37,11 @@ func TestKopijaPrijeNadogradnje(t *testing.T) {
 		t.Fatal(err)
 	}
 	sada := time.Date(2026, 11, 26, 7, 0, 0, 0, time.UTC)
-	kopija, err := kopijaPrijeNadogradnje(baza, "0.0.69-alfa", sada)
-	if err != nil || filepath.Base(kopija) != "gocop-20261126-070000-0.0.68-alfa.db" {
-		t.Fatalf("kopija %q, %v", kopija, err)
+	kopije, err := kopijaPrijeNadogradnje(baza, "0.0.69-alfa", sada)
+	if err != nil || len(kopije) != 1 || filepath.Base(kopije[0]) != "gocop-20261126-070000-0.0.68-alfa.db" {
+		t.Fatalf("kopije %q, %v", kopije, err)
 	}
+	kopija := kopije[0]
 	for nastavak, ocekivano := range map[string]string{"": "baza", "-wal": "wal"} {
 		if b, err := os.ReadFile(kopija + nastavak); err != nil || string(b) != ocekivano {
 			t.Errorf("kopija%s: %q %v", nastavak, b, err)
@@ -49,8 +50,8 @@ func TestKopijaPrijeNadogradnje(t *testing.T) {
 	if b, err := os.ReadFile(filepath.Join(filepath.Dir(baza), izdanjeBazeDatoteka)); err != nil || strings.TrimSpace(string(b)) != "0.0.69-alfa" {
 		t.Errorf("zapamćeno izdanje %q, %v", b, err)
 	}
-	if kopija, err := kopijaPrijeNadogradnje(baza, "0.0.69-alfa", sada.Add(time.Hour)); err != nil || kopija != "" {
-		t.Errorf("isto izdanje kopira opet: %q %v", kopija, err)
+	if kopije, err := kopijaPrijeNadogradnje(baza, "0.0.69-alfa", sada.Add(time.Hour)); err != nil || len(kopije) != 0 {
+		t.Errorf("isto izdanje kopira opet: %q %v", kopije, err)
 	}
 	if n := len(kopijeBaze(t, baza)); n != 1 {
 		t.Errorf("kopija %d", n)
@@ -61,14 +62,14 @@ func TestKopijaPrijeNadogradnje(t *testing.T) {
 // kopira se kao „nepoznato”; nova mapa bez baze samo zapamti izdanje.
 func TestKopijaBezZapamcenogIzdanja(t *testing.T) {
 	baza := bazaZaKopiju(t)
-	kopija, err := kopijaPrijeNadogradnje(baza, "0.0.69-alfa", time.Now())
-	if err != nil || !strings.HasSuffix(kopija, "-nepoznato.db") {
-		t.Fatalf("kopija %q, %v", kopija, err)
+	kopije, err := kopijaPrijeNadogradnje(baza, "0.0.69-alfa", time.Now())
+	if err != nil || len(kopije) != 1 || !strings.HasSuffix(kopije[0], "-nepoznato.db") {
+		t.Fatalf("kopije %q, %v", kopije, err)
 	}
 
 	nova := filepath.Join(t.TempDir(), "gocop.db")
-	if kopija, err := kopijaPrijeNadogradnje(nova, "0.0.69-alfa", time.Now()); err != nil || kopija != "" {
-		t.Fatalf("nova baza: %q %v", kopija, err)
+	if kopije, err := kopijaPrijeNadogradnje(nova, "0.0.69-alfa", time.Now()); err != nil || len(kopije) != 0 {
+		t.Fatalf("nova baza: %q %v", kopije, err)
 	}
 	if _, err := os.Stat(filepath.Join(filepath.Dir(nova), mapaKopija)); err == nil {
 		t.Error("za novu bazu nastala je mapa kopija")
@@ -97,7 +98,7 @@ func TestKopijaSvjezaITriNajnovije(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(mapa, "gocop-20261103-000000-0.0.62-alfa.db-wal"), []byte("w"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	kopija, err := kopirajBazu(baza, "0.0.68-alfa", sada)
+	kopija, err := kopirajBazu(baza, imeKopijeBaze, "0.0.68-alfa", sada)
 	if err != nil || kopija == "" {
 		t.Fatalf("kopija %q, %v", kopija, err)
 	}
@@ -105,7 +106,7 @@ func TestKopijaSvjezaITriNajnovije(t *testing.T) {
 	if len(k) != cuvajKopija || strings.Contains(strings.Join(k, " "), "0.0.60-alfa") {
 		t.Errorf("kopije nakon čišćenja: %v", k)
 	}
-	if kopija, err := kopirajBazu(baza, "0.0.68-alfa", sada.Add(time.Minute)); err != nil || kopija != "" {
+	if kopija, err := kopirajBazu(baza, imeKopijeBaze, "0.0.68-alfa", sada.Add(time.Minute)); err != nil || kopija != "" {
 		t.Errorf("svježa kopija postoji, a radi se nova: %q %v", kopija, err)
 	}
 }
@@ -168,7 +169,7 @@ func TestKopijaRubovi(t *testing.T) {
 	if err := os.WriteFile(baza, []byte("baza"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	kopija, err := kopirajBazu(baza, "", time.Now())
+	kopija, err := kopirajBazu(baza, imeKopijeBaze, "", time.Now())
 	if err != nil || !strings.HasSuffix(kopija, "-nepoznato.db") {
 		t.Fatalf("kopija bez WAL-a: %q %v", kopija, err)
 	}
@@ -183,7 +184,7 @@ func TestKopijaRubovi(t *testing.T) {
 	if err := os.Mkdir(pokvarena+"-wal", 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := kopirajBazu(pokvarena, "0.0.68-alfa", time.Now()); err == nil {
+	if _, err := kopirajBazu(pokvarena, imeKopijeBaze, "0.0.68-alfa", time.Now()); err == nil {
 		t.Error("kopija s WAL-om koji se ne da pročitati prošla je")
 	}
 }
@@ -210,7 +211,67 @@ func TestIzdanjePrograma(t *testing.T) {
 }
 
 func TestOstaviNajnovijeBezMape(t *testing.T) {
-	if err := ostaviNajnovije(filepath.Join(t.TempDir(), "nema")); err == nil {
+	if err := ostaviNajnovije(filepath.Join(t.TempDir(), "nema"), imeKopijeBaze); err == nil {
 		t.Error("čišćenje nepostojeće mape prošlo je")
+	}
+}
+
+// Uz glavnu bazu kopira se i baza sadržaja, pod svojim imenom: izdanje koje
+// PDF-ove i slike preseli u datoteke ostavlja je takvu da prethodno izdanje
+// u njoj ne nalazi ništa. Kopije jedne baze ne broje se u tri najnovije
+// druge, a svježa kopija glavne baze (Postavina) ne preskače bazu sadržaja.
+func TestKopijaBazeSadrzaja(t *testing.T) {
+	baza := bazaZaKopiju(t)
+	mapa := filepath.Dir(baza)
+	for put, sadrzaj := range map[string]string{putSadrzaja(baza): "popis", putSadrzaja(baza) + "-wal": "wal popisa"} {
+		if err := os.WriteFile(put, []byte(sadrzaj), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	sada := time.Date(2026, 11, 27, 6, 0, 0, 0, time.UTC)
+	// Postava je glavnu bazu kopirala prije minutu
+	if err := os.MkdirAll(filepath.Join(mapa, mapaKopija), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	postavina := filepath.Join(mapa, mapaKopija, "gocop-20261127-055900-0.0.69-alfa.db")
+	if err := os.WriteFile(postavina, []byte("baza"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(postavina, sada.Add(-time.Minute), sada.Add(-time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	kopije, err := kopijaPrijeNadogradnje(baza, "0.0.70-alfa", sada)
+	if err != nil || len(kopije) != 1 || filepath.Base(kopije[0]) != "sadrzaj-20261127-060000-nepoznato.db" {
+		t.Fatalf("kopije %q, %v", kopije, err)
+	}
+	for nastavak, ocekivano := range map[string]string{"": "popis", "-wal": "wal popisa"} {
+		if b, err := os.ReadFile(kopije[0] + nastavak); err != nil || string(b) != ocekivano {
+			t.Errorf("kopija sadržaja%s: %q %v", nastavak, b, err)
+		}
+	}
+	if n := len(kopijeBaze(t, baza)); n != 1 {
+		t.Errorf("kopija glavne baze %d, želim samo Postavinu", n)
+	}
+
+	// baza sadržaja koja se ne da kopirati zaustavlja pokretanje, a izdanje
+	// se ne pamti
+	losa := bazaZaKopiju(t)
+	if err := os.WriteFile(putSadrzaja(losa), []byte("popis"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(putSadrzaja(losa)+"-wal", 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := kopijaPrijeNadogradnje(losa, "0.0.70-alfa", sada); err == nil || !strings.Contains(err.Error(), "nije spremljena") {
+		t.Errorf("greška kopije sadržaja: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(filepath.Dir(losa), izdanjeBazeDatoteka)); err == nil {
+		t.Error("izdanje je zapamćeno iako kopije sadržaja nema")
+	}
+	if _, err := kopirajAkoPostoji(filepath.Join(losa, "ispod-datoteke"), imeKopijeSadrzaja, "", sada); err == nil {
+		t.Error("baza ispod datoteke prošla je")
+	}
+	if kopija, err := kopirajAkoPostoji(filepath.Join(filepath.Dir(losa), "nema.db"), imeKopijeSadrzaja, "", sada); err != nil || kopija != "" {
+		t.Errorf("baza koje nema: %q %v", kopija, err)
 	}
 }
