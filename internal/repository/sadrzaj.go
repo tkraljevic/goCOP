@@ -376,9 +376,11 @@ func preseliJednu(ctx context.Context, db *sql.DB, p preseljenje) (int, int64, e
 }
 
 // prepisiVerzije mijenja verzije izvornika u knjizi: bajtovi van, otisak u.
-// Ostatak zapisa (sažetak, vrijeme) ostaje kakav je bio.
+// Ostatak zapisa (sažetak, vrijeme) ostaje kakav je bio. Potpisanu verziju
+// preskače, jer bi joj potpis prestao vrijediti; takva ionako nastaje tek
+// sa spremištem i bajtova u sebi nema.
 func prepisiVerzije(ctx context.Context, tx *sql.Tx, entitet, id, otisak string, bajtova int) error {
-	rows, err := tx.QueryContext(ctx, `SELECT version_id, payload FROM record_versions WHERE entity = ? AND entity_id = ?`, entitet, id)
+	rows, err := tx.QueryContext(ctx, `SELECT version_id, payload FROM record_versions WHERE entity = ? AND entity_id = ? AND potpis = ''`, entitet, id)
 	if err != nil {
 		return err
 	}

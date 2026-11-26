@@ -67,16 +67,17 @@ func (s *Service) ExportFile(ctx context.Context, path string, channels []string
 		return 0, err
 	}
 	defer tx.Rollback()
+	// potpis autora ide uz verziju; vrijeme primanja je ovog računala, ne putuje
 	stmt, err := tx.PrepareContext(ctx, `INSERT INTO record_versions
-		(version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version, channel)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+		(version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version, channel, potpis, kljuc_autora)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return 0, err
 	}
 	defer stmt.Close()
 	for _, v := range versions {
 		if _, err := stmt.ExecContext(ctx, v.VersionID, v.Entity, v.EntityID, v.NodeID, v.Supersedes,
-			boolInt(v.Archived), string(v.Payload), v.CreatedAt.UTC(), v.SchemaVersion, v.Channel); err != nil {
+			boolInt(v.Archived), string(v.Payload), v.CreatedAt.UTC(), v.SchemaVersion, v.Channel, v.Potpis, v.KljucAutora); err != nil {
 			return 0, err
 		}
 	}
@@ -130,7 +131,7 @@ func (s *Service) ImportFile(ctx context.Context, path string) (ImportReport, er
 	}
 	_ = in.QueryRowContext(ctx, `SELECT value FROM archive_meta WHERE key = 'node_id'`).Scan(&rep.From)
 
-	rows, err := in.QueryContext(ctx, `SELECT version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version, channel
+	rows, err := in.QueryContext(ctx, `SELECT version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version, channel, `+potpisiUArhivi(ctx, in)+`
 		FROM record_versions ORDER BY version_id`)
 	if err != nil {
 		return rep, fmt.Errorf("čitanje arhive: %w", err)
@@ -140,7 +141,8 @@ func (s *Service) ImportFile(ctx context.Context, path string) (ImportReport, er
 		var v ledger.Version
 		var archived int
 		var payload string
-		if err := rows.Scan(&v.VersionID, &v.Entity, &v.EntityID, &v.NodeID, &v.Supersedes, &archived, &payload, &v.CreatedAt, &v.SchemaVersion, &v.Channel); err != nil {
+		if err := rows.Scan(&v.VersionID, &v.Entity, &v.EntityID, &v.NodeID, &v.Supersedes, &archived, &payload, &v.CreatedAt, &v.SchemaVersion, &v.Channel,
+			&v.Potpis, &v.KljucAutora); err != nil {
 			rows.Close()
 			return rep, err
 		}
@@ -159,6 +161,18 @@ func (s *Service) ImportFile(ctx context.Context, path string) (ImportReport, er
 	versions = s.preskociNeispravne("uvoz", versions)
 	rep.Applied, err = s.uveziSRupama(ctx, versions, s.promjenaUvoza(ctx, versions, odlukeUvoza{ograda: s.ogradaSada()}, rupeIzArhive(ctx, in, versions)))
 	return rep, err
+}
+
+// potpisiUArhivi su stupci potpisa autora za čitanje arhive: arhiva
+// starijeg programa ih nema, pa su njezine verzije bez potpisa. Arhiva koja
+// se ne da pročitati ni ovdje javi grešku upit koji slijedi.
+func potpisiUArhivi(ctx context.Context, in *sql.DB) string {
+	var n int
+	if err := in.QueryRowContext(ctx, `SELECT COUNT(*) FROM pragma_table_info('record_versions')
+		WHERE name IN ('potpis', 'kljuc_autora')`).Scan(&n); err != nil || n < 2 {
+		return `'', ''`
+	}
+	return `potpis, kljuc_autora`
 }
 
 // ArchiveFileName je naziv datoteke za izvoz: gocop-ocitanja-bp16-2024.db

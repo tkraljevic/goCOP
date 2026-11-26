@@ -291,3 +291,44 @@ func TestFotografijePrijavaUSpremistu(t *testing.T) {
 		t.Errorf("siročad nakon otpuštanja: %+v", st)
 	}
 }
+
+// Seljenje bajtova iz knjige preskače potpisane verzije: potpis pokriva
+// sadržaj, pa bi mu prepisani sadržaj prestao vrijediti
+func TestSeljenjePreskacePotpisane(t *testing.T) {
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "gocop.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer baza.Close()
+	sadrzajSPDF := `{"pdf":"JVBERi0xLjQ=","sazetak":"abc"}`
+	for _, v := range []struct{ id, potpis string }{{"v-potpisana", "UA=="}, {"v-nepotpisana", ""}} {
+		if _, err := baza.Exec(`INSERT INTO record_versions (version_id, entity, entity_id, node_id, payload, created_at, potpis, kljuc_autora)
+			VALUES (?, ?, 'z1', 'stari-cvor', ?, '2026-09-19 10:00:00', ?, ?)`, v.id, EntityIzvornici, sadrzajSPDF, v.potpis, v.potpis); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tx, err := baza.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := prepisiVerzije(context.Background(), tx, EntityIzvornici, "z1", "otisak-1", 8); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	var potpisana, nepotpisana string
+	if err := baza.QueryRow(`SELECT payload FROM record_versions WHERE version_id = 'v-potpisana'`).Scan(&potpisana); err != nil {
+		t.Fatal(err)
+	}
+	if err := baza.QueryRow(`SELECT payload FROM record_versions WHERE version_id = 'v-nepotpisana'`).Scan(&nepotpisana); err != nil {
+		t.Fatal(err)
+	}
+	if potpisana != sadrzajSPDF {
+		t.Errorf("potpisana verzija prepisana: %s", potpisana)
+	}
+	var z map[string]any
+	if err := json.Unmarshal([]byte(nepotpisana), &z); err != nil || z["otisak"] != "otisak-1" || z["pdf"] != nil {
+		t.Errorf("nepotpisana verzija nije prepisana: %s", nepotpisana)
+	}
+}

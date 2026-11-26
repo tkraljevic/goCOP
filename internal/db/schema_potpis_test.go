@@ -97,3 +97,68 @@ func TestMigracijaStupciPotpisaAutora(t *testing.T) {
 		t.Errorf("zadane vrijednosti novog upisa: %s", got)
 	}
 }
+
+// redakKnjige su svi stupci verzije kao tekst, za usporedbu bajt za bajt
+func redakKnjige(t *testing.T, database *sql.DB, versionID string) string {
+	t.Helper()
+	var r string
+	if err := database.QueryRow(`SELECT quote(entity) || quote(entity_id) || quote(node_id) || quote(supersedes) || quote(archived)
+		|| quote(payload) || quote(created_at) || quote(schema_version) || quote(channel) || quote(potpis) || quote(kljuc_autora)
+		FROM record_versions WHERE version_id = ?`, versionID).Scan(&r); err != nil {
+		t.Fatalf("verzija %s: %v", versionID, err)
+	}
+	return r
+}
+
+// Izmjene knjige na mjestu pri otvaranju baze (kanal i stanje prijava,
+// prekodiranje postaja) preskaču potpisane verzije, jer bi im potpis
+// prestao vrijediti; nepotpisane mijenjaju kao i do sada.
+func TestOtvaranjeBazeNeDiraPotpisane(t *testing.T) {
+	database := praznaBaza(t)
+	staraPostaja := "00000000-0000-4000-8000-0000000000aa"
+	for _, q := range []string{
+		`INSERT INTO prijave (id, user_id, area_id, datum, created_at, updated_at) VALUES ('pr1', 'u1', 16, '2026-05-01', '2026-05-01', '2026-05-01')`,
+		`INSERT INTO stations (id, code, name, created_at, updated_at) VALUES ('` + staraPostaja + `', 'PROBA', 'Proba', '2026-05-01', '2026-05-01')`,
+	} {
+		if _, err := database.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	verzije := []struct{ id, entitet, entitetID, payload, potpis string }{
+		{"v-prijava-potpisana", "prijave", "pr1", `{"status":"ARHIVIRANA","arhivirao_id":"u1"}`, "UA=="},
+		{"v-prijava", "prijave", "pr1", `{"status":"ARHIVIRANA","arhivirao_id":"u1"}`, ""},
+		{"v-postaja-potpisana", "stations", staraPostaja, `{"id":"` + staraPostaja + `"}`, "UA=="},
+		{"v-postaja", "stations", staraPostaja, `{"id":"` + staraPostaja + `"}`, ""},
+	}
+	for _, v := range verzije {
+		if _, err := database.Exec(`INSERT INTO record_versions (version_id, entity, entity_id, node_id, payload, created_at, potpis, kljuc_autora)
+			VALUES (?, ?, ?, 'racunalo-a', ?, '2026-05-01 07:00:00', ?, ?)`, v.id, v.entitet, v.entitetID, v.payload, v.potpis, v.potpis); err != nil {
+			t.Fatal(err)
+		}
+	}
+	prije := map[string]string{}
+	for _, v := range verzije {
+		prije[v.id] = redakKnjige(t, database, v.id)
+	}
+
+	if err := InitSchema(database); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, v := range verzije {
+		poslije := redakKnjige(t, database, v.id)
+		if v.potpis != "" && poslije != prije[v.id] {
+			t.Errorf("potpisana %s promijenjena:\n prije   %s\n poslije %s", v.id, prije[v.id], poslije)
+		}
+		if v.potpis == "" && poslije == prije[v.id] {
+			t.Errorf("nepotpisana %s nije promijenjena, pa test ne provjerava ništa", v.id)
+		}
+	}
+	var kanal, payload string
+	if err := database.QueryRow(`SELECT channel, payload FROM record_versions WHERE version_id = 'v-prijava'`).Scan(&kanal, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if kanal != "prijave/16/2026" || !strings.Contains(payload, `"RIJESENA"`) || !strings.Contains(payload, `"rijesio_id"`) {
+		t.Errorf("nepotpisana prijava: kanal %q, sadržaj %s", kanal, payload)
+	}
+}

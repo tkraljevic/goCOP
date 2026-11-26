@@ -79,6 +79,18 @@ const ImeWeb = "web"
 // OznakaWeb je prva inačica WEB synca
 const OznakaWeb = ImeWeb + "/1"
 
+// ImePotpisVerzije je ime oznake potpisa autora verzije (Odluke
+// (26. 11. 2026.)): verzije u delti nose potpis i ključ autora (polja
+// potpis i kljuc_autora). Primatelj potpis sprema i prosljeđuje tek kad ga
+// provjeri, pa se šalje samo kad Dogovor kaže da obje strane imaju
+// oznaku; drugoj strani delta ostaje bajt za bajt ista. Ovo izdanje oznaku
+// još ne objavljuje (nema je u NaseMogucnosti), jer primljeni potpis još
+// ne provjerava.
+const ImePotpisVerzije = "potpis-verzije"
+
+// OznakaPotpisVerzije je prva inačica potpisa autora verzije
+const OznakaPotpisVerzije = ImePotpisVerzije + "/1"
+
 // Ograde onoga što se od druge strane pamti: popis i mapa idu u bazu
 const (
 	najduljeIme   = 32   // znakova u imenu oznake

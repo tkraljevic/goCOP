@@ -83,7 +83,7 @@ func TestNaredbaPonistiLozinku(t *testing.T) {
 	put := bazaZaOporavak(t)
 	dnevnik := dnevnikTesta(t)
 	var izlaz bytes.Buffer
-	if kod := ponistiLozinkuSKonzole(put, "cop-osijek-server", "GlavniAdmin", false, &izlaz); kod != 0 {
+	if kod := ponistiLozinkuSKonzole(put, "cop-osijek-server", "gocop", "GlavniAdmin", false, &izlaz); kod != 0 {
 		t.Fatalf("izlazni kod %d, dnevnik: %s", kod, dnevnik)
 	}
 	m := regexp.MustCompile(`[a-z2-9]{4}-[a-z2-9]{4}-[a-z2-9]{4}-[a-z2-9]{4}`).FindAllString(izlaz.String(), -1)
@@ -124,7 +124,7 @@ func TestNaredbaPonistiLozinkuGreske(t *testing.T) {
 	dnevnik := dnevnikTesta(t)
 	var izlaz bytes.Buffer
 	nema := filepath.Join(t.TempDir(), "data", "gocop.db")
-	if kod := ponistiLozinkuSKonzole(nema, "cvor", "glavniadmin", false, &izlaz); kod == 0 {
+	if kod := ponistiLozinkuSKonzole(nema, "cvor", "gocop", "glavniadmin", false, &izlaz); kod == 0 {
 		t.Error("nepostojeća baza: izlazni kod 0")
 	}
 	if _, err := os.Stat(filepath.Dir(nema)); !os.IsNotExist(err) {
@@ -132,7 +132,7 @@ func TestNaredbaPonistiLozinkuGreske(t *testing.T) {
 	}
 
 	put := bazaZaOporavak(t)
-	if kod := ponistiLozinkuSKonzole(put, "cvor", "nepostojeci", false, &izlaz); kod == 0 {
+	if kod := ponistiLozinkuSKonzole(put, "cvor", "gocop", "nepostojeci", false, &izlaz); kod == 0 {
 		t.Error("nepostojeće ime: izlazni kod 0")
 	}
 	if izlaz.Len() != 0 {
@@ -164,7 +164,7 @@ func TestNaredbaPonistiLozinkuStarijaBaza(t *testing.T) {
 	baza.Close()
 
 	var izlaz bytes.Buffer
-	if kod := ponistiLozinkuSKonzole(put, "cvor", "glavniadmin", false, &izlaz); kod == 0 {
+	if kod := ponistiLozinkuSKonzole(put, "cvor", "gocop", "glavniadmin", false, &izlaz); kod == 0 {
 		t.Fatal("baza starijeg izdanja: izlazni kod 0")
 	}
 	if !strings.Contains(dnevnik.String(), "starije izdanje") || izlaz.Len() != 0 {
@@ -217,7 +217,7 @@ func TestNaredbaPonistiLozinkuPotpisniKljuc(t *testing.T) {
 	}
 
 	var izlaz bytes.Buffer
-	if kod := ponistiLozinkuSKonzole(put, "cvor", "glavniadmin", false, &izlaz); kod != 0 {
+	if kod := ponistiLozinkuSKonzole(put, "cvor", "gocop", "glavniadmin", false, &izlaz); kod != 0 {
 		t.Fatalf("izlazni kod %d", kod)
 	}
 	lozinkaIzIspisa(t, izlaz.String())
@@ -253,7 +253,7 @@ func TestNaredbaPonistiLozinkuUkljucenjeNeUspije(t *testing.T) {
 	}
 
 	var izlaz bytes.Buffer
-	if kod := ponistiLozinkuSKonzole(put, "cvor", "ana", true, &izlaz); kod == 0 {
+	if kod := ponistiLozinkuSKonzole(put, "cvor", "gocop", "ana", true, &izlaz); kod == 0 {
 		t.Error("neuspjelo uključenje: izlazni kod 0")
 	}
 	lozinkaIzIspisa(t, izlaz.String())

@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -43,7 +44,19 @@ type Version struct {
 	CreatedAt     time.Time       `json:"created_at"` // zidni sat čvora — informativno, ne za redoslijed
 	SchemaVersion int             `json:"schema_version"`
 	Channel       string          `json:"channel,omitempty"` // kanal: prazan drže svi, inače vrsta/područje/godina
+	// Potpis i KljucAutora su potpis autora nad verzijom i njegov javni
+	// ključ, oba base64 (razmjena.PotpisiVerziju). Prazni su kod verzije
+	// bez potpisa: sve što je nastalo prije potpisivanja i sve što je
+	// stiglo od drugog računala dok primanje potpisa ne dođe. Stariji
+	// program polja zanemari.
+	Potpis      string `json:"potpis,omitempty"`
+	KljucAutora string `json:"kljuc_autora,omitempty"`
 }
+
+// Potpisnik potpisuje verziju koju ovo računalo upisuje u knjigu i vraća
+// potpis i javni ključ autora, oba base64. Knjiga ne zna kako se potpisuje
+// (to je razmjena), pa ga dobije izvana (PostaviPotpisnika).
+type Potpisnik func(v Version) (potpis, kljucAutora string, err error)
 
 // Kanali: što drže svi, i što čvor prati po izboru. Ustroj, registri i
 // djelatnici su mali i trebaju svakome, pa idu bez kanala. Očitanja i
@@ -113,6 +126,33 @@ type Recorder struct {
 	db     *sql.DB
 	nodeID string
 	nov    novosti // što je stiglo, a program ne razumije (shema.go)
+	// potpisnik potpisuje svaku verziju koju ovo računalo upiše; bez njega
+	// verzije idu bez potpisa
+	potpisnik atomic.Pointer[Potpisnik]
+}
+
+// PostaviPotpisnika zadaje kako se potpisuju verzije koje ovo računalo
+// upisuje. Poziva se pri pokretanju, prije prvog upisa; nil ostavlja
+// verzije bez potpisa.
+func (r *Recorder) PostaviPotpisnika(p Potpisnik) {
+	if p == nil {
+		r.potpisnik.Store(nil)
+		return
+	}
+	r.potpisnik.Store(&p)
+}
+
+// potpisi potpisuje verziju zadanim potpisnikom; bez njega vraća prazno
+func (r *Recorder) potpisi(v Version) (potpis, kljuc string, err error) {
+	p := r.potpisnik.Load()
+	if p == nil {
+		return "", "", nil
+	}
+	potpis, kljuc, err = (*p)(v)
+	if err != nil {
+		return "", "", fmt.Errorf("potpis verzije %s/%s: %w", v.Entity, v.EntityID, err)
+	}
+	return potpis, kljuc, nil
 }
 
 // Cvor je oznaka ovog čvora. Paket historijata nosi tko ga je sastavio, pa se
@@ -229,16 +269,33 @@ func (r *Recorder) write(ctx context.Context, tx Execer, channel, entity, entity
 	}
 	body = spojiNepoznata(entity, []byte(prethodna), body, payload)
 
+	v := Version{VersionID: id, Entity: entity, EntityID: entityID, NodeID: r.nodeID, Supersedes: supersedes,
+		Archived: archived, Payload: body, CreatedAt: time.Now().UTC(), SchemaVersion: shema, Channel: channel}
+	if err := r.upisiVlastitu(ctx, tx, v); err != nil {
+		return "", err
+	}
+	return id, nil
+}
+
+// upisiVlastitu potpiše verziju ovog računala i upiše je u knjigu.
+// Potpisuje se točno ono što ide u knjigu, i vrijeme koje se upisuje;
+// vlastita verzija je primljena kad je nastala.
+func (r *Recorder) upisiVlastitu(ctx context.Context, tx Execer, v Version) error {
+	potpis, kljuc, err := r.potpisi(v)
+	if err != nil {
+		return err
+	}
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO record_versions (
-			version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version, channel
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, id, entity, entityID, r.nodeID, supersedes, boolInt(archived), string(body), time.Now().UTC(), shema, channel)
+			version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version, channel,
+			potpis, kljuc_autora, primljeno
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, v.VersionID, v.Entity, v.EntityID, v.NodeID, v.Supersedes, boolInt(v.Archived), string(v.Payload), v.CreatedAt,
+		v.SchemaVersion, v.Channel, potpis, kljuc, v.CreatedAt)
 	if err != nil {
-		return "", fmt.Errorf("greška pri upisu verzije %s/%s: %w", entity, entityID, err)
+		return fmt.Errorf("greška pri upisu verzije %s/%s: %w", v.Entity, v.EntityID, err)
 	}
-
-	return id, nil
+	return nil
 }
 
 // Latest vraća verziju koja je na površini za zapis
@@ -322,6 +379,11 @@ func Ispravne(versions []Version) (ispravne, neispravne []Version) {
 // dira — nju osvježava sloj koji zna što je koji entitet. Neispravne
 // verzije (Ispravne) preskoči, a ostale upiše; greška baze vrati cijeli
 // paket.
+//
+// Potpis primljene verzije se ne upisuje: u knjigu ulazi samo potpis koji
+// je ovo računalo napisalo ili provjerilo, a provjera pri primanju dolazi
+// zasebno. Do tada se primljena verzija upisuje bez potpisa, kao od
+// starijeg programa. Uz svaku se upiše kad je primljena.
 func (r *Recorder) Apply(ctx context.Context, versions []Version) (applied int, err error) {
 	versions, _ = Ispravne(versions)
 	if len(versions) == 0 {
@@ -336,8 +398,8 @@ func (r *Recorder) Apply(ctx context.Context, versions []Version) (applied int, 
 
 	stmt, err := tx.PrepareContext(ctx, `
 		INSERT INTO record_versions (
-			version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version, channel
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version, channel, primljeno
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(version_id) DO NOTHING
 	`)
 	if err != nil {
@@ -345,10 +407,11 @@ func (r *Recorder) Apply(ctx context.Context, versions []Version) (applied int, 
 	}
 	defer stmt.Close()
 
+	primljeno := time.Now().UTC()
 	var nove []Version
 	for _, v := range versions {
 		res, err := stmt.ExecContext(ctx, v.VersionID, v.Entity, v.EntityID, v.NodeID, v.Supersedes,
-			boolInt(v.Archived), string(v.Payload), v.CreatedAt.UTC(), v.SchemaVersion, v.Channel)
+			boolInt(v.Archived), string(v.Payload), v.CreatedAt.UTC(), v.SchemaVersion, v.Channel, primljeno)
 		if err != nil {
 			return 0, fmt.Errorf("greška pri primanju verzije %s: %w", v.VersionID, err)
 		}
@@ -388,7 +451,7 @@ func (r *Recorder) Count(ctx context.Context) (map[string]int, error) {
 	return out, rows.Err()
 }
 
-const columns = `version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version, channel`
+const columns = `version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version, channel, potpis, kljuc_autora`
 
 func (r *Recorder) query(ctx context.Context, query string, args ...any) ([]Version, error) {
 	rows, err := r.db.QueryContext(ctx, query, args...)
@@ -414,7 +477,7 @@ func procitajVerziju(rows *sql.Rows) (Version, error) {
 	var archived int
 	var payload string
 	if err := rows.Scan(&v.VersionID, &v.Entity, &v.EntityID, &v.NodeID, &v.Supersedes,
-		&archived, &payload, &v.CreatedAt, &v.SchemaVersion, &v.Channel); err != nil {
+		&archived, &payload, &v.CreatedAt, &v.SchemaVersion, &v.Channel, &v.Potpis, &v.KljucAutora); err != nil {
 		return Version{}, err
 	}
 	v.Archived = archived != 0
@@ -720,7 +783,7 @@ func (r *Recorder) Recent(ctx context.Context, entities []string, prije string, 
 	if len(entities) == 0 {
 		return nil, nil
 	}
-	q := `SELECT version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version, channel
+	q := `SELECT ` + columns + `
 		FROM record_versions WHERE entity IN (?` + strings.Repeat(",?", len(entities)-1) + `)`
 	args := make([]any, 0, len(entities)+4)
 	for _, e := range entities {

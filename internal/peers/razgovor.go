@@ -257,11 +257,15 @@ func (r *razgovorSCvorom) delte(ctx context.Context) ([]ledger.Version, error) {
 // Na kraju ide popuna rupa koje je druga strana zatražila, a uz deltu što
 // ovaj čvor o poslanome jamči (deltaSPopunom, jamstvoDelte). Verzija koja
 // se ne šalje samo zato što joj vrijeme još nije došlo nije ni u jamstvu
-// (bezKasnih): pošalje se kad joj vrijeme dođe.
+// (bezKasnih): pošalje se kad joj vrijeme dođe. Potpis autora ide uz
+// verziju samo kad ga druga strana prima (potpisDogovoren).
 func (r *razgovorSCvorom) mojaDelta(ctx context.Context) (deltaMsg, []ledger.Version, error) {
 	delta, err := r.deltaSPopunom(ctx, r.granicaZaDeltu())
 	if err != nil {
 		return deltaMsg{}, nil, err
+	}
+	if !r.potpisDogovoren() {
+		delta = bezPotpisa(delta)
 	}
 	delta, neispravne, skraceno := ogradiDeltu(delta, najviseBajtovaDelte)
 	neispravne = bezKasnih(neispravne)
