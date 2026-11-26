@@ -84,10 +84,12 @@ const (
 	osnovaDionica  = "B.16.1"
 	osnovaZupanija = 901
 	osnovaOpcina   = 801
+	osnovaPropis   = "nn-2000-1-1"
 )
 
 // noviCvor otvara praznu bazu sa shemom i istim oslonom na oba čvora:
-// sektor, područje, korisnik, letva, dionica, dnevnik, županija i općina.
+// sektor, područje, korisnik, letva, dionica, dnevnik, županija, općina i
+// propis.
 // Oslonac se upisuje mimo knjige, pa ne putuje i ne miješa se s verzijama
 // entiteta koji se ispituje.
 func noviCvor(t *testing.T, ime string) *cvor {
@@ -111,6 +113,8 @@ func noviCvor(t *testing.T, ime string) *cvor {
 			VALUES ('` + osnovaDnevnik + `', 16, 'COP', '` + kad + `', '` + kad + `')`,
 		`INSERT INTO counties (id, code, name, seat) VALUES (901, 'PRB', 'Probna', 'Sjedište')`,
 		`INSERT INTO municipalities (id, county_id, name, type) VALUES (801, 901, 'Probna Općina', 'OPĆINA')`,
+		`INSERT INTO propisi (id, adresa, naziv, sadrzaj, created_at, updated_at)
+			VALUES ('` + osnovaPropis + `', 'probni-propis', 'Probni propis', '{"id":"` + osnovaPropis + `"}', '` + kad + `', '` + kad + `')`,
 	} {
 		if _, err := baza.Exec(q); err != nil {
 			t.Fatalf("oslonac: %v\n%s", err, q)
@@ -1006,6 +1010,40 @@ func slucajeviRazmjene() []slucajRazmjene {
 			bezUredjivanja: "odgovor se ne mijenja: novi tekst je novi zapis",
 			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
 				return NewPrijavaGreskeRepository(n.db, n.rec).citajOdgovore(ctxRaz, `SELECT `+odgovorPrijaveColumns+` FROM prijave_gresaka_odgovori WHERE id = ?`, id)
+			},
+		},
+		{
+			entitet: EntityPropisi, tablica: "propisi", kljuc: "id",
+			napravi: func(t *testing.T, a *cvor) {
+				var p models.Propis
+				puni(&p)
+				p.ID = "nn-2001-1-1"
+				nuzno(t, NewPropisiRepository(a.db, a.rec).Spremi(ctxRaz, &p))
+			},
+			uredi: func(t *testing.T, b *cvor, _ string, p []byte) {
+				x := teret[models.Propis](t, p)
+				x.Naziv += " (izmjena)"
+				nuzno(t, NewPropisiRepository(b.db, b.rec).Spremi(ctxRaz, x))
+			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewPropisiRepository(n.db, n.rec).Get(ctxRaz, id)
+			},
+		},
+		{
+			entitet: EntityPropisiIzmjene, tablica: "propisi_izmjene", kljuc: "id",
+			napravi: func(t *testing.T, a *cvor) {
+				var iz models.IzmjenaPropisa
+				puni(&iz)
+				iz.ID, iz.PropisID = osnovaPropis+"-izmjena-nn-2001-2-2", osnovaPropis
+				nuzno(t, NewPropisiRepository(a.db, a.rec).SpremiIzmjenu(ctxRaz, &iz))
+			},
+			uredi: func(t *testing.T, b *cvor, _ string, p []byte) {
+				x := teret[models.IzmjenaPropisa](t, p)
+				x.Naziv += " (izmjena)"
+				nuzno(t, NewPropisiRepository(b.db, b.rec).SpremiIzmjenu(ctxRaz, x))
+			},
+			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
+				return NewPropisiRepository(n.db, n.rec).Izmjena(ctxRaz, id)
 			},
 		},
 		{

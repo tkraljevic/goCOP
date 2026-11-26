@@ -40,6 +40,10 @@ var pravilaSazimanja = []ledger.ZadrziPo{
 	{Entity: "memberships", Kljuc: "$.signature"},
 	{Entity: "ovlasti", Kljuc: "$.signature"},
 	{Entity: entitetOpozivi, Kljuc: "$"},
+	// stari tekst ostaje u povijesti (plan Propisa): svaka verzija s
+	// drugačijim tekstom dijelova
+	{Entity: EntityPropisi, Kljuc: "$.otisak"},
+	{Entity: EntityPropisiIzmjene, Kljuc: "$.otisak"},
 }
 
 // ZaSazimanje broji verzije koje bi SazmiKnjigu obrisala, za pregled prije

@@ -138,6 +138,7 @@ func PoznatiEntiteti() []string {
 		EntityVodocuvarski, EntityZadaci, EntityVodocuvarskiIzvornici,
 		EntityPotpisniKljucevi, EntityPotpisniIzdavatelji,
 		EntityPrijave, EntityPrijaveIzvornici, EntityPrijaveGresaka, EntityPrijaveGresakaOdgovori, EntityPotvrdePrava,
+		EntityPropisi, EntityPropisiIzmjene,
 		// zapisuje ih sloj razmjene (peers), a površinu osvježava applyOne
 		"peers", "memberships", "ovlasti", "opozivi",
 	}
@@ -344,7 +345,7 @@ type radnjaNaPovrsini func(ctx context.Context, tx *sql.Tx, v ledger.Version) er
 // ni primijeniVerziju: Go to odbije kao initialization cycle.
 var skupinePrimjena = []map[string]primjena{
 	primjeneOrganizacije, primjeneRegistara, primjeneHidrologije, primjeneDnevnika,
-	primjeneAkata, primjeneObracuna, primjeneMreze,
+	primjeneAkata, primjeneObracuna, primjeneMreze, primjenePropisa,
 }
 
 // primjene su primjene svih entiteta koje površina zna, po entitetu

@@ -213,5 +213,9 @@ func javniKlijent(rok time.Duration, tlsCfg *tls.Config) *http.Client {
 	return &http.Client{Timeout: rok, Transport: t, CheckRedirect: istiPosluzitelj}
 }
 
+// JavniKlijent je čuvani klijent za javne izvore: ne spaja se na lokalnu mrežu
+// i preusmjeravanje slijedi samo na isti poslužitelj. Koriste ga i propisi.
+func JavniKlijent(rok time.Duration) *http.Client { return javniKlijent(rok, nil) }
+
 // zadaniKlijent je klijent kojim se izvori čitaju kad test ne podmetne svoj
 var zadaniKlijent = sync.OnceValue(func() *http.Client { return javniKlijent(20*time.Second, nil) })

@@ -1,0 +1,97 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Propisi{{end}}
+
+{{/* Znak „?” vodi na odjeljak Pomoći o propisima */}}
+{{define "sidroPomoci"}}#propisi{{end}}
+
+{{/* Učitaj iz Narodnih novina i Dodaj izmjenu (goCOP-m3, 15g · Dokumenti · Propisi, 4 i gornji dio 6).
+     Jedan obrazac s dva gumba: „Dohvati i podijeli” pita Narodne novine, a „Podijeli tekst” čita
+     zalijepljen tekst ili datoteku .txt. Ništa se ne sprema prije provjere podjele. */}}
+{{define "content"}}
+{{with .Obrazac}}{{$o := .}}
+{{if .ZaIzmjenu}}{{with $.Stranica}}
+<a href="/propisi/{{.Propis.Adresa}}" class="povratna-poveznica">← {{.Propis.Naziv}}</a>
+<div class="page-header list-glava">
+  <div>
+    <h1 class="page-title" data-naziv-stranice>Dodaj izmjenu</h1>
+    <p class="page-desc">{{.Propis.Naziv}} · {{.Propis.NN.Puno}}</p>
+    <p class="page-desc">Upišite broj Narodnih novina i broj akta izmjene. Program iz njezina teksta prepozna koje članke mijenja i prije spremanja pokaže popis.</p>
+  </div>
+</div>
+{{with .Neucitane}}
+<section class="reg-card propisi-neucitane">
+  <h2>Izmjene iz Narodnih novina</h2>
+  <p class="form-help">Narodne novine uz ovaj propis navode izmjene koje još nisu dodane.</p>
+  <ul class="kartica-redovi">
+    {{range .}}
+    <li class="propisi-neucitana">
+      <span>{{.Puno}} (akt {{.Akt}})</span>
+      <form method="POST" action="/propisi/{{$.Stranica.Propis.Adresa}}/dodaj-izmjenu">
+        <input type="hidden" name="broj_nn" value="{{.Broj}}/{{.Godina}}">
+        <input type="hidden" name="broj_akta" value="{{.Akt}}">
+        <input type="hidden" name="nacin" value="nn">
+        <button type="submit" class="btn btn-secondary btn-sm">{{icon "download"}} Dohvati</button>
+      </form>
+    </li>
+    {{end}}
+  </ul>
+</section>
+{{end}}
+{{end}}{{else}}
+<a href="/propisi" class="povratna-poveznica">← Propisi</a>
+<div class="page-header list-glava">
+  <div>
+    <h1 class="page-title" data-naziv-stranice>Učitaj iz Narodnih novina</h1>
+    <p class="page-desc">Upišite broj Narodnih novina i broj akta ili zalijepite poveznicu. Program dohvati akt, podijeli ga na dijelove i prije spremanja pokaže podjelu.</p>
+  </div>
+</div>
+{{end}}
+
+<form method="POST" action="{{if and .ZaIzmjenu $.Stranica}}/propisi/{{$.Stranica.Propis.Adresa}}/dodaj-izmjenu{{else}}/propisi/ucitaj{{end}}" enctype="multipart/form-data" class="propisi-ucitaj">
+  <section class="reg-card">
+    <h2>{{if .ZaIzmjenu}}Izmjena u Narodnim novinama{{else}}Akt u Narodnim novinama{{end}}</h2>
+    <div class="list-dva">
+      <div class="form-group list-polje"><label class="form-label" for="broj_nn">Broj NN</label><input class="form-control" id="broj_nn" name="broj_nn" value="{{.BrojNN}}" placeholder="84/2010" inputmode="numeric"><p class="form-help">Broj i godina izdanja.</p></div>
+      <div class="form-group list-polje"><label class="form-label" for="broj_akta">Broj akta</label><input class="form-control" id="broj_akta" name="broj_akta" value="{{.BrojAkta}}" placeholder="2389" inputmode="numeric"><p class="form-help">Broj akta u tom izdanju.</p></div>
+    </div>
+    <p class="propisi-ili">ili</p>
+    <div class="form-group list-polje"><label class="form-label" for="poveznica">Poveznica s narodne-novine.nn.hr</label><input class="form-control" id="poveznica" name="poveznica" value="{{.Poveznica}}" inputmode="url" placeholder="npr. https://narodne-novine.nn.hr/clanci/sluzbeni/2010_07_84_2389.html"></div>
+    {{if not .ZaIzmjenu}}
+    <div class="list-dva">
+      <div class="form-group list-polje"><label class="form-label" for="skupina">Skupina</label>
+        <select class="form-control" id="skupina" name="skupina">
+          {{range $.NaziviSkupina}}<option value="{{.}}"{{if eq . $o.Skupina}} selected{{end}}>{{.}}</option>{{end}}
+          <option value="nova"{{if $.SkupinaUpisana .Skupina}} selected{{end}}>Nova skupina…</option>
+        </select></div>
+      <div class="form-group list-polje"><label class="form-label" for="nova_skupina">Naziv nove skupine</label><input class="form-control" id="nova_skupina" name="nova_skupina" maxlength="60" value="{{if $.SkupinaUpisana .Skupina}}{{.Skupina}}{{end}}"></div>
+    </div>
+    {{end}}
+    <div class="propisi-gumbi">
+      <button type="submit" class="btn btn-primary" name="nacin" value="nn">{{icon "download"}} Dohvati i podijeli</button>
+      <span class="form-help">Jedan upit Narodnim novinama. Treba internet.</span>
+    </div>
+  </section>
+
+  <section class="reg-card">
+    <h2>Nema interneta ili akta nema u Narodnim novinama?</h2>
+    <p class="form-help">Zalijepite tekst ili učitajte datoteku .txt. Broj NN i broj akta upišite i tada, a naziv propisa upišite sami. Podjela i provjera rade jednako.</p>
+    <div class="form-group list-polje"><label class="form-label" for="naziv">Naziv {{if .ZaIzmjenu}}izmjene{{else}}propisa{{end}}</label><input class="form-control" id="naziv" name="naziv" value="{{.Naziv}}" maxlength="300"></div>
+    <div class="list-dva">
+      <div class="form-group list-polje"><label class="form-label" for="donositelj">Donositelj</label><input class="form-control" id="donositelj" name="donositelj" value="{{.Donositelj}}" placeholder="nije obavezno"></div>
+      <div class="form-group list-polje">{{icon "calendar"}}<label class="form-label" for="datum_objave">Datum objave</label><input type="date" class="form-control" id="datum_objave" name="datum_objave" value="{{.Datum}}"></div>
+    </div>
+    <div class="form-group list-polje"><label class="form-label" for="tekst">Tekst akta</label><textarea class="form-control propis-navod" id="tekst" name="tekst" rows="10">{{.Tekst}}</textarea></div>
+    <div class="form-group list-polje">{{icon "upload"}}<label class="form-label" for="datoteka">Datoteka (.txt)</label><input type="file" class="form-control" id="datoteka" name="datoteka" accept=".txt,text/plain"></div>
+    <div class="propisi-gumbi">
+      <button type="submit" class="btn btn-secondary" name="nacin" value="tekst">Podijeli tekst</button>
+    </div>
+  </section>
+
+  <p class="propisi-gumbi">
+    <a href="{{if and .ZaIzmjenu $.Stranica}}/propisi/{{$.Stranica.Propis.Adresa}}{{else}}/propisi{{end}}" class="btn btn-link">Odustani</a>
+    <span class="form-help">Ništa se ne sprema dok ne potvrdite podjelu.</span>
+  </p>
+</form>
+{{end}}
+{{end}}

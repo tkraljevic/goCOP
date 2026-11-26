@@ -77,6 +77,8 @@ var pravilaRuta = map[string]pravilo{
 	"POST /readings/station/{id}/ocitanja/uvoz":   {dugo: true, tijelo: 32<<20 + 1<<20},
 	"POST /readings/structure/{id}/ocitanja/uvoz": {dugo: true, tijelo: 32<<20 + 1<<20},
 	"POST /readings/station/{id}/zalijepi":        {dugo: true, tijelo: 16<<20 + 1<<20},
+	"POST /propisi/ucitaj":                        {dugo: true, tijelo: najveciTekstPropisa + 1<<20}, // zalijepljen tekst ili .txt do 16 MiB
+	"POST /propisi/{propis}/dodaj-izmjenu":        {dugo: true, tijelo: najveciTekstPropisa + 1<<20},
 	"POST /territories/uvoz":                      {dugo: true, tijelo: 4<<20 + 1<<20},
 	"POST /organizacija/uvoz":                     {dugo: true, tijelo: 4<<20 + 1<<20},
 	"POST /firme/uvoz":                            {dugo: true, tijelo: 4<<20 + 1<<20},

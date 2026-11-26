@@ -221,7 +221,10 @@ dolaze s OpenStreetMapa (`plocice` u `gocop.toml`; prazno isključuje kartu,
 osim karte teritorijalnih jedinica; vidi [Karte](karta.md)).
 Pločice za kartu u PDF-u dohvaća i sam čvor. Kad globalni administrator traži
 koordinate branjenog područja, naziv mjesta ili adresa ide OpenStreetMapovu
-Nominatimu. Dohvat vremena s DHMZ-a i Open-Meteo zasad se ne može
+Nominatimu. Kad globalni administrator učitava propis ili izmjenu propisa
+(Dokumenti › Propisi), računalo na kojem to radi traži stranicu tog akta od
+narodne-novine.nn.hr, najviše tri upita u sekundi; ostala računala propis
+dobiju razmjenom. Dohvat vremena s DHMZ-a i Open-Meteo zasad se ne može
 isključiti. Tek
 kad ih administrator uključi, postoje veze prema poslužitelju e-pošte
 (Administracija → E-pošta ili `[posta]` u `gocop.toml`) te, na čvoru s ulogom
@@ -753,7 +756,7 @@ branjena područja), djelatnike ili uvoz imenika, uvoze podataka, uloge
 napravljen; popis nestane kad su gotovi svi koraci koje program može
 provjeriti. Ako uz bazu stoje datoteke
 registara i imenika, program učita i njih.
-Ustroj, registri i djelatnici stižu na svako računalo. Očitanja i dnevnici
+Ustroj, registri, djelatnici i propisi stižu na svako računalo. Očitanja i dnevnici
 idu po kanalima „vrsta/područje/godina“ i računalo ih prima samo za ono
 što prati: na stranici **Što ovo računalo prati** (s profila ili iz
 Administracije) označi se sektor ili područje i godine te bira prima li

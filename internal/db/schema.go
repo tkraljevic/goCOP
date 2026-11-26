@@ -299,6 +299,60 @@ func InitSchema(database *sql.DB) error {
 			updated_at DATETIME NOT NULL
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_sluzbe_county ON sluzbe(county_id);`,
+		// Propisi iz Narodnih novina i njihove izmjene: cijeli zapis je u
+		// stupcu sadrzaj (models.Propis, models.IzmjenaPropisa), a ostali
+		// stupci služe popisu i redoslijedu. Adresa nema UNIQUE: primjena
+		// zapisa s drugog računala ne smije pasti na sukobu adresa, pa
+		// sukob rješava čitanje (najstariji zapis).
+		`CREATE TABLE IF NOT EXISTS propisi (
+			id TEXT PRIMARY KEY,
+			adresa TEXT NOT NULL,
+			naziv TEXT NOT NULL,
+			vrsta TEXT NOT NULL DEFAULT '',
+			skupina TEXT NOT NULL DEFAULT '',
+			nn_godina INTEGER NOT NULL DEFAULT 0,
+			nn_broj INTEGER NOT NULL DEFAULT 0,
+			nn_akt INTEGER NOT NULL DEFAULT 0,
+			eli TEXT NOT NULL DEFAULT '',
+			datum_objave TEXT NOT NULL DEFAULT '',
+			otisak TEXT NOT NULL DEFAULT '',
+			sadrzaj TEXT NOT NULL,
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_propisi_adresa ON propisi(adresa);`,
+		`CREATE TABLE IF NOT EXISTS propisi_izmjene (
+			id TEXT PRIMARY KEY,
+			propis_id TEXT NOT NULL REFERENCES propisi(id) ON DELETE CASCADE,
+			nn_godina INTEGER NOT NULL DEFAULT 0,
+			nn_broj INTEGER NOT NULL DEFAULT 0,
+			nn_akt INTEGER NOT NULL DEFAULT 0,
+			datum_objave TEXT NOT NULL DEFAULT '',
+			stupa_na_snagu TEXT NOT NULL DEFAULT '',
+			otisak TEXT NOT NULL DEFAULT '',
+			sadrzaj TEXT NOT NULL,
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_propisi_izmjene_propis ON propisi_izmjene(propis_id);`,
+		// Kazalo dijelova propisa i izmjena za čitanje, pretragu i opseg.
+		// Slaže se iz sadržaja zapisa pri svakom upisu i primjeni i ne
+		// putuje. Ključ je jedan stupac: oznaka vlasnika, '#', oznaka dijela.
+		// izmjena_id je NULL za osnovni tekst propisa.
+		`CREATE TABLE IF NOT EXISTS propisi_dijelovi (
+			id TEXT PRIMARY KEY,
+			propis_id TEXT NOT NULL REFERENCES propisi(id) ON DELETE CASCADE,
+			izmjena_id TEXT REFERENCES propisi_izmjene(id) ON DELETE CASCADE,
+			oznaka TEXT NOT NULL,
+			redni INTEGER NOT NULL,
+			vrsta TEXT NOT NULL,
+			broj TEXT NOT NULL DEFAULT '',
+			naslov TEXT NOT NULL DEFAULT '',
+			roditelj TEXT NOT NULL DEFAULT '',
+			tekst TEXT NOT NULL DEFAULT '',
+			svedeno TEXT NOT NULL DEFAULT ''
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_propisi_dijelovi_propis ON propisi_dijelovi(propis_id, izmjena_id, redni);`,
 		// Prijave grešaka i prijedlozi s ikone kukca; stanje je nova verzija
 		// istog zapisa. Korisnik nije strani ključ: prijava ostaje i kad račun
 		// ode, a na drugo računalo smije stići prije računa.

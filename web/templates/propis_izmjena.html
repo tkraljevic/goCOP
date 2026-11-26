@@ -1,0 +1,74 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Propisi{{end}}
+
+{{/* Znak „?” vodi na odjeljak Pomoći o propisima */}}
+{{define "sidroPomoci"}}#propisi{{end}}
+
+{{/* Izmjena propisa (goCOP-m3, 15g · Dokumenti · Propisi, 6, samo čitanje): tablica odredbi koje
+     mijenjaju propis i tekst izmjene kako je objavljen. Tekst se ispisuje samo kao tekst. */}}
+{{define "content"}}
+{{with .Izmjena}}{{$p := .Propis}}{{$iz := .Izmjena}}
+<a href="/propisi/{{$p.Adresa}}" class="povratna-poveznica">← {{$p.Naziv}}</a>
+<div class="page-header list-glava">
+  <div>
+    <h1 class="page-title" data-naziv-stranice>{{$iz.Naziv}}</h1>
+    <p class="page-desc">{{$iz.NN.Puno}}{{with $iz.Donositelj}} · {{.}}{{end}}{{with .Stupila}} · stupila na snagu {{.}}{{end}}{{with $iz.StupanjeIzraz}} ({{.}}){{end}} · izmjena propisa „{{$p.Naziv}}”</p>
+  </div>
+</div>
+
+<div class="reg-card propis-napomena">
+  <p>Izvorni tekst propisa ostaje kako je objavljen. Uz svaki članak koji izmjena mijenja stoji oznaka „mijenjan {{$iz.NN.Kratko}}” s poveznicom na ovu stranicu.</p>
+  <p><a href="{{.PoveznicaNN}}" target="_blank" rel="noopener">Narodne novine {{$iz.NN.Broj}}/{{$iz.NN.Godina}} ↗</a></p>
+</div>
+
+<section class="reg-card propis-upute">
+  <h2>Članci koje izmjena mijenja</h2>
+  {{if .Upute}}
+  <table class="data-table kartice-na-mobitelu">
+    <thead><tr><th>Odredba izmjene</th><th>Članak propisa</th><th>Što se mijenja</th><th>Stanje</th></tr></thead>
+    <tbody>
+      {{range .Upute}}
+      <tr>
+        <td data-stupac="Odredba izmjene">{{.IzClanka}}{{with .Uputa.Tekst}}<div class="form-help">{{.}}</div>{{end}}{{with .Upozorenje}}<div class="propis-upozorenje">{{.}}</div>{{end}}</td>
+        <td data-stupac="Članak propisa">{{range $i, $c := .Ciljevi}}{{if $i}}, {{end}}<a href="{{$c.Poveznica}}">{{$c.Naziv}}</a>{{else}}–{{end}}</td>
+        <td data-stupac="Što se mijenja">{{.Uputa.OpisVrste}}</td>
+        <td data-stupac="Stanje"><span class="oznaka-stanja{{if eq .Stanje "nije prepoznato"}} pozor{{end}}">{{.Stanje}}</span></td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="reg-empty">Program u ovoj izmjeni nije našao nijednu odredbu.</p>
+  {{end}}
+</section>
+
+<section class="reg-card propis-tekst">
+  <h2>Tekst izmjene</h2>
+  {{range .Dijelovi}}{{template "propisDio" .}}{{end}}
+</section>
+
+{{if $.JeAdministrator}}
+<div class="propisi-gumbi propis-admin samo-racunalo">
+  {{if ne $iz.Izvor "tekst"}}
+  <form method="POST" action="/propisi/{{$p.Adresa}}/dodaj-izmjenu">
+    <input type="hidden" name="broj_nn" value="{{$iz.NN.Broj}}/{{$iz.NN.Godina}}">
+    <input type="hidden" name="broj_akta" value="{{$iz.NN.Akt}}">
+    <input type="hidden" name="nacin" value="nn">
+    <button type="submit" class="btn btn-secondary">{{icon "download"}} Dohvati ponovno i poveži odredbe</button>
+  </form>
+  {{else}}
+  <a href="/propisi/{{$p.Adresa}}/dodaj-izmjenu" class="btn btn-secondary">{{icon "plus"}} Dodaj ponovno i poveži odredbe</a>
+  {{end}}
+  <details class="propis-ukloni">
+    <summary class="btn btn-link btn-opasno">Ukloni izmjenu</summary>
+    <form method="POST" action="/propisi/{{$p.Adresa}}/izmjene/{{$iz.NN.ID}}/ukloni" class="reg-card">
+      <p class="form-help">Izmjena i njezine oznake uz članke nestaju na svim računalima. U povijesti zapisa ostaje.</p>
+      <div class="form-group list-polje">{{icon "pencil"}}<label class="form-label" for="razlog-izmjene">Razlog uklanjanja (obavezno)</label><textarea class="form-control" id="razlog-izmjene" name="razlog" rows="2" required></textarea></div>
+      <button type="submit" class="btn btn-secondary btn-opasno">{{icon "trash"}} Ukloni izmjenu</button>
+    </form>
+  </details>
+</div>
+{{end}}
+{{end}}
+{{end}}

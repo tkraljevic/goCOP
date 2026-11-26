@@ -18,7 +18,7 @@ func TestUpisiUSinkroniziraneTabliceIduKrozRecorder(t *testing.T) {
 		"counties", "municipalities", "settlements", "users", "duties",
 		"structures", "readings", "role_modules", "user_modules",
 		"maintained_waters", "work_items", "journals", "journal_sheets", "journal_entries",
-		"odbacena_ocitanja"}
+		"odbacena_ocitanja", "propisi", "propisi_izmjene"}
 
 	files, err := filepath.Glob("*.go")
 	if err != nil {
@@ -84,4 +84,5 @@ var datotekePrimjene = map[string]bool{
 	"apply_registri.go":     true,
 	"apply_hidrologija.go":  true,
 	"apply_dnevnik.go":      true,
+	"apply_propisi.go":      true,
 }

@@ -21,6 +21,7 @@ var naziviVrstaKnjige = map[string]string{
 	"peers": "Računala", "posta_potpisi": "Potpisi e-pošte", "postavke": "Postavke", "potpisni_izdavatelji": "Izdavatelji certifikata",
 	"potpisni_kljucevi": "Potpisni ključevi", "potvrde_prava": "Potvrde prava", "prijave": "Prijave s terena", "prijave_gresaka": "Prijave grešaka",
 	"prijave_gresaka_odgovori": "Odgovori na prijave grešaka", "prijave_izvornici": "Izvornici prijava", "primatelji": "Primatelji",
+	"propisi": "Propisi", "propisi_izmjene": "Izmjene propisa",
 	"readings": "Očitanja", "role_modules": "Vidljivost modula", "section_stations": "Letve dionica", "section_structures": "Objekti dionica",
 	"section_territories": "Ugroženo područje dionica", "sections": "Dionice", "sectors": "Sektori", "sektorska_izvjesca": "Izvješća sektora",
 	"settlements": "Naselja", "slivovi": "Slivovi", "sluzbe": "Službe", "stations": "Letve", "structures": "Objekti",

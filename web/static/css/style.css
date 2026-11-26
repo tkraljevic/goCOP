@@ -11427,3 +11427,94 @@ td .odr-sitno { margin-top: 2px; }
 .rac-obrazac:has(input[name="metoda"][value="dnevni"]:checked) .rac-samo-satni { display: none; }
 .rac-obrazac:has(input[name="metoda"][value="lanac"]:checked) .rac-samo-dnevni { display: none; }
 .rac-obrazac:has(input[type="hidden"][name="metoda"]) .rac-samo-dnevni { display: none; }
+
+/* ===== Propisi (goCOP-m3, 15g · Dokumenti · Propisi) =====
+   Popis po skupinama je ulaz Dokumenata (.ulaz-*), a sadržaj sa strane je poglavlje
+   Pomoći (.pomoc-poglavlje, .pomoc-podnaslovi). Oznaka izmjene je odabrana ploha,
+   neprepoznat odlomak tehničko upozorenje, a blok novog teksta iz izmjene mono pismo.
+   Gumbi za administratora (.samo-racunalo) ne stoje na mobitelu. */
+.propisi-trazi { display: grid; gap: 8px; margin-bottom: 16px; }
+.propisi-trazi label { font-size: 0.875rem; font-weight: 500; color: var(--md-sys-color-on-surface); }
+.propisi-trazi-polje { display: flex; gap: 8px; }
+.propisi-trazi-polje .form-control { flex: 1; min-width: 0; }
+.propisi-trazi .form-help { margin: 0; }
+.propisi-skupine .ulaz-skupina .form-help { margin: -4px 0 8px; }
+.propisi-napomena { margin-top: 16px; }
+.propisi-sazetak { margin: 0 0 12px; font-size: 0.875rem; color: var(--md-sys-color-on-surface); }
+.propisi-pogoci { margin-top: 12px; }
+.propisi-pogoci h2 { margin: 0 0 8px; font-size: 1rem; font-weight: 500; }
+.propisi-pogoci-popis { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.propis-pogodak p { margin: 4px 0 0; overflow-wrap: anywhere; }
+.propis-pogodak-put { font-weight: 500; }
+.propis-pogodak mark { background: var(--md-sys-color-ploha-odabrano); color: var(--md-sys-color-naplohi-odabrano); border-radius: 2px; }
+.propis-napomena p { margin: 0 0 4px; }
+.propis-napomena p:last-child { margin-bottom: 0; }
+.propis-traka { margin-top: 12px; }
+.propis-okvir { margin-top: 16px; }
+.propis-sadrzaj nav::before { content: "Sadržaj"; }
+.propis-sadrzaj nav a small { display: block; font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); }
+.propis-sadrzaj nav a[aria-current="true"] small { color: var(--md-sys-color-on-surface); }
+.propis-tekst { min-width: 0; }
+.propis-put { margin: 0 0 8px; font-size: 0.8125rem; color: var(--md-sys-color-on-surface-variant); }
+.propis-dio { padding: 12px 0; border-bottom: 1px solid var(--md-sys-color-outline-variant); scroll-margin-top: calc(var(--vrh-visina, 4rem) + 1rem); }
+.propis-dio:last-of-type { border-bottom: 0; }
+.propis-naslov-cjeline { margin: 8px 0; font-size: 1.125rem; font-weight: 500; }
+.propis-naslov-cjeline span { display: block; font-size: 0.9375rem; }
+.propis-naslov-iznad { margin: 0 0 4px; font-style: italic; color: var(--md-sys-color-on-surface-variant); text-align: center; }
+.propis-naslov { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0 0 8px; font-size: 1rem; font-weight: 500; }
+.propis-stalna { display: inline-flex; color: var(--md-sys-color-on-surface-variant); }
+.propis-stalna .icon { width: 16px; height: 16px; }
+.propis-stavak p { margin: 0 0 6px; line-height: 1.5; overflow-wrap: anywhere; }
+.propis-oznaka-stavka, .propis-oznaka-tocke { font-variant-numeric: tabular-nums; }
+.propis-tocke { list-style: none; margin: 0 0 6px; padding-left: 1.5rem; }
+.propis-tocka { margin: 0 0 4px; line-height: 1.5; }
+.propis-tablica { overflow-x: auto; margin: 0 0 8px; }
+.propis-navod { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.8125rem; }
+.propis-oznaka { margin: 4px 0 8px; }
+.propis-oznaka > summary {
+  display: inline-flex; padding: 2px 10px; border: 1px solid var(--rub-odabrano); border-radius: 999px; cursor: pointer;
+  background: var(--md-sys-color-ploha-odabrano); color: var(--md-sys-color-naplohi-odabrano); font-size: 0.75rem; list-style: none;
+}
+.propis-oznaka > summary::-webkit-details-marker { display: none; }
+.propis-oznaka.brisan > summary { text-decoration: line-through; }
+.propis-oznaka-ploca {
+  margin-top: 8px; padding: 12px; border: 1px solid var(--rub-kartica); border-radius: 8px;
+  background: var(--md-sys-color-surface-container-low); font-size: 0.875rem;
+}
+.propis-oznaka-ploca p { margin: 0 0 6px; }
+.propis-oznaka-poveznice { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.propis-oznaka-kratko { font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; background: var(--md-sys-color-ploha-odabrano); color: var(--md-sys-color-naplohi-odabrano); white-space: nowrap; }
+.propis-cjelina { margin: 0 0 8px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 8px; background: var(--md-sys-color-surface); }
+.propis-neprepoznato {
+  padding: 12px; border: 1px solid var(--upozorenje-tehnicko-rub); border-radius: 8px;
+  background: var(--upozorenje-tehnicko-ploha); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+.propis-susjedi { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 16px; font-size: 0.875rem; }
+.propis-upozorenje { margin-top: 4px; font-size: 0.8125rem; color: var(--md-sys-color-on-surface); }
+.propis-upute h2, .propis-tekst > h2 { margin: 0 0 12px; font-size: 1rem; font-weight: 500; }
+/* Učitavanje (15g, 4–6): obrazac s dva puta, provjera podjele i tablica odredbi izmjene */
+.propisi-ucitaj .reg-card, .propisi-dohvaceno, .propisi-podjela, .propisi-spremi, .propisi-pregled, .propisi-neucitane { margin-bottom: 16px; }
+.propisi-ucitaj h2, .propisi-dohvaceno h2, .propisi-podjela h2, .propisi-neucitane h2 { margin: 0 0 12px; font-size: 1rem; font-weight: 500; }
+.propisi-ili { margin: 4px 0; font-size: 0.875rem; color: var(--md-sys-color-on-surface-variant); }
+.propisi-gumbi { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 12px 0 0; }
+.propisi-gumbi .form-help { margin: 0; }
+.propisi-neucitana { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; }
+.propisi-neucitana form { margin: 0; }
+.propisi-podaci { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; }
+.propisi-podaci dt { color: var(--md-sys-color-on-surface-variant); }
+.propisi-podaci dd { margin: 0; overflow-wrap: anywhere; }
+.propisi-podjela p { margin: 0 0 8px; }
+.propisi-podjela .propis-neprepoznato { margin: 0 0 8px; }
+.propisi-adresa { display: flex; align-items: center; gap: 4px; }
+.propisi-adresa span { color: var(--md-sys-color-on-surface-variant); }
+.propisi-adresa .form-control { flex: 1; min-width: 0; }
+.propisi-pregled > summary { cursor: pointer; font-weight: 500; }
+.propisi-cilj { margin-top: 6px; max-width: 16rem; }
+.propis-admin { margin-top: 12px; }
+.propis-ukloni > summary { list-style: none; cursor: pointer; }
+.propis-ukloni > summary::-webkit-details-marker { display: none; }
+.propis-ukloni[open] > form { margin-top: 8px; max-width: 32rem; }
+@media (max-width: 599px) {
+  .samo-racunalo { display: none; }
+  .propisi-podaci { grid-template-columns: 1fr; }
+}

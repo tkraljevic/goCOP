@@ -81,6 +81,11 @@ Only when a user or an administrator asks for it:
 - **Place lookup.** When a global administrator looks up the coordinates of a
   defended area, the place name or address is sent to OpenStreetMap
   Nominatim.
+- **Regulations.** When a global administrator loads a regulation or an
+  amendment (Documents › Regulations), the node where this is done requests
+  the page of that act from narodne-novine.nn.hr, the Croatian Official
+  Gazette, at most three requests per second. It sends nothing but the
+  request. Other nodes receive the regulation through exchange.
 - **Network check button.** When a global administrator presses *Provjeri
   vezu*, the node sends the same STUN requests as described under WEB sync
   below, also when WEB sync is off: it opens UDP port 4713 for the check only

@@ -87,11 +87,28 @@ func imenaUIzrazu(e ast.Node, tipovi map[string]string, dodaj func(string)) {
 // u rutama
 var putoviRazmjene = map[string]string{"PutTunela": razmjena.PutTunela, "PutSignala": razmjena.PutSignala}
 
-// ruteIzIzvora čita sve s.mux.Handle iz server.go
+// datotekeRuta su datoteke u kojima se registriraju rute: server.go i
+// skupine ruta izdvojene u svoju datoteku
+var datotekeRuta = []string{"server.go", "propisi_rute.go"}
+
+// ruteIzIzvora čita sve s.mux.Handle iz datoteka ruta
 func ruteIzIzvora(t *testing.T) []ruta {
 	t.Helper()
+	var out []ruta
+	for _, ime := range datotekeRuta {
+		out = append(out, ruteIzDatoteke(t, ime)...)
+	}
+	if len(out) < 300 {
+		t.Fatalf("iz datoteka ruta pročitano samo %d ruta", len(out))
+	}
+	return out
+}
+
+// ruteIzDatoteke čita s.mux.Handle iz jedne datoteke
+func ruteIzDatoteke(t *testing.T, ime string) []ruta {
+	t.Helper()
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "server.go", nil, 0)
+	f, err := parser.ParseFile(fset, ime, nil, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -164,9 +181,6 @@ func ruteIzIzvora(t *testing.T) []ruta {
 		}
 		return true
 	})
-	if len(out) < 300 {
-		t.Fatalf("iz server.go pročitano samo %d ruta", len(out))
-	}
 	return out
 }
 

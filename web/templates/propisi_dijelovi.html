@@ -1,0 +1,57 @@
+{{/* Dijelovi teksta propisa, zajednički naslovnici, stalnoj adresi dijela i izmjeni (goCOP-m3,
+     15g · Dokumenti · Propisi, 2 i 2b). Tekst iz Narodnih novina ispisuje se samo kao tekst. Svaki
+     dio ima id po stalnoj oznaci, pa sadržaj sa strane i poveznice vode na njega. */}}
+
+{{/* propisDio je jedan dio (service.DioNaStranici): naslov, oznake izmjena i stavci */}}
+{{define "propisDio"}}
+<section class="propis-dio propis-{{.Vrsta}}{{if .Neprepoznato}} propis-neprepoznato{{end}}" id="{{.Oznaka}}">
+  {{if .Cjelina}}
+  <h2 class="propis-naslov-cjeline">{{.Naziv}}{{if and .Broj .Naslov}} <span>{{.Naslov}}</span>{{end}}{{with .Poveznica}} <a class="propis-stalna" href="{{.}}" aria-label="{{$.OpisPoveznice}}">{{icon "link"}}</a>{{end}}</h2>
+  {{else}}
+  {{if and .Naslov (eq .Vrsta "clanak")}}<p class="propis-naslov-iznad">{{.Naslov}}</p>{{end}}
+  <h3 class="propis-naslov">{{if .Neprepoznato}}Nije prepoznato{{else}}{{.Naziv}}{{end}}{{with .Poveznica}} <a class="propis-stalna" href="{{.}}" aria-label="{{$.OpisPoveznice}}">{{icon "link"}}</a>{{end}}</h3>
+  {{end}}
+  {{range .Oznake}}{{template "propisOznake" .}}{{end}}
+  {{range .Stavci}}{{template "propisStavak" .}}{{end}}
+</section>
+{{end}}
+
+{{/* propisStavak je stavak s oznakom „(1)” ili bez nje, s nabrajanjem, tablicom i rečenicom iza
+     nabrajanja; redak bloka u navodnicima (u izmjeni) je u mono pismu */}}
+{{define "propisStavak"}}
+<div class="propis-stavak{{if .Navod}} propis-navod{{end}}">
+  {{if or .Oznaka .Tekst}}<p>{{with .Oznaka}}<span class="propis-oznaka-stavka">{{.}}</span> {{end}}{{.Tekst}}</p>{{end}}
+  {{with .Tocke}}<ul class="propis-tocke">{{range .}}{{template "propisTocka" .}}{{end}}</ul>{{end}}
+  {{with .Tablica}}{{template "propisTablica" .}}{{end}}
+  {{with .Nastavak}}<p>{{.}}</p>{{end}}
+</div>
+{{end}}
+
+{{/* propisTocka je točka, podtočka, slovo ili podstavak, s točkama niže razine */}}
+{{define "propisTocka"}}<li class="propis-tocka">{{with .Oznaka}}<span class="propis-oznaka-tocke">{{.}}</span> {{end}}{{if eq .Vrsta "podstavak"}}– {{end}}{{.Tekst}}{{with .Tocke}}<ul class="propis-tocke">{{range .}}{{template "propisTocka" .}}{{end}}</ul>{{end}}</li>{{end}}
+
+{{/* propisTablica: prvi redak je zaglavlje, a ćelije zadržavaju raspon iz Narodnih novina */}}
+{{define "propisTablica"}}{{if .Retci}}
+<div class="propis-tablica">
+  <table class="data-table">
+    <thead>{{range $i, $r := .Retci}}{{if eq $i 0}}<tr>{{range $r}}<th{{with .Redaka}} rowspan="{{.}}"{{end}}{{with .Stupaca}} colspan="{{.}}"{{end}}>{{.Tekst}}</th>{{end}}</tr>{{end}}{{end}}</thead>
+    <tbody>{{range $i, $r := .Retci}}{{if $i}}<tr>{{range $r}}<td{{with .Redaka}} rowspan="{{.}}"{{end}}{{with .Stupaca}} colspan="{{.}}"{{end}}>{{if .Podebljano}}<strong>{{.Tekst}}</strong>{{else}}{{.Tekst}}{{end}}</td>{{end}}</tr>{{end}}{{end}}</tbody>
+  </table>
+</div>
+{{end}}{{end}}
+
+{{/* propisOznake je oznaka izmjene uz dio (service.OznakaIzmjene); otvara se u ploču s odredbom
+     izmjene, bez skripte */}}
+{{define "propisOznake"}}
+<details class="propis-oznaka{{if eq .Vrsta "brisan"}} brisan{{end}}">
+  <summary>{{.Natpis}}</summary>
+  <div class="propis-oznaka-ploca">
+    <p><strong>Izmjena uz {{.UzDio}} · {{.IzmjenaNN.Puno}}{{with .Naziv}}, {{.}}{{end}}{{with .IzClanka}}, {{.}}{{end}}</strong></p>
+    {{range .Odredbe}}
+    <p>{{.Tekst}}</p>
+    {{with .Blok}}<div class="propis-navod">{{range .}}<p>{{.}}</p>{{end}}</div>{{end}}
+    {{end}}
+    <p class="propis-oznaka-poveznice"><a href="{{.Poveznica}}" class="btn btn-secondary btn-sm">Otvori izmjenu</a> <a href="{{.PoveznicaNN}}" target="_blank" rel="noopener">Narodne novine {{.IzmjenaNN.Broj}}/{{.IzmjenaNN.Godina}} ↗</a></p>
+  </div>
+</details>
+{{end}}

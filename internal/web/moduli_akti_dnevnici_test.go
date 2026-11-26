@@ -13,7 +13,8 @@ import (
 
 // Odluke (30. 10. 2026.), 11: zasebnog modula Akti nema, pa akti,
 // vodočuvarski dnevnik i događanja traže modul Dnevnici, i izravnom
-// adresom i u izvozu
+// adresom i u izvozu. Propise čita svaki prijavljeni (Odluke (25. 11.
+// 2026.), O2), pa nisu pod modulom.
 func TestAktiVodocuvarIDogadjanjaPodDnevnicima(t *testing.T) {
 	for put, modul := range map[string]string{
 		"/akti":                       models.ModuleJournals,
@@ -27,6 +28,9 @@ func TestAktiVodocuvarIDogadjanjaPodDnevnicima(t *testing.T) {
 		"/aktivnosti":                 "",
 		"/vodocuvari":                 "",
 		"/prijave":                    "",
+		"/propisi":                    "",
+		"/propisi/ucitaj":             "",
+		"/propisi/zakon-o-vodama/x":   "",
 		"/teren":                      "",
 		"/administracija/akti-uvjeti": models.ModuleAdmin,
 	} {
