@@ -1828,7 +1828,7 @@
       <li>Upišite <em>Opis radnih aktivnosti</em>; bez njega se list ne predaje. Što ste
         primijetili, npr. procjeđivanje ili oštećenje, upišite pod <em>Posebna zapažanja</em>.
         Vodostaje koje ste taj dan očitali ne prepisujete: upisuju se sami.</li>
-      <li>Na kraju dana pritisnite <em>Potpiši i predaj</em>.</li>
+      <li>Na kraju radnog dana pritisnite <em>Potpiši i predaj</em>.</li>
     </ol>
     {{template "pomocSlika" (list "vodocuvar-naslovna" "Naslovna vodočuvara na mobitelu: kartica Dnevni list s gumbom Otvori list, a ispod kartica Zadaci rukovoditelja sa zadatkom Obilazak l.o. Dravskog nasipa od mađarske granice do CS Velika." "359")}}
     {{template "pomocSlika" (list "vodocuvar-list-vrh" "Dnevni list u pisanju na mobitelu: početak rada 07:00, svršetak 15:00, vremenske prilike, a pod Naredbe rukovoditelja zadatak obilaska Dravskog nasipa s označenim obavljeno i upisom što je napravljeno." "359")}}
@@ -1942,38 +1942,97 @@
       Svaki se list ovjerava zasebno.</p>
     {{if .VidiVodocuvarskiDnevnik}}<p><a class="btn btn-secondary btn-sm" href="/vodocuvar">{{icon "notebook"}} Otvori Vodočuvarski dnevnik</a></p>{{end}}
     <h3 id="prijave">Prijave i obavijesti s terena</h3>
-    <p>Vodočuvar s terena sastavlja obavijest, prijavu, izvješće ili zahtjev: opisuje što je
-      zatekao, bira vodotok, objekt ili dionicu, označava mjesto na karti i prilaže fotografije.
-      Nacrt se može uređivati i obrisati samo prije objave.</p>
-    <p>Na mobitelu su građevina, važnost, dionica i stacionaža pod <em>Više o mjestu</em>, a gumb
-      <em>Snimi fotografiju</em> otvara kameru.</p>
-    <p>Objavom prijava dobiva broj, osobni elektronički potpis i trajni PDF izvornik s ugrađenim
-      fotografijama. Tada postaje službeni zapis i istodobno se upisuje na vodočuvarov dnevni
-      list za dan događaja; kad za taj dan, koji je prošao, lista nema ili je list tog dana
-      prenesen iz ranije evidencije, upisuje se na današnji list, uz dan događaja. Objavljenu prijavu čita tko čita vodočuvarov dnevnik, a
-      rukovoditelj dionice samo prijavu vezanu uz svoju dionicu: onu u kojoj je navedena
-      njegova dionica ili objekt koji je u registru na njegovoj dionici; i onu u kojoj nije navedena
-      ni dionica ni objekt s dionicom, kad mu je vezan i vodočuvarov list za taj dan (vodočuvar
-      je tada čuvao njegovu dionicu ili cijelo područje). Prijava koja navodi dionicu ili objekt
-      s dionicom vezana je samo uz tu dionicu, i kad je vodočuvar ne čuva. U polju Dionica broje
-      se šifre dionica područja iz registra, bez obzira na velika slova i na to jesu li odvojene
-      zarezom, razmakom ili veznikom; ono što nije šifra dionice tog područja (npr. pogrešno
-      upisana šifra) ne navodi nijednu dionicu. Dnevni list i njegov potpisani PDF nose
-      oznaku, vrstu i naslov svake prijave objavljene za taj dan, kao dio zapisa koji vodočuvar
-      potpisuje: tko čita list vidi ih, ali samu prijavu otvara samo tko je smije čitati.
-      Uprava je nakon pregleda može označiti <strong>pregledanom i riješenom</strong>; to je stanje predmeta,
-      a ne naknadno arhiviranje. Objavljeni sadržaj time se ne mijenja. Tko je uz vodočuvara
-      i rukovoditelj, zamjenik ili globalni administrator, svoju prijavu ne označava riješenom. Objava i rješenje
-      pojavljuju se i na zidu događanja, pod gumbom <em>Prijave s terena</em>, samo onima koji
-      prijavu smiju čitati.</p>
-    <p>Ispod svake fotografije, u dokumentu i na stranici, stoji što je fotoaparat zapisao —
-      vrijeme snimanja, položaj i uređaj. Uz to stoji i SHA-256 otisak izvorne datoteke: u dokumentu
-      cijeli, na stranici skraćen, a cijeli se vidi kad pokazivač zadržite na njemu. Zato se snima s uključenom lokacijom. Prijava bez označenog mjesta dobiva položaj s fotografije.</p>
-    <p>Program fotografije odmah smanjuje radi prostora. Izvorne smanjene slike ostaju lokalno
-      onoliko dana koliko globalni administrator zada na stranici <em>Održavanje baze</em>, u dijelu
-      <em>Pohrana</em>, a zatim se brišu; potpisani PDF sa svim
-      slikama ostaje službeni izvornik. PDF se u spremištu sadržaja čuva jednom po SHA-256 otisku
-      i prenosi odgovarajućim čvorovima prema njihovoj pretplati.</p>
+    <p>Što vodočuvar zatekne na terenu, npr. rupe od divljači u kosini nasipa, otpad uz nasip ili
+      provalu u čuvarnicu, javlja prijavom s terena. Ona ima opis, mjesto na karti i fotografije, a objavom
+      postaje službeni zapis: dobiva broj i trajni PDF izvornik s ugrađenim fotografijama.</p>
+    <p>Postoje četiri vrste: <em>Obavijest</em> (što ste vidjeli), <em>Prijava</em> (šteta, otpad,
+      provala), <em>Izvješće</em> (rezultat obilaska) i <em>Zahtjev</em> (što treba nabaviti ili
+      popraviti). Jedino prijava ide iz kuće: ispisana i vlastoručno potpisana ulazi u urudžbeni
+      zapisnik kao dolazni akt. Ostale vrste ostaju u kući.</p>
+    <p><strong>Kako se piše prijava.</strong></p>
+    <ol>
+      <li>Na Naslovnoj pritisnite <em>Nova prijava</em>. Isti gumb je i na popisu prijava
+        (Dokumenti, <em>Prijave s terena</em>).</li>
+      <li>Odaberite vrstu i dan događaja, pa upišite naslov i opis: što ste zatekli, kada, koliko
+        je hitno i što predlažete.</li>
+      <li>Pod <em>Mjesto</em> dodirnite kartu ili pritisnite <em>Moj položaj</em>, pa odaberite
+        vodu ili objekt. Građevina, važnost, dionica i stacionaža su na mobitelu pod <em>Više o
+        mjestu</em>.</li>
+      <li>Pod <em>Fotografije</em> pritisnite <em>Snimi fotografiju</em> (na računalu <em>Dodaj
+        fotografije</em>). Prijava ima najviše 6 fotografija.</li>
+      <li>Pritisnite <em>Spremi nacrt</em>. Pregledajte ga, po želji i kao <em>PDF (pregled
+        nacrta)</em>, pa pritisnite <em>Objavi i potpiši</em>.</li>
+    </ol>
+    {{template "pomocSlika" (list "prijave-nova" "Nova prijava na mobitelu: odabrana vrsta Prijava s objašnjenjem šteta, otpad, provala, dan događaja 26. 11. 2026., naslov o rupama od divljači u kosini Dravskog nasipa kod ustave Bakanka i opis rupa." "359")}}
+    <p>Nacrt vidite samo vi. Dok nije objavljen, možete ga urediti (<em>Uredi</em>), ukloniti
+      pojedinu fotografiju ili ga obrisati (<em>Obriši nacrt</em>).</p>
+    {{template "pomocSlika" (list "prijave-objava" "Nacrt prijave o otpadu uz nasip kod CS Velika: poveznice PDF (pregled nacrta) i Uredi, a ispod ploča Objavi i potpiši s gumbom za objavu i poveznicom Obriši nacrt." "359")}}
+    <p><strong>Fotografije i položaj.</strong> Ispod svake fotografije, na stranici i u PDF-u,
+      stoji što je zapisao fotoaparat: vrijeme snimanja, položaj i uređaj. Uz to je otisak SHA-256
+      izvorne datoteke, na stranici skraćen, a u PDF-u cijeli. To dokazuje da slika nije
+      izmišljena, pa snimajte s uključenom lokacijom na telefonu. Ako mjesto na karti ne označite,
+      prijava uzima položaj s fotografije; na karti ga možete pomaknuti.</p>
+    {{template "pomocSlika" (list "prijave-fotografija" "Prava fotografija rupa od divljači u kosini nasipa u prijavi, a ispod nje vrijeme snimanja 26. 11. 2026. 09:14:32, položaj 45,77140; 18,15290, uređaj i skraćeni otisak SHA-256." "325")}}
+    <p><strong>Što se događa objavom.</strong> Prijava dobiva broj, npr. B-T-1/2026 (sektor,
+      redni broj u godini). PDF s fotografijama postaje izvornik i više se ne mijenja; ispravak je
+      nova prijava. Prijava se upisuje na vaš dnevni list za dan događaja. Ako je taj dan prošao,
+      a lista nema ili je list tog dana prenesen iz ranije evidencije, upisuje se na današnji
+      list, uz dan događaja. Dnevni list i njegov potpisani PDF nose oznaku, vrstu i naslov svake
+      prijave objavljene za taj dan, i one za raniji dan koja je upisana na taj list: tko čita
+      list vidi ih, ali samu prijavu otvara samo tko je smije čitati.</p>
+    <p>Ako imate potpisni ključ, uz gumb upisujete <em>Lozinku za potpis</em> i PDF se potpisuje
+      vašim ključem. Bez ključa prijava se objavi bez osobnog elektroničkog potpisa, a na stranici
+      uz izvornik piše „bez elektroničkog potpisa”. U PDF-u na mjestu potpisa vodočuvara u oba
+      slučaja stoji okvir s imenom, vremenom objave i kodom za provjeru, a ispis prijave potpisuje
+      se i vlastoručno.</p>
+    {{template "pomocSlika" (list "prijave-objavljena" "Dio objavljene prijave: objavljeno 26. 11. 2026. u 18:12, dnevni list 001/2026 kao poveznica i izvornik PDF bez elektroničkog potpisa." "325")}}
+    <p><strong>Urudžba.</strong> Kad pisarnica primi ispisanu prijavu, na stranici prijave, pod
+      <em>Urudžbeni zapisnik</em>, upišite KLASU, URBROJ i dan primitka, pa pritisnite <em>Upiši
+      urudžbu</em>. Bez dana primitka uzima se današnji. Upisuje ih vodočuvar sam ili onaj tko
+      smije riješiti prijavu, bez ičijeg parafa. Klasa i broj dopisuju se na PDF preko prijemnog
+      štambilja kao bilješka, a potpis vodočuvara ostaje valjan. Na popisu takva prijava ima
+      oznaku <em>urudžbirano</em>. Obavijest, izvješće i zahtjev nemaju urudžbu.</p>
+    {{template "pomocSlika" (list "prijave-urudzba" "Ploča Urudžbeni zapisnik na objavljenoj prijavi: objašnjenje da jedino prijava ide iz kuće, upisana KLASA 325-02/26-01/0000123 i URBROJ 374-26-3, prazno polje Primljeno i gumb Upiši urudžbu." "359")}}
+    <p><strong>Gdje su prijave.</strong> Svoje prijave vodočuvar nalazi pod <em>Moje prijave</em> u
+      Vodočuvarskom dnevniku ili u Dokumentima, pod <em>Prijave s terena</em>. Popis se sužava po
+      sektoru, branjenom području, stanju (nacrti, objavljene, riješene) i godini, a polje
+      <em>Traži</em> traži u naslovu, opisu i mjestu. Iznad kartica piše koliko je prijava za
+      odabrani izbor; na popisu su samo prijave koje smijete čitati. Na kartici je dan događaja, a
+      dan objave piše na stranici prijave.</p>
+    {{template "pomocSlika" (list "prijave-popis" "Popis Prijave i obavijesti s terena na mobitelu: gumb Nova prijava, izbori Sektor, Godina, Branjeno područje i Stanje, polje Traži, a ispod dvije prijave, nacrt o otpadu kod CS Velika i objavljena B-T-1/2026 o rupama od divljači s dvije fotografije." "359")}}
+    {{if .VidiVodocuvarskiDnevnik}}<p><a class="btn btn-secondary btn-sm" href="/prijave">{{icon "map-pin"}} Otvori Prijave s terena</a></p>{{end}}
+    <p><strong>Pregledano i riješeno.</strong> Nakon pregleda prijavu pregledanom i riješenom
+      označava, gumbom <em>Pregledano, riješeno</em>, uprava vodočuvarove knjige: rukovoditelj branjenog područja i
+      zamjenik, rukovoditelj sektora i zamjenik, voditelj COP-a i zamjenik, glavni rukovoditelj i
+      zamjenik te globalni administrator. To je stanje predmeta, a ne naknadno arhiviranje: PDF,
+      potpis i upis na list ostaju isti. Svoju prijavu nitko ne označava riješenom, pa ni onaj
+      tko je uz vodočuvara i rukovoditelj, zamjenik ili globalni administrator. Rukovoditelj
+      branjenog područja neriješene prijave vidi na Naslovnoj, u kartici <em>Za riješiti</em>:
+      one mlađe od 7 dana svaku posebno, a starije u jednom retku s poveznicom na popis. Objava i
+      rješenje pojavljuju se i na zidu događanja, pod gumbom <em>Prijave s terena</em>, samo onima
+      koji prijavu smiju čitati.</p>
+    <p><strong>Tko čita prijave.</strong> Objavljenu prijavu čita tko čita vodočuvarov dnevnik:
+      rukovoditelj branjenog područja, ovlaštenici, uprava i dežurni operater u COP-u svog
+      sektora, a rukovoditelj dionice samo prijavu vezanu uz svoju dionicu: onu u kojoj je
+      navedena njegova dionica ili objekt koji je u registru na njegovoj dionici, i onu u kojoj
+      nije navedena ni dionica ni objekt s dionicom, kad mu je vezan i vodočuvarov list za taj dan
+      (vodočuvar je tada čuvao njegovu dionicu ili cijelo područje). Prijava koja navodi dionicu
+      ili objekt s dionicom vezana je samo uz tu dionicu, i kad je vodočuvar ne čuva.
+      Rukovoditelj dionice kojemu na dužnosti nije upisana nijedna dionica vodi sve dionice svog
+      područja i čita sve njegove prijave.</p>
+    <p>U polju <em>Dionica</em> program prepoznaje šifre dionica tog područja iz registra, bez
+      obzira na velika slova i na to jesu li odvojene zarezom, razmakom ili veznikom, a ono što
+      nije šifra dionice tog područja (npr. pogrešno upisana šifra) ne navodi nijednu dionicu.
+      Iznimka je područje koje u registru još nema dionica: tada se svaka upisana riječ uzima kao
+      šifra.</p>
+    <p><strong>Pohrana fotografija.</strong> Program fotografije odmah smanjuje. Smanjene
+      izvorne slike čuvaju se na računalu 180 dana od objave; globalni administrator taj rok
+      mijenja na stranici <em>Održavanje baze</em>, u dijelu <em>Pohrana</em> (od 7 do 3650 dana),
+      ili zadaje da se brišu odmah po objavi. Kad slike više nema, stranica kaže da je u PDF-u:
+      potpisani PDF sa svim slikama ostaje službeni izvornik.</p>
+    <p><strong>Prenesene prijave.</strong> Prijave prenesene iz ranije evidencije (BP16) imaju
+      oznaku <em>rekonstrukcija</em>. PDF im je složen iz podataka i nema elektroničkog potpisa, a
+      uz neke stoji i <em>Sken potpisanog ispisa</em>. Ne pojavljuju se na zidu događanja.</p>
 
     <h3 id="akti">Rješenja i obavijesti</h3>
     <p>Akt se sastavlja po letvi i branjenom području u aktivnoj obrani. Bira se očitanje ili

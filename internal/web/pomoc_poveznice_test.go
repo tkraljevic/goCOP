@@ -71,6 +71,13 @@ func TestPomocNudiPoveznicuSamoUDioKojiImate(t *testing.T) {
 	if s := stranica(models.Visibility{}, &models.User{IsGlobalAdmin: true}); !strings.Contains(s, `href="/vodocuvar">`) {
 		t.Error("tko čita Vodočuvarski dnevnik, ne dobiva gumb Otvori Vodočuvarski dnevnik")
 	}
+	// gumb za Prijave s terena prati isto pravilo kao Dokumenti, skupina Teren
+	if strings.Contains(admin, "Otvori Prijave s terena") {
+		t.Error("bez prijavljene osobe Pomoć nudi Prijave s terena")
+	}
+	if s := stranica(models.Visibility{}, &models.User{IsGlobalAdmin: true}); !strings.Contains(s, `href="/prijave">`) {
+		t.Error("tko čita Vodočuvarski dnevnik, ne dobiva gumb Otvori Prijave s terena")
+	}
 	if strings.Contains(admin, "Otvori Očitanja") || strings.Contains(admin, "Otvori Moje letve") {
 		t.Error("bez Očitanja Pomoć ipak nudi gumb Otvori Očitanja")
 	}
