@@ -28,6 +28,7 @@ type okolinaPropisa struct {
 	svc              *service.PropisiService
 	vodocuvar, admin string // sesije
 	zatvori          func()
+	prijava          *okolinaPrijave
 }
 
 var (
@@ -74,7 +75,7 @@ func novaOkolinaPropisa(t *testing.T) *okolinaPropisa {
 	}
 	return &okolinaPropisa{t: t, srv: s.Handler(), server: s, repo: repo, svc: svc,
 		vodocuvar: sesija("iivic", "ivina-lozinka"), admin: sesija("pperic", "perina-lozinka"),
-		zatvori: func() { o.baza.Close() }}
+		zatvori: func() { o.baza.Close() }, prijava: o}
 }
 
 func (o *okolinaPropisa) get(put, sesija string) *httptest.ResponseRecorder {

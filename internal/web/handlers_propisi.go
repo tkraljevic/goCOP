@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"slices"
 	"strings"
 
 	"gocop/internal/models"
@@ -46,6 +47,13 @@ type PropisiPageData struct {
 	Dio      *service.StranicaDijela
 	Izmjena  *service.StranicaIzmjene
 
+	// učitavanje (globalni administrator, handlers_propisi_ucitaj.go)
+	Obrazac        *ObrazacPropisa
+	Pregled        *service.PregledPropisa
+	PregledIzmjene *service.PregledIzmjene
+	Kljuc          string // pregled koji čeka potvrdu
+	NaziviSkupina  []string
+
 	SuccessMessage string
 	ErrorMessage   string
 	ActiveNav      string
@@ -57,8 +65,14 @@ func (d PropisiPageData) JeAdministrator() bool {
 	return d.Permissions != nil && d.Permissions.IsGlobalAdmin
 }
 
+// SkupinaUpisana: skupina nije jedna od stalnih, pa je izbor „Nova
+// skupina…” s upisanim nazivom
+func (d PropisiPageData) SkupinaUpisana(s string) bool {
+	return s != "" && !slices.Contains(d.NaziviSkupina, s)
+}
+
 func (h *PropisiHandler) podaci(r *http.Request) PropisiPageData {
-	d := PropisiPageData{ActiveNav: "journals", ViewAsBanner: viewBanner(r),
+	d := PropisiPageData{ActiveNav: "journals", ViewAsBanner: viewBanner(r), NaziviSkupina: service.NaziviSkupina(),
 		SuccessMessage: r.URL.Query().Get("success"), ErrorMessage: r.URL.Query().Get("error")}
 	d.CurrentUser, _ = r.Context().Value(contextKeyUser).(*models.User)
 	d.Permissions, _ = r.Context().Value(contextKeyPerms).(*models.UserPermissions)

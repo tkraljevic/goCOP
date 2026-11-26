@@ -15,7 +15,7 @@ import (
 func TestStranicePropisaSeIscrtavaju(t *testing.T) {
 	o := novaOkolinaPropisa(t)
 	o.napuni()
-	for _, ime := range []string{"propisi.html", "propis.html", "propis_izmjena.html"} {
+	for _, ime := range []string{"propisi.html", "propis.html", "propis_izmjena.html", "propisi_ucitaj.html", "propisi_provjera.html", "propisi_provjera_izmjene.html"} {
 		if o.server.templates[ime] == nil {
 			t.Errorf("%s nije upisan u NewServer", ime)
 		}

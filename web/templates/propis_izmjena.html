@@ -47,5 +47,26 @@
   <h2>Tekst izmjene</h2>
   {{range .Dijelovi}}{{template "propisDio" .}}{{end}}
 </section>
+
+{{if $.JeAdministrator}}
+<div class="propisi-gumbi propis-admin samo-racunalo">
+  {{if ne $iz.Izvor "tekst"}}
+  <form method="POST" action="/propisi/{{$p.Adresa}}/dodaj-izmjenu">
+    <input type="hidden" name="broj_nn" value="{{$iz.NN.Broj}}/{{$iz.NN.Godina}}">
+    <input type="hidden" name="broj_akta" value="{{$iz.NN.Akt}}">
+    <input type="hidden" name="nacin" value="nn">
+    <button type="submit" class="btn btn-secondary">{{icon "download"}} Dohvati ponovno i poveži odredbe</button>
+  </form>
+  {{end}}
+  <details class="propis-ukloni">
+    <summary class="btn btn-link btn-opasno">Ukloni izmjenu</summary>
+    <form method="POST" action="/propisi/{{$p.Adresa}}/izmjene/{{$iz.NN.ID}}/ukloni" class="reg-card">
+      <p class="form-help">Izmjena i njezine oznake uz članke nestaju na svim računalima. U povijesti zapisa ostaje.</p>
+      <div class="form-group list-polje">{{icon "pencil"}}<label class="form-label" for="razlog-izmjene">Razlog uklanjanja (obavezno)</label><textarea class="form-control" id="razlog-izmjene" name="razlog" rows="2" required></textarea></div>
+      <button type="submit" class="btn btn-secondary btn-opasno">{{icon "trash"}} Ukloni izmjenu</button>
+    </form>
+  </details>
+</div>
+{{end}}
 {{end}}
 {{end}}

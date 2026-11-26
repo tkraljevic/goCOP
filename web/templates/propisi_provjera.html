@@ -1,0 +1,84 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Propisi{{end}}
+
+{{/* Znak „?” vodi na odjeljak Pomoći o propisima */}}
+{{define "sidroPomoci"}}#propisi{{end}}
+
+{{/* Provjeri podjelu (goCOP-m3, 15g · Dokumenti · Propisi, 5): što je dohvaćeno, kako je program
+     podijelio tekst i što nije prepoznao. Propis se sprema tek gumbom „Spremi propis”; pregled čeka
+     na poslužitelju, a stranica šalje samo njegov ključ. */}}
+{{define "content"}}
+{{with .Pregled}}{{$p := .Propis}}{{$pr := .}}
+<a href="/propisi/ucitaj" class="povratna-poveznica">← Učitaj iz Narodnih novina</a>
+<div class="page-header list-glava">
+  <div>
+    <h1 class="page-title" data-naziv-stranice>Provjeri podjelu</h1>
+    <p class="page-desc">{{$p.Naziv}} · {{$p.NN.Puno}}{{with $p.Donositelj}} · {{.}}{{end}}</p>
+  </div>
+</div>
+
+{{with .Postoji}}
+<div class="dash-traka propis-traka" role="status">{{icon "info"}}<span>Ovaj propis je već učitan {{datumDana .CreatedAt}}. Spremanjem se njegov tekst zamjenjuje ovim čitanjem. Adresa i izmjene ostaju, a stari tekst ostaje u povijesti.</span></div>
+{{end}}
+
+<section class="reg-card propisi-dohvaceno">
+  <h2>{{if eq $p.Izvor "tekst"}}Tekst je pročitan{{else}}Akt je dohvaćen{{end}}</h2>
+  <dl class="propisi-podaci">
+    <dt>Naziv</dt><dd>{{$p.Naziv}}</dd>
+    <dt>Donositelj</dt><dd>{{with $p.Donositelj}}{{.}}{{else}}nije upisan{{end}}</dd>
+    <dt>Datum objave</dt><dd>{{with .Objava}}{{.}}{{else}}nije upisan{{end}}</dd>
+    <dt>Izdanje</dt><dd>{{$p.NN.Puno}}, akt {{$p.NN.Akt}}</dd>
+    <dt>ELI</dt><dd>{{with $p.ELI}}{{.}}{{else}}nema{{end}}</dd>
+    <dt>Tekst</dt><dd>{{.OpisTeksta}}</dd>
+    <dt>Stupa na snagu</dt><dd>{{with .Stupa}}{{.}}{{else}}program nije našao odredbu{{end}}</dd>
+  </dl>
+  {{if not $p.ELI}}<p class="form-help">Narodne novine za ovaj akt nemaju podatke o izmjenama. Izmjenu možete dodati sami, uz propis.</p>{{end}}
+</section>
+
+<section class="reg-card propisi-podjela">
+  <h2>Prepoznato: {{with .Opseg.Opis}}{{.}}{{else}}ništa{{end}}{{with .Raspon}} ({{.}}){{end}}</h2>
+  <p class="form-help">Provjerite je li podjela dobra. Propis se sprema tek kad kliknete „Spremi propis”.</p>
+  {{if .Podjela.Proglasenje}}<p>Odluka o proglašenju nije dio zakona, pa se ne sprema.</p>{{end}}
+  {{with .Neprepoznatih}}<p>Program nije prepoznao {{.}} {{uzBroj . "odlomak" "odlomka" "odlomaka"}}. Svaki ostaje kao zaseban odlomak, na mjestu gdje je u tekstu.</p>{{end}}
+  {{range .Podjela.Upozorenja}}
+  {{if eq .Vrsta "neprepoznato"}}
+  <div class="propis-neprepoznato"><strong>Nije prepoznato · {{.Sto}}</strong>{{range .Retci}}<p>{{.}}</p>{{end}}</div>
+  {{else}}
+  <p class="propis-upozorenje">{{icon "triangle-alert"}} {{.Sto}}</p>
+  {{end}}
+  {{end}}
+  {{with .Neucitane}}<p>Narodne novine navode {{len .}} {{uzBroj (len .) "izmjenu" "izmjene" "izmjena"}} ovog propisa: {{range $i, $nn := .}}{{if $i}}, {{end}}{{$nn.Puno}}{{end}}. Dodajte ih poslije spremanja, gumbom „Dodaj izmjenu”.</p>{{end}}
+</section>
+
+<form method="POST" action="/propisi/ucitaj/spremi" class="reg-card propisi-spremi">
+  <input type="hidden" name="p" value="{{$.Kljuc}}">
+  {{if .Postoji}}
+  <p>Stalna adresa: <a href="/propisi/{{.Postoji.Adresa}}">/propisi/{{.Postoji.Adresa}}</a></p>
+  {{else}}
+  <div class="form-group list-polje"><label class="form-label" for="adresa">Stalna adresa</label>
+    <div class="propisi-adresa"><span>/propisi/</span><input class="form-control" id="adresa" name="adresa" value="{{$p.Adresa}}" maxlength="80" pattern="[a-z0-9]+(-[a-z0-9]+)*" required></div>
+    <p class="form-help">Dio poveznice na propis, npr. /propisi/zakon-o-vodama. Poslije se ne mijenja.</p></div>
+  {{end}}
+  <div class="list-dva">
+    <div class="form-group list-polje"><label class="form-label" for="skupina">Skupina</label>
+      <select class="form-control" id="skupina" name="skupina">
+        {{range $.NaziviSkupina}}<option value="{{.}}"{{if eq . $p.Skupina}} selected{{end}}>{{.}}</option>{{end}}
+        <option value="nova"{{if $.SkupinaUpisana $p.Skupina}} selected{{end}}>Nova skupina…</option>
+      </select></div>
+    <div class="form-group list-polje"><label class="form-label" for="nova_skupina">Naziv nove skupine</label><input class="form-control" id="nova_skupina" name="nova_skupina" maxlength="60" value="{{if $.SkupinaUpisana $p.Skupina}}{{$p.Skupina}}{{end}}"></div>
+  </div>
+  <div class="propisi-gumbi">
+    <a href="/propisi/ucitaj" class="btn btn-link">Natrag</a>
+    <button type="submit" class="btn btn-primary">Spremi propis</button>
+  </div>
+</form>
+
+<details class="reg-card propisi-pregled" open>
+  <summary>Tekst kako ga je program podijelio</summary>
+  <div class="propis-tekst">
+    {{range $pr.Tekst}}{{template "propisDio" .}}{{end}}
+  </div>
+</details>
+{{end}}
+{{end}}

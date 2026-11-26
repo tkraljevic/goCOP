@@ -15,6 +15,7 @@
     <h1 class="page-title" data-naziv-stranice>Propisi</h1>
     <p class="page-desc">Propisi o obrani od poplava i drugi, učitani iz Narodnih novina. Rade i bez interneta.</p>
   </div>
+  {{if .JeAdministrator}}<a href="/propisi/ucitaj" class="btn btn-primary samo-racunalo">{{icon "download"}} Učitaj iz Narodnih novina</a>{{end}}
 </div>
 
 <form method="GET" action="/propisi" class="reg-card propisi-trazi" role="search">
@@ -77,7 +78,7 @@
 {{else}}
 <div class="reg-empty">
   <p>Još nema učitanih propisa.</p>
-  <p>Propise učitava globalni administrator. Kad ih učita, stižu na sva računala.</p>
+  {{if .JeAdministrator}}<p>Prvi propis učitajte gumbom „Učitaj iz Narodnih novina”.</p>{{else}}<p>Propise učitava globalni administrator. Kad ih učita, stižu na sva računala.</p>{{end}}
 </div>
 {{end}}
 {{end}}

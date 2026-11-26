@@ -11492,6 +11492,29 @@ td .odr-sitno { margin-top: 2px; }
 .propis-susjedi { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 16px; font-size: 0.875rem; }
 .propis-upozorenje { margin-top: 4px; font-size: 0.8125rem; color: var(--md-sys-color-on-surface); }
 .propis-upute h2, .propis-tekst > h2 { margin: 0 0 12px; font-size: 1rem; font-weight: 500; }
+/* Učitavanje (15g, 4–6): obrazac s dva puta, provjera podjele i tablica odredbi izmjene */
+.propisi-ucitaj .reg-card, .propisi-dohvaceno, .propisi-podjela, .propisi-spremi, .propisi-pregled, .propisi-neucitane { margin-bottom: 16px; }
+.propisi-ucitaj h2, .propisi-dohvaceno h2, .propisi-podjela h2, .propisi-neucitane h2 { margin: 0 0 12px; font-size: 1rem; font-weight: 500; }
+.propisi-ili { margin: 4px 0; font-size: 0.875rem; color: var(--md-sys-color-on-surface-variant); }
+.propisi-gumbi { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 12px 0 0; }
+.propisi-gumbi .form-help { margin: 0; }
+.propisi-neucitana { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; }
+.propisi-neucitana form { margin: 0; }
+.propisi-podaci { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; }
+.propisi-podaci dt { color: var(--md-sys-color-on-surface-variant); }
+.propisi-podaci dd { margin: 0; overflow-wrap: anywhere; }
+.propisi-podjela p { margin: 0 0 8px; }
+.propisi-podjela .propis-neprepoznato { margin: 0 0 8px; }
+.propisi-adresa { display: flex; align-items: center; gap: 4px; }
+.propisi-adresa span { color: var(--md-sys-color-on-surface-variant); }
+.propisi-adresa .form-control { flex: 1; min-width: 0; }
+.propisi-pregled > summary { cursor: pointer; font-weight: 500; }
+.propisi-cilj { margin-top: 6px; max-width: 16rem; }
+.propis-admin { margin-top: 12px; }
+.propis-ukloni > summary { list-style: none; cursor: pointer; }
+.propis-ukloni > summary::-webkit-details-marker { display: none; }
+.propis-ukloni[open] > form { margin-top: 8px; max-width: 32rem; }
 @media (max-width: 599px) {
   .samo-racunalo { display: none; }
+  .propisi-podaci { grid-template-columns: 1fr; }
 }

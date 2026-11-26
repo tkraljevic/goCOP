@@ -135,5 +135,8 @@ VANJSKE MREŽNE USLUGE
     Palanke, poslani izravno Hrvatskim vodama, u arhivi čvora. Podaci
     nisu u repozitoriju; uvjeti korištenja prema dogovoru s RHMZ-om.
   HydroBASINS / HydroSHEDS: poligoni međuslivova CC BY 4.0.
+  Narodne novine (narodne-novine.nn.hr): tekst propisa i njihovih izmjena,
+    samo kad ih globalni administrator učita. Tekstovi su u bazi računala,
+    ne u repozitoriju; službeni tekst je onaj u Narodnim novinama.
   Podaci vanjskih usluga zadržavaju uvjete svojih pružatelja i nisu
   relicencirani EUPL-om samo zato što ih program prikazuje.

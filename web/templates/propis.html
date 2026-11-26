@@ -36,6 +36,17 @@
 {{if $.JeAdministrator}}
 {{if .Nepovezane}}<div class="dash-traka propis-traka" role="status">{{icon "triangle-alert"}}<span>{{.Nepovezane}} {{uzBroj .Nepovezane "odredba izmjene nije povezana" "odredbe izmjena nisu povezane" "odredbi izmjena nije povezano"}} s člankom. Otvorite izmjenu i povežite je.</span></div>{{end}}
 {{with .Neucitane}}<div class="dash-traka propis-traka" role="status">{{icon "info"}}<span>Narodne novine navode {{len .}} {{uzBroj (len .) "izmjenu koja nije učitana" "izmjene koje nisu učitane" "izmjena koje nisu učitane"}}: {{range $i, $nn := .}}{{if $i}}, {{end}}{{$nn.Puno}}{{end}}.</span></div>{{end}}
+<div class="propisi-gumbi propis-admin samo-racunalo">
+  <a href="/propisi/{{$p.Adresa}}/dodaj-izmjenu" class="btn btn-secondary">{{icon "plus"}} Dodaj izmjenu</a>
+  <details class="propis-ukloni">
+    <summary class="btn btn-link btn-opasno">Ukloni propis</summary>
+    <form method="POST" action="/propisi/{{$p.Adresa}}/ukloni" class="reg-card">
+      <p class="form-help">Propis nestaje s popisa na svim računalima, zajedno s izmjenama. U povijesti zapisa ostaje, s razlogom.</p>
+      <div class="form-group list-polje">{{icon "pencil"}}<label class="form-label" for="razlog-propisa">Razlog uklanjanja (obavezno)</label><textarea class="form-control" id="razlog-propisa" name="razlog" rows="2" required></textarea></div>
+      <button type="submit" class="btn btn-secondary btn-opasno">{{icon "trash"}} Ukloni propis</button>
+    </form>
+  </details>
+</div>
 {{end}}
 {{end}}
 

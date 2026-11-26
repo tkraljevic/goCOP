@@ -33,6 +33,7 @@ import (
 	"gocop/internal/peers"
 	"gocop/internal/posta"
 	"gocop/internal/prognoza"
+	"gocop/internal/propisi"
 	"gocop/internal/repository"
 	"gocop/internal/sadrzaj"
 	"gocop/internal/service"
@@ -812,8 +813,8 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	server.SetPrijave(prijavaService)
 	prijaveGresaka := service.NewPrijavaGreskeService(repository.NewPrijavaGreskeRepository(database, recorder), imeCvora(node))
 	server.SetPrijaveGresaka(prijaveGresaka)
-	// Propisi se zasad samo čitaju; dohvat iz Narodnih novina dolazi s učitavanjem
-	server.SetPropisi(service.NewPropisiService(repository.NewPropisiRepository(database, recorder), nil))
+	// Propisi; dohvaća ih samo ovo računalo, kad globalni administrator učita propis
+	server.SetPropisi(service.NewPropisiService(repository.NewPropisiRepository(database, recorder), propisi.NoviDohvat(javnivodostaji.JavniKlijent(30*time.Second))))
 	// e-pošta o novoj prijavi ide u pozadini; zaustavlja se prije zatvaranja baze
 	defer prijaveGresaka.PokreniPoruke(ctx, drugiKorak, func() string { return cfg.JavnaAdresa })()
 	// slika zaslona briše se 30 dana nakon što je prijava riješena
