@@ -39,3 +39,27 @@ func TestPrijavaBezKljucaNosiOznakuObjave(t *testing.T) {
 		t.Errorf("s ključem: %.600s", tekst)
 	}
 }
+
+// Isto vrijedi za dnevni list: predaja i ovjera bez potpisnog ključa nose
+// oznaku predaje i ovjere, a ne natpis elektroničkog potpisa. Ovjera bez
+// ključa dodaje se kao pečat preko izvornika predaje.
+func TestDnevniListBezKljucaNosiOznakePredajeIOvjere(t *testing.T) {
+	if _, err := exec.LookPath("pdftotext"); err != nil {
+		t.Skip("pdftotext nije dostupan")
+	}
+	predano := time.Date(2026, 11, 26, 15, 0, 0, 0, time.UTC)
+	ovjereno := predano.Add(2 * time.Hour)
+	l := &models.VodocuvarskiList{ID: "l1", UserID: "u1", Ime: "Ivo Ivić", Broj: 1, Datum: predano, Cvor: "proba",
+		Opis: "obilazak nasipa", PredanoAt: &predano, Potvrdio: "Ana Anić", PotvrdioID: "u2", PotvrdenoAt: &ovjereno}
+
+	pdf, m := pdfLista(l, models.Terms(), nil, nil, crtanjeBlokova{vodocuvar: true, rukovoditelj: false}, PrilogListaPDF{})
+	dod := (&VodocuvarHandler{}).dodatakPotpisa(m, m.xRuk, l, l.Potvrdio, ovjereno, l.KodOvjere(), "Ovjera dnevnog lista,", oznakaOvjere, nil, nil)
+	pdf, err := potpisiIzvornik(pdf, nil, dod)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tekst := pdfTekst(t, pdf)
+	if !strings.Contains(tekst, "PREDANO U goCOP-u") || !strings.Contains(tekst, "OVJERENO U goCOP-u") || strings.Contains(tekst, "ELEKTRONIČKI POTPISANO") {
+		t.Errorf("list bez ključa: %.800s", tekst)
+	}
+}

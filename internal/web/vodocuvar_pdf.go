@@ -349,9 +349,12 @@ func nacrtajList(d *pdfw.Doc, l *models.VodocuvarskiList, t models.OrgTerms, are
 	const pw = 215.0
 	m := mjestaPotpisa{stranica: d.Stranica(), y: y + 8, w: pw, h: visinaPotpisa, xVodocuvar: d.Lijevo, xRuk: d.W - d.Desno - pw}
 	list := fmt.Sprintf("list %03d/%d", l.Broj, dan.Year())
-	potpis := func(x float64, naslov, ime string, kad *time.Time, kod, userID string, crtajBlok bool) {
+	// blok koji se crta ovdje nije potpis: s ključem ga crta potpis, preko
+	// istog mjesta (vodocuvar_potpis.go), pa ovdje nosi samo oznaku predaje
+	// ili ovjere
+	potpis := func(x float64, naslov, oznaka, ime string, kad *time.Time, kod, userID string, crtajBlok bool) {
 		d.TekstSredina(x+pw/2, y, 9, false, naslov)
-		crtajPotpisLista(d, x, m.y, pw, ime, kad, list, kod, l.Cvor, otisci[userID], crtajBlok, false)
+		crtajPotpisListaNaslovom(d, x, m.y, pw, oznaka, ime, kad, list, kod, l.Cvor, otisci[userID], crtajBlok, false)
 	}
 	if l.Rekonstrukcija {
 		// prenesen list nema potpisa: ni vodočuvarev ni rukovoditeljev, jer
@@ -363,8 +366,8 @@ func nacrtajList(d *pdfw.Doc, l *models.VodocuvarskiList, t models.OrgTerms, are
 		d.Y = m.y + visinaPotpisa + 10
 		return m
 	}
-	potpis(m.xVodocuvar, "Vodočuvar", l.Ime, l.PredanoAt, l.KodPredaje(), l.UserID, crtaj.vodocuvar)
-	potpis(m.xRuk, "Rukovoditelj branjenog područja", l.Potvrdio, l.PotvrdenoAt, l.KodOvjere(), l.PotvrdioID, crtaj.rukovoditelj)
+	potpis(m.xVodocuvar, "Vodočuvar", oznakaPredaje, l.Ime, l.PredanoAt, l.KodPredaje(), l.UserID, crtaj.vodocuvar)
+	potpis(m.xRuk, "Rukovoditelj branjenog područja", oznakaOvjere, l.Potvrdio, l.PotvrdenoAt, l.KodOvjere(), l.PotvrdioID, crtaj.rukovoditelj)
 	d.Y = m.y + visinaPotpisa + 10
 	if len(l.Parafe) > 0 {
 		var p []string
@@ -447,6 +450,13 @@ const visinaPotpisa = 46 + 42 + 11 + 12
 func crtajPotpisLista(d *pdfw.Doc, x, y, w float64, ime string, kad *time.Time, list, kod, cvor string, sken *models.PotpisSlika, crtajBlok, simulacija bool) {
 	crtajPotpisListaNaslovom(d, x, y, w, "ELEKTRONIČKI POTPISANO U goCOP-u", ime, kad, list, kod, cvor, sken, crtajBlok, simulacija)
 }
+
+// Natpisi bloka bez potpisnog ključa: blok tada nije elektronički potpis,
+// nego oznaka da je list predan ili ovjeren u goCOP-u, s vremenom i kodom
+const (
+	oznakaPredaje = "PREDANO U goCOP-u"
+	oznakaOvjere  = "OVJERENO U goCOP-u"
+)
 
 // crtajPotpisListaNaslovom je crtajPotpisLista s danim natpisom bloka: prijava
 // objavljena bez potpisnog ključa nosi oznaku objave, a ne natpis potpisa
