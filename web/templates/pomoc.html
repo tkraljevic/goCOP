@@ -81,7 +81,7 @@
   <div class="pomoc-skupina">
     <h3>Svaki dan</h3>
     <a class="pomoc-tema" href="#dashboard">{{icon "house"}}<span>Naslovna</span><small>8 podnaslova</small>{{icon "chevron-right"}}</a>
-    <a class="pomoc-tema" href="#readings">{{icon "ruler"}}<span>Očitanja</span><small>8 podnaslova</small>{{icon "chevron-right"}}</a>
+    <a class="pomoc-tema" href="#readings">{{icon "ruler"}}<span>Očitanja</span><small>11 podnaslova</small>{{icon "chevron-right"}}</a>
     <a class="pomoc-tema" href="#prognoze">{{icon "chart-column"}}<span>Prognoze</span><small>6 podnaslova</small>{{icon "chevron-right"}}</a>
     <a class="pomoc-tema" href="#karta">{{icon "map"}}<span>Karta</span>{{icon "chevron-right"}}</a>
     <a class="pomoc-tema" href="#obilazak">{{icon "ruler"}}<span>Obilazak letava</span>{{icon "chevron-right"}}</a>
@@ -457,16 +457,42 @@
   <h2>{{icon "ruler"}} Obilazak letava</h2>
   <div class="reg-card pomoc-tekst">
     <p>Na vrhu stranice Očitanja su <strong>Moje letve</strong>: letve i objekti koje ste
-      u zadnjih 90 dana sami očitali, poredani po vremenu kad ih obično obilazite. Skupni unos
-      ispisa se ne broji, jer letvu nije obišao onaj tko je ispis zalijepio. Traka pokazuje
-      koliko ih je danas očitano, a gumb <em>Nastavi obilazak</em> vodi na prvu koja još nije.
-      <em>Upiši</em> uz letvu otvara upis, a nakon spremanja program se vraća na isti popis.</p>
+      u zadnjih 90 dana sami očitali, poredani po vremenu kad ih obično obilazite. Traka i broj
+      gore desno, npr. <em>1 od 2 danas</em>, pokazuju koliko ih je danas očitano.</p>
     {{template "pomocSlika" (list "ocitanja-moje-letve" "Moje letve na mobitelu: jedna od dvije letve danas je očitana, gumb Nastavi obilazak vodi na Aljmaš, a uz njega je Upiši." "359")}}
-    <p>Letva je danas očitana kad je netko na nju ručno upisao očitanje; uz vrijeme piše i tko.
-      Satno očitanje uređaja i skupni unos se ne broje. Ostale letve su ispod, po vodama; čipom
-      <em>Područje</em> popis se suzi na jedno branjeno područje.</p>
-    <p>Vodočuvar dnevni list, zadatke rukovoditelja i novu prijavu s terena ima na Naslovnoj.
-      Nekadašnja stranica Teren vodi na Očitanja.</p>
+    <p>Obilazak ide ovim redom:</p>
+    <ol>
+      <li>Otvorite Očitanja. Na mobitelu su u donjem izborniku.</li>
+      <li>Pritisnite <em>Nastavi obilazak</em>. Otvara se upis za prvu letvu koja danas još nije
+        očitana.</li>
+      <li>Upišite vodostaj i spremite. Program se vraća na Moje letve, a gumb sad vodi na
+        sljedeću letvu.</li>
+    </ol>
+    <p>Kad su sve očitane, umjesto gumba piše <em>Sve moje letve su danas očitane.</em> Letvu
+      možete upisati i izvan reda, gumbom <em>Upiši</em> uz nju.</p>
+    {{template "pomocSlika" (list "obilazak-gotovo" "Moje letve na mobitelu nakon obilaska: 2 od 2 danas, traka puna, piše Sve moje letve su danas očitane, a uz Donji Miholjac i Aljmaš su kvačica, vrijeme, tko je očitao i vodostaj." "359")}}
+    <p>Uz letvu koja danas još nije očitana piše kad je obično očitavate, npr. <em>obično oko
+      18:00</em>. Uz očitanu piše vrijeme, tko je očitao i vodostaj.</p>
+    <p><strong>Kako letva postane moja.</strong> Letve se ne biraju. Letva je u Mojim letvama kad
+      ste je u zadnjih 90 dana sami ručno očitali. Novu letvu prvi put upišite s popisa ispod ili
+      preko povećala; od tada je u obilasku. Letva koju 90 dana ne očitate ispada iz popisa.
+      Dok niste sami očitali nijednu, čip <em>Moje letve</em> to i kaže.</p>
+    {{template "pomocSlika" (list "obilazak-prazno" "Očitanja na računalu s odabranim čipom Moje letve: piše Još nemate svojih letava. Letve koje sami očitate pojavit će se ovdje, redom kojim ih obično obilazite." "736")}}
+    <p><strong>Što se broji kao danas očitano.</strong> Ručno očitanje koje je bilo tko upisao od
+      ponoći; uz vrijeme piše i tko. Satno očitanje mjernog uređaja i skupni unos ispisa se ne
+      broje, jer letvu nitko nije obišao. Svako ručno očitanje vrijedi, i kad letva ima mjerni
+      uređaj: vidi <a href="#ocitanja-vaznost">Zašto je ručno očitanje važno</a>.</p>
+    <p>Čip <em>Moje letve</em> ostavlja samo obilazak. Bez njega su ostale letve ispod, po
+      vodama. Čipovi <em>Sektor</em> i <em>Područje</em> suze i obilazak. <em>Upiši</em> i
+      <em>Nastavi obilazak</em> vode samo na letve na koje smijete upisivati.</p>
+    <p><strong>Moje letve nisu nalog.</strong> Pokazuju samo letve koje ste dosad obilazili. Što
+      treba obići, određuje rukovoditelj branjenog područja zadatkom na dnevnom listu (vidi
+      <a href="#vodocuvar">Vodočuvarski dnevnik</a>). Letve uz put tog zadatka očitajte i upišite,
+      i one koje još nisu u Mojim letvama; od tada su i one u obilasku.</p>
+    {{if .VidiOcitanja}}<p><a class="btn btn-secondary btn-sm" href="/readings?moje=1">{{icon "ruler"}} Otvori Moje letve</a></p>{{end}}
+    <p>Dnevni list i zadatke rukovoditelja vodočuvar ima na Naslovnoj (vidi
+      <a href="#vodocuvar">Vodočuvarski dnevnik</a>), a ondje je i nova prijava s terena (vidi
+      <a href="#prijave">Prijave i obavijesti s terena</a>). Nekadašnja stranica Teren vodi na Očitanja.</p>
   </div>
   {{template "pomocPoglavljeNav" (list "Naslovna" "#dashboard" "Karta" "#karta")}}
 </section>
@@ -826,53 +852,61 @@
   <h2>{{icon "ruler"}} Očitanja</h2>
   <div class="pomoc-poglavlje">
   <details class="pomoc-podnaslovi" data-pomoc-podnaslovi open>
-    <summary><small>U ovom poglavlju</small><span>8 podnaslova</span>{{icon "chevron-down"}}</summary>
+    <summary><small>U ovom poglavlju</small><span>11 podnaslova</span>{{icon "chevron-down"}}</summary>
     <nav aria-label="U ovom poglavlju: Očitanja">
       <a href="#ocitanja-zadnje">Zadnje očitanje</a>
       <a href="#ocitanja-graf">Kretanje vodostaja</a>
       <a href="#ocitanja-popis">Upis i popis očitanja</a>
+      <a href="#ocitanja-objekti">Ustave i crpne stanice</a>
+      <a href="#ocitanja-vaznost">Zašto je ručno očitanje važno</a>
       <a href="#ocitanja-raspon">Vrijednosti izvan raspona</a>
       <a href="#ocitanja-kvar">Kvar mjernog uređaja</a>
       <a href="#ocitanja-rucno">Ispravak po ručnom očitanju</a>
       <a href="#ocitanja-skupno">Unos više odjednom</a>
       <a href="#ocitanja-ispravak">Provjera i ispravak u tablici</a>
+      <a href="#ocitanja-administrator">Za administratora</a>
     </nav>
   </details>
   <div class="reg-card pomoc-tekst">
     <p>Očitanja koja ovaj program sam vodi: ono što vodočuvar upiše, što se uveze s letva.voda.hr
-      ili što stigne telemetrijom. Za razliku od arhive, ovi se zapisi <strong>uređuju</strong> i
-      <strong>razmjenjuju</strong> među uredima.</p>
-    <p><strong>Popis letvi</strong> pokazuje zadnje očitanje svake letve, složeno po vodi
+      ili što stigne telemetrijom, odnosno drugim kanalima koje program podržava. Za razliku od arhive,
+      ova se očitanja <strong>mogu ispraviti</strong>, a vide ih i <strong>drugi uredi</strong> koji
+      prate letvu.</p>
+    <p><strong>Popis letava</strong> pokazuje zadnje očitanje svake letve, složeno po vodi
       (Dunav, Drava…), s objektima s letvom na kraju. Uz letvu su strelica kretanja, sat očitanja,
       kako je očitano i tko je očitao, stupanj obrane ako je na snazi, a crvenim slovima i
-      <em>Mjerni uređaj je vjerojatno u kvaru.</em> kad mjerenje ne izgleda pravo.</p>
+      <span class="ocitanja-kvar">Mjerni uređaj je vjerojatno u kvaru.</span> kad mjerenje ne izgleda pravo.</p>
     {{template "pomocSlika" (list "ocitanja-popis" "Popis letava po vodama: Batina raste i u pripremnom je stanju, uz Belišće piše da je mjerni uređaj vjerojatno u kvaru, Donji Miholjac pada i očitao ga je vodočuvar." "736")}}
     <p>Čipovi iznad popisa sužavaju ga: <strong>Moje letve</strong> ostavlja letve koje ste
       u zadnjih 90 dana sami očitali, a <strong>Sektor</strong> i <strong>Područje</strong> otvaraju
       izbor. Povećalo otvara pretragu po nazivu, a karta otvara Kartu zumiranu na letve s popisa.
       Ispod popisa je poveznica na sve letve iz registara, i one bez očitanja.</p>
-    <p>Letva ima kartice <strong>Kartica</strong> (što letva jest), <strong>Očitanja</strong> i
-      <strong>Historijat</strong>. Desno su <em>Uredi</em> i <em>Upiši očitanje</em>; na mobitelu i
-      tabletu Upiši očitanje je okrugli gumb dolje desno. Na širokom zaslonu popis ostaje lijevo
+    <p>Letva ima kartice <strong>Kartica</strong> (što letva jest), <strong>Očitanja</strong>,
+      <strong>Historijat</strong> i <strong>Uvoz i izvoz</strong>. Desno su <em>Uredi</em> i <em>Upiši očitanje</em>; na mobitelu i
+      tabletu Upiši očitanje je gumb dolje desno, iznad donjeg izbornika. Na širokom zaslonu popis ostaje lijevo
       od otvorene letve, s istim filtrima, pa se iz letve u letvu prelazi jednim klikom.</p>
+    {{template "pomocSlika" (list "ocitanja-upisi-gumb" "Vrh stranice letve Batina na računalu: desno su Uredi i gumb Upiši očitanje, ispod kartice Kartica, Očitanja, Historijat te Uvoz i izvoz." "728")}}
+    {{if .VidiOcitanja}}<p><a class="btn btn-secondary btn-sm" href="/readings">{{icon "ruler"}} Otvori Očitanja</a></p>{{end}}
 
     <h3 id="ocitanja-zadnje">Zadnje očitanje</h3>
     <p>Gore stoji zadnje očitanje i uz njega sve što se iz njega da izračunati:</p>
     <ul>
       <li><strong>Kota vode</strong> — apsolutna visina vodne plohe, u svakom visinskom sustavu
         koji letva ima. Letva mjeri od svoje nule; kota kaže koliko je voda visoka nad morem.
-        Po tome se na terenu računa koliko obranu treba nadvisiti vrećama.</li>
+        Po tome se na terenu računa koliko obranu treba nadvisiti vrećama, box barijerama ili
+        drugim sredstvima obrane.</li>
       <li><strong>Protok</strong> — koliko vode prolazi, u m³/s. Računa se službenom krivuljom
         DHMZ-a koja je vrijedila u trenutku tog očitanja. Krivulje nema za svaku letvu, a ni za
         svaki vodostaj. Do 20 cm izvan kraja krivulje program može prikazati procjenu uz jasno
         upozorenje; dalje od toga protok ne izmišlja.</li>
       <li><strong>Mjereni protok i temperatura vode</strong> — upisuju se kad su stvarno izmjereni.
-        Mjereni protok ima prednost pred izračunom iz HQ krivulje, ali oba ostaju objašnjena.
+        Mjereni protok ima prednost pred izračunom iz krivulje protoka, ali oba ostaju objašnjena.
         Protok koji uz vodostaj stigne s javne stranice Hrvatskih voda ili s mađarskog vizugy.hu
         nosi način <em>iz krivulje</em>: služba ga je izračunala iz vodostaja, pa nije
         hidrometrijsko mjerenje.</li>
       <li><strong>Pragovi</strong> — četiri stupnja obrane te najviši i najniži zabilježeni vodostaj.</li>
     </ul>
+    {{template "pomocSlika" (list "ocitanja-zadnje" "Zadnje očitanje letve Batina: 524 cm uz oznaku Pripremno stanje, vrijeme i način očitanja, kota vode u metrima nad morem te pragovi P, R, I, IS i najviši i najniži zabilježeni vodostaj." "728")}}
 
     <h3 id="ocitanja-graf">Kretanje vodostaja</h3>
     <p>Graf pokazuje isto razdoblje koje je odabrano u <em>Pogledu</em> ispod njega — zadano
@@ -881,6 +915,7 @@
       vidi gdje ste u cjelini. Kad letva ima prognozu, crta se nastavlja prognozom s rasponom do
       kraja razdoblja, a ispod grafa piše kad je izdana i u koliko slučajeva vrijednost ostaje u
       rasponu.</p>
+    {{template "pomocSlika" (list "ocitanja-graf" "Graf vodostaja letve Batina s čipovima 7 i 30 dana: vodostaj raste preko crtkane crte pripremnog stanja, a dalje se nastavlja crvena crta prognoze s rasponom do 1. 12.; osjenčan je dio koji je u tablici, a ispod grafa piše kad je prognoza izdana." "694")}}
     <p>Prekid u crti znači da podataka nema. Crta se namjerno ne povlači preko praznine — to bi
       tvrdilo da podatak postoji ondje gdje ga nema.</p>
     <p>Ispod grafa stoji <a href="#letva-korito">presjek korita</a> s vodom ucrtanom po zadnjem
@@ -888,9 +923,47 @@
 
     <h3 id="ocitanja-popis">Upis i popis očitanja</h3>
     <p>Popis upisanih očitanja, novije prvo. Uz svako stoji odakle je došlo (ručno, uvoz,
-      telemetrija) i tko ga je upisao. Olovka otvara izmjenu i stoji samo uz očitanja koja smijete
-      ispraviti. Na telefonu se očitanje upisuje
+      telemetrija) i tko ga je upisao. Na telefonu se očitanje upisuje
       velikim poljem za broj — na terenu se ne pogađa sitna tipka.</p>
+    <p>Vodostaj se upisuje ovim redom: otvorite letvu, pritisnite <em>Upiši očitanje</em>,
+      upišite vodostaj u centimetrima i pritisnite <em>Spremi očitanje</em>. Vrijeme je zadano
+      sad; promijenite ga samo kad upisujete naknadno. Brojčana tipkovnica na mobitelu nema
+      minus, pa predznak mijenja gumb <strong>±</strong> uz polje. Temperatura vode i izmjereni
+      protok upisuju se na karticama <em>Temperatura</em> i <em>Protok</em> istog obrasca, a sve
+      se sprema jednim gumbom.</p>
+    {{template "pomocSlika" (list "ocitanja-upis" "Upis vodostaja na mobitelu za letvu Donji Miholjac: ispod naslova je zadnje očitanje, otvorena je kartica Vodostaj, a u veliko polje upisano je 145 cm, uz gumb ± za minus." "359")}}
+    <p><strong>Bez signala</strong> se očitanje ne može spremiti: program radi samo dok mobitel ima
+      vezu. Zapišite vodostaj i vrijeme očitanja, a upišite ih kad se spojite. U obrascu tada
+      <em>Vrijeme očitanja</em> promijenite na vrijeme kad ste letvu stvarno očitali. Kad je to više od
+      pola sata prije upisa, program pita je li vrijeme točno; potvrdite.</p>
+    <p>U planu je lagana aplikacija za mobitel koja će očitanje spremiti i bez signala i poslati ga
+      sama kad se veza vrati, pa olovka i papir više neće trebati. Zasad je nema, pa vrijedi
+      postupak iznad.</p>
+    <p>Ostala polja obrasca:</p>
+    <ul>
+      <li><strong>Što ovo očitanje jest</strong> — zadano je <em>obična napomena</em>. Drugo odaberite
+        kad vrijednost nije obično očitanje: <em>očitan maksimum</em> ili <em>očitan minimum</em> kad ste
+        vidjeli vrh ili dno vala (u arhivi ulaze među zabilježene vrhove i dna), <em>voda preko
+        letve</em> (prava razina je viša), <em>letva na suhom</em> (prava razina je niža),
+        <em>procjena, nije očitano</em>, <em>nepouzdano očitanje</em> (npr. led ili oštećena letva) i
+        <em>događaj</em> (npr. proboj ili zatvorena ustava; vodostaj ostaje kakav jest). Izbor ostaje uz
+        vodostaj i kad očitanje uđe u arhivu. Kad u napomenu upišete npr. „maksimum” ili „minimum”,
+        program sam predloži vrstu.</li>
+      <li><strong>Napomena uz vodostaj</strong> — slobodan tekst, npr. „letva oštećena, procjena”.</li>
+      <li><strong>Vrijeme očitanja</strong> — ako ga ne dirate, vrijedi trenutak kad pritisnete
+        <em>Spremi očitanje</em>.</li>
+      <li><strong>Način</strong> — <em>ručno</em> kad ste letvu očitali vi ili vam je vrijednost
+        javljena, <em>automatski</em> kad prepisujete vrijednost mjernog uređaja. Samo ručno očitanje
+        služi za <a href="#ocitanja-rucno">ispravak mjernog uređaja</a>. Vodočuvar, strojar i ostali
+        na terenu ovo polje ne vide: njihovo očitanje je uvijek ručno.</li>
+      <li><strong>Očitao</strong> — tko je letvu očitao. Prazno znači vi. Ime upišite kad upisujete
+        tuđe očitanje, npr. vodočuvara koji vam ga je javio telefonom.</li>
+    </ul>
+    <p>Kad letva nije u vašem sektoru, umjesto polja Očitao stoji <strong>Tko je očitao i kako ste
+      dobili vrijednost</strong>, i bez njega se očitanje ne sprema, npr. „vodočuvar Ivan, telefonom”.
+      Tako se upisuje pojedino očitanje, npr. kad telemetrija ne radi pa vrijednost dobijete
+      telefonom. Uvoz više očitanja odjednom i ispravak tuđih očitanja na takvoj letvi ostaju onima
+      iz njezina sektora.</p>
     <p>Očitanje na letvu upisuje svatko s dužnošću u sektoru koji letvu prati, i Dežurni operater
       u COP-u; Gost i Preglednik ne upisuju. Sektor letve dolazi preko njezinih dionica, a stranoj
       letvi upisuje se u obrascu letve (<a href="#stations">Letve</a>). Letvu bez ijednog
@@ -898,64 +971,100 @@
     <p>Svoje očitanje ispravljate dok imate dužnost u sektoru letve, a kad je izgubite, još 72 sata
       od upisa. Brisati, i ispravljati tuđe, smije samo onaj tko odgovara za letvu: dužnost na
       njezinoj dionici, uprava njezina branjenog područja ili sektora i razina 1; za letvu bez
-      dionica uprava sektora koji je prati. Obrisano očitanje ostaje u povijesti zapisa. Računalo sa
-      starijom verzijom programa (0.0.34) zadržava dosadašnje pravilo dok se ne nadogradi.</p>
+      dionica uprava sektora koji je prati. Obrisano očitanje ostaje u povijesti zapisa.</p>
+    <p>Krivo upisan vodostaj ispravite ovako: na letvi u popisu <em>Svježa očitanja</em> pritisnite
+      olovku uz očitanje, upišite točnu vrijednost i spremite. Olovka stoji samo uz očitanja koja
+      smijete ispraviti.</p>
+    {{template "pomocSlika" (list "ocitanja-ispravak" "Svježa očitanja letve Donji Miholjac na mobitelu vodočuvara: tri jutarnja očitanja, svako s vodostajem, kotom i imenom vodočuvara, a desno olovka za ispravak." "359")}}
     <p>Na letvi uz koju stoji kišomjer (Borovik) obrazac ima i polje <strong>Oborina (mm)</strong>.
       Kiša očitana ujutro upisuje se pod prethodni dan. Prazno polje znači da nije očitana, a 0 da
-      nije padala. Kiša se vidi uz vodostaj, a na kišomjer prelazi pri sljedećem satnom krugu.</p>
-    <p>Svako očitanje može nositi vlastitu bilješku. Ako postaja ima adresu podržane javne
-      stranice, čvor koji preuzima vodostaje jednom na sat preuzme objavljeno očitanje, a ostali
-      ga čvorovi primaju razmjenom; javni podatak uvijek zadržava
-      izvor i ne predstavlja se kao ručni upis vodočuvara.</p>
-    <p><strong>Čuvaj povijest</strong> govori ovom računalu da drži cijelu povijest te letve, a
-      ne samo zadnjih nekoliko očitanja. Odluka je lokalna — druga računala ostaju kakva jesu.
-      Kao i postavke čvora, mijenja je globalni administrator s ovog računala ili iz lokalne
-      mreže; izvana se gumb ne vidi.</p>
+      nije padala. Kiša se odmah vidi uz vodostaj, a na kišomjeru se pojavi u roku od sat vremena.</p>
+    <p>Ako letva ima adresu podržane javne stranice, program jednom na sat sam preuzme objavljeno
+      očitanje. Uz takvo očitanje piše <em>uvoz</em>, pa se ne miješa s ručnim upisom vodočuvara.</p>
+
+    <h3 id="ocitanja-objekti">Ustave i crpne stanice</h3>
+    <p>Ustava i crpna stanica imaju svoje očitanje, s više polja nego letva. Na stranici objekta
+      pritisnite <em>Upiši očitanje</em>.</p>
+    <p>Na <strong>ustavi</strong> obrazac traži <strong>uzvodni</strong> i <strong>nizvodni
+      vodostaj</strong> te položaj zapornice: <em>zatvorena</em> ili <em>otvorena</em>. Uz otvorenu se
+      pojavi polje <strong>Koliko je otvorena (%)</strong>, od 1 do 100; potpuno otvorena je 100.
+      Postotak nije obavezan.</p>
+    {{template "pomocSlika" (list "ocitanja-ustava" "Upis očitanja ustave na mobitelu: uzvodni vodostaj 312 cm, nizvodni 287 cm, zapornica otvorena i ispod nje polje Koliko je otvorena s upisanih 40 posto." "359")}}
+    <p>Kad je ustava u sklopu crpne stanice, njezina se zapornica upisuje u očitanju te stanice.
+      Obrazac ustave tada umjesto zapornice pokaže poveznicu na stanicu.</p>
+    <p>Na <strong>crpnoj stanici</strong> upisuju se vodostaj i <strong>stanje crpne
+      stanice</strong>: mirovanje, pokretanje, zaustavljanje ili kvar, a stanici sa sifonom i
+      sifoniranje. Pod <em>Sati rada agregata</em> upisuju se sati rada svakog agregata. Obrazac nudi
+      onoliko agregata koliko ih stanica ima, ali najviše tri; za četvrti i dalje sati se zasad ne
+      bilježe. Crpna stanica s ugrađenom ustavom ima i polje zapornice.</p>
+    <p>Crpna stanica s letvom i s vanjske strane traži dva vodostaja: <strong>Unutarnja strana,
+      kanal</strong> i <strong>Vanjska strana</strong>.</p>
+    <p>Vodostaj upisan na objektu program upiše i na njegove letve: kod ustave uzvodni i nizvodni,
+      kod crpne stanice unutarnju i vanjsku stranu. Tako ulazi i u graf i u prognozu letve. Takvo
+      očitanje letve ispravlja se i briše samo na objektu.</p>
+
+    <h3 id="ocitanja-vaznost">Zašto je ručno očitanje važno</h3>
+    <p>Mjerni uređaj s vremenom zna odlutati, zastati ili odskočiti, a letva ne griješi. Zato je
+      ručno očitanje uvijek mjerodavno, i zato je dobro da ga bude što više.</p>
+    <ul>
+      <li><strong>Ispravlja uređaj.</strong> Kad se ručno očitanje razlikuje od uređaja, program po
+        njemu ispravlja preuzeta očitanja (<a href="#ocitanja-rucno">Ispravak po ručnom
+        očitanju</a>). Ispravak vrijedi tek kad ga potvrde dva uzastopna ručna očitanja, pa je svako
+        važno.</li>
+      <li><strong>Otkriva kvar.</strong> Kad uređaj stane ili odskoči, ručno očitanje je jedina prava
+        vrijednost tog dana, a vidi se i je li uređaj zaista u kvaru
+        (<a href="#ocitanja-kvar">Kvar mjernog uređaja</a>).</li>
+      <li><strong>Puni arhivu.</strong> Ručna očitanja ostaju u arhivi vodostaja uz automatska. Što
+        su nizovi duži i točniji, to su dugoročno bolje i prognoze.</li>
+    </ul>
+    <p>Zato: <strong>tko god je na terenu i prođe pored letve, neka je očita i upiše.</strong> To
+      traje minutu. Ako letva nije u vašem sektoru, program očitanje svejedno primi, samo uz podatak
+      tko je očitao i kako, npr. „na terenu, u prolazu”. Gost i preglednik ne upisuju.</p>
 
     <h3 id="ocitanja-raspon">Vrijednosti izvan raspona</h3>
-    <p>Očitanje se prima samo u rasponu u kojem ima smisla: vodostaj od −500 do 3000 cm,
-      temperatura vode od −5 do 45 °C, protok od 0 do 100 000 m³/s, a vrijeme najviše sat
-      unaprijed i ne prije 1900. Raspon je isti za sve putove upisa: ručni upis i izmjenu,
-      lijepljenje, satno preuzimanje s javnih stranica i telemetrije (i rezervne izvore), uvoz iz
-      evidencije BP16 i uvoz tablice dnevnih vodostaja centra.</p>
-    <p>Ručni upis i lijepljenje takvu vrijednost odbiju s porukom, pa se ispravi. Preuzimanje i
-      uvoz je ne upisuju. Kad je izvan raspona vodostaj (uzvodni ili nizvodni) ili kota, ne upisuje se
-      cijelo očitanje, kao ni ručnim upisom: protok koji izvor računa iz vodostaja te sati rada agregata
-      i stanje crpne stanice iz istog zapisa BP16 pripadaju krivom zapisu. Sat tako ostaje slobodan, pa
-      ga popuni rezervni izvor ili ispravak koji izvor poslije pošalje, a zapis iz evidencije BP16 uvoz
-      upiše kad se ondje ispravi. Kad je izvan raspona samo temperatura ili protok, otpada samo ta
-      vrijednost, a ostale vrijednosti istog očitanja ostaju (pokvaren termometar ne odnosi dobar
-      vodostaj). Očitanje kojem ništa ne ostane ne upisuje se. Očitanje upisano bez odbačene temperature
-      ili protoka preuzimanje i uvoz poslije ne dopunjuju, kao ni svako drugo koje letva već ima. Na stranici letve tada piše koliko je
-      vrijednosti odbačeno i koja zadnja, npr.
-      <em>Odbačeno izvan raspona: 50, zadnje −1102 cm u 03 h</em>. S preuzimanja je to obično znak da
-      je mjerni uređaj u kvaru, a iz uvoza starih evidencija (BP16, tablica centra) greška u zapisu. Stranica
-      letve pokazuje samo broj i zadnju odbačenu vrijednost, s danom i satom zapisa, pa se taj zapis može
-      naći i ispraviti. Popisa svih odbačenih vrijednosti nema; uvoz iz BP16 i uvoz tablice centra u
-      sažetku kažu koliko su ih odbacili. Broj se
-      ne poništava: zadnja vrijednost nosi datum kad nije od danas, pa se vidi traje li to još. Iznimka je
-      očitanje odbačeno samo zato što je stiglo više od sat unaprijed: kad ga letva poslije ipak primi,
-      više se ne broji, a kad ga poslije odbaci zbog vrijednosti (npr. vodostaja −1102 cm), broji se
-      samo ta vrijednost. Zapis o odbačenoj vrijednosti putuje razmjenom kao i očitanja, pa broj vidi svako
-      računalo koje prati tu letvu, a ne samo ono koje je preuzima; ista vrijednost koju odbace dva
-      računala broji se jednom. Računalo sa starijom verzijom programa (0.0.34) raspon ne provjerava:
-      što ono preuzme, stiže razmjenom i upisuje se kao i dosad, a zapise o odbačenom čuva i prenosi,
-      ali ih ne pokazuje dok se ne nadogradi.</p>
-    <p>Satno preuzimanje s javnih stranica i telemetrije ne upisuje ni lažni skok: vodostaj koji od
-      prethodnog odskoči više nego što ta letva u arhivi stvarno skače u satu (najmanje 50 cm, ispod
-      hidroelektrana i više), a iduće očitanje se vrati na staru razinu, broji se na stranici letve kao
-      odbačen (<em>zadnje skok na 830 cm</em>), dok se skok koji iduće očitanje potvrdi upiše. Ako
-      iduće ne stigne ni za šest sati, skok se odbacuje; kad ga izvor poslije ipak potvrdi, upiše se i više
-      se ne broji. Prvo očitanje nakon rupe u očitanjima uspoređuje se s iduća dva: ne upisuje se kad
-      samo ono strši, a kad iduća ne stignu ni za šest sati, upiše se. Isto pravilo prognoza primjenjuje na sva očitanja osim ručno upisanih i u
-      napomeni uz izdanje kaže koju vrijednost nije uzela.</p>
-    <p>Tri letve akumulacija HEP-a uz brane na Dravi (Varaždin, Čakovec, Dubrava) ne vode vodostaj nego
-      kotu vodnog lica nad morem. Imaju oznaku <strong>kota u cm n. m.</strong>, koja stoji uz naziv
-      letve na kartici, na stranici očitanja i u obrascu letve, i primaju vrijednosti
-      od 5000 do 40 000 cm umjesto od −500 do 3000 cm. Oznaku postavlja program; u obrascu letve se ne mijenja.
-      Očitanja upisana prije ove provjere ostaju kakva jesu.</p>
+    <p>Program prima samo vrijednosti koje imaju smisla:</p>
+    <ul>
+      <li>vodostaj od −500 do 3000 cm,</li>
+      <li>temperatura vode od −5 do 45 °C,</li>
+      <li>protok od 0 do 100 000 m³/s,</li>
+      <li>oborina od 0 do 300 mm,</li>
+      <li>vrijeme najviše sat unaprijed.</li>
+    </ul>
+    <p>Kad vrijednost izvan toga <strong>upišete</strong> u obrazac, program očitanje ne sprema.
+      Na vrhu obrasca piše što je krivo i koji raspon program prima, npr. <em>vodostaj 3500 cm je
+      izvan raspona: program prima od −500 do 3000 cm. Provjerite broj.</em> Sve što ste upisali
+      ostaje u obrascu: ispravite broj i spremite ponovno. Vrijednost izvan raspona koju
+      <strong>zalijepite</strong> program isto ne upiše i kaže zašto.</p>
+    {{template "pomocSlika" (list "ocitanja-izvan-raspona" "Obrazac novog očitanja za Donji Miholjac na mobitelu: na vrhu crvena poruka da je vodostaj 3500 cm izvan raspona i da program prima od −500 do 3000 cm, a u polju vodostaja i dalje stoji 3500." "359")}}
+    <p>Ono što stiže <strong>samo</strong> — satno preuzimanje s javnih stranica i telemetrije te
+      uvoz iz evidencije BP16 i tablice centra — program izvan raspona ne upisuje:</p>
+    <ul>
+      <li>kad je kriv vodostaj ili kota, ne upisuje se cijelo očitanje, jer krivom zapisu pripada i
+        protok koji izvor računa iz vodostaja. Sat tako ostaje slobodan, pa ga popuni rezervni izvor
+        ili ispravak koji stigne poslije;</li>
+      <li>kad je kriva samo temperatura ili protok, otpada samo ta vrijednost, a vodostaj ostaje.</li>
+    </ul>
+    <p>Očitanje kojem ništa ne ostane ne upisuje se. Očitanje upisano bez odbačene vrijednosti
+      preuzimanje i uvoz poslije ne dopunjuju.</p>
+    <p>Stranica letve pokazuje samo broj i zadnju odbačenu vrijednost, s danom i satom, npr.
+      <em>Odbačeno izvan raspona: 50, zadnje −1102 cm u 03 h</em>. Popisa svih odbačenih vrijednosti
+      nema; uvoz u sažetku kaže koliko ih je odbacio. Kad to stiže s preuzimanja,
+      mjerni uređaj je vjerojatno u kvaru. Kad stiže iz uvoza starih evidencija, to je
+      greška u zapisu, pa je treba ispraviti ondje. Broj se ne poništava, ali uz zadnju vrijednost piše datum,
+      pa se vidi traje li to još. Broj vidi svako računalo koje prati letvu.</p>
+    <p>Isto tako se ne upisuje <strong>lažni skok</strong>: vodostaj s preuzimanja koji odskoči
+      više nego što ta letva inače skače u satu (najmanje 50 cm), a iduće očitanje se vrati na staru
+      razinu. I on se broji kao odbačen, npr. <em>zadnje skok na 830 cm</em>. Skok koji iduće
+      očitanje potvrdi upisuje se normalno. Ručno upisano očitanje na skok se ne provjerava. Prognoza
+      takve vrijednosti ne uzima i to napiše uz izdanje.</p>
+    <p>Letve akumulacija HEP-a uz brane na Dravi (Varaždin, Čakovec, Dubrava) ne vode vodostaj nego
+      kotu vodnog lica nad morem, pa primaju vrijednosti od 5000 do 40 000 cm. Uz naziv letve piše
+      <strong>kota u cm n. m.</strong> Oznaku postavlja program; u obrascu letve se ne mijenja.</p>
 
     <h3 id="ocitanja-kvar">Kvar mjernog uređaja</h3>
+    <p><strong>Što napraviti:</strong> ako ste blizu letve, očitajte je i upišite vodostaj. Ručno
+      očitanje je mjerodavno, a dok uređaj ne radi, ono je jedina prava vrijednost
+      (<a href="#ocitanja-vaznost">Zašto je ručno očitanje važno</a>).</p>
     <p>Uređaj koji zaglavi pokazuje istu vrijednost satima, a voda se u međuvremenu mijenja. Program
       to javlja kad automatsko očitanje stoji unutar 1 cm dulje nego što ta letva u arhivi normalno
       stoji (najmanje 6 sati), a uz to se susjedna letva iste rijeke u tom vremenu pomaknula, ili se
@@ -975,7 +1084,7 @@
 
     <h3 id="ocitanja-rucno">Ispravak po ručnom očitanju</h3>
     <p>Mjerni uređaj s vremenom zna odlutati, pa pokazuje više ili manje nego što stoji na letvi.
-      Ručno očitanje je mjerodavno. Kad ga upišeš na letvi koja se preuzima automatski, program ga
+      Ručno očitanje je mjerodavno. Kad ga upišete na letvi koja se preuzima automatski, program ga
       usporedi s onim što je uređaj pokazao u isto vrijeme.</p>
     <p>Razliku do 5 cm program ne dira, jer je to unutar točnosti uređaja. Veću razliku ispravlja tek
       kad je potvrde dva uzastopna ručna očitanja koja se slažu na 10 cm. Jedna pogrešno upisana
@@ -986,8 +1095,9 @@
       ispraviti na terenu</em>, a u popisu Očitanja uz letvu ista rečenica. To je znak ekipi koja
       održava uređaje. Ispravak prestaje sam kad se ručno očitanje i uređaj opet slože na 5 cm.</p>
     <p>Dok razliku još nije potvrdilo drugo očitanje, okvir kaže <em>Ručno očitanje odstupa od mjernog
-      uređaja</em>. Ako je očitanje krivo upisano, ispravi ga; program tada sam ponovno izračuna
+      uređaja</em>. Ako je očitanje krivo upisano, ispravite ga; program tada sam ponovno izračuna
       preuzeta očitanja poslije njega.</p>
+    {{template "pomocSlika" (list "ocitanja-odstupa" "Okvir na vrhu stranice letve Osijek: ručno očitanje u 17:00 je 276 cm, a uređaj je tada pokazivao 300 cm; ispravljati se počinje kad razliku potvrdi sljedeće ručno očitanje. Ispod je zadnje očitanje s pragovima." "728")}}
 
     <h3 id="ocitanja-skupno">Unos više odjednom</h3>
     <p>Unos više očitanja, izvoz i ispravak u tablici su na kartici letve <strong>Uvoz i
@@ -996,6 +1106,14 @@
     <p>Umjesto upisa jednog po jednog, može se zalijepiti tablica s letva.voda.hr ili priložiti
       Excel datoteka. Program prvo pokaže <strong>što bi se upisalo</strong> i tek nakon potvrde
       upisuje. Vrijeme se čita kao lokalno, onako kako piše na zaslonu izvora.</p>
+    {{template "pomocSlika" (list "ocitanja-skupno" "Kartica Uvoz i izvoz letve Batina: u polje su zalijepljena tri satna očitanja s letva.voda.hr, ispod je izbor datoteke i gumb Pogledaj što bi se upisalo." "728")}}
+    <p>Vlastitu tablicu složite s dva stupca: u prvom redu naslovi <strong>Vrijeme</strong> i
+      <strong>Vodostaj (cm)</strong>, a ispod svaki sat u svom retku, npr. <code>25.11.2026. 07:00</code>
+      i <code>512</code>. Vrijeme smije biti i pravi Excelov datum. Spremite je kao Excel (.xlsx) ili
+      CSV; CSV smije imati točku-zarez ili zarez. Primjer za preuzimanje:
+      <a href="{{statika "predlosci/ocitanja-primjer.xlsx"}}" download>ocitanja-primjer.xlsx</a> ili
+      <a href="{{statika "predlosci/ocitanja-primjer.csv"}}" download>ocitanja-primjer.csv</a>.</p>
+    {{template "pomocSlika" (list "ocitanja-tablica" "Primjer tablice u Excelu: u prvom redu naslovi Vrijeme i Vodostaj (cm), ispod pet satnih očitanja od 25.11.2026. 07:00 do 11:00, s vodostajima od 512 do 521 cm." "620")}}
 
     <h3 id="ocitanja-ispravak">Provjera i ispravak u tablici</h3>
     <p>Očitanja se izvoze u CSV — cijelo odabrano razdoblje ili sve — pa se u tablici pregledaju
@@ -1007,8 +1125,16 @@
       <em>obrisi</em> upiše „da“. Iz datoteke vrijede ista prava kao za pojedino očitanje: redak
       koji ne smijete ispraviti ili obrisati pregled označi i ne upisuje.</p>
     <p>Ispravak očitanja nije isto što i ispravak arhive: očitanje je živ zapis ovog programa pa
-      se stvarno mijenja, kroz istu knjigu verzija kao izmjena jednog po jednog. Poslije se zna
+      se stvarno mijenja, i to se pamti isto kao izmjena jednog po jednog. Poslije se zna
       tko je i kad što promijenio.</p>
+
+    <h3 id="ocitanja-administrator">Za administratora</h3>
+    <p><strong>Čuvaj povijest</strong> govori ovom računalu da drži cijelu povijest te letve, a
+      ne samo zadnjih nekoliko očitanja. Odluka vrijedi samo za ovo računalo — druga računala
+      ostaju kakva jesu. Kao i ostale postavke ovog računala, mijenja je globalni administrator na
+      ovom računalu ili iz lokalne mreže; izvana se gumb ne vidi.</p>
+    <p>Očitanja s javnih stranica preuzima jedno računalo u mreži, ono kojem je to zadano; ostala
+      računala ta očitanja dobiju od njega.</p>
   </div>
   </div>
   {{template "pomocPoglavljeNav" (list "Letve" "#stations" "Arhiva vodostaja" "#arhiva")}}
@@ -1688,15 +1814,83 @@
       su tu bez imena onoga tko ih je napravio, jer ga program tada nije bilježio.</p>
 
     <h3 id="vodocuvar">Vodočuvarski dnevnik</h3>
-    <p>Svaki vodočuvar ima godišnju knjigu s jednim dnevnim listom po danu. List nosi redovno
-      radno vrijeme iz postavke obračuna, očitanja, stanje objekata, zadatke, bilješke i upise
-      rukovoditelja ili ovlaštenika. Zadaci se mogu planirati do 30 dana unaprijed i pregledati
-      u kalendaru.</p>
+    <p>Svaki vodočuvar ima godišnju knjigu s jednim dnevnim listom po danu. Na listu su radno
+      vrijeme, vremenske prilike, naredbe i zadaci rukovoditelja, opis rada, zapažanja i vodostaji
+      koje je taj dan očitao. Rukovoditelj na list upisuje bilješke, parafira ga i ovjerava.</p>
+    <p><strong>Kako se vodi dnevni list.</strong></p>
+    <ol>
+      <li>Na Naslovnoj, na kartici <em>Dnevni list</em>, pritisnite <em>Otvori list</em>. Ispod je
+        kartica <em>Zadaci rukovoditelja</em> s onim što vam je za danas zadano.</li>
+      <li>Upišite početak i svršetak rada i vremenske prilike.</li>
+      <li>Pod <em>Naredbe rukovoditelja</em> uz svaki zadatak označite je li obavljen, i ukratko
+        upišite što je napravljeno ili zašto nije. Naredbe izdane usmeno upišite pod <em>Ostale
+        naredbe</em>.</li>
+      <li>Upišite <em>Opis radnih aktivnosti</em>; bez njega se list ne predaje. Što ste
+        primijetili, npr. procjeđivanje ili oštećenje, upišite pod <em>Posebna zapažanja</em>.
+        Vodostaje koje ste taj dan očitali ne prepisujete: upisuju se sami.</li>
+      <li>Na kraju dana pritisnite <em>Potpiši i predaj</em>.</li>
+    </ol>
+    {{template "pomocSlika" (list "vodocuvar-naslovna" "Naslovna vodočuvara na mobitelu: kartica Dnevni list s gumbom Otvori list, a ispod kartica Zadaci rukovoditelja sa zadatkom Obilazak l.o. Dravskog nasipa od mađarske granice do CS Velika." "359")}}
+    {{template "pomocSlika" (list "vodocuvar-list-vrh" "Dnevni list u pisanju na mobitelu: početak rada 07:00, svršetak 15:00, vremenske prilike, a pod Naredbe rukovoditelja zadatak obilaska Dravskog nasipa s označenim obavljeno i upisom što je napravljeno." "359")}}
+    <p><em>Spremi</em> sprema list kao nacrt, pa ga tijekom dana možete dopunjavati.
+      <em>Potpiši i predaj</em> list elektronički potpisuje vašim ključem; <em>Lozinka za
+      potpis</em> ga otključava i ne sprema se. Predan list više se ne mijenja. Ako predaja nije
+      dopuštena, npr. jer fali opis rada ili zadatak nije obavljen a nije obrazložen zašto,
+      upisano ostaje spremljeno kao nacrt, a poruka kaže što treba dopuniti.</p>
+    {{template "pomocSlika" (list "vodocuvar-list-dno" "Dno dnevnog lista na mobitelu: opis rada s obilaskom Dravskog nasipa, zapažanje da je ustava Bakanka na crpnoj stanici zatvorena, ispod toga današnji vodostaji ustave Bakanka i CS Velika koji se upisuju sami, te gumbi Potpiši i predaj i Spremi." "359")}}
+    <p><strong>Zadaci i kalendar.</strong> Zadatak je nalog rukovoditelja za određeni dan, npr.
+      <em>Obilazak l.o. Dravskog nasipa od mađarske granice do CS Velika.</em> Letve uz put
+      zadatka očitajte i upišite. Zadatak koji nije obavljen, a
+      označite da se prenosi, uz obrazloženje prelazi na sljedeći list.</p>
     <p>Kalendar zadataka pokazuje zadatke po danima. Zadatak stoji na dnevnom listu od planiranog
       dana, a neobavljeni se prenosi dalje. Tko smije zadavati zadatke, zadaje ih na + u danu. Prošli
       dani i dani dalje od 30 dana nemaju +, a vodočuvar koji vodi samo svoju knjigu nema ga uopće.</p>
     <p>Na mobitelu je kalendar popis dana: danas i tri sljedeća dana, a ostali su sklopljeni. Dan
       sa zadatkom uvijek se vidi. Prošli dani otvaraju se sami kad u njima ima otvoren zadatak.</p>
+    {{template "pomocSlika" (list "vodocuvar-kalendar" "Kalendar zadataka vodočuvara na računalu, kako ga vidi rukovoditelj: mjesec po danima, na današnjem danu zadatak obilaska Dravskog nasipa, a od danas do 30 dana unaprijed uz svaki dan + za novi zadatak." "736")}}
+    <p><strong>Predaja i ovjera.</strong></p>
+    <p>Vodočuvar list predaje osobnim elektroničkim potpisom, a rukovoditelj branjenog područja
+      ili njegov zamjenik ga zatim ovjerava svojim. List ovjerava i onaj tko je vodočuvaru zadao
+      zadatak koji stoji na tom listu. Kad rukovoditelja i zamjenika nema, list ovjerava
+      rukovoditelj sektora ili zamjenik, glavni rukovoditelj ili zamjenik, a zasad i globalni
+      administrator. Ako područje ima rukovoditelja ili zamjenika, program ih uz gumb
+      <em>Ovjeri list</em> pita da potvrde da ovjeravaju umjesto njega. Voditelj COP-a i
+      voditelj centra list ne ovjeravaju, osim kad je na njemu njihov zadatak. Ostali, npr.
+      tehničar ili poslovođa, list parafiraju; parafa nije ovjera. Nitko ne ovjerava svoj list,
+      ni globalni administrator: tko je uz vodočuvara i rukovoditelj ili zamjenik, svoj list
+      ostavlja drugome.
+      Ako predaja nije dopuštena zbog nepotpunog opisa ili zadatka,
+      uneseno ostaje spremljeno kao nacrt, a poruka kaže što treba dopuniti.
+      Dok list kojemu je dan prošao (od 00:00 idućeg dana) nije predan, vodočuvar na početnoj
+      stranici i u svom dnevniku vidi upozorenje „Niste potpisali i predali dnevni list za …”,
+      s poveznicom na svaki takav list. Upozorenja nema za današnji i budući nacrt, za list
+      prenesen iz ranije evidencije ni za list iz knjige prošle godine, jer se u arhiviranu
+      knjigu više ne upisuje. Nema ga ni za list koji je otvorio samo program (upis akta ili
+      „Upiši” rukovoditelja), a vodočuvar na njemu nije ništa upisao ni objavio prijavu: taj
+      dan nije radio.
+      Potpisani PDF je izvornik; stranica provjerava svaki potpis i
+      pokazuje pokriva li cijeli dokument. Istekom godine knjiga prelazi u arhivu samo za čitanje
+      i ispis cijele knjige. Vodočuvar vidi samo svoju knjigu.</p>
+    <p><strong>Tko čita tuđe listove.</strong></p>
+    <p>Tuđe listove čitaju rukovoditelj branjenog područja, ovlaštenici za praćenje ugovora,
+      rukovoditelji dionica tog područja, uprava i dežurni operater u COP-u svog sektora.
+      Rukovoditelj branjenog područja, ovlaštenici i uprava parafiraju, upisuju bilješke i
+      zadaju zadatke. Rukovoditelj dionice parafira i upisuje bilješku samo na list vodočuvara
+      koji je na dan lista čuvao njegovu dionicu ili cijelo područje (i kad je to zaduženje
+      poslije isteklo, opozvano ili izmijenjeno; list s dana prije vodočuvarova prvog zaduženja u programu,
+      npr. prenesen iz BP16, vezan je uz zaduženje s kojim je vodočuvar ušao u program), a zadatak mu zadaje samo dok je vodočuvar na toj dionici
+      i na njoj traje redovna ili izvanredna obrana ili izvanredno stanje. Rukovoditelj dionice
+      kojemu na dužnosti nije upisana nijedna dionica vodi sve dionice svog područja. Dežurni operater
+      upisuje bilješku, ali ne parafira i ne zadaje zadatke; njegova bilješka nije naredba, pa na
+      listu i u njegovu PDF-u stoji pod posebnim zapažanjima, a ne pod naredbama rukovoditelja. Voditelj usluga / poslovođa
+      izvođača, rukovoditelj obrane izvođača i zamjenik, strojari i skladištari bez vodočuvarske
+      dužnosti dnevnik ne vide.</p>
+    <p>Vodočuvar na privremenoj ispomoći na drugom branjenom području ulazi i u doseg tog
+      područja: njegove listove i prijave iz vremena ispomoći čitaju, parafiraju i u njih upisuju
+      i tamošnji rukovoditelji, po istim pravilima (rukovoditelj dionice uz vezu sa svojom
+      dionicom), a zadatke mu zadaju dok ispomoć traje. Listovi od prije ispomoći ostaju samo
+      području na kojem su napisani, a ovjera ostaje rukovoditelju tog područja.</p>
+    <p><strong>Listovi za druge dane.</strong></p>
     <p>List za dan koji još nije počeo smije postojati samo kao nacrt, najviše 30 dana
       unaprijed. Takav nacrt nastaje kad se na taj dan nešto upiše: rukovoditeljev upis („Upiši”),
       akt o obrani ili prijava s terena za sutrašnji dan. Vodočuvar ga zatim vidi u svom dnevniku
@@ -1729,6 +1923,7 @@
       Zadatak kojemu u ranijoj
       evidenciji nema odgovora nosi sivu oznaku „bez upisanog odgovora”: iz izostanka upisa ne
       slijedi da posao nije obavljen.</p>
+    <p><strong>Isti list na dva računala.</strong></p>
     <p>Jedan vodočuvar za jedan dan ima jedan dnevni list, i kad ga pišu dva čvora bez veze
       (npr. prijenosno računalo na terenu i poslužitelj sektora): nakon razmjene to je isti list.
       Predan list ima prednost pred nacrtom s drugog čvora, a bilješke rukovoditelja s nacrta
@@ -1745,47 +1940,7 @@
       br. …”, a u ispisu cijele knjige „dvostruki list – vidi i list br. …”. Na stranici lista piše
       „Dvostruki list: vidi i list br. …”, a tko čita tuđi list, drugi list vidi i u ploči radnji.
       Svaki se list ovjerava zasebno.</p>
-    <p>Vodočuvar list predaje osobnim elektroničkim potpisom, a rukovoditelj branjenog područja
-      ili njegov zamjenik ga zatim ovjerava svojim. List ovjerava i onaj tko je vodočuvaru zadao
-      zadatak koji stoji na tom listu. Kad rukovoditelja i zamjenika nema, list ovjerava
-      rukovoditelj sektora ili zamjenik, glavni rukovoditelj ili zamjenik, a zasad i globalni
-      administrator. Ako područje ima rukovoditelja ili zamjenika, program ih uz gumb
-      <em>Ovjeri list</em> pita da potvrde da ovjeravaju umjesto njega. Voditelj COP-a i
-      voditelj centra list ne ovjeravaju, osim kad je na njemu njihov zadatak. Ostali, npr.
-      tehničar ili poslovođa, list parafiraju; parafa nije ovjera. Nitko ne ovjerava svoj list,
-      ni globalni administrator: tko je uz vodočuvara i rukovoditelj ili zamjenik, svoj list
-      ostavlja drugome.
-      Ako predaja nije dopuštena zbog nepotpunog opisa ili zadatka,
-      uneseno ostaje spremljeno kao nacrt, a poruka kaže što treba dopuniti.
-      Dok list kojemu je dan prošao (od 00:00 idućeg dana) nije predan, vodočuvar na početnoj
-      stranici i u svom dnevniku vidi upozorenje „Niste potpisali i predali dnevni list za …”,
-      s poveznicom na svaki takav list. Upozorenja nema za današnji i budući nacrt, za list
-      prenesen iz ranije evidencije ni za list iz knjige prošle godine, jer se u arhiviranu
-      knjigu više ne upisuje. Nema ga ni za list koji je otvorio samo program (upis akta ili
-      „Upiši” rukovoditelja), a vodočuvar na njemu nije ništa upisao ni objavio prijavu: taj
-      dan nije radio.
-      Potpisani PDF je izvornik; stranica provjerava svaki potpis i
-      pokazuje pokriva li cijeli dokument. Istekom godine knjiga prelazi u arhivu samo za čitanje
-      i ispis cijele knjige. Vodočuvar vidi samo svoju knjigu.</p>
-    <p>Tuđe listove čitaju rukovoditelj branjenog područja, ovlaštenici za praćenje ugovora,
-      rukovoditelji dionica tog područja, uprava i dežurni operater u COP-u svog sektora.
-      Rukovoditelj branjenog područja, ovlaštenici i uprava parafiraju, upisuju bilješke i
-      zadaju zadatke. Rukovoditelj dionice parafira i upisuje bilješku samo na list vodočuvara
-      koji je na dan lista čuvao njegovu dionicu ili cijelo područje (i kad je to zaduženje
-      poslije isteklo, opozvano ili izmijenjeno; list s dana prije vodočuvarova prvog zaduženja u programu,
-      npr. prenesen iz BP16, vezan je uz zaduženje s kojim je vodočuvar ušao u program), a zadatak mu zadaje samo dok je vodočuvar na toj dionici
-      i na njoj traje redovna ili izvanredna obrana ili izvanredno stanje. Rukovoditelj dionice
-      kojemu na dužnosti nije upisana nijedna dionica vodi sve dionice svog područja. Dežurni operater
-      upisuje bilješku, ali ne parafira i ne zadaje zadatke; njegova bilješka nije naredba, pa na
-      listu i u njegovu PDF-u stoji pod posebnim zapažanjima, a ne pod naredbama rukovoditelja. Voditelj usluga / poslovođa
-      izvođača, rukovoditelj obrane izvođača i zamjenik, strojari i skladištari bez vodočuvarske
-      dužnosti dnevnik ne vide.</p>
-    <p>Vodočuvar na privremenoj ispomoći na drugom branjenom području ulazi i u doseg tog
-      područja: njegove listove i prijave iz vremena ispomoći čitaju, parafiraju i u njih upisuju
-      i tamošnji rukovoditelji, po istim pravilima (rukovoditelj dionice uz vezu sa svojom
-      dionicom), a zadatke mu zadaju dok ispomoć traje. Listovi od prije ispomoći ostaju samo
-      području na kojem su napisani, a ovjera ostaje rukovoditelju tog područja.</p>
-
+    {{if .VidiVodocuvarskiDnevnik}}<p><a class="btn btn-secondary btn-sm" href="/vodocuvar">{{icon "notebook"}} Otvori Vodočuvarski dnevnik</a></p>{{end}}
     <h3 id="prijave">Prijave i obavijesti s terena</h3>
     <p>Vodočuvar s terena sastavlja obavijest, prijavu, izvješće ili zahtjev: opisuje što je
       zatekao, bira vodotok, objekt ili dionicu, označava mjesto na karti i prilaže fotografije.
