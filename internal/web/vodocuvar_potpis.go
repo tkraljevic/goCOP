@@ -76,7 +76,7 @@ func otkljucajUzOgranicenje(ctx context.Context, u *models.User, otkljucaj func(
 
 // dodatakPotpisa slaže polje potpisa s izgledom bloka na mjestu koje list
 // ostavlja; kad potpisnika nema, dodatak je pečat s istim izgledom
-func (h *VodocuvarHandler) dodatakPotpisa(m mjestaPotpisa, x float64, l *models.VodocuvarskiList, ime string, kad time.Time, kod, razlog string, sken *models.PotpisSlika, p *potpis.Potpisnik) pdfw.Dodatak {
+func (h *VodocuvarHandler) dodatakPotpisa(m mjestaPotpisa, x float64, l *models.VodocuvarskiList, ime string, kad time.Time, kod, razlog, oznakaBezKljuca string, sken *models.PotpisSlika, p *potpis.Potpisnik) pdfw.Dodatak {
 	list := fmt.Sprintf("list %03d/%d", l.Broj, l.Datum.In(models.Zagreb).Year())
 	k := kad
 	simulacija := p != nil && p.Simulacija
@@ -86,7 +86,12 @@ func (h *VodocuvarHandler) dodatakPotpisa(m mjestaPotpisa, x float64, l *models.
 	dod := pdfw.Dodatak{
 		Stranica: m.stranica, X: x, Y: m.y, W: m.w, H: m.h,
 		Crtaj: func(d *pdfw.Doc) {
-			crtajPotpisLista(d, 0, 0, m.w, ime, &k, list, kod, l.Cvor, sken, true, simulacija)
+			naslov := "ELEKTRONIČKI POTPISANO U goCOP-u"
+			if p == nil {
+				// pečat bez ključa nije potpis, nego oznaka ovjere
+				naslov = oznakaBezKljuca
+			}
+			crtajPotpisListaNaslovom(d, 0, 0, m.w, naslov, ime, &k, list, kod, l.Cvor, sken, true, simulacija)
 		},
 		Ime: ime, Razlog: razlog + " " + list, Mjesto: l.Cvor, Kad: kad,
 	}
@@ -132,7 +137,7 @@ func (h *VodocuvarHandler) izvornikPredaje(ctx context.Context, s *service.Vodoc
 	pdf, m := pdfLista(l, models.Terms(), area, otisci, crtanjeBlokova{vodocuvar: p == nil, rukovoditelj: true}, PrilogListaPDF{Slike: h.priloziLista(ctx, s, l)})
 	if p != nil {
 		var err error
-		pdf, err = potpisiIzvornik(pdf, p, h.dodatakPotpisa(m, m.xVodocuvar, l, l.Ime, *l.PredanoAt, l.KodPredaje(), "Predaja dnevnog lista,", otisci[l.UserID], p))
+		pdf, err = potpisiIzvornik(pdf, p, h.dodatakPotpisa(m, m.xVodocuvar, l, l.Ime, *l.PredanoAt, l.KodPredaje(), "Predaja dnevnog lista,", oznakaPredaje, otisci[l.UserID], p))
 		if err != nil {
 			return err
 		}
@@ -157,7 +162,7 @@ func (h *VodocuvarHandler) izvornikOvjere(ctx context.Context, s *service.Vodocu
 	} else {
 		pdf, m = pdfLista(l, models.Terms(), area, otisci, crtanjeBlokova{vodocuvar: true, rukovoditelj: false}, PrilogListaPDF{Slike: h.priloziLista(ctx, s, l)})
 	}
-	dod := h.dodatakPotpisa(m, m.xRuk, l, l.Potvrdio, *l.PotvrdenoAt, l.KodOvjere(), "Ovjera dnevnog lista,", otisci[l.PotvrdioID], p)
+	dod := h.dodatakPotpisa(m, m.xRuk, l, l.Potvrdio, *l.PotvrdenoAt, l.KodOvjere(), "Ovjera dnevnog lista,", oznakaOvjere, otisci[l.PotvrdioID], p)
 	pdf, err := potpisiIzvornik(pdf, p, dod)
 	if err != nil {
 		return err
