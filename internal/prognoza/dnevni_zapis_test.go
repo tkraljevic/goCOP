@@ -3,6 +3,7 @@ package prognoza
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -205,6 +206,52 @@ func TestDnevniKrugZapisaBezOcitanja(t *testing.T) {
 	o.dnevniKrugZapisa(context.Background(), i, nil, zadnji.Add(-10*24*time.Hour))
 	if dnevnihZa(i, "treca") != 0 || i.BezDnevne["treca"] == nil || len(i.Izdane) != 0 {
 		t.Errorf("letva bez satnih očitanja: dnevnih %d, bez %v, izdane %v", dnevnihZa(i, "treca"), i.BezDnevne, i.Izdane)
+	}
+}
+
+// Letva iz zapisa koja ostane bez dnevne prognoze dobiva uz izdanje napomenu s
+// razlogom: koja letva nema mjerenja i od kada. Bez nje bi s pregleda nestala
+// bez riječi.
+func TestDnevniKrugZapisaNapomenaBezPrognoze(t *testing.T) {
+	o, zadnji := osvjezivacDnevnihZapisa(t)
+	upisiZapis(t, o.Baza, dnevniZapis(t, "donja", []string{"gornja"}, nil))
+	// gornja šuti zadnjih deset sati
+	if _, err := o.Ocitanja.Exec(`DELETE FROM readings WHERE station_id = '1' AND measured_at > ?`, zadnji.Add(-10*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	i := praznoIzdanje(zadnji)
+	o.dnevniKrugZapisa(context.Background(), i, nil, zadnji.Add(-10*24*time.Hour))
+	if dnevnihZa(i, "donja") != 0 || len(i.Upozorenja) != 1 {
+		t.Fatalf("dnevnih %d, upozorenja %+v", dnevnihZa(i, "donja"), i.Upozorenja)
+	}
+	u := i.Upozorenja[0]
+	zelim := "nema dnevne prognoze, jer letva gornja nema mjerenja od " + satDnevnika(i.Sada-10)
+	if u.Vrsta != VrstaOdvojeni || u.Tezina != TezinaNapomena || u.Letva != "donja" || u.Opis != zelim {
+		t.Errorf("napomena: %+v, želim opis %q", u, zelim)
+	}
+}
+
+// Razlog kaže čija mjerenja fale: vlastita bez imena letve, tuđa s imenom,
+// zatvorena rupa s oba kraja, kiša sa slivom; ostale greške svojim tekstom.
+func TestRazlogDnevnogZapisa(t *testing.T) {
+	sat := time.Date(2026, 11, 25, 11, 0, 0, 0, time.UTC).Unix() / 3600 // 25. 11. u 12 h po našem
+	for ime, x := range map[string]struct {
+		letva string
+		err   error
+		zelim string
+	}{
+		"vlastita rupa traje": {"vuka", &NepotpuniDani{Letva: "vuka", Fali: []string{"vuka"}, Rupe: []RupaUlaza{{Letva: "vuka", Zadnje: sat}}},
+			", jer nema mjerenja od 25.11. u 12:00"},
+		"rupa ulaza zatvorena": {"bracevci", &NepotpuniDani{Letva: "bracevci", Fali: []string{"borovik"}, Rupe: []RupaUlaza{{Letva: "borovik", Zadnje: sat, Sljedece: sat + 16}}},
+			", jer letva borovik nema mjerenja od 25.11. u 12:00 do 26.11. u 04:00, a model traži potpune dane"},
+		"ulaz bez ijednog mjerenja i kiša": {"vuka", &NepotpuniDani{Letva: "vuka", Fali: []string{"bracevci", "oborina P"}},
+			", jer letva bracevci nema dovoljno mjerenja u zadnja četiri dana; nema kiše sliva P"},
+		"druga greška": {"vuka", fmt.Errorf("vuka: nema dnevnog niza u arhivi"), ": nema dnevnog niza u arhivi"},
+		"bez greške":   {"vuka", nil, ": nema naučenog dnevnog modela"},
+	} {
+		if d := razlogDnevnogZapisa(x.letva, x.err); d != x.zelim {
+			t.Errorf("%s: %q, želim %q", ime, d, x.zelim)
+		}
 	}
 }
 
