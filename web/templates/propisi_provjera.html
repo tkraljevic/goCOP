@@ -10,7 +10,7 @@
      na poslužitelju, a stranica šalje samo njegov ključ. */}}
 {{define "content"}}
 {{with .Pregled}}{{$p := .Propis}}{{$pr := .}}
-<a href="/propisi/ucitaj" class="povratna-poveznica">← Učitaj iz Narodnih novina</a>
+<a href="/propisi/ucitaj{{if ne $p.Izvor "tekst"}}?broj_nn={{$p.NN.Broj}}/{{$p.NN.Godina}}&broj_akta={{$p.NN.Akt}}{{end}}" class="povratna-poveznica">← Učitaj iz Narodnih novina</a>
 <div class="page-header list-glava">
   <div>
     <h1 class="page-title" data-naziv-stranice>Provjeri podjelu</h1>
@@ -51,6 +51,14 @@
   {{with .Neucitane}}<p>Narodne novine navode {{len .}} {{uzBroj (len .) "izmjenu" "izmjene" "izmjena"}} ovog propisa: {{range $i, $nn := .}}{{if $i}}, {{end}}{{$nn.Puno}}{{end}}. Dodajte ih poslije spremanja, gumbom „Dodaj izmjenu”.</p>{{end}}
 </section>
 
+
+<details class="reg-card propisi-pregled" open>
+  <summary>Tekst kako ga je program podijelio</summary>
+  <div class="propis-tekst">
+    {{range $pr.Tekst}}{{template "propisDio" .}}{{end}}
+  </div>
+</details>
+
 <form method="POST" action="/propisi/ucitaj/spremi" class="reg-card propisi-spremi">
   <input type="hidden" name="p" value="{{$.Kljuc}}">
   {{if .Postoji}}
@@ -69,16 +77,9 @@
     <div class="form-group list-polje"><label class="form-label" for="nova_skupina">Naziv nove skupine</label><input class="form-control" id="nova_skupina" name="nova_skupina" maxlength="60" value="{{if $.SkupinaUpisana $p.Skupina}}{{$p.Skupina}}{{end}}"></div>
   </div>
   <div class="propisi-gumbi">
-    <a href="/propisi/ucitaj" class="btn btn-link">Natrag</a>
+    <a href="/propisi/ucitaj{{if ne $p.Izvor "tekst"}}?broj_nn={{$p.NN.Broj}}/{{$p.NN.Godina}}&broj_akta={{$p.NN.Akt}}{{end}}" class="btn btn-link">Natrag</a>
     <button type="submit" class="btn btn-primary">Spremi propis</button>
   </div>
 </form>
-
-<details class="reg-card propisi-pregled" open>
-  <summary>Tekst kako ga je program podijelio</summary>
-  <div class="propis-tekst">
-    {{range $pr.Tekst}}{{template "propisDio" .}}{{end}}
-  </div>
-</details>
 {{end}}
 {{end}}

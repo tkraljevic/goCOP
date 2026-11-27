@@ -98,7 +98,9 @@ func (h *PropisiUcitajHandler) ObrazacUcitaj(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	d := h.podaci(r)
-	d.Obrazac = &ObrazacPropisa{}
+	// „Natrag” s provjere vraća broj NN i akta, da se ne upisuju iznova
+	q := r.URL.Query()
+	d.Obrazac = &ObrazacPropisa{BrojNN: strings.TrimSpace(q.Get("broj_nn")), BrojAkta: strings.TrimSpace(q.Get("broj_akta"))}
 	iscrtajPropise(w, h.tUcitaj, predlozakUcitavanja, http.StatusOK, d)
 }
 

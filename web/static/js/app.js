@@ -799,6 +799,23 @@ function renderMarkdown(md) {
     }
   }
 
+  // Propisi: polje „Naziv nove skupine” vrijedi samo uz izbor „Nova
+  // skupina…”, pa je inače skriveno i ne šalje se (bez skripte poslužitelj
+  // ionako uzima izabranu skupinu)
+  function pripremiNovuSkupinu() {
+    var izbor = document.getElementById('skupina');
+    var polje = document.getElementById('nova_skupina');
+    if (!izbor || !polje || !izbor.querySelector('option[value="nova"]')) { return; }
+    var okvir = polje.closest('.list-polje') || polje;
+    function prilagodi() {
+      var nova = izbor.value === 'nova';
+      okvir.style.display = nova ? '' : 'none';
+      polje.disabled = !nova;
+    }
+    izbor.addEventListener('change', prilagodi);
+    prilagodi();
+  }
+
   // Popis podnaslova uz poglavlje: na širokom zaslonu uvijek otvoren i
   // ističe podnaslov koji se upravo čita; do 839 px izbornik koji se zatvori
   // čim se odabere podnaslov
@@ -887,7 +904,7 @@ function renderMarkdown(md) {
     }
   }
 
-  function pripremi() { pripremiPomoc(); pripremiPodnaslove(); pripremiPoglavlja(); }
+  function pripremi() { pripremiPomoc(); pripremiPodnaslove(); pripremiPoglavlja(); pripremiNovuSkupinu(); }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', pripremi);
   } else {

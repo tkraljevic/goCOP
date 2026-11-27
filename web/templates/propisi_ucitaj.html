@@ -52,11 +52,11 @@
   <section class="reg-card">
     <h2>{{if .ZaIzmjenu}}Izmjena u Narodnim novinama{{else}}Akt u Narodnim novinama{{end}}</h2>
     <div class="list-dva">
-      <div class="list-blok"><div class="form-group list-polje"><label class="form-label" for="broj_nn">Broj NN</label><input class="form-control" id="broj_nn" name="broj_nn" value="{{.BrojNN}}" placeholder="84/2010" inputmode="numeric" aria-describedby="broj_nn-pomoc"></div><p class="form-help" id="broj_nn-pomoc">Broj i godina izdanja.</p></div>
-      <div class="list-blok"><div class="form-group list-polje"><label class="form-label" for="broj_akta">Broj akta</label><input class="form-control" id="broj_akta" name="broj_akta" value="{{.BrojAkta}}" placeholder="2389" inputmode="numeric" aria-describedby="broj_akta-pomoc"></div><p class="form-help" id="broj_akta-pomoc">Broj akta u tom izdanju.</p></div>
+      <div class="list-blok"><div class="form-group list-polje"><label class="form-label" for="broj_nn">Broj NN</label><input class="form-control" id="broj_nn" name="broj_nn" value="{{.BrojNN}}" placeholder="{{if .ZaIzmjenu}}47/2023{{else}}84/2010{{end}}" inputmode="numeric" aria-describedby="broj_nn-pomoc"></div><p class="form-help" id="broj_nn-pomoc">Broj i godina izdanja.</p></div>
+      <div class="list-blok"><div class="form-group list-polje"><label class="form-label" for="broj_akta">Broj akta</label><input class="form-control" id="broj_akta" name="broj_akta" value="{{.BrojAkta}}" placeholder="{{if .ZaIzmjenu}}808{{else}}2389{{end}}" inputmode="numeric" aria-describedby="broj_akta-pomoc"></div><p class="form-help" id="broj_akta-pomoc">Broj akta u tom izdanju.</p></div>
     </div>
     <p class="propisi-ili">ili</p>
-    <div class="form-group list-polje"><label class="form-label" for="poveznica">Poveznica s narodne-novine.nn.hr</label><input class="form-control" id="poveznica" name="poveznica" value="{{.Poveznica}}" inputmode="url" placeholder="npr. https://narodne-novine.nn.hr/clanci/sluzbeni/2010_07_84_2389.html"></div>
+    <div class="form-group list-polje"><label class="form-label" for="poveznica">Poveznica s narodne-novine.nn.hr</label><input class="form-control" id="poveznica" name="poveznica" value="{{.Poveznica}}" inputmode="url" placeholder="npr. https://narodne-novine.nn.hr/clanci/sluzbeni/{{if .ZaIzmjenu}}2023_05_47_808{{else}}2010_07_84_2389{{end}}.html"></div>
     {{if not .ZaIzmjenu}}
     <div class="list-dva">
       <div class="form-group list-polje"><label class="form-label" for="skupina">Skupina</label>
@@ -75,11 +75,11 @@
 
   <section class="reg-card">
     <h2>Nema interneta ili akta nema u Narodnim novinama?</h2>
-    <p class="form-help">Zalijepite tekst ili učitajte datoteku .txt. Broj NN i broj akta upišite i tada, a naziv propisa upišite sami. Podjela i provjera rade jednako.</p>
+    <p class="form-help">Zalijepite tekst ili učitajte datoteku .txt. Broj NN i broj akta upišite i tada, a naziv {{if .ZaIzmjenu}}izmjene{{else}}propisa{{end}} upišite sami. Podjela i provjera rade jednako.</p>
     <div class="form-group list-polje"><label class="form-label" for="naziv">Naziv {{if .ZaIzmjenu}}izmjene{{else}}propisa{{end}}</label><input class="form-control" id="naziv" name="naziv" value="{{.Naziv}}" maxlength="300"></div>
     <div class="list-dva">
       <div class="form-group list-polje"><label class="form-label" for="donositelj">Donositelj</label><input class="form-control" id="donositelj" name="donositelj" value="{{.Donositelj}}" placeholder="nije obavezno"></div>
-      <div class="form-group list-polje">{{icon "calendar"}}<label class="form-label" for="datum_objave">Datum objave</label><input type="date" class="form-control" id="datum_objave" name="datum_objave" value="{{.Datum}}"></div>
+      <div class="form-group list-polje"><label class="form-label" for="datum_objave">Datum objave</label><input type="date" class="form-control" id="datum_objave" name="datum_objave" value="{{.Datum}}"></div>
     </div>
     <div class="form-group list-polje"><label class="form-label" for="tekst">Tekst akta</label><textarea class="form-control propis-navod" id="tekst" name="tekst" rows="10">{{.Tekst}}</textarea></div>
     <div class="form-group list-polje">{{icon "upload"}}<label class="form-label" for="datoteka">Datoteka (.txt)</label><input type="file" class="form-control" id="datoteka" name="datoteka" accept=".txt,text/plain"></div>
@@ -90,7 +90,7 @@
 
   <p class="propisi-gumbi">
     <a href="{{if and .ZaIzmjenu $.Stranica}}/propisi/{{$.Stranica.Propis.Adresa}}{{else}}/propisi{{end}}" class="btn btn-link">Odustani</a>
-    <span class="form-help">Ništa se ne sprema dok ne potvrdite podjelu.</span>
+    <span class="form-help">Ništa se ne sprema dok ne potvrdite {{if .ZaIzmjenu}}popis članaka{{else}}podjelu{{end}}.</span>
   </p>
 </form>
 {{end}}
