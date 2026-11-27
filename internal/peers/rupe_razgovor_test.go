@@ -294,7 +294,7 @@ func TestSuziNakonUpisaGreska(t *testing.T) {
 	dnevnik := brojiDnevnik(t, "zapis rupa nije smanjen")
 	p := promjenaRupa{kljucevi: map[string]promjenaKljuca{kljucRupe: {pokriveno: []raspon{trazi}, fs: rupaNovo1.VersionID}},
 		prije: map[string]rupaKljuca{kljucRupe: {trazi: trazi}}}
-	if n, err := s.primijeniAkoStigne(ctxRub, []ledger.Version{rupaNovo1}, p); n != 1 || err != nil {
+	if n, err := s.primijeniAkoStigne(ctxRub, []ledger.Version{rupaNovo1}, stalnaPromjena(p)); n != 1 || err != nil {
 		t.Fatalf("upis: %d %v", n, err)
 	}
 	if n, _ := dnevnik.broj(); n != 1 || rupeCvora(t, s)[kljucRupe].trazi != trazi {

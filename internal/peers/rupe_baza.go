@@ -309,7 +309,7 @@ func nastaloTrazi(trazi raspon, sad time.Time) any {
 func javiNedostaje(k string, staro, novo rupaKljuca) {
 	if staro.trazi.prazan() && !novo.trazi.prazan() {
 		autor, kanal := ledger.SplitFrontierKey(k)
-		log.Printf("razmjena: od računala %s u %s možda nedostaju zapisi koje drugo računalo nije čuvalo; traže se od ostalih računala", autor, opisKanala(kanal))
+		log.Printf("razmjena: od računala %s u %s možda nedostaju zapisi (drugo računalo ih nije čuvalo ili još čekaju provjeru potpisa); traže se od ostalih računala", autor, opisKanala(kanal))
 	}
 }
 
@@ -345,32 +345,51 @@ func obrisiRupeKanala(ctx context.Context, tx *sql.Tx, kanal, ja string, obrisi 
 // najduljeTrazi je koliko ključ smije tražiti prije nego što ode na pločicu
 const najduljeTrazi = 24 * time.Hour
 
-const nedostajeDuljeSQL = `SELECT coalesce(nullif(p.name, ''), r.node_id), count(*) FROM rupe_knjige r
+const nedostajeDuljeSQL = `SELECT r.node_id, coalesce(nullif(p.name, ''), r.node_id), r.channel FROM rupe_knjige r
 	LEFT JOIN peers p ON p.node_id = r.node_id
-	WHERE r.trazi_do <> '' AND r.trazi_nastalo <= ? GROUP BY r.node_id ORDER BY 1`
+	WHERE r.trazi_do <> '' AND r.trazi_nastalo <= ? ORDER BY 2, 1`
 
-// NedostajeDulje su upozorenja za pločicu razmjene: po autoru, koliko
-// njegovih ključeva (područje i godina) traži dulje od najduljeTrazi. Kad se
-// zapis ne da pročitati, upozorenja nema.
+// NedostajeDulje su upozorenja za pločicu razmjene: po autoru, ima li
+// ključ (područje i godina) koji traži dulje od najduljeTrazi. Ključ u
+// kanalu koji ovaj čvor ne prati ne broji se: trazi ga tamo samo čuva od
+// jamstva drugima (npr. nakon uvoza arhive), a ne traži se (trazim), pa ne
+// bi nestao nikad. Kad se pretplate ne daju pročitati, broje se svi. Kad se
+// zapis ne da pročitati, upozorenja nema. Verzija koja čeka zauvijek
+// (nepotpisana verzija prava napisana prije potpisivanja, zaCekanje) drži
+// traženje svog ključa trajno, pa je i upozorenje za njezina autora
+// trajno; po zapisu rupa ne razlikuje se od verzije koja nedostaje.
 func (s *Service) NedostajeDulje(ctx context.Context) []string {
+	var prati func(string) bool
+	if w, err := s.CurrentWants(ctx); err == nil {
+		prati = s.wantsFunc(ctx, &w)
+	}
 	rows, err := s.db.QueryContext(ctx, nedostajeDuljeSQL, s.sadRupa().Add(-najduljeTrazi))
 	if err != nil {
 		return nil
 	}
 	defer rows.Close()
+	return upozorenjaNedostaje(rows, prati)
+}
+
+// upozorenjaNedostaje su upozorenja iz redaka nedostajeDuljeSQL (autor,
+// ime, kanal): jedno po autoru, a redak u kanalu koji ovaj čvor ne prati
+// (prati) ne broji se; bez prati broje se svi. Redak koji se ne da
+// pročitati preskoči se.
+func upozorenjaNedostaje(rows *sql.Rows, prati func(string) bool) []string {
 	var out []string
+	javljen := map[string]bool{}
 	for rows.Next() {
-		var ime string
-		var n int
-		if rows.Scan(&ime, &n) == nil {
-			out = append(out, tekstNedostaje(ime))
+		var autor, ime, kanal string
+		if rows.Scan(&autor, &ime, &kanal) != nil || javljen[autor] || (prati != nil && !prati(kanal)) {
+			continue
 		}
+		javljen[autor] = true
+		out = append(out, tekstNedostaje(ime))
 	}
 	return out
 }
 
 // tekstNedostaje je upozorenje pločice za jednog autora
 func tekstNedostaje(ime string) string {
-	return fmt.Sprintf("Od računala %s možda nedostaju neka starija očitanja, jer su stigla preko računala koje ne čuva sve. "+
-		"Program ih sam traži od ostalih računala i dobit će ih kad se javi računalo koje ih ima.", ime)
+	return fmt.Sprintf("Od računala %s možda nedostaju neki zapisi ili još čekaju provjeru potpisa. Program ih sam traži od ostalih računala.", ime)
 }

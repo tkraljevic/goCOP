@@ -20,6 +20,29 @@ package peers
 // knjizi leži u odbijeno ili trazi. Iznimke su odlukom prihvaćene:
 // namjerno brisanje povijesti (Odluke (17. 10. 2026.), 2a), neispravne
 // verzije (G3), sat autora vraćen unatrag i nizovi starog posrednika (1A).
+// Verzija koja čeka članstvo ili potpisanu inačicu (potpis_provjera.go)
+// nije iznimka: kad granica knjige prelazi preko nje, ide u trazi (uTrazi,
+// rasponCekanja), nikad u odbijeno, pa je razmjene traže popunom. Koja,
+// kaže zaCekanje: tuđa, koje nema u knjizi, iznad granice samo kad isto
+// primanje upisuje noviju verziju istog ključa, a ispod granice samo kad
+// stigne u popuni za koju druga strana jamči. U trazi ostaje dok ne prođe
+// provjeru, a dotle je računalo koje jamči šalje popunom svakom
+// razmjenom. Traženje počinje od najveće verzije ispod nje koju ovo
+// računalo ima ili upravo upisuje (rasponCekanja). Kad popuna stane u
+// jedan razgovor, poslije se šalje samo ono što čeka. Kad ne stane (više
+// od NajviseVerzijaPoRazmjeni verzija ključa od početka traženja), trazi,
+// koji je jedan raspon po ključu, počinje tik ispod verzije koja čeka:
+// svaki razgovor tada šalje istih NajviseVerzijaPoRazmjeni verzija od nje,
+// a do onoga iza njih popuna ne dođe dok verzija čeka. Verzija koja čeka
+// zauvijek (nepotpisana verzija prava napisana prije potpisivanja,
+// potpis_provjera.go) tada trajno drži traženje: verzije ključa iza dosega
+// jedne popune od nje ovo računalo ne dobije nikad, ni delta ih ne šalje
+// (ispod su granice knjige). To je svjesna cijena: prije su se takve
+// verzije gubile, a izgubljena nije mogla stići ni kad stigne članstvo
+// (TestCekanjeOdrezanaPopunaDrziTrazenje). Dok sva računala s
+// rupe/1 nemaju ovaj program, invarijanta ne drži uvijek: računalo 0.0.70
+// bez njega, kojem je granica već prešla preko takve verzije, verziju je
+// izgubilo, a za niz bez nje jamči (zaCekanje).
 // Vlastiti ključ nikad nema rupu, ni zapisanu ni javljenu.
 //
 // Uz oznaku rupe/1 (rupe_razgovor.go):
@@ -82,6 +105,9 @@ type raspon struct {
 func iznad(od string) raspon { return raspon{Od: od, Do: beskraj} }
 
 func (a raspon) prazan() bool { return a.Do <= a.Od }
+
+// drziVerziju javlja da je verzija id u rasponu
+func (a raspon) drziVerziju(id string) bool { return a.Od < id && id <= a.Do }
 
 // cist je isti raspon, a prazan uvijek kao raspon{}, pa se rasponi smiju
 // uspoređivati
@@ -282,7 +308,7 @@ func (p pocetakRupa) zaIzvoz(broj uint64, verzije []ledger.Version) map[string]r
 // promjenaKljuca je ono što upis primljenog mijenja u rupama jednog ključa
 type promjenaKljuca struct {
 	odbijeno  raspon   // što je ovo računalo odbilo
-	uTrazi    raspon   // odbijeno kad je ograda od odluka accepta popustila: traži se (uzOgradu)
+	uTrazi    raspon   // traži se uvijek: odbijeno kad je ograda popustila (uzOgradu) i verzije koje čekaju (rasponCekanja)
 	nesigurno raspon   // dio primljenoga za koji druga strana ne jamči
 	pokriveno []raspon // dijelovi za koje druga strana jamči da je dala sve što ima
 	fs        string   // granica knjige ovog računala prije upisa
@@ -353,6 +379,20 @@ func rasponOdbijenog(b baceno, fs, ispod string) raspon {
 		od = ispod
 	}
 	return raspon{Od: od, Do: b.najveca}.cist()
+}
+
+// rasponCekanja je raspon (od, c.najveca] koji drži sve verzije ključa koje
+// čekaju članstvo ili potpisanu inačicu (c). od je najveća verzija ispod
+// najmanje koja čeka koja se u ovom primanju upisuje (ispod) ili je već u
+// knjizi (uKnjizi), a kad je granica knjige (fs) ispod najmanje koja čeka,
+// barem ona. Ne počinje od onoga što se već traži: tada bi popuna svakom
+// razmjenom slala sve od početka traženja. Bez verzija koje čekaju prazan.
+func rasponCekanja(c baceno, fs, ispod, uKnjizi string) raspon {
+	od := max(ispod, uKnjizi)
+	if fs < c.najmanja {
+		od = max(od, fs)
+	}
+	return raspon{Od: od, Do: c.najveca}.cist()
 }
 
 // korakRupa je jedna promjena zapisa ključa: prosiri ili suzi

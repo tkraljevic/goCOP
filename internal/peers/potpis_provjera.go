@@ -10,16 +10,33 @@ package peers
 //     zauvijek: verzija ne ulazi u knjigu, zapiše se u dnevnik i u zapis
 //     odbijenog, a pošiljatelju se javlja kroz granicu odbijenih.
 //   - Ključ koji ovdje još nije vezan uz ime ovisi o tome je li članstvo
-//     već stiglo. Takva verzija čeka kao verzija iz budućnosti: ne ulazi u
-//     knjigu, ne javlja se kao odbijena i dolazi ponovno sljedećom
-//     razmjenom. Isto vrijedi za verziju pod imenom ovog računala.
+//     već stiglo. Takva verzija čeka: ne ulazi u knjigu i ne javlja se kao
+//     odbijena. Kad u istom primanju prođe novija verzija istog autora u
+//     istom kanalu, granica knjige prijeđe preko nje, pa sama više ne
+//     dolazi. Tada ide u trazi zapisa rupa (rupe.go, zaCekanje), pa je
+//     razmjene traže popunom, a za ključ u kojem čeka granica odbijenih
+//     ne javlja ništa iznad nje (bezCekanja). U odbijeno ne ide nikad:
+//     članstvo može stići i kasnije. Verzija pod imenom ovog računala čeka
+//     isto, ali rupu nema.
 //
 // Nepotpisana verzija prolazi kao i prije, dok traje prijelaz. Iznimka su
 // prava i mreža (strogiEntiteti): kad je pošiljatelj javio oznaku
 // potpis-verzije/1, nepotpisana verzija tuđeg autora koji već potpisuje
-// također čeka. Takav pošiljatelj potpis ne skida, pa ju je dobio od
-// starijeg računala ili ju je netko napisao bez ključa autora. U knjigu ne
-// ide, jer bi je obnova površine pri pokretanju ionako stavila na površinu.
+// također čeka. Takav pošiljatelj potpis ne skida, pa je takvu verziju
+// autor napisao prije nego što je počeo potpisivati, ili ju je potpisao, a
+// potpis je skinulo starije računalo na putu. Primatelj to ne može
+// razlikovati (rane potpisane verzije autora možda nema, a oznake idu po
+// satu autora), pa i ona, kad je granica prijeđe, ide u trazi. Popuna
+// prolazi istu provjeru kao delta (ista poruka), pa je pošiljatelj s
+// oznakom koji je drži bez potpisa daje opet nepotpisanu, i ona opet čeka.
+// Verzija napisana prije potpisivanja zato se traži zauvijek, a svaka
+// razmjena s računalom koje za nju jamči popunom je šalje opet.
+// U knjigu ne ide, jer bi je obnova površine pri pokretanju ionako
+// stavila na površinu. Računalo bez oznake potpis ne prenosi, pa od njega
+// strogo ne vrijedi: kad tu verziju pošalje, deltom ili popunom, prolazi
+// bez potpisa kao i ostale dok traje prijelaz. Isto vrijedi za verziju
+// potpisanu ključem koji nije vezan, jer je takvo računalo šalje bez
+// potpisa.
 
 import (
 	"context"
@@ -225,7 +242,9 @@ func (s *Service) zaDopunu(spremljene []ledger.Version, potpisane map[string]led
 }
 
 // zabiljeziCekaju zapiše u dnevnik verzije koje čekaju članstvo ili
-// potpisanu inačicu, jednim retkom po autoru, kao verzije koje kasne
+// potpisanu inačicu, jednim retkom po autoru, kao verzije koje kasne.
+// Koje od njih idu u trazi zapisa rupa, pa se traže od drugih računala,
+// kaže zaCekanje.
 func (s *Service) zabiljeziCekaju(put string, cekaju kasneVerzije) {
 	for autor, z := range cekaju {
 		log.Printf("%s: primljena verzija %.80q autora %.80q %v i ne upisuje se; takvih u poruci %d, a upisat će se kad stigne članstvo autora ili potpisana inačica",

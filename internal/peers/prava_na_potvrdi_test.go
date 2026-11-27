@@ -45,7 +45,7 @@ func TestUvozPromjenePravaCekaPotvrdu(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ured.primijeniPodBravom(ctxRub, verzije); err != nil {
+	if _, err := ured.primijeniPodBravom(ctxRub, verzije, nil); err != nil {
 		t.Fatal(err)
 	}
 	naUredu := repository.NewUserRepository(ured.db, ured.rec)

@@ -294,22 +294,30 @@ func TestUvozCekaBravuUpisa(t *testing.T) {
 	}
 	ctx, otkazi := context.WithTimeout(ctxRub, 50*time.Millisecond)
 	defer otkazi()
-	if _, err := s.primijeniPodBravom(ctx, v); !errors.Is(err, context.DeadlineExceeded) {
+	if _, err := s.primijeniPodBravom(ctx, v, nil); !errors.Is(err, context.DeadlineExceeded) {
 		t.Errorf("uvoz uz zauzetu bravu: %v", err)
 	}
-	gotovo := make(chan int, 1)
+	type ishod struct {
+		n   int
+		err error
+	}
+	gotovo := make(chan ishod, 1)
 	go func() {
-		n, _ := s.primijeniPodBravom(ctxRub, v)
-		gotovo <- n
+		n, err := s.primijeniPodBravom(ctxRub, v, nil)
+		gotovo <- ishod{n, err}
 	}()
 	time.Sleep(20 * time.Millisecond)
 	s.pustiBravu()
-	if n := <-gotovo; n != 1 {
-		t.Errorf("uvoz nakon oslobođene brave: %d", n)
+	i := <-gotovo
+	if i.err != nil {
+		t.Fatal(i.err)
+	}
+	if i.n != 1 {
+		t.Errorf("uvoz nakon oslobođene brave: %d", i.n)
 	}
 	s.OnApplied(func(context.Context, []ledger.Version) error { return errors.New("namjerni kvar površine") })
 	v[0].VersionID = "019a0000-0000-7000-8000-000000000002"
-	if n, err := s.primijeniPodBravom(ctxRub, v); n != 1 || err == nil || !strings.Contains(err.Error(), "površina nije osvježena") {
+	if n, err := s.primijeniPodBravom(ctxRub, v, nil); n != 1 || err == nil || !strings.Contains(err.Error(), "površina nije osvježena") {
 		t.Errorf("kvar površine: %d %v", n, err)
 	}
 }
@@ -323,14 +331,14 @@ func TestUpisPrimljenogRubovi(t *testing.T) {
 	if err := s.uzmiBravu(ctxRub); err != nil {
 		t.Fatal(err)
 	}
-	if n, err := s.primijeniAkoStigne(ctxRub, nil, promjenaRupa{}); n != 0 || err != nil {
+	if n, err := s.primijeniAkoStigne(ctxRub, nil, stalnaPromjena(promjenaRupa{})); n != 0 || err != nil {
 		t.Errorf("bez verzija: %d %v", n, err)
 	}
 	s.primiSadrzajAkoStigne(ctxRub, "laptop", nil)
 	otkazan, otkazi := context.WithCancel(ctxRub)
 	otkazi()
 	v := []ledger.Version{{VersionID: "019a0000-0000-7000-8000-000000000003", Entity: entitetProbe, EntityID: "z1"}}
-	if n, err := s.primijeniAkoStigne(otkazan, v, promjenaRupa{}); n != 0 || !errors.Is(err, context.Canceled) {
+	if n, err := s.primijeniAkoStigne(otkazan, v, stalnaPromjena(promjenaRupa{})); n != 0 || !errors.Is(err, context.Canceled) {
 		t.Errorf("otkazan razgovor: %d %v", n, err)
 	}
 	s.zabiljezi(otkazan, &Peer{NodeID: "laptop-baranja"}, nil, syncOutcome{})
@@ -343,7 +351,7 @@ func TestUpisPrimljenogRubovi(t *testing.T) {
 	// namjerno promijenjeno: G3 (plan WEB synca, §3); neispravna
 	// verzija se preskoči i ne ruši upis
 	v[0].EntityID = ""
-	if n, err := s.primijeniAkoStigne(ctxRub, v, promjenaRupa{}); n != 0 || err != nil {
+	if n, err := s.primijeniAkoStigne(ctxRub, v, stalnaPromjena(promjenaRupa{})); n != 0 || err != nil {
 		t.Errorf("neispravna verzija: %d %v", n, err)
 	}
 	var bezZapisa int
@@ -353,7 +361,7 @@ func TestUpisPrimljenogRubovi(t *testing.T) {
 	dnevnik := brojiDnevnik(t, "površina nije osvježena")
 	s.OnApplied(func(context.Context, []ledger.Version) error { return sql.ErrConnDone })
 	v[0].EntityID, v[0].NodeID, v[0].Payload, v[0].CreatedAt = "z1", "laptop-baranja", []byte(`{}`), time.Now()
-	if n, err := s.primijeniAkoStigne(ctxRub, v, promjenaRupa{}); n != 1 || err != nil {
+	if n, err := s.primijeniAkoStigne(ctxRub, v, stalnaPromjena(promjenaRupa{})); n != 1 || err != nil {
 		t.Errorf("verzija uz kvar površine je u knjizi: %d %v", n, err)
 	}
 	if n, _ := dnevnik.broj(); n != 1 {
@@ -390,14 +398,14 @@ func TestUpisPreskaceNeispravnePrimljene(t *testing.T) {
 		verzija("019a0000-0000-7000-8000-000000000003", "", "z3"),
 		verzija("019a0000-0000-7000-8000-000000000004", entitetProbe, ""),
 	}
-	if n, err := s.primijeniAkoStigne(ctxRub, paket, promjenaRupa{}); n != 1 || err != nil {
+	if n, err := s.primijeniAkoStigne(ctxRub, paket, stalnaPromjena(promjenaRupa{})); n != 1 || err != nil {
 		t.Fatalf("razmjena: %d %v", n, err)
 	}
-	if n, err := s.primijeniAkoStigne(ctxRub, paket, promjenaRupa{}); n != 0 || err != nil {
+	if n, err := s.primijeniAkoStigne(ctxRub, paket, stalnaPromjena(promjenaRupa{})); n != 0 || err != nil {
 		t.Errorf("isti paket opet: %d %v", n, err)
 	}
 	paket[0] = verzija("019a0000-0000-7000-8000-000000000005", entitetProbe, "z5")
-	if n, err := s.primijeniPodBravom(ctxRub, paket); n != 1 || err != nil {
+	if n, err := s.primijeniPodBravom(ctxRub, paket, nil); n != 1 || err != nil {
 		t.Errorf("uvoz: %d %v", n, err)
 	}
 	if got := strings.Join(povrsina, " "); got != "z1 z5" {
@@ -411,7 +419,7 @@ func TestUpisPreskaceNeispravnePrimljene(t *testing.T) {
 	uvoz := brojiDnevnik(t, "uvoz: primljena verzija")
 	lazniAutor := verzija("019a0000-0000-7000-8000-000000000006", entitetProbe, "")
 	lazniAutor.NodeID = "x\n2026/10/15 20:00:00 sinkronizacija: lažni redak"
-	if n, err := s.primijeniPodBravom(ctxRub, []ledger.Version{lazniAutor}); n != 0 || err != nil {
+	if n, err := s.primijeniPodBravom(ctxRub, []ledger.Version{lazniAutor}, nil); n != 0 || err != nil {
 		t.Errorf("uvoz samo neispravne: %d %v", n, err)
 	}
 	if n, redak := uvoz.broj(); n != 1 || strings.Count(redak, "\n") != 1 {
@@ -423,7 +431,13 @@ func TestUpisPreskaceNeispravnePrimljene(t *testing.T) {
 	}
 	defer s.pustiBravu()
 	postaviRok(t, 20*time.Millisecond)
-	if n, err := s.primijeniAkoStigne(ctxRub, paket[1:], promjenaRupa{}); n != 0 || err != nil {
+	if n, err := s.primijeniAkoStigne(ctxRub, paket[1:], stalnaPromjena(promjenaRupa{})); n != 0 || err != nil {
 		t.Errorf("samo neispravne uz zauzet upis: %d %v", n, err)
 	}
+}
+
+// stalnaPromjena je složitelj promjene rupa za primijeniAkoStigne koji
+// uvijek daje p, bez obzira na drugu provjeru potpisa
+func stalnaPromjena(p promjenaRupa) func(_, _ []ledger.Version) promjenaRupa {
+	return func(_, _ []ledger.Version) promjenaRupa { return p }
 }

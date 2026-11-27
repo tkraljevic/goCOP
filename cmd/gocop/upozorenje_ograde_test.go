@@ -44,6 +44,7 @@ func TestStanjeRazmjeneRupe(t *testing.T) {
 	if err := mreza.CreateNetwork(ctx, "Proba"); err != nil {
 		t.Fatal(err)
 	}
+	mreza.SetWantsAll(true)
 	repository.SetReadingHistoryPolicy(repository.ReadingHistoryPolicy{Months: 12})
 	t.Cleanup(func() { repository.SetReadingHistoryPolicy(repository.ReadingHistoryPolicy{}) })
 	sad := time.Now().UTC()
@@ -58,7 +59,7 @@ func TestStanjeRazmjeneRupe(t *testing.T) {
 	var ograda, nedostaje bool
 	for _, u := range st.Upozorenja {
 		ograda = ograda || strings.Contains(u, "a računalo laptop-ana ima stariji program")
-		nedostaje = nedostaje || strings.HasPrefix(u, "Od računala laptop-ana možda nedostaju neka starija očitanja, jer su stigla preko računala koje ne čuva sve.")
+		nedostaje = nedostaje || strings.HasPrefix(u, "Od računala laptop-ana možda nedostaju neki zapisi ili još čekaju provjeru potpisa.")
 	}
 	if !ograda || !nedostaje {
 		t.Errorf("upozorenja: %q", st.Upozorenja)

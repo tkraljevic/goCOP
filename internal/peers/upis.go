@@ -100,13 +100,23 @@ func (s *Service) primijeni(ctx context.Context, verzije []ledger.Version) (appl
 // nema, pa bravu čeka koliko treba. Neispravne verzije preskoči kao i
 // razmjena (od G3; do tada je uvoz s njima padao), a vide se samo u
 // dnevniku. Uvezeno može biti ispod granice odbijenih drugih računala, pa
-// se uvoz broji (zabiljeziUvoz, granica_nakon_uvoza.go).
-func (s *Service) primijeniPodBravom(ctx context.Context, verzije []ledger.Version) (int, error) {
+// se uvoz broji (zabiljeziUvoz, granica_nakon_uvoza.go). Serija ponovno
+// provjerava potpise, a članstvo koje je u prvoj provjeri bilo u paketu
+// sad možda nije ni u seriji ni u knjizi. Za verzije koje zato čekaju
+// slozi (nil: nikad) složi promjenu rupa, koja se trajno zapiše prije
+// upisa serije, jer bi ih novija verzija istog ključa inače prešla.
+func (s *Service) primijeniPodBravom(ctx context.Context, verzije []ledger.Version, slozi func(serija, cekaju []ledger.Version) promjenaRupa) (int, error) {
 	if err := s.uzmiBravu(ctx); err != nil {
 		return 0, err
 	}
 	defer s.pustiBravu()
-	ispravne, _ := s.preskociNeispravne(ctx, prijem{put: "uvoz"}, verzije)
+	ispravne, _, cekaju := s.preskociNeispravne(ctx, prijem{put: "uvoz"}, verzije)
+	if slozi != nil && len(cekaju) > 0 {
+		p := slozi(ispravne, cekaju)
+		if err := s.promijeniRupe(ctx, &p, promjenaKljuca.prosiri); err != nil {
+			return 0, err
+		}
+	}
 	applied, povrsina, err := s.primijeni(ctx, ispravne)
 	s.zabiljeziUvoz(applied, true)
 	if povrsina != nil {
@@ -116,12 +126,16 @@ func (s *Service) primijeniPodBravom(ctx context.Context, verzije []ledger.Versi
 }
 
 // primijeniAkoStigne upisuje verzije primljene u razgovoru, ako brava
-// stigne unutar roka; inače vraća errUpisZauzet. Kad ne mijenja ni knjigu
-// ni zapis rupa (promjenaRupa.nista), bravu ne čeka, pa ni kad su sve
-// primljene neispravne. Upis koji popuni rupu u nizu broji se kao uvoz
-// (popunjavaRupu, zabiljeziUvoz).
-func (s *Service) primijeniAkoStigne(ctx context.Context, verzije []ledger.Version, p promjenaRupa) (int, error) {
-	verzije, _ = s.preskociNeispravne(ctx, prijem{put: "razmjena"}, verzije)
+// stigne unutar roka; inače vraća errUpisZauzet. Potpise provjeri još
+// jednom, nad onim što se upisuje, pa promjenu rupa složi (slozi) tek
+// nakon toga: verzija koja tu čeka, jer članstvo iz poruke nije među
+// upisanima, ide u trazi po istim pravilima kao i ona iz prve provjere.
+// Kad upis ne mijenja ni knjigu ni zapis rupa (promjenaRupa.nista), bravu
+// ne čeka, pa ni kad su sve primljene neispravne. Upis koji popuni rupu u
+// nizu broji se kao uvoz (popunjavaRupu, zabiljeziUvoz).
+func (s *Service) primijeniAkoStigne(ctx context.Context, verzije []ledger.Version, slozi func(upis, cekaju []ledger.Version) promjenaRupa) (int, error) {
+	verzije, _, cekaju := s.preskociNeispravne(ctx, prijem{put: "razmjena"}, verzije)
+	p := slozi(verzije, cekaju)
 	if p.nista(verzije) {
 		return 0, nil
 	}
@@ -187,8 +201,11 @@ type prijem struct {
 // ide u dnevnik, a autor je pod navodnicima jer ga piše druga strana. To
 // nisu neispravne verzije iz vlastite knjige (zabiljeziNeispravne), pa se
 // ne broje na ploči. Vraća i verzije s krivim potpisom: one su odbijene
-// zauvijek (granica odbijenih) i broje se u zapisu odbijenog.
-func (s *Service) preskociNeispravne(ctx context.Context, pr prijem, verzije []ledger.Version) (ispravne, krive []ledger.Version) {
+// zauvijek (granica odbijenih) i broje se u zapisu odbijenog. Vraća i
+// verzije koje čekaju: novija verzija istog ključa granicu knjige prijeđe
+// preko njih, pa ih pozivatelj, kad to zaCekanje pusti, trajno upiše u
+// trazi (rupe.go), a sljedeće razmjene ih traže popunom.
+func (s *Service) preskociNeispravne(ctx context.Context, pr prijem, verzije []ledger.Version) (ispravne, krive, cekaju []ledger.Version) {
 	sada := ledger.Sada()
 	potpisi := s.novaProvjeraPotpisa(ctx, verzije, pr.strogo)
 	r := razvrstano{s: s, put: pr.put, ispravne: make([]ledger.Version, 0, len(verzije))}
@@ -204,7 +221,7 @@ func (s *Service) preskociNeispravne(ctx context.Context, pr prijem, verzije []l
 	if len(r.krive) > 0 {
 		s.zabiljeziOdbijenoBroj(ctx, VrstaVerzija, "", RazlogKrivPotpis, s.imeKljuca(pr.od), len(r.krive))
 	}
-	return r.ispravne, r.krive
+	return r.ispravne, r.krive, r.zaRupe
 }
 
 // razvrstano su primljene verzije po tome zašto ne ulaze u knjigu
@@ -212,7 +229,8 @@ type razvrstano struct {
 	s               *Service
 	put             string
 	ispravne, krive []ledger.Version
-	kasne, cekaju   kasneVerzije
+	zaRupe          []ledger.Version // verzije koje čekaju, za zapis rupa (zaCekanje)
+	kasne, cekaju   kasneVerzije     // za dnevnik
 }
 
 // dodaj svrsta verziju po razlogu (nil: ispravna); neispravnu zapiše u dnevnik
@@ -224,6 +242,7 @@ func (r *razvrstano) dodaj(v ledger.Version, zasto error) {
 		r.kasne.dodaj(v, zasto)
 	case ceka(zasto):
 		r.cekaju.dodaj(v, zasto)
+		r.zaRupe = append(r.zaRupe, v)
 	default:
 		r.s.zabiljeziPreskocenu(r.put, v, zasto)
 		if errors.Is(zasto, errKrivPotpis) {

@@ -35,6 +35,7 @@ package peers
 import (
 	"context"
 	"log"
+	"maps"
 	"slices"
 
 	"gocop/internal/ledger"
@@ -77,13 +78,16 @@ type razgovorSCvorom struct {
 	// ono što ovaj čvor traži, a njihovaTrazenja ono što traži druga
 	// strana; popunjavam je po čemu je delta složena i što je u njoj
 	// popuna; njihoveRupe i njihovaPopuna su iz delte druge strane; bacio
-	// je po ključu najmanja i najveća verzija koju je ovaj čvor odbio, a
-	// preskoceni ključevi koje bezPreskocenog nije upisao
+	// je po ključu najmanja i najveća verzija koju je ovaj čvor odbio, ceka
+	// isto za verzije koje čekaju članstvo ili potpisanu inačicu i idu u
+	// trazi (zapamtiCekanje), a preskoceni ključevi koje bezPreskocenog nije
+	// upisao
 	rupe                       pocetakRupa
 	trazeno, njihovaTrazenja   map[string]raspon
 	popunjavam                 popunaDelte
 	njihoveRupe, njihovaPopuna map[string]raspon
 	bacio                      map[string]baceno
+	ceka                       cekanje
 	preskoceni                 map[string]string
 	// mojiSadrzaji su sadržaji (ne dijelovi karte) koje je ovaj razgovor
 	// zatražio, po otisku; prima se samo od njih (trazeniSadrzaji)
@@ -300,29 +304,84 @@ func (r *razgovorSCvorom) zapamtiDelte(moja, stigla deltaMsg, neispravne []ledge
 // Neispravne (preskociNeispravne) otpadaju prije svega ostalog, pa ne
 // ulaze ni u granicu odbijenih ni u rupe. Iznimka je verzija s krivim
 // potpisom autora: ona ne vrijedi nikad, pa ide u granicu odbijenih
-// (odbaci), a ona koja čeka članstvo ne ide. Kad je upis predugo zauzet,
-// razgovor završi bez upisa (zavrsiZauzet), a primljeno stigne sljedećom
-// razmjenom. Ne upisuje se ni ono što bi granicu knjige
-// pomaknulo preko verzija koje je druga strana preskočila po granici
-// odbijenih, a ovaj čvor ih sad možda drži (bezPreskocenog). Pod istom
-// bravom, prije upisa, trajno se zapiše što je odbijeno i stiglo s rupom
-// (promjenaRupa). Tek kad je upis prošao, ovaj čvor zapamti što je odbio
-// (zapamtiOdbijene), i to prije kraja razgovora, pa ga već sljedeći
-// razgovor javlja.
+// (odbaci). Verzija koja čeka članstvo ili potpisanu inačicu ne ide ni u
+// knjigu ni u granicu odbijenih. Kad u istom primanju prođe novija verzija
+// istog ključa, granica knjige prijeđe preko nje, pa sama više ne dolazi.
+// Zato je razgovor, iz prve i iz druge provjere potpisa, razvrsta
+// (zapamtiCekanje, po pravilima iz zaCekanje), a promjenaRupa je prije
+// upisa trajno upiše u trazi, pa je sljedeće razmjene traže popunom. Kad je
+// upis predugo zauzet, razgovor završi bez upisa (zavrsiZauzet), a
+// primljeno stigne sljedećom razmjenom. Ne upisuje se ni ono što bi
+// granicu knjige pomaknulo preko verzija koje je druga strana preskočila
+// po granici odbijenih, a ovaj čvor ih sad možda drži (bezPreskocenog).
+// Pod istom bravom, prije upisa, trajno se zapiše što je odbijeno, što
+// čeka i što je stiglo s rupom (promjenaRupa). Tek kad je upis prošao, ovaj
+// čvor zapamti što je odbio (zapamtiOdbijene), i to prije kraja razgovora,
+// pa ga već sljedeći razgovor javlja. Ključ u kojem verzija čeka iznad
+// granice knjige, a ispod onoga što bi javio kao odbijeno, ne javlja se
+// (bezCekanja).
 func (r *razgovorSCvorom) upisiPrimljeno(ctx context.Context, stiglo []ledger.Version) error {
-	ispravne, krive := r.s.preskociNeispravne(ctx, prijem{put: "razmjena", od: r.kljucDruge(), strogo: r.potpisDogovoren()}, stiglo)
+	ispravne, krive, cekaju := r.s.preskociNeispravne(ctx, prijem{put: "razmjena", od: r.kljucDruge(), strogo: r.potpisDogovoren()}, stiglo)
 	for _, v := range krive {
 		r.odbaci(v) // kriv potpis ne vrijedi nikad: pošiljatelj ga ne treba slati iznova
 	}
 	wanted := r.bezPreskocenog(r.zaUpis(ctx, ispravne))
-	applied, err := r.s.primijeniAkoStigne(ctx, wanted, r.promjenaRupa(wanted))
+	sveCekaju := cekaju
+	applied, err := r.s.primijeniAkoStigne(ctx, wanted, func(upis, jos []ledger.Version) promjenaRupa {
+		sveCekaju = slices.Concat(cekaju, jos)
+		r.zapamtiCekanje(ctx, sveCekaju, upis)
+		return r.promjenaRupa(upis)
+	})
 	if err != nil {
 		r.s.zavrsiZauzet(r.c, r.initiator, err)
 		return err
 	}
 	r.applied = applied
-	r.s.zapamtiOdbijene(r.odbijene, r.odbijeno)
+	odbijeno, zaboravi := bezCekanja(r.odbijeno, r.odbijene.moje, r.moja.Frontier, sveCekaju)
+	r.s.zapamtiOdbijene(r.odbijene, odbijeno, zaboravi...)
 	return nil
+}
+
+// zapamtiCekanje zapamti, po ključu, verzije koje čekaju članstvo ili
+// potpisanu inačicu i idu u trazi (zaCekanje), uz ono što se upisuje
+// (upis), granicu s početka razgovora i, uz oznaku rupe/1, popunu druge
+// strane: bez oznake druga strana za popunu ne jamči
+func (r *razgovorSCvorom) zapamtiCekanje(ctx context.Context, cekaju, upis []ledger.Version) {
+	u := uvjetCekanja{granica: r.moja.Frontier}
+	if r.rupe.dogovor {
+		u.popuna = r.valjanaPopuna
+	}
+	r.ceka = r.s.zaCekanje(ctx, cekaju, upis, u)
+}
+
+// bezCekanja je granica odbijenih (odbijeno) bez ključeva u kojima verzija
+// čeka (cekaju) u dijelu koji bi druga strana po granici odbijenih
+// preskočila: iznad granice knjige s početka razgovora (granica), a ne iznad
+// granice odbijenih ovoga razgovora (odbijeno) ili zapisa s početka
+// razgovora (moje). Ti ključevi su zaboravi, pa se brišu i iz zapisa. Inače
+// bi druga strana verziju koja čeka preskočila, a granica knjige bi poslije
+// prešla preko nje bez rupe: G4 računa na to da je primatelj svaku verziju
+// iz niza upisao ili odbio, a verzija koja čeka nije ni jedno. Ispod
+// granice knjige druga strana ne preskače ništa (pocetakOdbijenih javlja
+// samo ono iznad nje), a verzija koja tamo čeka stiže popunom, pa ključ
+// ostaje zapamćen. Dok verzija čeka iznad granice, ključ se zaboravlja u
+// svakom razgovoru u kojem ona stigne, pa se odbijeno iznad nje šalje opet.
+func bezCekanja(odbijeno, moje, granica map[string]string, cekaju []ledger.Version) (map[string]string, []string) {
+	var zaboravi []string
+	for _, v := range cekaju {
+		k := ledger.FrontierKey(v.NodeID, v.Channel)
+		if g := max(odbijeno[k], moje[k]); v.VersionID > granica[k] && v.VersionID <= g && !slices.Contains(zaboravi, k) {
+			zaboravi = append(zaboravi, k)
+		}
+	}
+	if len(zaboravi) == 0 {
+		return odbijeno, nil
+	}
+	out := maps.Clone(odbijeno)
+	for _, k := range zaboravi {
+		delete(out, k)
+	}
+	return out, zaboravi
 }
 
 // zaUpis su primljene verzije čiji kanal ovaj čvor prati i koje prihvaća
