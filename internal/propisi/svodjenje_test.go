@@ -185,7 +185,7 @@ func TestIsjecakIzrazUJednomRetku(t *testing.T) {
 	for _, k := range got {
 		sve += k.Tekst
 	}
-	if !strings.Contains(sve, "pripremno stanje nasipa") {
+	if !strings.Contains(sve, "c) pripremno stanje") || strings.Contains(sve, "a) pripremno") {
 		t.Errorf("isječak nije na stavci c): %q", sve)
 	}
 }
