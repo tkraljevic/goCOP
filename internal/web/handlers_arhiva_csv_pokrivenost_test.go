@@ -126,6 +126,30 @@ func TestIzvozGodineSpojenogNiza(t *testing.T) {
 	}
 }
 
+// Godina koja ima više redaka nego što arhiva vraća jednim upitom izvozi se
+// cijela, od 1. siječnja. Prije se čitala samo jedna stranica od najnovije
+// vrijednosti, pa je satni niz letve koja mjeri češće od sata počinjao tek u
+// ožujku. Stranica je ovdje dva retka, a godina ih ima tri.
+func TestIzvozGodineDuljeOdStranice(t *testing.T) {
+	stara := stranicaSpoja
+	stranicaSpoja = 2
+	t.Cleanup(func() { stranicaSpoja = stara })
+	p := posluziteljArhive(t)
+	w := p.posalji("dežurni", http.MethodGet, "/readings/station/"+p.letva.ID.String()+"/izvoz.csv?god=2014", nil, "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("izvoz: %d %s", w.Code, w.Body.String())
+	}
+	redci := citajCSV(t, w.Body.String())
+	if len(redci) != 4 {
+		t.Fatalf("izvezeno %d redaka, želim zaglavlje i tri vrijednosti: %q", len(redci), redci)
+	}
+	for i, zeli := range []string{"2014-01-01 07:00:00", "2014-01-02 07:00:00", "2014-12-31 07:00:00"} {
+		if redci[i+1][0] != zeli {
+			t.Errorf("redak %d: %q, želim %q", i+1, redci[i+1][0], zeli)
+		}
+	}
+}
+
 // Čvor bez arhive nema što izvesti ni ispraviti.
 func TestArhivaCSVBezArhive(t *testing.T) {
 	p := noviPosluziteljOcitanja(t)
