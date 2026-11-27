@@ -189,3 +189,28 @@ func TestIsjecakIzrazUJednomRetku(t *testing.T) {
 		t.Errorf("isječak nije na stavci c): %q", sve)
 	}
 }
+
+// Središte isječka: izraz u blizini, inače redak sa svim riječima, inače
+// prvi pogodak, a bez pogotka početak teksta.
+func TestSredisteIsjecka(t *testing.T) {
+	k := Korijeni("pripremno stanje")
+	sredina := func(tekst string) int {
+		sv := []rune(Svedi(tekst))
+		return sredisteIsjecka(sv, k, naciPogotke(sv, k))
+	}
+	if got := sredina("nema ničega"); got != 0 {
+		t.Errorf("bez pogotka: %d", got)
+	}
+	if got := sredina("stanje\nx pripremno stanje"); got != 9 {
+		t.Errorf("izraz u blizini: %d", got)
+	}
+	// obje riječi u istom retku, ali daleko jedna od druge
+	daleko := "a) stanje\nb) pripremno " + strings.Repeat("riječ ", 20) + "stanje"
+	if got := sredina(daleko); got != 13 {
+		t.Errorf("redak sa svim riječima: %d", got)
+	}
+	// nijedan redak nema obje riječi: prvi pogodak
+	if got := sredina("a) stanje\nb) pripremno"); got != 3 {
+		t.Errorf("prvi pogodak: %d", got)
+	}
+}

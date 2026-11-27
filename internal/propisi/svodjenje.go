@@ -97,8 +97,8 @@ func Isjecak(tekst string, korijeni []string, sirina int) []KomadIsjecka {
 const blizina = 80
 
 // sredisteIsjecka je položaj od kojeg isječak kreće: pogodak iza kojeg su
-// sve riječi upita unutar blizine, inače prvi pogodak u retku koji ima sve
-// riječi, inače prvi pogodak
+// sve riječi upita unutar blizine u istom retku, inače prvi pogodak u retku
+// koji ima sve riječi, inače prvi pogodak
 func sredisteIsjecka(sv []rune, korijeni []string, pogoci []raspon) int {
 	if len(pogoci) == 0 {
 		return 0
@@ -108,19 +108,31 @@ func sredisteIsjecka(sv []rune, korijeni []string, pogoci []raspon) int {
 			return p.od
 		}
 	}
-	od := 0
-	for _, redak := range strings.SplitAfter(string(sv), "\n") {
-		do := od + len([]rune(redak))
-		if sviUnutar(sv, korijeni, od, do) {
-			for _, p := range pogoci {
-				if p.od >= od {
-					return p.od
-				}
-			}
-		}
-		od = do
+	if od, ok := prviURetkuSaSvima(sv, korijeni, pogoci); ok {
+		return od
 	}
 	return pogoci[0].od
+}
+
+// prviURetkuSaSvima je prvi pogodak u prvom retku u kojem su sve riječi upita
+func prviURetkuSaSvima(sv []rune, korijeni []string, pogoci []raspon) (int, bool) {
+	for _, p := range pogoci {
+		od := pocetakRetka(sv, p.od)
+		if sviUnutar(sv, korijeni, od, krajRetka(sv, p.od)) {
+			return p.od, true
+		}
+	}
+	return 0, false
+}
+
+// pocetakRetka je položaj iza zadnjeg prijeloma retka prije do
+func pocetakRetka(sv []rune, do int) int {
+	for i := do; i > 0; i-- {
+		if sv[i-1] == '\n' {
+			return i
+		}
+	}
+	return 0
 }
 
 // krajRetka je položaj prvog prijeloma retka od od, ili kraj teksta: izraz
