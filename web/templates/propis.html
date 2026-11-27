@@ -24,7 +24,7 @@
 <div class="reg-card propis-napomena">
   {{if .Izmjene}}
   <p>Ovo je izvorni tekst iz Narodnih novina. Izmjene nisu unesene u tekst, nego uz članke koje mijenjaju stoji oznaka „mijenjan NN …”.</p>
-  <p>Izmjene: {{range $i, $iz := .PopisIzmjena}}{{if $i}} · {{end}}<a href="{{$iz.Poveznica}}">{{$iz.NN.Puno}}</a>{{with $iz.Stupila}}, stupila na snagu {{.}}{{end}}{{end}}</p>
+  <p>Izmjene: {{range $i, $iz := .PopisIzmjena}}{{if $i}} · {{end}}<a href="{{$iz.Poveznica}}">{{$iz.NN.Puno}}</a>{{with $iz.Stupila}}, {{if $iz.JosNeVrijedi}}stupa{{else}}stupila{{end}} na snagu {{.}}{{end}}{{end}}</p>
   {{else}}
   <p>Ovo je izvorni tekst iz Narodnih novina. Propis u programu nema izmjena.</p>
   {{end}}

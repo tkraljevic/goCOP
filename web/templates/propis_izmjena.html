@@ -13,7 +13,7 @@
 <div class="page-header list-glava">
   <div>
     <h1 class="page-title" data-naziv-stranice>{{$iz.Naziv}}</h1>
-    <p class="page-desc">{{$iz.NN.Puno}}{{with $iz.Donositelj}} · {{.}}{{end}}{{with .Stupila}} · stupila na snagu {{.}}{{end}}{{with $iz.StupanjeIzraz}} ({{.}}){{end}} · izmjena propisa „{{$p.Naziv}}”</p>
+    <p class="page-desc">{{$iz.NN.Puno}}{{with $iz.Donositelj}} · {{.}}{{end}}{{with .Stupila}} · {{if $.Izmjena.JosNeVrijedi}}stupa{{else}}stupila{{end}} na snagu {{.}}{{end}}{{with $iz.StupanjeIzraz}} ({{.}}){{end}} · izmjena propisa „{{$p.Naziv}}”</p>
   </div>
 </div>
 
