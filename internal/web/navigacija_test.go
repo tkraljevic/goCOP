@@ -162,6 +162,31 @@ func TestGornjaTraka(t *testing.T) {
 	}
 }
 
+// Oznaka razmjene vodi na Stanje razmjene samo onoga tko ima Administraciju.
+// Ostalima je ikona samo oznaka, jer ih je poveznica vodila na stranicu koju
+// ne smiju otvoriti (Odluke (27. 11. 2026.)).
+func TestOznakaRazmjenePoPravu(t *testing.T) {
+	traka := func(moduli models.Visibility) string {
+		return dio(t, iscrtajSkoljku(t, DashboardViewData{
+			CurrentUser:  &models.User{FullName: "Ana Marija Horvat"},
+			ViewAsBanner: ViewAsBanner{Modules: moduli},
+		}), `<header class="vrh"`, `</header>`)
+	}
+	uprava := traka(models.Visibility{models.ModuleAdmin: true})
+	if !strings.Contains(uprava, `<a href="/sinkronizacija" class="vrh-gumb" id="vrh-razmjena"`) {
+		t.Errorf("uz Administraciju oznaka razmjene ne vodi na Stanje razmjene:\n%s", uprava)
+	}
+	obicni := traka(models.Visibility{models.ModuleRegisters: true})
+	if !strings.Contains(obicni, `<span class="vrh-gumb vrh-oznaka" id="vrh-razmjena"`) {
+		t.Errorf("bez Administracije oznaka razmjene nije samo oznaka:\n%s", obicni)
+	}
+	for _, ne := range []string{`href="/sinkronizacija"`, `href="/administracija"`} {
+		if strings.Contains(obicni, ne) {
+			t.Errorf("bez Administracije gornja traka ima poveznicu %s:\n%s", ne, obicni)
+		}
+	}
+}
+
 // Donja traka na mobitelu: Naslovna, Očitanja, Prognoze i Dokumenti, pa
 // „Više” koje otvara izbornik. Stranica Teren je ukinuta (Odluke
 // (14. 11. 2026.)), pa je nema ni u traci ni u izborniku.
