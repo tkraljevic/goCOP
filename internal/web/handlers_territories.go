@@ -30,7 +30,7 @@ type TerritoriesHandler struct {
 	tmplCounty       *template.Template
 	userService      *service.UserService    // sektori i branjena područja za kartu
 	sectionService   *service.SectionService // broj dionica po području
-	podaci           string                  // mapa baze; granice su u njezinoj podmapi geometrija
+	baza             func() string           // put do baze čvora; granice su u podmapi geometrija uz nju
 }
 
 func (h *TerritoriesHandler) SetKarta(f func() KartaPostavke) { h.karta = f }
