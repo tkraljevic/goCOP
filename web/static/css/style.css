@@ -11480,7 +11480,7 @@ td .odr-sitno { margin-top: 2px; }
 .propis-oznaka > summary::-webkit-details-marker { display: none; }
 /* Brisan dio: oznaka ostaje čitljiva, a tekst dijela je prekrižen i posivljen (Odluke 25. 11. 2026.) */
 .propis-oznaka.brisan > summary { border-color: var(--danger); }
-.propis-brisan > .propis-naslov-iznad, .propis-brisan > .propis-stavak { text-decoration: line-through; color: var(--md-sys-color-on-surface-variant); }
+.propis-brisan > .propis-stavak, .propis-brisan-naslov > .propis-naslov-iznad { text-decoration: line-through; color: var(--md-sys-color-on-surface-variant); }
 .propis-oznaka-ploca {
   margin-top: 8px; padding: 12px; border: 1px solid var(--rub-kartica); border-radius: 8px;
   background: var(--md-sys-color-surface-container-low); font-size: 0.875rem;
@@ -11496,13 +11496,15 @@ td .odr-sitno { margin-top: 2px; }
 .propis-susjedi { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 16px; font-size: 0.875rem; }
 .propis-upozorenje { margin-top: 4px; font-size: 0.8125rem; color: var(--md-sys-color-on-surface); }
 .propis-upute h2, .propis-tekst > h2 { margin: 0 0 12px; font-size: 1rem; font-weight: 500; }
+.propis-upute > h2 { margin: 0; }
 /* Učitavanje (15g, 4–6): obrazac s dva puta, provjera podjele i tablica odredbi izmjene */
 .propisi-ucitaj .reg-card, .propisi-dohvaceno, .propisi-podjela, .propisi-spremi, .propisi-pregled, .propisi-neucitane { margin-bottom: 16px; }
 /* .reg-card nema unutarnji razmak, pa ga kartice Propisa imaju same; razmak među
    dijelovima drži gap, a natpis polja na rubu okvira dobiva boju kartice */
-.propisi-ucitaj .reg-card, .propisi-dohvaceno, .propisi-podjela, .propisi-spremi, .propisi-pregled, .propisi-neucitane, .propis-upute, .propis-ukloni > form.reg-card {
+.propisi-ucitaj .reg-card, .propisi-dohvaceno, .propisi-podjela, .propisi-spremi, .propisi-neucitane, .propis-upute, .propis-ukloni > form.reg-card {
   --list-podloga: var(--surface); gap: 12px; padding: 16px;
 }
+.reg-card.propis-napomena, section.reg-card.propis-tekst { padding: 12px 16px; }
 .propisi-ucitaj .reg-card > *, .propisi-dohvaceno > *, .propisi-podjela > *, .propisi-spremi > *, .propisi-neucitane > *, .propis-upute > *, .propis-ukloni > form.reg-card > * { margin-top: 0; margin-bottom: 0; }
 .propisi-ucitaj h2, .propisi-dohvaceno h2, .propisi-podjela h2, .propisi-neucitane h2 { margin: 0; font-size: 1rem; font-weight: 500; }
 .propisi-ucitaj .list-blok > .form-help, .propisi-spremi .list-blok > .form-help { margin: 0; padding: 0 4px; font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); }
@@ -11515,21 +11517,22 @@ td .odr-sitno { margin-top: 2px; }
 .propisi-podaci { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; }
 .propisi-podaci dt { color: var(--md-sys-color-on-surface-variant); }
 .propisi-podaci dd { margin: 0; overflow-wrap: anywhere; }
-.propisi-podjela p { margin: 0 0 8px; }
-.propisi-podjela .propis-neprepoznato { margin: 0 0 8px; }
+.propisi-podjela p { margin: 0; }
+.propisi-podjela .propis-neprepoznato { margin: 0; }
 .propisi-adresa { display: flex; align-items: center; gap: 0; }
-.propisi-adresa span { padding-left: 16px; line-height: 24px; color: var(--md-sys-color-on-surface-variant); }
+.propisi-adresa span { padding: 0 0 6px 16px; line-height: 24px; color: var(--md-sys-color-on-surface-variant); }
 /* polje adrese je u okviru .list-polje, pa nema svoj okvir */
-.propisi-adresa .form-control { flex: 1; min-width: 0; padding: 0 16px 6px 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; font-size: 1rem; line-height: 24px; }
+.propisi-adresa .form-control { flex: 1; min-width: 0; min-height: 0; padding: 0 16px 6px 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; font-family: inherit; font-size: 1rem; line-height: 24px; }
 .propisi-adresa .form-control:focus { box-shadow: none; }
 @media (min-width: 600px) {
-  .propisi-adresa span { padding-left: 12px; }
+  .propisi-adresa span { padding: 15px 0 15px 12px; }
   .propisi-adresa .form-control { padding: 15px 12px 15px 0; }
 }
 .propisi-pregled { padding: 12px 16px; }
 .propisi-pregled > summary { cursor: pointer; font-weight: 500; }
 .propisi-pregled[open] > summary { margin-bottom: 12px; }
-.propisi-cilj { margin-top: 6px; width: 100%; min-width: 12rem; max-width: 16rem; }
+.propisi-cilj { margin-top: 6px; max-width: 16rem; }
+@media (min-width: 600px) { .propisi-cilj { width: 100%; min-width: 12rem; } }
 .propis-admin { margin-top: 12px; }
 .propis-ukloni > summary { list-style: none; cursor: pointer; }
 .propis-ukloni > summary::-webkit-details-marker { display: none; }

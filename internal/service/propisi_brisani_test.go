@@ -40,3 +40,30 @@ func TestDioJeBrisanSamoUzOznakuBrisan(t *testing.T) {
 		t.Errorf("brisan %v, mijenjan %v, bez oznaka %v", brisan.Brisan(), mijenjan.Brisan(), DioNaStranici{}.Brisan())
 	}
 }
+
+// Naslov iznad brisanog članka prekriži se samo kad ga je izmjena brisala:
+// zajednički naslov nad člancima 98.–100. vrijedi dalje kad se briše samo
+// članak 98.
+func TestNaslovIznadBrisanSamoUzNaslov(t *testing.T) {
+	iz := models.IzdanjeNN{Broj: 47, Godina: 2023}
+	sNaslovom := models.UputaIzmjene{Vrsta: models.UputaBrisanjeDijela,
+		Cilj: models.CiljUpute{Clanci: []string{"clanak-98"}, NaslovIznad: true}}
+	bezNaslova := models.UputaIzmjene{Vrsta: models.UputaBrisanjeDijela,
+		Cilj: models.CiljUpute{Clanci: []string{"clanak-98"}}}
+	o := OznakaIzmjene{IzmjenaNN: iz, Odredbe: []OdredbaIzmjene{{Tekst: "a"}}}
+	s := DioNaStranici{Oznake: []OznakaIzmjene{oznakaUzDio(o, sNaslovom, "clanak-98", "članak 98.")}}
+	b := DioNaStranici{Oznake: []OznakaIzmjene{oznakaUzDio(o, bezNaslova, "clanak-98", "članak 98.")}}
+	if !s.Brisan() || !s.BrisanNaslov() {
+		t.Errorf("s naslovom: brisan %v, naslov %v", s.Brisan(), s.BrisanNaslov())
+	}
+	if !b.Brisan() || b.BrisanNaslov() {
+		t.Errorf("bez naslova: brisan %v, naslov %v", b.Brisan(), b.BrisanNaslov())
+	}
+	// dvije odredbe iste izmjene uz isti članak su jedna oznaka, a naslov
+	// ostaje brisan ako ga je brisala ijedna
+	o2 := oznakaUzDio(OznakaIzmjene{IzmjenaNN: iz, Odredbe: []OdredbaIzmjene{{Tekst: "b"}}}, bezNaslova, "clanak-98", "članak 98.")
+	spojeno := dodajOznaku(s.Oznake, o2)
+	if len(spojeno) != 1 || !(DioNaStranici{Oznake: spojeno}).BrisanNaslov() {
+		t.Errorf("spajanje: %d oznaka, naslov %v", len(spojeno), DioNaStranici{Oznake: spojeno}.BrisanNaslov())
+	}
+}

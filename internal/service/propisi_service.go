@@ -151,6 +151,7 @@ type OznakaIzmjene struct {
 	Poveznica   string // stranica izmjene u programu
 	PoveznicaNN string // akt izmjene u Narodnim novinama
 	Odredbe     []OdredbaIzmjene
+	SNaslovom   bool   // brisan je i naslov iznad dijela („Naslovi iznad članaka i članci … brišu se.”)
 	cilj        string // oznaka dijela uz koji stoji
 }
 
@@ -169,6 +170,18 @@ type DioNaStranici struct {
 func (d DioNaStranici) Brisan() bool {
 	for _, o := range d.Oznake {
 		if o.Vrsta == OznakaBrisan {
+			return true
+		}
+	}
+	return false
+}
+
+// BrisanNaslov javlja je li uz dio brisan i naslov iznad njega. Naslov iznad
+// članka često vrijedi i za članke ispod, pa se prekriži samo kad ga je
+// izmjena brisala.
+func (d DioNaStranici) BrisanNaslov() bool {
+	for _, o := range d.Oznake {
+		if o.Vrsta == OznakaBrisan && o.SNaslovom {
 			return true
 		}
 	}
@@ -383,6 +396,7 @@ func oznakaUzDio(o OznakaIzmjene, u models.UputaIzmjene, cilj, naziv string) Ozn
 	if o.Vrsta == OznakaDodano {
 		o.NoveOznake = u.NoveOznake
 	}
+	o.SNaslovom = o.Vrsta == OznakaBrisan && u.Cilj.NaslovIznad
 	o.Natpis = natpisOznake(o)
 	return o
 }
@@ -441,6 +455,7 @@ func dodajOznaku(popis []OznakaIzmjene, o OznakaIzmjene) []OznakaIzmjene {
 		if o.Odredbe[0].Tekst != p.Odredbe[len(p.Odredbe)-1].Tekst {
 			p.Odredbe = append(p.Odredbe, o.Odredbe...)
 		}
+		p.SNaslovom = p.SNaslovom || o.SNaslovom
 		if len(o.NoveOznake) > 0 {
 			p.NoveOznake = append(p.NoveOznake, o.NoveOznake...)
 			p.Natpis = natpisOznake(*p)
