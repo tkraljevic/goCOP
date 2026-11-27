@@ -624,6 +624,14 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	peersService.PostaviStrogePotpise(repository.EntityUsers, repository.EntityDuties, repository.EntityRoleModules,
 		repository.EntityUserModules, repository.EntityPotvrdePrava, peers.EntityMemberships, peers.EntityOvlasti,
 		peers.EntityOpozivi, peers.EntityZahtjeviObnove)
+	// Stare vlastite verzije tih entiteta, napisane bez potpisa, potpišu se
+	// jednom, da ih novo računalo može primiti (Odluke (27. 11. 2026.)).
+	// Popis je onaj iz PostaviStrogePotpise, a poziv ide prije razmjene.
+	if n, err := peersService.PotpisiVlastiteStare(context.Background()); err != nil {
+		log.Printf("Potpis starih zapisa prava i mreže nije potpun (potpisano %d): %v", n, err)
+	} else if n > 0 {
+		log.Printf("Potpisano %d starih zapisa prava i mreže koje je napisalo ovo računalo", n)
+	}
 	// Paketi se potpisuju ključem čvora. Nepotpisan paket je samo tvrdnja o
 	// tome tko ga je izdao — svaki koji danas izađe nepotpisan ostaje takav,
 	// jer se onaj koji je već otišao ne da naknadno potpisati.
