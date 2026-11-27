@@ -82,7 +82,7 @@
     <h3>Svaki dan</h3>
     <a class="pomoc-tema" href="#dashboard">{{icon "house"}}<span>Naslovna</span><small>9 podnaslova</small>{{icon "chevron-right"}}</a>
     <a class="pomoc-tema" href="#readings">{{icon "ruler"}}<span>Očitanja</span><small>11 podnaslova</small>{{icon "chevron-right"}}</a>
-    <a class="pomoc-tema" href="#prognoze">{{icon "chart-column"}}<span>Prognoze</span><small>6 podnaslova</small>{{icon "chevron-right"}}</a>
+    <a class="pomoc-tema" href="#prognoze">{{icon "chart-column"}}<span>Prognoze</span><small>8 podnaslova</small>{{icon "chevron-right"}}</a>
     <a class="pomoc-tema" href="#karta">{{icon "map"}}<span>Karta</span>{{icon "chevron-right"}}</a>
     <a class="pomoc-tema" href="#obilazak">{{icon "ruler"}}<span>Obilazak letava</span>{{icon "chevron-right"}}</a>
   </div>
@@ -1359,280 +1359,344 @@
   <h2>{{icon "chart-column"}} Prognoze</h2>
   <div class="pomoc-poglavlje">
   <details class="pomoc-podnaslovi" data-pomoc-podnaslovi open>
-    <summary><small>U ovom poglavlju</small><span>6 podnaslova</span>{{icon "chevron-down"}}</summary>
+    <summary><small>U ovom poglavlju</small><span>8 podnaslova</span>{{icon "chevron-down"}}</summary>
     <nav aria-label="U ovom poglavlju: Prognoze">
       <a href="#prognoze-citanje">Kako čitati prognozu</a>
-      <a href="#prognoze-ranija">Ranija prognoza</a>
+      <a href="#prognoze-upozorenja">Upozorenja uz izdanje</a>
       <a href="#prognoze-profil">Uzdužni profil</a>
+      <a href="#prognoze-ranija">Ranija prognoza</a>
       <a href="#prognoze-metoda">Kako nastaje</a>
       <a href="#prognoze-ogranicenja">Ograničenja i provjera</a>
+      <a href="#prognoze-cvorovi">Koji čvor izdaje prognozu</a>
       <a href="#prognoze-model">Model za novu letvu</a>
     </nav>
   </details>
   <div class="reg-card pomoc-tekst">
     <p>Prognoza povezuje zadnja mjerenja s povijesnim ponašanjem postaja i procjenjuje kako bi se
-      vodni val mogao kretati. Prikazuje sadašnje stanje, satne dosege <strong>+6 i +12 sati</strong>
-      te dnevne vrijednosti za sljedećih šest dana. To je operativno pomagalo, a ne službeni
-      hidraulički model ni zamjena za procjenu stručne osobe.</p>
+      vodni val mogao kretati. Za svaku letvu pokazuje vodostaj za <strong>+6 i +12 sati</strong> te
+      za šest dana, svaki dan u 7 h. To je operativno pomagalo, a ne službeni hidraulički model ni
+      zamjena za procjenu stručne osobe.</p>
+    <p>Stranicu Prognoze vidi svatko kome je uključen modul Očitanja. Na vrhu su kartice
+      <em>Vodostaji</em> i <em>Vrijeme</em>. Ispod njih birate sektor i vodotok; na mobitelu iz
+      izbornika <em>Sektor</em> i <em>Vodotok</em>, pa gumb <em>Prikaži</em>.</p>
 
     <h3 id="prognoze-citanje">Kako čitati prognozu</h3>
-    <p>Svaka kartica postaje pokazuje zadnji vodostaj, a gdje je moguće i protok. Ispod procijenjene
-      vrijednosti stoji <strong>raspon neizvjesnosti</strong>; boje upozoravaju približava li se taj
-      raspon pragu obrane. Svjetlije prikazana vrijednost znači da na tom dosegu prognoza u provjeri
-      nije bila bolja od jednostavne pretpostavke da će stanje ostati isto. Mađarske i srpske javne
-      prognoze prikazuju se zasebno kada su raspoložive i ne predstavljaju mjerenje goCOP-a.</p>
-    <p>Traka na vrhu stranice kaže kojih mjerenja vodostaja i protoka na ovom računalu nema i od kada.
-      Letva je na popisu kad joj je zadnje preuzeto mjerenje starije od 6 sati, a ako izvor javlja
-      rjeđe, kad izostane još jedno javljanje. Ručni upisi se tu ne računaju. Letva koja 14 dana nema
-      nijedno preuzeto mjerenje te veličine više se ne navodi. Iznad popisa može stajati napomena koju
-      globalni administrator upisuje u Postavkama prognoze, npr. da izvor mijenja adrese.</p>
+    <p>Gore piše kad je prognoza izdana i koje ju je računalo izdalo. Ispod toga piše „Voda ostaje
+      u rasponu u 70 % slučajeva”. Desno su gumbi <em>O prognozi</em>, <em>Izvoz u Excel</em> i
+      <em>Postavke</em>. Kad je odabran vodotok, tu je i <em>Izvoz cijelog izdanja</em>.</p>
+    {{template "pomocSlika" (list "prognoze-zaglavlje" "Vrh stranice Prognoze: izdano 27. 11. 2026. u 11:00, voda ostaje u rasponu u 70 % slučajeva, gumbi O prognozi, Izvoz u Excel, Izvoz cijelog izdanja i Postavke, a ispod traka upozorenja da dnevna prognoza može biti manje točna za Osijek i Donji Miholjac." "736")}}
+    <p>Svaka letva ima svoju karticu. Uz ime stoje vodotok, riječni kilometar i od čega se računa.
+      Pločice P, R i I su pragovi pripremnog stanja, redovne i izvanredne obrane, a MAX i MIN
+      najviši i najniži zabilježeni vodostaj. Desno je vodostaj u satu izdanja, a ispod njega
+      protok kad ga letva ima. Oznaka poput „↑ pripremno od sub 28. 11.” kaže od kojeg termina
+      prognoza doseže višu fazu obrane nego što je sada.</p>
+    {{template "pomocSlika" (list "prognoze-kartica" "Kartica letve Aljmaš: 431 cm, oznaka pripremno od subote 28. 11., pragovi P 450, R 550 i I 650 cm, te prognoza za +6 h, +12 h i šest dana u 7 h, svaka s rasponom i oznakom ds ili d." "736")}}
+    <p>Ispod broja je <strong>raspon</strong>: voda u 70 % slučajeva ostane unutar njega, a u
+      30 % izađe, podjednako iznad i ispod. Za odluku gledajte gornju granicu, ne samo sredinu.
+      Dan obojen bojom faze obrane znači da sama prognoza doseže taj prag. Dan s isprekidanim
+      obrubom znači da prag doseže tek gornja granica raspona. Boje se pale samo na danima, ne na
+      +6 i +12 h. Svjetlije pisana vrijednost znači da prognoza na tom dosegu u provjeri nije bila
+      bolja od pretpostavke da voda stoji; ondje više vjerujte zadnjem mjerenju.</p>
+    <p>Sitno ispod naše vrijednosti, na danima, stoje mađarska (HU), srpska (RS) i austrijska (AT)
+      prognoza za isti termin, kad ih ima. One su samo za usporedbu i u naš račun ne ulaze.</p>
     <p>Satni lanac seže 96 sati, a dnevni model daje dane do šestog. Slovo uz vrijednost kaže iz
       čega je: <em>s</em> satni lanac, <em>d</em> dnevni model, <em>ds</em> oboje zajedno i
-      <em>p</em> susjedne postaje. Zadano se prikazuje kombinacija. Na Batini, Aljmašu, Vukovaru i
-      Iloku do 96. sata to je satni lanac i dnevni model zajedno, otprilike pola-pola, jer je tako
-      provjerom točnije. Na Komáromu i Budimpešti dnevni model s kišom ulazi u sam satni lanac, pa
-      kišu nose i letve nizvodno. Na Dravi dnevni model preuzima od dana koji je provjera odredila za svaku letvu i
-      razinu vode. Na stranici <em>Postavke prognoze</em>
-      globalni administrator bira satni lanac, dnevni model ili kombinaciju, jednom za tablicu,
-      grafove i izvoz u Excel.</p>
-    <p>Graf pokazuje isto što i tablica: u 7 h svakog dana crta prolazi kroz broj iz tablice. Kad jedan
-      dan daje satni lanac, a idući dnevni model, crta kroz taj dan postupno prelazi s jednoga na drugi.
-      Tako je na uzdužnom profilu, na grafu letve i na grafovima u Excelu.</p>
-    <p>Kad dnevni model za izdanje nije računao, dani koje bi on dao, sam ili zajedno sa satnim lancem,
-      pokazuju satnu prognozu u 07 h s oznakom <em>s</em> u drugoj boji, a dani do kojih satni lanac ne seže (dalje od
-      96 sati) ostaju prazni. Brojke su iste kao satne; vidi se samo da dnevne nema.</p>
+      <em>p</em> susjedne postaje s dnevnim modelom. Zadano je kombinacija:</p>
+    <ul>
+      <li>na Batini, Aljmašu, Vukovaru i Iloku satni lanac i dnevni model miješaju se do 96. sata.
+        Od 6. do 72. sata lanac nosi nešto više od pola (56 %), a do 96. sata njegov udio pada
+        na nulu. Provjera na arhivi pokazala je da je tako točnije;</li>
+      <li>na Komáromu i Budimpešti dnevni model s kišom ulazi u sam satni lanac, pa kišu nose i
+        letve nizvodno;</li>
+      <li>na Dravi dnevni model preuzima od dana koji je provjera odredila za svaku letvu, ovisno o
+        vodostaju u satu izdanja.</li>
+    </ul>
+    <p>Na stranici <em>Postavke prognoze</em>, u kartici <em>Satni ili dnevni model</em>, globalni
+      administrator bira kombinaciju, samo satni lanac ili samo dnevni model. Izbor vrijedi za
+      tablicu, grafove i izvoz u Excel. Tu bira i hoće li letve bez dnevnog modela dobiti dane
+      prema susjedima (oznaka <em>p</em>) ili samo satni lanac dokle seže. Ostali vide izbor, ali
+      ga ne mogu promijeniti.</p>
+    <p>Graf pokazuje isto što i tablica: u 7 h svakog dana crta prolazi kroz broj iz tablice. Kad
+      jedan dan daje satni lanac, a idući dnevni model, crta kroz taj dan postupno prelazi s jednoga
+      na drugi. Tako je na uzdužnom profilu, na grafu letve i na grafovima u Excelu.</p>
+    <p>Kad dnevni model za izdanje nije računao, dani koje bi on dao pokazuju satnu prognozu u 7 h
+      s oznakom <em>s</em> u drugoj boji. Dani do kojih satni lanac ne seže (dalje od 96 sati)
+      ostaju prazni.</p>
+    <p>Traka na vrhu stranice kaže kojih mjerenja vodostaja i protoka na ovom računalu nema i od
+      kada. Letva je na popisu kad joj je zadnje preuzeto mjerenje starije od 6 sati. Izvor koji
+      javlja rjeđe dobije dvostruko više od svog uobičajenog razmaka, a najviše 7 dana. Ručni upisi
+      se tu ne računaju, a letva koja 14 dana nema nijedno preuzeto mjerenje više se ne navodi.
+      Iznad popisa može stajati napomena globalnog administratora, npr. da izvor mijenja adrese.</p>
+    <p>Kad je zadnje izdanje starije od tri sata, na vrhu piše „Zadnja prognoza je za …, prije
+      N h. Novija nije stigla ni izračunata, pa su sve vrijednosti upitne.” Kad izdanja nema,
+      stranica piše „Nijedna prognoza još nije izdana.”</p>
 
     <h3 id="prognoze-upozorenja">Upozorenja uz izdanje</h3>
-    <p>Kad pri izdavanju nešto ne radi, iznad kartica stoji okvir <strong>Upozorenja uz ovo
-      izdanje</strong>. Svako upozorenje kaže što ne radi — npr. letva bez mjerenja, s izvorom i od
-      kada do kada, dnevni model koji nije računao, račun iz rezerve, prva letva u lancu kojoj dnevni model nije dao prognozu
-      ili dnevni model bez kiše — i na koliko letvi prognoza zato može biti manje točna, ili koja dnevna
-      prognoza nije izdana. To ne stiže na sve letve odjednom, pa svaka ima svoj broj sati, računat od
-      sata izdanja. Na kartici letve piše npr. „najranije za 7 h”: vrijednosti prije toga ne ovise o
-      onome što ne radi, a posljedica može stići i kasnije. Isto stoji u
-      izvozu u Excel, u sažetku i uz graf letve.</p>
-    <p>Sitnije stvari — dnevni model iz rezerve, sati preuzeti s letve na drugoj obali, postaja bez
-      ijednog sata prognoze, prva letva u lancu kojoj mjerenje kasni i vrijednosti izvan krivulje protoka — stoje
-      sklopljene pod <em>Napomene</em>. Upozorenja zapisuje čvor koji izdaje prognozu i ona putuju s
-      izdanjem, pa svi čvorovi pokazuju isto. Kad je izdanje starije od tri sata, stranica to javlja
-      sama, a uz izdanje čvora na starijoj inačici programa piše da upozorenja ne zapisuje.</p>
-    <p><strong>Rekonstrukcija iz susjeda.</strong> Neke letve nemaju letvu na drugoj obali, pa kad im
-      izvor stane na više od šest sati, rupu u računu prognoze popunjavaju susjedi na istoj rijeci: letvi se
-      dodaje ono što je susjed u isto vrijeme promijenio, pomaknuto za vrijeme koje voda putuje između
-      njih. Tako se računaju Szentborbás (iz Barcsa), Mohács i Dunaszekcső (iz Bezdana, Baje i jedan iz
-      drugoga), Siga, Aljmaš, Mohovo i Vukovar (iz Bezdana, Petreša, Sotina, Iloka i Bogojeva), Mursko
-      Središće (iz Goričana i Gornje Radgone) te Vízvár, Novo Virje, Vrbovka i Moslavina (iz susjeda na
-      Dravi). Rupa koja je završila može imati najviše 48 sati, a rupa koja
-      traje popunjava se najviše 24 sata iza zadnjeg mjerenja i nikad dalje od zadnjeg mjerenja susjeda;
-      preko toga ostaje upozorenje. Susjed koji danima stoji dok se letva miče rupu ne popunjava.
-      Rekonstruirani sati služe samo računu prognoze: ne pokazuju se kao mjerenje i ne upisuju se u
-      očitanja. Pod <em>Napomene</em> piše odakle su i koliko su točni: na arhivi je 95 % grešaka bilo
-      unutar ±1 do ±20 cm, ovisno o letvi i susjedu; na Dravi uz elektrane više nego na Dunavu.
-      Točnost vrijedi samo za razine na kojima je provjerena (arhiva od 2015.). Kad je letva izvan tog
-      raspona, kao na rekordno niskoj vodi u listopadu 2026., rekonstrukcija i dalje računa, ali uz izdanje
-      stoji upozorenje da točnost nije provjerena: za dnevnu prognozu koja iz nje računa piše da može biti manje točna,
-      a za rupu koja traje i satna niz rijeku, kao kad mjerenja nema.</p>
-
-    <h3 id="prognoze-ranija">Ranija prognoza</h3>
-    <p>Baza prognoza čuva svako izdanje i ništa od toga ne briše. Na stranici <em>Postavke prognoze</em>
-      (gumb <em>Postavke</em> na stranici Prognoze), u odjeljku <strong>Ranija prognoza</strong>, odaberite dan
-      i sat po našem vremenu i pritisnite <em>Pronađi izdanje</em>. Stranica kaže koje će se izdanje izvesti, a
-      gumb <em>Izvoz u Excel</em> daje isti dokument kao za zadnje izdanje: sažetak, listove po vodama, grafove i
-      list „O prognozi”. Brojke, upozorenja, dnevna prognoza, kiša po međuslivovima i tuđe prognoze su one koje
-      je to izdanje imalo; mjerenja na grafovima sežu do sata izdanja, kao u izvozu napravljenom tada.
-      Koji dan daje satni, a koji dnevni model ide po današnjem odabiru u Postavkama prognoze (uz kombinaciju i
-      po današnjoj provjeri), jer se uz izdanje ne pamti; godišnji vodostaji, zabilježene krajnosti i opis modela
-      slijede današnju arhivu i model. Prvi list izvoza to kaže.</p>
-    <p>Kad u odabranom satu prognoza nije izdana (čvor nije radio ili nije bilo novih mjerenja), nudi se
-      najbliže ranije izdanje i to piše i na stranici i na prvom listu izvoza, s time koliko je sati ranije;
-      takvo izdanje izvoz ne proglašava zastarjelim. Sat izdan više puta (npr. gumbom <em>Generiraj</em>)
-      izvozi se u zadnjoj verziji, a poruka kaže kad ju je izdavač izračunao. Gumb izvozi baš izdanje koje je
-      stranica najavila: ako se do preuzimanja promijeni (stigne izdanje za traženi sat ili se sat izda iznova),
-      izvoz se ne preuzima, nego se odjeljak otvori s novim nalazom i kaže zašto. Sat koji još nije došao ne
-      može se tražiti — zadnja prognoza izvozi se na stranici Prognoze. Iznimka je sat zadnjeg izdanja: izdanje
-      je označeno satom najnovijeg mjerenja, pa zna nastati i nešto prije tog punog sata; odjeljak ga tada
-      zadano nudi.</p>
-    <p>Uz najstarija izdanja nije zapisano sve: dnevna prognoza, zapis o izdanju (kiša po međuslivovima i
-      tuđe prognoze koje je izdavač imao) i upozorenja počinju kasnije od satnih vrijednosti, a upozorenja
-      bilježi tek novija inačica programa. Odjeljak kaže od kada baza ima koji dio, a poruka i prvi list
-      izvoza nabrajaju što uz odabrano izdanje nije zapisano; izvoz to nema. Čvor koji prognozu prima
-      razmjenom ima samo izdanja koja je primio, a nakon isključenja duljeg od tjedan dana starija mu ne
-      stignu. Izvoz ranije prognoze smije svatko tko smije izvoziti i zadnju.</p>
-    <p>Na proljetni prelazak na ljetno vrijeme sata 02:00 nema: stranica to kaže, a ne uzima 03:00 umjesto njega. Na jesenski
-      prelazak 02:00 dođe dvaput: izvozi se kasniji (zimsko vrijeme), a poveznica ispod vodi na raniji
-      (ljetno vrijeme); poruke uz taj sat kažu po kojem je vremenu.</p>
+    <p>Kad pri izdavanju nešto ne radi, iznad kartica stoji traka s jednim upozorenjem i
+      poveznicom „i još N” kad ih ima više. Cijeli popis je ispod kartica, sklopljen, pod
+      <em>Sva upozorenja i napomene uz izdanje</em>. Poveznica „i još N” ga otvara.</p>
+    {{template "pomocSlika" (list "prognoze-upozorenja" "Otvoren okvir Sva upozorenja i napomene uz izdanje: pod Upozorenja uz ovo izdanje stoji da dnevni model računa bez kiše i da dnevna prognoza može biti manje točna za Osijek i Donji Miholjac, a pod Napomene da Belišće nema prognoze." "736")}}
+    <p>Svako upozorenje kaže što ne radi i na koje letve to utječe. Primjeri su letva bez mjerenja
+      (s izvorom i od kada do kada), račun iz rezerve, dnevni model koji nije računao ili računa bez
+      kiše. Posljedica ne stiže na sve letve odjednom. Zato na kartici letve piše npr. „Prognoza može
+      biti manje točna najranije za 7 h”: vrijednosti prije toga ne ovise o onome što ne radi.
+      Kad je pogođena dnevna prognoza, piše „Dnevna prognoza nije izdana” ili „Dnevna prognoza
+      može biti manje točna”.</p>
+    <p>Sitnije stvari stoje pod <em>Napomene uz ovo izdanje</em>. To su npr. dnevni model iz
+      rezerve, sati preuzeti s letve na drugoj obali, letva bez ijednog sata prognoze, prva letva u
+      lancu kojoj mjerenje kasni, vrijednosti izvan krivulje protoka, lažni skok letve i zaglavljen
+      mjerni uređaj.</p>
+    <p>Upozorenja zapisuje računalo koje izdaje prognozu i ona putuju s izdanjem, pa sva računala
+      pokazuju isto. Uz izdanje računala na starijoj inačici programa piše da upozorenja ne zapisuje.
+      U izvozu u Excel, na listu letvi stoje upozorenja koja spominju letve tog lista, a na listu
+      <em>Sažetak</em> sva upozorenja. Napomene u izvoz ne idu. Uz graf letve stoji samo kratka
+      rečenica, npr. „Prognoza može biti manje točna najranije za 7 h.”</p>
+    <p><strong>Rekonstrukcija iz susjeda.</strong> Neke letve nemaju letvu na drugoj obali. Kad im
+      izvor stane na više od šest sati, rupu u računu prognoze popunjavaju susjedi na istoj rijeci:
+      letvi se dodaje ono što je susjed u isto vrijeme promijenio, pomaknuto za vrijeme koje voda
+      putuje između njih. Tako se računaju:</p>
+    <ul>
+      <li>na Dunavu Mohács i Dunaszekcső (iz Bezdana, Baje i jedan iz drugoga), Siga (iz Bezdana,
+        Petreša i Batine), Aljmaš (iz Petreša i Bogojeva), Vukovar (iz Bogojeva i Sotina) i
+        Mohovo (iz Sotina i Iloka);</li>
+      <li>na Dravi Szentborbás (iz Barcsa), Vízvár, Novo Virje, Vrbovka i Moslavina (iz susjeda na
+        Dravi) te Belišće (iz Drávaszabolcsa, Donjeg Miholjca i Osijeka);</li>
+      <li>na Muri Mursko Središće (iz Goričana i Gornje Radgone).</li>
+    </ul>
+    <p>Rupa koja je završila može imati najviše 48 sati. Rupa koja još traje popunjava se najviše
+      24 sata iza zadnjeg mjerenja, i to samo iz uzvodnih susjeda, nikad dalje od njihova zadnjeg
+      mjerenja; preko toga ostaje upozorenje. Susjed koji danima stoji dok se letva miče rupu ne
+      popunjava. Rekonstruirani sati služe samo računu prognoze: ne pokazuju se kao mjerenje i ne
+      upisuju se u očitanja.</p>
+    <p>Pod <em>Napomene</em> piše odakle su sati i koliko su točni: na arhivi je 95 % grešaka bilo
+      unutar ±1 do ±20 cm, ovisno o letvi i susjedu, na Dravi uz elektrane više nego na Dunavu.
+      Točnost vrijedi samo za razine na kojima je provjerena (arhiva od 2015.). Kad je letva izvan
+      tog raspona, kao na rekordno niskoj vodi u listopadu 2026., rekonstrukcija i dalje računa, ali
+      uz izdanje stoji upozorenje da točnost nije provjerena.</p>
 
     <h3 id="prognoze-profil">Uzdužni profil</h3>
-    <p>Profil slaže postaje redom niz vodotok, jedan profil po rijeci, od prve uzvodne letve do zadnje
-      naše. Okomita os nije kota nego vodostaj iznad ili ispod vode zadnjih 30 dana na svakoj letvi
-      (medijan satnih vodostaja mjeseca prije današnjeg jutra, istih dana na svim letvama toka). Prema
-      zadnjem mjesecu mirna voda je ravna crta, a val brijeg. Letva čiji mjerni uređaj danima stoji dok se susjedi
-      miču (voda je pala ispod dosega uređaja) i letva koja nakon prekida mjerenja nastavi na drugoj razini ne
-      crtaju se; ispod crteža piše koje su i zašto. Prema dugogodišnjem prosjeku svaka letva na maloj vodi stoji na svojoj stepenici
-      — pragovi i širina korita nisu isti posvuda — pa bi izgledalo kao da svaka ima val.
-      Uobičajena voda zadnjih deset godina (medijan, crtkano) i srednji vodostaj (SV, točkasto) ucrtani su
-      kad su blizu; inače u kutu piše da su iznad ili ispod crteža (više u <em>O prognozi</em>). Na toj nuli stoji jutarnja crta, ljubičasta: stanje u 7
-      sati, koje ostaje cijelog dana. Dok jutarnjeg očitanja nema, crta stoji na najnovijem očitanju od 4 sata, a
-      letva bez ijednog čeka svoje; iza ponoći, dok nova jutarnja očitanja ne stignu, stoji jučerašnje
-      jutro. Val je na jutarnjoj crti brijeg ondje gdje je jutros.</p>
-    <p>Čipovi iznad crteža biraju termin: „sada” je zadnje mjerenje, a tu su još „+12 h” i šest dana u 7
-      sati, isti kao stupci u karticama letvi. Odabrani termin crta se plavo, pa se uz ljubičasto jutro vidi
-      kamo val ide i kako se razvlači. Oko plave crte je svijetla ploha raspona, i za peti i šesti dan, ondje gdje ih daje dnevni model. Isti stupac
-      istakne se i u karticama letvi ispod profila. Termini se broje od izdanja, pa sa svakim novim izdanjem
-      idu naprijed. Kad za odabrani termin na profilu nema prognoze, legenda to kaže.</p>
-    <p>Letve su poredane redom niz tok, ali razmak među njima nije u mjerilu: sedam desetina širine
-      dijele jednako, a ostatak razmjerno kilometrima, jer bi u mjerilu devet naših letvi od Batine do
-      Iloka dobilo petinu crteža. Kilometar ispod svake letve je stvaran. Crte petog i šestog dana
-      (dnevni model ili susjedi) prekidaju se ondje gdje letva vrijednosti nema. Profil Dunava kreće od
-      Komároma: Nagybajcs i Wildungsmauer imaju samo satni lanac, koji vrh drži na zadnjem mjerenju, pa
-      bi na profilu Komárom rastao sam.</p>
-    <p>Iznad svake letve piše jutarnji vodostaj u centimetrima, bez kote vodnog lica — nju svatko
-      računa u svojem sustavu ili čita iz tablica. Pad
-      vodnog lica ispod crteža računa se u Trstu, sustavu koji dijele Hrvatska i Srbija, a mađarske kote
-      (baltički sustav, mBf) preračunate su u Trst dodavanjem 0,675 m. Tuđe letve preko puta naših
-      (Bezdan, Apatin, Bogojevo, Bačka Palanka, Barcs, Drávaszabolcs, Letenye, Komárno), kao i Bratislava iznad vrha našeg lanca, stoje na pregledu, ali ne i
-      na profilu, jer bi istu vodu pisale dvaput. Ne crtaju se ni Gornja Radgona, vrh lanca Mure
-      bez vlastite prognoze, ni Dunaszekcső, 13 km iznad Mohácsa, gdje se natpisi ne bi dali
-      pročitati. Brane na toku ucrtane su kao okomite isprekidane crte,
-      a razine akumulacija uz njih kao točke s kotom nad morem, izvan krivulje vala. Gumbi gore desno
-      otvaraju profil preko cijelog zaslona i ispisuju crtež odabranog termina, uvijek na bijeloj pozadini,
-      bez obzira na temu. Na mobitelu je profil jedan redak, „Uzdužni profil Drave”: dodir ga otvara preko
-      cijelog zaslona, a čipovi ispod retka biraju termin u karticama letvi.</p>
+    <p>Profil slaže letve odabranog vodotoka redom niz tok; nizvodno je desno. Kad je odabran
+      sektor, crta se samo njegov dio vodotoka, a poveznica <em>Cijeli vodotok</em> pokazuje cijeli.
+      Okomita os nije kota nego vodostaj iznad ili ispod vode zadnjih 30 dana na svakoj letvi
+      (medijan satnih vodostaja, istih dana na svim letvama toka). Prema zadnjem mjesecu mirna voda
+      je ravna crta, a val brijeg. Prema dugogodišnjem medijanu svaka letva na maloj vodi stoji na
+      svojoj stepenici, jer pragovi u koritu i širina korita nisu posvuda isti, pa bi izgledalo kao
+      da svaka ima val.</p>
+    {{template "pomocSlika" (list "prognoze-profil" "Uzdužni profil Dunava od Batine do Vukovara s odabranim danom ponedjeljak 30. 11.: ljubičasta jutarnja crta, plava crta prognoze sa sivom plohom raspona, isprekidana uobičajena voda i crtkani pragovi obrane." "736")}}
+    <p><strong>Ljubičasta crta</strong> je stanje u 7 sati, koje ostaje cijelog dana. Dok jutarnjeg
+      očitanja nema, crta stoji na najnovijem očitanju od 4 sata. Iza ponoći ostaje jučerašnje jutro
+      dok današnje ne stigne s barem pola letvi. Točka letve obojena je bojom faze obrane prema
+      zadnjem mjerenju.</p>
+    <p>Čipovi iznad crteža biraju termin: „sada” je zadnje mjerenje, a tu su još „+12 h” i šest
+      dana u 7 sati, isti kao stupci u karticama. Odabrani termin crta se <strong>plavo</strong>,
+      pa se uz jutro vidi kamo val ide i kako se razvlači. Oko plave crte je svijetla ploha
+      raspona, za svaki termin osim „sada”. Isti stupac istakne se i u karticama letvi. Termini se
+      broje od izdanja, pa s novim izdanjem idu naprijed.</p>
+    <p>Uobičajena voda zadnjih deset godina (medijan, isprekidano) i srednji vodostaj (SV, točkasto)
+      ucrtani su kad su blizu; inače u kutu piše da su iznad ili ispod crteža. Pragovi obrane
+      crtaju se crtkano u boji faze kad stanu u crtež. Pokazivač ili dodir nad crtežom otvara
+      oblačić s vrijednostima najbliže letve.</p>
+    <p>Letva čiji mjerni uređaj danima stoji dok se susjedi miču, i letva koja nakon prekida
+      mjerenja nastavi na drugoj razini, ne crtaju se dok ne skupe 14 dana novih mjerenja. Ispod
+      crteža piše koje su i zašto. Letva bez kote nule, riječnog kilometra ili jutarnjeg očitanja
+      ispada bez napomene.</p>
+    <p>Razmak među letvama nije u mjerilu: sedam desetina širine dijele jednako, a ostatak
+      razmjerno kilometrima, jer bi u mjerilu devet naših letvi od Batine do Iloka dobilo petinu
+      crteža. Kilometar ispod svake letve je stvaran. Iznad svake letve piše jutarnji vodostaj u
+      centimetrima, bez kote vodnog lica. Pad vodnog lica ispod crteža računa se u Trstu, a mađarske
+      kote (mBf) preračunate su u Trst dodavanjem 0,675 m.</p>
+    <p>Profil Dunava kreće od Komároma; Nagybajcs i Wildungsmauer drže zadnje mjerenje, pa bi na
+      profilu Komárom rastao sam. Tuđe letve preko puta naših (Bezdan, Apatin, Bogojevo, Bačka
+      Palanka, Barcs, Drávaszabolcs, Letenye, Komárno) i Bratislava stoje u karticama, ali ne i na
+      profilu, jer bi istu vodu pisale dvaput. Ne crtaju se ni Gornja Radgona ni Dunaszekcső. Ušća
+      pritoka i brane ucrtani su kao okomite isprekidane crte, a razine akumulacija kao točke s
+      kotom nad morem.</p>
+    <p>Gumbi gore desno otvaraju profil preko cijelog zaslona i ispisuju crtež odabranog termina,
+      uvijek na bijeloj pozadini. Na mobitelu je profil jedan redak, npr. „Uzdužni profil Drave”:
+      dodir ga otvara preko cijelog zaslona, a čipovi ispod retka biraju termin u karticama.</p>
+
+    <h3 id="prognoze-ranija">Ranija prognoza</h3>
+    <p>Baza prognoza čuva svako izdanje. Za izvješće ili provjeru otvorite <em>Postavke</em> na
+      stranici Prognoze i u odjeljku <strong>Ranija prognoza</strong> odaberite dan i sat po našem
+      vremenu, pa pritisnite <em>Pronađi izdanje</em>. Stranica kaže koje je izdanje našla, a gumb
+      <em>Izvoz u Excel</em> daje isti dokument kao za zadnje izdanje, uvijek sa svim vodama. Izvoz
+      ranije prognoze smije svatko tko vidi stranicu Prognoze.</p>
+    {{template "pomocSlika" (list "prognoze-ranija" "Odjeljak Ranija prognoza na Postavkama prognoze: kratko objašnjenje, polja Dan i Sat te gumb Pronađi izdanje." "736")}}
+    <p>Brojke, upozorenja, dnevna prognoza, kiša po međuslivovima i tuđe prognoze su one koje je to
+      izdanje imalo, a mjerenja na grafovima sežu do sata izdanja. Ono što se uz izdanje ne pamti
+      ide po današnjem stanju: koji dan daje satni, a koji dnevni model, dopuna prema susjedima,
+      godišnji vodostaji, zabilježene krajnosti i opis modela. Prvi list izvoza to kaže.</p>
+    <p>Kad u odabranom satu prognoza nije izdana, nudi se najbliže ranije izdanje i piše koliko je
+      sati ranije. Sat izdan više puta (npr. gumbom <em>Generiraj</em>) izvozi se u zadnjoj verziji.
+      Ako se izdanje do preuzimanja promijeni, izvoz se ne preuzima, nego se odjeljak otvori s novim
+      nalazom i kaže zašto. Sat koji još nije došao ne može se tražiti, osim sata zadnjeg izdanja:
+      izdanje nosi sat najnovijeg mjerenja, pa zna nastati i malo prije tog punog sata.</p>
+    <p>Uz najstarija izdanja nije zapisano sve: dnevna prognoza, kiša po međuslivovima, tuđe
+      prognoze i upozorenja počinju kasnije od satnih vrijednosti. Odjeljak kaže od kada baza ima
+      koji dio, a poruka i prvi list izvoza nabrajaju što uz izdanje nije zapisano. Tuđe prognoze
+      tada se uzimaju one izdane do sata izdanja. Računalo koje prognozu prima razmjenom ima samo
+      izdanja koja je primilo; nakon isključenja duljeg od tjedan dana starija mu ne stignu.</p>
+    <p>Na proljetni prelazak na ljetno vrijeme sata 02:00 nema, i stranica to kaže. Na jesenski
+      prelazak 02:00 dođe dvaput: izvozi se kasniji (zimsko vrijeme), a poveznica ispod vodi na
+      raniji (ljetno vrijeme).</p>
 
     <h3 id="prognoze-metoda">Kako nastaje</h3>
     <p>Satni model prenosi izmjereni val lancem postaja prema povijesno utvrđenom kašnjenju i vezi,
-      uz korekciju zadnjim stvarnim mjerenjem. Dnevni model povezuje više uzvodnih ulaza i slične
-      povijesne situacije. Za svaku postaju i doseg uzima se ono što je u provjeri na starim podacima
-      bilo točnije: jedan model ili, na Dunavu do 96. sata, oba zajedno. Vrhove lanca vodi najbolji dostupni izvor: na Dravi naučeni model
-      ispuštanja hidroelektrana, na Muri slovenska Gornja Radgona (satni lanac preko Mursko Središća do
-      Goričana), a na Dunavu Wildungsmauer drži zadnje mjerenje. Tuđe prognoze (mađarska,
-      austrijska, srpska) u račun ne ulaze, nego stoje uz našu samo radi usporedbe. Dnevni model
-      uz vodostaje uzima i kišu po međuslivovima, palu i prognoziranu (Open-Meteo). Novi račun
-      pokreće se kada stignu svježa
-      očitanja; gumb <em>Generiraj</em> na stranici <em>Postavke prognoze</em> (gumb
-      <em>Postavke</em> na stranici Prognoze) odmah ponavlja cijeli krug. Taj gumb vide i smiju
-      upotrijebiti dežurni operater, voditelj centra, uprava sektora i globalni administrator.
-      Dežurstvo kojem je istekao rok ne daje to pravo. Prognozu pritom računa
-      samo čvor koji je izdaje. Ponovni izračun za isti sat zamjenjuje prethodno izdanje tog
-      sata i kod čvorova koji ga primaju; ne čuva se svaka međuinačica. Prognoza u satu
-      izdavanja kreće od izmjerene vrijednosti, bez naknadnog ispravka promašajima.</p>
-    <p>Model se priprema iz arhive. Kad se u arhivi ili u lancu nešto promijeni, globalni administrator
-      na stranici <em>Postavke prognoze</em> čvora koji izdaje prognozu pokreće <em>Pripremi
-      model</em>: program iznova namjesti veze letvi i modele
-      ispuštanja elektrana, provjerom unatrag zapiše promašaje iz kojih prognoza uzima ispravak i raspon,
-      nauči dnevni model iznova i odmah izda prognozu novim modelom. Posao traje desetak minuta i vrti se
-      na poslužitelju. Promašaji se mjere samo na izdanjima koja je računao glavni ulaz, jer se samo
-      njemu i oduzimaju; postaja koja računa iz rezerve ostaje bez tog ispravka.</p>
-    <p>Isto program radi i sam, <strong>svake subote u 2:00</strong> na računalu koje izdaje prognozu,
-      osim dok traje obrana od poplava. Novi lanac prvo se izmjeri na zadnjih dvanaest tjedana arhive uz
-      lanac koji vrijedi i primijeni se samo ako nije lošiji za više od 2 %; inače ostaje stari, a u
-      <em>Postavkama prognoze</em> piše na kojim je letvama novi bio lošiji. Kad tri tjedna zaredom
-      novi lanac ne prođe, ili je prognoza za više od 20 % lošija nego kad je lanac primijenjen, to
-      se javlja i na Naslovnoj u kartici Za riješiti globalnog administratora.</p>
-    <p>Dnevni model uči se iz arhive i bez toga: jednom na dan, iza ponoći po zagrebačkom vremenu, i
-      iznova čim se arhiva promijeni — uvoz, paket s drugog čvora, izdvojen kvar mjerila, kišomjeri.
-      Ako se neka njegova inačica ne da naučiti, program je pokušava opet idući sat. Dotle računa prva
-      inačica koja je naučena, bez kiše ili iz rezervnih ulaza; postaja kojoj se nijedna nije dala
-      naučiti nema dnevne prognoze. Čvor bez kišomjera inačicu s kišom ni ne pokušava.</p>
+      uz ispravak zadnjim stvarnim mjerenjem. Dnevni model povezuje više uzvodnih ulaza i slične
+      povijesne situacije, a uz vodostaje uzima i kišu po međuslivovima, palu i prognoziranu
+      (Open-Meteo). Prognoza u satu izdavanja kreće od izmjerene vrijednosti.</p>
+    <p>Vrhove lanca vodi najbolji dostupni izvor: na Dravi naučeni model ispuštanja
+      hidroelektrana, na Muri lanac kreće od slovenske Gornje Radgone preko Mursko Središća do
+      Goričana, a na Dunavu Wildungsmauer drži zadnje mjerenje. Tuđe prognoze (mađarska, austrijska,
+      srpska) u račun ne ulaze.</p>
+    <p>Novi račun pokreće se kad stignu svježa očitanja. Isti sat ne računa se iznova sam od sebe.
+      Gumb <em>Generiraj</em> na stranici <em>Postavke prognoze</em> odmah ponavlja cijeli krug:
+      preuzme vodostaje i tuđe prognoze, pa izračuna i zapiše našu. Gumb vide i smiju upotrijebiti
+      dežurni operater, voditelj centra, uprava sektora i globalni administrator. Dežurstvo kojem je
+      istekao rok ne daje to pravo. Dok krug traje, gumb piše „Generiranje u tijeku…”.</p>
+    {{template "pomocSlika" (list "prognoze-generiraj" "Odjeljak Generiranje prognoze na Postavkama prognoze s objašnjenjem i gumbom Generiraj." "736")}}
+    <p>Prognozu računa samo računalo koje je izdaje. Na drugom računalu <em>Generiraj</em> samo
+      preuzme vodostaje, ako to računalo preuzima, a izdanje stiže razmjenom. Ponovni izračun za
+      isti sat zamjenjuje prikazano izdanje tog sata i kod računala koja ga primaju. Ranije verzije
+      istog sata ostaju zapisane u bazi prognoza, ali se ne prikazuju ni izvoze.</p>
+    <p>Model se priprema iz arhive. Kad se u arhivi ili u lancu nešto promijeni, globalni
+      administrator na računalu koje izdaje prognozu pokreće <em>Pripremi model</em> u
+      <em>Postavkama prognoze</em>. Program tada iznova namjesti veze letvi i modele ispuštanja
+      elektrana, provjerom unatrag zapiše promašaje iz kojih prognoza uzima ispravak i raspon, i
+      odmah izda prognozu novim modelom. Dnevni model uči se iznova pri prvom idućem računu. Posao
+      traje desetak minuta i vrti se u pozadini; ako satni krug upravo traje, novi model vrijedi od
+      idućeg kruga.</p>
+    <p>Isto program radi i sam, <strong>svake subote u 2:00</strong> na računalu koje izdaje
+      prognozu, osim dok traje obrana od poplava. Novi lanac prvo se izmjeri na zadnjih dvanaest
+      tjedana arhive uz lanac koji vrijedi i primijeni se samo ako nije lošiji za više od 2 %; inače
+      ostaje stari, a u <em>Postavkama prognoze</em> piše na kojim je letvama novi bio lošiji. Kad
+      tri izmjerene pripreme zaredom ne prođu, ili je prognoza za više od 20 % lošija nego kad je
+      lanac primijenjen, to se javlja i na Naslovnoj u kartici Za riješiti globalnog
+      administratora.</p>
+    <p>Dnevni model uči se iz arhive i bez toga: jednom na dan, iza ponoći, i iznova čim se arhiva
+      promijeni (uvoz, paket s drugog računala, izdvojen kvar mjernog uređaja, kišomjeri). Ako se
+      neka njegova inačica ne da naučiti, program je pokušava opet idući sat. Dotle računa prva
+      inačica koja je naučena, bez kiše ili iz rezervnih ulaza; letva kojoj se nijedna nije dala
+      naučiti nema dnevne prognoze. Računalo bez kišomjera inačicu s kišom ni ne pokušava.</p>
+    <p>Globalni administrator u <em>Postavkama prognoze</em> može namjestiti i <em>Model snijega</em>,
+      koji mijenja oborinu što ulazi u dnevni model (kiša i otopljeni snijeg). Spremi ga kao nacrt,
+      isproba na povijesti i primijeni uz razlog.</p>
     <p>Stranica <em>O prognozi</em> pokazuje ulazne postaje, jednadžbe i rezultate provjere, a izvoz
       u Excel daje tablični pregled. <code>prognoze.db</code> čuva izvedene rezultate i parametre:
-      nije službena knjiga ni <code>.cop</code> kanal. Izdanja i promjene modela prenose se
-      knjigom verzija, ne kopiranjem cijele baze. Za kasniju usporedbu s mjerenjem koristi se
-      sačuvano izdanje, a ne naknadna rekonstrukcija prognoze iz starih ulaza.</p>
+      nije službena knjiga ni <code>.cop</code> kanal. Izdanja i promjene modela prenose se knjigom
+      verzija, ne kopiranjem cijele baze. Za kasniju usporedbu s mjerenjem koristi se sačuvano
+      izdanje, a ne naknadna rekonstrukcija prognoze iz starih ulaza.</p>
 
     <h3 id="prognoze-ogranicenja">Ograničenja i provjera</h3>
-    <p>Najviše vrijedi unutar raspona vodostaja i događaja koje je model već vidio. Nagla promjena
-      rada akumulacije, led, kvar postaje, uspor ili rijetka kombinacija pritoka mogu ga učiniti
-      slabijim. Zato se uvijek gledaju raspon, svježina mjerenja i usporedba s postojanošću, a odluka
-      se ne donosi samo iz jedne brojke. Modeli se provjeravaju unatrag i na odabranim poplavnim
-      valovima; provjerljivi parovi prognoza–mjerenje mogu se izvesti u CSV. Za dan kad naša
-      prognoza ne radi, gumb <em>Pričuvni izračun</em> na stranici <em>O prognozi</em> daje Excel
-      koji iz upisanih mađarskih i srpskih prognoza računa naše letve bez programa.</p>
+    <p>Prognoza najviše vrijedi unutar raspona vodostaja i događaja koje je model već vidio. Nagla
+      promjena rada akumulacije, led, kvar postaje, uspor ili rijetka kombinacija pritoka mogu je
+      učiniti slabijom. Zato uvijek gledajte raspon, svježinu mjerenja i svjetlije pisane
+      vrijednosti, a odluku ne donosite samo iz jedne brojke.</p>
+    <p>Modeli se provjeravaju unatrag na arhivi i na poplavnim valovima iz arhive kojima je vrh bio
+      iznad pripremnog stanja, svaki modelom koji ga nije vidio. Rezultate pokazuje stranica
+      <em>O prognozi</em>, a u odjeljku <em>Suradnja i podaci</em> mogu se preuzeti izdanja kao CSV
+      (zadano zadnji mjesec, vremena u UTC) i datoteke provjere unatrag, kad postoje.</p>
+    <p>Za dan kad naša prognoza ne radi, gumb <em>Pričuvni izračun</em> na stranici <em>O
+      prognozi</em> daje Excel koji iz mađarskih i srpskih prognoza računa naše letve bez programa.
+      Žuta polja su za upis; program ih unaprijed popuni današnjim mjerenjem i tuđim prognozama koje
+      ima.</p>
 
     <h3 id="prognoze-cvorovi">Koji čvor izdaje prognozu</h3>
-    <p>Vodostaje s izvora preuzima i prognozu izdaje jedan čvor. Uloge uključuje globalni
-      administrator u Administraciji, na stranici {{if .VidiAdministraciju}}<a href="/settings#uloge">Ovo računalo i
-      mreža</a>{{else}}Ovo računalo i mreža{{end}} (Uloge ovog čvora); na novom čvoru obje su isključene i on sve prima
-      razmjenom. Uloge se mijenjaju samo na samom računalu ili iz njegove lokalne mreže, ne izvana
-      ni kroz tunel. Razmjenom se drugima samo javljaju, a drugo ih računalo ne može promijeniti.
-      Isključivanje traži potvrdu. Na stranici {{if .VidiAdministraciju}}<a href="/sinkronizacija">Stanje razmjene</a>{{else}}Stanje razmjene{{end}} uz
-      svako računalo piše koje uloge ima, ako ih ono javlja (starija izdanja programa to ne
-      rade). Očitanja putuju razmjenom kao i
-      sva druga, a svako izdanje prognoze putuje s tuđim prognozama koje je izdavač tada imao i s kišom
-      po međuslivovima. Namješteni model ide uz izdanje kad se promijeni. Ostali čvorovi izdanje upišu
-      u svoju bazu prognoza i prikazuju ga s oznakom čvora koji ga je izdao. U razmjeni izdanja stoje
-      sedam dana, a u bazi prognoza svakog čvora ostaju. Čvor koji sam izdaje prognozu tuđa izdanja
-      ne upisuje; upiše ih kad mu se uloga isključi. Uz izdanje stižu i mjerenja kišomjera
-      zadnjih 48 sati te satna kiša i prognozirane oborine po točkama slivova. Čvor koji prima
-      upisuje ih u svoju bazu oborina.</p>
+    <p>Vodostaje s izvora dovoljno je da preuzima jedno računalo, a prognozu treba izdavati jedno
+      računalo. Inače dva računala izdaju dvije malo različite prognoze za isti sat. Program to ne
+      brani, pa pazite pri uključivanju.</p>
+    <p>Uloge uključuje globalni administrator u Administraciji, na stranici
+      {{if .VidiAdministraciju}}<a href="/settings#uloge">Ovo računalo i mreža</a>{{else}}Ovo
+      računalo i mreža{{end}}, u kartici <em>Uloge ovog računala</em>. Na novom računalu obje su
+      isključene i ono sve prima razmjenom. Uloge se mijenjaju samo na samom računalu ili iz njegove
+      lokalne mreže, ne izvana ni kroz tunel, i ne dok administrator gleda program kao druga osoba.
+      Drugo ih računalo ne može promijeniti. Isključivanje traži potvrdu, a promjena vrijedi od
+      sljedećeg satnog kruga. Na stranici {{if .VidiAdministraciju}}<a href="/sinkronizacija">Stanje
+      razmjene</a>{{else}}Stanje razmjene{{end}} uz svako računalo piše koje uloge ima, ako ih ono
+      javlja (starija izdanja programa to ne rade).</p>
+    <p>Očitanja putuju razmjenom kao i sva druga. Svako izdanje prognoze putuje s tuđim prognozama
+      koje je izdavač tada imao i s kišom po međuslivovima, a namješteni model ide uz izdanje kad se
+      promijeni. Ostala računala izdanje upišu u svoju bazu prognoza i prikazuju ga s oznakom
+      računala koje ga je izdalo. U razmjeni izdanja stoje sedam dana, a u bazi prognoza svakog
+      računala ostaju. Računalo koje samo izdaje prognozu tuđa izdanja ne upisuje; upiše ih kad mu
+      se uloga isključi.</p>
+    <p>Uz izdanje stižu i mjerenja kišomjera zadnjih 48 sati, satna kiša i prognozirane oborine po
+      točkama slivova te snijeg na tlu tekuće sezone. Računalo koje prima upisuje ih u svoju bazu
+      oborina.</p>
 
     <h3 id="prognoze-model">Model za novu letvu</h3>
     <p>Letva izvan glavnog lanca Drave i Dunava, na primjer na rječici ili kanalu, može dobiti svoju
       prognozu bez novog izdanja programa. Model joj slaže globalni administrator, na računalu koje
       izdaje prognozu, na stranici <a href="/prognoze/model">Model prognoze</a>. Ostali vide što je
-      složeno, ali ne mogu mijenjati.</p>
-    <p>Prvo odaberi sektor i vodotok. Tablica kaže koliko koja letva ima satnih vodostaja u arhivi i
-      što joj fali; letva treba barem 1.000 sati. Gumb <strong>Računi letvi</strong> vodi na
-      slaganje računa. Ondje su letve vodotoka redom, kako voda teče, a za odabranu letvu biraš:</p>
+      složeno, ali ne mogu mijenjati. Letva mora imati upisan sektor.</p>
+    <p>Prvo odaberite sektor i vodotok. Tablica <em>Što letvama fali</em> kaže koliko koja letva
+      ima satnih vodostaja u arhivi i što joj fali; letva treba barem 1.000 sati u kojima su
+      izmjerene i ona i njezini ulazi, a svaka razina vode još 500. Gumb <strong>Računi
+      letvi</strong> otvara stranicu na kojoj se račun slaže. Ondje su letve vodotoka redom, kako
+      voda teče, a za odabranu letvu birate:</p>
     <ul>
       <li><strong>ulaz</strong>: uzvodnu letvu iz koje se ova računa;</li>
       <li><strong>drugi ulaz</strong>, kad vodu diže i uspor rijeke u koju se vodotok ulijeva: tada
         ovdje ide letva na toj rijeci;</li>
       <li><strong>rezerve</strong>: letve iz kojih se računa kad ulaz ne javlja;</li>
-      <li><strong>razine vode</strong>: zadane, ili s granicama koje upišeš. Razine se mjere na
-        ulaznoj letvi, ne na letvi koju računaš.</li>
+      <li><strong>razine vode</strong>: zadane, granice u cm ili m³/s, ili granice u postocima.
+        Granice se upisuju od najniže prema najvišoj, odvojene zarezom, i mjere se na ulaznoj letvi,
+        ne na letvi koju računate.</li>
     </ul>
     <p>Letva koja nema 1.000 sati u arhivi može dobiti ručni račun, pod <strong>Letva s malo
-      arhive</strong>: upišeš za koliko sati voda stigne od ulaza i nagib, tj. koliko letva naraste kad
-      ulaz naraste za jedan. Takav račun ima jedan ulaz, bez rezervi i razina, i uz njega piše da
-      nije provjeren.</p>
+      arhive</strong>: upišete za koliko sati voda stigne od ulaza i nagib, tj. koliko letva naraste
+      kad ulaz naraste za jedan. Takav račun ima jedan ulaz, bez rezervi i razina. Nakon pripreme uz
+      nacrt piše da račun nije provjeren, jer su kašnjenje i nagib upisani ručno.</p>
     <p>Rječici koju diže kiša s vlastitog sliva satni račun iz uzvodne letve ne pomaže. Njoj pod
-      <strong>Kako se računa</strong> izaberi <strong>dnevni model s kišom</strong>: biraš uzvodne letve
-      (ili nijednu, kao za jezero koje puni kiša) i sliv čija kiša ulazi u račun. Umjesto kiše sliva,
-      ili uz nju, možeš izabrati kišu jednog kišomjera, na primjer onoga na samoj akumulaciji: model
-      tada uzima kišu koju je kišomjer izmjerio, a za iduće dane, i dok mjerenje nije upisano, prognozu
-      kiše međusliva u kojem kišomjer stoji. Takav model daje vodostaj za sljedećih šest dana. Ne priprema se: Probaj ga nauči na arhivi bez zadnje dvije
-      godine i izmjeri na te dvije godine, po danu. Letva i ulazi trebaju barem 900 dana dnevnih
-      vodostaja u arhivi; uz model koji je učio na manje od 3.000 dana piše da veliku vodu možda nije
-      vidio.</p>
-    <p><strong>Letve Drave i Dunava</strong> računaju se u glavnom lancu i račun im dolazi s programom. I njima
-      se ovdje mogu promijeniti ulazi, rezerve, razine i kašnjenje; veličina (vodostaj ili protok) ostaje.
-      Izmjena na jednoj letvi mijenja prognozu svima nizvodno. Zato Probaj mjeri cijeli lanac dvaput,
-      sadašnjim modelom i modelom s izmjenom, i traje do nekoliko minuta. Tablica pokazuje promašaj letve sada
-      i s izmjenom, a ispod nje stoje letve nizvodno kojima se promašaj promijenio. Primijeni mijenja
-      model odmah i odmah izdaje prognozu iznova; ako izdavanje ne uspije, vraća se model kakav je bio.
-      Prethodni račun vraća se gumbom <strong>Učitaj prethodni račun u nacrt</strong>, pa ide istim putem:
-      pripremi, probaj, primijeni. Gumb Pripremi model takvu letvu poslije namješta po tom računu, a ne po
-      onom iz programa.</p>
-    <p>Letve Drave i Dunava koje imaju i <strong>dnevni model</strong> (dani do šestog) nose ispod satnog
-      računa zaseban obrazac. U njemu kvačicama biraš ulazne letve i međuslivove čija kiša ulazi u račun, a
-      možeš upisati i od kojeg dana na pregledu vrijedi dnevni model, posebno za visoku i za nisku vodu.
-      Probaj dnevni model nauči model na arhivi bez zadnje dvije godine i izmjeri ga na njima, s novim i
-      sa sadašnjim ulazima, pa se u tablici vidi je li izmjena bolja. Primijeni dnevni model traži razlog,
-      a model vrijedi od sljedećeg računa prognoze. Batina, Aljmaš, Vukovar i Ilok imaju i ispravak po
-      uzvodnim letvama Dunava; on je namješten na model koji dolazi s programom, pa uz druge ulaze ili
-      slivove prestaje vrijediti dok se letva ne vrati na dnevni model iz programa.</p>
-    <p>Rad ide u četiri koraka i svaki ima svoj gumb.</p>
+      <strong>Kako se računa</strong> izaberite <strong>dnevni model s kišom</strong>: birate uzvodne
+      letve (ili nijednu, kao za jezero koje puni kiša) i sliv čija kiša ulazi u račun. Umjesto kiše
+      sliva, ili uz nju, možete izabrati kišu jednog kišomjera, npr. onoga na samoj akumulaciji:
+      model tada uzima izmjerenu kišu, a za iduće dane prognozu kiše međusliva u kojem kišomjer
+      stoji. Takav model daje vodostaj za šest dana. Nema korak pripreme: <em>Probaj</em> ga nauči
+      na arhivi bez zadnje dvije godine i izmjeri na te dvije godine, po danu. Letva i ulazi trebaju
+      barem 900 dana dnevnih vodostaja; uz model koji je učio na manje od 3.000 dana piše da veliku
+      vodu možda nije vidio.</p>
+    <p><strong>Letve Drave i Dunava</strong> računaju se u glavnom lancu i račun im dolazi s
+      programom. I njima se ovdje mogu promijeniti ulazi, rezerve, razine i kašnjenje; veličina
+      (vodostaj ili protok) ostaje. Izmjena na jednoj letvi mijenja prognozu svima nizvodno. Zato
+      <em>Probaj</em> mjeri cijeli lanac dvaput, sadašnjim modelom i modelom s izmjenom, i traje do
+      nekoliko minuta. Tablica pokazuje promašaj letve sada i s izmjenom, a ispod nje letve nizvodno
+      kojima se promašaj promijenio. Primjena mijenja model i odmah izdaje prognozu iznova; ako
+      izdavanje ne uspije, vraća se model kakav je bio. Prethodni račun vraća se gumbom
+      <strong>Učitaj prethodni račun u nacrt</strong>, pa ide istim putem. Gumb Pripremi model
+      takvu letvu poslije namješta po tom računu, a ne po onom iz programa.</p>
+    <p>Letve Drave i Dunava koje imaju i <strong>dnevni model</strong> nose ispod satnog računa
+      zaseban obrazac. U njemu kvačicama birate ulazne letve i međuslivove čija kiša ulazi u račun,
+      i od kojeg dana vrijedi dnevni model, posebno za visoku i za nisku vodu. Model uči samo na
+      danima u kojima su izmjerene letva i svi ulazi, a treba ih barem 3.000. <em>Probaj dnevni
+      model</em> nauči model na arhivi bez zadnje dvije godine i izmjeri ga na njima, s novim i sa
+      sadašnjim ulazima. <em>Primijeni dnevni model</em> traži razlog, a model vrijedi od sljedećeg
+      računa prognoze. <em>Vrati dnevni model iz programa</em> vraća ga, također uz razlog. Batina,
+      Aljmaš, Vukovar i Ilok imaju i ispravak po uzvodnim letvama Dunava; on je namješten na model
+      iz programa, pa uz druge ulaze ili slivove ne vrijedi dok se letva ne vrati na taj model.</p>
+    <p>Satni račun slaže se ovim redom, a svaki korak ima svoj gumb:</p>
     <ol>
-      <li><strong>Spremi nacrt.</strong> Nacrt ostaje na tom računalu i prognozu ne mijenja.</li>
+      <li><strong>Spremi nacrt.</strong> Nacrt ostaje na tom računalu i prognozu ne mijenja.
+        <em>Pripremi</em> i <em>Probaj</em> ga spreme i sami.</li>
       <li><strong>Pripremi.</strong> Program iz arhive namjesti koliko voda kasni od ulaza na svakoj
-        razini. U tablici zatim možeš upisati svoje kašnjenje u satima ili razini maknuti kvačicu
+        razini. U tablici zatim možete upisati svoje kašnjenje u satima ili razini maknuti kvačicu
         „Računa”, pa ona ne izdaje prognozu.</li>
       <li><strong>Probaj.</strong> Program pusti račun unatrag kroz zadnje godine i za svaki doseg
         kaže koliko promašuje. Uz to stoji koliko bi se promašilo da se kao prognoza uzme zadnji
         izmjereni vodostaj, tj. da voda stoji. Ocjena je „Pouzdanije od zadnjeg mjerenja”, „Kao zadnje
         mjerenje” (razlika je manja od 10 %) ili „Zadnje mjerenje je pouzdanije”. Ispod 100 slučajeva
         piše „Nije provjereno”.</li>
-      <li><strong>Primijeni model.</strong> Upiši razlog; ostaje uz model s tvojim imenom i vremenom.
-        Račun od kojeg je zadnje mjerenje negdje pouzdanije program dopušta primijeniti, ali te na
-        to upozori. Prva prognoza stiže pri sljedećem računu prognoze, a model putuje i na ostala
-        računala.</li>
+      <li><strong>Primijeni model.</strong> Upišite razlog; ostaje uz model s vašim imenom i
+        vremenom. Račun od kojeg je zadnje mjerenje negdje pouzdanije program dopušta primijeniti,
+        ali na to upozori. Primjenjuje se račun kakav je proban. Prva prognoza stiže pri sljedećem
+        računu prognoze, a model putuje i na ostala računala.</li>
     </ol>
-    <p>Kad promijeniš račun, pripremi ga i probaj ponovno; stara priprema i proba više ne vrijede.
-      Primijenjeni model mijenja se istim putem, a <strong>Ukloni model</strong> ga briše, pa letva
-      radi kao prije njega. Model čuva jednu prethodnu inačicu: <strong>Vrati prethodni model</strong>
-      vraća je odmah, uz razlog, a sadašnja tada postaje prethodna. Dok traje satni krug prognoze,
-      model se ne može primijeniti, vratiti ni ukloniti; pokušaj za minutu.</p>
+    <p>Kad promijenite račun, pripremite ga i probajte ponovno; stara priprema i proba više ne
+      vrijede. <em>Odbaci nacrt</em> briše nacrt. Primijenjeni model mijenja se istim putem.
+      Za letvu izvan glavnog lanca <strong>Ukloni model</strong> ga briše uz potvrdu, pa letva radi
+      kao prije njega. Takav model čuva i jednu prethodnu inačicu: <strong>Vrati prethodni
+      model</strong> vraća je odmah, uz razlog, a sadašnja tada postaje prethodna. Dok traje satni krug prognoze, model
+      se ne može primijeniti, vratiti ni ukloniti; pokušajte za minutu.</p>
   </div>
   </div>
   {{template "pomocPoglavljeNav" (list "Arhiva vodostaja" "#arhiva" "Dokumenti" "#journals")}}
