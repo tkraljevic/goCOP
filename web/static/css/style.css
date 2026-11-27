@@ -7171,6 +7171,10 @@ body.skoljka {
 }
 #vrh-razmjena[data-stanje="ceka"] .vrh-tocka { background: var(--warning); }
 #vrh-razmjena[data-stanje="nema"] .vrh-tocka { display: none; }
+/* Bez prava na Stanje razmjene ikona je samo oznaka: ne klika se, a izvan mreže je nema */
+.vrh .vrh-oznaka { cursor: default; }
+.vrh .vrh-oznaka:hover { background: none; }
+.vrh .vrh-oznaka[data-stanje="nema"] { display: none; }
 .vrh-osoba {
   width: 40px;
   height: 40px;

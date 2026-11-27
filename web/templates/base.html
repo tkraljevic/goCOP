@@ -74,7 +74,10 @@
     <h1 class="vrh-naslov">{{navNaslov .ActiveNav}}</h1>
     <div class="vrh-radnje">
       {{if .CurrentUser}}
-      <a href="/administracija" class="vrh-gumb" id="vrh-razmjena" data-stanje="nema" title="Razmjena s drugim računalima" aria-label="Razmjena s drugim računalima">{{icon "refresh-cw"}}<span class="vrh-tocka"></span></a>
+      {{/* Stanje razmjene smije otvoriti samo tko ima Administraciju; ostalima je
+           ikona samo oznaka, bez poveznice (Odluke (27. 11. 2026.)) */}}
+      {{if .Sees "administracija"}}<a href="/sinkronizacija" class="vrh-gumb" id="vrh-razmjena" data-stanje="nema" title="Razmjena s drugim računalima" aria-label="Razmjena s drugim računalima">{{icon "refresh-cw"}}<span class="vrh-tocka"></span></a>
+      {{else}}<span class="vrh-gumb vrh-oznaka" id="vrh-razmjena" data-stanje="nema" role="img" title="Razmjena s drugim računalima" aria-label="Razmjena s drugim računalima">{{icon "refresh-cw"}}<span class="vrh-tocka"></span></span>{{end}}
       <a href="/dogadjanja" class="vrh-gumb" title="Događanja" aria-label="Događanja">{{icon "bell"}}</a>
       {{/* S privremenom lozinkom radi samo promjena lozinke, pa ni prijava ne bi prošla */}}
       {{if not .CurrentUser.MustChangePassword}}<button type="button" class="vrh-gumb" id="vrh-prijava-greske" title="Prijavi grešku ili predloži poboljšanje" aria-label="Prijavi grešku ili predloži poboljšanje" aria-haspopup="dialog">{{icon "bug"}}</button>{{end}}
@@ -197,7 +200,15 @@
       function ucitaj() {
         fetch('/razmjena/znak', {credentials: 'same-origin', cache: 'no-store'}).then(function (r) {
           return r.ok ? r.json() : null;
-        }).then(function (d) { if (d && d.stanje) znak.setAttribute('data-stanje', d.stanje); }).catch(function () {});
+        }).then(function (d) {
+          if (!d || !d.stanje) return;
+          znak.setAttribute('data-stanje', d.stanje);
+          var opis = 'Razmjena s drugim računalima';
+          if (d.stanje === 'uskladjeno') opis += ': sve je usklađeno';
+          if (d.stanje === 'ceka') opis += ': još nije sve usklađeno';
+          znak.setAttribute('title', opis);
+          znak.setAttribute('aria-label', opis);
+        }).catch(function () {});
       }
       ucitaj();
       setInterval(function () { if (!document.hidden) ucitaj(); }, 60000);
