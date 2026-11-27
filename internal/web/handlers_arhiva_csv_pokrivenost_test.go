@@ -150,6 +150,38 @@ func TestIzvozGodineDuljeOdStranice(t *testing.T) {
 	}
 }
 
+// Godina se reže po našem vremenu. Satna vrijednost od ponoći 1. 1. u arhivi
+// stoji pod 31. 12. u 23:00 po UTC-u, pa je izvoz godine počinjao u 1:00, a
+// završavao ponoćnom vrijednošću sljedeće godine.
+func TestIzvozGodinePoNasemVremenu(t *testing.T) {
+	p := noviPosluziteljOcitanja(t)
+	a := arhivaBrojki(t, nil,
+		spojArhive("primjerovo", "vodostaj", "satni", time.Date(2014, 12, 31, 22, 0, 0, 0, time.UTC), 10, "dhmz", 1),
+		spojArhive("primjerovo", "vodostaj", "satni", time.Date(2014, 12, 31, 23, 0, 0, 0, time.UTC), 11, "dhmz", 1),
+		spojArhive("primjerovo", "vodostaj", "satni", time.Date(2015, 12, 31, 22, 0, 0, 0, time.UTC), 12, "dhmz", 1),
+		spojArhive("primjerovo", "vodostaj", "satni", time.Date(2015, 12, 31, 23, 0, 0, 0, time.UTC), 13, "dhmz", 1),
+	)
+	p.s.SetArhiva(a)
+	w := p.posalji("dežurni", http.MethodGet, "/readings/station/"+p.letva.ID.String()+"/izvoz.csv?god=2015&korak=satni", nil, "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("izvoz: %d %s", w.Code, w.Body.String())
+	}
+	redci := citajCSV(t, w.Body.String())
+	if len(redci) != 3 {
+		t.Fatalf("izvezeno %d redaka, želim zaglavlje i dvije vrijednosti: %q", len(redci), redci)
+	}
+	for i, zeli := range []string{"2015-01-01 00:00:00", "2015-12-31 23:00:00"} {
+		if redci[i+1][0] != zeli {
+			t.Errorf("redak %d: %q, želim %q", i+1, redci[i+1][0], zeli)
+		}
+	}
+	// popis godina na stranici slijedi isto pravilo
+	godine, err := a.SpojGodine(context.Background(), "primjerovo", "vodostaj", "satni")
+	if err != nil || len(godine) != 3 || godine[0] != 2016 || godine[2] != 2014 {
+		t.Errorf("godine niza: %v %v, želim 2016, 2015, 2014", godine, err)
+	}
+}
+
 // Čvor bez arhive nema što izvesti ni ispraviti.
 func TestArhivaCSVBezArhive(t *testing.T) {
 	p := noviPosluziteljOcitanja(t)
