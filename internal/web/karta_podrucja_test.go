@@ -209,7 +209,7 @@ func TestGranicePodrucjaIzvor(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "geometrija", "branjena-podrucja.geojson"), []byte(probnaPodrucja), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	h := &TerritoriesHandler{podaci: dir}
+	h := &TerritoriesHandler{baza: func() string { return filepath.Join(dir, "gocop.db") }}
 	if b, err := h.GranicePodrucja("branjena-podrucja"); err != nil || !strings.Contains(string(b), "Mali sliv Proba") {
 		t.Errorf("branjena područja: %v %.80s", err, b)
 	}

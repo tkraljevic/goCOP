@@ -720,7 +720,7 @@ func (s *Server) setupRoutes() {
 	territoriesH := NewTerritoriesHandler(s.territoryService, s.templates["territories.html"])
 	territoriesH.SetPageTemplates(s.templates["county_form.html"], s.templates["municipality_form.html"], s.templates["municipality_detail.html"])
 	territoriesH.SetCountyTemplate(s.templates["county_detail.html"])
-	territoriesH.SetGeometrija(s.dbPath)
+	territoriesH.SetGeometrija(func() string { return s.dbPath })
 	territoriesH.SetKarta(func() KartaPostavke { return s.karta })
 	territoriesH.SetVodnaPodrucja(s.userService, s.sectionService)
 	stationsH := NewStationsHandler(s.stationService, s.templates["stations.html"])
