@@ -809,6 +809,17 @@ function renderMarkdown(md) {
     function prilagodi() { popisi.forEach(function (d) { d.open = !usko.matches; }); }
     prilagodi();
     usko.addEventListener('change', prilagodi);
+    // Odabrana stavka koju je istaknuo poslužitelj (glava na stranici
+    // propisa) mora se vidjeti i kad je popis dulji od svog okvira.
+    popisi.forEach(function (d) {
+      var odabrana = d.querySelector('a[aria-current="true"]:not([href^="#"])');
+      var okvir = odabrana;
+      while (okvir && okvir !== d.parentElement && !(okvir.scrollHeight > okvir.clientHeight && /auto|scroll/.test(getComputedStyle(okvir).overflowY))) {
+        okvir = okvir.parentElement;
+      }
+      if (!odabrana || !okvir || okvir === d.parentElement) { return; }
+      okvir.scrollTop += odabrana.getBoundingClientRect().top - okvir.getBoundingClientRect().top - okvir.clientHeight / 3;
+    });
     popisi.forEach(function (d) {
       d.addEventListener('click', function (e) {
         if (usko.matches && e.target.closest('a')) { d.open = false; }

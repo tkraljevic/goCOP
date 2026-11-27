@@ -48,7 +48,7 @@
       <tbody>
         {{range .Retci}}
         <tr>
-          <td data-stupac="Odredba izmjene">{{.IzClanka}}{{with .Uputa.Tekst}}<div class="form-help">{{.}}</div>{{end}}{{with .Upozorenje}}<div class="propis-upozorenje">{{.}}</div>{{end}}</td>
+          <td data-stupac="Odredba izmjene">{{.IzClanka}}{{with .Uputa.Tekst}}<div class="form-help">{{.}}</div>{{end}}{{with .Upozorenje}}<div class="propis-upozorenje">{{icon "triangle-alert"}} {{.}}</div>{{end}}</td>
           <td data-stupac="Članak propisa">
             {{range $i, $c := .Ciljevi}}{{if $i}}, {{end}}<a href="{{$c.Poveznica}}">{{$c.Naziv}}</a>{{else}}–{{end}}
             <label class="sr-only" for="cilj-{{.Uputa.Redni}}">Članak propisa za odredbu {{.Uputa.Redni}}</label>
@@ -59,7 +59,7 @@
             </select>
           </td>
           <td data-stupac="Što se mijenja">{{.Uputa.OpisVrste}}</td>
-          <td data-stupac="Stanje"><span class="oznaka-stanja{{if eq .Stanje "nije prepoznato"}} pozor{{end}}">{{.Stanje}}</span></td>
+          <td data-stupac="Stanje"><span class="oznaka-stanja{{if or (eq .Stanje "nije prepoznato") (eq .Stanje "uz upozorenje")}} pozor{{end}}">{{.Stanje}}</span></td>
         </tr>
         {{end}}
       </tbody>

@@ -20,7 +20,8 @@
   </div>
 </div>
 
-{{if not $dio}}
+{{/* Napomena o izvornom tekstu i traka o zamjeni u cijelom tekstu stoje i na stranici dijela,
+     jer na nju vode Pomoć, akti i pretraga, a čitatelj inače ne bi znao da tekst nije pročišćen. */}}
 <div class="reg-card propis-napomena">
   {{if .Izmjene}}
   <p>Ovo je izvorni tekst iz Narodnih novina. Izmjene nisu unesene u tekst, nego uz članke koje mijenjaju stoji oznaka „mijenjan NN …”.</p>
@@ -33,6 +34,7 @@
 {{range .CijeliTekst}}
 <div class="dash-traka propis-traka" role="status">{{icon "info"}}<span>Izmjena {{.IzmjenaNN.Kratko}} mijenja riječi u cijelom tekstu propisa{{with .IzClanka}} ({{.}} izmjene){{end}}. Ta mjesta nisu označena uz članke. <a href="{{.Poveznica}}">Otvori izmjenu</a></span></div>
 {{end}}
+{{if not $dio}}
 {{if $.JeAdministrator}}
 {{range .NepovezaneIzmjene}}<div class="dash-traka propis-traka" role="status">{{icon "triangle-alert"}}<span>{{.Broj}} {{uzBroj .Broj "odredba izmjene" "odredbe izmjene" "odredbi izmjene"}} {{.NN.Puno}} {{uzBroj .Broj "nije povezana" "nisu povezane" "nije povezano"}} s člankom. {{if .IzTeksta}}Izmjena je unesena kao tekst: <a href="/propisi/{{$p.Adresa}}/dodaj-izmjenu">dodajte je ponovno</a> i na provjeri izaberite članak.{{else}}<a href="{{.Poveznica}}">Otvorite izmjenu</a> i povežite odredbe gumbom „Dohvati ponovno i poveži odredbe”.{{end}}</span></div>{{end}}
 {{with .Neucitane}}<div class="dash-traka propis-traka" role="status">{{icon "info"}}<span>Narodne novine navode {{len .}} {{uzBroj (len .) "izmjenu koja nije učitana" "izmjene koje nisu učitane" "izmjena koje nisu učitane"}}: {{range $i, $nn := .}}{{if $i}}, {{end}}{{$nn.Puno}}{{end}}.</span></div>{{end}}
