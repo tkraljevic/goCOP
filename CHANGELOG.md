@@ -8,9 +8,10 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
 Propisi iz Narodnih novina u programu, potpis računala na svakoj promjeni i
 PDF-ovi kao obične datoteke. Baza se mijenja: knjiga promjena dobiva tri
-stupca za potpis, a propisi svoje tablice; program ih doda sam pri
-pokretanju. Prije toga sam kopira glavnu bazu i popis sadržaja. Ovo izdanje
-ide najprije na jedno računalo, a na ostala nakon dana rada bez greške.
+stupca za potpis, propisi svoje tablice, a punjenje imenika jednu
+pomoćnu; program ih doda sam pri pokretanju. Prije toga sam kopira
+glavnu bazu i popis sadržaja. Ovo izdanje ide najprije na jedno računalo,
+a na ostala nakon dana rada bez greške.
 Računala na 0.0.69-alfa dotad razmjenjuju kao i dosad.
 
 - **Propisi.** U Dokumentima je nova skupina Propisi. Administrator učita
@@ -29,10 +30,24 @@ Računala na 0.0.69-alfa dotad razmjenjuju kao i dosad.
   Sad takvo članstvo ne vrijedi: opozvano računalo u mrežu vraća samo
   računalo s ključem mreže. Računalu s ključem mreže poruke o isteku
   članstva više ne pišu da ga treba ponovno primiti; ono se obnavlja gumbom.
+- **Djelatnici iz imenika na svim računalima.** Djelatnici, dužnosti,
+  sektori i područja iz imenika upisivali su se pri prvom pokretanju samo
+  na prvo računalo i razmjenom nisu stizali dalje. Sad ih računalo koje
+  osnuje mrežu šalje ostalima. Račune šalje tek kad se preuzme popis
+  privremenih lozinki ili mu prođe rok, a stižu s obaveznom promjenom
+  lozinke. Postojeće baze program ne dira.
 - **PDF-ovi i fotografije izvan baze.** Dosad su bili u bazi sadržaja, koja
   je rasla sa svakim dokumentom. Sad su obične datoteke u mapi `sadrzaj` uz
   bazu, složene po vrsti i mjesecu. Postojeće program preseli sam, pet
   minuta nakon pokretanja, dok se normalno radi.
+- **PDF koji nije na računalu.** Računalo koje PDF dokumenta po pretplati
+  ne prati, ili ga još čeka, dosad je umjesto izvornika slagalo novi crtež
+  bez potpisa. Takav se crtež mogao poslati kao rješenje, a ovjera dnevnog
+  lista njime bi zamijenila izvornik s potpisom vodočuvara na svim
+  računalima. Sad stranica kaže da PDF nije na ovom računalu. Dnevni list
+  se ovjerava, rješenje šalje, a prijava urudžbira na računalu koje ima
+  PDF. Ovjeren dnevnik COP-a u tom slučaju više ne javlja da mu je
+  izvornik neispravan.
 - **Kopija prije nadogradnje.** Kad prvi put krene novim izdanjem, program
   sam kopira glavnu bazu i popis sadržaja u mapu `kopije` i čuva tri
   najnovije. To vrijedi i u slici za Docker i kad se program pokrene ručno.
