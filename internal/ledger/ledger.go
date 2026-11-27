@@ -522,13 +522,14 @@ func (r *Recorder) query(ctx context.Context, query string, args ...any) ([]Vers
 	return out, rows.Err()
 }
 
-// procitajVerziju čita jedan redak upita sa stupcima columns
-func procitajVerziju(rows *sql.Rows) (Version, error) {
+// procitajVerziju čita jedan redak upita sa stupcima columns; stupci iza
+// njih idu u dodatni
+func procitajVerziju(rows *sql.Rows, dodatni ...any) (Version, error) {
 	var v Version
 	var archived int
 	var payload string
-	if err := rows.Scan(&v.VersionID, &v.Entity, &v.EntityID, &v.NodeID, &v.Supersedes,
-		&archived, &payload, &v.CreatedAt, &v.SchemaVersion, &v.Channel, &v.Potpis, &v.KljucAutora); err != nil {
+	if err := rows.Scan(append([]any{&v.VersionID, &v.Entity, &v.EntityID, &v.NodeID, &v.Supersedes,
+		&archived, &payload, &v.CreatedAt, &v.SchemaVersion, &v.Channel, &v.Potpis, &v.KljucAutora}, dodatni...)...); err != nil {
 		return Version{}, err
 	}
 	v.Archived = archived != 0
