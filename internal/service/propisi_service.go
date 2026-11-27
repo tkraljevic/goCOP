@@ -151,6 +151,7 @@ type OznakaIzmjene struct {
 	Poveznica   string // stranica izmjene u programu
 	PoveznicaNN string // akt izmjene u Narodnim novinama
 	Odredbe     []OdredbaIzmjene
+	SNaslovom   bool   // brisan je i naslov iznad dijela („Naslovi iznad članaka i članci … brišu se.”)
 	cilj        string // oznaka dijela uz koji stoji
 }
 
@@ -162,6 +163,29 @@ type DioNaStranici struct {
 	Raspon        string // „članci 224.–227.”
 	Poveznica     string // stalna adresa: „/propisi/zakon-o-vodama/clanak-224”
 	OpisPoveznice string // „Stalna adresa članka 224.”
+}
+
+// Brisan javlja je li dio izmjenom brisan; stranica mu tada tekst ispisuje
+// prekriženo i posivljeno, da ga nitko ne čita kao važeći
+func (d DioNaStranici) Brisan() bool {
+	for _, o := range d.Oznake {
+		if o.Vrsta == OznakaBrisan {
+			return true
+		}
+	}
+	return false
+}
+
+// BrisanNaslov javlja je li uz dio brisan i naslov iznad njega. Naslov iznad
+// članka često vrijedi i za članke ispod, pa se prekriži samo kad ga je
+// izmjena brisala.
+func (d DioNaStranici) BrisanNaslov() bool {
+	for _, o := range d.Oznake {
+		if o.Vrsta == OznakaBrisan && o.SNaslovom {
+			return true
+		}
+	}
+	return false
 }
 
 // RedakIzmjene je izmjena u popisu izmjena na stranici propisa
@@ -372,16 +396,20 @@ func oznakaUzDio(o OznakaIzmjene, u models.UputaIzmjene, cilj, naziv string) Ozn
 	if o.Vrsta == OznakaDodano {
 		o.NoveOznake = u.NoveOznake
 	}
+	o.SNaslovom = o.Vrsta == OznakaBrisan && u.Cilj.NaslovIznad
 	o.Natpis = natpisOznake(o)
 	return o
 }
 
 // vrstaOznake: brisanje cijelog dijela je „brisan”, dodavanje dijelova iza
-// cijelog dijela „dodano”, a sve ostalo „mijenjan”
+// cijelog dijela „dodano”, a sve ostalo „mijenjan”. Brisanje s naslovom
+// iznad („Naslovi iznad članaka i članci 98. i 99. brišu se.”) briše i
+// naslov i članak, pa je i to „brisan”; promjena samog naslova je nova
+// uputa teksta i ostaje „mijenjan”.
 func vrstaOznake(u models.UputaIzmjene) string {
 	cijeli := cijeliDio(u.Cilj)
 	switch {
-	case u.Vrsta == models.UputaBrisanjeDijela && cijeli && !u.Cilj.NaslovIznad:
+	case u.Vrsta == models.UputaBrisanjeDijela && cijeli:
 		return OznakaBrisan
 	case u.Vrsta == models.UputaDodavanjeDijela && cijeli && len(u.NoveOznake) > 0:
 		return OznakaDodano
@@ -427,6 +455,7 @@ func dodajOznaku(popis []OznakaIzmjene, o OznakaIzmjene) []OznakaIzmjene {
 		if o.Odredbe[0].Tekst != p.Odredbe[len(p.Odredbe)-1].Tekst {
 			p.Odredbe = append(p.Odredbe, o.Odredbe...)
 		}
+		p.SNaslovom = p.SNaslovom || o.SNaslovom
 		if len(o.NoveOznake) > 0 {
 			p.NoveOznake = append(p.NoveOznake, o.NoveOznake...)
 			p.Natpis = natpisOznake(*p)

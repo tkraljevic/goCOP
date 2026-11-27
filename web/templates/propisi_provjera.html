@@ -56,9 +56,9 @@
   {{if .Postoji}}
   <p>Stalna adresa: <a href="/propisi/{{.Postoji.Adresa}}">/propisi/{{.Postoji.Adresa}}</a></p>
   {{else}}
-  <div class="form-group list-polje"><label class="form-label" for="adresa">Stalna adresa</label>
-    <div class="propisi-adresa"><span>/propisi/</span><input class="form-control" id="adresa" name="adresa" value="{{$p.Adresa}}" maxlength="80" pattern="[a-z0-9]+(-[a-z0-9]+)*" required></div>
-    <p class="form-help">Dio poveznice na propis, npr. /propisi/zakon-o-vodama. Poslije se ne mijenja.</p></div>
+  <div class="list-blok"><div class="form-group list-polje"><label class="form-label" for="adresa">Stalna adresa</label>
+    <div class="propisi-adresa"><span>/propisi/</span><input class="form-control" id="adresa" name="adresa" value="{{$p.Adresa}}" maxlength="80" pattern="[a-z0-9]+(-[a-z0-9]+)*" required aria-describedby="adresa-pomoc"></div></div>
+    <p class="form-help" id="adresa-pomoc">Dio poveznice na propis, npr. /propisi/zakon-o-vodama. Poslije se ne mijenja.</p></div>
   {{end}}
   <div class="list-dva">
     <div class="form-group list-polje"><label class="form-label" for="skupina">Skupina</label>

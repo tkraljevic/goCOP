@@ -4,7 +4,7 @@
 
 {{/* propisDio je jedan dio (service.DioNaStranici): naslov, oznake izmjena i stavci */}}
 {{define "propisDio"}}
-<section class="propis-dio propis-{{.Vrsta}}{{if .Neprepoznato}} propis-neprepoznato{{end}}" id="{{.Oznaka}}">
+<section class="propis-dio propis-{{.Vrsta}}{{if .Neprepoznato}} propis-neprepoznato{{end}}{{if .Brisan}} propis-brisan{{end}}{{if .BrisanNaslov}} propis-brisan-naslov{{end}}" id="{{.Oznaka}}">
   {{if .Cjelina}}
   <h2 class="propis-naslov-cjeline">{{.Naziv}}{{if and .Broj .Naslov}} <span>{{.Naslov}}</span>{{end}}{{with .Poveznica}} <a class="propis-stalna" href="{{.}}" aria-label="{{$.OpisPoveznice}}">{{icon "link"}}</a>{{end}}</h2>
   {{else}}
