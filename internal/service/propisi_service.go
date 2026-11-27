@@ -164,6 +164,17 @@ type DioNaStranici struct {
 	OpisPoveznice string // „Stalna adresa članka 224.”
 }
 
+// Brisan javlja je li dio izmjenom brisan; stranica mu tada tekst ispisuje
+// prekriženo i posivljeno, da ga nitko ne čita kao važeći
+func (d DioNaStranici) Brisan() bool {
+	for _, o := range d.Oznake {
+		if o.Vrsta == OznakaBrisan {
+			return true
+		}
+	}
+	return false
+}
+
 // RedakIzmjene je izmjena u popisu izmjena na stranici propisa
 type RedakIzmjene struct {
 	NN        models.IzdanjeNN

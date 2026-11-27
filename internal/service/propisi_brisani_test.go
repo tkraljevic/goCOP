@@ -30,3 +30,13 @@ func TestBrisanjeSNaslovomIznadJeBrisan(t *testing.T) {
 		}
 	}
 }
+
+// Dio s oznakom „brisan” stranica ispisuje prekriženo; dio samo s oznakom
+// „mijenjan” ne.
+func TestDioJeBrisanSamoUzOznakuBrisan(t *testing.T) {
+	brisan := DioNaStranici{Oznake: []OznakaIzmjene{{Vrsta: OznakaMijenjan}, {Vrsta: OznakaBrisan}}}
+	mijenjan := DioNaStranici{Oznake: []OznakaIzmjene{{Vrsta: OznakaMijenjan}}}
+	if !brisan.Brisan() || mijenjan.Brisan() || (DioNaStranici{}).Brisan() {
+		t.Errorf("brisan %v, mijenjan %v, bez oznaka %v", brisan.Brisan(), mijenjan.Brisan(), DioNaStranici{}.Brisan())
+	}
+}
