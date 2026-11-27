@@ -35,7 +35,7 @@ func novoRacunalo(t *testing.T, c, autor *Service, potpisana ledger.Version) {
 	t.Helper()
 	c.SetWantsAll(true)
 	c.PostaviStrogePotpise("users")
-	if n, err := c.primijeniPodBravom(ctxRub, []ledger.Version{potpisana}); err != nil || n != 1 {
+	if n, err := c.primijeniPodBravom(ctxRub, []ledger.Version{potpisana}, nil); err != nil || n != 1 {
 		t.Fatalf("potpisana verzija autora: %d, %v", n, err)
 	}
 	if !c.novaProvjeraPotpisa(ctxRub, nil, true).autorPotpisuje(autor.node.ID) {
@@ -113,7 +113,7 @@ func TestStariZapisPravaStizePotpisan(t *testing.T) {
 	}
 
 	// računalo s nepotpisanom kopijom: ista verzija stigne potpisana
-	if n, err := staro.primijeniPodBravom(ctxRub, potpisan); err != nil || n != 0 {
+	if n, err := staro.primijeniPodBravom(ctxRub, potpisan, nil); err != nil || n != 0 {
 		t.Fatalf("ponovno primanje: %d, %v", n, err)
 	}
 	v, err := staro.rec.Verzije(ctxRub, []string{stari.VersionID})
