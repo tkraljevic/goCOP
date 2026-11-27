@@ -377,11 +377,14 @@ func oznakaUzDio(o OznakaIzmjene, u models.UputaIzmjene, cilj, naziv string) Ozn
 }
 
 // vrstaOznake: brisanje cijelog dijela je „brisan”, dodavanje dijelova iza
-// cijelog dijela „dodano”, a sve ostalo „mijenjan”
+// cijelog dijela „dodano”, a sve ostalo „mijenjan”. Brisanje s naslovom
+// iznad („Naslovi iznad članaka i članci 98. i 99. brišu se.”) briše i
+// naslov i članak, pa je i to „brisan”; promjena samog naslova je nova
+// uputa teksta i ostaje „mijenjan”.
 func vrstaOznake(u models.UputaIzmjene) string {
 	cijeli := cijeliDio(u.Cilj)
 	switch {
-	case u.Vrsta == models.UputaBrisanjeDijela && cijeli && !u.Cilj.NaslovIznad:
+	case u.Vrsta == models.UputaBrisanjeDijela && cijeli:
 		return OznakaBrisan
 	case u.Vrsta == models.UputaDodavanjeDijela && cijeli && len(u.NoveOznake) > 0:
 		return OznakaDodano
