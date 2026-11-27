@@ -711,12 +711,14 @@ func (r *ArhivaRepository) SpojRaspon(ctx context.Context, letva, velicina, kora
 	return out, rows.Err()
 }
 
-// SpojGodine vraća godine koje spojeni niz pokriva, najnovija prva.
+// SpojGodine vraća godine koje spojeni niz pokriva, najnovija prva. Godina je
+// po našem vremenu: Nova godina kod nas uvijek pada u zimsko računanje, sat
+// prije ponoći po UTC-u, pa se vrijeme prije čitanja godine pomiče za sat.
 func (r *ArhivaRepository) SpojGodine(ctx context.Context, letva, velicina, korak string) ([]int, error) {
 	if r == nil {
 		return nil, nil
 	}
-	rows, err := r.db.QueryContext(ctx, `SELECT DISTINCT strftime('%Y', vrijeme, 'unixepoch')
+	rows, err := r.db.QueryContext(ctx, `SELECT DISTINCT strftime('%Y', vrijeme + 3600, 'unixepoch')
 		FROM spoj WHERE letva=? AND velicina=? AND korak=? ORDER BY 1 DESC`, letva, velicina, korak)
 	if err != nil {
 		return nil, err

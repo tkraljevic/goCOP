@@ -28,8 +28,10 @@ var stranicaSpoja = 20000
 // prema starijoj. Čita je stranicu po stranicu: satni niz letve koja mjeri
 // češće od jednom na sat ima u godini više redaka nego što arhiva vraća
 // jednim upitom, pa su izvoz i uvoz ispravaka ostajali bez početka godine.
+// Godina se reže po našem vremenu, kao i stupac vremena u izvozu: prva satna
+// vrijednost je 1. 1. u 0:00, zadnja 31. 12. u 23:00.
 func godinaSpoja(ctx context.Context, a *repository.ArhivaRepository, letva, velicina, korak string, god int) ([]models.SpojenaVrijednost, error) {
-	od := time.Date(god, 1, 1, 0, 0, 0, 0, time.UTC)
+	od := time.Date(god, 1, 1, 0, 0, 0, 0, models.Zagreb)
 	do := od.AddDate(1, 0, 0).Add(-time.Second)
 	var sve []models.SpojenaVrijednost
 	for {

@@ -110,10 +110,11 @@ func popuniArhivu(ctx context.Context, r *http.Request, a *repository.ArhivaRepo
 	if m, err := strconv.Atoi(r.URL.Query().Get("mj")); err == nil && m >= 1 && m <= 12 {
 		p.ArhMjesec = m
 	}
-	od := time.Date(p.ArhGodina, 1, 1, 0, 0, 0, 0, time.UTC)
+	// Godina i mjesec režu se po našem vremenu, jednako kao u izvozu.
+	od := time.Date(p.ArhGodina, 1, 1, 0, 0, 0, 0, models.Zagreb)
 	do := od.AddDate(1, 0, 0).Add(-time.Second)
 	if p.ArhMjesec > 0 {
-		od = time.Date(p.ArhGodina, time.Month(p.ArhMjesec), 1, 0, 0, 0, 0, time.UTC)
+		od = time.Date(p.ArhGodina, time.Month(p.ArhMjesec), 1, 0, 0, 0, 0, models.Zagreb)
 		do = od.AddDate(0, 1, 0).Add(-time.Second)
 	}
 	switch r.URL.Query().Get("red") {
