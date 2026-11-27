@@ -208,11 +208,18 @@ func (s *Service) pocetakOdbijenih(kljuc string, mine map[string]string) pocetak
 // upis): kod zauzetog ili palog upisa zadržane verzije nisu u knjizi, pa ih
 // granica ne smije pokriti. Kad ne smije (smijeUpisati), ne upisuje ništa,
 // pa sljedeći razgovor donese sve. Rub se uzima sada, nakon svih odluka
-// accepta, a vrijedi jer nije pao od početka razgovora.
-func (s *Service) zapamtiOdbijene(p pocetakOdbijenih, odbijeno map[string]string) {
+// accepta, a vrijedi jer nije pao od početka razgovora. Ključeve zaboravi
+// (u kojima čeka verzija, bezCekanja) najprije makne iz dosadašnjeg zapisa
+// pošiljatelja, uvijek: zaboraviti je uvijek na sigurnu stranu.
+func (s *Service) zapamtiOdbijene(p pocetakOdbijenih, odbijeno map[string]string, zaboravi ...string) {
 	ograda, sad := s.ogradaSada(), s.sadOdbijenih()
 	s.odbijene.mu.Lock()
 	defer s.odbijene.mu.Unlock()
+	if z, ima := s.odbijene.odCvora[p.kljuc]; ima {
+		for _, k := range zaboravi {
+			delete(z.granica, k)
+		}
+	}
 	if len(odbijeno) == 0 || !p.smijeUpisati(&s.odbijene, ograda, sad) {
 		return
 	}

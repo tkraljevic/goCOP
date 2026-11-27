@@ -260,6 +260,31 @@ func TestPromjenaRupa(t *testing.T) {
 	}
 }
 
+// Raspon verzija koje čekaju: od najveće verzije ispod najmanje koja čeka
+// koja se upisuje ili je u knjizi, a iznad granice barem od granice, do
+// najveće koja čeka
+func TestRasponCekanja(t *testing.T) {
+	for _, sl := range []struct {
+		ime                string
+		c                  baceno
+		fs, ispod, uKnjizi string
+		ocekivano          raspon
+	}{
+		{"bez ičega", baceno{}, "c", "", "", raspon{}},
+		{"iznad granice", baceno{najmanja: "e", najveca: "g"}, "c", "", "c", r("c", "g")},
+		{"iznad granice, knjiga se ne da pročitati", baceno{najmanja: "e", najveca: "g"}, "c", "", "", r("c", "g")},
+		{"iznad primljenoga", baceno{najmanja: "e", najveca: "g"}, "c", "d", "c", r("d", "g")},
+		{"ispod granice, popunom", baceno{najmanja: "e", najveca: "e"}, "h", "", "", r("", "e")},
+		{"ispod granice, iznad verzije u knjizi", baceno{najmanja: "e", najveca: "e"}, "h", "", "b", r("b", "e")},
+		{"primljeno iznad verzije u knjizi", baceno{najmanja: "e", najveca: "g"}, "h", "d", "b", r("d", "g")},
+		{"verzija u knjizi iznad primljenoga", baceno{najmanja: "e", najveca: "g"}, "h", "b", "d", r("d", "g")},
+	} {
+		if got := rasponCekanja(sl.c, sl.fs, sl.ispod, sl.uKnjizi); got != sl.ocekivano {
+			t.Errorf("%s: %v", sl.ime, got)
+		}
+	}
+}
+
 // Ograda od odluka accepta: dok jednako odbija, promjena ostaje ista; kad
 // je pravilo promijenjeno ili rub otišao unatrag, odbijeno se traži, a
 // izvorna promjena se ne mijenja (smanjenje nakon upisa koristi vraćenu)

@@ -157,9 +157,14 @@ func (s *Service) ImportFile(ctx context.Context, path string) (ImportReport, er
 		return rep, fmt.Errorf("arhiva je prazna")
 	}
 	// isto kao razmjena: neispravne otpadaju odmah, pa rupe, u knjigu, pa
-	// na površinu; arhiva knjige ne prolazi kroz Accept, pa odbijenoga nema
-	versions, _ = s.preskociNeispravne(ctx, prijem{put: "uvoz"}, versions)
-	rep.Applied, err = s.uveziSRupama(ctx, versions, s.promjenaUvoza(ctx, versions, odlukeUvoza{ograda: s.ogradaSada()}, rupeIzArhive(ctx, in, versions)))
+	// na površinu; arhiva knjige ne prolazi kroz Accept, pa odbijenoga nema.
+	// Arhiva upisuje sve kanale, i one koje čvor ne prati, a granica i njih
+	// prijeđe, pa se verzije koje čekaju bilježe u svima (zaCekanje). Rupa u
+	// kanalu koji se ne prati ne traži se (trazim), ali drugima za nju čvor
+	// ne jamči.
+	versions, _, cekaju := s.preskociNeispravne(ctx, prijem{put: "uvoz"}, versions)
+	odluke := odlukeUvoza{ograda: s.ogradaSada(), cekaju: cekaju}
+	rep.Applied, err = s.uveziSRupama(ctx, versions, s.promjenaUvoza(ctx, versions, odluke, rupeIzArhive(ctx, in, versions)))
 	return rep, err
 }
 

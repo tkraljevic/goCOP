@@ -99,7 +99,7 @@ func TestProvjeraPotpisaPriPrimanju(t *testing.T) {
 	odLaznog := potpisanaProbe(t, lazniPriv, "lazni-clan", entitetProbe, "z8", `{"cm":9}`)
 
 	poruka := []ledger.Version{dobra, izmijenjena, bezKljuca, nevezana, podMojimImenom, moja, clanstvo, odNovog, laznoClanstvo, odLaznog}
-	ispravne, krive := b.preskociNeispravne(ctxRub, prijem{put: "razmjena", od: a.javni()}, poruka)
+	ispravne, krive, _ := b.preskociNeispravne(ctxRub, prijem{put: "razmjena", od: a.javni()}, poruka)
 	if len(krive) != 2 || krive[0].EntityID != "z2" || krive[1].EntityID != "z3" {
 		t.Errorf("krive: %v", krive)
 	}
@@ -123,7 +123,7 @@ func TestProvjeraPotpisaPriPrimanju(t *testing.T) {
 	}
 
 	// u knjigu ide s potpisom
-	if n, err := b.primijeniPodBravom(ctxRub, poruka); err != nil || n != 5 {
+	if n, err := b.primijeniPodBravom(ctxRub, poruka, nil); err != nil || n != 5 {
 		t.Fatalf("upis: %d, %v", n, err)
 	}
 	for _, v := range []ledger.Version{dobra, moja, odNovog} {
@@ -139,7 +139,7 @@ func TestProvjeraPotpisaPriPrimanju(t *testing.T) {
 
 	// bez mreže ključ nije vezan ni uz koje ime osim vlastitog
 	c := rubniCvor(t, "bez-mreze")
-	if ispravne, _ := c.preskociNeispravne(ctxRub, prijem{put: "uvoz"}, []ledger.Version{dobra}); len(ispravne) != 0 {
+	if ispravne, _, _ := c.preskociNeispravne(ctxRub, prijem{put: "uvoz"}, []ledger.Version{dobra}); len(ispravne) != 0 {
 		t.Error("računalo bez mreže primilo je potpisanu verziju tuđeg autora")
 	}
 }
@@ -159,11 +159,11 @@ func TestDopunaPotpisa(t *testing.T) {
 	druga := potpisanaProbe(t, a.node.key, a.node.ID, entitetProbe, "z2", `{"cm":2}`)
 	podmetnuta := druga
 	podmetnuta.Potpis, podmetnuta.KljucAutora, podmetnuta.Payload = "", "", json.RawMessage(`{"cm":99}`)
-	if n, err := b.primijeniPodBravom(ctxRub, []ledger.Version{bez, podmetnuta}); err != nil || n != 2 {
+	if n, err := b.primijeniPodBravom(ctxRub, []ledger.Version{bez, podmetnuta}, nil); err != nil || n != 2 {
 		t.Fatalf("nepotpisane: %d, %v", n, err)
 	}
 
-	if n, err := b.primijeniPodBravom(ctxRub, []ledger.Version{potpisana, druga}); err != nil || n != 0 {
+	if n, err := b.primijeniPodBravom(ctxRub, []ledger.Version{potpisana, druga}, nil); err != nil || n != 0 {
 		t.Fatalf("potpisane: %d, %v", n, err)
 	}
 	if u := redakKnjige(t, b, potpisana.VersionID); u == nil || u.Potpis != potpisana.Potpis || u.KljucAutora != potpisana.KljucAutora {
@@ -202,7 +202,7 @@ func TestStrogoZaPravaIMrezu(t *testing.T) {
 	a := rubnaMreza(t, "cop-osijek")
 	b := primateljOd(t, a)
 	b.PostaviStrogePotpise("users")
-	if n, err := b.primijeniPodBravom(ctxRub, []ledger.Version{potpisanaProbe(t, a.node.key, a.node.ID, entitetProbe, "z0", `{}`)}); err != nil || n != 1 {
+	if n, err := b.primijeniPodBravom(ctxRub, []ledger.Version{potpisanaProbe(t, a.node.key, a.node.ID, entitetProbe, "z0", `{}`)}, nil); err != nil || n != 1 {
 		t.Fatalf("potpisana: %d, %v", n, err)
 	}
 	korisnik := potpisanaProbe(t, nil, a.node.ID, "users", "u1", `{"id":"u1"}`)
@@ -212,7 +212,7 @@ func TestStrogoZaPravaIMrezu(t *testing.T) {
 	vlastiti := potpisanaProbe(t, nil, b.node.ID, "users", "u3", `{"id":"u3"}`)
 	poruka := []ledger.Version{korisnik, drugiKorisnik, ostalo, odStarog, vlastiti}
 
-	ispravne, krive := b.preskociNeispravne(ctxRub, prijem{put: "razmjena", strogo: true}, poruka)
+	ispravne, krive, _ := b.preskociNeispravne(ctxRub, prijem{put: "razmjena", strogo: true}, poruka)
 	if len(ispravne) != 3 || len(krive) != 0 {
 		t.Fatalf("strogo: prošlo %v, krive %v", ispravne, krive)
 	}
@@ -221,7 +221,7 @@ func TestStrogoZaPravaIMrezu(t *testing.T) {
 			t.Error("nepotpisana verzija prava od autora koji potpisuje je prošla")
 		}
 	}
-	if ispravne, _ := b.preskociNeispravne(ctxRub, prijem{put: "razmjena"}, poruka); len(ispravne) != 5 {
+	if ispravne, _, _ := b.preskociNeispravne(ctxRub, prijem{put: "razmjena"}, poruka); len(ispravne) != 5 {
 		t.Errorf("bez oznake kod pošiljatelja prošlo %d od 5", len(ispravne))
 	}
 }
@@ -262,7 +262,7 @@ func TestProvjeraPotpisaBezClanstava(t *testing.T) {
 		t.Fatal(err)
 	}
 	v := potpisanaProbe(t, a.node.key, a.node.ID, entitetProbe, "z1", `{}`)
-	ispravne, krive := b.preskociNeispravne(ctxRub, prijem{put: "razmjena"}, []ledger.Version{v})
+	ispravne, krive, _ := b.preskociNeispravne(ctxRub, prijem{put: "razmjena"}, []ledger.Version{v})
 	if len(ispravne) != 0 || len(krive) != 0 {
 		t.Errorf("prošlo %v, krive %v", ispravne, krive)
 	}

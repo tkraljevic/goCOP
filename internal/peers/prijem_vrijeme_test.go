@@ -34,7 +34,7 @@ func TestKasneVerzijeJednimRetkomPoAutoru(t *testing.T) {
 		verzijaProbe(oznakaVremena(sada.Add(-time.Minute), 7), "cop-osijek", "z7"),
 	}
 	for range 2 {
-		if got, _ := s.preskociNeispravne(ctxRub, prijem{put: "razmjena"}, stiglo); len(got) != 1 || got[0].EntityID != "z7" {
+		if got, _, _ := s.preskociNeispravne(ctxRub, prijem{put: "razmjena"}, stiglo); len(got) != 1 || got[0].EntityID != "z7" {
 			t.Fatalf("prošlo %v", got)
 		}
 	}

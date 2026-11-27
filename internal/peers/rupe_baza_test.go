@@ -434,6 +434,7 @@ func TestNedostajeDulje(t *testing.T) {
 	if _, err := s.db.Exec(`INSERT INTO peers (node_id, name, public_key, created_at) VALUES ('windows-ured', 'Uredsko računalo', 'k', ?)`, stalnoVrijeme); err != nil {
 		t.Fatal(err)
 	}
+	s.SetWantsAll(true)
 	s.satOdbijenih = func() time.Time { return stalnoVrijeme }
 	upisiRupuTrazi(t, s, "windows-ured|ocitanja/16/2024", r("a", "b"))
 	upisiRupuTrazi(t, s, "windows-ured|ocitanja/16/2025", r("a", "b"))
@@ -443,10 +444,18 @@ func TestNedostajeDulje(t *testing.T) {
 	}
 	s.satOdbijenih = func() time.Time { return stalnoVrijeme.Add(najduljeTrazi) }
 	got := s.NedostajeDulje(ctxRub)
-	if len(got) != 2 || got[0] != "Od računala Uredsko računalo možda nedostaju neka starija očitanja, jer su stigla preko računala koje ne čuva sve. "+
-		"Program ih sam traži od ostalih računala i dobit će ih kad se javi računalo koje ih ima." ||
-		!strings.HasPrefix(got[1], "Od računala laptop-drugi možda nedostaju neka starija očitanja") {
+	if len(got) != 2 || got[0] != "Od računala Uredsko računalo možda nedostaju neki zapisi ili još čekaju provjeru potpisa. "+
+		"Program ih sam traži od ostalih računala." ||
+		!strings.HasPrefix(got[1], "Od računala laptop-drugi možda nedostaju neki zapisi") {
 		t.Errorf("nakon dana: %q", got)
+	}
+	// kanal koji čvor ne prati ne traži se, pa se ni ne broji
+	s.SetWantsAll(false)
+	if _, err := s.AddSubscription(ctxRub, Subscription{Kind: "ocitanja", AreaID: 16}); err != nil {
+		t.Fatal(err)
+	}
+	if got := s.NedostajeDulje(ctxRub); len(got) != 1 || !strings.HasPrefix(got[0], "Od računala Uredsko računalo") {
+		t.Errorf("samo područje 16: %q", got)
 	}
 	kvarCitanjaRupa(t, s)
 	if got := s.NedostajeDulje(ctxRub); len(got) != 0 {
