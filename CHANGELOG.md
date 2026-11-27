@@ -4,6 +4,49 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.71-alfa — 27. 11. 2026.
+
+Ispravci nakon 0.0.70 te dopune Propisa i Pomoći. Baza se ne mijenja.
+Računalo pri prvom pokretanju jednom potpiše svoje stare zapise prava i
+mreže. Računala na 0.0.70-alfa razmjenjuju s novima kao i dosad, pa se
+mogu nadograditi bilo kojim redom.
+
+- **Zapis koji čeka provjeru potpisa više se ne gubi.** Računalo koje primi
+  zapis potpisan ključem koji još ne poznaje čeka da stigne članstvo
+  autora. Ako je u istoj razmjeni stigao i noviji zapis istog autora, onaj
+  koji je čekao više mu nitko nije poslao, ni kad je članstvo stiglo. Sad
+  ga računalo pamti i traži u sljedećim razmjenama. Isto vrijedi kod uvoza
+  paketa i arhive.
+- **Stari zapisi prava stižu i na novo računalo.** Korisnici, dužnosti,
+  ovlasti, članstva i opozivi upisani prije 0.0.70 nemaju potpis, pa ih
+  novo ili iznova instalirano računalo razmjenom nije primalo. Računalo sad
+  pri pokretanju jednom potpiše svoje stare zapise prava i mreže i svaki
+  upiše u dnevnik. To ne pomaže kad je računalo autora iznova instalirano
+  s novim ključem ili više ne radi; takve zapise i dalje donosi samo uvoz
+  paketa.
+- **Karta: granice branjenih područja i sektora.** Računalo koje pokreće
+  Postava nije nalazilo granice područja i sektora, ni granice naselja na
+  stranici županije. Tražilo ih je u mapi iz koje je program pokrenut, a
+  sad ih traži uz bazu.
+- **Izvoz vodostaja: cijela satna godina.** Satni izvoz godine za letvu
+  koja mjeri češće od jednom na sat nije imao početak godine. Godina se sad
+  izvozi cijela i reže po našem vremenu: prva vrijednost je 1. 1. u 0:00,
+  a zadnja 31. 12. u 23:00. Isto vrijedi za uvoz ispravaka i za stranicu
+  arhive letve.
+- **Ikona razmjene.** Tko nema Administraciju, klikom na ikonu razmjene u
+  gornjoj traci dobivao je odbijanje. Njemu je ikona sad samo oznaka, a
+  administratora vodi na Stanje razmjene. Kad se mišem stane na nju, piše
+  je li sve usklađeno.
+- **Propisi.** Brisani članak je prekrižen i nosi oznaku „brisan NN …”,
+  a ne „mijenjan”. Izmjena koja još nije stupila na snagu piše „stupa na
+  snagu”, a članke mijenja tek od toga dana. Pretraga nalazi samo riječi
+  koje počinju upisanim izrazom, a isječak pokazuje mjesto gdje su sve
+  riječi zajedno. Obrasci za učitavanje propisa i izmjene uredno su
+  složeni, i na mobitelu.
+- **Pomoć.** Poglavlje Dokumenti opisuje tok obrane korak po korak, od
+  otvaranja dnevnika COP-a do zaključenja. Poglavlje Prognoze usklađeno je
+  s programom. Oba imaju nove slike.
+
 ## 0.0.70-alfa — 26. 11. 2026.
 
 Propisi iz Narodnih novina u programu, potpis računala na svakoj promjeni i
