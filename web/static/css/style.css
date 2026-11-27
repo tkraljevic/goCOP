@@ -11451,7 +11451,7 @@ td .odr-sitno { margin-top: 2px; }
 .propisi-skupine .ulaz-skupina .form-help { margin: -4px 0 8px; }
 .propisi-napomena { margin-top: 16px; }
 .propisi-sazetak { margin: 0 0 12px; font-size: 0.875rem; color: var(--md-sys-color-on-surface); }
-.propisi-pogoci { margin-top: 12px; }
+.propisi-pogoci { margin-top: 12px; padding: 12px 16px; }
 .propisi-pogoci h2 { margin: 0 0 8px; font-size: 1rem; font-weight: 500; }
 .propisi-pogoci-popis { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
 .propis-pogodak p { margin: 4px 0 0; overflow-wrap: anywhere; }
