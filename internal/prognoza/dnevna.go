@@ -1344,7 +1344,7 @@ func PrognozirajDnevno(m *DnevniModel, satni map[string]Niz, oborine map[string]
 		}
 		rupe := rupeUlaza(satni, fali, sada)
 		for _, s := range m.Cilj.Slivovi {
-			if _, ok := DnevneZnacajke(DnevniCilj{Letva: m.Cilj.Letva, Slivovi: []string{s}}, dnevni, 0); !ok {
+			if !imaOborinu(m.Cilj.Letva, s, dnevni) {
 				fali = append(fali, "oborina "+s)
 			}
 		}
@@ -1363,6 +1363,21 @@ func PrognozirajDnevno(m *DnevniModel, satni map[string]Niz, oborine map[string]
 			Model: model, uzvodno: pomak[k]})
 	}
 	return out, nil
+}
+
+// imaOborinu javlja ima li međusliv kišu za značajke dana 0. Letvi cilja
+// podmeće pune dane: provjera je prije išla s njezinim pravim danima, pa je
+// rupa u mjerenjima letve okrivila i kišu koja je uredno stigla (Vuka i
+// Borovik 28. 11. 2026.).
+func imaOborinu(letva, sliv string, dnevni map[string]DnevniNiz) bool {
+	proba := map[string]DnevniNiz{letva: {0: 0, -1: 0, -3: 0}}
+	for _, k := range []string{OborinaKljuc(sliv), OborinaUnaprijedKljuc(sliv)} {
+		if n, ima := dnevni[k]; ima {
+			proba[k] = n
+		}
+	}
+	_, ok := DnevneZnacajke(DnevniCilj{Letva: letva, Slivovi: []string{sliv}}, proba, 0)
+	return ok
 }
 
 // najmanjiKvadrati rješava normalne jednadžbe s djelićem grebena na
