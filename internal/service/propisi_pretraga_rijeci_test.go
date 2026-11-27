@@ -23,3 +23,18 @@ func TestPretragaBrojiCijeleRijeci(t *testing.T) {
 		t.Errorf("pogodak usred riječi ostao: %#v", got)
 	}
 }
+
+// Granica od n dijelova po propisu vrijedi tek nakon što su izbačeni
+// pogoci usred riječi, svaka za svoj propis.
+func TestNajviseUPropisuNakonFiltra(t *testing.T) {
+	var redci []repository.RedakKazala
+	for i := 0; i < 3; i++ {
+		redci = append(redci, repository.RedakKazala{PropisID: "a", Tekst: "bez ispuštanja"})
+	}
+	redci = append(redci, repository.RedakKazala{PropisID: "a", Tekst: "pripremno stanje"},
+		repository.RedakKazala{PropisID: "b", Tekst: "stanje"}, repository.RedakKazala{PropisID: "b", Tekst: "stanje obrane"})
+	got := najviseUPropisu(samoCijeleRijeci(redci, []string{"stanj"}), 1)
+	if len(got) != 2 || got[0].PropisID != "a" || got[0].Tekst != "pripremno stanje" || got[1].PropisID != "b" {
+		t.Errorf("rezultat: %#v", got)
+	}
+}

@@ -175,3 +175,17 @@ func TestIsjecakKreceOdIzraza(t *testing.T) {
 		t.Error("ImaSveKorijene ne gleda početak riječi")
 	}
 }
+
+// Izraz se traži unutar jednog retka: kraj jedne stavke i početak sljedeće
+// nisu izraz, pa isječak ide na stavku u kojoj je izraz cijeli.
+func TestIsjecakIzrazUJednomRetku(t *testing.T) {
+	tekst := "a) pripremno\nb) stanje dionice\n" + strings.Repeat("riječ ", 20) + "\nc) pripremno stanje nasipa"
+	got := Isjecak(tekst, Korijeni("pripremno stanje"), 30)
+	sve := ""
+	for _, k := range got {
+		sve += k.Tekst
+	}
+	if !strings.Contains(sve, "pripremno stanje nasipa") {
+		t.Errorf("isječak nije na stavci c): %q", sve)
+	}
+}

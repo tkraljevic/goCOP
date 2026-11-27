@@ -104,7 +104,7 @@ func sredisteIsjecka(sv []rune, korijeni []string, pogoci []raspon) int {
 		return 0
 	}
 	for _, p := range pogoci {
-		if sviUnutar(sv, korijeni, p.od, min(p.od+blizina, len(sv))) {
+		if sviUnutar(sv, korijeni, p.od, min(p.od+blizina, krajRetka(sv, p.od))) {
 			return p.od
 		}
 	}
@@ -121,6 +121,17 @@ func sredisteIsjecka(sv []rune, korijeni []string, pogoci []raspon) int {
 		od = do
 	}
 	return pogoci[0].od
+}
+
+// krajRetka je položaj prvog prijeloma retka od od, ili kraj teksta: izraz
+// ne prelazi u sljedeću stavku
+func krajRetka(sv []rune, od int) int {
+	for i := od; i < len(sv); i++ {
+		if sv[i] == '\n' {
+			return i
+		}
+	}
+	return len(sv)
 }
 
 // sviUnutar javlja počinje li svaki korijen neku riječ u sv[od:do]

@@ -32,7 +32,7 @@
   <p><a href="{{.PoveznicaNN}}" target="_blank" rel="noopener">Narodne novine {{$p.NN.Broj}}/{{$p.NN.Godina}} ↗</a></p>
 </div>
 {{range .CijeliTekst}}
-<div class="dash-traka propis-traka" role="status">{{icon "info"}}<span>Izmjena {{.IzmjenaNN.Kratko}} mijenja riječi u cijelom tekstu propisa{{with .IzClanka}} ({{.}} izmjene){{end}}. Ta mjesta nisu označena uz članke. <a href="{{.Poveznica}}">Otvori izmjenu</a></span></div>
+<div class="dash-traka propis-traka" role="status">{{icon "info"}}<span>Izmjena {{.IzmjenaNN.Kratko}} {{if .VrijediOd}}od {{.VrijediOd}} mijenja{{else}}mijenja{{end}} riječi u cijelom tekstu propisa{{with .IzClanka}} ({{.}} izmjene){{end}}. Ta mjesta nisu označena uz članke. <a href="{{.Poveznica}}">Otvori izmjenu</a></span></div>
 {{end}}
 {{if not $dio}}
 {{if $.JeAdministrator}}
