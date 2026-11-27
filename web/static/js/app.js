@@ -799,6 +799,23 @@ function renderMarkdown(md) {
     }
   }
 
+  // Propisi: polje „Naziv nove skupine” vrijedi samo uz izbor „Nova
+  // skupina…”, pa je inače skriveno i ne šalje se (bez skripte poslužitelj
+  // ionako uzima izabranu skupinu)
+  function pripremiNovuSkupinu() {
+    var izbor = document.getElementById('skupina');
+    var polje = document.getElementById('nova_skupina');
+    if (!izbor || !polje || !izbor.querySelector('option[value="nova"]')) { return; }
+    var okvir = polje.closest('.list-polje') || polje;
+    function prilagodi() {
+      var nova = izbor.value === 'nova';
+      okvir.style.display = nova ? '' : 'none';
+      polje.disabled = !nova;
+    }
+    izbor.addEventListener('change', prilagodi);
+    prilagodi();
+  }
+
   // Popis podnaslova uz poglavlje: na širokom zaslonu uvijek otvoren i
   // ističe podnaslov koji se upravo čita; do 839 px izbornik koji se zatvori
   // čim se odabere podnaslov
@@ -809,6 +826,17 @@ function renderMarkdown(md) {
     function prilagodi() { popisi.forEach(function (d) { d.open = !usko.matches; }); }
     prilagodi();
     usko.addEventListener('change', prilagodi);
+    // Odabrana stavka koju je istaknuo poslužitelj (glava na stranici
+    // propisa) mora se vidjeti i kad je popis dulji od svog okvira.
+    popisi.forEach(function (d) {
+      var odabrana = d.querySelector('a[aria-current="true"]:not([href^="#"])');
+      var okvir = odabrana;
+      while (okvir && okvir !== d.parentElement && !(okvir.scrollHeight > okvir.clientHeight && /auto|scroll/.test(getComputedStyle(okvir).overflowY))) {
+        okvir = okvir.parentElement;
+      }
+      if (!odabrana || !okvir || okvir === d.parentElement) { return; }
+      okvir.scrollTop += odabrana.getBoundingClientRect().top - okvir.getBoundingClientRect().top - okvir.clientHeight / 3;
+    });
     popisi.forEach(function (d) {
       d.addEventListener('click', function (e) {
         if (usko.matches && e.target.closest('a')) { d.open = false; }
@@ -876,7 +904,7 @@ function renderMarkdown(md) {
     }
   }
 
-  function pripremi() { pripremiPomoc(); pripremiPodnaslove(); pripremiPoglavlja(); }
+  function pripremi() { pripremiPomoc(); pripremiPodnaslove(); pripremiPoglavlja(); pripremiNovuSkupinu(); }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', pripremi);
   } else {

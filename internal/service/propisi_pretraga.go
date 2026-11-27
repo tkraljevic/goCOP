@@ -124,7 +124,38 @@ func (s *PropisiService) redciPretrage(ctx context.Context, u propisi.Upit) ([]r
 	if oznaka := u.Tocka + u.Clanak; oznaka != "" {
 		return s.repo.DioPoOznaci(ctx, oznaka, "")
 	}
-	return s.repo.Trazi(ctx, u.Korijeni, "", najvisePogodakaUPropisu)
+	// Baza traži korijen bilo gdje u tekstu, pa se retci prvo pročitaju svi,
+	// izbace se pogoci usred riječi, a tek onda reže na najviše dijelova po
+	// propisu, da pravi pogoci iza granice ne ispadnu.
+	redci, err := s.repo.Trazi(ctx, u.Korijeni, "", 0)
+	return najviseUPropisu(samoCijeleRijeci(redci, u.Korijeni), najvisePogodakaUPropisu), err
+}
+
+// samoCijeleRijeci ostavlja retke u kojima svaka riječ upita počinje neku
+// riječ teksta. Baza traži korijen bilo gdje, pa bi „stanje” našlo i
+// „ispuštanja”.
+func samoCijeleRijeci(redci []repository.RedakKazala, korijeni []string) []repository.RedakKazala {
+	out := redci[:0]
+	for _, r := range redci {
+		if propisi.ImaSveKorijene(propisi.Svedi(r.Tekst), korijeni) {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// najviseUPropisu ostavlja najviše n redaka svakog propisa, redom kojim su
+// došli (retci jednog propisa stoje zajedno)
+func najviseUPropisu(redci []repository.RedakKazala, n int) []repository.RedakKazala {
+	out := redci[:0]
+	broj := map[string]int{}
+	for _, r := range redci {
+		if broj[r.PropisID] < n {
+			broj[r.PropisID]++
+			out = append(out, r)
+		}
+	}
+	return out
 }
 
 // skupiPogotke slaže retke kazala u pogotke po propisu, redom kazala
@@ -217,19 +248,16 @@ func (s *PropisiService) naslovRoditelja(ctx context.Context, r repository.Redak
 	return n, nil
 }
 
-// josStavaka je broj ostalih redaka teksta dijela s pogotkom, uz onaj u
-// isječku
+// josStavaka je broj ostalih redaka teksta dijela u kojima su sve riječi
+// upita, uz onaj u isječku
 func josStavaka(tekst string, korijeni []string) int {
 	if len(korijeni) == 0 {
 		return 0
 	}
 	n := 0
 	for _, redak := range strings.Split(propisi.Svedi(tekst), "\n") {
-		for _, k := range korijeni {
-			if strings.Contains(redak, k) {
-				n++
-				break
-			}
+		if propisi.ImaSveKorijene(redak, korijeni) {
+			n++
 		}
 	}
 	return max(n-1, 0)

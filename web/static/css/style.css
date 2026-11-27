@@ -9690,7 +9690,11 @@ table.cop-tablica { border-collapse: separate; border-spacing: 0 8px; }
 .ulaz-skupina .redak-vrijednost { font-size: 0.875rem; color: var(--md-sys-color-on-surface-variant); }
 @media (max-width: 599px) {
   .ulaz-skupina .redak-sporedno { display: none; }
+  /* propise istog naziva razlikuje tek broj NN, pa ga popis propisa pokazuje i na mobitelu */
+  .propisi-skupine .ulaz-skupina .redak-sporedno { display: block; }
 }
+/* skupine propisa stoje jedna ispod druge, preko cijele širine */
+.propisi-skupine .ulaz-skupine { grid-template-columns: minmax(0, 1fr); }
 
 /* ===== Prijava s terena, jedna stranica (goCOP-m3, 15 · Dokumenti, 8d do 8i) =====
    Glava, kartice, polja i potpisi su od dnevnog lista (.list-glava, .list-kartica,
@@ -11439,7 +11443,7 @@ td .odr-sitno { margin-top: 2px; }
    Pomoći (.pomoc-poglavlje, .pomoc-podnaslovi). Oznaka izmjene je odabrana ploha,
    neprepoznat odlomak tehničko upozorenje, a blok novog teksta iz izmjene mono pismo.
    Gumbi za administratora (.samo-racunalo) ne stoje na mobitelu. */
-.propisi-trazi { display: grid; gap: 8px; margin-bottom: 16px; }
+.propisi-trazi { display: grid; gap: 8px; margin-bottom: 16px; padding: 16px; }
 .propisi-trazi label { font-size: 0.875rem; font-weight: 500; color: var(--md-sys-color-on-surface); }
 .propisi-trazi-polje { display: flex; gap: 8px; }
 .propisi-trazi-polje .form-control { flex: 1; min-width: 0; }
@@ -11447,7 +11451,7 @@ td .odr-sitno { margin-top: 2px; }
 .propisi-skupine .ulaz-skupina .form-help { margin: -4px 0 8px; }
 .propisi-napomena { margin-top: 16px; }
 .propisi-sazetak { margin: 0 0 12px; font-size: 0.875rem; color: var(--md-sys-color-on-surface); }
-.propisi-pogoci { margin-top: 12px; }
+.propisi-pogoci { margin-top: 12px; padding: 12px 16px; }
 .propisi-pogoci h2 { margin: 0 0 8px; font-size: 1rem; font-weight: 500; }
 .propisi-pogoci-popis { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
 .propis-pogodak p { margin: 4px 0 0; overflow-wrap: anywhere; }
@@ -11499,6 +11503,7 @@ td .odr-sitno { margin-top: 2px; }
 }
 .propis-susjedi { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 16px; font-size: 0.875rem; }
 .propis-upozorenje { margin-top: 4px; font-size: 0.8125rem; color: var(--md-sys-color-on-surface); }
+.propis-upozorenje .icon { width: 16px; height: 16px; vertical-align: -3px; color: var(--warning-fg); }
 .propis-upute h2, .propis-tekst > h2 { margin: 0 0 12px; font-size: 1rem; font-weight: 500; }
 .propis-upute > h2 { margin: 0; }
 /* Učitavanje (15g, 4–6): obrazac s dva puta, provjera podjele i tablica odredbi izmjene */

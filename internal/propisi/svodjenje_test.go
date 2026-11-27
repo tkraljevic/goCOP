@@ -136,10 +136,17 @@ func TestIsjecakDugogTekstaOkoPogotka(t *testing.T) {
 	if len(got) != 2 || got[0].Tekst != strings.Repeat("x", 10) || got[1].Tekst != "…" {
 		t.Errorf("tekst bez razmaka: %#v", got)
 	}
-	// pogodak usred duge riječi: početak se ne pomiče preko pogotka
-	got = Isjecak(strings.Repeat("x", 50)+"nasip", []string{"nasip"}, 10)
-	if len(got) != 3 || got[1].Tekst != "xxxxx" || got[2].Tekst != "nasip" || !got[2].Istaknuto {
-		t.Errorf("pogodak usred riječi: %#v", got)
+	// pogodak iza duge riječi bez razmaka: početak se ne pomiče preko pogotka
+	got = Isjecak(strings.Repeat("x", 50)+"-nasip", []string{"nasip"}, 10)
+	if len(got) != 3 || got[0].Tekst != "…" || got[2].Tekst != "nasip" || !got[2].Istaknuto {
+		t.Errorf("pogodak iza duge riječi: %#v", got)
+	}
+	// korijen usred riječi nije pogodak: „stanj” u „ispuštanja” se ne ističe
+	got = Isjecak("bez ispuštanja otpadnih voda", []string{"stanj"}, 0)
+	for _, k := range got {
+		if k.Istaknuto {
+			t.Errorf("pogodak usred riječi: %#v", got)
+		}
 	}
 	// drugi pogodak izvan isječka se ne pokazuje
 	got = Isjecak("nasip "+strings.Repeat("riječ ", 20)+"nasip", []string{"nasip"}, 20)
@@ -148,5 +155,62 @@ func TestIsjecakDugogTekstaOkoPogotka(t *testing.T) {
 	}
 	if got := Isjecak("", nil, 10); got != nil {
 		t.Errorf("prazan tekst: %#v", got)
+	}
+}
+
+// Isječak kreće od mjesta gdje su riječi upita zajedno, a ne od prve riječi
+// koja se igdje pojavi (čl. 224. Zakona o vodama: „stanje” je rano, a
+// „pripremno stanje” tek u točki 20.).
+func TestIsjecakKreceOdIzraza(t *testing.T) {
+	tekst := "1. ne održava stanje osposobljenosti ljudstva\n" + strings.Repeat("riječ ", 30) + "\n20. se ne odazove u pripremno stanje i ne sudjeluje"
+	got := Isjecak(tekst, Korijeni("pripremnog stanja"), 40)
+	sve := ""
+	for _, k := range got {
+		sve += k.Tekst
+	}
+	if !strings.Contains(sve, "pripremno stanje") {
+		t.Errorf("isječak nema izraz: %q", sve)
+	}
+	if !ImaSveKorijene(Svedi("u pripremno stanje"), Korijeni("pripremnog stanja")) || ImaSveKorijene(Svedi("bez ispuštanja"), []string{"stanj"}) {
+		t.Error("ImaSveKorijene ne gleda početak riječi")
+	}
+}
+
+// Izraz se traži unutar jednog retka: kraj jedne stavke i početak sljedeće
+// nisu izraz, pa isječak ide na stavku u kojoj je izraz cijeli.
+func TestIsjecakIzrazUJednomRetku(t *testing.T) {
+	tekst := "a) pripremno\nb) stanje dionice\n" + strings.Repeat("riječ ", 20) + "\nc) pripremno stanje nasipa"
+	got := Isjecak(tekst, Korijeni("pripremno stanje"), 30)
+	sve := ""
+	for _, k := range got {
+		sve += k.Tekst
+	}
+	if !strings.Contains(sve, "c) pripremno stanje") || strings.Contains(sve, "a) pripremno") {
+		t.Errorf("isječak nije na stavci c): %q", sve)
+	}
+}
+
+// Središte isječka: izraz u blizini, inače redak sa svim riječima, inače
+// prvi pogodak, a bez pogotka početak teksta.
+func TestSredisteIsjecka(t *testing.T) {
+	k := Korijeni("pripremno stanje")
+	sredina := func(tekst string) int {
+		sv := []rune(Svedi(tekst))
+		return sredisteIsjecka(sv, k, naciPogotke(sv, k))
+	}
+	if got := sredina("nema ničega"); got != 0 {
+		t.Errorf("bez pogotka: %d", got)
+	}
+	if got := sredina("stanje\nx pripremno stanje"); got != 9 {
+		t.Errorf("izraz u blizini: %d", got)
+	}
+	// obje riječi u istom retku, ali daleko jedna od druge
+	daleko := "a) stanje\nb) pripremno " + strings.Repeat("riječ ", 20) + "stanje"
+	if got := sredina(daleko); got != 13 {
+		t.Errorf("redak sa svim riječima: %d", got)
+	}
+	// nijedan redak nema obje riječi: prvi pogodak
+	if got := sredina("a) stanje\nb) pripremno"); got != 3 {
+		t.Errorf("prvi pogodak: %d", got)
 	}
 }

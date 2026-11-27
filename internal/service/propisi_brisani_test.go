@@ -67,3 +67,27 @@ func TestNaslovIznadBrisanSamoUzNaslov(t *testing.T) {
 		t.Errorf("spajanje: %d oznaka, naslov %v", len(spojeno), DioNaStranici{Oznake: spojeno}.BrisanNaslov())
 	}
 }
+
+// Izmjena koja tek stupa na snagu: oznaka kaže od kada vrijedi, a brisani
+// članak se ne prekriži dok ne vrijedi. Popis izmjena piše „stupa”.
+func TestIzmjenaKojaJosNeVrijedi(t *testing.T) {
+	osnova := &models.Propis{Adresa: "zakon", Dijelovi: []models.DioPropisa{{Oznaka: "clanak-3", Vrsta: models.DioClanak, Broj: "3."}}}
+	izmjene := []models.IzmjenaPropisa{{NN: models.IzdanjeNN{Broj: 53, Godina: 2026}, StupaNaSnagu: "2026-11-28",
+		Upute: []models.UputaIzmjene{{Vrsta: models.UputaBrisanjeDijela, Cilj: models.CiljUpute{Clanci: []string{"clanak-3"}}}}}}
+	st := slaziStranicu(osnova, izmjene, "2026-11-27")
+	o := st.Oznake["clanak-3"]
+	if len(o) != 1 || o[0].Natpis != "brisan NN 53/26 · vrijedi od 28. 11. 2026." {
+		t.Fatalf("oznaka: %#v", o)
+	}
+	if d := (DioNaStranici{Oznake: o}); d.Brisan() {
+		t.Error("članak prekrižen prije nego izmjena vrijedi")
+	}
+	if !st.PopisIzmjena[0].JosNeVrijedi {
+		t.Error("popis izmjena piše „stupila” za izmjenu koja još ne vrijedi")
+	}
+	// na dan stupanja na snagu izmjena vrijedi
+	st = slaziStranicu(osnova, izmjene, "2026-11-28")
+	if o := st.Oznake["clanak-3"]; o[0].Natpis != "brisan NN 53/26" || !(DioNaStranici{Oznake: o}).Brisan() || st.PopisIzmjena[0].JosNeVrijedi {
+		t.Errorf("na dan stupanja: %#v", o)
+	}
+}

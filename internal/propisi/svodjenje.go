@@ -78,22 +78,105 @@ type KomadIsjecka struct {
 // raspon su položaji [od, do) u runama.
 type raspon struct{ od, do int }
 
-// Isjecak vadi iz teksta oko sirina znakova oko prvog pogotka i ističe svaki
-// pogodak korijena, do kraja riječi. Isticanje je na izvornom tekstu, s
-// kvačicama. Bez pogotka isječak je početak teksta; odrezan rub dobiva „…”.
+// Isjecak vadi iz teksta oko sirina znakova oko mjesta gdje su sve riječi
+// upita blizu jedna drugoj („pripremno stanje”), a kad takvog nema, oko
+// prvog retka sa svim riječima ili oko prvog pogotka. Ističe svaki pogodak
+// korijena, od početka riječi do njezina kraja. Isticanje je na izvornom
+// tekstu, s kvačicama. Bez pogotka isječak je početak teksta; odrezan rub
+// dobiva „…”.
 func Isjecak(tekst string, korijeni []string, sirina int) []KomadIsjecka {
 	izvorno := []rune(tekst)
-	pogoci := naciPogotke([]rune(Svedi(tekst)), korijeni)
-	prvi := 0
-	if len(pogoci) > 0 {
-		prvi = pogoci[0].od
-	}
-	p := prozor(izvorno, prvi, sirina)
+	sv := []rune(Svedi(tekst))
+	pogoci := naciPogotke(sv, korijeni)
+	p := prozor(izvorno, sredisteIsjecka(sv, korijeni, pogoci), sirina)
 	return slaziKomade(izvorno, p, pogoci)
 }
 
-// naciPogotke vraća poredane raspone riječi koje sadrže korijen, od mjesta
-// korijena do kraja riječi, bez preklapanja.
+// blizina je najveći razmak u znakovima u kojem se riječi upita računaju
+// kao jedan izraz
+const blizina = 80
+
+// sredisteIsjecka je položaj od kojeg isječak kreće: pogodak iza kojeg su
+// sve riječi upita unutar blizine u istom retku, inače prvi pogodak u retku
+// koji ima sve riječi, inače prvi pogodak
+func sredisteIsjecka(sv []rune, korijeni []string, pogoci []raspon) int {
+	if len(pogoci) == 0 {
+		return 0
+	}
+	for _, p := range pogoci {
+		if sviUnutar(sv, korijeni, p.od, min(p.od+blizina, krajRetka(sv, p.od))) {
+			return p.od
+		}
+	}
+	if od, ok := prviURetkuSaSvima(sv, korijeni, pogoci); ok {
+		return od
+	}
+	return pogoci[0].od
+}
+
+// prviURetkuSaSvima je prvi pogodak u prvom retku u kojem su sve riječi upita
+func prviURetkuSaSvima(sv []rune, korijeni []string, pogoci []raspon) (int, bool) {
+	for _, p := range pogoci {
+		od := pocetakRetka(sv, p.od)
+		if sviUnutar(sv, korijeni, od, krajRetka(sv, p.od)) {
+			return p.od, true
+		}
+	}
+	return 0, false
+}
+
+// pocetakRetka je položaj iza zadnjeg prijeloma retka prije do
+func pocetakRetka(sv []rune, do int) int {
+	for i := do; i > 0; i-- {
+		if sv[i-1] == '\n' {
+			return i
+		}
+	}
+	return 0
+}
+
+// krajRetka je položaj prvog prijeloma retka od od, ili kraj teksta: izraz
+// ne prelazi u sljedeću stavku
+func krajRetka(sv []rune, od int) int {
+	for i := od; i < len(sv); i++ {
+		if sv[i] == '\n' {
+			return i
+		}
+	}
+	return len(sv)
+}
+
+// sviUnutar javlja počinje li svaki korijen neku riječ u sv[od:do]
+func sviUnutar(sv []rune, korijeni []string, od, do int) bool {
+	for _, k := range korijeni {
+		if !naPocetkuRijeci(sv[od:do], []rune(k), od > 0 && !nijeDioRijeci(sv[od-1])) {
+			return false
+		}
+	}
+	return true
+}
+
+// ImaSveKorijene javlja počinje li svaki korijen neku riječ svedenog
+// teksta. Pretraga u bazi traži korijen bilo gdje u tekstu, pa ovo odbacuje
+// pogotke usred riječi („stanj” u „ispuštanja”).
+func ImaSveKorijene(svedeno string, korijeni []string) bool {
+	sv := []rune(svedeno)
+	return sviUnutar(sv, korijeni, 0, len(sv))
+}
+
+// naPocetkuRijeci javlja počinje li k neku riječ u sv; usredRijeci kaže da
+// prvi znak sv nastavlja riječ s lijeve strane
+func naPocetkuRijeci(sv, k []rune, usredRijeci bool) bool {
+	for i := 0; i+len(k) <= len(sv); i++ {
+		if (i == 0 && !usredRijeci || i > 0 && nijeDioRijeci(sv[i-1])) && string(sv[i:i+len(k)]) == string(k) {
+			return true
+		}
+	}
+	return false
+}
+
+// naciPogotke vraća poredane raspone riječi koje počinju korijenom, do kraja
+// riječi, bez preklapanja.
 func naciPogotke(sv []rune, korijeni []string) []raspon {
 	oznaceno := make([]bool, len(sv))
 	for _, k := range korijeni {
@@ -113,13 +196,13 @@ func naciPogotke(sv []rune, korijeni []string) []raspon {
 	return out
 }
 
-// oznaciKorijen označi svako pojavljivanje korijena i ostatak njegove riječi.
+// oznaciKorijen označi svaku riječ koja počinje korijenom, do kraja riječi.
 func oznaciKorijen(sv, k []rune, oznaceno []bool) {
 	if len(k) == 0 {
 		return
 	}
 	for i := 0; i+len(k) <= len(sv); i++ {
-		if string(sv[i:i+len(k)]) != string(k) {
+		if i > 0 && !nijeDioRijeci(sv[i-1]) || string(sv[i:i+len(k)]) != string(k) {
 			continue
 		}
 		kraj := i + len(k)

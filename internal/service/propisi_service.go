@@ -152,6 +152,7 @@ type OznakaIzmjene struct {
 	PoveznicaNN string // akt izmjene u Narodnim novinama
 	Odredbe     []OdredbaIzmjene
 	SNaslovom   bool   // brisan je i naslov iznad dijela („Naslovi iznad članaka i članci … brišu se.”)
+	VrijediOd   string // „28. 11. 2026.” kad izmjena još nije stupila na snagu; prazno kad vrijedi
 	cilj        string // oznaka dijela uz koji stoji
 }
 
@@ -169,7 +170,7 @@ type DioNaStranici struct {
 // prekriženo i posivljeno, da ga nitko ne čita kao važeći
 func (d DioNaStranici) Brisan() bool {
 	for _, o := range d.Oznake {
-		if o.Vrsta == OznakaBrisan {
+		if o.Vrsta == OznakaBrisan && o.VrijediOd == "" {
 			return true
 		}
 	}
@@ -181,7 +182,7 @@ func (d DioNaStranici) Brisan() bool {
 // izmjena brisala.
 func (d DioNaStranici) BrisanNaslov() bool {
 	for _, o := range d.Oznake {
-		if o.Vrsta == OznakaBrisan && o.SNaslovom {
+		if o.Vrsta == OznakaBrisan && o.SNaslovom && o.VrijediOd == "" {
 			return true
 		}
 	}
@@ -190,10 +191,13 @@ func (d DioNaStranici) BrisanNaslov() bool {
 
 // RedakIzmjene je izmjena u popisu izmjena na stranici propisa
 type RedakIzmjene struct {
-	NN        models.IzdanjeNN
-	Naziv     string
-	Stupila   string // „31. 7. 2021.”
-	Poveznica string
+	NN      models.IzdanjeNN
+	Naziv   string
+	Stupila string // „31. 7. 2021.”
+	// JosNeVrijedi: izmjena stupa na snagu tek poslije danas, pa piše
+	// „stupa na snagu”, a ne „stupila”
+	JosNeVrijedi bool
+	Poveznica    string
 }
 
 // NepovezanaIzmjena je izmjena s odredbama koje nisu povezane s člankom:
@@ -212,15 +216,15 @@ type StranicaPropisa struct {
 	PopisIzmjena []RedakIzmjene
 	Oznake       map[string][]OznakaIzmjene // oznaka dijela → oznake, redom po izdanju
 	CijeliTekst  []OznakaIzmjene
-	Nepovezane   int                // odredbe izmjena koje nisu povezane s člankom
+	Nepovezane   int // odredbe izmjena koje nisu povezane s člankom
 	// NepovezaneIzmjene su izmjene s odredbama koje nisu povezane, redom po izdanju
 	NepovezaneIzmjene []NepovezanaIzmjena
-	Neucitane    []models.IzdanjeNN // izmjene koje Narodne novine navode, a nisu učitane
-	Dijelovi     []DioNaStranici    // svi dijelovi, redom kao u propisu
-	Sadrzaj      []DioNaStranici    // dijelovi bez roditelja: sadržaj sa strane
-	SviClanci    bool               // akt bez glava, dijelova i priloga: naslovnica pokazuje sve
-	Opseg        propisi.Opseg
-	PoveznicaNN  string
+	Neucitane         []models.IzdanjeNN // izmjene koje Narodne novine navode, a nisu učitane
+	Dijelovi          []DioNaStranici    // svi dijelovi, redom kao u propisu
+	Sadrzaj           []DioNaStranici    // dijelovi bez roditelja: sadržaj sa strane
+	SviClanci         bool               // akt bez glava, dijelova i priloga: naslovnica pokazuje sve
+	Opseg             propisi.Opseg
+	PoveznicaNN       string
 }
 
 // Propis je naslovnica propisa po stalnoj adresi ili oznaci zapisa
@@ -236,17 +240,29 @@ func (s *PropisiService) Propis(ctx context.Context, adresa string) (*StranicaPr
 	if err != nil {
 		return nil, err
 	}
-	return slaziStranicu(p, izmjene), nil
+	return slaziStranicu(p, izmjene, s.danas()), nil
+}
+
+// danas je današnji dan po našem vremenu, „2026-11-27”
+func (s *PropisiService) danas() string {
+	return s.sada().In(models.Zagreb).Format("2006-01-02")
+}
+
+// josNeVrijedi javlja stupa li izmjena na snagu tek poslije danas (datumi
+// „2006-01-02” uspoređuju se kao tekst)
+func josNeVrijedi(stupa, danas string) bool {
+	return stupa != "" && stupa > danas
 }
 
 // slaziStranicu slaže naslovnicu propisa s oznakama izmjena
-func slaziStranicu(p *models.Propis, izmjene []models.IzmjenaPropisa) *StranicaPropisa {
+func slaziStranicu(p *models.Propis, izmjene []models.IzmjenaPropisa, danas string) *StranicaPropisa {
 	st := &StranicaPropisa{Propis: p, Izmjene: izmjene, Opseg: propisi.OpsegIz(p.Dijelovi),
 		PoveznicaNN: adresaNN(p.NN), Neucitane: neucitaneIzmjene(p, izmjene), SviClanci: true}
-	st.Oznake, st.CijeliTekst, st.Nepovezane = oznakeIzmjena(p, izmjene)
+	st.Oznake, st.CijeliTekst, st.Nepovezane = oznakeIzmjena(p, izmjene, danas)
 	for _, iz := range izmjene {
 		st.PopisIzmjena = append(st.PopisIzmjena, RedakIzmjene{NN: iz.NN, Naziv: iz.Naziv,
-			Stupila: danHR(iz.StupaNaSnagu), Poveznica: poveznicaIzmjene(p, iz.NN)})
+			Stupila: danHR(iz.StupaNaSnagu), JosNeVrijedi: josNeVrijedi(iz.StupaNaSnagu, danas),
+			Poveznica: poveznicaIzmjene(p, iz.NN)})
 		if n := brojNepovezanih(iz.Upute); n > 0 {
 			st.NepovezaneIzmjene = append(st.NepovezaneIzmjene, NepovezanaIzmjena{NN: iz.NN, Broj: n,
 				Poveznica: poveznicaIzmjene(p, iz.NN), IzTeksta: iz.Izvor == models.IzvorPropisaTekst})
@@ -311,7 +327,7 @@ func neucitaneIzmjene(p *models.Propis, izmjene []models.IzmjenaPropisa) []model
 // njega „dodano”, a ostale upute koje mijenjaju propis „mijenjan”. Zamjene
 // u cijelom tekstu idu posebno, a odredbe koje nisu povezane s člankom se
 // broje.
-func oznakeIzmjena(osnova *models.Propis, izmjene []models.IzmjenaPropisa) (map[string][]OznakaIzmjene, []OznakaIzmjene, int) {
+func oznakeIzmjena(osnova *models.Propis, izmjene []models.IzmjenaPropisa, danas string) (map[string][]OznakaIzmjene, []OznakaIzmjene, int) {
 	nazivi := naziviDijelova(osnova.Dijelovi)
 	oznake := map[string][]OznakaIzmjene{}
 	var cijeli []OznakaIzmjene
@@ -323,9 +339,12 @@ func oznakeIzmjena(osnova *models.Propis, izmjene []models.IzmjenaPropisa) (map[
 			o := OznakaIzmjene{IzmjenaNN: iz.NN, Naziv: iz.Naziv, IzClanka: uIzmjeni[u.IzClanka],
 				Poveznica: poveznicaIzmjene(osnova, iz.NN), PoveznicaNN: adresaNN(iz.NN),
 				Odredbe: []OdredbaIzmjene{{Tekst: u.Tekst, Blok: u.Blok}}}
+			if josNeVrijedi(iz.StupaNaSnagu, danas) {
+				o.VrijediOd = danHR(iz.StupaNaSnagu)
+			}
 			switch {
 			case u.Vrsta == models.UputaCijeliTekst:
-				o.Vrsta, o.Natpis = OznakaCijeliTekst, "u cijelom tekstu "+iz.NN.Kratko()
+				o.Vrsta, o.Natpis = OznakaCijeliTekst, "u cijelom tekstu "+iz.NN.Kratko()+odDana(o.VrijediOd)
 				cijeli = dodajOznaku(cijeli, o)
 			case !u.MijenjaPropis():
 				if nepovezana(u) {
@@ -428,7 +447,7 @@ func cijeliDio(c models.CiljUpute) bool {
 // članci 100.a–100.d · NN 47/23”
 func natpisOznake(o OznakaIzmjene) string {
 	if o.Vrsta != OznakaDodano {
-		return o.Vrsta + " " + o.IzmjenaNN.Kratko()
+		return o.Vrsta + " " + o.IzmjenaNN.Kratko() + odDana(o.VrijediOd)
 	}
 	jednina, mnozina := "dodan članak ", "dodani članci "
 	if !strings.HasPrefix(o.cilj, models.DioClanak+"-") {
@@ -438,7 +457,16 @@ func natpisOznake(o OznakaIzmjene) string {
 	if len(o.NoveOznake) > 1 {
 		vrsta = mnozina
 	}
-	return "iza njega " + vrsta + models.RasponOznaka(o.NoveOznake) + " · " + o.IzmjenaNN.Kratko()
+	return "iza njega " + vrsta + models.RasponOznaka(o.NoveOznake) + " · " + o.IzmjenaNN.Kratko() + odDana(o.VrijediOd)
+}
+
+// odDana je dodatak natpisu za izmjenu koja još ne vrijedi: „ · vrijedi od
+// 28. 11. 2026.”
+func odDana(dan string) string {
+	if dan == "" {
+		return ""
+	}
+	return " · vrijedi od " + dan
 }
 
 // dodajOznaku dodaje oznaku na popis, a odredbu iste izmjene iste vrste
@@ -658,12 +686,14 @@ type RedakUpute struct {
 
 // StranicaIzmjene je tekst izmjene propisa s tablicom odredbi
 type StranicaIzmjene struct {
-	Propis      *models.Propis
-	Izmjena     *models.IzmjenaPropisa
-	Upute       []RedakUpute
-	Dijelovi    []DioNaStranici
-	Stupila     string // „4. 5. 2023.”
-	PoveznicaNN string
+	Propis   *models.Propis
+	Izmjena  *models.IzmjenaPropisa
+	Upute    []RedakUpute
+	Dijelovi []DioNaStranici
+	Stupila  string // „4. 5. 2023.”
+	// JosNeVrijedi: izmjena stupa na snagu tek poslije danas
+	JosNeVrijedi bool
+	PoveznicaNN  string
 }
 
 // Izmjena je stranica izmjene propisa; nnID je oznaka akta izmjene
@@ -684,7 +714,8 @@ func (s *PropisiService) Izmjena(ctx context.Context, adresa, nnID string) (*Str
 		return nil, ErrNemaIzmjene
 	}
 	st := &StranicaIzmjene{Propis: p, Izmjena: iz, Stupila: danHR(iz.StupaNaSnagu), PoveznicaNN: adresaNN(iz.NN),
-		Upute: retciUputa(p, iz)}
+		JosNeVrijedi: josNeVrijedi(iz.StupaNaSnagu, s.danas()),
+		Upute:        retciUputa(p, iz)}
 	for _, d := range iz.Dijelovi {
 		st.Dijelovi = append(st.Dijelovi, DioNaStranici{DioPropisa: d})
 	}
