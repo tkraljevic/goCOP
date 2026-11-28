@@ -19,6 +19,10 @@ package peers
 // krugu (dalje); pozvani ne ponavlja ništa. Jedini prijavljeni korak je
 // zasad privremena prijava karte koju napravi NewService (korakKarte u
 // karta_razgovor.go).
+//
+// Ono što korak javlja drugoj strani u znanju (danas polje karta) ide kroz
+// PRIVREMENU dopunu znanja (DopuniZnanje), dok se ne odluči kako korak
+// javlja svoje znanje. I nju zasad postavi NewService (dopunaKarte).
 
 import (
 	"context"
@@ -183,6 +187,33 @@ func (s *Service) provjeriPrijavu(p PrijavaKoraka) error {
 		return fmt.Errorf("%w: nema koraka", ErrNeispravanKorak)
 	}
 	return nil
+}
+
+// DopuniZnanje je PRIVREMENO, dok se ne odluči kako korak javlja svoje
+// znanje: f upiše u prazno znanje ono što daje aplikacija, a biblioteka iz
+// njega uzme samo polje karta, očisti ga kao kartu koju javi druga strana
+// (neispravan otisak daje nil, brojevi se ograde) i doda ga znanju ovog
+// čvora (mojeZnanje). Ostala polja biblioteka piše sama, pa ih f ne može
+// promijeniti. Znanje ide u granicu i u pozdrav WEB synca. f se zove za
+// svaku granicu i svaki pozdrav, možda istodobno iz više goroutina, pa mora
+// biti siguran za istodobne pozive. Ne smije čekati na mrežu ni dugo
+// držati bravu, jer granica i pozdrav dotle čekaju. goCOP-ova dopuna
+// (karta bez interneta) radi pod bravom prijenosa karte: pogleda kartu na
+// disku, a kad se opis karte promijeni, pospremi i mapu karata. Na tu
+// bravu može i pričekati dok je drugi dio prijenosa karte kratko drži, npr.
+// dok preimenuje složenu kartu.
+//
+// f ne smije paničariti. Za granicu vrijedi isto što i uz DodatniKorak.
+// Pozdrav WEB synca priprema se izvan razgovora (WebSync.zovi, novaSesija),
+// gdje paniku ništa ne hvata, pa ona sruši cijeli čvor.
+//
+// Nova dopuna zamijeni staru, a nil je makne.
+func (s *Service) DopuniZnanje(f func(*razmjena.Znanje)) {
+	if f == nil {
+		s.dopunaZnanja.Store(nil)
+		return
+	}
+	s.dopunaZnanja.Store(&f)
 }
 
 // imaDio kaže je li ime protokola cijeli dio imena oznake: imena se
