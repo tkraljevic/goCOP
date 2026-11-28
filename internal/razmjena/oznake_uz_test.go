@@ -98,12 +98,16 @@ func popisiOznaka() [][]string {
 // kod prije N04, i uz više od 32 oznake: spremljeno znanje
 // (peer_sync.mogucnosti) i Zapis odbijenog ostaju isti.
 func TestOznakeUzIstoKaoPrije(t *testing.T) {
+	uzWeb := append(NaseMogucnosti(), OznakaWeb)
 	for _, p := range popisiOznaka() {
 		staro := staroOcisceneOznake(p)
 		for ime, got := range map[string][]string{
 			"Ocisceno":                       Znanje{Mogucnosti: p}.Ocisceno().Mogucnosti,
 			"OciscenoUz(NaseMogucnosti)":     Znanje{Mogucnosti: p}.OciscenoUz(NaseMogucnosti()).Mogucnosti,
 			"ocisceneOznake(NaseMogucnosti)": ocisceneOznake(p, NaseMogucnosti()),
+			// web/1 u prednosti ne dobiva prednost u ogradi, pa ne mijenja ništa
+			"OciscenoUz(NaseMogucnosti uz web/1)":     Znanje{Mogucnosti: p}.OciscenoUz(uzWeb).Mogucnosti,
+			"ocisceneOznake(NaseMogucnosti uz web/1)": ocisceneOznake(p, uzWeb),
 		} {
 			if !reflect.DeepEqual(got, staro) {
 				t.Fatalf("%s(%q) = %q, prije %q", ime, p, got, staro)
@@ -117,7 +121,7 @@ func TestOznakeUzIstoKaoPrije(t *testing.T) {
 			t.Fatalf("NepoznateOznakeUz(%q, NaseMogucnosti) = %q, prije %q", p, got, staro)
 		}
 		// web/1 u znam ne dobiva prednost u ogradi, pa ne mijenja ništa
-		if got := NepoznateOznakeUz(p, append(NaseMogucnosti(), OznakaWeb)); !reflect.DeepEqual(got, staro) {
+		if got := NepoznateOznakeUz(p, uzWeb); !reflect.DeepEqual(got, staro) {
 			t.Fatalf("NepoznateOznakeUz(%q, NaseMogucnosti uz web/1) = %q, prije %q", p, got, staro)
 		}
 	}
@@ -176,6 +180,48 @@ func TestOznakeUzPrijavljenu(t *testing.T) {
 	// web je poznat i bez popisa; neispravna oznaka u popisu ne smeta
 	if got := NepoznateOznakeUz([]string{OznakaWeb, "web/2", OznakaRupe}, []string{"losa oznaka", ""}); !slices.Equal(got, []string{OznakaRupe}) {
 		t.Errorf("uz prazan popis: %q", got)
+	}
+}
+
+// web/1 u prednosti uz 40 tuđih oznaka: OciscenoUz spremi isto što i 0.0.71
+// (web/1 ne stane u ogradu, a oznaka-30/1 stane), a NepoznateOznakeUz
+// javi upravo spremljene tuđe oznake. Prije ispravka web/1 je u OciscenoUz
+// dobivao prednost i istiskivao oznaka-30/1.
+func TestOznakeUzWebUPrednosti(t *testing.T) {
+	var njihove []string
+	for i := range 40 {
+		njihove = append(njihove, fmt.Sprintf("oznaka-%02d/1", i))
+	}
+	njihove = append(njihove, OznakaWeb, OznakaRazmjena)
+	prednost := append(NaseMogucnosti(), OznakaWeb)
+
+	var tudje []string
+	for i := range 31 {
+		tudje = append(tudje, fmt.Sprintf("oznaka-%02d/1", i))
+	}
+	ocekujem := append(slices.Clone(tudje), OznakaRazmjena)
+
+	for _, p := range [][]string{prednost, {OznakaWeb, OznakaRazmjena}, {OznakaWeb, "web/2", OznakaWeb, OznakaRazmjena}} {
+		got := Znanje{Mogucnosti: njihove}.OciscenoUz(p).Mogucnosti
+		if !slices.Equal(got, ocekujem) {
+			t.Errorf("OciscenoUz(%q) = %q, želim %q", p, got, ocekujem)
+		}
+		if staro := staroOcisceneOznake(njihove); !slices.Equal(got, staro) {
+			t.Errorf("OciscenoUz(%q) = %q, 0.0.71 %q", p, got, staro)
+		}
+		if got := ocisceneOznake(njihove, p); !slices.Equal(got, ocekujem) {
+			t.Errorf("ocisceneOznake(%q) = %q, želim %q", p, got, ocekujem)
+		}
+	}
+	if got := NepoznateOznakeUz(njihove, prednost); !slices.Equal(got, tudje) {
+		t.Errorf("NepoznateOznakeUz = %q, želim %q", got, tudje)
+	}
+	if staro := staroNepoznateOznake(njihove); !slices.Equal(staro, tudje) {
+		t.Errorf("0.0.71 nepoznate %q, želim %q", staro, tudje)
+	}
+	// samo web/1 u prednosti: kao bez prednosti, prve po abecedi
+	if got := ocisceneOznake(njihove, []string{OznakaWeb}); !slices.Equal(got, ocisceneOznake(njihove, nil)) || slices.Contains(got, OznakaWeb) {
+		t.Errorf("uz prednost samo web/1: %q", got)
 	}
 }
 

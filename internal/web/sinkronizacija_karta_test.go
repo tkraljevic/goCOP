@@ -169,4 +169,15 @@ func TestStanjeRazmjeneNosiKartu(t *testing.T) {
 		}
 		provjeri(ime, b, kljucevi)
 	}
+
+	// Pokušaje spajanja test ne može dobiti bez stvarne veze s drugim
+	// računalom, pa ih dopiše u prikaz za administratora: idu iza karte.
+	st.LanDiscovered = []peers.Discovered{{Found: razmjena.Found{Addr: "192.168.1.20"}}}
+	prikaz := h.zaPrikaz(zahtjev(http.MethodGet, "/api/sync/status", true), st)
+	prikaz.Pokusaji = map[string][]peers.PokusajSpajanja{"laptop-baranja": {{Adresa: "192.168.1.30:4710", Kada: sad, Greska: "veza odbijena"}}}
+	b, err = json.Marshal(prikaz)
+	if err != nil {
+		t.Fatal(err)
+	}
+	provjeri("puno stanje s pokušajima, administrator", b, append(slices.Clone(kljuceviPunogStanja), "pokusaji"))
 }

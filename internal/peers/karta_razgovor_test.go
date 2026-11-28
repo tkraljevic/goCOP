@@ -817,3 +817,39 @@ func TestKartaKrozSporiTunel(t *testing.T) {
 		t.Logf("dva razgovora kroz spori tunel: %v virtualnog vremena", time.Since(pocetak))
 	})
 }
+
+// vezaKorakaULAN je veza lokalnom mrežom, za korak bez pravog razgovora
+type vezaKorakaULAN struct{}
+
+func (vezaKorakaULAN) Put() razmjena.Put      { return razmjena.PutLAN }
+func (vezaKorakaULAN) Pozivatelj() bool       { return true }
+func (vezaKorakaULAN) LokalnaMreza() bool     { return true }
+func (vezaKorakaULAN) IstaLokalnaMreza() bool { return true }
+
+// Karta broji poslano prije nego što biblioteka reže (stavkeUOstatku), a
+// broj je ipak točan: Daj daje samo ono što stane u ostatak, pa biblioteka
+// ništa ne odreže, ni uz ostatak manji od nule
+func TestDajKarteStajeUOstatak(t *testing.T) {
+	k, _, izvor := kartaUDijelovima(t, 1000, 128, 9)
+	d, _ := prijenosU(izvor, &k)
+	smiri(d)
+	for _, c := range []struct {
+		o    Ostatak
+		ide  int
+		opis string
+	}{
+		{Ostatak{Bajtova: 1 << 20, Stavki: 200}, 8, "sve stane"},
+		{Ostatak{Bajtova: 300, Stavki: 200}, 2, "ograda bajtova"},
+		{Ostatak{Bajtova: 1 << 20, Stavki: 3}, 3, "ograda stavki"},
+		{Ostatak{Bajtova: 0, Stavki: 5}, 0, "bez bajtova"},
+		{Ostatak{Bajtova: -1, Stavki: 5}, 0, "bajtova manje od nule"},
+		{Ostatak{Bajtova: 1 << 20, Stavki: 0}, 0, "bez stavki"},
+		{Ostatak{Bajtova: 1 << 20, Stavki: -1}, 0, "stavki manje od nule"},
+	} {
+		tk := &tijekKarte{d: d, v: vezaKorakaULAN{}}
+		dao := tk.Daj(k.Dijelovi, c.o)
+		if ide := stavkeUOstatku(dao, c.o); len(dao) != c.ide || len(ide) != len(dao) || tk.poslano != len(ide) {
+			t.Errorf("%s: dao %d, ide %d, poslano %d, a treba %d", c.opis, len(dao), len(ide), tk.poslano, c.ide)
+		}
+	}
+}
