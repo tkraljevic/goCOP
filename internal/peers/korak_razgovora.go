@@ -99,12 +99,14 @@ type VezaKoraka interface {
 	IstaLokalnaMreza() bool
 }
 
-// imenaBiblioteke su imena oznaka koje daje sama biblioteka. Popis je
-// stalan i ne gleda NaseMogucnosti, jer je u njoj zasad i oznaka dijelova
-// karte.
+// imenaBiblioteke su imena oznaka koje daje ili čuva sama biblioteka:
+// imena iz NaseMogucnosti osim dijelova karte, web i sadrzaj (rezervirano
+// za roj, razmjena/mogucnosti.go). Popis je stalan i ne gleda
+// NaseMogucnosti, jer je u njoj zasad i oznaka dijelova karte; da ne
+// zaostane za njom, provjerava test.
 var imenaBiblioteke = []string{
 	strings.TrimSuffix(razmjena.OznakaRazmjena, "/1"), razmjena.ImeGranicaOdbijenih, razmjena.ImeRupe,
-	razmjena.ImePotpisVerzije, razmjena.ImeWeb,
+	razmjena.ImePotpisVerzije, razmjena.ImeWeb, "sadrzaj",
 }
 
 // Greške prijave koraka
@@ -120,9 +122,16 @@ var (
 // prijave. Zasad smije biti samo jedan korak, pa je druga prijava greška;
 // više koraka može doći bez promjene sučelja. Greška je i neispravna
 // oznaka (razmjena.ProvjeriOznaku), ime oznake biblioteke, oznaka s imenom
-// protokola, prazna vrsta, NajviseDodatnih manji od nule i korak bez
-// vrijednosti. Vrsta ne smije biti vrsta sadržaja iz spremišta
-// (PrijavaKoraka.Vrsta); to se ne provjerava.
+// protokola (ime protokola kao cijeli dio imena oznake, imaDio), prazna
+// vrsta, NajviseDodatnih manji od nule i korak bez vrijednosti. Vrsta ne
+// smije biti vrsta sadržaja iz spremišta (PrijavaKoraka.Vrsta); to se ne
+// provjerava.
+//
+// Ime protokola je ono iz protokol(), isto kojim idu CN, ALPN,
+// pronalaženje i potpis verzije: zadano s PostaviProtokol, a bez njega
+// Protocol. PRIJELAZNO do N05c, dok biblioteka ima zadano ime protokola.
+// Uz zadano ime Protocol se ne gleda, jer tada ne ide u mrežu, pa uz
+// gocop-sim prolazi gocop-korak/1.
 func (s *Service) PrijaviKorak(p PrijavaKoraka) error {
 	if err := s.provjeriPrijavu(p); err != nil {
 		return err
@@ -141,7 +150,7 @@ func (s *Service) provjeriPrijavu(p PrijavaKoraka) error {
 		return err
 	case slices.Contains(imenaBiblioteke, ime):
 		return fmt.Errorf("%w: %s", ErrOznakaBiblioteke, p.Oznaka)
-	case strings.Contains(p.Oznaka, s.protokol()):
+	case imaDio(ime, s.protokol()):
 		return fmt.Errorf("%w: %s", ErrOznakaSProtokolom, p.Oznaka)
 	case p.Vrsta == "":
 		return fmt.Errorf("%w: nema vrste stavke", ErrNeispravanKorak)
@@ -151,6 +160,15 @@ func (s *Service) provjeriPrijavu(p PrijavaKoraka) error {
 		return fmt.Errorf("%w: nema koraka", ErrNeispravanKorak)
 	}
 	return nil
+}
+
+// imaDio kaže je li ime protokola cijeli dio imena oznake: imena se
+// rastave na dijelove odvojene crticom, a ime protokola mora biti jedan ili
+// više uzastopnih cijelih dijelova (Odluke (28. 11. 2026.)). Broj iza '/'
+// ne gleda se, pa uz ime protokola „1” prolazi x/1; uz „karte” pada
+// karte-x, a prolazi kartesko.
+func imaDio(ime, protokol string) bool {
+	return strings.Contains("-"+ime+"-", "-"+protokol+"-")
 }
 
 // prednost su oznake koje ovaj program objavljuje, bez web/1: oznake
