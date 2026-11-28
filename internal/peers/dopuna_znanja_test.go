@@ -29,7 +29,7 @@ func cvorSKartom(t *testing.T, id string, sjeme uint32) *Service {
 // Dopunu karte više ne postavlja NewService, nego PostaviKarte: bez nje
 // granica nema polje karta, kao i prije, a s njom je polje karta u granici
 // i u pozdravu WEB synca ono što daje znanjeKarte, kao i prije dopune
-func TestDopuniZnanjeNewServiceDajeKartu(t *testing.T) {
+func TestDopuniZnanjeKartuDajePostaviKarte(t *testing.T) {
 	s := rubniCvor(t, "cop-osijek")
 	if s.dopunaZnanja.Load() != nil {
 		t.Fatal("NewService je postavio dopunu znanja")

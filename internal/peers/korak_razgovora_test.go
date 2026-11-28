@@ -50,7 +50,7 @@ func bezKarte() *models.VektorskaKarta { return nil }
 // u razmjena.NaseMogucnosti. Prijava karte ima oznaku koja je i prije išla
 // u granicu, pa se popis oznaka ne mijenja, druga prijava ne prolazi, a
 // drugi PostaviKarte ne prijavljuje ponovno.
-func TestPrijaviKorakNewServicePrijaviKartu(t *testing.T) {
+func TestPrijaviKorakKartuPrijaviPostaviKarte(t *testing.T) {
 	s := rubniCvor(t, "cop-osijek")
 	if p := s.korak.Load(); p != nil {
 		t.Fatalf("NewService je prijavio korak: %+v", p)
@@ -97,9 +97,18 @@ func TestPrijaviKorakNewServicePrijaviKartu(t *testing.T) {
 	if err := drugi.PrijaviKorak(probni); err != nil {
 		t.Fatal(err)
 	}
+	var dnevnik bytes.Buffer
+	stari := log.Writer()
+	log.SetOutput(&dnevnik)
+	t.Cleanup(func() { log.SetOutput(stari) })
 	drugi.PostaviKarte(t.TempDir(), bezKarte, nil)
+	log.SetOutput(stari)
 	if drugi.korak.Load().Oznaka != probni.Oznaka || drugi.karte.Load() == nil || drugi.dopunaZnanja.Load() != nil {
 		t.Errorf("PostaviKarte uz prijavljen korak: %+v", drugi.korak.Load())
+	}
+	redak := fmt.Sprintf("karta bez interneta: dijelovi karte ne idu razmjenom: %v: %s\n", ErrKorakPrijavljen, probni.Oznaka)
+	if strings.Count(dnevnik.String(), "karta bez interneta") != 1 || !strings.Contains(dnevnik.String(), redak) {
+		t.Errorf("dnevnik: %q, a očekivan redak %q", dnevnik.String(), redak)
 	}
 	// Odbaci samo zapiše redak u dnevnik
 	korakKarte{&PrijenosKarte{}}.Odbaci([]StavkaKoraka{{Otisak: "a"}})
@@ -173,6 +182,80 @@ func TestPostaviKarteIstodobno(t *testing.T) {
 	}
 	if d := p.d.Load(); d == nil || !mape[d.mapa] {
 		t.Errorf("stanje prijenosa: %+v", d)
+	}
+	if strings.Contains(dnevnik.String(), "karta bez interneta") {
+		t.Errorf("dnevnik: %s", dnevnik.String())
+	}
+}
+
+// Dva prva poziva PostaviKarte, a prvi još slaže svoj prijenos (čita opis)
+// dok drugi spremi i prijavi svoj. Prvi tada ne spremi svoj prijenos, nego
+// na spremljenom zove Postavi, kao svaki sljedeći poziv: prijenos i
+// prijava ostaju od drugog poziva, a mapa je od prvog, jer je on završio
+// zadnji. U dnevniku nema retka da karta ne ide razmjenom.
+func TestPostaviKarteIzgubljeniPrviPoziv(t *testing.T) {
+	var dnevnik bytes.Buffer
+	stari := log.Writer()
+	log.SetOutput(&dnevnik)
+	t.Cleanup(func() { log.SetOutput(stari) })
+	s := bezPrijave(t, "cop-osijek")
+	prva, druga := t.TempDir(), t.TempDir()
+
+	uOpisu, pusti := make(chan struct{}), make(chan struct{})
+	var jednom sync.Once
+	sporiOpis := func() *models.VektorskaKarta {
+		jednom.Do(func() { close(uOpisu); <-pusti })
+		return nil
+	}
+	prviGotov := make(chan struct{})
+	go func() {
+		defer close(prviGotov)
+		s.PostaviKarte(prva, sporiOpis, nil)
+	}()
+	// prije prekida testa prvi poziv se pusti i pričeka, da ne radi dok
+	// se mape i dnevnik čiste
+	pricekajPrvi := func() bool {
+		close(pusti)
+		select {
+		case <-prviGotov:
+			return true
+		case <-time.After(10 * time.Second):
+			return false
+		}
+	}
+	<-uOpisu
+	if s.karte.Load() != nil || s.korak.Load() != nil {
+		pricekajPrvi()
+		t.Fatal("prvi poziv je spremio prijenos prije nego što je pročitao opis")
+	}
+
+	s.PostaviKarte(druga, bezKarte, nil)
+	p, k := s.karte.Load(), s.korak.Load()
+	if p == nil || k == nil || k.Oznaka != razmjena.OznakaDijeloviKarte {
+		pricekajPrvi()
+		t.Fatalf("drugi poziv: prijenos %v, prijava %+v", p, k)
+	}
+	if kk, ok := k.Korak.(korakKarte); !ok || kk.p != p {
+		t.Errorf("drugi poziv je prijavio drugi prijenos: %T", k.Korak)
+	}
+	if d := p.d.Load(); d.mapa != druga {
+		t.Errorf("mapa poslije drugog poziva: %q, a očekivano %q", d.mapa, druga)
+	}
+
+	if !pricekajPrvi() {
+		t.Fatal("prvi poziv nije završio")
+	}
+	if s.karte.Load() != p {
+		t.Error("prvi poziv je zamijenio spremljeni prijenos")
+	}
+	if s.korak.Load() != k {
+		t.Errorf("prvi poziv je promijenio prijavu: %+v", s.korak.Load())
+	}
+	if d := p.d.Load(); d.mapa != prva {
+		t.Errorf("mapa poslije prvog poziva: %q, a očekivano %q", d.mapa, prva)
+	}
+	if s.dopunaZnanja.Load() == nil {
+		t.Error("nema dopune znanja")
 	}
 	if strings.Contains(dnevnik.String(), "karta bez interneta") {
 		t.Errorf("dnevnik: %s", dnevnik.String())

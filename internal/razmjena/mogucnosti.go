@@ -22,6 +22,9 @@ package razmjena
 // Oznake biblioteke nikad ne sadrže „gocop”, a oznaka koju prijavljuje
 // aplikacija nema ime protokola kao cijeli dio imena (peers.PrijaviKorak):
 // ALPN je ime protokola, '-' i oznaka, a ime protokola postaje postavka.
+// Iznimka je oznaka iz NaseMogucnosti koja nije oznaka biblioteke (danas
+// samo dijelovi-karte/1): nju aplikacija smije prijaviti uz svako ime
+// protokola, privremeno do PR-a 8 (Odluke (28. 11. 2026.)).
 // sadrzaj/1 je rezervirano za roj; web/1 (od F3b) javlja samo računalo
 // prijavljeno za WEB sync.
 //
