@@ -134,9 +134,9 @@ func (r *razgovorSCvorom) mojaGranica(mine map[string]string, znanje razmjena.Zn
 
 // mojeZnanje je ono što ovaj čvor javlja u granici i u pozdravu WEB synca:
 // svoje oznake, vrste zapisa koje razumije, koliko zapisa kod njega čeka
-// nadogradnju i uloge, a na kraju polje karta iz dopune aplikacije
-// (DopuniZnanje). Broj je samo obavijest, pa greška brojanja nije greška
-// razgovora: broja tada nema, a razlog ide u dnevnik.
+// nadogradnju i uloge, a na kraju očišćeno polje karta iz dopune
+// aplikacije (DopuniZnanje). Broj je samo obavijest, pa greška brojanja
+// nije greška razgovora: broja tada nema, a razlog ide u dnevnik.
 func (s *Service) mojeZnanje(ctx context.Context) razmjena.Znanje {
 	ceka, err := s.rec.CekaNadogradnju(ctx)
 	if err != nil {
@@ -147,7 +147,10 @@ func (s *Service) mojeZnanje(ctx context.Context) razmjena.Znanje {
 	if f := s.dopunaZnanja.Load(); f != nil {
 		var dopuna razmjena.Znanje
 		(*f)(&dopuna)
-		z.Karta = dopuna.Karta
+		// karta iz dopune očisti se kao karta koju javi druga strana
+		// (Znanje.Ocisceno), pa na žicu ne ide ništa što primatelj ne bi
+		// spremio
+		z.Karta = razmjena.Znanje{Karta: dopuna.Karta}.Ocisceno().Karta
 	}
 	return z
 }

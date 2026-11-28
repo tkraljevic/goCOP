@@ -191,12 +191,13 @@ func (s *Service) provjeriPrijavu(p PrijavaKoraka) error {
 
 // DopuniZnanje je PRIVREMENO, dok se ne odluči kako korak javlja svoje
 // znanje: f upiše u prazno znanje ono što daje aplikacija, a biblioteka iz
-// njega uzme samo polje karta i doda ga znanju ovog čvora (mojeZnanje).
-// Ostala polja biblioteka piše sama, pa ih f ne može promijeniti. Znanje
-// ide u granicu i u pozdrav WEB synca. f se zove u svakom razgovoru i
-// pozdravu, možda istodobno iz više goroutina, pa mora biti siguran za
-// istodobne pozive i brz, bez čekanja na mrežu ili bazu. Nova dopuna
-// zamijeni staru, a nil je makne.
+// njega uzme samo polje karta, očisti ga kao kartu koju javi druga strana
+// (neispravan otisak daje nil, brojevi se ograde) i doda ga znanju ovog
+// čvora (mojeZnanje). Ostala polja biblioteka piše sama, pa ih f ne može
+// promijeniti. Znanje ide u granicu i u pozdrav WEB synca. f se zove u
+// svakom razgovoru i pozdravu, možda istodobno iz više goroutina, pa mora
+// biti siguran za istodobne pozive i brz, bez čekanja na mrežu ili bazu.
+// Nova dopuna zamijeni staru, a nil je makne.
 func (s *Service) DopuniZnanje(f func(*razmjena.Znanje)) {
 	if f == nil {
 		s.dopunaZnanja.Store(nil)

@@ -831,7 +831,9 @@ func (d *dijeloviKarte) obrana(ctx context.Context) bool {
 
 // znanjeKarte je stanje karte bez interneta za znanje u razgovoru (samo za
 // prikaz na Stanju razmjene druge strane): nil kad prijenos karata nije
-// postavljen, prazan otisak kad karte nema ili je opis odbačen
+// postavljen, prazan otisak kad karte nema ili je opis odbačen. Već je
+// očišćeno kao karta koju javi druga strana, pa ga čišćenje dopune
+// (mojeZnanje) ne mijenja (TestZnanjeKarteVecOcisceno)
 func (s *Service) znanjeKarte() *razmjena.ZnanjeKarte {
 	d := s.karte.Load()
 	if d == nil {
