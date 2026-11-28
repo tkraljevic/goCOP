@@ -110,6 +110,13 @@ func PotpisiVerziju(autor ed25519.PrivateKey, protokol string, v PodaciVerzije) 
 	return base64.StdEncoding.EncodeToString(ed25519.Sign(autor, b)), kljucAutora, nil
 }
 
+// Nepotpisana: verzija nema ni potpisa ni ključa autora. Takvu primatelj
+// ne provjerava kao potpisanu. Čim je jedno od dvoga zapisano, verzija je
+// potpisana i potpis mora vrijediti.
+func Nepotpisana(potpis, kljucAutora string) bool {
+	return potpis == "" && kljucAutora == ""
+}
+
 // ProvjeriPotpisVerzije javlja vrijedi li potpis verzije pod ključem
 // autora koji uz nju stoji. Kaže samo da je verziju potpisao taj ključ; je
 // li ključ smio pisati pod imenom node_id, provjerava onaj tko verziju prima.

@@ -143,6 +143,316 @@
       "kljucAutora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=",
       "potpis": "EJz/fA0DxfGJvduZ70r2R2IFnZhv9oyEZ4Vq/W7Od/s1ePCelqT+iuS8eunLJKA+MSJ4K7naQGBJvLE67OBjBQ=="
     },
+    "rubovi": [
+      {
+        "opis": "oba_prazna",
+        "potpis": "",
+        "kljuc_autora": "",
+        "ishod": "nepotpisana"
+      },
+      {
+        "opis": "samo_kljuc",
+        "potpis": "",
+        "kljuc_autora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=",
+        "ishod": "kriv"
+      },
+      {
+        "opis": "samo_potpis",
+        "potpis": "EJz/fA0DxfGJvduZ70r2R2IFnZhv9oyEZ4Vq/W7Od/s1ePCelqT+iuS8eunLJKA+MSJ4K7naQGBJvLE67OBjBQ==",
+        "kljuc_autora": "",
+        "ishod": "kriv"
+      },
+      {
+        "opis": "ispravno",
+        "potpis": "EJz/fA0DxfGJvduZ70r2R2IFnZhv9oyEZ4Vq/W7Od/s1ePCelqT+iuS8eunLJKA+MSJ4K7naQGBJvLE67OBjBQ==",
+        "kljuc_autora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=",
+        "ishod": "vrijedi"
+      },
+      {
+        "opis": "kljuc_razmak_bez_potpisa",
+        "potpis": "",
+        "kljuc_autora": " ",
+        "ishod": "kriv"
+      },
+      {
+        "opis": "kljuc_novi_red_bez_potpisa",
+        "potpis": "",
+        "kljuc_autora": "\n",
+        "ishod": "kriv"
+      },
+      {
+        "opis": "potpis_novi_red_bez_kljuca",
+        "potpis": "\n",
+        "kljuc_autora": "",
+        "ishod": "kriv"
+      },
+      {
+        "opis": "kljuc_nije_base64",
+        "potpis": "EJz/fA0DxfGJvduZ70r2R2IFnZhv9oyEZ4Vq/W7Od/s1ePCelqT+iuS8eunLJKA+MSJ4K7naQGBJvLE67OBjBQ==",
+        "kljuc_autora": "nije kljuc",
+        "ishod": "kriv"
+      },
+      {
+        "opis": "kljuc_31B",
+        "potpis": "m5SXmsMWRBSV29/eh2zryDoPuUrZER+rWJJ6Jv4CEU1UYRdJ3EzTfmpz+NZLA8MaR9OzZNHQnlmkDbMHKCKsAA==",
+        "kljuc_autora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPbw==",
+        "ishod": "kriv"
+      },
+      {
+        "opis": "kljuc_33B",
+        "potpis": "GStGS4Qu/I6yZj0c8Y3TMQtsZc3rQtobaYvuDM2yZXH/gTT4wjc69oYBQPrJDqK0AElWxqbaFHrcP9jRkFhvCQ==",
+        "kljuc_autora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1wA",
+        "ishod": "kriv"
+      },
+      {
+        "opis": "kljuc_bez_dopune",
+        "potpis": "4M4s3CdX8FFM4DTJZio/iqkMHpCneD+BlW5X5YiVQ+uIDJqnMDvwNNfba3Uipw3A35Bw6ObkfO6kyEthArp0Aw==",
+        "kljuc_autora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w",
+        "ishod": "kriv"
+      },
+      {
+        "opis": "kljuc_visak_dopune",
+        "potpis": "vY671kM4YXJE0ColnEWGlCZ1vr+kIf7/ty5M7mSKxf7s7OU2+Ci98vBfB44o+BshmDcFYyLIMS5y0G7BHH+2Dw==",
+        "kljuc_autora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w==",
+        "ishod": "kriv"
+      },
+      {
+        "opis": "kljuc_razmak_ispred",
+        "potpis": "ZTOJangS7CHr+SF11mnzJFgu7N8PXO7rx9Ymz/CU4qVki1N3KkgzSM2xzaShBW/H7li6fWuRrAsQtyuPZkhgBg==",
+        "kljuc_autora": " iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=",
+        "ishod": "kriv"
+      },
+      {
+        "opis": "kljuc_razmak_iza",
+        "potpis": "zXioWlLIrMXMGJ01Wf0r/utKpWfIMHSrarhV3+l67G4F9CK0LuayVV6QqSISiai37ZQqmz6JKAxb3E5+o+NSAA==",
+        "kljuc_autora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w= ",
+        "ishod": "kriv"
+      },
+      {
+        "opis": "kljuc_tab_iza",
+        "potpis": "L/19t8yMhWV9dyhrWOMgVyhBCNT4rps+mAKGX6jrZgBYkf8f5OUuHzbhdFKcjRs+fAU/sQYK9Ycgbt+aPh/ACQ==",
+        "kljuc_autora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=\t",
+        "ishod": "kriv"
+      },
+      {
+        "opis": "kljuc_novi_red_iza",
+        "potpis": "WV5asdAVb3Q+JqKyVmY4CMbxhMWgjPdUM/5YDtu1GIPA6cv6JfyOB8zb4FPFPlzT6yBtnwvFB8Qi8jS/gDc6AQ==",
+        "kljuc_autora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=\n",
+        "ishod": "vrijedi"
+      },
+      {
+        "opis": "kljuc_crlf_iza",
+        "potpis": "HsG/ca/BpBghpUUzqOoNiHMkISJ9B9pUKlN6PLG9ZfLpLuN3J9rtRLct2dwZIeOCrt7bYEqg3psw3s0UTfb6DA==",
+        "kljuc_autora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=\r\n",
+        "ishod": "vrijedi"
+      },
+      {
+        "opis": "kljuc_novi_red_u_sredini",
+        "potpis": "jv4yo5BAL7HI8sr8QIpQ1ARcJjhXmEXIUYg7l/paiVWsaR0Xs6vdzUatcsBi3sUqulRPM0PlW9PijebyQ6l8CQ==",
+        "kljuc_autora": "iojj3XQJ8ZX9UtstPLpd\ncspnCb8dlBIb83SIAbQPb1w=",
+        "ishod": "vrijedi"
+      },
+      {
+        "opis": "kljuc_novi_red_iza_stari_potpis",
+        "potpis": "EJz/fA0DxfGJvduZ70r2R2IFnZhv9oyEZ4Vq/W7Od/s1ePCelqT+iuS8eunLJKA+MSJ4K7naQGBJvLE67OBjBQ==",
+        "kljuc_autora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=\n",
+        "ishod": "kriv"
+      },
+      {
+        "opis": "kljuc_visak_bitova",
+        "potpis": "f++hgmurxtgW+JIcOhHblJ1jAbP1Fh50PUcGpxy32+AbBKGrGMf82L0zrQCuDxJdR9a8FElG+gg7V1DxTw0tAw==",
+        "kljuc_autora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1x=",
+        "ishod": "vrijedi"
+      },
+      {
+        "opis": "kljuc_visak_bitova_stari_potpis",
+        "potpis": "EJz/fA0DxfGJvduZ70r2R2IFnZhv9oyEZ4Vq/W7Od/s1ePCelqT+iuS8eunLJKA+MSJ4K7naQGBJvLE67OBjBQ==",
+        "kljuc_autora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1x=",
+        "ishod": "kriv"
+      },
+      {
+        "opis": "kljuc_url_safe",
+        "potpis": "dV2BIVmZ3yz3dDhS8P4OjVp7o2rgJB3XALBBWka3e0OXE/Ubob05uIhfT/Ly/J9skRhMkUkLkHJgy5XvHLAmAw==",
+        "kljuc_autora": "gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q=",
+        "ishod": "kriv"
+      },
+      {
+        "opis": "kljuc_url_safe_kanonski",
+        "potpis": "dS0irizINb7S2yOBeIJtlAIyBdicQOXw9jQlz8UUnV7FyzANcJDt3ZHAkKCiRqr7XVF7WOAMbKb1O65uViUtCA==",
+        "kljuc_autora": "gTl3Dqh9F19Wo1Rmw0x+zMuNipG07jeiXfYPW4/Js5Q=",
+        "ishod": "vrijedi"
+      },
+      {
+        "opis": "kljuc_nije_tocka",
+        "potpis": "5ZwAdhfMSpmxVjxCKjr6y7L3OIW0d+ECzI5bS9rmc1qVm7PiHtXvlrzOuX89gnlmeki2aEHVVcr7JQ0DfqP8Dg==",
+        "kljuc_autora": "AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "ishod": "kriv"
+      },
+      {
+        "opis": "kljuc_identitet",
+        "potpis": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+        "kljuc_autora": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "ishod": "vrijedi"
+      },
+      {
+        "opis": "kljuc_identitet_nekanonski_y",
+        "potpis": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+        "kljuc_autora": "7v///////////////////////////////////////38=",
+        "ishod": "vrijedi"
+      },
+      {
+        "opis": "kljuc_identitet_s_predznakom",
+        "potpis": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+        "kljuc_autora": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIA=",
+        "ishod": "vrijedi"
+      },
+      {
+        "opis": "kljuc_reda_2",
+        "potpis": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+        "kljuc_autora": "7P///////////////////////////////////////38=",
+        "ishod": "kriv"
+      },
+      {
+        "opis": "potpis_nije_base64",
+        "potpis": "nije potpis",
+        "kljuc_autora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=",
+        "ishod": "kriv"
+      },
+      {
+        "opis": "potpis_razmak",
+        "potpis": " ",
+        "kljuc_autora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=",
+        "ishod": "kriv"
+      },
+      {
+        "opis": "potpis_63B",
+        "potpis": "EJz/fA0DxfGJvduZ70r2R2IFnZhv9oyEZ4Vq/W7Od/s1ePCelqT+iuS8eunLJKA+MSJ4K7naQGBJvLE67OBj",
+        "kljuc_autora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=",
+        "ishod": "kriv"
+      },
+      {
+        "opis": "potpis_65B",
+        "potpis": "EJz/fA0DxfGJvduZ70r2R2IFnZhv9oyEZ4Vq/W7Od/s1ePCelqT+iuS8eunLJKA+MSJ4K7naQGBJvLE67OBjBQA=",
+        "kljuc_autora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=",
+        "ishod": "kriv"
+      },
+      {
+        "opis": "potpis_bez_dopune",
+        "potpis": "EJz/fA0DxfGJvduZ70r2R2IFnZhv9oyEZ4Vq/W7Od/s1ePCelqT+iuS8eunLJKA+MSJ4K7naQGBJvLE67OBjBQ",
+        "kljuc_autora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=",
+        "ishod": "kriv"
+      },
+      {
+        "opis": "potpis_visak_dopune",
+        "potpis": "EJz/fA0DxfGJvduZ70r2R2IFnZhv9oyEZ4Vq/W7Od/s1ePCelqT+iuS8eunLJKA+MSJ4K7naQGBJvLE67OBjBQ===",
+        "kljuc_autora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=",
+        "ishod": "kriv"
+      },
+      {
+        "opis": "potpis_razmak_ispred",
+        "potpis": " EJz/fA0DxfGJvduZ70r2R2IFnZhv9oyEZ4Vq/W7Od/s1ePCelqT+iuS8eunLJKA+MSJ4K7naQGBJvLE67OBjBQ==",
+        "kljuc_autora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=",
+        "ishod": "kriv"
+      },
+      {
+        "opis": "potpis_razmak_iza",
+        "potpis": "EJz/fA0DxfGJvduZ70r2R2IFnZhv9oyEZ4Vq/W7Od/s1ePCelqT+iuS8eunLJKA+MSJ4K7naQGBJvLE67OBjBQ== ",
+        "kljuc_autora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=",
+        "ishod": "kriv"
+      },
+      {
+        "opis": "potpis_novi_red_iza",
+        "potpis": "EJz/fA0DxfGJvduZ70r2R2IFnZhv9oyEZ4Vq/W7Od/s1ePCelqT+iuS8eunLJKA+MSJ4K7naQGBJvLE67OBjBQ==\n",
+        "kljuc_autora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=",
+        "ishod": "vrijedi"
+      },
+      {
+        "opis": "potpis_crlf_iza",
+        "potpis": "EJz/fA0DxfGJvduZ70r2R2IFnZhv9oyEZ4Vq/W7Od/s1ePCelqT+iuS8eunLJKA+MSJ4K7naQGBJvLE67OBjBQ==\r\n",
+        "kljuc_autora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=",
+        "ishod": "vrijedi"
+      },
+      {
+        "opis": "potpis_novi_red_u_sredini",
+        "potpis": "EJz/fA0DxfGJvduZ70r2R2IFnZhv9o\nyEZ4Vq/W7Od/s1ePCelqT+iuS8eunLJKA+MSJ4K7naQGBJvLE67OBjBQ==",
+        "kljuc_autora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=",
+        "ishod": "vrijedi"
+      },
+      {
+        "opis": "potpis_novi_red_u_dopuni",
+        "potpis": "EJz/fA0DxfGJvduZ70r2R2IFnZhv9oyEZ4Vq/W7Od/s1ePCelqT+iuS8eunLJKA+MSJ4K7naQGBJvLE67OBjBQ=\n=",
+        "kljuc_autora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=",
+        "ishod": "vrijedi"
+      },
+      {
+        "opis": "potpis_visak_bitova",
+        "potpis": "EJz/fA0DxfGJvduZ70r2R2IFnZhv9oyEZ4Vq/W7Od/s1ePCelqT+iuS8eunLJKA+MSJ4K7naQGBJvLE67OBjBR==",
+        "kljuc_autora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=",
+        "ishod": "vrijedi"
+      },
+      {
+        "opis": "potpis_url_safe",
+        "potpis": "EJz_fA0DxfGJvduZ70r2R2IFnZhv9oyEZ4Vq_W7Od_s1ePCelqT-iuS8eunLJKA-MSJ4K7naQGBJvLE67OBjBQ==",
+        "kljuc_autora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=",
+        "ishod": "kriv"
+      },
+      {
+        "opis": "potpis_nekanonski_s",
+        "potpis": "EJz/fA0DxfGJvduZ70r2R2IFnZhv9oyEZ4Vq/W7Od/siTOb7sAcR47pZcoyqHn9TMSJ4K7naQGBJvLE67OBjFQ==",
+        "kljuc_autora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=",
+        "ishod": "kriv"
+      },
+      {
+        "opis": "potpis_nekanonski_r",
+        "potpis": "7v///////////////////////////////////////38AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+        "kljuc_autora": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "ishod": "kriv"
+      },
+      {
+        "opis": "potpis_visoki_bit",
+        "potpis": "EJz/fA0DxfGJvduZ70r2R2IFnZhv9oyEZ4Vq/W7Od/s1ePCelqT+iuS8eunLJKA+MSJ4K7naQGBJvLE67OBjhQ==",
+        "kljuc_autora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=",
+        "ishod": "kriv"
+      }
+    ],
+    "sadrzajSBrojevimaIBijegovima": {
+      "ulaz": {
+        "version_id": "019a2b3c-4d5e-7f00-8000-000000000003",
+        "entity": "stavke",
+        "entity_id": "stavka-2",
+        "node_id": "admin-1",
+        "supersedes": "",
+        "archived": false,
+        "channel": "",
+        "schema_version": 1,
+        "created_at": "2025-10-09T08:53:20Z",
+        "payload": "{ \"a\" : 1.0 ,\n\t\"b\" : 1e2 ,\n  \"slovo\" : \"\\u0041\" , \"kosa\" : \"a\\/b\" , \"manje\" : \"\\u003C\" }"
+      },
+      "oblikSadrzaja": "{\"a\":1.0,\"b\":1e2,\"slovo\":\"\\u0041\",\"kosa\":\"a\\/b\",\"manje\":\"\\u003C\"}",
+      "sadrzaj": "1259145e2cdc607ae8316eb3d0a4f12c7711bcbe064ce9fa36e646f2b0346976",
+      "bajtovi": "gocop-verzija-v1|{\"version_id\":\"019a2b3c-4d5e-7f00-8000-000000000003\",\"entity\":\"stavke\",\"entity_id\":\"stavka-2\",\"node_id\":\"admin-1\",\"supersedes\":\"\",\"archived\":false,\"channel\":\"\",\"schema_version\":1,\"created_at\":1760000000,\"kljuc_autora\":\"iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=\",\"sadrzaj\":\"1259145e2cdc607ae8316eb3d0a4f12c7711bcbe064ce9fa36e646f2b0346976\"}",
+      "kljucAutora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=",
+      "potpis": "nRJ9ZfBCjgFbH+d+ixvfLzaRrcn5horEWj6EoW00S7YhboZvh41SA/p6947SQ6QbW0c8Ivx8bqwM5idsp303BA=="
+    },
+    "razdjelnikUPoljima": {
+      "ulaz": {
+        "version_id": "019a2b3c-4d5e-7f00-8000-000000000004",
+        "entity": "stavke",
+        "entity_id": "stavka\u20283",
+        "node_id": "admin-1",
+        "supersedes": "",
+        "archived": false,
+        "channel": "kanal\u2028x",
+        "schema_version": 1,
+        "created_at": "2025-10-09T08:53:20Z",
+        "payload": "{\"a\":1}"
+      },
+      "oblikSadrzaja": "{\"a\":1}",
+      "sadrzaj": "015abd7f5cc57a2dd94b7590f04ad8084273905ee33ec5cebeae62276a97f862",
+      "bajtovi": "gocop-verzija-v1|{\"version_id\":\"019a2b3c-4d5e-7f00-8000-000000000004\",\"entity\":\"stavke\",\"entity_id\":\"stavka\\u20283\",\"node_id\":\"admin-1\",\"supersedes\":\"\",\"archived\":false,\"channel\":\"kanal\\u2028x\",\"schema_version\":1,\"created_at\":1760000000,\"kljuc_autora\":\"iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=\",\"sadrzaj\":\"015abd7f5cc57a2dd94b7590f04ad8084273905ee33ec5cebeae62276a97f862\"}",
+      "kljucAutora": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=",
+      "potpis": "XwOS06HCr+pIuNtkvYvZSH+FKsbC0rer3HUDzCcuR79vPaCkEdCvRrK/LrPlu+L/Q/Cw092lQ+jAnyHIEh++DQ=="
+    },
     "posebniZnakovi": {
       "ulaz": {
         "version_id": "019a2b3c-4d5e-7f00-8000-000000000002",
