@@ -12,8 +12,12 @@ package peers
 // programa (prednost, znam). Stavka prijavljene vrste koju druga strana
 // pošalje nikad ne ide u spremište sadržaja.
 //
-// Razgovor koraka zasad još vodi karta_razgovor.go, a jedini prijavljeni
-// korak je privremena prijava karte koju napravi NewService (korakKarte u
+// U razgovoru (razgovor.go) korak počne iza upisa verzija (zapocniKorak),
+// a završi na svakom izlazu iz sadrzajIKraj. Kad korak traži nešto, ograda
+// poruke sadržaja je ona za sadržaj (ogradaSadrzaja). Kad korak javi da ima
+// još, pozivatelj odmah ponovi razgovor, najviše NajviseDodatnih puta po
+// krugu (dalje); pozvani ne ponavlja ništa. Jedini prijavljeni korak je
+// zasad privremena prijava karte koju napravi NewService (korakKarte u
 // karta_razgovor.go).
 
 import (
@@ -41,29 +45,47 @@ type PrijavaKoraka struct {
 	Korak           DodatniKorak
 }
 
-// DodatniKorak je ono što aplikacija daje uz prijavu
+// DodatniKorak je ono što aplikacija daje uz prijavu.
+//
+// Korak ne smije paničariti, ni ovdje ni u TijekKoraka. Na dolaznom
+// razgovoru panika prekine samo taj razgovor (recover u razmjena:
+// primiTLS, primiQUIC i tok WEB synca). Na odlaznom razgovoru biblioteka
+// paniku ne hvata, pa ona ide do onoga tko je razmjenu pokrenuo. Kad
+// razmjena ide kroz syncPeers (krug u pozadini, SyncDue, SyncAll), to
+// sruši cijeli čvor. Isto je danas i za OnApplied.
 type DodatniKorak interface {
 	// Zapocni se zove iza upisa verzija, samo kad Dogovor prođe. Netipiziran
 	// nil znači da korak u ovom razgovoru ne radi.
 	Zapocni(ctx context.Context, v VezaKoraka) TijekKoraka
 	// Odbaci dobije stavke vrste koraka iz razgovora u kojem korak ne radi;
-	// zove se samo kad je stigla barem jedna
+	// zove se samo kad je stigla barem jedna. Ni ove stavke biblioteka ne
+	// provjerava (TijekKoraka.Primi).
 	Odbaci(stavke []StavkaKoraka)
 }
 
 // TijekKoraka je jedan razgovor koraka. Biblioteka ga zove iz goroutine
 // razgovora ovim redom: Trazi; Izdvoji i Daj (pozivatelj prije primanja,
 // pozvani nakon svog Primi); Primi; ImaJos. Zavrsi se zove uvijek, odmah
-// iza Zapocni kao defer.
+// iza Zapocni kao defer. Za paniku vrijedi isto što i uz DodatniKorak.
 type TijekKoraka interface {
-	// Trazi su otisci koje korak traži, iza želja spremišta
+	// Trazi su otisci koje korak traži, iza želja spremišta; od njih ide
+	// najviše o.Stavki, a višak biblioteka odreže. Odrezani otisci nisu
+	// traženi, a korak to ne dozna: kad pamti što je tražio, neka da
+	// najviše o.Stavki.
 	Trazi(o Ostatak) []string
 	// Izdvoji odvoji otiske koraka od ostalih; ostali idu spremištu
 	Izdvoji(otisci []string) (moji, ostali []string)
-	// Daj su stavke koraka za tražene otiske, iza stavki spremišta
+	// Daj su stavke koraka za tražene otiske, iza stavki spremišta. Ide ih
+	// redom dok stanu u o (bajtovi po len(Podaci) i broj stavki); od prve
+	// koja ne stane biblioteka ostatak odreže. Ni to korak ne dozna: kad
+	// broji poslano, neka da samo ono što stane u o.
 	Daj(otisci []string, o Ostatak) []StavkaKoraka
 	// Primi dobije primljene stavke koraka nakon upisa spremišta, i kad
-	// nije stigla nijedna
+	// nije stigla nijedna. Biblioteka stavke ne provjerava. Dobije sve
+	// stavke vrste koraka koje su stigle: i one koje je Trazi dao, a
+	// biblioteka ih je odrezala iz želja, i one koje nitko nije tražio.
+	// Korak sam provjeri je li stavku tražio, odgovaraju li Podaci otisku i
+	// je li duljina dobra.
 	Primi(stavke []StavkaKoraka)
 	// ImaJos se pita samo kad je sadržaj razmijenjen, prije kraja
 	ImaJos() bool
@@ -78,8 +100,9 @@ type Ostatak struct {
 	Stavki  int
 }
 
-// StavkaKoraka je stavka sadržaja koja pripada koraku. Vrstu i, pri
-// slanju, Bajtova = len(Podaci) upisuje biblioteka; kanala nema.
+// StavkaKoraka je stavka sadržaja koja pripada koraku. Vrstu i Bajtova =
+// len(Podaci) upisuje biblioteka, i pri slanju i pri primanju: koliko je
+// druga strana najavila, korak ne vidi. Kanala nema.
 type StavkaKoraka struct {
 	Otisak  string
 	Bajtova int
@@ -195,4 +218,150 @@ func (s *Service) vrstaKoraka() string {
 		return p.Vrsta
 	}
 	return ""
+}
+
+// najviseDodatnih je koliko dodatnih razgovora po krugu smije doći zbog
+// koraka; 0 bez prijave
+func (s *Service) najviseDodatnih() int {
+	if p := s.korak.Load(); p != nil {
+		return p.NajviseDodatnih
+	}
+	return 0
+}
+
+// zapocniKorak počne prijavljeni korak u ovom razgovoru, kad obje strane
+// imaju njegovu oznaku (Dogovor daje baš N iz oznake). nil: korak u ovom
+// razgovoru ne radi.
+func (r *razgovorSCvorom) zapocniKorak(ctx context.Context) TijekKoraka {
+	p := r.s.korak.Load()
+	if p == nil {
+		return nil
+	}
+	ime, n, err := razmjena.ProvjeriOznaku(p.Oznaka)
+	if err != nil || razmjena.Dogovor(r.moja.Mogucnosti, r.theirs.Mogucnosti)[ime] != n {
+		return nil
+	}
+	return p.Korak.Zapocni(ctx, vezaRazgovora{c: r.c, zvao: r.initiator})
+}
+
+// zavrsiKorak završi korak koji je ovaj razgovor počeo
+func (r *razgovorSCvorom) zavrsiKorak() {
+	if r.korak != nil {
+		r.korak.Zavrsi()
+	}
+}
+
+// stavkeZaKorak su primljene stavke koraka kako ih korak dobije: Bajtova
+// je len(Podaci), a ne ono što je druga strana najavila
+func stavkeZaKorak(stavke []stavkaSadrzaja) []StavkaKoraka {
+	var out []StavkaKoraka
+	for _, st := range stavke {
+		out = append(out, StavkaKoraka{Otisak: st.Otisak, Bajtova: len(st.Podaci), Podaci: st.Podaci})
+	}
+	return out
+}
+
+// stavkeKoraka su stavke koraka kako idu u poruku sadržaja: vrsta
+// prijavljenog koraka i Bajtova = len(Podaci), bez kanala
+func (s *Service) stavkeKoraka(stavke []StavkaKoraka) []stavkaSadrzaja {
+	vrsta := s.vrstaKoraka()
+	var out []stavkaSadrzaja
+	for _, st := range stavke {
+		out = append(out, stavkaSadrzaja{Otisak: st.Otisak, Vrsta: vrsta, Bajtova: len(st.Podaci), Podaci: st.Podaci})
+	}
+	return out
+}
+
+// predajKoraku preda primljene stavke koraka koraku koji u razgovoru radi,
+// i kad nije stigla nijedna. Kad korak ne radi, a stavke su stigle, ide mu
+// Odbaci. Stavke se ovdje ne provjeravaju: idu i one koje je
+// otisciUOstatku izrezao iz želja i one koje nitko nije tražio. Traženo,
+// otisak i duljinu provjerava korak (TijekKoraka.Primi).
+func (r *razgovorSCvorom) predajKoraku(stavke []stavkaSadrzaja) {
+	if r.korak != nil {
+		r.korak.Primi(stavkeZaKorak(stavke))
+		return
+	}
+	if p := r.s.korak.Load(); p != nil && len(stavke) > 0 {
+		p.Korak.Odbaci(stavkeZaKorak(stavke))
+	}
+}
+
+// zapamtiKorak: korak javlja da ima još, pa pozivatelj razgovor s istim
+// čvorom ponavlja odmah (josKoraka, dalje)
+func (r *razgovorSCvorom) zapamtiKorak() {
+	if r.korak != nil && r.korak.ImaJos() {
+		r.s.korakTece.Store(r.c, true)
+	}
+}
+
+// ostatakOgrade je ono što od ograde razmjene ostane nakon bajtova i
+// stavki iz spremišta
+func ostatakOgrade(bajtova, stavki int) Ostatak {
+	return Ostatak{Bajtova: int64(najviseBajtovaPoRazmjeni - bajtova), Stavki: najviseSadrzajaPoRazmjeni - stavki}
+}
+
+// mojeZelje su otisci sadržaja iz spremišta koje ovaj čvor traži, a iza
+// njih otisci koje traži dodatni korak, u onome što od ograde ostane
+func (r *razgovorSCvorom) mojeZelje(ctx context.Context) []string {
+	zelje, bajtova := r.s.zeljeniSBajtovima(ctx, r.myWants)
+	r.mojiSadrzaji = poOtisku(zelje)
+	otisci := otisciZelja(zelje)
+	if r.korak == nil {
+		return otisci
+	}
+	o := ostatakOgrade(bajtova, len(otisci))
+	koraka := otisciUOstatku(r.korak.Trazi(o), o)
+	r.trazioKorak = len(koraka) > 0
+	return append(otisci, koraka...)
+}
+
+// sadrzajZaDrugu: od traženoga najprije sadržaj iz spremišta, pa stavke
+// dodatnog koraka u onome što od ograde ostane
+func (r *razgovorSCvorom) sadrzajZaDrugu(ctx context.Context, otisci []string) []stavkaSadrzaja {
+	if r.korak == nil {
+		return r.s.sadrzajZa(ctx, otisci, r.theirs.Wants)
+	}
+	koraka, ostali := r.korak.Izdvoji(otisci)
+	out := r.s.sadrzajZa(ctx, ostali, r.theirs.Wants)
+	bajtova := 0
+	for _, st := range out {
+		bajtova += st.Bajtova
+	}
+	o := ostatakOgrade(bajtova, len(out))
+	return append(out, r.s.stavkeKoraka(stavkeUOstatku(r.korak.Daj(koraka, o), o))...)
+}
+
+// otisciUOstatku: od otisaka koje korak traži ide najviše o.Stavki, redom
+// kako ih je korak dao
+func otisciUOstatku(otisci []string, o Ostatak) []string {
+	return otisci[:min(len(otisci), max(o.Stavki, 0))]
+}
+
+// stavkeUOstatku: od stavki koje korak daje idu one redom dok stanu u o,
+// po len(Podaci) i po broju stavki; prva koja ne stane prekida popis. Tako
+// poruka sadržaja ostaje unutar ograde razmjene i kad korak da više.
+func stavkeUOstatku(stavke []StavkaKoraka, o Ostatak) []StavkaKoraka {
+	bajtova := o.Bajtova
+	for i, st := range stavke {
+		if i >= o.Stavki || int64(len(st.Podaci)) > bajtova {
+			return stavke[:i]
+		}
+		bajtova -= int64(len(st.Podaci))
+	}
+	return stavke
+}
+
+// razdvojiPrimljeno odvoji primljene stavke prijavljene vrste koraka od
+// ostalog sadržaja: takva stavka nikad ne ide u spremište sadržaja. Bez
+// prijave (vrsta "") sve je ostalo.
+func razdvojiPrimljeno(stavke []stavkaSadrzaja, vrsta string) (koraka, ostalo []stavkaSadrzaja) {
+	for _, st := range stavke {
+		if vrsta != "" && st.Vrsta == vrsta {
+			koraka = append(koraka, st)
+		} else {
+			ostalo = append(ostalo, st)
+		}
+	}
+	return koraka, ostalo
 }

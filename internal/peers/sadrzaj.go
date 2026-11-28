@@ -92,8 +92,7 @@ func poOtisku(zelje []sadrzaj.Zelja) map[string]sadrzaj.Zelja {
 }
 
 // zeljeniSBajtovima su želje koje zeljeniOtisci traži, uz zbroj bajtova
-// traženoga, od kojeg dijelovi karte uzimaju ostatak ograde
-// (karta_razgovor.go)
+// traženoga, od kojeg dodatni korak dobije ostatak ograde (mojeZelje)
 func (s *Service) zeljeniSBajtovima(ctx context.Context, w Wants) ([]sadrzaj.Zelja, int) {
 	sp := s.spremisteSadrzaja()
 	if sp == nil {

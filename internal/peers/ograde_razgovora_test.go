@@ -447,7 +447,7 @@ func TestSadrzajBezZeljaOgradjen(t *testing.T) {
 	provjeriSlucajeve(t, a, b, false, []slucaj{
 		{ime: "sadržaj bez želja", potezi: do(zamijeni(tokPozvanog(), 6, salje(kindSadrzaj, velik)), 7, cita(krajVeze)), ishod: nakonDelte("poruka razmjene veća od 64 KiB")},
 	})
-	if r := (&razgovorSCvorom{mojiDijelovi: []string{"d1"}}); r.ogradaSadrzaja() != ogradaPoruke(kindSadrzaj) {
+	if r := (&razgovorSCvorom{trazioKorak: true}); r.ogradaSadrzaja() != ogradaPoruke(kindSadrzaj) {
 		t.Error("uz tražene dijelove karte ograda sadržaja je manja")
 	}
 }

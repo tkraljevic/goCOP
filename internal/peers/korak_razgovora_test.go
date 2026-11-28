@@ -12,8 +12,8 @@ import (
 	"gocop/internal/sadrzaj"
 )
 
-// probniKorak je korak razgovora bez ijedne riječi karte; razgovor ga u
-// ovom dijelu N04 još ne zove
+// probniKorak je korak razgovora bez ijedne riječi karte koji u razgovoru
+// nikad ne počne
 type probniKorak struct{}
 
 func (*probniKorak) Zapocni(context.Context, VezaKoraka) TijekKoraka { return nil }
@@ -62,8 +62,8 @@ func TestPrijaviKorakNewServicePrijaviKartu(t *testing.T) {
 	if !errors.Is(err, ErrKorakPrijavljen) || s.korak.Load() != p {
 		t.Errorf("druga prijava: %v, prijavljeno %+v", err, s.korak.Load())
 	}
-	// privremeni prilagodnik zasad ne vodi razgovor: Zapocni ne počne
-	// ništa, a poziv Odbaci samo potvrđuje da ne radi ništa
+	// bez prijenosa karte (PostaviKarte) korak karte ne počne, a Odbaci
+	// samo zapiše redak u dnevnik
 	if tijek := (korakKarte{s}).Zapocni(ctxRub, nil); tijek != nil {
 		t.Errorf("korak karte je počeo: %v", tijek)
 	}

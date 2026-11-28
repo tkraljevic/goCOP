@@ -30,7 +30,10 @@ package peers
 // provjere gotovo), bez uvjeta, a ne kao grana u postojećem koraku. Granica
 // odbijenih (G4) i rupe (G4b) su dio koraka granica, a ne novi poziv u
 // exchange: idu odmah iza njih (nakonGranica) i samo uz oznake koje objave
-// obje strane, pa razgovor sa starijim čvorom ostaje isti.
+// obje strane, pa razgovor sa starijim čvorom ostaje isti. Dodatni korak
+// koji prijavi aplikacija (korak_razgovora.go) nema svoju poruku: njegovi
+// otisci idu u želje, a stavke u sadržaj, uvijek iza onih iz spremišta, i
+// samo kad obje strane objave njegovu oznaku.
 
 import (
 	"context"
@@ -89,15 +92,14 @@ type razgovorSCvorom struct {
 	bacio                      map[string]baceno
 	ceka                       cekanje
 	preskoceni                 map[string]string
-	// mojiSadrzaji su sadržaji (ne dijelovi karte) koje je ovaj razgovor
-	// zatražio, po otisku; prima se samo od njih (trazeniSadrzaji)
+	// mojiSadrzaji su sadržaji iz spremišta (ne stavke koraka) koje je ovaj
+	// razgovor zatražio, po otisku; prima se samo od njih (trazeniSadrzaji)
 	mojiSadrzaji map[string]sadrzaj.Zelja
-	// dijelovi karte (karta_razgovor.go): karta je prijenos karte kad ga
-	// ovaj razgovor smije voditi (nil: ne smije), mojiDijelovi dijelovi koje
-	// je ovaj čvor zatražio, a brojači koliko ih je poslano i upisano
-	karta                              *dijeloviKarte
-	mojiDijelovi                       []string
-	poslanoDijelova, primljenoDijelova int
+	// dodatni korak (korak_razgovora.go): korak je njegov tijek kad u ovom
+	// razgovoru radi (nil: ne radi), a trazioKorak da je korak u željama
+	// tražio barem jedan otisak
+	korak       TijekKoraka
+	trazioKorak bool
 }
 
 // zapocniRazgovor pročita sve što razgovor treba prije prve poruke: granicu
@@ -414,10 +416,11 @@ func (r *razgovorSCvorom) zaUpis(ctx context.Context, stiglo []ledger.Version) [
 // kraj; tada je razgovor gotov bez sadržaja. Novi korak nakon upisa ide
 // ovamo, iza provjere gotovo, jer druga strana koja je poslala kraj čeka još
 // samo naš kraj. Želje druga strana šalje tek kad je upisala primljeno, pa
-// se tek tada pamti što je nakon uvoza dobila (zapamtiUvoz).
+// se tek tada pamti što je nakon uvoza dobila (zapamtiUvoz). Dodatni korak
+// počne prije želja i završi na svakom izlazu.
 func (r *razgovorSCvorom) sadrzajIKraj(ctx context.Context) error {
-	r.karta = r.smijeKartu(ctx)
-	defer r.pustiDijelove()
+	r.korak = r.zapocniKorak(ctx)
+	defer r.zavrsiKorak()
 	njihove, gotovo, err := r.zelje(ctx)
 	if err != nil || gotovo {
 		return err
@@ -426,7 +429,7 @@ func (r *razgovorSCvorom) sadrzajIKraj(ctx context.Context) error {
 	if err = r.sadrzaj(ctx, njihove); err != nil {
 		return err
 	}
-	r.zapamtiKartu()
+	r.zapamtiKorak()
 	return r.kraj()
 }
 
@@ -492,24 +495,25 @@ func (r *razgovorSCvorom) sadrzaj(ctx context.Context, njihove zeljeMsg) error {
 // primiNjihovSadrzaj prima sadržaj druge strane i upiše ga kad brava stigne
 // na vrijeme; što nije upisano, ostaje među željama i traži se sljedećom
 // razmjenom. Upisuje se samo ono što je ovaj razgovor tražio
-// (trazeniSadrzaji). Dijelovi karte idu ravno u djelomičnu datoteku karte,
-// bez brave upisa i nikad u spremište (karta_razgovor.go).
+// (trazeniSadrzaji). Stavke prijavljene vrste idu dodatnom koraku, bez
+// brave upisa i nikad u spremište (predajKoraku).
 func (r *razgovorSCvorom) primiNjihovSadrzaj(ctx context.Context) error {
 	var stigao sadrzajMsg
 	if err := r.ocekujDo(kindSadrzaj, r.ogradaSadrzaja(), &stigao); err != nil {
 		return err
 	}
-	dijelovi, ostalo := razdvojiPrimljeno(stigao.Stavke, r.s.vrstaKoraka())
+	koraka, ostalo := razdvojiPrimljeno(stigao.Stavke, r.s.vrstaKoraka())
 	r.s.primiSadrzajAkoStigne(ctx, razmjena.PublicKeyString(r.c.PeerKey), r.trazeniSadrzaji(ostalo))
-	r.upisiDijelove(dijelovi)
+	r.predajKoraku(koraka)
 	return nil
 }
 
 // ogradaSadrzaja je najveća poruka sadržaja koju razgovor prima: kad ovaj
-// čvor nije tražio ništa, druga strana šalje prazan popis (sadrzajZa šalje
-// samo traženo, i u starijim izdanjima), pa stiže samo kratka poruka
+// čvor nije tražio ništa, ni iz spremišta ni za dodatni korak, druga strana
+// šalje prazan popis (sadrzajZa šalje samo traženo, i u starijim
+// izdanjima), pa stiže samo kratka poruka
 func (r *razgovorSCvorom) ogradaSadrzaja() int64 {
-	if len(r.mojiSadrzaji) == 0 && len(r.mojiDijelovi) == 0 {
+	if len(r.mojiSadrzaji) == 0 && !r.trazioKorak {
 		return ogradaPoruke(kindDone)
 	}
 	return ogradaPoruke(kindSadrzaj)
