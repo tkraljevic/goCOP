@@ -134,10 +134,13 @@ type Service struct {
 	// korak je prijavljeni dodatni korak razgovora (PrijaviKorak); nil bez
 	// prijave
 	korak atomic.Pointer[PrijavaKoraka]
-	db    *sql.DB
-	rec   *ledger.Recorder
-	node  *Node
-	ports Ports
+	// dopunaZnanja je PRIVREMENA dopuna znanja koje ovaj čvor javlja
+	// (DopuniZnanje); nil bez dopune
+	dopunaZnanja atomic.Pointer[func(*razmjena.Znanje)]
+	db           *sql.DB
+	rec          *ledger.Recorder
+	node         *Node
+	ports        Ports
 
 	mu      sync.Mutex
 	pending *razmjena.PairResult // uparivanje koje čeka odluku čovjeka
@@ -331,6 +334,7 @@ func NewService(db *sql.DB, rec *ledger.Recorder, node *Node, ports Ports) (*Ser
 	// prijava karte je stalna, a da prolazi PrijaviKorak, provjerava test
 	karta := prijavaKarte(s)
 	s.korak.Store(&karta)
+	s.DopuniZnanje(dopunaKarte(s))
 	if err := s.loadNetwork(); err != nil {
 		return nil, err
 	}

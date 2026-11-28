@@ -49,6 +49,14 @@ func prijavaKarte(s *Service) PrijavaKoraka {
 		NajviseDodatnih: najviseRazgovoraZaKartu, Korak: korakKarte{s}}
 }
 
+// dopunaKarte je PRIVREMENA dopuna znanja koju postavi NewService: polje
+// karta u granici i u pozdravu WEB synca (znanjeKarte), kao i prije dopune.
+// Prijenos karte čita iz s.karte tek kad se znanje slaže, iz istog razloga
+// kao korakKarte.
+func dopunaKarte(s *Service) func(*razmjena.Znanje) {
+	return func(z *razmjena.Znanje) { z.Karta = s.znanjeKarte() }
+}
+
 // Zapocni: razgovor prenosi dijelove karte kad postoji prijenos karte
 // (PostaviKarte) i, dok traje obrana, kad je druga strana u istoj lokalnoj
 // mreži (Odluke (30. 10. 2026.))

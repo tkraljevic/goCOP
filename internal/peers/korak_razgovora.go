@@ -19,6 +19,10 @@ package peers
 // krugu (dalje); pozvani ne ponavlja ništa. Jedini prijavljeni korak je
 // zasad privremena prijava karte koju napravi NewService (korakKarte u
 // karta_razgovor.go).
+//
+// Ono što korak javlja drugoj strani u znanju (danas polje karta) ide kroz
+// PRIVREMENU dopunu znanja (DopuniZnanje), dok se ne odluči kako korak
+// javlja svoje znanje. I nju zasad postavi NewService (dopunaKarte).
 
 import (
 	"context"
@@ -159,6 +163,22 @@ func (s *Service) provjeriPrijavu(p PrijavaKoraka) error {
 		return fmt.Errorf("%w: nema koraka", ErrNeispravanKorak)
 	}
 	return nil
+}
+
+// DopuniZnanje je PRIVREMENO, dok se ne odluči kako korak javlja svoje
+// znanje: f upiše u prazno znanje ono što daje aplikacija, a biblioteka iz
+// njega uzme samo polje karta i doda ga znanju ovog čvora (mojeZnanje).
+// Ostala polja biblioteka piše sama, pa ih f ne može promijeniti. Znanje
+// ide u granicu i u pozdrav WEB synca. f se zove u svakom razgovoru i
+// pozdravu, možda istodobno iz više goroutina, pa mora biti siguran za
+// istodobne pozive i brz, bez čekanja na mrežu ili bazu. Nova dopuna
+// zamijeni staru, a nil je makne.
+func (s *Service) DopuniZnanje(f func(*razmjena.Znanje)) {
+	if f == nil {
+		s.dopunaZnanja.Store(nil)
+		return
+	}
+	s.dopunaZnanja.Store(&f)
 }
 
 // prednost su oznake koje ovaj program objavljuje, bez web/1: oznake

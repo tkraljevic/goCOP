@@ -132,17 +132,24 @@ func (r *razgovorSCvorom) mojaGranica(mine map[string]string, znanje razmjena.Zn
 	return frontierMsg{Frontier: mine, Wants: &r.myWants, Program: program, Gradnja: gradnja, Znanje: znanje}
 }
 
-// mojeZnanje je ono što ovaj čvor javlja u granici: svoje oznake, vrste
-// zapisa koje razumije i koliko zapisa kod njega čeka nadogradnju. Broj je
-// samo obavijest, pa greška brojanja nije greška razgovora: broja tada nema,
-// a razlog ide u dnevnik.
+// mojeZnanje je ono što ovaj čvor javlja u granici i u pozdravu WEB synca:
+// svoje oznake, vrste zapisa koje razumije, koliko zapisa kod njega čeka
+// nadogradnju i uloge, a na kraju polje karta iz dopune aplikacije
+// (DopuniZnanje). Broj je samo obavijest, pa greška brojanja nije greška
+// razgovora: broja tada nema, a razlog ide u dnevnik.
 func (s *Service) mojeZnanje(ctx context.Context) razmjena.Znanje {
 	ceka, err := s.rec.CekaNadogradnju(ctx)
 	if err != nil {
 		log.Printf("razmjena: koliko zapisa čeka nadogradnju nije izbrojeno: %v", err)
 	}
-	return razmjena.Znanje{Mogucnosti: s.mojeMogucnosti(), Vrste: s.mojKatalog(), CekaNadogradnju: ceka,
-		Uloge: s.TrenutneUloge().Oznake(), Karta: s.znanjeKarte()}
+	z := razmjena.Znanje{Mogucnosti: s.mojeMogucnosti(), Vrste: s.mojKatalog(), CekaNadogradnju: ceka,
+		Uloge: s.TrenutneUloge().Oznake()}
+	if f := s.dopunaZnanja.Load(); f != nil {
+		var dopuna razmjena.Znanje
+		(*f)(&dopuna)
+		z.Karta = dopuna.Karta
+	}
+	return z
 }
 
 // mojeMogucnosti su oznake koje ovaj program objavljuje
