@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -134,10 +135,182 @@ type vektoriZice struct {
 	// PotpisVerzije: verzija iz knjige koju autor (računalo A) potpiše.
 	// Druga ima sadržaj s razmacima, s <, > i & i s U+2028, vrijeme s
 	// nanosekundama i druge vrijednosti ostalih polja.
+	//
+	// Rubovi su ishodi provjere potpisa nad običnom verzijom, za potpis i
+	// ključ zapisane na razne načine. SadrzajSBrojevima ima brojeve 1.0 i
+	// 1e2 i bijegove \u0041, \/ i \u003C koji u obliku sadržaja ostaju kako
+	// su napisani. RazdjelnikUPolju ima U+2028 u entity_id i u kanalu.
+	//
+	// Odluke primatelja koje ovise o knjizi i članstvima (ključ koji nije
+	// vezan uz node_id, članstvo iz iste delte, strože pravilo za računalo
+	// s oznakom, dopuna) ovdje nisu: vektori ih ne pokrivaju.
 	PotpisVerzije struct {
-		Obicna         vektorVerzije `json:"obicna"`
-		PosebniZnakovi vektorVerzije `json:"posebniZnakovi"`
+		Obicna            vektorVerzije `json:"obicna"`
+		Rubovi            []rubPotpisa  `json:"rubovi"`
+		SadrzajSBrojevima vektorVerzije `json:"sadrzajSBrojevimaIBijegovima"`
+		RazdjelnikUPolju  vektorVerzije `json:"razdjelnikUPoljima"`
+		PosebniZnakovi    vektorVerzije `json:"posebniZnakovi"`
 	} `json:"potpisVerzije"`
+}
+
+// rubPotpisa je jedan redak tablice rubova: potpis i ključ autora kako
+// stoje uz običnu verziju i što provjera kaže
+type rubPotpisa struct {
+	Opis        string `json:"opis"`
+	Potpis      string `json:"potpis"`
+	KljucAutora string `json:"kljuc_autora"`
+	// Ishod: "nepotpisana" kad su oba polja prazna (tako ih primatelj
+	// čita, peers.provjeraPotpisa), inače "vrijedi" ili "kriv" prema
+	// ProvjeriPotpisVerzije
+	Ishod string `json:"ishod"`
+}
+
+// ishodPotpisa je ono što primatelj zna iz samog potpisa verzije, prije
+// pitanja o knjizi i članstvima
+func ishodPotpisa(protokol string, v PodaciVerzije, potpis, kljucAutora string) string {
+	if potpis == "" && kljucAutora == "" {
+		return "nepotpisana"
+	}
+	if ProvjeriPotpisVerzije(protokol, v, potpis, kljucAutora) != nil {
+		return "kriv"
+	}
+	return "vrijedi"
+}
+
+// visakBitova promijeni najniži bit zadnjeg znaka ispred dopune: bajtovi
+// ostaju isti, a tekst više nije kanonski
+func visakBitova(t *testing.T, tekst string) string {
+	t.Helper()
+	const abeceda = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+	podaci := strings.TrimRight(tekst, "=")
+	zadnji := len(podaci) - 1
+	i := strings.IndexByte(abeceda, podaci[zadnji])
+	if i < 0 {
+		t.Fatalf("%q nije base64", tekst)
+	}
+	izmijenjen := podaci[:zadnji] + string(abeceda[i^1]) + tekst[len(podaci):]
+	if a, b := iz64(t, tekst), iz64(t, izmijenjen); !bytes.Equal(a, b) || izmijenjen == tekst {
+		t.Fatalf("višak bitova promijenio je bajtove: %q", izmijenjen)
+	}
+	return izmijenjen
+}
+
+func iz64(t *testing.T, tekst string) []byte {
+	t.Helper()
+	b, err := base64.StdEncoding.DecodeString(tekst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
+// rubovePotpisa izradi tablicu rubova nad verzijom v koju je potpisao
+// autor (ključ A); drugi je ključ B, koji u base64 ima + i /
+func rubovePotpisa(t *testing.T, protokol string, autor, drugi ed25519.PrivateKey, v PodaciVerzije) []rubPotpisa {
+	t.Helper()
+	nad := func(priv ed25519.PrivateKey, kljuc string) string { // potpis nad bilo kojim tekstom ključa
+		b, err := BajtoviVerzije(protokol, v, kljuc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return base64.StdEncoding.EncodeToString(ed25519.Sign(priv, b))
+	}
+	s, k, err := PotpisiVerziju(autor, protokol, v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	k2 := PublicKeyString(drugi.Public().(ed25519.PublicKey))
+	if !strings.Contains(k2, "+") || !strings.Contains(k2, "/") {
+		t.Fatalf("ključ %s nema i + i /", k2)
+	}
+	kljuc, potpis := iz64(t, k), iz64(t, s)
+	b64 := base64.StdEncoding.EncodeToString
+	urlSafe := strings.NewReplacer("+", "-", "/", "_").Replace
+
+	// točka identiteta u tri zapisa; uz R = identitet i s = 0 potpis
+	// vrijedi pod njom za svaku poruku
+	identitet := make([]byte, 32)
+	identitet[0] = 1
+	identitetYP := bytes.Repeat([]byte{0xff}, 32) // y + p
+	identitetYP[0], identitetYP[31] = 0xee, 0x7f
+	identitetPredznak := bytes.Clone(identitet)
+	identitetPredznak[31] = 0x80
+	potpisIdentiteta := b64(append(bytes.Clone(identitet), make([]byte, 32)...))
+
+	nijeTocka := make([]byte, 32) // y = 2 nije točka krivulje
+	nijeTocka[0] = 2
+
+	// s + L: isti potpis s nesvedenim skalarom
+	l := [32]byte{0xed, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58, 0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14, 31: 0x10}
+	sPlusL := bytes.Clone(potpis)
+	prijenos := 0
+	for i := range 32 {
+		zbroj := int(potpis[32+i]) + int(l[i]) + prijenos
+		sPlusL[32+i], prijenos = byte(zbroj), zbroj>>8
+	}
+	if prijenos != 0 {
+		t.Fatal("s + L ne stane u 32 bajta")
+	}
+	visokiBit := bytes.Clone(potpis)
+	visokiBit[63] |= 0x80
+
+	k31, k33 := b64(kljuc[:31]), b64(append(bytes.Clone(kljuc), 0))
+	kBezDopune, kVisakDopune := strings.TrimRight(k, "="), k+"="
+	kRazmakIspred, kRazmakIza, kTabIza := " "+k, k+" ", k+"\t"
+	kNoviRedIza, kCRLFIza, kNoviRedUSredini := k+"\n", k+"\r\n", k[:20]+"\n"+k[20:]
+	kVisakBitova := visakBitova(t, k)
+	k2URL := urlSafe(k2)
+
+	redovi := []struct{ opis, potpis, kljuc string }{
+		{"oba_prazna", "", ""},
+		{"samo_kljuc", "", k},
+		{"samo_potpis", s, ""},
+		{"ispravno", s, k},
+		{"kljuc_razmak_bez_potpisa", "", " "},
+		{"kljuc_novi_red_bez_potpisa", "", "\n"},
+		{"potpis_novi_red_bez_kljuca", "\n", ""},
+		{"kljuc_nije_base64", s, "nije kljuc"},
+		{"kljuc_31B", nad(autor, k31), k31},
+		{"kljuc_33B", nad(autor, k33), k33},
+		{"kljuc_bez_dopune", nad(autor, kBezDopune), kBezDopune},
+		{"kljuc_visak_dopune", nad(autor, kVisakDopune), kVisakDopune},
+		{"kljuc_razmak_ispred", nad(autor, kRazmakIspred), kRazmakIspred},
+		{"kljuc_razmak_iza", nad(autor, kRazmakIza), kRazmakIza},
+		{"kljuc_tab_iza", nad(autor, kTabIza), kTabIza},
+		{"kljuc_novi_red_iza", nad(autor, kNoviRedIza), kNoviRedIza},
+		{"kljuc_crlf_iza", nad(autor, kCRLFIza), kCRLFIza},
+		{"kljuc_novi_red_u_sredini", nad(autor, kNoviRedUSredini), kNoviRedUSredini},
+		{"kljuc_novi_red_iza_stari_potpis", s, kNoviRedIza},
+		{"kljuc_visak_bitova", nad(autor, kVisakBitova), kVisakBitova},
+		{"kljuc_visak_bitova_stari_potpis", s, kVisakBitova},
+		{"kljuc_url_safe", nad(drugi, k2URL), k2URL},
+		{"kljuc_url_safe_kanonski", nad(drugi, k2), k2},
+		{"kljuc_nije_tocka", nad(autor, b64(nijeTocka)), b64(nijeTocka)},
+		{"kljuc_identitet", potpisIdentiteta, b64(identitet)},
+		{"kljuc_identitet_nekanonski_y", potpisIdentiteta, b64(identitetYP)},
+		{"kljuc_identitet_s_predznakom", potpisIdentiteta, b64(identitetPredznak)},
+		{"potpis_nije_base64", "nije potpis", k},
+		{"potpis_razmak", " ", k},
+		{"potpis_63B", b64(potpis[:63]), k},
+		{"potpis_65B", b64(append(bytes.Clone(potpis), 0)), k},
+		{"potpis_bez_dopune", strings.TrimRight(s, "="), k},
+		{"potpis_visak_dopune", s + "=", k},
+		{"potpis_razmak_ispred", " " + s, k},
+		{"potpis_razmak_iza", s + " ", k},
+		{"potpis_novi_red_iza", s + "\n", k},
+		{"potpis_crlf_iza", s + "\r\n", k},
+		{"potpis_novi_red_u_sredini", s[:30] + "\n" + s[30:], k},
+		{"potpis_novi_red_u_dopuni", s[:len(s)-1] + "\n=", k},
+		{"potpis_visak_bitova", visakBitova(t, s), k},
+		{"potpis_url_safe", urlSafe(s), k},
+		{"potpis_nekanonski_s", b64(sPlusL), k},
+		{"potpis_visoki_bit", b64(visokiBit), k},
+	}
+	rubovi := make([]rubPotpisa, 0, len(redovi))
+	for _, r := range redovi {
+		rubovi = append(rubovi, rubPotpisa{r.opis, r.potpis, r.kljuc, ishodPotpisa(protokol, v, r.potpis, r.kljuc)})
+	}
+	return rubovi
 }
 
 // ulazVerzije su podaci verzije kako stoje u knjizi
@@ -359,10 +532,29 @@ func izradiVektore(t *testing.T, protokol string) vektoriZice {
 	v.PosebniZnakovi.OdbijenicaRazdjelnici = kaoRedak(t, Odbijenica(KodOdbijeno, "a\u2028b\u2029c"))
 
 	// potpis verzije, ključem računala A
-	v.PotpisVerzije.Obicna = vektorPotpisaVerzije(t, privA, protokol, PodaciVerzije{
+	obicna := PodaciVerzije{
 		VersionID: "019a2b3c-4d5e-7f00-8000-000000000001", Entity: "users", EntityID: "korisnik-1", NodeID: "admin-1",
 		SchemaVersion: 1, CreatedAt: od, Payload: []byte(`{"full_name":"Ana Horvat","username":"ahorvat"}`),
+	}
+	v.PotpisVerzije.Obicna = vektorPotpisaVerzije(t, privA, protokol, obicna)
+	v.PotpisVerzije.Rubovi = rubovePotpisa(t, protokol, privA, privB, obicna)
+	v.PotpisVerzije.SadrzajSBrojevima = vektorPotpisaVerzije(t, privA, protokol, PodaciVerzije{
+		VersionID: "019a2b3c-4d5e-7f00-8000-000000000003", Entity: "readings", EntityID: "ocitanje-2", NodeID: "admin-1",
+		SchemaVersion: 1, CreatedAt: od,
+		Payload: []byte("{ \"cm\" : 1.0 ,\n\t\"razina\" : 1e2 ,\n  \"slovo\" : \"\\u0041\" , \"kosa\" : \"a\\/b\" , \"manje\" : \"\\u003C\" }"),
 	})
+	for _, ostaje := range []string{`:1.0,`, `:1e2,`, `"\u0041"`, `"a\/b"`, `"\u003C"`} {
+		if !strings.Contains(v.PotpisVerzije.SadrzajSBrojevima.OblikSadrz, ostaje) {
+			t.Fatalf("oblik sadržaja nema %s kako je napisan: %s", ostaje, v.PotpisVerzije.SadrzajSBrojevima.OblikSadrz)
+		}
+	}
+	v.PotpisVerzije.RazdjelnikUPolju = vektorPotpisaVerzije(t, privA, protokol, PodaciVerzije{
+		VersionID: "019a2b3c-4d5e-7f00-8000-000000000004", Entity: "readings", EntityID: "ocitanje\u20283", NodeID: "admin-1",
+		Channel: "ocitanja\u202816", SchemaVersion: 1, CreatedAt: od, Payload: []byte(`{"cm":312}`),
+	})
+	if b := v.PotpisVerzije.RazdjelnikUPolju.Bajtovi; !strings.Contains(b, `"ocitanje\u20283"`) || !strings.Contains(b, `"ocitanja\u202816"`) {
+		t.Fatalf("U+2028 u potpisanim bajtovima nije zapisan kao \\u2028: %s", b)
+	}
 	v.PotpisVerzije.PosebniZnakovi = vektorPotpisaVerzije(t, privA, protokol, PodaciVerzije{
 		VersionID: "019a2b3c-4d5e-7f00-8000-000000000002", Entity: "readings", EntityID: "ocitanje-1", NodeID: ime,
 		Supersedes: "019a2b3c-4d5e-7f00-8000-000000000001", Archived: true, Channel: "ocitanja/16/2026",
