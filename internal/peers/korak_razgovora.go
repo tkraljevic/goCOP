@@ -45,32 +45,47 @@ type PrijavaKoraka struct {
 	Korak           DodatniKorak
 }
 
-// DodatniKorak je ono što aplikacija daje uz prijavu
+// DodatniKorak je ono što aplikacija daje uz prijavu.
+//
+// Korak ne smije paničariti, ni ovdje ni u TijekKoraka. Na dolaznom
+// razgovoru panika prekine samo taj razgovor (recover u razmjena:
+// primiTLS, primiQUIC i tok WEB synca). Na odlaznom razgovoru biblioteka
+// paniku ne hvata, pa ona ide do onoga tko je razmjenu pokrenuo. Kad
+// razmjena ide kroz syncPeers (krug u pozadini, SyncDue, SyncAll), to
+// sruši cijeli čvor. Isto je danas i za OnApplied.
 type DodatniKorak interface {
 	// Zapocni se zove iza upisa verzija, samo kad Dogovor prođe. Netipiziran
 	// nil znači da korak u ovom razgovoru ne radi.
 	Zapocni(ctx context.Context, v VezaKoraka) TijekKoraka
 	// Odbaci dobije stavke vrste koraka iz razgovora u kojem korak ne radi;
-	// zove se samo kad je stigla barem jedna
+	// zove se samo kad je stigla barem jedna. Ni ove stavke biblioteka ne
+	// provjerava (TijekKoraka.Primi).
 	Odbaci(stavke []StavkaKoraka)
 }
 
 // TijekKoraka je jedan razgovor koraka. Biblioteka ga zove iz goroutine
 // razgovora ovim redom: Trazi; Izdvoji i Daj (pozivatelj prije primanja,
 // pozvani nakon svog Primi); Primi; ImaJos. Zavrsi se zove uvijek, odmah
-// iza Zapocni kao defer.
+// iza Zapocni kao defer. Za paniku vrijedi isto što i uz DodatniKorak.
 type TijekKoraka interface {
 	// Trazi su otisci koje korak traži, iza želja spremišta; od njih ide
-	// najviše o.Stavki, a višak biblioteka odreže
+	// najviše o.Stavki, a višak biblioteka odreže. Odrezani otisci nisu
+	// traženi, a korak to ne dozna: kad pamti što je tražio, neka da
+	// najviše o.Stavki.
 	Trazi(o Ostatak) []string
 	// Izdvoji odvoji otiske koraka od ostalih; ostali idu spremištu
 	Izdvoji(otisci []string) (moji, ostali []string)
 	// Daj su stavke koraka za tražene otiske, iza stavki spremišta. Ide ih
 	// redom dok stanu u o (bajtovi po len(Podaci) i broj stavki); od prve
-	// koja ne stane biblioteka ostatak odreže.
+	// koja ne stane biblioteka ostatak odreže. Ni to korak ne dozna: kad
+	// broji poslano, neka da samo ono što stane u o.
 	Daj(otisci []string, o Ostatak) []StavkaKoraka
 	// Primi dobije primljene stavke koraka nakon upisa spremišta, i kad
-	// nije stigla nijedna
+	// nije stigla nijedna. Biblioteka stavke ne provjerava. Dobije sve
+	// stavke vrste koraka koje su stigle: i one koje je Trazi dao, a
+	// biblioteka ih je odrezala iz želja, i one koje nitko nije tražio.
+	// Korak sam provjeri je li stavku tražio, odgovaraju li Podaci otisku i
+	// je li duljina dobra.
 	Primi(stavke []StavkaKoraka)
 	// ImaJos se pita samo kad je sadržaj razmijenjen, prije kraja
 	ImaJos() bool
@@ -259,7 +274,9 @@ func (s *Service) stavkeKoraka(stavke []StavkaKoraka) []stavkaSadrzaja {
 
 // predajKoraku preda primljene stavke koraka koraku koji u razgovoru radi,
 // i kad nije stigla nijedna. Kad korak ne radi, a stavke su stigle, ide mu
-// Odbaci.
+// Odbaci. Stavke se ovdje ne provjeravaju: idu i one koje je
+// otisciUOstatku izrezao iz želja i one koje nitko nije tražio. Traženo,
+// otisak i duljinu provjerava korak (TijekKoraka.Primi).
 func (r *razgovorSCvorom) predajKoraku(stavke []stavkaSadrzaja) {
 	if r.korak != nil {
 		r.korak.Primi(stavkeZaKorak(stavke))

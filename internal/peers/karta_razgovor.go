@@ -78,7 +78,9 @@ type tijekKarte struct {
 }
 
 // Trazi su dijelovi karte koji ovdje nedostaju, do onoga što od ograde
-// ostane i do ograde puta
+// ostane i do ograde puta. zeljeni daje najviše o.Stavki, pa biblioteka
+// ništa ne odreže (otisciUOstatku) i mojiDijelovi su baš ono što je
+// traženo.
 func (t *tijekKarte) Trazi(o Ostatak) []string {
 	t.mojiDijelovi = t.d.zeljeni(min(ogradaDijelovaPoPutu(t.v), o.Bajtova), o.Stavki)
 	return t.mojiDijelovi
@@ -90,7 +92,11 @@ func (t *tijekKarte) Izdvoji(otisci []string) (moji, ostali []string) {
 }
 
 // Daj su traženi dijelovi koji su ovdje, do onoga što od ograde ostane i do
-// ograde puta
+// ograde puta. poslano se broji prije nego što biblioteka reže
+// (stavkeUOstatku), a broj je ipak točan: dijeloviZaSlanje staje u o istim
+// pravilom (budžet ne veći od o.Bajtova, najviše o.Stavki, kraj na prvom
+// dijelu koji ne stane), pa biblioteka ništa ne odreže
+// (TestDajKarteStajeUOstatak). Isto je brojao i 0.0.71.
 func (t *tijekKarte) Daj(otisci []string, o Ostatak) []StavkaKoraka {
 	stavke := dijeloviZaSlanje(t.d, otisci, min(ogradaDijelovaPoPutu(t.v), o.Bajtova), o.Stavki)
 	t.poslano = len(stavke)
