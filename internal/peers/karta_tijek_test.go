@@ -1,11 +1,12 @@
-package peers
+package peers_test
 
 // Tijek razgovora s dijelovima karte, poruku po poruku i za obje uloge, kao
 // u razgovor_tijek_test.go. Druga strana (skripta) javlja oznaku
 // dijelovi-karte/1, pa želje čvora nose otiske dijelova koji mu nedostaju,
 // a sadržaj čvora dijelove koje druga strana traži. Bez oznake (skripta
 // 0.0.38) poruke su iste kao prije, i kad čvor kartu treba ili je ima
-// (TestTijekBezOznakeNemaDijelovaKarte).
+// (TestTijekBezOznakeNemaDijelovaKarte). Testovi trebaju dva čvora, pa su
+// izvan paketa (karta_pomoc_test.go).
 
 import (
 	"encoding/base64"
@@ -15,6 +16,7 @@ import (
 
 	"gocop/internal/ledger"
 	"gocop/internal/models"
+	"gocop/internal/peers"
 	"gocop/internal/razmjena"
 )
 
@@ -46,7 +48,7 @@ func dijeloviDrugog(k models.VektorskaKarta, b []byte, redom ...int) potez {
 	var m sadrzajMsg
 	for _, i := range redom {
 		d := dio(k, b, i)
-		m.Stavke = append(m.Stavke, stavkaSadrzaja{Otisak: k.Dijelovi[i], Vrsta: VrstaDijelaKarte, Bajtova: len(d), Podaci: d})
+		m.Stavke = append(m.Stavke, stavkaSadrzaja{Otisak: k.Dijelovi[i], Vrsta: peers.VrstaDijelaKarte, Bajtova: len(d), Podaci: d})
 	}
 	return salje(kindSadrzaj, m)
 }
@@ -84,10 +86,9 @@ func granicaSKartomCvora(k models.VektorskaKarta, slozena bool) string {
 }
 
 // kartaCvora je redak zapisa: koliko dijelova karte čvor ima i je li složena
-func kartaCvora(s *Service) func() []string {
+func kartaCvora(s *peers.Service) func() []string {
 	return func() []string {
-		d := s.karte.Load()
-		d.pozadina.Wait()
+		peers.CekajKartu(s.PrijenosKarte())
 		st := s.StanjeKarte(ctxRub)
 		return []string{fmt.Sprintf("karta %d od %d, složena %v", st.Dijelova, st.Svih, st.Slozena)}
 	}
@@ -113,9 +114,9 @@ func TestTijekDijeloviKarte(t *testing.T) {
 			{ime: "druga strana šalje netraženo i krivo", pripremi: trazi, nakon: kartaCvora(s), ishod: append(ishod, "karta 1 od 8, složena false"),
 				potezi: tokKarte(pozivatelj, granicaSKartomCvora(k, false), granicaSKartom, zeljeDijelovaCvora(k.Dijelovi), sadrzajPrazan, salje(kindZelje, zeljeMsg{}),
 					salje(kindSadrzaj, sadrzajMsg{Stavke: []stavkaSadrzaja{
-						{Otisak: k.Dijelovi[0], Vrsta: VrstaDijelaKarte, Podaci: dio(k, b, 1)},
-						{Otisak: strings.Repeat("ab", 32), Vrsta: VrstaDijelaKarte, Podaci: dio(k, b, 1)},
-						{Otisak: k.Dijelovi[2], Vrsta: VrstaDijelaKarte, Podaci: dio(k, b, 2)},
+						{Otisak: k.Dijelovi[0], Vrsta: peers.VrstaDijelaKarte, Podaci: dio(k, b, 1)},
+						{Otisak: strings.Repeat("ab", 32), Vrsta: peers.VrstaDijelaKarte, Podaci: dio(k, b, 1)},
+						{Otisak: k.Dijelovi[2], Vrsta: peers.VrstaDijelaKarte, Podaci: dio(k, b, 2)},
 					}}))},
 		})
 	}

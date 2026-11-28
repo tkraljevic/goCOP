@@ -178,7 +178,7 @@ func (h *AktiHandler) kartaIzDatoteke(r *http.Request, br *bufio.Reader, mapa st
 	if err != nil {
 		return models.VektorskaKarta{}, err
 	}
-	return h.peers.UveziKartu(r.Context(), tmp, mapa)
+	return peers.UveziKartu(r.Context(), h.peers, tmp, mapa)
 }
 
 // HandleIzveziKartu daje potpisani paket zadane karte za druga računala
@@ -190,7 +190,7 @@ func (h *AktiHandler) HandleIzveziKartu(w http.ResponseWriter, r *http.Request) 
 	}
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", `attachment; filename="`+peers.ImePaketaKarte(*k)+`"`)
-	if _, err := h.peers.IzveziKartu(*k, peers.PutKarte(mapaKarataCvora(), k.Otisak), w); err != nil {
+	if _, err := peers.IzveziKartu(h.peers.Node(), *k, peers.PutKarte(mapaKarataCvora(), k.Otisak), w); err != nil {
 		// zaglavlje je već poslano: preglednik dobije krnju datoteku, a
 		// uvoz je odbije po otisku
 		return

@@ -5,30 +5,10 @@ import (
 	"bytes"
 	"io"
 	"os"
-	"reflect"
 	"strings"
 	"testing"
 	"testing/iotest"
 )
-
-// Paket može imati valjan potpis manifesta, a pogrešne bajtove karte.
-// Odbijanje takvog paketa ne smije obrisati kartu koju čvor već koristi.
-func TestPaketKarteNeBrisePostojecuKartuKadOtisakNeOdgovara(t *testing.T) {
-	a, b := izdavacIPrimatelj(t)
-	mapaA, mapaB := t.TempDir(), t.TempDir()
-	k := spremiProbnuKartu(t, mapaA)
-	put := izveziKartu(t, a, k, mapaA)
-	postojeciBajtovi := append(probnaKarta(1), 'x')
-	postojeca, err := SpremiKartu(bytes.NewReader(postojeciBajtovi), mapaB, "Postojeća", "proba")
-	if err != nil {
-		t.Fatal(err)
-	}
-	pogresan := prepakiraj(t, put, nil, postojeciBajtovi)
-	if _, err := b.UveziKartu(ctxRub, pogresan, mapaB); err == nil || !strings.Contains(err.Error(), "ne odgovara otisku") {
-		t.Fatalf("paket s pogrešnom kartom: %v", err)
-	}
-	provjeriJedinuKartu(t, mapaB, postojeca.Otisak, postojeciBajtovi)
-}
 
 // Potpisani opis ima točan otisak, a krivu veličinu. Odbijanje ne smije
 // obrisati kartu tog otiska koja je već na čvoru.
@@ -46,22 +26,6 @@ func TestKrivaVelicinaNeBriseKartuIstogOtiska(t *testing.T) {
 		t.Fatalf("kriva veličina: %v", err)
 	}
 	provjeriJedinuKartu(t, mapa, k.Otisak, probnaKarta(1))
-}
-
-// Ponovljen uvoz istog paketa ostavlja jednu potpunu kartu, bez novih
-// privremenih datoteka, s istim opisom i otiscima dijelova.
-func TestPonovljeniUvozKarteNeOstavljaDuplikate(t *testing.T) {
-	a, b := izdavacIPrimatelj(t)
-	mapaA, mapaB := t.TempDir(), t.TempDir()
-	k := spremiProbnuKartu(t, mapaA)
-	put := izveziKartu(t, a, k, mapaA)
-	for i := range 2 {
-		dobio, err := b.UveziKartu(ctxRub, put, mapaB)
-		if err != nil || !reflect.DeepEqual(dobio, k) {
-			t.Fatalf("uvoz %d: %+v, %v", i+1, dobio, err)
-		}
-		provjeriJedinuKartu(t, mapaB, k.Otisak, probnaKarta(1))
-	}
 }
 
 // Prekid čitanja uklanja samo nedovršeno učitavanje. Ista mapa već može

@@ -3,9 +3,10 @@ package peers
 // Dijelovi karte u razgovoru (karta_dijelovi.go), kao dodatni korak
 // razgovora (korak_razgovora.go): oznaka dijelovi-karte/1, vrsta karta-dio.
 // Korak traži i daje dijelove iza PDF-ova, u ostatku iste ograde od 48 MiB
-// i 200 stavki, najviše do ograde puta (ogradaDijelovaPoPutu), koju
+// i 200 stavki, najviše do ograde puta (ogradeKarte.poPutu), koju
 // primatelj primijeni na svoje želje, a pošiljatelj istom funkcijom na ono
-// što daje. O vezi zna samo ono što daje VezaKoraka.
+// što daje. O vezi zna samo ono što daje VezaKoraka, a razmjenu koristi
+// samo kroz njezino javno sučelje (Prijavi).
 //
 // Dok je na ovom računalu proglašen stadij obrane, dijelovi idu samo s
 // računalom u istoj lokalnoj mreži, ista kuća ili ured (IstaLokalnaMreza),
@@ -27,48 +28,60 @@ import (
 	"gocop/internal/razmjena"
 )
 
-// Ograde dijelova karte po razgovoru, po putu veze; var, da ih test smanji.
-// Uz tunel i probijanje poruka od 8 MiB (kao base64 oko 11 MB) stane u rok
+// ogradeKarte su ograde dijelova karte po razgovoru, po putu veze
+type ogradeKarte struct {
+	lan      int64 // lokalna mreža
+	internet int64 // Tailscale i javna adresa
+	tunel    int64 // tunel i probijanje
+}
+
+// zadaneOgrade dobije svaki novi prijenos karte; var, da ih test smanji. Uz
+// tunel i probijanje poruka od 8 MiB (kao base64 oko 11 MB) stane u rok
 // slanja od 60 s već uz oko 1,5 Mbit/s.
-var (
-	ogradaDijelovaLAN       int64 = 48 << 20 // lokalna mreža
-	ogradaDijelovaInternet  int64 = 16 << 20 // Tailscale i javna adresa
-	ogradaDijelovaTunel     int64 = 8 << 20  // tunel i probijanje
-	najviseRazgovoraZaKartu       = 8        // dodatnih razgovora zbog karte u jednom krugu
-)
+var zadaneOgrade = ogradeKarte{lan: 48 << 20, internet: 16 << 20, tunel: 8 << 20}
 
-// korakKarte je PRIVREMENA prijava dijelova karte koju napravi NewService,
-// da oznaka dijelovi-karte/1 ide u granicu i bez PostaviKarte, kao i prije
-// prijave koraka. Prijenos karte čita iz s.karte tek kad razgovor počne,
-// jer PostaviKarte dolazi poslije NewService.
-type korakKarte struct{ s *Service }
+// najviseRazgovoraZaKartu je koliko dodatnih razgovora zbog karte smije
+// doći u jednom krugu
+const najviseRazgovoraZaKartu = 8
 
-// prijavaKarte je prijava koju NewService napravi za kartu
-func prijavaKarte(s *Service) PrijavaKoraka {
-	return PrijavaKoraka{Oznaka: razmjena.OznakaDijeloviKarte, Vrsta: VrstaDijelaKarte,
-		NajviseDodatnih: najviseRazgovoraZaKartu, Korak: korakKarte{s}}
-}
+// errNijeNoviPrijenos: prijenos nema ograda, jer nije napravljen s
+// NoviPrijenosKarte
+var errNijeNoviPrijenos = errors.New("prijenos karte nije napravljen s NoviPrijenosKarte")
 
-// dopunaKarte je PRIVREMENA dopuna znanja koju postavi NewService: polje
-// karta u granici i u pozdravu WEB synca (znanjeKarte), kao i prije dopune.
-// Prijenos karte čita iz s.karte tek kad se znanje slaže, iz istog razloga
-// kao korakKarte.
-func dopunaKarte(s *Service) func(*razmjena.Znanje) {
-	return func(z *razmjena.Znanje) { z.Karta = s.znanjeKarte() }
-}
-
-// Zapocni: razgovor prenosi dijelove karte kad postoji prijenos karte
-// (PostaviKarte) i, dok traje obrana, kad je druga strana u istoj lokalnoj
-// mreži (Odluke (30. 10. 2026.))
-func (k korakKarte) Zapocni(ctx context.Context, v VezaKoraka) TijekKoraka {
-	d := k.s.karte.Load()
-	if d == nil {
-		return nil
+// Prijavi prijavi prijenos razmjeni kao dodatni korak razgovora (oznaka
+// dijelovi-karte/1, vrsta karta-dio) i dopunom znanja daje polje karta u
+// granici i u pozdravu WEB synca. Zove se jednom, poslije PostaviProtokol
+// i prije Serve. Prijenos koji nije napravljen s NoviPrijenosKarte (nulta
+// vrijednost, i uz Postavi) nema ograda po putu i ne bi tražio ni dao
+// nijedan dio, pa ga Prijavi odbije. Ograde daje samo NoviPrijenosKarte, i
+// to uvijek uz stanje, pa prijenos s ogradama ima i stanje.
+func (p *PrijenosKarte) Prijavi(s *Service) error {
+	if p.ograde == (ogradeKarte{}) {
+		return errNijeNoviPrijenos
 	}
+	if err := s.PrijaviKorak(PrijavaKoraka{Oznaka: razmjena.OznakaDijeloviKarte, Vrsta: VrstaDijelaKarte,
+		NajviseDodatnih: najviseRazgovoraZaKartu, Korak: korakKarte{p}}); err != nil {
+		return err
+	}
+	s.DopuniZnanje(func(z *razmjena.Znanje) { z.Karta = p.Znanje() })
+	return nil
+}
+
+// korakKarte su dijelovi karte kao dodatni korak razgovora. Stanje prijenosa
+// čita tek kad razgovor počne, jer ga Postavi može zamijeniti.
+type korakKarte struct{ p *PrijenosKarte }
+
+// Zapocni: razgovor prenosi dijelove karte, a dok traje obrana samo kad je
+// druga strana u istoj lokalnoj mreži (Odluke (30. 10. 2026.)). Stanje
+// prijenosa tu uvijek postoji: Prijavi prima samo prijenos s ogradama, a
+// njega je napravio NoviPrijenosKarte, koji odmah postavi i stanje;
+// Postavi ga samo zamijeni.
+func (k korakKarte) Zapocni(ctx context.Context, v VezaKoraka) TijekKoraka {
+	d := k.p.d.Load()
 	if !v.IstaLokalnaMreza() && d.obrana(ctx) {
 		return nil
 	}
-	return &tijekKarte{d: d, v: v}
+	return &tijekKarte{d: d, v: v, ograde: k.p.ograde}
 }
 
 // Odbaci: dijelove iz razgovora u kojem karta ne ide nitko nije tražio
@@ -76,11 +89,13 @@ func (korakKarte) Odbaci(stavke []StavkaKoraka) {
 	zapisiOdbacene(len(stavke), errNetrazenDio)
 }
 
-// tijekKarte su dijelovi karte u jednom razgovoru: mojiDijelovi su dijelovi
-// koje je ovaj čvor zatražio, a brojači koliko ih je poslano i upisano
+// tijekKarte su dijelovi karte u jednom razgovoru: ograde prijenosa,
+// mojiDijelovi su dijelovi koje je ovaj čvor zatražio, a brojači koliko ih
+// je poslano i upisano
 type tijekKarte struct {
 	d                  *dijeloviKarte
 	v                  VezaKoraka
+	ograde             ogradeKarte
 	mojiDijelovi       []string
 	poslano, primljeno int
 }
@@ -90,7 +105,7 @@ type tijekKarte struct {
 // ništa ne odreže (otisciUOstatku) i mojiDijelovi su baš ono što je
 // traženo.
 func (t *tijekKarte) Trazi(o Ostatak) []string {
-	t.mojiDijelovi = t.d.zeljeni(min(ogradaDijelovaPoPutu(t.v), o.Bajtova), o.Stavki)
+	t.mojiDijelovi = t.d.zeljeni(min(t.ograde.poPutu(t.v), o.Bajtova), o.Stavki)
 	return t.mojiDijelovi
 }
 
@@ -106,7 +121,7 @@ func (t *tijekKarte) Izdvoji(otisci []string) (moji, ostali []string) {
 // dijelu koji ne stane), pa biblioteka ništa ne odreže
 // (TestDajKarteStajeUOstatak). Isto je brojao i 0.0.71.
 func (t *tijekKarte) Daj(otisci []string, o Ostatak) []StavkaKoraka {
-	stavke := dijeloviZaSlanje(t.d, otisci, min(ogradaDijelovaPoPutu(t.v), o.Bajtova), o.Stavki)
+	stavke := dijeloviZaSlanje(t.d, otisci, min(t.ograde.poPutu(t.v), o.Bajtova), o.Stavki)
 	t.poslano = len(stavke)
 	return stavke
 }
@@ -152,16 +167,15 @@ func zapisiOdbacene(odbaceno int, zadnja error) {
 // tražio
 var errNetrazenDio = errors.New("dio nije tražen")
 
-// ogradaDijelovaPoPutu je koliko bajtova dijelova karte ide jednim
-// razgovorom tim putem
-func ogradaDijelovaPoPutu(v VezaKoraka) int64 {
+// poPutu je koliko bajtova dijelova karte ide jednim razgovorom tim putem
+func (o ogradeKarte) poPutu(v VezaKoraka) int64 {
 	switch {
 	case v.LokalnaMreza():
-		return ogradaDijelovaLAN
+		return o.lan
 	case v.Put() == razmjena.PutTailscale || v.Put() == razmjena.PutAdresa:
-		return ogradaDijelovaInternet
+		return o.internet
 	}
-	return ogradaDijelovaTunel
+	return o.tunel
 }
 
 // dijeloviZaSlanje su traženi dijelovi koji su ovdje, do budžeta bajtova i

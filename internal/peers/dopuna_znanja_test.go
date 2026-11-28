@@ -19,19 +19,20 @@ func cvorSKartom(t *testing.T, id string, sjeme uint32) *Service {
 	o.postavi(&k)
 	s := rubniCvor(t, id)
 	s.PostaviKarte(izvor, o.citaj, nil)
-	smiri(s.karte.Load())
+	smiri(s.karte.Load().d.Load())
 	if z := s.znanjeKarte(); z == nil || z.Otisak != k.Otisak || !z.Slozena {
 		t.Fatalf("znanje o karti: %+v", z)
 	}
 	return s
 }
 
-// NewService postavi dopunu karte: polje karta u granici i u pozdravu WEB
-// synca je ono što daje znanjeKarte, kao i prije dopune
-func TestDopuniZnanjeNewServiceDajeKartu(t *testing.T) {
+// Dopunu karte više ne postavlja NewService, nego PostaviKarte: bez nje
+// granica nema polje karta, kao i prije, a s njom je polje karta u granici
+// i u pozdravu WEB synca ono što daje znanjeKarte, kao i prije dopune
+func TestDopuniZnanjeKartuDajePostaviKarte(t *testing.T) {
 	s := rubniCvor(t, "cop-osijek")
-	if s.dopunaZnanja.Load() == nil {
-		t.Fatal("NewService nije postavio dopunu znanja")
+	if s.dopunaZnanja.Load() != nil {
+		t.Fatal("NewService je postavio dopunu znanja")
 	}
 	if z := s.mojeZnanje(ctxRub); z.Karta != nil {
 		t.Errorf("bez prijenosa karte: %+v", z.Karta)
@@ -178,13 +179,13 @@ func TestZnanjeKarteVecOcisceno(t *testing.T) {
 
 	bezKarte := rubniCvor(t, "laptop-baranja")
 	bezKarte.PostaviKarte(t.TempDir(), (&opisKarte{}).citaj, nil)
-	smiri(bezKarte.karte.Load())
+	smiri(bezKarte.karte.Load().d.Load())
 
 	uPrijenosu := rubniCvor(t, "ured-vukovar")
 	o := &opisKarte{}
 	o.postavi(&k)
 	uPrijenosu.PostaviKarte(t.TempDir(), o.citaj, nil)
-	d := uPrijenosu.karte.Load()
+	d := uPrijenosu.karte.Load().d.Load()
 	smiri(d)
 	for i := range 3 {
 		if err := d.upisi(k.Dijelovi[i], dio(k, b, i)); err != nil {
@@ -195,13 +196,13 @@ func TestZnanjeKarteVecOcisceno(t *testing.T) {
 
 	slozena := rubniCvor(t, "laptop-vinkovci")
 	slozena.PostaviKarte(izvor, o.citaj, nil)
-	smiri(slozena.karte.Load())
+	smiri(slozena.karte.Load().d.Load())
 
 	odbacen := rubniCvor(t, "ured-zupanja")
 	ok := &opisKarte{}
 	ok.postavi(&kriv)
 	odbacen.PostaviKarte(t.TempDir(), ok.citaj, nil)
-	d = odbacen.karte.Load()
+	d = odbacen.karte.Load().d.Load()
 	smiri(d)
 	for i := range kriv.Dijelovi {
 		if err := d.upisi(kriv.Dijelovi[i], dio(kriv, b, i)); err != nil {

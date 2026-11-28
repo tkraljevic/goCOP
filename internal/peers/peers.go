@@ -129,8 +129,9 @@ type Service struct {
 	// (korak_razgovora.go); josKoraka isto po čvoru, iz zadnjeg SyncWith
 	korakTece sync.Map // *razmjena.Conn → bool
 	josKoraka sync.Map // nodeID → bool
-	// karte je prijenos karte bez interneta (PostaviKarte); nil bez njega
-	karte atomic.Pointer[dijeloviKarte]
+	// karte je prijenos karte bez interneta (PostaviKarte, spoj_karte.go);
+	// nil bez njega
+	karte atomic.Pointer[PrijenosKarte]
 	// korak je prijavljeni dodatni korak razgovora (PrijaviKorak); nil bez
 	// prijave
 	korak atomic.Pointer[PrijavaKoraka]
@@ -331,10 +332,6 @@ func NewService(db *sql.DB, rec *ledger.Recorder, node *Node, ports Ports) (*Ser
 	s.ogradaPorta.KadOdbije(s.naVratima(PutVrataPort))
 	s.ogradaTunela.KadOdbije(s.naVratima(PutVrataTunel))
 	s.ogradaWeb.KadOdbije(s.naVratima(PutVrataWeb))
-	// prijava karte je stalna, a da prolazi PrijaviKorak, provjerava test
-	karta := prijavaKarte(s)
-	s.korak.Store(&karta)
-	s.DopuniZnanje(dopunaKarte(s))
 	if err := s.loadNetwork(); err != nil {
 		return nil, err
 	}
