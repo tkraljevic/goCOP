@@ -48,32 +48,47 @@ type PrijavaKoraka struct {
 	Korak           DodatniKorak
 }
 
-// DodatniKorak je ono što aplikacija daje uz prijavu
+// DodatniKorak je ono što aplikacija daje uz prijavu.
+//
+// Korak ne smije paničariti, ni ovdje ni u TijekKoraka. Na dolaznom
+// razgovoru panika prekine samo taj razgovor (recover u razmjena:
+// primiTLS, primiQUIC i tok WEB synca). Na odlaznom razgovoru biblioteka
+// paniku ne hvata, pa ona ide do onoga tko je razmjenu pokrenuo. Kad
+// razmjena ide kroz syncPeers (krug u pozadini, SyncDue, SyncAll), to
+// sruši cijeli čvor. Isto je danas i za OnApplied.
 type DodatniKorak interface {
 	// Zapocni se zove iza upisa verzija, samo kad Dogovor prođe. Netipiziran
 	// nil znači da korak u ovom razgovoru ne radi.
 	Zapocni(ctx context.Context, v VezaKoraka) TijekKoraka
 	// Odbaci dobije stavke vrste koraka iz razgovora u kojem korak ne radi;
-	// zove se samo kad je stigla barem jedna
+	// zove se samo kad je stigla barem jedna. Ni ove stavke biblioteka ne
+	// provjerava (TijekKoraka.Primi).
 	Odbaci(stavke []StavkaKoraka)
 }
 
 // TijekKoraka je jedan razgovor koraka. Biblioteka ga zove iz goroutine
 // razgovora ovim redom: Trazi; Izdvoji i Daj (pozivatelj prije primanja,
 // pozvani nakon svog Primi); Primi; ImaJos. Zavrsi se zove uvijek, odmah
-// iza Zapocni kao defer.
+// iza Zapocni kao defer. Za paniku vrijedi isto što i uz DodatniKorak.
 type TijekKoraka interface {
 	// Trazi su otisci koje korak traži, iza želja spremišta; od njih ide
-	// najviše o.Stavki, a višak biblioteka odreže
+	// najviše o.Stavki, a višak biblioteka odreže. Odrezani otisci nisu
+	// traženi, a korak to ne dozna: kad pamti što je tražio, neka da
+	// najviše o.Stavki.
 	Trazi(o Ostatak) []string
 	// Izdvoji odvoji otiske koraka od ostalih; ostali idu spremištu
 	Izdvoji(otisci []string) (moji, ostali []string)
 	// Daj su stavke koraka za tražene otiske, iza stavki spremišta. Ide ih
 	// redom dok stanu u o (bajtovi po len(Podaci) i broj stavki); od prve
-	// koja ne stane biblioteka ostatak odreže.
+	// koja ne stane biblioteka ostatak odreže. Ni to korak ne dozna: kad
+	// broji poslano, neka da samo ono što stane u o.
 	Daj(otisci []string, o Ostatak) []StavkaKoraka
 	// Primi dobije primljene stavke koraka nakon upisa spremišta, i kad
-	// nije stigla nijedna
+	// nije stigla nijedna. Biblioteka stavke ne provjerava. Dobije sve
+	// stavke vrste koraka koje su stigle: i one koje je Trazi dao, a
+	// biblioteka ih je odrezala iz želja, i one koje nitko nije tražio.
+	// Korak sam provjeri je li stavku tražio, odgovaraju li Podaci otisku i
+	// je li duljina dobra.
 	Primi(stavke []StavkaKoraka)
 	// ImaJos se pita samo kad je sadržaj razmijenjen, prije kraja
 	ImaJos() bool
@@ -110,12 +125,14 @@ type VezaKoraka interface {
 	IstaLokalnaMreza() bool
 }
 
-// imenaBiblioteke su imena oznaka koje daje sama biblioteka. Popis je
-// stalan i ne gleda NaseMogucnosti, jer je u njoj zasad i oznaka dijelova
-// karte.
+// imenaBiblioteke su imena oznaka koje daje ili čuva sama biblioteka:
+// imena iz NaseMogucnosti osim dijelova karte, web i sadrzaj (rezervirano
+// za roj, razmjena/mogucnosti.go). Popis je stalan i ne gleda
+// NaseMogucnosti, jer je u njoj zasad i oznaka dijelova karte; da ne
+// zaostane za njom, provjerava test.
 var imenaBiblioteke = []string{
 	strings.TrimSuffix(razmjena.OznakaRazmjena, "/1"), razmjena.ImeGranicaOdbijenih, razmjena.ImeRupe,
-	razmjena.ImePotpisVerzije, razmjena.ImeWeb,
+	razmjena.ImePotpisVerzije, razmjena.ImeWeb, "sadrzaj",
 }
 
 // Greške prijave koraka
@@ -131,9 +148,17 @@ var (
 // prijave. Zasad smije biti samo jedan korak, pa je druga prijava greška;
 // više koraka može doći bez promjene sučelja. Greška je i neispravna
 // oznaka (razmjena.ProvjeriOznaku), ime oznake biblioteke, oznaka s imenom
-// protokola (osim oznake koju biblioteka već objavljuje), prazna vrsta,
-// NajviseDodatnih manji od nule i korak bez vrijednosti. Vrsta ne smije biti vrsta sadržaja iz spremišta
-// (PrijavaKoraka.Vrsta); to se ne provjerava.
+// protokola (ime protokola kao cijeli dio imena oznake, imaDio, osim
+// oznake koju biblioteka već objavljuje, oznakaSProtokolom), prazna
+// vrsta, NajviseDodatnih manji od nule i korak bez vrijednosti. Vrsta ne
+// smije biti vrsta sadržaja iz spremišta (PrijavaKoraka.Vrsta); to se ne
+// provjerava.
+//
+// Ime protokola je ono iz protokol(), isto kojim idu CN, ALPN,
+// pronalaženje i potpis verzije: zadano s PostaviProtokol, a bez njega
+// Protocol. PRIJELAZNO do N05c, dok biblioteka ima zadano ime protokola.
+// Uz zadano ime Protocol se ne gleda, jer tada ne ide u mrežu, pa uz
+// gocop-sim prolazi gocop-korak/1.
 func (s *Service) PrijaviKorak(p PrijavaKoraka) error {
 	if err := s.provjeriPrijavu(p); err != nil {
 		return err
@@ -152,7 +177,7 @@ func (s *Service) provjeriPrijavu(p PrijavaKoraka) error {
 		return err
 	case slices.Contains(imenaBiblioteke, ime):
 		return fmt.Errorf("%w: %s", ErrOznakaBiblioteke, p.Oznaka)
-	case s.oznakaSProtokolom(p.Oznaka):
+	case s.oznakaSProtokolom(ime, p.Oznaka):
 		return fmt.Errorf("%w: %s", ErrOznakaSProtokolom, p.Oznaka)
 	case p.Vrsta == "":
 		return fmt.Errorf("%w: nema vrste stavke", ErrNeispravanKorak)
@@ -164,33 +189,43 @@ func (s *Service) provjeriPrijavu(p PrijavaKoraka) error {
 	return nil
 }
 
-// oznakaSProtokolom: oznaka sadrži ime protokola, a nije oznaka iz
-// razmjena.NaseMogucnosti. Oznaku iz NaseMogucnosti biblioteka objavljuje
-// i bez prijave, pa za nju ime protokola u oznaci ne vrijedi. Inače bi uz
-// ime protokola koje je dio te oznake (npr. "karte" ili "e") oznaka i dalje
-// išla u granicu, a korak ne bi radio; prije nego što je korak išao kroz
+// oznakaSProtokolom: ime protokola je cijeli dio imena oznake (imaDio), a
+// oznaka nije iz razmjena.NaseMogucnosti. Oznaku iz NaseMogucnosti
+// biblioteka objavljuje i bez prijave, pa za nju ime protokola u oznaci ne
+// vrijedi. Inače bi uz ime protokola koje je cijeli dio imena te oznake
+// (npr. "karte" ili "dijelovi" za dijelovi-karte/1) oznaka i dalje išla u
+// granicu, a korak ne bi radio; prije nego što je korak išao kroz
 // PrijaviKorak, radio je uz svako ime (Odluke (28. 11. 2026.)).
 // PRIVREMENO: pitanje se vraća u PR-u 8, kad oznaka izlazi iz
-// NaseMogucnosti; tada treba odlučiti kako glasi pravilo o imenu protokola
-// u oznaci.
-func (s *Service) oznakaSProtokolom(oznaka string) bool {
-	return strings.Contains(oznaka, s.protokol()) && !slices.Contains(razmjena.NaseMogucnosti(), oznaka)
+// NaseMogucnosti; tada treba odlučiti vrijedi li iznimka i dalje.
+func (s *Service) oznakaSProtokolom(ime, oznaka string) bool {
+	return imaDio(ime, s.protokol()) && !slices.Contains(razmjena.NaseMogucnosti(), oznaka)
 }
 
 // DopuniZnanje je PRIVREMENO, dok se ne odluči kako korak javlja svoje
 // znanje: f upiše u prazno znanje ono što daje aplikacija, a biblioteka iz
-// njega uzme samo polje karta i doda ga znanju ovog čvora (mojeZnanje).
-// Ostala polja biblioteka piše sama, pa ih f ne može promijeniti. Znanje
-// ide u granicu i u pozdrav WEB synca. f se zove u svakom razgovoru i
-// pozdravu, možda istodobno iz više goroutina, pa mora biti siguran za
-// istodobne pozive i brz, bez čekanja na mrežu ili bazu. Nova dopuna
-// zamijeni staru, a nil je makne.
+// njega uzme samo polje karta, očisti ga kao kartu koju javi druga strana
+// (neispravan otisak daje nil, brojevi se ograde) i doda ga znanju ovog
+// čvora (mojeZnanje). Ostala polja biblioteka piše sama, pa ih f ne može
+// promijeniti. Znanje ide u granicu i u pozdrav WEB synca. f se zove u
+// svakom razgovoru i pozdravu, možda istodobno iz više goroutina, pa mora
+// biti siguran za istodobne pozive i brz, bez čekanja na mrežu ili bazu.
+// Nova dopuna zamijeni staru, a nil je makne.
 func (s *Service) DopuniZnanje(f func(*razmjena.Znanje)) {
 	if f == nil {
 		s.dopunaZnanja.Store(nil)
 		return
 	}
 	s.dopunaZnanja.Store(&f)
+}
+
+// imaDio kaže je li ime protokola cijeli dio imena oznake: imena se
+// rastave na dijelove odvojene crticom, a ime protokola mora biti jedan ili
+// više uzastopnih cijelih dijelova (Odluke (28. 11. 2026.)). Broj iza '/'
+// ne gleda se, pa uz ime protokola „1” prolazi x/1; uz „karte” pada
+// karte-x, a prolazi kartesko.
+func imaDio(ime, protokol string) bool {
+	return strings.Contains("-"+ime+"-", "-"+protokol+"-")
 }
 
 // prednost su oznake koje ovaj program objavljuje, bez web/1: oznake
@@ -273,7 +308,9 @@ func (s *Service) stavkeKoraka(stavke []StavkaKoraka) []stavkaSadrzaja {
 
 // predajKoraku preda primljene stavke koraka koraku koji u razgovoru radi,
 // i kad nije stigla nijedna. Kad korak ne radi, a stavke su stigle, ide mu
-// Odbaci.
+// Odbaci. Stavke se ovdje ne provjeravaju: idu i one koje je
+// otisciUOstatku izrezao iz želja i one koje nitko nije tražio. Traženo,
+// otisak i duljinu provjerava korak (TijekKoraka.Primi).
 func (r *razgovorSCvorom) predajKoraku(stavke []stavkaSadrzaja) {
 	if r.korak != nil {
 		r.korak.Primi(stavkeZaKorak(stavke))

@@ -1,8 +1,10 @@
 package peers
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 
@@ -72,7 +74,7 @@ func TestDopuniZnanje(t *testing.T) {
 
 	// dopuna dobije prazno znanje, a što upiše u polja biblioteke ne ide
 	// u granicu ni u pozdrav WEB synca
-	prva := &razmjena.ZnanjeKarte{Otisak: "prva"}
+	prva := &razmjena.ZnanjeKarte{Otisak: strings.Repeat("1", 64)}
 	var vidjela razmjena.Znanje
 	s.DopuniZnanje(func(z *razmjena.Znanje) {
 		vidjela = *z
@@ -91,15 +93,16 @@ func TestDopuniZnanje(t *testing.T) {
 		t.Errorf("dopuna nije dobila prazno znanje: %+v", vidjela)
 	}
 	if z := s.znanjeZaPozdrav(); !reflect.DeepEqual(z.Mogucnosti, biblioteke.Mogucnosti) || z.CekaNadogradnju != biblioteke.CekaNadogradnju ||
-		z.Karta == nil || z.Karta.Otisak != "prva" {
+		z.Karta == nil || z.Karta.Otisak != prva.Otisak {
 		t.Errorf("pozdrav WEB synca uz dopunu: %+v", z)
 	}
 
-	s.DopuniZnanje(func(z *razmjena.Znanje) { z.Karta = &razmjena.ZnanjeKarte{Otisak: "druga"} })
-	if z := s.mojeZnanje(ctxRub); z.Karta == nil || z.Karta.Otisak != "druga" {
+	druga := strings.Repeat("2", 64)
+	s.DopuniZnanje(func(z *razmjena.Znanje) { z.Karta = &razmjena.ZnanjeKarte{Otisak: druga} })
+	if z := s.mojeZnanje(ctxRub); z.Karta == nil || z.Karta.Otisak != druga {
 		t.Errorf("nova dopuna nije zamijenila staru: %+v", z.Karta)
 	}
-	if z := s.znanjeZaPozdrav(); z.Karta == nil || z.Karta.Otisak != "druga" {
+	if z := s.znanjeZaPozdrav(); z.Karta == nil || z.Karta.Otisak != druga {
 		t.Errorf("pozdrav WEB synca uz novu dopunu: %+v", z.Karta)
 	}
 }
@@ -131,4 +134,120 @@ func TestDopunaKarteIstodobno(t *testing.T) {
 	for g := range greske {
 		t.Error(g)
 	}
+}
+
+// Karta iz dopune ide na žicu očišćena kao karta koju javi druga strana
+// (Znanje.Ocisceno): neispravan otisak daje nil, a brojevi se ograde. Isto
+// vrijedi za granicu i za pozdrav WEB synca.
+func TestDopunaKarteOciscena(t *testing.T) {
+	otisak := strings.Repeat("ab", 32)
+	for _, c := range []struct {
+		opis      string
+		dopuna    *razmjena.ZnanjeKarte
+		ocekivano *razmjena.ZnanjeKarte
+	}{
+		{"bez karte", nil, nil},
+		{"nema karte", &razmjena.ZnanjeKarte{}, &razmjena.ZnanjeKarte{}},
+		{"ispravna", &razmjena.ZnanjeKarte{Otisak: otisak, Slozena: true, Dijelova: 8, Svih: 8}, &razmjena.ZnanjeKarte{Otisak: otisak, Slozena: true, Dijelova: 8, Svih: 8}},
+		{"kriv otisak", &razmjena.ZnanjeKarte{Otisak: "prva", Slozena: true, Dijelova: 1, Svih: 1}, nil},
+		{"velika slova", &razmjena.ZnanjeKarte{Otisak: strings.ToUpper(otisak)}, nil},
+		{"više dijelova nego svih", &razmjena.ZnanjeKarte{Otisak: otisak, Dijelova: 9, Svih: 5}, &razmjena.ZnanjeKarte{Otisak: otisak, Dijelova: 5, Svih: 5}},
+		{"brojevi izvan granica", &razmjena.ZnanjeKarte{Otisak: otisak, Dijelova: -1, Svih: 99999}, &razmjena.ZnanjeKarte{Otisak: otisak, Svih: 4096}},
+		{"složena bez otiska", &razmjena.ZnanjeKarte{Slozena: true, Dijelova: 2, Svih: 3}, &razmjena.ZnanjeKarte{Dijelova: 2, Svih: 3}},
+	} {
+		s := rubniCvor(t, "cop-osijek")
+		s.DopuniZnanje(func(z *razmjena.Znanje) { z.Karta = c.dopuna })
+		if z := s.mojeZnanje(ctxRub); !reflect.DeepEqual(z.Karta, c.ocekivano) {
+			t.Errorf("%s: u granici %+v, a očekivano %+v", c.opis, z.Karta, c.ocekivano)
+		}
+		if z := s.znanjeZaPozdrav(); !reflect.DeepEqual(z.Karta, c.ocekivano) {
+			t.Errorf("%s: u pozdravu WEB synca %+v, a očekivano %+v", c.opis, z.Karta, c.ocekivano)
+		}
+	}
+}
+
+// goCOP-ova karta (znanjeKarte) je već očišćena, pa čišćenje dopune u
+// granici i u pozdravu WEB synca ne mijenja nijedan bajt: bez prijenosa
+// karte, bez karte, dok se karta prenosi, kad je složena i kad je opis
+// odbačen
+func TestZnanjeKarteVecOcisceno(t *testing.T) {
+	k, b, izvor := kartaUDijelovima(t, 1000, 128, 47)
+	kriv := k
+	kriv.Otisak = strings.Repeat("ef", 32)
+
+	bezPrijenosa := rubniCvor(t, "cop-osijek")
+
+	bezKarte := rubniCvor(t, "laptop-baranja")
+	bezKarte.PostaviKarte(t.TempDir(), (&opisKarte{}).citaj, nil)
+	smiri(bezKarte.karte.Load().d.Load())
+
+	uPrijenosu := rubniCvor(t, "ured-vukovar")
+	o := &opisKarte{}
+	o.postavi(&k)
+	uPrijenosu.PostaviKarte(t.TempDir(), o.citaj, nil)
+	d := uPrijenosu.karte.Load().d.Load()
+	smiri(d)
+	for i := range 3 {
+		if err := d.upisi(k.Dijelovi[i], dio(k, b, i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	d.pozadina.Wait()
+
+	slozena := rubniCvor(t, "laptop-vinkovci")
+	slozena.PostaviKarte(izvor, o.citaj, nil)
+	smiri(slozena.karte.Load().d.Load())
+
+	odbacen := rubniCvor(t, "ured-zupanja")
+	ok := &opisKarte{}
+	ok.postavi(&kriv)
+	odbacen.PostaviKarte(t.TempDir(), ok.citaj, nil)
+	d = odbacen.karte.Load().d.Load()
+	smiri(d)
+	for i := range kriv.Dijelovi {
+		if err := d.upisi(kriv.Dijelovi[i], dio(kriv, b, i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	d.pozadina.Wait()
+
+	for _, c := range []struct {
+		opis      string
+		s         *Service
+		ocekivano *razmjena.ZnanjeKarte
+	}{
+		{"bez prijenosa karte", bezPrijenosa, nil},
+		{"bez karte", bezKarte, &razmjena.ZnanjeKarte{}},
+		{"u prijenosu", uPrijenosu, &razmjena.ZnanjeKarte{Otisak: k.Otisak, Dijelova: 3, Svih: len(k.Dijelovi)}},
+		{"složena", slozena, &razmjena.ZnanjeKarte{Otisak: k.Otisak, Slozena: true, Dijelova: len(k.Dijelovi), Svih: len(k.Dijelovi)}},
+		{"odbačen opis", odbacen, &razmjena.ZnanjeKarte{}},
+	} {
+		zk := c.s.znanjeKarte()
+		if !reflect.DeepEqual(zk, c.ocekivano) {
+			t.Fatalf("%s: znanjeKarte %+v, a očekivano %+v", c.opis, zk, c.ocekivano)
+		}
+		if o := (razmjena.Znanje{Karta: zk}).Ocisceno().Karta; !reflect.DeepEqual(o, zk) {
+			t.Errorf("%s: čišćenje mijenja goCOP-ovu kartu: %+v, a znanjeKarte %+v", c.opis, o, zk)
+		}
+		// na žici: znanje s neočišćenom kartom, kao prije, i znanje iz
+		// granice i pozdrava WEB synca daju iste bajtove
+		prije := c.s.mojeZnanje(ctxRub)
+		prije.Karta = zk
+		zeljeno := jsonZnanja(t, prije)
+		if got := jsonZnanja(t, c.s.mojeZnanje(ctxRub)); got != zeljeno {
+			t.Errorf("%s: granica %s, a prije %s", c.opis, got, zeljeno)
+		}
+		if got := jsonZnanja(t, *c.s.znanjeZaPozdrav()); got != zeljeno {
+			t.Errorf("%s: pozdrav WEB synca %s, a prije %s", c.opis, got, zeljeno)
+		}
+	}
+}
+
+func jsonZnanja(t *testing.T, z razmjena.Znanje) string {
+	t.Helper()
+	b, err := json.Marshal(z)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
 }

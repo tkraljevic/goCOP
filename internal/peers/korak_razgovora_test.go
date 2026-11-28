@@ -279,6 +279,7 @@ func TestPrijaviKorakOdbija(t *testing.T) {
 		{"rupe", func(p *PrijavaKoraka) { p.Oznaka = "rupe/2" }, ErrOznakaBiblioteke},
 		{"potpis verzije", func(p *PrijavaKoraka) { p.Oznaka = razmjena.OznakaPotpisVerzije }, ErrOznakaBiblioteke},
 		{"web", func(p *PrijavaKoraka) { p.Oznaka = razmjena.OznakaWeb }, ErrOznakaBiblioteke},
+		{"sadrzaj", func(p *PrijavaKoraka) { p.Oznaka = "sadrzaj/1" }, ErrOznakaBiblioteke},
 		{"ime protokola", func(p *PrijavaKoraka) { p.Oznaka = "proba-n04-korak/1" }, ErrOznakaSProtokolom},
 		{"bez vrste", func(p *PrijavaKoraka) { p.Vrsta = "" }, ErrNeispravanKorak},
 		{"manje od nule", func(p *PrijavaKoraka) { p.NajviseDodatnih = -1 }, ErrNeispravanKorak},
@@ -303,6 +304,67 @@ func TestPrijaviKorakOdbija(t *testing.T) {
 	// PRIJELAZNO do N05c: bez PostaviProtokol vrijedi zadano ime gocop
 	if err := bezPrijave(t, "laptop-baranja").PrijaviKorak(PrijavaKoraka{Oznaka: "gocop-korak/1", Vrsta: "x", Korak: &probniKorak{}}); !errors.Is(err, ErrOznakaSProtokolom) {
 		t.Errorf("uz zadano ime protokola: %v", err)
+	}
+}
+
+// Ime protokola odbija oznaku samo kad je cijeli dio imena oznake, ne kad
+// se nađe bilo gdje u oznaci (Odluke (28. 11. 2026.)); prazno ime protokola
+// je čvor bez PostaviProtokol, uz zadano ime gocop
+func TestPrijaviKorakImeProtokolaKaoDio(t *testing.T) {
+	for _, k := range []struct {
+		protokol, oznaka string
+		greska           error
+	}{
+		{"karte", "probni-korak/1", nil},
+		{"karte", "kartesko-korak/1", nil},
+		{"karte", "karte/1", ErrOznakaSProtokolom},
+		{"karte", "x-karte/1", ErrOznakaSProtokolom},
+		{"karte", "karte-x/1", ErrOznakaSProtokolom},
+		{"karte", "x-karte-y/1", ErrOznakaSProtokolom},
+		{"1", "x/1", nil},
+		{"1", "x-1/1", ErrOznakaSProtokolom},
+		{"proba-n04", "proba-korak/1", nil},
+		{"proba-n04", "x-proba-n04/1", ErrOznakaSProtokolom},
+		{"gocop-sim", "gocop-korak/1", nil},
+		{"gocop", "gocop-korak/1", ErrOznakaSProtokolom},
+		{"", "gocop-korak/1", ErrOznakaSProtokolom},
+		{"", "probni-korak/1", nil},
+	} {
+		s := bezPrijave(t, "cop-osijek")
+		if k.protokol != "" {
+			s.PostaviProtokol(k.protokol)
+		}
+		p := probnaPrijava()
+		p.Oznaka = k.oznaka
+		err := s.PrijaviKorak(p)
+		if k.greska == nil && err != nil || k.greska != nil && !errors.Is(err, k.greska) {
+			t.Errorf("protokol %q, oznaka %s: %v, treba %v", k.protokol, k.oznaka, err, k.greska)
+		}
+		if prijavljeno := s.korak.Load() != nil; prijavljeno != (k.greska == nil) {
+			t.Errorf("protokol %q, oznaka %s: prijavljeno %v", k.protokol, k.oznaka, prijavljeno)
+		}
+	}
+}
+
+// Popis imena biblioteke ne zaostaje za NaseMogucnosti: ima svako ime iz
+// nje osim dijelova karte, koje prijavljuje aplikacija, i uz to web i
+// sadrzaj
+func TestImenaBibliotekeUzNaseMogucnosti(t *testing.T) {
+	treba := []string{razmjena.ImeWeb, "sadrzaj"}
+	for _, o := range razmjena.NaseMogucnosti() {
+		ime, _, err := razmjena.ProvjeriOznaku(o)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ime != razmjena.ImeDijeloviKarte {
+			treba = append(treba, ime)
+		}
+	}
+	got := slices.Clone(imenaBiblioteke)
+	slices.Sort(got)
+	slices.Sort(treba)
+	if !slices.Equal(got, treba) {
+		t.Errorf("imenaBiblioteke: %v, treba %v", got, treba)
 	}
 }
 

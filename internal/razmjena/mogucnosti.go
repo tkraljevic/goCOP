@@ -19,9 +19,11 @@ package razmjena
 //     promijenjeno značenje smiju samo kad Dogovor kaže da obje strane imaju
 //     oznaku.
 //
-// Oznake nikad ne sadrže ime protokola ni „gocop”: ALPN je ime protokola,
-// '-' i oznaka, a ime protokola postaje postavka. sadrzaj/1 je rezervirano
-// za roj; web/1 (od F3b) javlja samo računalo prijavljeno za WEB sync.
+// Oznake biblioteke nikad ne sadrže „gocop”, a oznaka koju prijavljuje
+// aplikacija nema ime protokola kao cijeli dio imena (peers.PrijaviKorak):
+// ALPN je ime protokola, '-' i oznaka, a ime protokola postaje postavka.
+// sadrzaj/1 je rezervirano za roj; web/1 (od F3b) javlja samo računalo
+// prijavljeno za WEB sync.
 //
 // Tipovi polja su zauvijek: mogucnosti je popis teksta, vrste mapa teksta na
 // cijeli broj, cekaNadogradnju cijeli broj. Drugi tip srušio bi kod starijeg
@@ -185,20 +187,18 @@ func NepoznateOznake(njihove []string) []string {
 // NepoznateOznakeUz su ispravne oznake druge strane čije ime ovaj program
 // ne zna (G7: djelomično razumljeno), poredane. znam su oznake koje ovaj
 // program objavljuje (prednost iz OciscenoUz), sa ili bez web/1; ime web
-// je uvijek poznato. Gledaju se samo oznake koje se pamte: u ogradi
-// prednost ima znam bez imena web, kao kod spremljenog znanja, pa ih nikad
-// nije više od najviseOznaka.
+// je uvijek poznato. Gledaju se samo oznake koje se pamte (ocisceneOznake
+// uz prednost znam, kao kod spremljenog znanja), pa ih nikad nije više od
+// najviseOznaka.
 func NepoznateOznakeUz(njihove, znam []string) []string {
 	imena := map[string]bool{ImeWeb: true}
-	var prednost []string
 	for _, o := range znam {
-		if ime, _, ok := procitajOznaku(o); ok && ime != ImeWeb {
+		if ime, _, ok := procitajOznaku(o); ok {
 			imena[ime] = true
-			prednost = append(prednost, o)
 		}
 	}
 	var out []string
-	for _, o := range ocisceneOznake(njihove, prednost) {
+	for _, o := range ocisceneOznake(njihove, znam) {
 		if ime, _, _ := procitajOznaku(o); !imena[ime] {
 			out = append(out, o)
 		}
@@ -233,7 +233,8 @@ func (z Znanje) Ocisceno() Znanje {
 // OciscenoUz je znanje druge strane kakvo se smije spremiti: ispravne
 // oznake bez ponavljanja, poredane i ograđene, vrste s ispravnim imenom i
 // shemom od 1 naviše, i broj na čekanju ne manji od nule. U ogradi oznaka
-// prednost imaju one iz prednost (oznake koje ovaj program objavljuje).
+// prednost imaju one iz prednost (oznake koje ovaj program objavljuje),
+// sa ili bez web/1: oznake imena web prednost ne dobivaju, kao u 0.0.71.
 // Nepoznate oznake ostaju, jer se po njima vidi što druga strana zna, a
 // ovaj program ne. Bez ijedne ispravne oznake ili vrste to polje je nil,
 // pa spremljene oznake daju isti Dogovor kao popis koji je stigao. Od
@@ -295,8 +296,8 @@ func ispravne(oznake []string) map[string]bool {
 
 // ocisceneOznake su ispravne oznake, poredane i bez ponavljanja, najviše
 // najviseOznaka; bez ijedne nil. Ograda prvo zadrži oznake iz prednost
-// (one koje ima i ovaj program), a tek onda prve po abecedi, pa ne mijenja
-// Dogovor.
+// (one koje ima i ovaj program) osim onih imena web, a tek onda prve po
+// abecedi, pa ne mijenja Dogovor.
 func ocisceneOznake(oznake, prednost []string) []string {
 	sve := ispravne(oznake)
 	out := zajednicke(sve, prednost)
@@ -310,10 +311,15 @@ func ocisceneOznake(oznake, prednost []string) []string {
 }
 
 // zajednicke su oznake iz prednost koje ima i druga strana, redom iz
-// prednost, bez ponavljanja i najviše najviseOznaka; bez ijedne nil
+// prednost, bez ponavljanja i najviše najviseOznaka; bez ijedne nil. Oznake
+// imena web se preskaču: web/1 javlja samo računalo prijavljeno za WEB
+// sync, pa ga 0.0.71 u ogradi nije stavljao naprijed.
 func zajednicke(njihove map[string]bool, prednost []string) []string {
 	var out []string
 	for _, oznaka := range prednost {
+		if ime, _, _ := procitajOznaku(oznaka); ime == ImeWeb {
+			continue
+		}
 		if len(out) < najviseOznaka && njihove[oznaka] && !slices.Contains(out, oznaka) {
 			out = append(out, oznaka)
 		}
