@@ -37,6 +37,27 @@ var (
 	najviseRazgovoraZaKartu       = 8        // dodatnih razgovora zbog karte u jednom krugu
 )
 
+// korakKarte je PRIVREMENA prijava dijelova karte koju napravi NewService,
+// da oznaka dijelovi-karte/1 ide u granicu i bez PostaviKarte, kao i prije
+// prijave koraka (korak_razgovora.go). Razgovor karte zasad još vodi ovaj
+// dio paketa mimo prijave (smijeKartu, upisiDijelove), pa biblioteka
+// Zapocni i Odbaci ne zove, a oni ništa ne rade. Polje s zasad se ne čita:
+// ostaje da prilagodnik u razgovoru čita s.karte kad razgovor krene kroz
+// prijavu, jer PostaviKarte dolazi poslije NewService.
+type korakKarte struct{ s *Service }
+
+// prijavaKarte je prijava koju NewService napravi za kartu
+func prijavaKarte(s *Service) PrijavaKoraka {
+	return PrijavaKoraka{Oznaka: razmjena.OznakaDijeloviKarte, Vrsta: VrstaDijelaKarte,
+		NajviseDodatnih: najviseRazgovoraZaKartu, Korak: korakKarte{s}}
+}
+
+// Zapocni: razgovor karte zasad ide mimo prijave, pa ne počinje ništa
+func (korakKarte) Zapocni(context.Context, VezaKoraka) TijekKoraka { return nil }
+
+// Odbaci: netražene dijelove karte zasad odbaci upisiDijelove
+func (korakKarte) Odbaci([]StavkaKoraka) {}
+
 // putULokalnojMrezi je za ogradu izvan obrane: veza iz pronalaženja, ili na
 // privatnu adresu druge strane (i dolazna na portu), kao korak LAN synca u
 // krugu (krug.dodaj). Za obranu vrijedi uže pravilo (istaLokalnaMreza).
@@ -207,11 +228,12 @@ func dijeloviZaSlanje(d *dijeloviKarte, otisci []string, budzet int64, najvise i
 	return out
 }
 
-// razdvojiPrimljeno odvoji primljene dijelove karte od ostalog sadržaja:
-// dio karte nikad ne ide u spremište sadržaja
-func razdvojiPrimljeno(stavke []stavkaSadrzaja) (dijelovi, ostalo []stavkaSadrzaja) {
+// razdvojiPrimljeno odvoji primljene stavke prijavljene vrste koraka
+// (dijelove karte) od ostalog sadržaja: takva stavka nikad ne ide u
+// spremište sadržaja. Bez prijave (vrsta "") sve je ostalo.
+func razdvojiPrimljeno(stavke []stavkaSadrzaja, vrsta string) (dijelovi, ostalo []stavkaSadrzaja) {
 	for _, st := range stavke {
-		if st.Vrsta == VrstaDijelaKarte {
+		if vrsta != "" && st.Vrsta == vrsta {
 			dijelovi = append(dijelovi, st)
 		} else {
 			ostalo = append(ostalo, st)

@@ -284,7 +284,7 @@ func TestDijeloviNeIduCvoruBezOznake(t *testing.T) {
 	if stigloKarte(l) != 0 || l.sp.Ima(ctxRub, stavka.Otisak) {
 		t.Error("dio od čvora bez oznake je upisan")
 	}
-	if dijelovi, ostalo := razdvojiPrimljeno([]stavkaSadrzaja{stavka, {Vrsta: "application/pdf"}}); len(dijelovi) != 1 || len(ostalo) != 1 {
+	if dijelovi, ostalo := razdvojiPrimljeno([]stavkaSadrzaja{stavka, {Vrsta: "application/pdf"}}, VrstaDijelaKarte); len(dijelovi) != 1 || len(ostalo) != 1 {
 		t.Error("dio karte nikad ne ide u spremište")
 	}
 }

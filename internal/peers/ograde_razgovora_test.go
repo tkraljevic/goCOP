@@ -137,7 +137,7 @@ func TestStanjeRazmjenePamtiOgradeno(t *testing.T) {
 		t.Error("granica s previše ključeva se pamti")
 	}
 	granica = map[string]string{"cop-osijek|": strings.Repeat("z", 7<<20), strings.Repeat("k", 300) + "|": tijekD1, "": tijekD1}
-	ishod := ishodRazmjene(0, 0, frontierMsg{Frontier: granica, Program: velik, Gradnja: velik}, time.Second, odbijena)
+	ishod := ishodRazmjene(0, 0, frontierMsg{Frontier: granica, Program: velik, Gradnja: velik}, s.prednost(), time.Second, odbijena)
 	s.recordSyncState(ctxRub, "ured-vukovar", ishod)
 	s.zapisiBiljesku(ctxRub, "ured-vukovar", ishod)
 	ishod.err = nil
@@ -154,7 +154,7 @@ func TestStanjeRazmjenePamtiOgradeno(t *testing.T) {
 	}
 
 	// ispravna granica i izdanje ostaju kakvi su stigli
-	ispravan := ishodRazmjene(1, 2, frontierMsg{Frontier: map[string]string{"ured-vukovar|": tijekD1}, Program: "0.0.47-alfa", Gradnja: "0.0.47-alfa (606a83d5)"}, time.Second, nil)
+	ispravan := ishodRazmjene(1, 2, frontierMsg{Frontier: map[string]string{"ured-vukovar|": tijekD1}, Program: "0.0.47-alfa", Gradnja: "0.0.47-alfa (606a83d5)"}, s.prednost(), time.Second, nil)
 	s.recordSyncState(ctxRub, "ured-vukovar", ispravan)
 	st, err := s.syncStates(ctxRub)
 	if err != nil {
@@ -210,7 +210,7 @@ func TestNepoznateOznakeOgradjene(t *testing.T) {
 	for i := range 5000 {
 		vrste[fmt.Sprintf("vrsta_%d", i)] = 1
 	}
-	o := ishodRazmjene(0, 0, frontierMsg{Program: "x", Znanje: razmjena.Znanje{Mogucnosti: append(oznake, razmjena.OznakaRupe), Vrste: vrste}}, 0, nil)
+	o := ishodRazmjene(0, 0, frontierMsg{Program: "x", Znanje: razmjena.Znanje{Mogucnosti: append(oznake, razmjena.OznakaRupe), Vrste: vrste}}, s.prednost(), 0, nil)
 	if len(o.znanje.Mogucnosti) != 32 || len(o.znanje.Vrste) != 1024 {
 		t.Errorf("u ishodu %d oznaka i %d vrsta", len(o.znanje.Mogucnosti), len(o.znanje.Vrste))
 	}

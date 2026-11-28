@@ -47,7 +47,7 @@ type SyncState struct {
 	// najnovijeg uspjeha; i one ostaju na ovom računalu (naucene_adrese.go)
 	Naucene []string `json:"naucene,omitempty"`
 	// Mogucnosti, Vrste i CekaNadogradnju su ono što je drugi čvor javio da
-	// zna (razmjena/mogucnosti.go), očišćeno (Znanje.Ocisceno). Prazne
+	// zna (razmjena/mogucnosti.go), očišćeno (Znanje.OciscenoUz). Prazne
 	// Mogucnosti uz MogucnostiPoznate znače da nije javio nijednu ispravnu
 	// oznaku (stariji program ih ne javlja), pa vrijedi razmjena/1, isto kao
 	// po živoj granici; bez MogucnostiPoznate redak je upisan prije toga i
@@ -95,10 +95,10 @@ type syncOutcome struct {
 // programa vrijedi i kad je razgovor pukao nakon što je granica stigla. Od
 // onoga što je druga strana javila ostaje samo ograđeno: izdanje i gradnja
 // skraćeni, očišćeno znanje i granica koja nije prevelika.
-func ishodRazmjene(applied, sent int, theirs frontierMsg, took time.Duration, err error) syncOutcome {
+func ishodRazmjene(applied, sent int, theirs frontierMsg, prednost []string, took time.Duration, err error) syncOutcome {
 	return syncOutcome{applied: applied, sent: sent, frontier: granicaZaPamcenje(theirs.Frontier),
 		program: skrati(theirs.Program, najduljiProgram), gradnja: skrati(theirs.Gradnja, najduljiProgram),
-		tailscale: theirs.tailscale, znanje: theirs.Znanje.Ocisceno(), took: took, err: err}
+		tailscale: theirs.tailscale, znanje: theirs.Znanje.OciscenoUz(prednost), took: took, err: err}
 }
 
 // recordSyncState upisuje ishod razmjene u lokalno stanje
@@ -147,7 +147,7 @@ func (s *Service) zapamtiZnanje(ctx context.Context, nodeID string, o syncOutcom
 	if !granicaStigla(o) {
 		return
 	}
-	z := o.znanje.Ocisceno()
+	z := o.znanje.OciscenoUz(s.prednost())
 	if _, err := s.db.ExecContext(ctx, `INSERT INTO peer_sync (node_id, mogucnosti, vrste, ceka_nadogradnju, mogucnosti_poznate, uloge, karta) VALUES (?, ?, ?, ?, 1, ?, ?)
 		ON CONFLICT(node_id) DO UPDATE SET mogucnosti = excluded.mogucnosti, vrste = excluded.vrste,
 			ceka_nadogradnju = excluded.ceka_nadogradnju, mogucnosti_poznate = 1, uloge = excluded.uloge, karta = excluded.karta`,

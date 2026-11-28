@@ -123,7 +123,7 @@ func (s *Service) zabiljeziIshod(ctx context.Context, peer *Peer, o syncOutcome)
 	if errors.As(o.err, &odbijena) {
 		s.zabiljeziOdbijeno(ctx, VrstaOdbiliSu, "", razlogKoda(odbijena.kod), peer.NodeID)
 	}
-	for _, oznaka := range s.oznakeZaZapis(ctx, peer.NodeID, razmjena.NepoznateOznake(o.znanje.Ocisceno().Mogucnosti)) {
+	for _, oznaka := range s.oznakeZaZapis(ctx, peer.NodeID, razmjena.NepoznateOznakeUz(o.znanje.OciscenoUz(s.prednost()).Mogucnosti, s.znam())) {
 		s.zabiljeziOdbijeno(ctx, VrstaDjelomicno, "", RazlogOznaka+" "+oznaka, peer.NodeID)
 	}
 }

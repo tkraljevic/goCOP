@@ -393,7 +393,7 @@ func TestRazgovorPreskaceNeispravnuVerziju(t *testing.T) {
 	if err := b.SavePeer(ctxRub, Peer{NodeID: a.node.ID, Name: a.node.ID, PublicKey: a.node.PublicKey(), Addresses: []string{"192.168.1.20:4710"}}); err != nil {
 		t.Fatal(err)
 	}
-	b.recordSyncState(ctxRub, a.node.ID, ishodRazmjene(o.applied, o.sent, o.theirs, time.Millisecond, nil))
+	b.recordSyncState(ctxRub, a.node.ID, ishodRazmjene(o.applied, o.sent, o.theirs, b.prednost(), time.Millisecond, nil))
 	st, err := b.Status(ctxRub, false)
 	if err != nil || len(st.Peers) != 1 {
 		t.Fatalf("stanje: %+v %v", st, err)
