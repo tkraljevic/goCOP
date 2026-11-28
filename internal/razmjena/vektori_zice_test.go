@@ -52,6 +52,12 @@ type vektorPotpisa struct {
 	Zapis   string `json:"zapis"`   // cijeli zapis kako putuje (JSON)
 }
 
+// vektorKoda je kod uparivanja uz isti broj pozivatelja i drugi broj slušalice
+type vektorKoda struct {
+	BrojSlusalice string `json:"brojSlusalice"` // heks
+	Kod           string `json:"kod"`
+}
+
 type vektorUdarca struct {
 	Smjer       byte   `json:"smjer"` // 0: A→B, 1: B→A
 	KljucSlanja string `json:"kljucSlanja"`
@@ -86,13 +92,13 @@ type vektoriZice struct {
 		PorukaBroj string `json:"porukaBroja"`
 		Kod        string `json:"kod"`
 		Potvrda    string `json:"potvrda"`
-		// KodSNulom: isti ključevi i isti broj pozivatelja, a broj pozvanog
+		// KodSNulom: isti ključevi i isti broj pozivatelja, a broj slušalice
 		// takav da kod počinje nulom. Izvedba koja kod ne piše s vodećim
 		// nulama dobije kraći tekst.
-		KodSNulom struct {
-			BrojPozvanog string `json:"brojPozvanog"` // heks
-			Kod          string `json:"kod"`
-		} `json:"kodSNulom"`
+		KodSNulom vektorKoda `json:"kodSNulom"`
+		// KodSNajvisimBitom: prvi bajt sažetka je 0x80 ili veći. Izvedba
+		// koja prva četiri bajta čita kao broj s predznakom dobije drugi kod.
+		KodSNajvisimBitom vektorKoda `json:"kodSNajvisimBitom"`
 	} `json:"uparivanje"`
 
 	Ovlast          vektorPotpisa  `json:"ovlast"`
@@ -291,13 +297,24 @@ func izradiVektore(t *testing.T, protokol string) vektoriZice {
 		t.Fatal("kod uparivanja ovisi o redoslijedu ključeva")
 	}
 	v.Uparivanje.Potvrda = uJSON(t, Confirm{Approved: true, Payload: json.RawMessage(`{"primjer":1}`)})
-	// broj pozvanog: 0x80 pa 31 nula
+	// Kod ovisi o imenu protokola, pa se svojstva koda ispituju samo uz
+	// zadano ime. Pod drugim imenom isti brojevi daju drugi kod.
+	zadano := protokol == "gocop"
+	// broj slušalice: 0x80 pa 31 nula
 	brojSNulom := make([]byte, velicinaBroja)
 	brojSNulom[0] = 0x80
-	v.Uparivanje.KodSNulom.BrojPozvanog = hex.EncodeToString(brojSNulom)
-	v.Uparivanje.KodSNulom.Kod = SASCode(protokol, pubA, pubB, brojP, brojSNulom)
-	if k := v.Uparivanje.KodSNulom.Kod; len(k) != 6 || k[0] != '0' {
+	v.Uparivanje.KodSNulom = vektorKoda{hex.EncodeToString(brojSNulom), SASCode(protokol, pubA, pubB, brojP, brojSNulom)}
+	if k := v.Uparivanje.KodSNulom.Kod; len(k) != 6 || zadano && k[0] != '0' {
 		t.Fatalf("kod %q nije od šest znamenki s vodećom nulom", k)
+	}
+	// broj slušalice: 0x80, 30 nula pa 0x03. Sažetak počinje s c5cd3d76:
+	// kao broj bez predznaka to je kod 562166, s predznakom ostatak -405130.
+	// Kod nema vodeću nulu, da ovaj vektor ispituje samo predznak.
+	brojSBitom := make([]byte, velicinaBroja)
+	brojSBitom[0], brojSBitom[velicinaBroja-1] = 0x80, 0x03
+	v.Uparivanje.KodSNajvisimBitom = vektorKoda{hex.EncodeToString(brojSBitom), SASCode(protokol, pubA, pubB, brojP, brojSBitom)}
+	if k := v.Uparivanje.KodSNajvisimBitom.Kod; len(k) != 6 || zadano && k != "562166" {
+		t.Fatalf("kod %q nije kod iz sažetka s najvišim bitom", k)
 	}
 
 	// omotnica razgovora, kako je piše Conn.Send (json.Encoder dodaje novi red)
