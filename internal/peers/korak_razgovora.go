@@ -207,9 +207,19 @@ func (s *Service) oznakaSProtokolom(ime, oznaka string) bool {
 // njega uzme samo polje karta, očisti ga kao kartu koju javi druga strana
 // (neispravan otisak daje nil, brojevi se ograde) i doda ga znanju ovog
 // čvora (mojeZnanje). Ostala polja biblioteka piše sama, pa ih f ne može
-// promijeniti. Znanje ide u granicu i u pozdrav WEB synca. f se zove u
-// svakom razgovoru i pozdravu, možda istodobno iz više goroutina, pa mora
-// biti siguran za istodobne pozive i brz, bez čekanja na mrežu ili bazu.
+// promijeniti. Znanje ide u granicu i u pozdrav WEB synca. f se zove za
+// svaku granicu i svaki pozdrav, možda istodobno iz više goroutina, pa mora
+// biti siguran za istodobne pozive. Ne smije čekati na mrežu ni dugo
+// držati bravu, jer granica i pozdrav dotle čekaju. goCOP-ova dopuna
+// (karta bez interneta) radi pod bravom prijenosa karte: pogleda kartu na
+// disku, a kad se opis karte promijeni, pospremi i mapu karata. Na tu
+// bravu može i pričekati dok je drugi dio prijenosa karte kratko drži, npr.
+// dok preimenuje složenu kartu.
+//
+// f ne smije paničariti. Za granicu vrijedi isto što i uz DodatniKorak.
+// Pozdrav WEB synca priprema se izvan razgovora (WebSync.zovi, novaSesija),
+// gdje paniku ništa ne hvata, pa ona sruši cijeli čvor.
+//
 // Nova dopuna zamijeni staru, a nil je makne.
 func (s *Service) DopuniZnanje(f func(*razmjena.Znanje)) {
 	if f == nil {
