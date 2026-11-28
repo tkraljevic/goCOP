@@ -224,24 +224,43 @@ func TestPrijavaKarteUzImeProtokolaIzOznake(t *testing.T) {
 	}
 }
 
-// Iznimka vrijedi samo za oznaku iz razmjena.NaseMogucnosti: tuđa oznaka s
-// imenom protokola i dalje pada, i kad joj je ime ono iz NaseMogucnosti, a
-// broj drugi. Oznaka iz NaseMogucnosti prolazi i uz probni korak, bez
-// karte.
+// Iznimka vrijedi samo za oznaku iz razmjena.NaseMogucnosti. Tuđa oznaka
+// pada po pravilu iz TestPrijaviKorakImeProtokolaKaoDio (ime protokola kao
+// cijeli dio imena, broj iza '/' se ne gleda), i kad joj je ime ono iz
+// NaseMogucnosti, a broj drugi: dijelovi-karte/21 pada uz karte, dijelovi
+// i dijelovi-karte, a uz e i 1 prolazi, jer ni e ni 1 nije cijeli dio
+// imena dijelovi-karte (Odluke (28. 11. 2026.)). Oznaka s imenom
+// protokola kao prvim dijelom pada uz svako ime. Oznaka iz NaseMogucnosti
+// prolazi i uz probni korak, bez karte.
 func TestPrijaviKorakImeProtokolaUTudjojOznaci(t *testing.T) {
-	for _, ime := range []string{"karte", "dijelovi", "e", "1", "dijelovi-karte"} {
-		s := bezPrijave(t, "cop-osijek")
-		s.PostaviProtokol(ime)
-		for _, oznaka := range []string{ime + "-korak/1", "dijelovi-karte/21"} {
+	for _, k := range []struct {
+		ime       string
+		tudjaPada bool // pada li dijelovi-karte/21
+	}{
+		{"karte", true}, {"dijelovi", true}, {"e", false}, {"1", false}, {"dijelovi-karte", true},
+	} {
+		ime := k.ime
+		for _, c := range []struct {
+			oznaka string
+			pada   bool
+		}{
+			{ime + "-korak/1", true},
+			{"dijelovi-karte/21", k.tudjaPada},
+		} {
+			s := bezPrijave(t, "cop-osijek")
+			s.PostaviProtokol(ime)
 			p := probnaPrijava()
-			p.Oznaka = oznaka
-			if err := s.PrijaviKorak(p); !errors.Is(err, ErrOznakaSProtokolom) {
-				t.Errorf("%s, %s: %v", ime, oznaka, err)
+			p.Oznaka = c.oznaka
+			err := s.PrijaviKorak(p)
+			if c.pada && !errors.Is(err, ErrOznakaSProtokolom) || !c.pada && err != nil {
+				t.Errorf("%s, %s: %v, pada %v", ime, c.oznaka, err, c.pada)
 			}
-			if s.korak.Load() != nil {
-				t.Fatalf("%s, %s: prijava je ostala", ime, oznaka)
+			if prijavljeno := s.korak.Load() != nil; prijavljeno == c.pada {
+				t.Fatalf("%s, %s: prijavljeno %v", ime, c.oznaka, prijavljeno)
 			}
 		}
+		s := bezPrijave(t, "cop-osijek")
+		s.PostaviProtokol(ime)
 		// ostale provjere vrijede i za oznaku iz NaseMogucnosti
 		p := probnaPrijava()
 		p.Oznaka, p.Vrsta = razmjena.OznakaDijeloviKarte, ""
