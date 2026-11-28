@@ -510,8 +510,9 @@ func TestKorakBezPrijaveKaoPrije(t *testing.T) {
 }
 
 // Korak koji uvijek ima još: pozivatelj u jednom krugu ponovi razgovor
-// najviše NajviseDodatnih puta, a pozvani ne ponavlja ništa i ne pamti da
-// korak teče. Bez prijave nema ponavljanja.
+// najviše NajviseDodatnih puta, a pozvani ne ponavlja ništa. Pozvani
+// zapamti da korak ima još, ali zapis obriše čim razgovor završi, pa mu
+// ne ostaje. Bez prijave nema ponavljanja.
 func TestKorakImaJosSamoPozivatelj(t *testing.T) {
 	cv := clanovi(t, "cop-osijek", "laptop-baranja")
 	a, l := cv[0], cv[1]
