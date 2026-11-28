@@ -86,6 +86,13 @@ type vektoriZice struct {
 		PorukaBroj string `json:"porukaBroja"`
 		Kod        string `json:"kod"`
 		Potvrda    string `json:"potvrda"`
+		// KodSNulom: isti ključevi i isti broj pozivatelja, a broj pozvanog
+		// takav da kod počinje nulom. Izvedba koja kod ne piše s vodećim
+		// nulama dobije kraći tekst.
+		KodSNulom struct {
+			BrojPozvanog string `json:"brojPozvanog"` // heks
+			Kod          string `json:"kod"`
+		} `json:"kodSNulom"`
 	} `json:"uparivanje"`
 
 	Ovlast          vektorPotpisa  `json:"ovlast"`
@@ -284,6 +291,14 @@ func izradiVektore(t *testing.T, protokol string) vektoriZice {
 		t.Fatal("kod uparivanja ovisi o redoslijedu ključeva")
 	}
 	v.Uparivanje.Potvrda = uJSON(t, Confirm{Approved: true, Payload: json.RawMessage(`{"primjer":1}`)})
+	// broj pozvanog: 0x80 pa 31 nula
+	brojSNulom := make([]byte, velicinaBroja)
+	brojSNulom[0] = 0x80
+	v.Uparivanje.KodSNulom.BrojPozvanog = hex.EncodeToString(brojSNulom)
+	v.Uparivanje.KodSNulom.Kod = SASCode(protokol, pubA, pubB, brojP, brojSNulom)
+	if k := v.Uparivanje.KodSNulom.Kod; len(k) != 6 || k[0] != '0' {
+		t.Fatalf("kod %q nije od šest znamenki s vodećom nulom", k)
+	}
 
 	// omotnica razgovora, kako je piše Conn.Send (json.Encoder dodaje novi red)
 	e, err := NewEnvelope("done", struct {
