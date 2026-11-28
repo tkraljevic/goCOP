@@ -533,16 +533,16 @@ func label(p Peer) string {
 }
 
 // razgovoriZaRedom razmjenjuje s čvorom dok god ima još: pun razgovor
-// znači da ima još, pa se nastavlja odmah, ne za pet minuta. Zbog dijelova
-// karte koji još putuju ide najviše najviseRazgovoraZaKartu dodatnih
-// razgovora (dalje).
+// znači da ima još, pa se nastavlja odmah, ne za pet minuta. Zbog
+// dodatnog koraka koji javi da ima još ide najviše NajviseDodatnih
+// dodatnih razgovora (dalje).
 func (s *Service) razgovoriZaRedom(ctx context.Context, nodeID string) (applied, sent, krugova int, err error) {
-	zbogKarte := 0
+	zbogKoraka := 0
 	var otisak string
 	for krugova < najviseKrugovaZaRedom && ctx.Err() == nil {
 		a, sn, e := s.SyncWith(ctx, nodeID)
 		applied, sent, krugova, err = applied+a, sent+sn, krugova+1, e
-		if !s.dalje(nodeID, a, sn, e, &zbogKarte, &otisak) {
+		if !s.dalje(nodeID, a, sn, e, &zbogKoraka, &otisak) {
 			break
 		}
 	}
@@ -550,28 +550,28 @@ func (s *Service) razgovoriZaRedom(ctx context.Context, nodeID string) (applied,
 }
 
 // dalje javlja treba li odmah još jedan razgovor: razgovor je bio pun ili
-// skraćen, a stanje se od prethodnog pomaknulo (josVerzija), ili je prenio
-// dijelove karte, a ponavljanja zbog karte još nije bilo
-// najviseRazgovoraZaKartu
-func (s *Service) dalje(nodeID string, applied, sent int, err error, zbogKarte *int, otisak *string) bool {
+// skraćen, a stanje se od prethodnog pomaknulo (josVerzija), ili je dodatni
+// korak javio da ima još, a ponavljanja zbog koraka još nije bilo
+// NajviseDodatnih. Zapis koraka troši se uvijek.
+func (s *Service) dalje(nodeID string, applied, sent int, err error, zbogKoraka *int, otisak *string) bool {
 	pun := s.josVerzija(nodeID, applied, sent, otisak)
-	karta := s.imaJosKarte(nodeID)
+	korak := s.imaJosKoraka(nodeID)
 	switch {
 	case err != nil:
 		return false
 	case pun:
 		return true
-	case karta && *zbogKarte < najviseRazgovoraZaKartu:
-		*zbogKarte++
+	case korak && *zbogKoraka < s.najviseDodatnih():
+		*zbogKoraka++
 		return true
 	}
 	return false
 }
 
-// imaJosKarte javlja da je zadnja razmjena s čvorom prenijela dijelove
-// karte, a nekoj strani još nedostaju
-func (s *Service) imaJosKarte(nodeID string) bool {
-	v, ok := s.josKarte.LoadAndDelete(nodeID)
+// imaJosKoraka javlja da je dodatni korak u zadnjoj razmjeni s čvorom
+// javio da ima još
+func (s *Service) imaJosKoraka(nodeID string) bool {
+	v, ok := s.josKoraka.LoadAndDelete(nodeID)
 	return ok && v.(bool)
 }
 

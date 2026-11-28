@@ -77,7 +77,7 @@ func razgovorPutem(t *testing.T, put razmjena.Put, pozivatelj, pozvani *cvorKart
 		c.Put = put
 		var o ishodRazgovora
 		o.applied, o.sent, o.theirs, o.err = pozvani.exchange(ctx, c, false)
-		pozvani.kartaTece.Delete(c)
+		pozvani.korakTece.Delete(c)
 		ishod <- o
 	}
 	go func() {
@@ -93,7 +93,7 @@ func razgovorPutem(t *testing.T, put razmjena.Put, pozivatelj, pozvani *cvorKart
 	}
 	conn.Put = put
 	p.applied, p.sent, p.theirs, p.err = pozivatelj.exchange(ctx, conn, true)
-	_, tece = pozivatelj.kartaTece.LoadAndDelete(conn)
+	_, tece = pozivatelj.korakTece.LoadAndDelete(conn)
 	conn.Close()
 	select {
 	case z = <-ishod:
@@ -259,6 +259,17 @@ func razgovorZa(s *Service, put razmjena.Put, njihove ...string) *razgovorSCvoro
 		theirs: frontierMsg{Wants: &Wants{All: true}, Znanje: razmjena.Znanje{Mogucnosti: njihove}}}
 }
 
+// tijekKarteU je tijek karte koji je razgovor počeo (zapocniKorak); test
+// pada kad karta u razgovoru ne radi
+func tijekKarteU(t *testing.T, r *razgovorSCvorom) *tijekKarte {
+	t.Helper()
+	tijek, ok := r.korak.(*tijekKarte)
+	if !ok {
+		t.Fatal("karta u razgovoru ne radi")
+	}
+	return tijek
+}
+
 // Čvoru bez oznake dijelovi se ne daju ni kad ih traži, a od njega se
 // dijelovi ne primaju; s oznakom se daju, najprije PDF-ovi
 func TestDijeloviNeIduCvoruBezOznake(t *testing.T) {
@@ -267,20 +278,20 @@ func TestDijeloviNeIduCvoruBezOznake(t *testing.T) {
 	a, l := cv[0], cv[1]
 	smiri(a.karte.Load())
 	bez := razgovorZa(a.Service, razmjena.PutLAN, razmjena.OznakaRazmjena)
-	if bez.karta = bez.smijeKartu(ctxRub); bez.karta != nil || len(bez.sadrzajZaDrugu(ctxRub, k.Dijelovi)) != 0 {
+	if bez.korak = bez.zapocniKorak(ctxRub); bez.korak != nil || len(bez.sadrzajZaDrugu(ctxRub, k.Dijelovi)) != 0 {
 		t.Error("dijelovi su dani čvoru bez oznake")
 	}
 	sOznakom := razgovorZa(a.Service, razmjena.PutLAN, razmjena.OznakaDijeloviKarte, razmjena.OznakaRazmjena)
-	sOznakom.karta = sOznakom.smijeKartu(ctxRub)
+	sOznakom.korak = sOznakom.zapocniKorak(ctxRub)
 	if got := sOznakom.sadrzajZaDrugu(ctxRub, k.Dijelovi[:3]); len(got) != 3 || got[0].Vrsta != VrstaDijelaKarte || got[0].Kanal != "" {
 		t.Errorf("čvoru s oznakom: %d stavki", len(got))
 	}
 
 	smiri(l.karte.Load())
 	primi := razgovorZa(l.Service, razmjena.PutLAN, razmjena.OznakaRazmjena)
-	primi.karta = primi.smijeKartu(ctxRub)
+	primi.korak = primi.zapocniKorak(ctxRub)
 	stavka := stavkaSadrzaja{Otisak: k.Dijelovi[0], Vrsta: VrstaDijelaKarte, Bajtova: 128, Podaci: dio(k, b, 0)}
-	primi.upisiDijelove([]stavkaSadrzaja{stavka})
+	primi.predajKoraku([]stavkaSadrzaja{stavka})
 	if stigloKarte(l) != 0 || l.sp.Ima(ctxRub, stavka.Otisak) {
 		t.Error("dio od čvora bez oznake je upisan")
 	}
@@ -297,23 +308,23 @@ func TestKrivDioKarteSeOdbacuje(t *testing.T) {
 	l := cv[1]
 	smiri(l.karte.Load())
 	r := razgovorZa(l.Service, razmjena.PutLAN, razmjena.OznakaDijeloviKarte, razmjena.OznakaRazmjena)
-	r.karta = r.smijeKartu(ctxRub)
-	r.mojiDijelovi = r.karta.zeljeni(3*128, 10)
+	r.korak = r.zapocniKorak(ctxRub)
+	tijekKarteU(t, r).mojiDijelovi = tijekKarteU(t, r).d.zeljeni(3*128, 10)
 	kriv := slices.Clone(dio(k, b, 0))
 	kriv[5] ^= 1
 	tudji := "00" + k.Dijelovi[0][2:]
-	r.upisiDijelove([]stavkaSadrzaja{
+	r.predajKoraku([]stavkaSadrzaja{
 		{Otisak: k.Dijelovi[0], Vrsta: VrstaDijelaKarte, Podaci: kriv},
 		{Otisak: k.Dijelovi[1], Vrsta: VrstaDijelaKarte, Podaci: dio(k, b, 1)[:50]},
 		{Otisak: k.Dijelovi[3], Vrsta: VrstaDijelaKarte, Podaci: dio(k, b, 3)}, // nije tražen
 		{Otisak: tudji, Vrsta: VrstaDijelaKarte, Podaci: dio(k, b, 0)},
 	})
-	if r.primljenoDijelova != 0 || stigloKarte(l) != 0 {
-		t.Fatalf("upisano %d krivih dijelova", r.primljenoDijelova)
+	if tijekKarteU(t, r).primljeno != 0 || stigloKarte(l) != 0 {
+		t.Fatalf("upisano %d krivih dijelova", tijekKarteU(t, r).primljeno)
 	}
-	r.upisiDijelove([]stavkaSadrzaja{{Otisak: k.Dijelovi[2], Vrsta: VrstaDijelaKarte, Podaci: dio(k, b, 2)}})
-	if r.primljenoDijelova != 1 || stigloKarte(l) != 1 {
-		t.Errorf("ispravan dio: %d", r.primljenoDijelova)
+	r.predajKoraku([]stavkaSadrzaja{{Otisak: k.Dijelovi[2], Vrsta: VrstaDijelaKarte, Podaci: dio(k, b, 2)}})
+	if tijekKarteU(t, r).primljeno != 1 || stigloKarte(l) != 1 {
+		t.Errorf("ispravan dio: %d", tijekKarteU(t, r).primljeno)
 	}
 }
 
@@ -327,7 +338,7 @@ func TestDvaRazgovoraNeTraziIsteDijelove(t *testing.T) {
 	smiri(l.karte.Load())
 	novi := func() *razgovorSCvorom {
 		r := razgovorZa(l.Service, razmjena.PutLAN, razmjena.OznakaDijeloviKarte, razmjena.OznakaRazmjena)
-		r.karta = r.smijeKartu(ctxRub)
+		r.korak = r.zapocniKorak(ctxRub)
 		return r
 	}
 	r1, r2 := novi(), novi()
@@ -335,7 +346,7 @@ func TestDvaRazgovoraNeTraziIsteDijelove(t *testing.T) {
 	if len(z1) != 3 || len(z2) != 3 || slices.ContainsFunc(z1, func(o string) bool { return slices.Contains(z2, o) }) {
 		t.Fatalf("usporedni razgovori traže iste dijelove: %v %v", z1, z2)
 	}
-	r1.pustiDijelove()
+	r1.zavrsiKorak()
 	// nikad traženi (6 i 7) pa najdavnije traženi (0)
 	if z3 := novi().mojeZelje(ctxRub); len(z3) != 3 || z3[2] != z1[0] {
 		t.Errorf("nakon kraja prvog razgovora: %v", z3)
@@ -351,8 +362,8 @@ func TestDvaRazgovoraNeTraziIsteDijelove(t *testing.T) {
 	if err := pukne.sadrzajIKraj(ctxRub); err == nil {
 		t.Fatal("razgovor s vezom koja se zatvori nije pukao")
 	}
-	if len(pukne.mojiDijelovi) != 3 {
-		t.Fatalf("razgovor koji pukne tražio je %d dijelova", len(pukne.mojiDijelovi))
+	if len(tijekKarteU(t, pukne).mojiDijelovi) != 3 {
+		t.Fatalf("razgovor koji pukne tražio je %d dijelova", len(tijekKarteU(t, pukne).mojiDijelovi))
 	}
 	d := l.karte.Load()
 	d.mu.Lock()
@@ -444,7 +455,7 @@ func TestOgradaDijelovaPoPutu(t *testing.T) {
 		{privatna, "", true, 8 << 20, false, "nepoznat put"},
 	} {
 		c.veza.Put = c.put
-		if got := ogradaDijelovaPoPutu(c.veza, c.zvao); got != c.ograda || putULokalnojMrezi(c.veza, c.zvao) != c.uLokalnoj {
+		if got := ogradaDijelovaPoPutu(vezaRazgovora{c: c.veza, zvao: c.zvao}); got != c.ograda || putULokalnojMrezi(c.veza, c.zvao) != c.uLokalnoj {
 			t.Errorf("%s: ograda %d, u lokalnoj mreži %v", c.opisVeze, got, putULokalnojMrezi(c.veza, c.zvao))
 		}
 	}
@@ -474,11 +485,11 @@ func TestKartaUzPDFIOgradu(t *testing.T) {
 	}
 	// želje: PDF i jedan dio, toliko od ograde ostane
 	zeli := razgovorZa(l.Service, razmjena.PutLAN, razmjena.OznakaDijeloviKarte, razmjena.OznakaRazmjena)
-	zeli.karta = zeli.smijeKartu(ctxRub)
+	zeli.korak = zeli.zapocniKorak(ctxRub)
 	if z := zeli.mojeZelje(ctxRub); len(z) != 2 || z[0] != o {
 		t.Errorf("uz PDF od 40 KiB i ogradu od 64 KiB želi %d stavki, očekivano PDF i jedan dio", len(z))
 	}
-	zeli.pustiDijelove()
+	zeli.zavrsiKorak()
 	lan(t, l, a)
 	if !l.sp.Ima(ctxRub, o) || stigloKarte(l) != 1 {
 		t.Errorf("uz PDF od %d B: PDF %v, dijelova %d (od ograde ostaje za jedan)", len(pdf), l.sp.Ima(ctxRub, o), stigloKarte(l))
@@ -494,8 +505,8 @@ func TestKartaUzPDFIOgradu(t *testing.T) {
 
 	// i onaj tko daje reže svojom ogradom puta, kad druga strana traži više
 	daje := razgovorZa(a.Service, razmjena.PutKrozTunel, razmjena.OznakaDijeloviKarte, razmjena.OznakaRazmjena)
-	daje.karta = daje.smijeKartu(ctxRub)
-	if got := daje.sadrzajZaDrugu(ctxRub, k.Dijelovi); len(got) != 2 || daje.poslanoDijelova != 2 {
+	daje.korak = daje.zapocniKorak(ctxRub)
+	if got := daje.sadrzajZaDrugu(ctxRub, k.Dijelovi); len(got) != 2 || tijekKarteU(t, daje).poslano != 2 {
 		t.Errorf("kroz tunel dano %d dijelova", len(got))
 	}
 	if got := daje.sadrzajZaDrugu(ctxRub, append([]string{o}, k.Dijelovi...)); len(got) != 2 || got[0].Otisak != o {
@@ -522,14 +533,14 @@ func TestKartaUzGranicuStavki(t *testing.T) {
 		pdfovi = append(pdfovi, o)
 	}
 	zeli := razgovorZa(l.Service, razmjena.PutLAN, razmjena.OznakaDijeloviKarte, razmjena.OznakaRazmjena)
-	zeli.karta = zeli.smijeKartu(ctxRub)
-	if z := zeli.mojeZelje(ctxRub); len(z) != najviseSadrzajaPoRazmjeni || len(zeli.mojiDijelovi) != 1 {
-		t.Errorf("želi %d stavki, od toga %d dijelova", len(z), len(zeli.mojiDijelovi))
+	zeli.korak = zeli.zapocniKorak(ctxRub)
+	if z := zeli.mojeZelje(ctxRub); len(z) != najviseSadrzajaPoRazmjeni || len(tijekKarteU(t, zeli).mojiDijelovi) != 1 {
+		t.Errorf("želi %d stavki, od toga %d dijelova", len(z), len(tijekKarteU(t, zeli).mojiDijelovi))
 	}
 	daje := razgovorZa(a.Service, razmjena.PutLAN, razmjena.OznakaDijeloviKarte, razmjena.OznakaRazmjena)
-	daje.karta = daje.smijeKartu(ctxRub)
-	if got := daje.sadrzajZaDrugu(ctxRub, append(slices.Clone(pdfovi), k.Dijelovi...)); len(got) != najviseSadrzajaPoRazmjeni || daje.poslanoDijelova != 1 {
-		t.Errorf("dano %d stavki, od toga %d dijelova", len(got), daje.poslanoDijelova)
+	daje.korak = daje.zapocniKorak(ctxRub)
+	if got := daje.sadrzajZaDrugu(ctxRub, append(slices.Clone(pdfovi), k.Dijelovi...)); len(got) != najviseSadrzajaPoRazmjeni || tijekKarteU(t, daje).poslano != 1 {
+		t.Errorf("dano %d stavki, od toga %d dijelova", len(got), tijekKarteU(t, daje).poslano)
 	}
 }
 
@@ -691,7 +702,7 @@ func TestPonavljanjeZbogKarteImaGranicu(t *testing.T) {
 	s := rubniCvor(t, "laptop-baranja")
 	zbogKarte, ponovljeno := 0, 0
 	for range 20 {
-		s.josKarte.Store("cop-osijek", true)
+		s.josKoraka.Store("cop-osijek", true)
 		if !s.dalje("cop-osijek", 0, 0, nil, &zbogKarte, new(string)) {
 			break
 		}
@@ -700,11 +711,11 @@ func TestPonavljanjeZbogKarteImaGranicu(t *testing.T) {
 	if ponovljeno != najviseRazgovoraZaKartu {
 		t.Errorf("zbog karte ponovljeno %d puta", ponovljeno)
 	}
-	s.josKarte.Store("cop-osijek", true)
+	s.josKoraka.Store("cop-osijek", true)
 	if !s.dalje("cop-osijek", NajviseVerzijaPoRazmjeni, 0, nil, &zbogKarte, new(string)) {
 		t.Error("pun razgovor se ponavlja i nakon ograde karte")
 	}
-	if _, ima := s.josKarte.Load("cop-osijek"); ima {
+	if _, ima := s.josKoraka.Load("cop-osijek"); ima {
 		t.Error("zapis o karti nije potrošen")
 	}
 	if s.dalje("cop-osijek", NajviseVerzijaPoRazmjeni, 0, context.Canceled, &zbogKarte, new(string)) || s.dalje("cop-osijek", 0, 0, nil, new(int), new(string)) {

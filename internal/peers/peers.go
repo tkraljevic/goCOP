@@ -125,11 +125,10 @@ type Service struct {
 	// otisci: otisak stanja s početka zadnjeg razgovora po čvoru
 	// (napredak.go), iz zadnjeg SyncWith
 	otisci sync.Map // nodeID → string
-	// kartaTece: razgovori koji su prenijeli dijelove karte, a nekoj strani
-	// još nedostaju; josKarte isto po čvoru, iz zadnjeg SyncWith
-	// (karta_razgovor.go)
-	kartaTece sync.Map // *razmjena.Conn → bool
-	josKarte  sync.Map // nodeID → bool
+	// korakTece: razgovori u kojima je dodatni korak javio da ima još
+	// (korak_razgovora.go); josKoraka isto po čvoru, iz zadnjeg SyncWith
+	korakTece sync.Map // *razmjena.Conn → bool
+	josKoraka sync.Map // nodeID → bool
 	// karte je prijenos karte bez interneta (PostaviKarte); nil bez njega
 	karte atomic.Pointer[dijeloviKarte]
 	// korak je prijavljeni dodatni korak razgovora (PrijaviKorak); nil bez
@@ -1077,7 +1076,7 @@ func (s *Service) primiRazmjenu(ctx context.Context, c *razmjena.Conn) {
 	started := time.Now()
 	applied, sent, theirs, err := s.exchange(ctx, c, false)
 	s.skracene.Delete(c)
-	s.kartaTece.Delete(c)
+	s.korakTece.Delete(c)
 	if praznaVeza(theirs, err) {
 		return
 	}
@@ -1137,8 +1136,8 @@ func (k *krug) razmijeni(ctx context.Context, conn *razmjena.Conn, kk kandidat) 
 	applied, sent, theirs, err := s.exchange(ctx, conn, true)
 	_, skraceno := s.skracene.LoadAndDelete(conn)
 	s.josIma.Store(nodeID, skraceno && err == nil)
-	_, karta := s.kartaTece.LoadAndDelete(conn)
-	s.josKarte.Store(nodeID, karta && err == nil)
+	_, korak := s.korakTece.LoadAndDelete(conn)
+	s.josKoraka.Store(nodeID, korak && err == nil)
 	s.otisci.Store(nodeID, theirs.otisak)
 	conn.Close()
 	if s.odbioTailscale(ctx, nodeID, err) {

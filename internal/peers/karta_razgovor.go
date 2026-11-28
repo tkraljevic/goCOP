@@ -1,30 +1,30 @@
 package peers
 
-// Dijelovi karte u razgovoru (karta_dijelovi.go): u koraku želja i
-// sadržaja, uz PDF-ove, i samo uz dijelovi-karte/1 kod obje strane. PDF-ovi
-// imaju prednost; dijelovi popune ostatak iste ograde od 48 MiB i 200
-// stavki, najviše do ograde puta (ogradaDijelovaPoPutu), koju primatelj
-// primijeni na svoje želje, a pošiljatelj istom funkcijom na ono što daje.
+// Dijelovi karte u razgovoru (karta_dijelovi.go), kao dodatni korak
+// razgovora (korak_razgovora.go): oznaka dijelovi-karte/1, vrsta karta-dio.
+// Korak traži i daje dijelove iza PDF-ova, u ostatku iste ograde od 48 MiB
+// i 200 stavki, najviše do ograde puta (ogradaDijelovaPoPutu), koju
+// primatelj primijeni na svoje želje, a pošiljatelj istom funkcijom na ono
+// što daje. O vezi zna samo ono što daje VezaKoraka.
 //
 // Dok je na ovom računalu proglašen stadij obrane, dijelovi idu samo s
-// računalom u istoj lokalnoj mreži, ista kuća ili ured (istaLokalnaMreza),
+// računalom u istoj lokalnoj mreži, ista kuća ili ured (IstaLokalnaMreza),
 // u oba smjera: računalo u obrani dijelove ni ne traži ni ne daje preko
 // interneta (Odluke (29. 10. 2026.)). Unutarnja mreža Hrvatskih voda među
 // gradovima (10.x), VPN i svaka druga privatna adresa izvan iste lokalne
-// mreže tada se računaju kao internet (Odluke (30. 10. 2026.)). Svaka strana
-// gleda svoju obranu. Izvan obrane ograda ide po putu (putULokalnojMrezi),
-// i privatna adresa dobiva ogradu lokalne mreže.
+// mreže tada se računaju kao internet (Odluke (30. 10. 2026.)). Čvor u
+// Dockeru uz most zato u obrani kartu ne prima ni ne daje (istaLokalnaMreza,
+// poznato ograničenje). Svaka strana gleda svoju obranu. Izvan obrane
+// ograda ide po putu (LokalnaMreza), i privatna adresa dobiva ogradu
+// lokalne mreže.
 
 import (
 	"context"
 	"errors"
 	"log"
-	"net"
-	"net/netip"
 	"slices"
 
 	"gocop/internal/razmjena"
-	"gocop/internal/tailscale"
 )
 
 // Ograde dijelova karte po razgovoru, po putu veze; var, da ih test smanji.
@@ -39,11 +39,8 @@ var (
 
 // korakKarte je PRIVREMENA prijava dijelova karte koju napravi NewService,
 // da oznaka dijelovi-karte/1 ide u granicu i bez PostaviKarte, kao i prije
-// prijave koraka (korak_razgovora.go). Razgovor karte zasad još vodi ovaj
-// dio paketa mimo prijave (smijeKartu, upisiDijelove), pa biblioteka
-// Zapocni i Odbaci ne zove, a oni ništa ne rade. Polje s zasad se ne čita:
-// ostaje da prilagodnik u razgovoru čita s.karte kad razgovor krene kroz
-// prijavu, jer PostaviKarte dolazi poslije NewService.
+// prijave koraka. Prijenos karte čita iz s.karte tek kad razgovor počne,
+// jer PostaviKarte dolazi poslije NewService.
 type korakKarte struct{ s *Service }
 
 // prijavaKarte je prijava koju NewService napravi za kartu
@@ -52,213 +49,86 @@ func prijavaKarte(s *Service) PrijavaKoraka {
 		NajviseDodatnih: najviseRazgovoraZaKartu, Korak: korakKarte{s}}
 }
 
-// Zapocni: razgovor karte zasad ide mimo prijave, pa ne počinje ništa
-func (korakKarte) Zapocni(context.Context, VezaKoraka) TijekKoraka { return nil }
-
-// Odbaci: netražene dijelove karte zasad odbaci upisiDijelove
-func (korakKarte) Odbaci([]StavkaKoraka) {}
-
-// putULokalnojMrezi je za ogradu izvan obrane: veza iz pronalaženja, ili na
-// privatnu adresu druge strane (i dolazna na portu), kao korak LAN synca u
-// krugu (krug.dodaj). Za obranu vrijedi uže pravilo (istaLokalnaMreza).
-// Dolazna veza s adrese ovog računala (127.0.0.1, ::1) nije lokalna mreža:
-// tako stiže i ono što s interneta na port prosljeđuje posrednik na ovom
-// računalu. zvao: ovo računalo je nazvalo.
-func putULokalnojMrezi(c *razmjena.Conn, zvao bool) bool {
-	if c.Put != razmjena.PutAdresa {
-		return c.Put == razmjena.PutLAN
-	}
-	adresa := c.RemoteAddr().String()
-	return privatnaAdresa(adresa) && (zvao || !adresaOvogRacunala(adresa))
-}
-
-// adresaOvogRacunala: adresa, s portom ili bez, je loopback
-func adresaOvogRacunala(adresa string) bool {
-	host, _, err := net.SplitHostPort(adresa)
-	if err != nil {
-		host = adresa // adresa bez porta
-	}
-	ip, err := netip.ParseAddr(host)
-	return err == nil && ip.Unmap().IsLoopback()
-}
-
-// istaLokalnaMreza: druga strana je u istoj lokalnoj mreži kao ovo
-// računalo, ista kuća ili ured (Odluke (30. 10. 2026.)). Po tome u obrani
-// idu dijelovi karte. Veza iz pronalaženja (PutLAN) jest. Veza na adresu
-// (PutAdresa), odlazna i dolazna, jest kad je adresa druge strane u mreži
-// sučelja kojim veza ide, onoga koje nosi lokalnu adresu veze. Kad se to ne
-// da utvrditi, nije. Sučelja se biraju kao za pronalaženje
-// (razmjena.MrezeLokalnihSucelja), pa VPN tunel i most spremnika ili
-// virtualnog stroja nisu lokalna mreža. Ni adresa ovog računala (127.0.0.1,
-// ::1; posrednik na istom računalu), ni Tailscaleovi rasponi, ni link-local
-// adresa (fe80::, 169.254.) nisu.
-//
-// Poznato ograničenje: vidi se samo adresa s koje veza stiže. Kad čvor
-// radi u Dockeru uz most (bridge), sučelje spremnika je npr. 172.17.0.2/16:
-// veza koju Docker prosljeđuje svojim posrednikom (npr. IPv6 na spremnik
-// bez IPv6) stiže s 172.17.0.1 i izgleda kao ista lokalna mreža, a laptop iz
-// iste kuće (192.168.1.20) ne, jer ta mreža nije na sučelju spremnika. Taj
-// čvor zato u obrani kartu ne prima ni ne daje; uz mrežu računala (host)
-// radi kao i drugi. Isto tako veza koju usmjerivač VPN-a (npr. Tailscaleova
-// ruta podmreže, VPN s maskiranjem) ili kućni usmjerivač prosljeđuje sa
-// svoje LAN adrese izgleda kao ista lokalna mreža, a i sučelje sa širokom
-// maskom (npr. 10.0.0.0/8 preko više gradova) cijelu tu mrežu računa kao
-// istu lokalnu mrežu.
-func istaLokalnaMreza(c *razmjena.Conn) bool {
-	if c.Put != razmjena.PutAdresa {
-		return c.Put == razmjena.PutLAN
-	}
-	udaljena, ok := ipZaMrezu(c.RemoteAddr())
-	lokalna, ok2 := ipZaMrezu(c.LocalAddr())
-	if !ok || !ok2 {
-		return false
-	}
-	return uMrezamaSucelja(suceljaSAdresom(mrezeSucelja(), lokalna), udaljena)
-}
-
-// mrezeSucelja su mreže sučelja ovog računala koja vode u lokalnu mrežu,
-// po sučelju; var, da test podmetne svoja sučelja
-var mrezeSucelja = razmjena.MrezeLokalnihSucelja
-
-// ipZaMrezu je IP adresa kraja veze za usporedbu s mrežama sučelja: ne
-// adresa ovog računala (loopback), ne link-local (zona sučelja se ne vidi u
-// mreži), ne Tailscaleova i ne nešto što nije IP (tunel)
-func ipZaMrezu(a net.Addr) (net.IP, bool) {
-	ip, ok := ipVeze(a)
-	return net.IP(ip.AsSlice()), ok && !ip.IsLoopback() && !ip.IsLinkLocalUnicast() && !tailscale.JeTailscale(ip)
-}
-
-// suceljaSAdresom su sučelja koja nose adresu ip
-func suceljaSAdresom(sucelja [][]*net.IPNet, ip net.IP) [][]*net.IPNet {
-	var out [][]*net.IPNet
-	for _, mreze := range sucelja {
-		if slices.ContainsFunc(mreze, func(n *net.IPNet) bool { return n.IP.Equal(ip) }) {
-			out = append(out, mreze)
-		}
-	}
-	return out
-}
-
-// uMrezamaSucelja: ip je u mreži jednog od sučelja; mreža Tailscalea se ne
-// gleda
-func uMrezamaSucelja(sucelja [][]*net.IPNet, ip net.IP) bool {
-	for _, mreze := range sucelja {
-		for _, n := range mreze {
-			if a, ok := netip.AddrFromSlice(n.IP); ok && !tailscale.JeTailscale(a) && n.Contains(ip) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// ogradaDijelovaPoPutu je koliko bajtova dijelova karte ide jednim
-// razgovorom tim putem
-func ogradaDijelovaPoPutu(c *razmjena.Conn, zvao bool) int64 {
-	switch {
-	case putULokalnojMrezi(c, zvao):
-		return ogradaDijelovaLAN
-	case c.Put == razmjena.PutTailscale || c.Put == razmjena.PutAdresa:
-		return ogradaDijelovaInternet
-	}
-	return ogradaDijelovaTunel
-}
-
-// smijeKartu: ovaj razgovor prenosi dijelove karte. Treba prijenos karte
-// (PostaviKarte), oznaku kod obje strane i, dok traje obrana, računalo u
-// istoj lokalnoj mreži (Odluke (30. 10. 2026.)).
-func (r *razgovorSCvorom) smijeKartu(ctx context.Context) *dijeloviKarte {
-	d := r.s.karte.Load()
-	if d == nil || razmjena.Dogovor(r.moja.Mogucnosti, r.theirs.Mogucnosti)[razmjena.ImeDijeloviKarte] != 1 {
+// Zapocni: razgovor prenosi dijelove karte kad postoji prijenos karte
+// (PostaviKarte) i, dok traje obrana, kad je druga strana u istoj lokalnoj
+// mreži (Odluke (30. 10. 2026.))
+func (k korakKarte) Zapocni(ctx context.Context, v VezaKoraka) TijekKoraka {
+	d := k.s.karte.Load()
+	if d == nil {
 		return nil
 	}
-	if !istaLokalnaMreza(r.c) && d.obrana(ctx) {
+	if !v.IstaLokalnaMreza() && d.obrana(ctx) {
 		return nil
 	}
-	return d
+	return &tijekKarte{d: d, v: v}
 }
 
-// mojeZelje su otisci PDF-ova koje ovaj čvor traži, a iza njih dijelovi
-// karte koji mu nedostaju, do onoga što od ograde ostane
-func (r *razgovorSCvorom) mojeZelje(ctx context.Context) []string {
-	zelje, bajtova := r.s.zeljeniSBajtovima(ctx, r.myWants)
-	r.mojiSadrzaji = poOtisku(zelje)
-	otisci := otisciZelja(zelje)
-	if r.karta == nil {
-		return otisci
-	}
-	budzet := min(ogradaDijelovaPoPutu(r.c, r.initiator), int64(najviseBajtovaPoRazmjeni-bajtova))
-	r.mojiDijelovi = r.karta.zeljeni(budzet, najviseSadrzajaPoRazmjeni-len(otisci))
-	return append(otisci, r.mojiDijelovi...)
+// Odbaci: dijelove iz razgovora u kojem karta ne ide nitko nije tražio
+func (korakKarte) Odbaci(stavke []StavkaKoraka) {
+	zapisiOdbacene(len(stavke), errNetrazenDio)
 }
 
-// sadrzajZaDrugu: od traženoga najprije PDF-ovi, pa dijelovi karte do
-// onoga što od ograde ostane
-func (r *razgovorSCvorom) sadrzajZaDrugu(ctx context.Context, otisci []string) []stavkaSadrzaja {
-	if r.karta == nil {
-		return r.s.sadrzajZa(ctx, otisci, r.theirs.Wants)
-	}
-	dijelovi, ostali := r.karta.razdvoji(otisci)
-	out := r.s.sadrzajZa(ctx, ostali, r.theirs.Wants)
-	bajtova := 0
-	for _, st := range out {
-		bajtova += st.Bajtova
-	}
-	budzet := min(ogradaDijelovaPoPutu(r.c, r.initiator), int64(najviseBajtovaPoRazmjeni-bajtova))
-	stavke := dijeloviZaSlanje(r.karta, dijelovi, budzet, najviseSadrzajaPoRazmjeni-len(out))
-	r.poslanoDijelova = len(stavke)
-	return append(out, stavke...)
+// tijekKarte su dijelovi karte u jednom razgovoru: mojiDijelovi su dijelovi
+// koje je ovaj čvor zatražio, a brojači koliko ih je poslano i upisano
+type tijekKarte struct {
+	d                  *dijeloviKarte
+	v                  VezaKoraka
+	mojiDijelovi       []string
+	poslano, primljeno int
 }
 
-// dijeloviZaSlanje su traženi dijelovi koji su ovdje, do budžeta bajtova i
-// najviše stavki
-func dijeloviZaSlanje(d *dijeloviKarte, otisci []string, budzet int64, najvise int) []stavkaSadrzaja {
-	var out []stavkaSadrzaja
-	for _, o := range otisci {
-		b, ok := d.procitaj(o)
-		if !ok {
-			continue
-		}
-		if int64(len(b)) > budzet || len(out) >= najvise {
-			break
-		}
-		budzet -= int64(len(b))
-		out = append(out, stavkaSadrzaja{Otisak: o, Vrsta: VrstaDijelaKarte, Bajtova: len(b), Podaci: b})
-	}
-	return out
+// Trazi su dijelovi karte koji ovdje nedostaju, do onoga što od ograde
+// ostane i do ograde puta
+func (t *tijekKarte) Trazi(o Ostatak) []string {
+	t.mojiDijelovi = t.d.zeljeni(min(ogradaDijelovaPoPutu(t.v), o.Bajtova), o.Stavki)
+	return t.mojiDijelovi
 }
 
-// razdvojiPrimljeno odvoji primljene stavke prijavljene vrste koraka
-// (dijelove karte) od ostalog sadržaja: takva stavka nikad ne ide u
-// spremište sadržaja. Bez prijave (vrsta "") sve je ostalo.
-func razdvojiPrimljeno(stavke []stavkaSadrzaja, vrsta string) (dijelovi, ostalo []stavkaSadrzaja) {
-	for _, st := range stavke {
-		if vrsta != "" && st.Vrsta == vrsta {
-			dijelovi = append(dijelovi, st)
-		} else {
-			ostalo = append(ostalo, st)
-		}
-	}
-	return dijelovi, ostalo
+// Izdvoji odvoji otiske dijelova trenutne karte od ostalih
+func (t *tijekKarte) Izdvoji(otisci []string) (moji, ostali []string) {
+	return t.d.razdvoji(otisci)
 }
 
-// upisiDijelove upiše primljene dijelove karte koje je ovaj razgovor
-// tražio; netraženi i krivi se odbace, a dnevnik dobije jedan redak po
-// razgovoru
-func (r *razgovorSCvorom) upisiDijelove(dijelovi []stavkaSadrzaja) {
+// Daj su traženi dijelovi koji su ovdje, do onoga što od ograde ostane i do
+// ograde puta
+func (t *tijekKarte) Daj(otisci []string, o Ostatak) []StavkaKoraka {
+	stavke := dijeloviZaSlanje(t.d, otisci, min(ogradaDijelovaPoPutu(t.v), o.Bajtova), o.Stavki)
+	t.poslano = len(stavke)
+	return stavke
+}
+
+// Primi upiše primljene dijelove karte koje je ovaj razgovor tražio;
+// netraženi i krivi se odbace, a dnevnik dobije jedan redak po razgovoru
+func (t *tijekKarte) Primi(stavke []StavkaKoraka) {
 	var odbaceno int
 	var zadnja error
-	for _, st := range dijelovi {
-		if r.karta == nil || !slices.Contains(r.mojiDijelovi, st.Otisak) {
+	for _, st := range stavke {
+		if !slices.Contains(t.mojiDijelovi, st.Otisak) {
 			odbaceno, zadnja = odbaceno+1, errNetrazenDio
 			continue
 		}
-		if err := r.karta.upisi(st.Otisak, st.Podaci); err != nil {
+		if err := t.d.upisi(st.Otisak, st.Podaci); err != nil {
 			odbaceno, zadnja = odbaceno+1, err
 			continue
 		}
-		r.primljenoDijelova++
+		t.primljeno++
 	}
+	zapisiOdbacene(odbaceno, zadnja)
+}
+
+// ImaJos: razgovor je prenio dijelove, a nekoj strani još nedostaju, pa se
+// razgovor s istim čvorom ponavlja odmah
+func (t *tijekKarte) ImaJos() bool {
+	return t.poslano > 0 || t.primljeno > 0 && t.d.nedostaje()
+}
+
+// Zavrsi oslobodi dijelove koje je ovaj razgovor zatražio, i kad je pukao
+func (t *tijekKarte) Zavrsi() {
+	t.d.pusti(t.mojiDijelovi)
+}
+
+// zapisiOdbacene zapiše u dnevnik jedan redak kad dijelovi nisu upisani
+func zapisiOdbacene(odbaceno int, zadnja error) {
 	if odbaceno > 0 {
 		log.Printf("karta: %d primljenih dijelova karte nije upisano (zadnji: %v)", odbaceno, zadnja)
 	}
@@ -268,18 +138,32 @@ func (r *razgovorSCvorom) upisiDijelove(dijelovi []stavkaSadrzaja) {
 // tražio
 var errNetrazenDio = errors.New("dio nije tražen")
 
-// pustiDijelove oslobodi dijelove koje je ovaj razgovor zatražio, i kad je
-// pukao
-func (r *razgovorSCvorom) pustiDijelove() {
-	if r.karta != nil {
-		r.karta.pusti(r.mojiDijelovi)
+// ogradaDijelovaPoPutu je koliko bajtova dijelova karte ide jednim
+// razgovorom tim putem
+func ogradaDijelovaPoPutu(v VezaKoraka) int64 {
+	switch {
+	case v.LokalnaMreza():
+		return ogradaDijelovaLAN
+	case v.Put() == razmjena.PutTailscale || v.Put() == razmjena.PutAdresa:
+		return ogradaDijelovaInternet
 	}
+	return ogradaDijelovaTunel
 }
 
-// zapamtiKartu: razgovor je prenio dijelove, a nekoj strani još nedostaju,
-// pa se razgovor s istim čvorom ponavlja odmah (josKarte, syncPeers)
-func (r *razgovorSCvorom) zapamtiKartu() {
-	if r.poslanoDijelova > 0 || r.primljenoDijelova > 0 && r.karta.nedostaje() {
-		r.s.kartaTece.Store(r.c, true)
+// dijeloviZaSlanje su traženi dijelovi koji su ovdje, do budžeta bajtova i
+// najviše stavki
+func dijeloviZaSlanje(d *dijeloviKarte, otisci []string, budzet int64, najvise int) []StavkaKoraka {
+	var out []StavkaKoraka
+	for _, o := range otisci {
+		b, ok := d.procitaj(o)
+		if !ok {
+			continue
+		}
+		if int64(len(b)) > budzet || len(out) >= najvise {
+			break
+		}
+		budzet -= int64(len(b))
+		out = append(out, StavkaKoraka{Otisak: o, Bajtova: len(b), Podaci: b})
 	}
+	return out
 }
