@@ -165,8 +165,8 @@ type rubPotpisa struct {
 	Opis        string `json:"opis"`
 	Potpis      string `json:"potpis"`
 	KljucAutora string `json:"kljuc_autora"`
-	// Ishod: "nepotpisana" kad su oba polja prazna (tako ih primatelj
-	// čita, peers.provjeraPotpisa), inače "vrijedi" ili "kriv" prema
+	// Ishod: "nepotpisana" prema Nepotpisana (isto pravilo koje zove
+	// primatelj, peers.provjeraPotpisa), inače "vrijedi" ili "kriv" prema
 	// ProvjeriPotpisVerzije
 	Ishod string `json:"ishod"`
 }
@@ -174,7 +174,7 @@ type rubPotpisa struct {
 // ishodPotpisa je ono što primatelj zna iz samog potpisa verzije, prije
 // pitanja o knjizi i članstvima
 func ishodPotpisa(protokol string, v PodaciVerzije, potpis, kljucAutora string) string {
-	if potpis == "" && kljucAutora == "" {
+	if Nepotpisana(potpis, kljucAutora) {
 		return "nepotpisana"
 	}
 	if ProvjeriPotpisVerzije(protokol, v, potpis, kljucAutora) != nil {
@@ -243,6 +243,12 @@ func rubovePotpisa(t *testing.T, protokol string, autor, drugi ed25519.PrivateKe
 	identitetPredznak[31] = 0x80
 	potpisIdentiteta := b64(append(bytes.Clone(identitet), make([]byte, 32)...))
 
+	// R = identitet zapisan kao y + p, s = 0: nekanonski R
+	potpisNekanonskiR := b64(append(bytes.Clone(identitetYP), make([]byte, 32)...))
+	// točka reda 2, (0, -1): y = p - 1
+	red2 := bytes.Repeat([]byte{0xff}, 32)
+	red2[0], red2[31] = 0xec, 0x7f
+
 	nijeTocka := make([]byte, 32) // y = 2 nije točka krivulje
 	nijeTocka[0] = 2
 
@@ -295,6 +301,7 @@ func rubovePotpisa(t *testing.T, protokol string, autor, drugi ed25519.PrivateKe
 		{"kljuc_identitet", potpisIdentiteta, b64(identitet)},
 		{"kljuc_identitet_nekanonski_y", potpisIdentiteta, b64(identitetYP)},
 		{"kljuc_identitet_s_predznakom", potpisIdentiteta, b64(identitetPredznak)},
+		{"kljuc_reda_2", potpisIdentiteta, b64(red2)},
 		{"potpis_nije_base64", "nije potpis", k},
 		{"potpis_razmak", " ", k},
 		{"potpis_63B", b64(potpis[:63]), k},
@@ -310,11 +317,27 @@ func rubovePotpisa(t *testing.T, protokol string, autor, drugi ed25519.PrivateKe
 		{"potpis_visak_bitova", visakBitova(t, s), k},
 		{"potpis_url_safe", urlSafe(s), k},
 		{"potpis_nekanonski_s", b64(sPlusL), k},
+		{"potpis_nekanonski_r", potpisNekanonskiR, b64(identitet)},
 		{"potpis_visoki_bit", b64(visokiBit), k},
+	}
+	// Ishodi učvršćeni rukom, da SYNCNET_VEKTORI_PISI=1 uz pokvarenu
+	// provjeru ne upiše krive bez riječi. Uz ključ reda 2 ishod ovisi o
+	// poruci, pa i o imenu protokola: Go provjerava bez kofaktora i daje
+	// kriv, provjera s kofaktorom dala bi vrijedi.
+	zelim := map[string]string{
+		"ispravno": "vrijedi", "oba_prazna": "nepotpisana", "samo_kljuc": "kriv", "samo_potpis": "kriv",
+		"potpis_nekanonski_s": "kriv", "kljuc_url_safe": "kriv", "potpis_nekanonski_r": "kriv",
+	}
+	if protokol == "gocop" {
+		zelim["kljuc_reda_2"] = "kriv"
 	}
 	rubovi := make([]rubPotpisa, 0, len(redovi))
 	for _, r := range redovi {
-		rubovi = append(rubovi, rubPotpisa{r.opis, r.potpis, r.kljuc, ishodPotpisa(protokol, v, r.potpis, r.kljuc)})
+		ishod := ishodPotpisa(protokol, v, r.potpis, r.kljuc)
+		if z, ima := zelim[r.opis]; ima && ishod != z {
+			t.Fatalf("rub %s: ishod %s, želim %s", r.opis, ishod, z)
+		}
+		rubovi = append(rubovi, rubPotpisa{r.opis, r.potpis, r.kljuc, ishod})
 	}
 	return rubovi
 }
@@ -556,9 +579,9 @@ func izradiVektore(t *testing.T, protokol string) vektoriZice {
 	v.PotpisVerzije.Obicna = vektorPotpisaVerzije(t, privA, protokol, obicna)
 	v.PotpisVerzije.Rubovi = rubovePotpisa(t, protokol, privA, privB, obicna)
 	v.PotpisVerzije.SadrzajSBrojevima = vektorPotpisaVerzije(t, privA, protokol, PodaciVerzije{
-		VersionID: "019a2b3c-4d5e-7f00-8000-000000000003", Entity: "readings", EntityID: "ocitanje-2", NodeID: "admin-1",
+		VersionID: "019a2b3c-4d5e-7f00-8000-000000000003", Entity: "stavke", EntityID: "stavka-2", NodeID: "admin-1",
 		SchemaVersion: 1, CreatedAt: od,
-		Payload: []byte("{ \"cm\" : 1.0 ,\n\t\"razina\" : 1e2 ,\n  \"slovo\" : \"\\u0041\" , \"kosa\" : \"a\\/b\" , \"manje\" : \"\\u003C\" }"),
+		Payload: []byte("{ \"a\" : 1.0 ,\n\t\"b\" : 1e2 ,\n  \"slovo\" : \"\\u0041\" , \"kosa\" : \"a\\/b\" , \"manje\" : \"\\u003C\" }"),
 	})
 	for _, ostaje := range []string{`:1.0,`, `:1e2,`, `"\u0041"`, `"a\/b"`, `"\u003C"`} {
 		if !strings.Contains(v.PotpisVerzije.SadrzajSBrojevima.OblikSadrz, ostaje) {
@@ -566,10 +589,10 @@ func izradiVektore(t *testing.T, protokol string) vektoriZice {
 		}
 	}
 	v.PotpisVerzije.RazdjelnikUPolju = vektorPotpisaVerzije(t, privA, protokol, PodaciVerzije{
-		VersionID: "019a2b3c-4d5e-7f00-8000-000000000004", Entity: "readings", EntityID: "ocitanje\u20283", NodeID: "admin-1",
-		Channel: "ocitanja\u202816", SchemaVersion: 1, CreatedAt: od, Payload: []byte(`{"cm":312}`),
+		VersionID: "019a2b3c-4d5e-7f00-8000-000000000004", Entity: "stavke", EntityID: "stavka\u20283", NodeID: "admin-1",
+		Channel: "kanal\u2028x", SchemaVersion: 1, CreatedAt: od, Payload: []byte(`{"a":1}`),
 	})
-	if b := v.PotpisVerzije.RazdjelnikUPolju.Bajtovi; !strings.Contains(b, `"ocitanje\u20283"`) || !strings.Contains(b, `"ocitanja\u202816"`) {
+	if b := v.PotpisVerzije.RazdjelnikUPolju.Bajtovi; !strings.Contains(b, `"stavka\u20283"`) || !strings.Contains(b, `"kanal\u2028x"`) {
 		t.Fatalf("U+2028 u potpisanim bajtovima nije zapisan kao \\u2028: %s", b)
 	}
 	v.PotpisVerzije.PosebniZnakovi = vektorPotpisaVerzije(t, privA, protokol, PodaciVerzije{

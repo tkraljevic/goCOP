@@ -99,7 +99,7 @@ func (s *Service) novaProvjeraPotpisa(ctx context.Context, verzije []ledger.Vers
 
 // provjeri je razlog zbog kojeg verzija ne ulazi u knjigu, ili nil
 func (p *provjeraPotpisa) provjeri(v ledger.Version) error {
-	if v.Potpis == "" && v.KljucAutora == "" {
+	if razmjena.Nepotpisana(v.Potpis, v.KljucAutora) {
 		return p.nepotpisana(v)
 	}
 	if err := razmjena.ProvjeriPotpisVerzije(p.s.protokol(), PodaciVerzije(v), v.Potpis, v.KljucAutora); err != nil {
