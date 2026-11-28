@@ -161,6 +161,12 @@ func TestTekstUpozorenjaOdvojenih(t *testing.T) {
 	if s := p.naKartici(u, u.Upitno[0]); !strings.Contains(s, "Gornji Brod") {
 		t.Errorf("%q", s)
 	}
+	// letva s dnevnim modelom koja je ostala bez prognoze: stoji zašto, imenima letvi
+	bez := prognoza.Upozorenje{Vrsta: prognoza.VrstaOdvojeni, Tezina: prognoza.TezinaNapomena, Letva: "donja",
+		Opis: "nema dnevne prognoze, jer letva gornja nema mjerenja od 25.11. u 12:00"}
+	if s := p.sto(bez); s != "Donji Grad: nema dnevne prognoze, jer letva Gornji Brod nema mjerenja od 25.11. u 12:00." {
+		t.Errorf("%q", s)
+	}
 }
 
 // Napomena odvojenog računa stoji na kartici i na grafu, s istim razlogom kao u

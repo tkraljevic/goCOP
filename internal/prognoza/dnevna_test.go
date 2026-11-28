@@ -281,6 +281,12 @@ func TestDnevniSKisomImenujeSliv(t *testing.T) {
 	if err != nil || len(d) != DnevniDosezi+1 || d[0].Model != ModelDnevniKisa {
 		t.Errorf("s kišom: %v, %+v", err, d)
 	}
+	// letvi fale mjerenja, a kiša je stigla: krivac je samo letva
+	rupa := map[string]Niz{"cilj": nizSRupama(sada-200, sada, [2]int64{sada - 10, sada})}
+	_, err = PrognozirajDnevno(m, rupa, map[string]DnevniNiz{OborinaKljuc("sliv"): kisa}, sada)
+	if !errors.As(err, &nd) || !reflect.DeepEqual(nd.Fali, []string{"cilj"}) {
+		t.Errorf("rupa u mjerenjima letve uz urednu kišu: %v, želim da fali samo cilj", err)
+	}
 }
 
 // znacajkeSKisom slaže značajke dana 10 za cilj s ulazom i dva međusliva:

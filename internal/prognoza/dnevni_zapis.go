@@ -18,6 +18,7 @@ import (
 	"log"
 	"maps"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 )
@@ -326,6 +327,68 @@ func (i *Ishod) primiDnevneZapisa(izvod izvodDnevnihZapisa, neispravni map[strin
 	i.Dnevne = append(i.Dnevne, izvod.dnevne...)
 	i.dodajMjerenja(izvod.sidra)
 	maps.Copy(i.BezDnevne, izvod.bez)
+	if n := upozorenjaDnevnihZapisa(neispravni, izvod.bez); len(n) > 0 {
+		i.Upozorenja = append(i.Upozorenja, n...)
+		poredajUpozorenja(i.Upozorenja)
+	}
+}
+
+// upozorenjaDnevnihZapisa kažu za svaku letvu s dnevnim modelom iz zapisa
+// zašto u izdanju nema dnevnu prognozu. Upozorenja glavnog dnevnog modela
+// idu samo po njegovim ciljevima, pa bi ovakva letva s pregleda nestala bez
+// riječi: Vuka 25. 11. 2026., kad je javna stranica postaje ugašena.
+// Napomena, kao i ostalo o letvama iz zapisa: rječica ne zauzima traku na
+// vrhu stranice.
+func upozorenjaDnevnihZapisa(bez ...map[string]error) []Upozorenje {
+	var out []Upozorenje
+	for _, m := range bez {
+		for _, l := range slices.Sorted(maps.Keys(m)) {
+			out = append(out, Upozorenje{Vrsta: VrstaOdvojeni, Tezina: TezinaNapomena, Letva: l,
+				Opis: "nema dnevne prognoze" + razlogDnevnogZapisa(l, m[l])})
+		}
+	}
+	return out
+}
+
+// razlogDnevnogZapisa je nastavak rečenice „nema dnevne prognoze”: kojoj
+// letvi fale mjerenja i od kada, a za ostale greške tekst greške. Šifre
+// letvi stoje kao zasebne riječi, da ih stranica zamijeni imenima.
+func razlogDnevnogZapisa(letva string, err error) string {
+	var nd *NepotpuniDani
+	if !errors.As(err, &nd) || len(nd.Fali) == 0 {
+		return ": " + razlogBezDnevne(letva, err)
+	}
+	dijelovi := make([]string, 0, len(nd.Fali))
+	for _, f := range nd.Fali {
+		if sliv, kisa := strings.CutPrefix(f, "oborina "); kisa {
+			dijelovi = append(dijelovi, "nema kiše sliva "+sliv)
+			continue
+		}
+		r, _ := rupaLetve(nd.Rupe, f)
+		dijelovi = append(dijelovi, cijaRupa(letva, f)+rupaRijecima(r))
+	}
+	return ", jer " + strings.Join(dijelovi, "; ")
+}
+
+// cijaRupa imenuje letvu kojoj fale mjerenja kad to nije sama letva modela.
+func cijaRupa(letva, fali string) string {
+	if fali == letva {
+		return ""
+	}
+	return "letva " + fali + " "
+}
+
+// rupaRijecima kaže od kada mjerenja nema. Rupa koja je završila i dalje
+// ruši prognozu dok ne izađe iz dana iz kojih model računa, pa to i piše.
+func rupaRijecima(r RupaUlaza) string {
+	switch {
+	case r.Zadnje > 0 && r.Sljedece > 0:
+		return "nema mjerenja od " + satDnevnika(r.Zadnje) + " do " + satDnevnika(r.Sljedece) +
+			", a model traži potpune dane"
+	case r.Zadnje > 0:
+		return "nema mjerenja od " + satDnevnika(r.Zadnje)
+	}
+	return "nema dovoljno mjerenja u zadnja četiri dana"
 }
 
 // dodajMjerenja dodaje izdanju mjerenje u satu izdavanja za letve koje ga još
