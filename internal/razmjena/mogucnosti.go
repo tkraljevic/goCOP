@@ -28,6 +28,8 @@ package razmjena
 // čvora dekodiranje cijele granice, pa novi oblik ide samo pod novi ključ.
 
 import (
+	"errors"
+	"fmt"
 	"maps"
 	"slices"
 	"strconv"
@@ -161,18 +163,43 @@ func NaseMogucnosti() []string {
 	return []string{OznakaDijeloviKarte, OznakaGranicaOdbijenih, OznakaPotpisVerzije, OznakaRazmjena, OznakaRupe}
 }
 
-// NepoznateOznake su ispravne oznake druge strane čije ime ovaj program ne
-// zna (G7: djelomično razumljeno), poredane. Gledaju se samo oznake koje
-// se pamte (ocisceneOznake), pa ih nikad nije više od najviseOznaka.
+// ErrNeispravnaOznaka: oznaka nije oblika ime/N iz pravila mogućnosti
+var ErrNeispravnaOznaka = errors.New("oznaka mogućnosti nije oblika ime/N")
+
+// ProvjeriOznaku rastavi oznaku ime/N po pravilu mogućnosti, a za sve
+// drugo vrati ErrNeispravnaOznaka. Služi onome tko oznaku tek objavljuje
+// (npr. dodatni korak razgovora), da neispravnu odbije prije razgovora.
+func ProvjeriOznaku(oznaka string) (ime string, n int, err error) {
+	ime, n, ok := procitajOznaku(oznaka)
+	if !ok {
+		return "", 0, fmt.Errorf("%w: %q", ErrNeispravnaOznaka, oznaka)
+	}
+	return ime, n, nil
+}
+
+// NepoznateOznake su NepoznateOznakeUz s oznakama iz NaseMogucnosti
 func NepoznateOznake(njihove []string) []string {
-	znam := map[string]bool{}
-	for _, o := range append(NaseMogucnosti(), OznakaWeb) {
-		ime, _, _ := procitajOznaku(o)
-		znam[ime] = true
+	return NepoznateOznakeUz(njihove, NaseMogucnosti())
+}
+
+// NepoznateOznakeUz su ispravne oznake druge strane čije ime ovaj program
+// ne zna (G7: djelomično razumljeno), poredane. znam su oznake koje ovaj
+// program objavljuje (prednost iz OciscenoUz), sa ili bez web/1; ime web
+// je uvijek poznato. Gledaju se samo oznake koje se pamte: u ogradi
+// prednost ima znam bez imena web, kao kod spremljenog znanja, pa ih nikad
+// nije više od najviseOznaka.
+func NepoznateOznakeUz(njihove, znam []string) []string {
+	imena := map[string]bool{ImeWeb: true}
+	var prednost []string
+	for _, o := range znam {
+		if ime, _, ok := procitajOznaku(o); ok && ime != ImeWeb {
+			imena[ime] = true
+			prednost = append(prednost, o)
+		}
 	}
 	var out []string
-	for _, o := range ocisceneOznake(njihove) {
-		if ime, _, _ := procitajOznaku(o); !znam[ime] {
+	for _, o := range ocisceneOznake(njihove, prednost) {
+		if ime, _, _ := procitajOznaku(o); !imena[ime] {
 			out = append(out, o)
 		}
 	}
@@ -198,15 +225,21 @@ func Dogovor(moje, njihove []string) map[string]int {
 	return out
 }
 
-// Ocisceno je znanje druge strane kakvo se smije spremiti: ispravne oznake
-// bez ponavljanja, poredane i ograđene, vrste s ispravnim imenom i shemom
-// od 1 naviše, i broj na čekanju ne manji od nule. Nepoznate oznake
-// ostaju, jer se po njima vidi što druga strana zna, a ovaj program ne.
-// Bez ijedne ispravne oznake ili vrste to polje je nil, pa spremljene
-// oznake daju isti Dogovor kao popis koji je stigao. Od uloga ostaju samo
-// poznate.
+// Ocisceno je OciscenoUz s prednošću oznaka iz NaseMogucnosti
 func (z Znanje) Ocisceno() Znanje {
-	return Znanje{Mogucnosti: ocisceneOznake(z.Mogucnosti), Vrste: ocisceneVrste(z.Vrste), CekaNadogradnju: max(z.CekaNadogradnju, 0),
+	return z.OciscenoUz(NaseMogucnosti())
+}
+
+// OciscenoUz je znanje druge strane kakvo se smije spremiti: ispravne
+// oznake bez ponavljanja, poredane i ograđene, vrste s ispravnim imenom i
+// shemom od 1 naviše, i broj na čekanju ne manji od nule. U ogradi oznaka
+// prednost imaju one iz prednost (oznake koje ovaj program objavljuje).
+// Nepoznate oznake ostaju, jer se po njima vidi što druga strana zna, a
+// ovaj program ne. Bez ijedne ispravne oznake ili vrste to polje je nil,
+// pa spremljene oznake daju isti Dogovor kao popis koji je stigao. Od
+// uloga ostaju samo poznate.
+func (z Znanje) OciscenoUz(prednost []string) Znanje {
+	return Znanje{Mogucnosti: ocisceneOznake(z.Mogucnosti, prednost), Vrste: ocisceneVrste(z.Vrste), CekaNadogradnju: max(z.CekaNadogradnju, 0),
 		Uloge: ocisceneUloge(z.Uloge), Karta: ocisceneKarta(z.Karta)}
 }
 
@@ -261,11 +294,12 @@ func ispravne(oznake []string) map[string]bool {
 }
 
 // ocisceneOznake su ispravne oznake, poredane i bez ponavljanja, najviše
-// najviseOznaka; bez ijedne nil. Ograda prvo zadrži oznake koje ima i ovaj
-// program, a tek onda prve po abecedi, pa ne mijenja Dogovor.
-func ocisceneOznake(oznake []string) []string {
+// najviseOznaka; bez ijedne nil. Ograda prvo zadrži oznake iz prednost
+// (one koje ima i ovaj program), a tek onda prve po abecedi, pa ne mijenja
+// Dogovor.
+func ocisceneOznake(oznake, prednost []string) []string {
 	sve := ispravne(oznake)
-	out := zajednicke(sve)
+	out := zajednicke(sve, prednost)
 	for _, oznaka := range slices.Sorted(maps.Keys(sve)) {
 		if len(out) < najviseOznaka && !slices.Contains(out, oznaka) {
 			out = append(out, oznaka)
@@ -275,11 +309,12 @@ func ocisceneOznake(oznake []string) []string {
 	return out
 }
 
-// zajednicke su naše oznake koje ima i druga strana; bez ijedne nil
-func zajednicke(njihove map[string]bool) []string {
+// zajednicke su oznake iz prednost koje ima i druga strana, redom iz
+// prednost, bez ponavljanja i najviše najviseOznaka; bez ijedne nil
+func zajednicke(njihove map[string]bool, prednost []string) []string {
 	var out []string
-	for _, oznaka := range NaseMogucnosti() {
-		if njihove[oznaka] {
+	for _, oznaka := range prednost {
+		if len(out) < najviseOznaka && njihove[oznaka] && !slices.Contains(out, oznaka) {
 			out = append(out, oznaka)
 		}
 	}
