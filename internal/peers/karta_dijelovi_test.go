@@ -767,12 +767,12 @@ func TestStanjeKarteServisa(t *testing.T) {
 	o := &opisKarte{}
 	o.postavi(&k)
 	s.PostaviKarte(t.TempDir(), o.citaj, func(context.Context) bool { return obrana })
-	smiri(s.karte.Load())
+	smiri(s.karte.Load().d.Load())
 	if st := s.StanjeKarte(ctxRub); !st.Prenosi || !st.UObrani || st.Slozena {
 		t.Errorf("u obrani: %+v", st)
 	}
 	s.PostaviKarte(izvor, o.citaj, nil)
-	smiri(s.karte.Load())
+	smiri(s.karte.Load().d.Load())
 	if st := s.StanjeKarte(ctxRub); !st.Slozena || st.UObrani {
 		t.Errorf("složena: %+v", st)
 	}

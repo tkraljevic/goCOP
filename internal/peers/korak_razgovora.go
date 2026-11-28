@@ -16,13 +16,12 @@ package peers
 // a završi na svakom izlazu iz sadrzajIKraj. Kad korak traži nešto, ograda
 // poruke sadržaja je ona za sadržaj (ogradaSadrzaja). Kad korak javi da ima
 // još, pozivatelj odmah ponovi razgovor, najviše NajviseDodatnih puta po
-// krugu (dalje); pozvani ne ponavlja ništa. Jedini prijavljeni korak je
-// zasad privremena prijava karte koju napravi NewService (korakKarte u
-// karta_razgovor.go).
+// krugu (dalje); pozvani ne ponavlja ništa.
 //
-// Ono što korak javlja drugoj strani u znanju (danas polje karta) ide kroz
-// PRIVREMENU dopunu znanja (DopuniZnanje), dok se ne odluči kako korak
-// javlja svoje znanje. I nju zasad postavi NewService (dopunaKarte).
+// Korak prijavi aplikacija (PrijaviKorak), poslije PostaviProtokol i prije
+// Serve; bez prijave razgovor nema dodatnog koraka. Ono što korak javlja
+// drugoj strani u znanju ide kroz PRIVREMENU dopunu znanja (DopuniZnanje),
+// dok se ne odluči kako korak javlja svoje znanje.
 
 import (
 	"context"
@@ -132,8 +131,8 @@ var (
 // prijave. Zasad smije biti samo jedan korak, pa je druga prijava greška;
 // više koraka može doći bez promjene sučelja. Greška je i neispravna
 // oznaka (razmjena.ProvjeriOznaku), ime oznake biblioteke, oznaka s imenom
-// protokola, prazna vrsta, NajviseDodatnih manji od nule i korak bez
-// vrijednosti. Vrsta ne smije biti vrsta sadržaja iz spremišta
+// protokola (osim oznake koju biblioteka već objavljuje), prazna vrsta,
+// NajviseDodatnih manji od nule i korak bez vrijednosti. Vrsta ne smije biti vrsta sadržaja iz spremišta
 // (PrijavaKoraka.Vrsta); to se ne provjerava.
 func (s *Service) PrijaviKorak(p PrijavaKoraka) error {
 	if err := s.provjeriPrijavu(p); err != nil {
@@ -153,7 +152,7 @@ func (s *Service) provjeriPrijavu(p PrijavaKoraka) error {
 		return err
 	case slices.Contains(imenaBiblioteke, ime):
 		return fmt.Errorf("%w: %s", ErrOznakaBiblioteke, p.Oznaka)
-	case strings.Contains(p.Oznaka, s.protokol()):
+	case s.oznakaSProtokolom(p.Oznaka):
 		return fmt.Errorf("%w: %s", ErrOznakaSProtokolom, p.Oznaka)
 	case p.Vrsta == "":
 		return fmt.Errorf("%w: nema vrste stavke", ErrNeispravanKorak)
@@ -163,6 +162,19 @@ func (s *Service) provjeriPrijavu(p PrijavaKoraka) error {
 		return fmt.Errorf("%w: nema koraka", ErrNeispravanKorak)
 	}
 	return nil
+}
+
+// oznakaSProtokolom: oznaka sadrži ime protokola, a nije oznaka iz
+// razmjena.NaseMogucnosti. Oznaku iz NaseMogucnosti biblioteka objavljuje
+// i bez prijave, pa za nju ime protokola u oznaci ne vrijedi. Inače bi uz
+// ime protokola koje je dio te oznake (npr. "karte" ili "e") oznaka i dalje
+// išla u granicu, a korak ne bi radio; prije nego što je korak išao kroz
+// PrijaviKorak, radio je uz svako ime (Odluke (28. 11. 2026.)).
+// PRIVREMENO: pitanje se vraća u PR-u 8, kad oznaka izlazi iz
+// NaseMogucnosti; tada treba odlučiti kako glasi pravilo o imenu protokola
+// u oznaci.
+func (s *Service) oznakaSProtokolom(oznaka string) bool {
+	return strings.Contains(oznaka, s.protokol()) && !slices.Contains(razmjena.NaseMogucnosti(), oznaka)
 }
 
 // DopuniZnanje je PRIVREMENO, dok se ne odluči kako korak javlja svoje

@@ -17,19 +17,20 @@ func cvorSKartom(t *testing.T, id string, sjeme uint32) *Service {
 	o.postavi(&k)
 	s := rubniCvor(t, id)
 	s.PostaviKarte(izvor, o.citaj, nil)
-	smiri(s.karte.Load())
+	smiri(s.karte.Load().d.Load())
 	if z := s.znanjeKarte(); z == nil || z.Otisak != k.Otisak || !z.Slozena {
 		t.Fatalf("znanje o karti: %+v", z)
 	}
 	return s
 }
 
-// NewService postavi dopunu karte: polje karta u granici i u pozdravu WEB
-// synca je ono što daje znanjeKarte, kao i prije dopune
+// Dopunu karte više ne postavlja NewService, nego PostaviKarte: bez nje
+// granica nema polje karta, kao i prije, a s njom je polje karta u granici
+// i u pozdravu WEB synca ono što daje znanjeKarte, kao i prije dopune
 func TestDopuniZnanjeNewServiceDajeKartu(t *testing.T) {
 	s := rubniCvor(t, "cop-osijek")
-	if s.dopunaZnanja.Load() == nil {
-		t.Fatal("NewService nije postavio dopunu znanja")
+	if s.dopunaZnanja.Load() != nil {
+		t.Fatal("NewService je postavio dopunu znanja")
 	}
 	if z := s.mojeZnanje(ctxRub); z.Karta != nil {
 		t.Errorf("bez prijenosa karte: %+v", z.Karta)

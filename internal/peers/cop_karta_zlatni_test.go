@@ -119,7 +119,7 @@ func TestIzvezenaKartaNosiZlatniPotpis(t *testing.T) {
 		t.Fatal(err)
 	}
 	var paket bytes.Buffer
-	if _, err := s.IzveziKartu(zlatnaKarta(), put, &paket); err != nil {
+	if _, err := IzveziKartu(s.Node(), zlatnaKarta(), put, &paket); err != nil {
 		t.Fatal(err)
 	}
 	z, err := zip.NewReader(bytes.NewReader(paket.Bytes()), int64(paket.Len()))

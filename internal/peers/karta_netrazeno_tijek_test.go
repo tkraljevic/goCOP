@@ -1,4 +1,4 @@
-package peers
+package peers_test
 
 // Dio karte koji druga strana pošalje, a ovaj razgovor ga nije tražio, ne
 // ide nikamo, i kad mu je otisak otisak PDF-a koji čvor traži: PDF ne
@@ -16,6 +16,7 @@ import (
 	"sync"
 	"testing"
 
+	"gocop/internal/peers"
 	"gocop/internal/sadrzaj"
 )
 
@@ -87,7 +88,7 @@ func TestTijekDioKarteSOtiskomPDFa(t *testing.T) {
 	d := dnevnikTijeka(t)
 	var sp *sadrzaj.Spremiste
 	kaoDio := salje(kindSadrzaj, sadrzajMsg{Stavke: []stavkaSadrzaja{
-		{Otisak: otisakTudji, Vrsta: VrstaDijelaKarte, Bajtova: len(pdfTudji), Podaci: []byte(pdfTudji)},
+		{Otisak: otisakTudji, Vrsta: peers.VrstaDijelaKarte, Bajtova: len(pdfTudji), Podaci: []byte(pdfTudji)},
 	}})
 	// prijavi: karta kojoj nedostaju svi dijelovi, uz obranu ili bez nje
 	prijavi := func(obrana bool) func() {

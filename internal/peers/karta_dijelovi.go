@@ -46,6 +46,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"gocop/internal/models"
@@ -152,15 +153,34 @@ type dijeloviKarte struct {
 	predCitanje func()            // samo za testove: zove se prije čitanja stanja s diska
 }
 
-// PostaviKarte daje razmjeni mapu karata, opis zadane karte i javlja li
-// ovo računalo obranu. Bez toga se dijelovi karte ne traže ni ne daju.
-// Stanje karte s diska počne se čitati odmah, a mapa karata se počisti.
-func (s *Service) PostaviKarte(mapa string, opis func() *models.VektorskaKarta, uObrani func(context.Context) bool) {
+// PrijenosKarte je prijenos karte bez interneta jednog računala: mapa
+// karata, opis zadane karte, javlja li računalo obranu i ograde dijelova po
+// putu (karta_razgovor.go). Razmjeni se prijavi kao dodatni korak razgovora
+// (Prijavi); bez prijave se dijelovi karte ne traže ni ne daju. Razmjenu
+// koristi samo kroz njezino javno sučelje. Pravi se s NoviPrijenosKarte:
+// nulta vrijednost nema ograda, pa je Prijavi odbije.
+type PrijenosKarte struct {
+	d      atomic.Pointer[dijeloviKarte]
+	ograde ogradeKarte
+}
+
+// NoviPrijenosKarte je prijenos karte nad mapom karata, uz opis zadane karte
+// i obranu; stanje karte s diska počne se čitati odmah, a mapa karata se
+// počisti
+func NoviPrijenosKarte(mapa string, opis func() *models.VektorskaKarta, uObrani func(context.Context) bool) *PrijenosKarte {
+	p := &PrijenosKarte{ograde: zadaneOgrade}
+	p.Postavi(mapa, opis, uObrani)
+	return p
+}
+
+// Postavi zamijeni mapu, opis i obranu, kao da je prijenos nov: stanje
+// karte s diska počne se čitati odmah, a mapa karata se počisti
+func (p *PrijenosKarte) Postavi(mapa string, opis func() *models.VektorskaKarta, uObrani func(context.Context) bool) {
 	d := noviPrijenos(mapa, opis, uObrani)
 	d.mu.Lock()
 	d.osvjezi()
 	d.mu.Unlock()
-	s.karte.Store(d)
+	p.d.Store(d)
 }
 
 // noviPrijenos je prijenos karte nad mapom, s odbačenim opisima s diska
@@ -790,10 +810,9 @@ type StanjeKarte struct {
 	UObrani  bool      // preko interneta prijenos miruje
 }
 
-// StanjeKarte je stanje prijenosa zadane karte; bez opisa s dijelovima ili
-// bez prijenosa (PostaviKarte) prazno
-func (s *Service) StanjeKarte(ctx context.Context) StanjeKarte {
-	d := s.karte.Load()
+// Stanje je stanje prijenosa zadane karte; bez opisa s dijelovima prazno
+func (p *PrijenosKarte) Stanje(ctx context.Context) StanjeKarte {
+	d := p.d.Load()
 	if d == nil {
 		return StanjeKarte{}
 	}
@@ -829,11 +848,11 @@ func (d *dijeloviKarte) obrana(ctx context.Context) bool {
 	return d.uObrani != nil && d.uObrani(ctx)
 }
 
-// znanjeKarte je stanje karte bez interneta za znanje u razgovoru (samo za
-// prikaz na Stanju razmjene druge strane): nil kad prijenos karata nije
-// postavljen, prazan otisak kad karte nema ili je opis odbačen
-func (s *Service) znanjeKarte() *razmjena.ZnanjeKarte {
-	d := s.karte.Load()
+// Znanje je stanje karte bez interneta za znanje u razgovoru (samo za
+// prikaz na Stanju razmjene druge strane): prazan otisak kad karte nema ili
+// je opis odbačen
+func (p *PrijenosKarte) Znanje() *razmjena.ZnanjeKarte {
+	d := p.d.Load()
 	if d == nil {
 		return nil
 	}

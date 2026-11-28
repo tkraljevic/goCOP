@@ -14,7 +14,6 @@ package peers
 
 import (
 	"archive/zip"
-	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/sha256"
@@ -76,17 +75,18 @@ func ImePaketaKarte(k models.VektorskaKarta) string {
 	return "gocop-karta-" + ime + ".cop"
 }
 
-// IzveziKartu piše potpisani paket karte iz datoteke na disku
-func (s *Service) IzveziKartu(k models.VektorskaKarta, put string, w io.Writer) (KartaManifest, error) {
-	m := KartaManifest{Inacica: KartaInacica, Vrsta: VrstaPaketaKarte, Karta: k, Izdao: s.node.ID, Nastalo: time.Now().UTC()}
+// IzveziKartu piše potpisani paket karte iz datoteke na disku; izdaje ga i
+// potpisuje čvor n
+func IzveziKartu(n *Node, k models.VektorskaKarta, put string, w io.Writer) (KartaManifest, error) {
+	m := KartaManifest{Inacica: KartaInacica, Vrsta: VrstaPaketaKarte, Karta: k, Izdao: n.ID, Nastalo: time.Now().UTC()}
 	f, err := os.Open(put)
 	if err != nil {
 		return m, errors.New("karte nema na ovom računalu")
 	}
 	defer f.Close() //nolint:errcheck // samo čitanje
-	if len(s.node.key) > 0 {
-		sig := ed25519.Sign(s.node.key, kanonskaKarta(m))
-		m.Potpis = &CopPotpis{Kljuc: base64.StdEncoding.EncodeToString(s.node.key.Public().(ed25519.PublicKey)), Potpis: base64.StdEncoding.EncodeToString(sig)}
+	if kljuc := n.PrivateKey(); len(kljuc) > 0 {
+		sig := ed25519.Sign(kljuc, kanonskaKarta(m))
+		m.Potpis = &CopPotpis{Kljuc: base64.StdEncoding.EncodeToString(kljuc.Public().(ed25519.PublicKey)), Potpis: base64.StdEncoding.EncodeToString(sig)}
 	}
 	z := zip.NewWriter(w)
 	manifest, _ := json.MarshalIndent(m, "", " ") // samo tekst, brojevi i vrijeme
@@ -123,10 +123,10 @@ func ProvjeriKartaPotpis(m KartaManifest) (ed25519.PublicKey, error) {
 	return javni, nil
 }
 
-// UveziKartu provjerava paket karte (potpis člana mreže, otisak i veličinu
-// karte) i sprema kartu u mapu kao <otisak>.pmtiles. Paket koji je
-// potpisao ovaj čvor prolazi i prije nego što čvor ima mrežu.
-func (s *Service) UveziKartu(ctx context.Context, put, mapa string) (models.VektorskaKarta, error) {
+// UveziKartu provjerava paket karte (potpis člana mreže razmjene s, otisak
+// i veličinu karte) i sprema kartu u mapu kao <otisak>.pmtiles. Paket koji
+// je potpisao ovaj čvor prolazi i prije nego što čvor ima mrežu.
+func UveziKartu(ctx context.Context, s *Service, put, mapa string) (models.VektorskaKarta, error) {
 	z, err := zip.OpenReader(put)
 	if err != nil {
 		return models.VektorskaKarta{}, errors.New("datoteka nije .cop paket")
@@ -136,7 +136,7 @@ func (s *Service) UveziKartu(ctx context.Context, put, mapa string) (models.Vekt
 	if err != nil {
 		return m.Karta, err
 	}
-	if err := s.provjeriIzdavacaKarte(ctx, m); err != nil {
+	if err := provjeriIzdavacaKarte(ctx, s, m); err != nil {
 		return m.Karta, err
 	}
 	return raspakirajKartu(kf, m.Karta, mapa)
@@ -204,19 +204,18 @@ func manifestKarte(mf *zip.File) (KartaManifest, error) {
 	return m, nil
 }
 
-func (s *Service) provjeriIzdavacaKarte(ctx context.Context, m KartaManifest) error {
+// provjeriIzdavacaKarte: paket je potpisalo ovo računalo ili član mreže
+// pod svojim imenom (Service.PotpisnikPaketa)
+func provjeriIzdavacaKarte(ctx context.Context, s *Service, m KartaManifest) error {
 	javni, err := ProvjeriKartaPotpis(m)
 	if err != nil {
 		return err
 	}
-	if len(s.node.key) > 0 && bytes.Equal(javni, s.node.key.Public().(ed25519.PublicKey)) {
-		return nil
-	}
-	clan, err := s.izdavacClan(ctx, m.Izdao, javni)
-	if err != nil {
+	potpisnik, err := s.PotpisnikPaketa(ctx, m.Izdao, javni)
+	switch {
+	case err != nil:
 		return err
-	}
-	if !clan {
+	case potpisnik == PotpisnikNeprovjeren:
 		return errors.New("ovo računalo još nije u mreži, pa ne može provjeriti tko je izdao paket karte")
 	}
 	return nil

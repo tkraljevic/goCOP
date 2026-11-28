@@ -1,13 +1,20 @@
 package peers
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"log"
+	"reflect"
 	"slices"
+	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"gocop/internal/ledger"
+	"gocop/internal/models"
 	"gocop/internal/razmjena"
 	"gocop/internal/sadrzaj"
 )
@@ -24,27 +31,43 @@ func probnaPrijava() PrijavaKoraka {
 	return PrijavaKoraka{Oznaka: "probni-korak/1", Vrsta: "probna-stavka", NajviseDodatnih: 3, Korak: &probniKorak{}}
 }
 
-// bezPrijave je čvor kojem je prijava karte iz NewService maknuta
+// bezPrijave je čvor bez prijavljenog koraka. NewService ne prijavljuje
+// nijedan korak, pa se tu samo provjeri da ga nema.
 func bezPrijave(t *testing.T, id string) *Service {
 	t.Helper()
 	s := rubniCvor(t, id)
-	s.korak.Store(nil)
+	if p := s.korak.Load(); p != nil {
+		t.Fatalf("NewService je prijavio korak: %+v", p)
+	}
 	return s
 }
 
-// NewService prijavi kartu: oznaka je ona koja je i prije išla u granicu,
-// pa se popis oznaka ne mijenja, a druga prijava ne prolazi
+// bezKarte je opis zadane karte kad karte nema
+func bezKarte() *models.VektorskaKarta { return nil }
+
+// Kartu više ne prijavljuje NewService, nego PostaviKarte: bez nje korak
+// nije prijavljen, a oznake u granici su iste, jer je dijelovi-karte/1 još
+// u razmjena.NaseMogucnosti. Prijava karte ima oznaku koja je i prije išla
+// u granicu, pa se popis oznaka ne mijenja, druga prijava ne prolazi, a
+// drugi PostaviKarte ne prijavljuje ponovno.
 func TestPrijaviKorakNewServicePrijaviKartu(t *testing.T) {
 	s := rubniCvor(t, "cop-osijek")
+	if p := s.korak.Load(); p != nil {
+		t.Fatalf("NewService je prijavio korak: %+v", p)
+	}
+	if got := s.mojeMogucnosti(); !slices.Equal(got, razmjena.NaseMogucnosti()) {
+		t.Errorf("mogućnosti bez prijave karte: %v", got)
+	}
+	s.PostaviKarte(t.TempDir(), bezKarte, nil)
 	p := s.korak.Load()
 	if p == nil || p.Oznaka != razmjena.OznakaDijeloviKarte || p.Vrsta != VrstaDijelaKarte || p.NajviseDodatnih != najviseRazgovoraZaKartu {
-		t.Fatalf("prijava iz NewService: %+v", p)
+		t.Fatalf("prijava iz PostaviKarte: %+v", p)
 	}
 	if err := s.provjeriPrijavu(*p); err != nil {
-		t.Errorf("prijava iz NewService ne prolazi provjeru: %v", err)
+		t.Errorf("prijava iz PostaviKarte ne prolazi provjeru: %v", err)
 	}
-	if _, ok := p.Korak.(korakKarte); !ok {
-		t.Errorf("korak iz NewService: %T", p.Korak)
+	if k, ok := p.Korak.(korakKarte); !ok || k.p != s.karte.Load() {
+		t.Errorf("korak iz PostaviKarte: %T", p.Korak)
 	}
 	if got := s.mojeMogucnosti(); !slices.Equal(got, razmjena.NaseMogucnosti()) {
 		t.Errorf("mogućnosti uz prijavu karte: %v", got)
@@ -62,12 +85,180 @@ func TestPrijaviKorakNewServicePrijaviKartu(t *testing.T) {
 	if !errors.Is(err, ErrKorakPrijavljen) || s.korak.Load() != p {
 		t.Errorf("druga prijava: %v, prijavljeno %+v", err, s.korak.Load())
 	}
-	// bez prijenosa karte (PostaviKarte) korak karte ne počne, a Odbaci
-	// samo zapiše redak u dnevnik
-	if tijek := (korakKarte{s}).Zapocni(ctxRub, nil); tijek != nil {
-		t.Errorf("korak karte je počeo: %v", tijek)
+	prijenos := s.karte.Load()
+	s.PostaviKarte(t.TempDir(), bezKarte, nil)
+	if s.korak.Load() != p || s.karte.Load() != prijenos {
+		t.Error("drugi PostaviKarte je prijavio kartu ponovno")
 	}
-	korakKarte{s}.Odbaci([]StavkaKoraka{{Otisak: "a"}})
+	// kad je korak već prijavljen, PostaviKarte kartu ne prijavi, nego to
+	// zapiše u dnevnik; prijenos karte ipak postoji
+	drugi := bezPrijave(t, "laptop-baranja")
+	probni := probnaPrijava()
+	if err := drugi.PrijaviKorak(probni); err != nil {
+		t.Fatal(err)
+	}
+	drugi.PostaviKarte(t.TempDir(), bezKarte, nil)
+	if drugi.korak.Load().Oznaka != probni.Oznaka || drugi.karte.Load() == nil || drugi.dopunaZnanja.Load() != nil {
+		t.Errorf("PostaviKarte uz prijavljen korak: %+v", drugi.korak.Load())
+	}
+	// Odbaci samo zapiše redak u dnevnik
+	korakKarte{&PrijenosKarte{}}.Odbaci([]StavkaKoraka{{Otisak: "a"}})
+}
+
+// Nulta vrijednost PrijenosKarte nema ograda po putu ni stanja: nema
+// stanja ni znanja, a Prijavi je odbije, i kad joj je Postavi dao mapu i
+// opis. Inače bi oznaka i polje karta išli u granicu, a nijedan dio ne bi
+// išao ni u jednom smjeru.
+func TestPrijenosKarteNultaVrijednost(t *testing.T) {
+	prazan := &PrijenosKarte{}
+	if st, z := prazan.Stanje(ctxRub), prazan.Znanje(); st != (StanjeKarte{}) || z != nil {
+		t.Errorf("prijenos bez stanja: %+v, znanje %+v", st, z)
+	}
+	s := bezPrijave(t, "cop-osijek")
+	if err := prazan.Prijavi(s); !errors.Is(err, errNijeNoviPrijenos) {
+		t.Errorf("Prijavi nulte vrijednosti: %v", err)
+	}
+	prazan.Postavi(t.TempDir(), bezKarte, nil)
+	if err := prazan.Prijavi(s); !errors.Is(err, errNijeNoviPrijenos) {
+		t.Errorf("Prijavi nulte vrijednosti uz Postavi: %v", err)
+	}
+	if s.korak.Load() != nil || s.dopunaZnanja.Load() != nil {
+		t.Errorf("odbijena prijava je ostavila korak %+v ili dopunu", s.korak.Load())
+	}
+	if err := NoviPrijenosKarte(t.TempDir(), bezKarte, nil).Prijavi(s); err != nil {
+		t.Errorf("Prijavi prijenosa iz NoviPrijenosKarte: %v", err)
+	}
+}
+
+// PostaviKarte ne uzima s.mu, a istodobni pozivi spreme jedan prijenos,
+// prijave ga jednom i ne zapišu u dnevnik da karta ne ide razmjenom
+func TestPostaviKarteIstodobno(t *testing.T) {
+	var dnevnik bytes.Buffer
+	stari := log.Writer()
+	log.SetOutput(&dnevnik)
+	t.Cleanup(func() { log.SetOutput(stari) })
+	s := rubniCvor(t, "cop-osijek")
+	mape := map[string]bool{}
+	for range 8 {
+		mape[t.TempDir()] = true
+	}
+	s.mu.Lock()
+	var wg sync.WaitGroup
+	for mapa := range mape {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			s.PostaviKarte(mapa, bezKarte, nil)
+		}()
+	}
+	gotovo := make(chan struct{})
+	go func() { wg.Wait(); close(gotovo) }()
+	select {
+	case <-gotovo:
+	case <-time.After(10 * time.Second):
+		s.mu.Unlock()
+		t.Fatal("PostaviKarte čeka na s.mu")
+	}
+	s.mu.Unlock()
+	p := s.karte.Load()
+	k := s.korak.Load()
+	if p == nil || k == nil || k.Oznaka != razmjena.OznakaDijeloviKarte {
+		t.Fatalf("prijenos %v, prijava %+v", p, k)
+	}
+	if kk, ok := k.Korak.(korakKarte); !ok || kk.p != p {
+		t.Errorf("prijavljen je drugi prijenos: %T", k.Korak)
+	}
+	if s.dopunaZnanja.Load() == nil {
+		t.Error("nema dopune znanja")
+	}
+	if d := p.d.Load(); d == nil || !mape[d.mapa] {
+		t.Errorf("stanje prijenosa: %+v", d)
+	}
+	if strings.Contains(dnevnik.String(), "karta bez interneta") {
+		t.Errorf("dnevnik: %s", dnevnik.String())
+	}
+}
+
+// Odluke (28. 11. 2026.): ime protokola koje je dio oznake
+// dijelovi-karte/1 ne smeta prijavi karte, jer tu oznaku biblioteka
+// objavljuje i bez prijave. Uz svako ime je isto kao uz zadano gocop:
+// korak i dopuna su postavljeni, vrsta je karta-dio, granica i pozdrav WEB
+// synca nose polje karta, a primljena stavka karta-dio ne ide u spremište,
+// ni s otiskom PDF-a.
+func TestPrijavaKarteUzImeProtokolaIzOznake(t *testing.T) {
+	for _, ime := range []string{Protocol, "karte", "dijelovi", "e", "1", "dijelovi-karte"} {
+		k, _, izvor := kartaUDijelovima(t, 1000, 128, 46)
+		o := &opisKarte{}
+		o.postavi(&k)
+		s := rubniCvor(t, "cop-osijek")
+		s.PostaviProtokol(ime)
+		s.PostaviKarte(izvor, o.citaj, nil)
+		smiri(s.karte.Load().d.Load())
+		p := s.korak.Load()
+		if p == nil || p.Oznaka != razmjena.OznakaDijeloviKarte || p.Vrsta != VrstaDijelaKarte || p.NajviseDodatnih != najviseRazgovoraZaKartu {
+			t.Fatalf("%s: prijava karte: %+v", ime, p)
+		}
+		if kk, ok := p.Korak.(korakKarte); !ok || kk.p != s.karte.Load() {
+			t.Errorf("%s: korak: %T", ime, p.Korak)
+		}
+		if s.dopunaZnanja.Load() == nil || s.vrstaKoraka() != VrstaDijelaKarte {
+			t.Errorf("%s: dopuna %v, vrsta %q", ime, s.dopunaZnanja.Load() != nil, s.vrstaKoraka())
+		}
+		if got := s.mojeMogucnosti(); !slices.Equal(got, razmjena.NaseMogucnosti()) {
+			t.Errorf("%s: mogućnosti: %v", ime, got)
+		}
+		ocekivano := s.znanjeKarte()
+		if ocekivano == nil || ocekivano.Otisak != k.Otisak || !ocekivano.Slozena {
+			t.Fatalf("%s: znanje o karti: %+v", ime, ocekivano)
+		}
+		if z := s.mojeZnanje(ctxRub); !reflect.DeepEqual(z.Karta, ocekivano) {
+			t.Errorf("%s: u granici: %+v, a znanjeKarte %+v", ime, z.Karta, ocekivano)
+		}
+		if z := s.znanjeZaPozdrav(); !reflect.DeepEqual(z.Karta, ocekivano) {
+			t.Errorf("%s: u pozdravu WEB synca: %+v, a znanjeKarte %+v", ime, z.Karta, ocekivano)
+		}
+		stavka := stavkaSadrzaja{Otisak: otisakTudji, Vrsta: VrstaDijelaKarte, Bajtova: len(pdfTudji), Podaci: []byte(pdfTudji)}
+		if koraka, ostalo := razdvojiPrimljeno([]stavkaSadrzaja{stavka}, s.vrstaKoraka()); len(koraka) != 1 || len(ostalo) != 0 {
+			t.Errorf("%s: karta-dio ide u spremište: %v", ime, ostalo)
+		}
+	}
+}
+
+// Iznimka vrijedi samo za oznaku iz razmjena.NaseMogucnosti: tuđa oznaka s
+// imenom protokola i dalje pada, i kad joj je ime ono iz NaseMogucnosti, a
+// broj drugi. Oznaka iz NaseMogucnosti prolazi i uz probni korak, bez
+// karte.
+func TestPrijaviKorakImeProtokolaUTudjojOznaci(t *testing.T) {
+	for _, ime := range []string{"karte", "dijelovi", "e", "1", "dijelovi-karte"} {
+		s := bezPrijave(t, "cop-osijek")
+		s.PostaviProtokol(ime)
+		for _, oznaka := range []string{ime + "-korak/1", "dijelovi-karte/21"} {
+			p := probnaPrijava()
+			p.Oznaka = oznaka
+			if err := s.PrijaviKorak(p); !errors.Is(err, ErrOznakaSProtokolom) {
+				t.Errorf("%s, %s: %v", ime, oznaka, err)
+			}
+			if s.korak.Load() != nil {
+				t.Fatalf("%s, %s: prijava je ostala", ime, oznaka)
+			}
+		}
+		// ostale provjere vrijede i za oznaku iz NaseMogucnosti
+		p := probnaPrijava()
+		p.Oznaka, p.Vrsta = razmjena.OznakaDijeloviKarte, ""
+		if err := s.PrijaviKorak(p); !errors.Is(err, ErrNeispravanKorak) {
+			t.Errorf("%s: oznaka biblioteke bez vrste: %v", ime, err)
+		}
+		// a ispravna prijava s oznakom iz NaseMogucnosti prolazi i bez
+		// karte, uz probni korak
+		p = probnaPrijava()
+		p.Oznaka = razmjena.OznakaDijeloviKarte
+		if err := s.PrijaviKorak(p); err != nil {
+			t.Errorf("%s: probni korak s oznakom iz NaseMogucnosti: %v", ime, err)
+		}
+		if k := s.korak.Load(); k == nil || k.Oznaka != p.Oznaka || k.Korak != p.Korak {
+			t.Errorf("%s: prijavljeno %+v", ime, k)
+		}
+	}
 }
 
 // Neispravna prijava se odbije i ne ostavlja trag

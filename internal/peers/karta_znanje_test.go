@@ -1,4 +1,4 @@
-package peers
+package peers_test
 
 import (
 	"testing"
@@ -15,24 +15,24 @@ func TestRazmjenaJavljaKartu(t *testing.T) {
 	o.postavi(&k)
 	cv := clanovi(t, "cop-osijek", "laptop-baranja")
 	a, l := cv[0], cv[1]
-	if l.znanjeKarte() != nil {
+	if l.ZnanjeKarte() != nil {
 		t.Fatal("bez prijenosa karata znanje o karti mora biti nil")
 	}
 	a.PostaviKarte(izvor, o.citaj, nil)
 	l.PostaviKarte(t.TempDir(), o.citaj, nil)
-	smiri(a.karte.Load())
-	smiri(l.karte.Load())
-	if z := l.znanjeKarte(); z == nil || z.Otisak != k.Otisak || z.Slozena || z.Svih != len(k.Dijelovi) {
+	smiri(a)
+	smiri(l)
+	if z := l.ZnanjeKarte(); z == nil || z.Otisak != k.Otisak || z.Slozena || z.Svih != len(k.Dijelovi) {
 		t.Fatalf("prije prijenosa: %+v", z)
 	}
-	if _, _, err := l.SyncWith(ctxRub, a.node.ID); err != nil {
+	if _, _, err := l.SyncWith(ctxRub, a.Node().ID); err != nil {
 		t.Fatal(err)
 	}
-	stanja, err := l.syncStates(ctxRub)
+	stanja, err := l.SyncStates(ctxRub)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if z := stanja[a.node.ID].Karta; z == nil || z.Otisak != k.Otisak || !z.Slozena || z.Dijelova != len(k.Dijelovi) {
+	if z := stanja[a.Node().ID].Karta; z == nil || z.Otisak != k.Otisak || !z.Slozena || z.Dijelova != len(k.Dijelovi) {
 		t.Errorf("što L zna o karti A: %+v", z)
 	}
 	st, err := l.Status(ctxRub, false)
@@ -44,8 +44,8 @@ func TestRazmjenaJavljaKartu(t *testing.T) {
 	prazno := &opisKarte{}
 	b := clanovi(t, "ured-vukovar")[0]
 	b.PostaviKarte(t.TempDir(), prazno.citaj, nil)
-	smiri(b.karte.Load())
-	if z := b.znanjeKarte(); z == nil || z.Otisak != "" {
+	smiri(b)
+	if z := b.ZnanjeKarte(); z == nil || z.Otisak != "" {
 		t.Errorf("bez karte: %+v", z)
 	}
 }
