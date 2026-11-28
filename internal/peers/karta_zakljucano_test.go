@@ -122,10 +122,13 @@ func parRacunala(t *testing.T, ctx context.Context) (a, b *node) {
 
 // Što računalo javi o svojoj karti, drugo spremi u peer_sync.karta točno
 // ovim bajtovima: karta koja se prenosi, složena karta i računalo bez
-// karte. Bez prijenosa karata stupac ostaje prazan.
+// karte. Bez prijenosa karata stupac ostaje prazan. Kartu prijave oba
+// računala kao goCOP: isti opis karte, a svako svoju mapu karata. Kad je
+// karta kod a složena, b je razmjenom dobije i složi.
 func TestKartaUStupcuRazmjene(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
+	mapaB := t.TempDir() // prije računala, da se počisti tek kad stanu
 	a, b := parRacunala(t, ctx)
 	izvor := filepath.Join(t.TempDir(), "karte")
 	k := spremiProbnuKartu(t, izvor, 1000, 128)
@@ -138,9 +141,9 @@ func TestKartaUStupcuRazmjene(t *testing.T) {
 		stupac   string
 	}{
 		{"bez prijenosa karata", func() {}, ""},
-		{"karta se prenosi", func() { postaviKartu(a, t.TempDir(), &k) }, `{"otisak":"` + k.Otisak + `","svih":8}`},
-		{"karta je složena", func() { postaviKartu(a, izvor, &k) }, `{"otisak":"` + k.Otisak + `","slozena":true,"dijelova":8,"svih":8}`},
-		{"karte nema", func() { postaviKartu(a, t.TempDir(), nil) }, `{"otisak":""}`},
+		{"karta se prenosi", func() { postaviKartu(a, t.TempDir(), &k); postaviKartu(b, mapaB, &k) }, `{"otisak":"` + k.Otisak + `","svih":8}`},
+		{"karta je složena", func() { postaviKartu(a, izvor, &k); postaviKartu(b, mapaB, &k) }, `{"otisak":"` + k.Otisak + `","slozena":true,"dijelova":8,"svih":8}`},
+		{"karte nema", func() { postaviKartu(a, t.TempDir(), nil); postaviKartu(b, mapaB, nil) }, `{"otisak":""}`},
 	} {
 		sl.pripremi()
 		if _, _, err := b.svc.SyncWith(ctx, a.id); err != nil {
@@ -149,6 +152,29 @@ func TestKartaUStupcuRazmjene(t *testing.T) {
 		if got := stupacRazmjene(t, b, "karta", a.id); got != sl.stupac {
 			t.Errorf("%s: peer_sync.karta = %q, očekivano %q", sl.ime, got, sl.stupac)
 		}
+		if sl.ime == "karta je složena" {
+			cekajSlozenuKartu(t, ctx, b, k.Otisak)
+		}
+	}
+}
+
+// cekajSlozenuKartu čeka da računalo složi kartu otiska koju je dobilo
+// razmjenom; slaže je u pozadini, odmah nakon zadnjeg dijela
+func cekajSlozenuKartu(t *testing.T, ctx context.Context, n *node, otisak string) {
+	t.Helper()
+	rok := time.Now().Add(10 * time.Second)
+	for {
+		st, err := n.svc.Status(ctx, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if st.Karta != nil && st.Karta.Otisak == otisak && st.Karta.Slozena {
+			return
+		}
+		if time.Now().After(rok) {
+			t.Fatalf("%s nije složio kartu: %+v", n.id, st.Karta)
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 
