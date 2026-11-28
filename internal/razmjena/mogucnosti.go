@@ -19,9 +19,11 @@ package razmjena
 //     promijenjeno značenje smiju samo kad Dogovor kaže da obje strane imaju
 //     oznaku.
 //
-// Oznake nikad ne sadrže ime protokola ni „gocop”: ALPN je ime protokola,
-// '-' i oznaka, a ime protokola postaje postavka. sadrzaj/1 je rezervirano
-// za roj; web/1 (od F3b) javlja samo računalo prijavljeno za WEB sync.
+// Oznake biblioteke nikad ne sadrže „gocop”, a oznaka koju prijavljuje
+// aplikacija nema ime protokola kao cijeli dio imena (peers.PrijaviKorak):
+// ALPN je ime protokola, '-' i oznaka, a ime protokola postaje postavka.
+// sadrzaj/1 je rezervirano za roj; web/1 (od F3b) javlja samo računalo
+// prijavljeno za WEB sync.
 //
 // Tipovi polja su zauvijek: mogucnosti je popis teksta, vrste mapa teksta na
 // cijeli broj, cekaNadogradnju cijeli broj. Drugi tip srušio bi kod starijeg

@@ -144,13 +144,16 @@ func (s *Service) mojeZnanje(ctx context.Context) razmjena.Znanje {
 }
 
 // mojeMogucnosti su oznake koje ovaj program objavljuje
-// (razmjena.NaseMogucnosti), uz web/1 dok računalo ima uključen WEB sync
-// (priprema_weba.go), ili oznake koje je čvoru dao test (s.mogucnosti)
+// (razmjena.NaseMogucnosti i oznaka prijavljenog koraka, prednost),
+// poredane, uz web/1 dok računalo ima uključen WEB sync (priprema_weba.go),
+// ili oznake koje je čvoru dao test (s.mogucnosti)
 func (s *Service) mojeMogucnosti() []string {
 	if s.mogucnosti != nil {
 		return s.mogucnosti()
 	}
-	return s.uzWeb(razmjena.NaseMogucnosti())
+	oznake := s.prednost()
+	slices.Sort(oznake)
+	return s.uzWeb(oznake)
 }
 
 // uzWeb doda oznaku web/1 dok računalo ima uključen WEB sync, poredano.
@@ -496,7 +499,7 @@ func (r *razgovorSCvorom) primiNjihovSadrzaj(ctx context.Context) error {
 	if err := r.ocekujDo(kindSadrzaj, r.ogradaSadrzaja(), &stigao); err != nil {
 		return err
 	}
-	dijelovi, ostalo := razdvojiPrimljeno(stigao.Stavke)
+	dijelovi, ostalo := razdvojiPrimljeno(stigao.Stavke, r.s.vrstaKoraka())
 	r.s.primiSadrzajAkoStigne(ctx, razmjena.PublicKeyString(r.c.PeerKey), r.trazeniSadrzaji(ostalo))
 	r.upisiDijelove(dijelovi)
 	return nil

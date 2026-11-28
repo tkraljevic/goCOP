@@ -132,6 +132,9 @@ type Service struct {
 	josKarte  sync.Map // nodeID → bool
 	// karte je prijenos karte bez interneta (PostaviKarte); nil bez njega
 	karte atomic.Pointer[dijeloviKarte]
+	// korak je prijavljeni dodatni korak razgovora (PrijaviKorak); nil bez
+	// prijave
+	korak atomic.Pointer[PrijavaKoraka]
 	db    *sql.DB
 	rec   *ledger.Recorder
 	node  *Node
@@ -290,7 +293,8 @@ type Service struct {
 	// (granica_nakon_uvoza.go)
 	uvozi pamcenjeUvoza
 	// mogucnosti su oznake koje čvor javlja u granici (mojeMogucnosti); nil
-	// je razmjena.NaseMogucnosti. Test njime glumi čvor bez neke oznake.
+	// su oznake ovog programa (prednost) uz web/1 (mojeMogucnosti). Test
+	// njime glumi čvor bez neke oznake.
 	mogucnosti func() []string
 	// rupeMijenja raste kad nekom ključu u zapisu rupa naraste raspon za
 	// koji ovo računalo ne jamči (rupe.go); praviloPrihvata je pravilo
@@ -325,6 +329,9 @@ func NewService(db *sql.DB, rec *ledger.Recorder, node *Node, ports Ports) (*Ser
 	s.ogradaPorta.KadOdbije(s.naVratima(PutVrataPort))
 	s.ogradaTunela.KadOdbije(s.naVratima(PutVrataTunel))
 	s.ogradaWeb.KadOdbije(s.naVratima(PutVrataWeb))
+	// prijava karte je stalna, a da prolazi PrijaviKorak, provjerava test
+	karta := prijavaKarte(s)
+	s.korak.Store(&karta)
 	if err := s.loadNetwork(); err != nil {
 		return nil, err
 	}
@@ -1074,7 +1081,7 @@ func (s *Service) primiRazmjenu(ctx context.Context, c *razmjena.Conn) {
 	if praznaVeza(theirs, err) {
 		return
 	}
-	o := ishodRazmjene(applied, sent, theirs, time.Since(started), err)
+	o := ishodRazmjene(applied, sent, theirs, s.prednost(), time.Since(started), err)
 	o.dolazna = true
 	s.zabiljeziKasnije(ctx, peer, c, o)
 }
@@ -1139,7 +1146,7 @@ func (k *krug) razmijeni(ctx context.Context, conn *razmjena.Conn, kk kandidat) 
 		k.bez(kk)
 		return 0, 0, true, err
 	}
-	o := ishodRazmjene(applied, sent, theirs, time.Since(started), err)
+	o := ishodRazmjene(applied, sent, theirs, s.prednost(), time.Since(started), err)
 	o.razlog = k.razlog()
 	s.zabiljezi(ctx, k.peer, conn, o)
 	return applied, sent, false, err
