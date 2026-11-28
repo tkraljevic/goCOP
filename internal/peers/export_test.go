@@ -1,6 +1,9 @@
 package peers
 
-import "net/netip"
+import (
+	"net/netip"
+	"slices"
+)
 
 // Testovi ne smiju ovisiti o tome ima li računalo na kojem rade Tailscale:
 // čvor u testu nema ga dok mu test ne zada adrese (ZadajTailscale)
@@ -20,4 +23,10 @@ func SuziDeltu(n int) func() {
 	prije := najviseBajtovaDelte
 	najviseBajtovaDelte = n
 	return func() { najviseBajtovaDelte = prije }
+}
+
+// ZadajMogucnosti daje čvoru u testu oznake koje javlja u granici, umjesto
+// onih koje javlja program; tako test glumi drugi program
+func (s *Service) ZadajMogucnosti(oznake ...string) {
+	s.mogucnosti = func() []string { return slices.Clone(oznake) }
 }
